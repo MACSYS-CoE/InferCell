@@ -1,1 +1,11 @@
-docs/
+# Ignore everything in docs
+docs/**
+
+# But allow the directory structure
+!docs/plans/
+!docs/notes/
+
+# And track these specific files
+!docs/plans/overview.md
+!docs/plans/2026-03-13-phase1-design.md
+!docs/notes/4D-minimal-cell.md

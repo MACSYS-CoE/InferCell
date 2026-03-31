@@ -2,13 +2,13 @@
 
 > Transcription-translation model with end-to-end Bayesian parameter inference.
 
-For the overall architecture, see [Architecture](2026-03-13-architecture.md).
+For the overall architecture, see [Project Overview](overview.md).
 
 ## Goal
 
 Prove the architecture works end-to-end on the simplest possible biological system. The biology here is deliberately boring; the point is validating that gradients flow from data through inference through the solver through the model and back.
 
-## Biology: Transcription-Translation
+## Biology: transcription-translation
 
 A single sub-model with two state variables and four rate parameters:
 
@@ -53,9 +53,9 @@ All rate parameters are positive. `LogNormal` priors encode this constraint, and
 
 Initial conditions can be made inferrable by flipping `fixed=false`, but are fixed for phase 1.
 
-Phase 1 uses a single `σ_obs` for both mRNA and protein, assuming equal observation noise across species. Per-species noise is a straightforward extension for later phases.
+Phase 1 uses a single `σ_obs` for both mRNA and protein, assuming equal observation noise across species. Per-species noise is an easy addition for later phases.
 
-## Formalism: Pure ODE
+## Formalism: pure ODE
 
 Phase 1 uses deterministic ODEs only, which gives:
 - Differentiability via AD
@@ -74,7 +74,7 @@ The sub-model declares `formalism(m) = :ode`, so the orchestrator returns a plai
 
 These choices are deliberately conservative. Phase 1 validates that the pipeline works; solver/AD optimization is a later concern.
 
-## Data: Synthetic Twin Experiment
+## Data: synthetic twin experiment
 
 1. Choose "true" parameter values for all four rate parameters and `σ_obs`.
 2. Solve the forward ODE to generate a ground-truth trajectory.
@@ -109,7 +109,7 @@ end
 
 Where `σ_obs` is inferred (not fixed) with a `HalfNormal(1.0)` prior.
 
-Both mRNA and protein are observed (full observability). Partial observation (e.g. protein only) is a straightforward extension but not needed for phase 1.
+Both mRNA and protein are observed (full observability). Partial observation (e.g. protein only) would be easy to add but isn't needed for phase 1.
 
 ## Inference: NUTS via Turing.jl
 
@@ -136,15 +136,20 @@ chain = infer(composed_model, data)
 
 This distinction becomes meaningful in phase 2 when multiple sub-models can be calibrated independently or jointly.
 
-## Done Criterion
+## Done criterion
 
 Phase 1 is complete when:
 
 1. **Forward simulation** produces plausible mRNA and protein trajectories.
-2. **Parameter recovery.** NUTS posteriors concentrate around the true parameter values used to generate synthetic data.
-3. **Posterior predictive checks.** Trajectories sampled from the posterior reproduce the synthetic data distribution. If posterior predictions match the data, the pipeline works.
+2. **Structural identifiability verified.** Compute the sensitivity matrix `d(observables)/d(parameters)` and confirm it has full column rank with both mRNA and protein observed. Report pairwise posterior correlations to check for practical non-identifiability (sloppy parameter combinations).
+3. **Parameter recovery.** NUTS posteriors concentrate around the true parameter values used to generate synthetic data.
+4. **Posterior predictive checks.** Trajectories sampled from the posterior reproduce the synthetic data distribution. If posterior predictions match the data, the pipeline works.
 
-## End-to-End Workflow
+### What phase 1 proves and does not prove
+
+Phase 1 validates that AD flows through the ODE solver and that NUTS can recover parameters from a well-behaved problem. The TX/TL system is linear, so the posterior is convex and unimodal by construction. This is a necessary but not sufficient test of the architecture. It does **not** demonstrate that the pipeline handles stiff ODEs, nonlinear dynamics, multimodal posteriors, or multi-module coupling. Those are tested in later phases.
+
+## End-to-end workflow
 
 ```julia
 using InferCell
@@ -166,7 +171,7 @@ chain = infer(txl, data)
 ppc = posterior_predictive(txl, chain)
 ```
 
-## Project Structure (Phase 1 Files)
+## Project structure (phase 1 files)
 
 ```
 src/
@@ -192,10 +197,12 @@ examples/
 
 ## Dependencies
 
-| Package | Role in Phase 1 |
+| Package | Role in phase 1 |
 |---------|-----------------|
-| DifferentialEquations.jl | ODE solver (`Tsit5()`) |
+| OrdinaryDiffEq.jl | ODE solver (`Tsit5()`) |
+| SciMLBase.jl | Problem/solution types (`ODEProblem`, `remake`) |
+| SciMLSensitivity.jl | `ForwardDiffSensitivity()` for gradients through ODE solve |
 | Turing.jl | NUTS sampler (uses Bijectors.jl internally for unconstrained sampling) |
 | Distributions.jl | Priors (LogNormal, HalfNormal), likelihood (MvNormal) |
-| SciMLSensitivity.jl | `ForwardDiffSensitivity()` for gradients through ODE solve |
-| Catalyst.jl | Not required for phase 1, but available |
+| StaticArrays.jl | `SA[...]` for out-of-place dynamics return values |
+| CairoMakie.jl | Plotting (posterior diagnostics, posterior predictive checks) |
