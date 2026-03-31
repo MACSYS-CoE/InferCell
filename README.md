@@ -10,7 +10,7 @@ The problem is architectural. Simulation-first frameworks treat inference as an 
 
 ## What we're building
 
-InferCell is a minimal whole-cell model, a "0.1x cell" (transcription-translation coupled to coarse metabolism with division events), designed so that inference works from the start. The model and the architecture are co-developed: biology validates the platform, the platform makes the biology calibratable.
+InferCell is a minimal whole-cell model, a "0.1x cell" (transcription-translation coupled to coarse metabolism), designed so that inference works from the start. The model and the architecture are co-developed: biology validates the platform, the platform makes the biology calibratable.
 
 Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design. The SciML and Turing.jl ecosystems provide the numerical and probabilistic foundations; InferCell composes them into one inference-ready whole-cell model.
 
