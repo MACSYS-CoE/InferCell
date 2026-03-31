@@ -2,9 +2,9 @@
 
 ## The problem
 
-Whole-cell models simulate a living cell from its molecular parts. The most advanced of these is the Luthey-Schulten Lab's 4D Whole-Cell Model (MC4D), which wires together 493 genes across 4 coupled solvers with spatial resolution at 10nm voxels. It is a genuine scientific achievement: a complete minimal cell cycle simulated in four dimensions.
+Whole-cell models simulate a living cell from its molecular parts. One example is the Luthey-Schulten Lab's 4D Whole-Cell Model (MC4D), which wires together 493 genes across 4 coupled solvers with spatial resolution at 10nm voxels.
 
-But MC4D, like every existing whole-cell model, is a forward simulator. It takes ~1000 kinetic parameters from the literature, fixes them, and propagates dynamics forward in time. The output is a single trajectory: one prediction, no error bars, no quantified confidence.
+But MC4D, like every existing whole-cell model, is a forward simulator. It takes ~1000 kinetic parameters from the literature, fixes them, and propagates dynamics forward in time. The output is a single trajectory: one prediction, no error bars, no UQ.
 
 This is the norm across the field. Whole-cell modelling has focused almost exclusively on the forward problem: *"Given these parameters, what does the cell do?"*. An important corollary question, and the one we focus on here, is *"How much should we trust what the model tells us?"*. We argue this is effectively a gap in scientific reasoning.
 
@@ -26,7 +26,7 @@ A forward simulation with fixed parameters produces a single trajectory. That tr
 
 **3. A framework that cannot represent uncertainty is structurally incapable of answering the most important question: "How confident should we be in this prediction?"**
 
-This is the architectural point. MC4D stores parameters in a `sim_properties` dictionary, a mapping from names to floats. There is no place to put a distribution. No mechanism to propagate uncertainty. No way to ask "given that I'm uncertain about these 50 rate constants, how uncertain am I about the predicted doubling time?" The architecture does not support UQ. 
+This is the architectural point. MC4D stores parameters in a `sim_properties` dictionary, a mapping from names to floats. There is no place to put a distribution or mechanism to propagate uncertainty. There is no way to ask "given that I'm uncertain about these 50 rate constants, how uncertain am I about the predicted doubling time?" The architecture does not support UQ. 
 
 This means that when MC4D predicts a 110-minute doubling time, we cannot distinguish between two very different scientific situations: (a) the prediction is robust and would hold across any plausible parameter set, or (b) the prediction is fragile and depends sensitively on particular parameter choices. Both look the same: a single number with no error bar.
 
