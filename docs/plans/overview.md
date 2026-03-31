@@ -6,15 +6,15 @@
 
 Whole-cell models simulate a living cell from its molecular parts. The field has made real progress wiring sub-models of transcription, translation, metabolism, and replication into integrated simulations. But the software architectures that run these simulations were not designed for inference. Existing platforms treat sub-models as black boxes, orchestrated via message passing or multi-language pipelines. You can't push gradients or likelihoods through boundaries you can't see inside.
 
-InferCell asks a fundamentally different question from existing whole-cell models: *"Given noisy observations of cellular dynamics, what can we learn about the parameters governing those dynamics, and how certain are we?"*
+InferCell asks a different question: *"Given noisy observations of cellular dynamics, what can we learn about the parameters governing those dynamics, and how certain are we?"*
 
-The Luthey-Schulten Lab's [4D Whole-Cell Model](https://github.com/Luthey-Schulten-Lab/Minimal_Cell_4DWCM) (MC4D) is a massive forward simulation: 493 genes, 4 coupled solvers, spatial resolution at 10nm voxels, GPU-accelerated, published in Cell (2026). It answers: *"Can we simulate a complete minimal cell cycle in 4D?"* MC4D cannot do Bayesian inference --- its architecture (Python glue orchestrating 4 separate solvers via a shared `sim_properties` dictionary) has no gradient path and no likelihood function. The two projects are complementary, not competing.
+The Luthey-Schulten Lab's [4D Whole-Cell Model](https://github.com/Luthey-Schulten-Lab/Minimal_Cell_4DWCM) (MC4D) is a massive forward simulation: 493 genes, 4 coupled solvers, spatial resolution at 10nm voxels, GPU-accelerated, published in Cell (2026). It answers: *"Can we simulate a complete minimal cell cycle in 4D?"* MC4D cannot do Bayesian inference. Its architecture (Python glue orchestrating 4 separate solvers via a shared `sim_properties` dictionary) has no gradient path and no likelihood function. The two projects are complementary, not competing.
 
-Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design.
+Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. This makes AD, likelihood evaluation, and Bayesian calibration possible without extra plumbing.
 
-The publication target is a methods paper: *"InferCell: a Bayesian inference framework for multi-formalism whole-cell models."* The biological system is a demonstration vehicle --- the contribution is the framework and inference graph architecture. The framework is organism-agnostic (not committed to JCVI-syn3A), though syn3A should be supported to enable comparison against MC4D.
+The core output is a whole-cell model that can do Bayesian inference natively. The specific "lightweight" biological content (which genes, which reactions) is chosen to exercise the architecture. We can then add higher order complexity in at a later date. The framework is organism-agnostic (not committed to JCVI-syn3A), though syn3A should be supported for comparison against MC4D.
 
-## Theory of impact
+## Why this matters
 
 1. **Uncertainty quantification.** No existing whole-cell model quantifies posterior uncertainty over parameters. MC4D uses ~1000 point estimates from literature; InferCell produces full posterior distributions.
 2. **Model selection.** Compare competing biological hypotheses (e.g., alternative gene regulation mechanisms) using Bayesian model comparison, not just visual trajectory matching.
@@ -35,7 +35,7 @@ Parameters --> SubModels --> Orchestrator --> InferenceGraph
                                     (NUTS)     (SBI)    (uncertainty flow)
 ```
 
-- **DifferentiableBlock:** Groups ODE/SDE modules. Builds a joint Turing.jl model. Infers with NUTS/HMC.
+- **DifferentiableBlock:** Groups ODE/SDE modules. Builds a joint Turing.jl model. Infers with NUTS/HMC or some other fast likelihood based technique.
 - **SimulationBlock:** Groups SSA/non-differentiable modules. Runs forward simulations. Infers with SBI (e.g., ABC-SMC, neural posterior estimation).
 - **BoundaryProtocol:** Handles uncertainty propagation between blocks (see [Boundary Protocol](#boundary-protocol)).
 
@@ -49,7 +49,7 @@ Graph edges represent:
 - **Shared parameters:** the same rate constant appearing in multiple modules
 - **State coupling:** output of one module feeds into another
 
-The framework partitions the model into **inference blocks** --- groups of modules that share an inference backend --- and handles uncertainty propagation across block boundaries.
+The framework partitions the model into **inference blocks** (i.e. groups of modules that share an inference backend) and handles uncertainty propagation across block boundaries.
 
 ### Parameters
 
@@ -66,13 +66,13 @@ struct InferParameter
 end
 ```
 
-`InferParameter` is deliberately non-parametric --- it is metadata read once during model construction, never in a hot loop. The hot path uses a flat `Vector{Float64}` parameter vector built by the orchestrator.
+`InferParameter` is deliberately non-parametric. It is metadata read once during model construction, never in a hot loop. The hot path uses a flat `Vector{Float64}` parameter vector built by the orchestrator.
 
 **No explicit transform field.** When the `@model` function samples `k_tx ~ LogNormal(0, 1)`, Turing internally uses Bijectors.jl to sample in unconstrained space and transform back. The prior encodes the constraint; Turing handles the rest.
 
 **Initial conditions** are `InferParameter` with `role=:initial_condition` and `fixed=true`. They can be made inferrable by flipping the `fixed` flag. The inference layer treats them identically to rate parameters.
 
-So adding a new sub-model automatically extends the inference problem, sensitivity analysis is a flag toggle rather than a code change, and NUTS works in unconstrained space with Turing handling the mapping and Jacobian correction internally.
+Adding a new sub-model automatically extends the inference problem. Sensitivity analysis is a flag toggle, not a code change.
 
 ### SubModels
 
@@ -91,15 +91,13 @@ inference_mode(m::AbstractSubModel)      # --> :differentiable, :simulation, :au
 
 `parameters(m)` returns *all* `InferParameter` objects: rate parameters, initial conditions (`role=:initial_condition`), and observation parameters (`role=:observation`). The orchestrator and inference layer filter by `role` and `fixed` as needed.
 
-**Out-of-place dynamics.** `dynamics` returns `du` rather than mutating it in-place. Required for reliable AD (ReverseDiff.jl and Zygote.jl do not support mutation). Negligible performance cost for small state vectors.
+`dynamics` returns `du` rather than mutating it in-place. This is required for reliable AD (ReverseDiff.jl and Zygote.jl do not support mutation). Negligible performance cost for small state vectors. Sub-models define the 4-argument `dynamics(u, p, t, m)` for dispatch; the orchestrator wraps this into the 3-argument `f(u, p, t)` closure that DifferentialEquations.jl expects.
 
-**Dynamics wrapping.** Sub-models define 4-argument `dynamics(u, p, t, m)` for dispatch. The orchestrator wraps this into the 3-argument `f(u, p, t)` closure that DifferentialEquations.jl expects.
-
-**Inference mode.** When `:auto`, the orchestrator selects based on `formalism(m)`:
+When `inference_mode` is `:auto`, the orchestrator selects based on `formalism(m)`:
 - `:ode`, `:sde` --> `:differentiable`
 - `:jump`, `:ssa` --> `:simulation`
 
-**Coupling contract.** Sub-models declare `inputs()` --- state variables they read but don't own. The orchestrator resolves these at composition time via a `SubModelContext`:
+Sub-models declare `inputs()`, the state variables they read but don't own. The orchestrator resolves these at composition time via a `SubModelContext`:
 
 ```julia
 struct SubModelContext
@@ -124,7 +122,7 @@ The orchestrator composes sub-models into a single `DEProblem`. Its job is mecha
 4. **Partitions into inference blocks.** Groups modules by inference mode into differentiable and simulation blocks.
 5. **Builds combined RHS.** Dispatches to each sub-model's dynamics using `@views` to slice flat vectors.
 6. **Collects parameters.** Flat parameter vector for the inference layer.
-7. **Collects events.** Bundles callbacks (e.g., division) into a `CallbackSet`.
+7. **Collects events.** Bundles callbacks into a `CallbackSet`.
 
 ```julia
 function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
@@ -142,9 +140,11 @@ The inference layer builds a Bayesian inference problem from the model's paramet
 2. A single generic Turing `@model` function iterates over parameter declarations at runtime: samples each free parameter from its prior, solves the forward model, evaluates the likelihood. One reusable definition that reads metadata.
 3. Runs NUTS via Turing.jl. Posterior predictive checks sample from the posterior and run forward.
 
+Note: we may need to explore if NUTS/HMC is the best way to do this, or if there are other techniques to explore.
+
 **Simulation block (SBI):**
 
-For non-differentiable modules (SSA, jump processes), inference uses simulation-based methods. v1 targets ABC-SMC (simple to implement, enough for v1). More advanced backends (neural posterior estimation) can be swapped in later.
+For non-differentiable modules (SSA, jump processes), inference uses simulation-based methods. v1 targets ABC-SMC (simple to implement, enough for v1). More advanced backends (neural posterior estimation) can be swapped in later. StochasticAD.jl may also be useful here. 
 
 **Observation data:**
 
@@ -170,18 +170,18 @@ end
 
 ### Boundary protocol
 
-The hard part: propagating uncertainty across inference blocks. Three levels of sophistication:
+This is the part that will require some thought and careful consideration propagating uncertainty across inference blocks. This is an instance of **modular Bayesian inference** --- doing inference in separate modules and stitching the results together. The literature on cut posteriors ([Plummer 2015](https://doi.org/10.1007/s11222-014-9503-z), [Jacob et al. 2017](https://arxiv.org/abs/1708.08719)) and expectation propagation ([Minka 2001](https://dl.acm.org/doi/10.5555/2074022.2074067)) covers the conditions under which modular posteriors are coherent. InferCell implements three levels of sophistication:
 
 **Level 1 --- Sequential conditioning (v1 target):**
-Infer differentiable block (NUTS) --> posterior samples --> condition simulation block on those samples --> SBI per sample --> aggregate into joint posterior. Simple. Information flows one direction only.
+Infer differentiable block (NUTS) --> posterior samples --> condition simulation block on those samples --> SBI per sample. Information flows one direction only. This produces a **cut posterior**, not a joint posterior --- the simulation block does not feed back into the differentiable block. Valid when the blocks are conditionally independent given shared boundary variables; biased otherwise.
 
 **Level 2 --- Gibbs-like alternation (v1 demonstration):**
-Alternate: fix stochastic module state --> NUTS on differentiable params; fix differentiable params --> SBI on stochastic params. Information flows both ways. Convergence requires care. See [Open Design Questions](#open-design-questions).
+Alternate: fix stochastic module state --> NUTS on differentiable params; fix differentiable params --> SBI on stochastic params. Information flows both ways. Because the ABC-SMC step produces approximate (not exact) conditional samples, this is a pseudo-marginal Gibbs sampler ([Andrieu and Roberts 2009](https://doi.org/10.1214/07-AOS574)). The stationary distribution is biased by the ABC tolerance --- it converges to an approximation of the joint posterior, not the exact joint. The quality of this approximation must be characterised empirically. See [Open Design Questions](#open-design-questions).
 
 **Level 3 --- Particle MCMC / pseudo-marginal (future work):**
 Stochastic modules contribute unbiased likelihood estimates via particle filters into a joint MCMC sampler. Asymptotically exact. Good Julia infrastructure exists (AdvancedMH.jl, SequentialMonteCarlo.jl).
 
-The boundary protocol representation (full posterior samples, summary statistics, normalizing flow approximations) is an empirical question. v1 implements Level 1, demonstrates Level 2, discusses Level 3.
+The boundary protocol representation (full posterior samples, summary statistics, normalizing flow approximations) is an empirical question. v1 implements Level 1, demonstrates Level 2, defers Level 3.
 
 ## v1 scope
 
@@ -195,9 +195,9 @@ Three modules that exercise different aspects of the inference graph:
 | Light Metabolism | ODE | Differentiable (NUTS, joint with TX/TL) | ~5-10 metabolic rate constants | Multi-module composition within a differentiable block. Shared parameters with TX/TL via energy/nucleotide costs. |
 | Stochastic Gene Expression | SSA (Gillespie) | Simulation (SBI) | TX/TL rates, burst parameters | Same biology as TX/TL but stochastic. Exercises the inference graph boundary. |
 
-**Light Metabolism:** A minimal metabolic core (5-10 reactions) producing ATP and nucleotides. Simplified glycolysis or energy source --> ATP production, nucleotide synthesis (feeds transcription), amino acid pool (feeds translation), ATP consumption by TX/TL. Not genome-scale --- demonstrates multi-module composition and parameter sharing.
+**Light Metabolism:** A minimal metabolic core (5-10 reactions) producing ATP and nucleotides. Simplified glycolysis or energy source --> ATP production, nucleotide synthesis (feeds transcription), amino acid pool (feeds translation), ATP consumption by TX/TL. Not genome-scale; the point is demonstrating multi-module composition and parameter sharing.
 
-**Stochastic Gene Expression:** The same TX/TL biology modeled as an SSA process. Creates a direct comparison --- same biology modeled two ways, inferred two ways. If the posteriors agree, the framework works. Also shows that SBI can recover parameters from stochastic trajectories where NUTS can't be applied.
+**Stochastic Gene Expression:** The same TX/TL biology modeled as an SSA process. This creates a direct comparison: same biology modeled two ways, inferred two ways. If the posteriors agree, the framework works. Also shows that SBI can recover parameters from stochastic trajectories where NUTS can't be applied.
 
 ### What we take from MC4D
 
@@ -210,12 +210,12 @@ Reuse where appropriate:
 Do NOT inherit:
 - Hook interrupt architecture, `sim_properties` dictionary pattern, separate solver per formalism, Python/Cython/CUDA stack
 
-### Key paper figures
+### Key figures
 
 1. Architecture diagram: the inference graph with differentiable and simulation blocks, boundary protocol.
 2. Parameter recovery: posterior distributions for all ~15-30 parameters, ground truth overlaid.
-3. ODE vs SSA comparison: same biology, consistent posteriors across formalisms and inference backends.
-4. Uncertainty propagation: posterior uncertainty flowing through the boundary protocol.
+3. ODE vs SSA comparison: same biology modeled two ways, consistent posteriors across formalisms and inference backends.
+4. Uncertainty propagation: posterior uncertainty flowing through the boundary protocol between inference blocks.
 5. Model selection: Bayes factors comparing competing hypotheses (e.g., constitutive vs bursty transcription).
 
 ### Deferred scope
@@ -245,9 +245,15 @@ These need answers before or during implementation:
 
 5. **Level 2 boundary protocol convergence.** Gibbs-like alternation between NUTS and ABC-SMC is heuristic --- the ABC-SMC step does not produce exact conditional samples, so standard Gibbs convergence guarantees do not apply. This should be presented as experimental, with Level 3 (particle MCMC) as the theoretically complete solution.
 
-6. **Parameter identifiability.** With 15-30 parameters and potentially correlated modules, structural and practical identifiability is a concern. Synthetic twin experiments provide empirical checks, but this should be explicitly acknowledged. Reviewers will ask.
+6. **Parameter identifiability.** With 15-30 parameters and potentially correlated modules, structural and practical identifiability is a concern. Synthetic twin experiments provide empirical checks, but identifiability should be verified analytically (e.g., sensitivity matrix rank) before running any sampler.
 
 7. **SBI risk is higher than rated.** The stochastic gene expression module is what makes the inference graph real --- it's the whole point of the mixed-backend architecture. If Julia SBI tooling proves insufficient, the central demonstration is compromised. The PythonCall fallback introduces the Python dependency that the single-language design principle exists to avoid. Mitigations: keep the stochastic module's parameter count low (~5-8), start ABC-SMC implementation early to surface issues.
+
+8. **ForwardDiffSensitivity scaling.** Phase 1 uses `ForwardDiffSensitivity()` which costs O(n_params) per gradient evaluation. At 5 parameters this is fine; at 15-30 parameters across coupled ODE modules, gradient cost scales linearly and NUTS wall-clock may become impractical. Benchmark at increasing parameter counts before committing to v1 scope. If scaling is poor, switch to adjoint sensitivity methods (`InterpolatingAdjoint` or `BacksolveAdjoint` from SciMLSensitivity.jl).
+
+9. **Model misspecification.** All v1 validation uses synthetic twin experiments where the data-generating model matches the inference model. This tests self-consistency, not robustness. Real biological models are always wrong to some degree, and Bayesian inference on a misspecified model can produce posteriors that concentrate on incorrect parameter values ([Kleijn and van der Vaart 2012](https://doi.org/10.1214/12-EJS675)). v1 should include at least one experiment where the data-generating process differs from the inference model (e.g., data from Michaelis-Menten kinetics, inference with mass-action kinetics) to characterise how the framework behaves under misspecification.
+
+10. **Observation model specification.** The `ObservedData` struct defines the format but not the content. Identifiability, posterior geometry, and computational cost all depend on what is observed, at what temporal resolution, and with what noise structure. Observing mRNA + protein at high resolution is a fundamentally different inference problem from observing protein-only at low resolution. The observation model for each module should be specified explicitly before running inference.
 
 ## Design principles
 
@@ -264,8 +270,9 @@ These need answers before or during implementation:
 | Boundary protocol design is unclear | High | Start with sequential conditioning (Level 1). Validate empirically. Iterate. |
 | Joint inference across blocks may not converge | High | Synthetic twin experiments provide known ground truth for diagnosing failures. |
 | Light metabolism scope is vague | Low | Define 5-10 reactions producing ATP and nucleotides. Couple to TX/TL. Keep minimal. |
-| Reviewers ask "why not SBI on everything?" | Medium | Demonstrate empirically: NUTS on differentiable modules is orders of magnitude more sample-efficient. Hybrid is strictly better. |
+| "Why not SBI on everything?" | Medium | Demonstrate empirically: NUTS on differentiable modules is orders of magnitude more sample-efficient. Hybrid is strictly better. |
 | Parameter dimensionality too high for SBI | Medium | Keep stochastic module parameters low (~5-8). ABC-SMC works well in this regime. |
+| ForwardDiffSensitivity scaling | Medium | Benchmark gradient cost at 5, 10, 20, 30 params. Switch to adjoint methods if wall-clock becomes impractical. |
 
 ## Dependencies
 
