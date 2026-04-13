@@ -33,29 +33,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
-**Status:** Phase 2 complete. The `infer()` API dispatches to NUTS for differentiable models (ODE) or ABC-SMC for simulation-based models (SSA), selected automatically by model formalism.
-
-## Roadmap
-
-### Done
-
-- **TX/TL module** -- ODE model with NUTS inference, posterior predictive checks, identifiability analysis
-- **Stochastic gene expression** -- SSA model with ABC-SMC inference, automatic backend dispatch via `infer()`
-
-### Next
-
-- **Bursting gene expression** -- two-state promoter model (ON/OFF switching) with no ODE equivalent, demonstrating why likelihood-free inference is necessary
-- **Light metabolism** -- ODE module (~5-10 reactions) composed jointly with TX/TL, exercising multi-module parameter sharing
-
-### v1 target
-
-Three biological modules connected through an inference graph:
-- **DifferentiableBlock** (ODE modules) inferred via NUTS/HMC
-- **SimulationBlock** (SSA modules) inferred via ABC-SMC
-- **Boundary protocol** (Level 1): sequential conditioning for uncertainty propagation between blocks
-- Model selection via Bayes factors (e.g. constitutive vs bursty transcription)
-
-See [`docs/plans/overview.md`](docs/plans/overview.md) for full architecture and design decisions.
+See [`docs/plans/`](docs/plans/) for current status, roadmap, and design decisions.
 
 ## Motivation
 

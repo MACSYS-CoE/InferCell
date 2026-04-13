@@ -9,6 +9,8 @@ using JumpProcesses
     include("test_stochastic_ge.jl")
     include("test_summary_stats.jl")
     include("test_abc_smc.jl")
+    include("test_light_metabolism.jl")
+    include("test_composition.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

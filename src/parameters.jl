@@ -20,3 +20,15 @@ obs_free_params(params::Vector{InferParameter}) =
 
 # Backward compatibility alias
 const ode_free_params = model_free_params
+
+function unique_params(params::Vector{InferParameter})
+    seen = Set{Symbol}()
+    result = InferParameter[]
+    for p in params
+        if !(p.name in seen)
+            push!(seen, p.name)
+            push!(result, p)
+        end
+    end
+    return result
+end

@@ -1,51 +1,39 @@
-# Phase 2 Handoff
+# Handoff
 
 ## Current state
 
-Phase 2 on branch `phase-2-stochastic` is complete. The demo (`examples/phase2_demo.jl`) runs two independent parameter recovery experiments through the same `infer()` API:
+Branch `step1-metabolism-shared-params` implements Step 1 of the [v1 minimal demo plan](plans/2026-04-13-v1-minimal-demo.md).
 
-1. **ODE model** (`TranscriptionTranslation`, formalism `:ode`) → dispatches to NUTS. All 4 parameters recovered within 90% CI.
-2. **SSA model** (`StochasticGeneExpression`, formalism `:jump`) → dispatches to ABC-SMC. Parameters recovered with wider posteriors (expected for likelihood-free inference).
+### What's working
 
-Figure saved to `examples/figures/phase2_parameter_recovery.png`.
+- **TX/TL module** — ODE model with NUTS inference, posterior predictive, identifiability
+- **Stochastic gene expression** — SSA model with ABC-SMC, automatic dispatch via `infer()`
+- **LightMetabolism module** — minimal ODE metabolism (ATP, NTP, AA pools) coupled one-way to TX/TL
+- **Shared parameter composition** — `build_problem([TranscriptionTranslation(), LightMetabolism()])` produces a single ODEProblem with 5 states and 7 deduplicated free parameters
+- **121 tests pass** including unit and composition tests for the new module
 
-## Known limitation
+### Key infrastructure added in Step 1
 
-Both models infer the same 4 parameters (k_tx, k_tl, gamma_mRNA, gamma_protein) for the same TX/TL biology. The SSA model is just a stochastic reformulation of the ODE — there is nothing about it that *requires* likelihood-free inference. This weakens the demo: a reader could reasonably ask "why not just use NUTS for both?"
+- `param_idxs` changed from `UnitRange{Int}` to `Vector{Int}` — enables shared parameter slots across modules
+- Name-based parameter deduplication in orchestrator (`_build_contexts`, `_build_p0`) and inference (`build_turing_model`, `_infer_abc`)
+- 5-arg `dynamics(u, p, t, m, u_inputs)` with fallback — enables cross-module state coupling (metabolism reads `mRNA` from TX/TL)
+- `_validate_shared_params` — errors on inconsistent shared parameter definitions across modules
 
-## Next PR: Bursting gene expression model
+### Files changed/added
 
-Replace `StochasticGeneExpression` in the demo with a model that has **no ODE equivalent**, making the case for ABC-SMC self-evident.
+- `src/interface.jl` — `SubModelContext.param_idxs` type change, dynamics fallback
+- `src/orchestrator.jl` — shared param dedup in `_build_contexts`/`_build_p0`, input passing in `_build_rhs`, validation
+- `src/parameters.jl` — `unique_params` helper
+- `src/inference.jl` — dedup in `build_turing_model` and `_infer_abc`
+- `src/models/light_metabolism.jl` — new model
+- `test/test_light_metabolism.jl`, `test/test_composition.jl` — new tests
 
-### Proposed model: Transcriptional bursting
+## Next step
 
-A two-state gene model where the promoter switches between OFF and ON states:
+**Step 2 — Joint ODE inference.** Run NUTS on the composed TX/TL + metabolism system. The existing `_infer_nuts` path should work with minimal changes since the Turing model already reads `InferParameter` metadata generically. Main tasks:
 
-```
-Gene_OFF  →  Gene_ON     (rate: k_on)
-Gene_ON   →  Gene_OFF    (rate: k_off)
-Gene_ON   →  Gene_ON + mRNA  (rate: k_tx)
-mRNA      →  ∅           (rate: gamma_mRNA)
-mRNA      →  mRNA + protein  (rate: k_tl)
-protein   →  ∅           (rate: gamma_protein)
-```
+- Synthetic twin experiment: generate data from known parameters, recover posteriors
+- Validate ForwardDiffSensitivity scales at 7 ODE + 1 obs params
+- Wall-clock benchmark on one HPC node
 
-This produces **transcriptional bursts** — mRNA is produced in discrete pulses when the gene is ON, then silent when OFF. The burst size distribution (geometric, mean = k_tx / k_off) and burst frequency (k_on) are inherently stochastic properties with no smooth ODE limit when gene copy number is 1.
-
-### Parameters to infer
-
-- `k_on`, `k_off` (gene switching rates) — these are the genuinely stochastic parameters
-- `k_tx`, `gamma_mRNA` (transcription and degradation)
-- Optionally fix `k_tl` and `gamma_protein` to reduce dimensionality
-
-### Implementation steps
-
-1. Create `src/models/bursting_gene.jl` with `formalism = :jump`, `inference_mode = :simulation`
-2. Define the 5-6 reactions as `ConstantRateJump`s (3 species: gene_state, mRNA, protein)
-3. Update the demo to use `BurstingGene` as the Part 2 model
-4. May need to tune ABC-SMC settings (more particles/populations) and summary statistics for the higher-dimensional parameter space
-5. Add tests in `test/test_bursting_gene.jl`
-
-### Summary statistics consideration
-
-The current summary statistics (mean trajectories) may not capture burst dynamics well. Consider adding variance-based or distribution-based statistics (e.g. Fano factor, coefficient of variation across replicates at each timepoint) to give ABC-SMC more signal about the switching behaviour.
+See `docs/plans/2026-04-13-v1-minimal-demo.md` for the full 4-step plan.
