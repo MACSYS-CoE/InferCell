@@ -10,9 +10,12 @@ inference_mode(::AbstractSubModel) = :differentiable
 
 reactions(m::AbstractSubModel) = error("reactions() not implemented for $(typeof(m))")
 
+# Fallback: models with no inputs ignore u_inputs
+dynamics(u, p, t, m::AbstractSubModel, u_inputs) = dynamics(u, p, t, m)
+
 struct SubModelContext
     state_idxs::UnitRange{Int}
-    param_idxs::UnitRange{Int}
+    param_idxs::Vector{Int}
     input_map::Dict{Symbol, Int}
 end
 

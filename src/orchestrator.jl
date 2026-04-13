@@ -21,6 +21,7 @@ function _determine_formalism(models::Vector{<:AbstractSubModel})
 end
 
 function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
+    _validate_shared_params(models)
     contexts = _build_contexts(models)
     _resolve_coupling(models, contexts)
 
@@ -29,6 +30,22 @@ function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.
     rhs = _build_rhs(models, contexts)
 
     return ODEProblem{false}(rhs, u0, tspan, p0)
+end
+
+function _validate_shared_params(models::Vector{<:AbstractSubModel})
+    seen = Dict{Symbol, InferParameter}()
+    for m in models
+        for p in model_free_params(parameters(m))
+            if haskey(seen, p.name)
+                existing = seen[p.name]
+                if p.value != existing.value || typeof(p.prior) != typeof(existing.prior) || p.fixed != existing.fixed
+                    error("Shared parameter :$(p.name) has inconsistent definitions across modules :$(existing.module_id) and :$(p.module_id)")
+                end
+            else
+                seen[p.name] = p
+            end
+        end
+    end
 end
 
 function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
@@ -49,18 +66,32 @@ build_problem(model::AbstractSubModel; kwargs...) = build_problem([model]; kwarg
 function _build_contexts(models::Vector{<:AbstractSubModel})
     contexts = SubModelContext[]
     state_offset = 0
-    param_offset = 0
+
+    # Build global parameter map, deduplicating by name
+    global_param_map = Dict{Symbol, Int}()
+    global_param_count = 0
+    model_param_indices = Vector{Vector{Int}}()
 
     for m in models
+        mfp = model_free_params(parameters(m))
+        indices = Int[]
+        for p in mfp
+            if haskey(global_param_map, p.name)
+                push!(indices, global_param_map[p.name])
+            else
+                global_param_count += 1
+                global_param_map[p.name] = global_param_count
+                push!(indices, global_param_count)
+            end
+        end
+        push!(model_param_indices, indices)
+    end
+
+    for (i, m) in enumerate(models)
         n_states = length(states(m))
-        n_params = length(model_free_params(parameters(m)))
-
         state_idxs = (state_offset + 1):(state_offset + n_states)
-        param_idxs = (param_offset + 1):(param_offset + n_params)
-
-        push!(contexts, SubModelContext(state_idxs, param_idxs, Dict{Symbol, Int}()))
+        push!(contexts, SubModelContext(state_idxs, model_param_indices[i], Dict{Symbol, Int}()))
         state_offset += n_states
-        param_offset += n_params
     end
 
     return contexts
@@ -106,17 +137,28 @@ _build_u0_integer(models::Vector{<:AbstractSubModel}) =
     round.(Int, _collect_ic_values(models))
 
 function _build_p0(models::Vector{<:AbstractSubModel})
-    reduce(vcat, [p.value for p in model_free_params(parameters(m))] for m in models;
-           init=Float64[])
+    seen = Set{Symbol}()
+    vals = Float64[]
+    for m in models
+        for p in model_free_params(parameters(m))
+            if !(p.name in seen)
+                push!(seen, p.name)
+                push!(vals, p.value)
+            end
+        end
+    end
+    return vals
 end
 
 function _build_rhs(models::Vector{<:AbstractSubModel},
                     contexts::Vector{SubModelContext})
+    model_inputs = [inputs(m) for m in models]
     function rhs(u, p, t)
-        du_parts = map(models, contexts) do m, ctx
+        du_parts = map(models, contexts, model_inputs) do m, ctx, inp_syms
             u_local = u[ctx.state_idxs]
             p_local = p[ctx.param_idxs]
-            dynamics(u_local, p_local, t, m)
+            u_inputs = [u[ctx.input_map[s]] for s in inp_syms]
+            dynamics(u_local, p_local, t, m, u_inputs)
         end
         return vcat(du_parts...)
     end

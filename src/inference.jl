@@ -25,12 +25,8 @@ end
 
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
                              solver=Tsit5(), sensealg=ForwardDiffSensitivity())
-    all_model_free = InferParameter[]
-    all_obs_free = InferParameter[]
-    for m in models
-        append!(all_model_free, model_free_params(parameters(m)))
-        append!(all_obs_free, obs_free_params(parameters(m)))
-    end
+    all_model_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
+    all_obs_free = unique_params(reduce(vcat, obs_free_params.(parameters.(models))))
     all_free = vcat(all_model_free, all_obs_free)
 
     priors = [p.prior for p in all_free]
@@ -90,7 +86,7 @@ function _infer_abc(models, data;
                     verbose=false, rng=Random.default_rng())
     t = tspan === nothing ? (data.times[1], data.times[end]) : tspan
 
-    all_free = model_free_params(reduce(vcat, parameters.(models)))
+    all_free = unique_params(model_free_params(reduce(vcat, parameters.(models))))
     priors = [p.prior for p in all_free]
     param_names = [p.name for p in all_free]
     species = reduce(vcat, states.(models))
