@@ -2,6 +2,10 @@
 .*
 !.gitignore
 
+# Ignore root markdown files except README
+/*.md
+!README.md
+
 # Ignore everything in docs
 docs/**
 
