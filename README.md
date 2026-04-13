@@ -5,17 +5,25 @@
 ## Quick start
 
 ```julia
-using Pkg
-Pkg.add(url="https://github.com/tkimpson/InferCell.jl")
-
 using InferCell
 
+# ODE model → automatically uses NUTS (gradient-based)
 model = TranscriptionTranslation()
 prob  = build_problem(model; tspan=(0.0, 50.0))
 sol   = solve(prob, Tsit5(); saveat=0:2.5:50)
 data  = observe(sol, 0:2.5:50, model; sigma=0.3)
 chain = infer(model, data; n_samples=1000)
+
+# SSA model → automatically uses ABC-SMC (likelihood-free)
+model  = StochasticGeneExpression()
+prob   = build_problem(model; tspan=(0.0, 50.0))
+trajs  = [solve(prob, SSAStepper(); saveat=0:2.5:50) for _ in 1:200]
+data   = observe(trajs, 0:2.5:50, model)
+result = infer(model, data; n_samples=300, n_populations=5,
+               tspan=(0.0, 50.0))
 ```
+
+Same four steps, same `infer()` call. The framework dispatches to the right backend based on the model's formalism.
 
 Run tests:
 ```bash
@@ -25,7 +33,29 @@ julia --project -e 'using Pkg; Pkg.test()'
 INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
-**Status:** Phase 1 complete (TX/TL ODE + NUTS inference). Phase 2 (stochastic gene expression + ABC-SMC) under active development.
+**Status:** Phase 2 complete. The `infer()` API dispatches to NUTS for differentiable models (ODE) or ABC-SMC for simulation-based models (SSA), selected automatically by model formalism.
+
+## Roadmap
+
+### Done
+
+- **TX/TL module** -- ODE model with NUTS inference, posterior predictive checks, identifiability analysis
+- **Stochastic gene expression** -- SSA model with ABC-SMC inference, automatic backend dispatch via `infer()`
+
+### Next
+
+- **Bursting gene expression** -- two-state promoter model (ON/OFF switching) with no ODE equivalent, demonstrating why likelihood-free inference is necessary
+- **Light metabolism** -- ODE module (~5-10 reactions) composed jointly with TX/TL, exercising multi-module parameter sharing
+
+### v1 target
+
+Three biological modules connected through an inference graph:
+- **DifferentiableBlock** (ODE modules) inferred via NUTS/HMC
+- **SimulationBlock** (SSA modules) inferred via ABC-SMC
+- **Boundary protocol** (Level 1): sequential conditioning for uncertainty propagation between blocks
+- Model selection via Bayes factors (e.g. constitutive vs bursty transcription)
+
+See [`docs/plans/overview.md`](docs/plans/overview.md) for full architecture and design decisions.
 
 ## Motivation
 
@@ -37,7 +67,7 @@ The problem is architectural. Simulation-first frameworks treat inference as an 
 
 InferCell is a minimal whole-cell model designed so that inference works from the start. 
 
-Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design. The SciML and Turing.jl ecosystems provide the numerical and probabilistic foundations; InferCell composes them into one inference-ready whole-cell model.
+Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design. The `infer()` API selects the appropriate backend automatically -- NUTS for differentiable models, ABC-SMC for simulation-based models -- so the user writes the same code regardless of the underlying formalism. The SciML and Turing.jl ecosystems provide the numerical and probabilistic foundations; InferCell composes them into one inference-ready whole-cell model.
 
 ## Key design ideas
 
