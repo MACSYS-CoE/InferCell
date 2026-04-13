@@ -13,6 +13,7 @@ docs/**
 # And track these specific files
 !docs/plans/overview.md
 !docs/plans/2026-03-13-phase1-design.md
+!docs/plans/2026-04-13-v1-minimal-demo.md
 !docs/notes/4D-minimal-cell.md
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
