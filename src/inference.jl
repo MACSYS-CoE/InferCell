@@ -25,17 +25,17 @@ end
 
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
                              solver=Tsit5(), sensealg=ForwardDiffSensitivity())
-    all_ode_free = InferParameter[]
+    all_model_free = InferParameter[]
     all_obs_free = InferParameter[]
     for m in models
-        append!(all_ode_free, ode_free_params(parameters(m)))
+        append!(all_model_free, model_free_params(parameters(m)))
         append!(all_obs_free, obs_free_params(parameters(m)))
     end
-    all_free = vcat(all_ode_free, all_obs_free)
+    all_free = vcat(all_model_free, all_obs_free)
 
     priors = [p.prior for p in all_free]
     param_names = [p.name for p in all_free]
-    n_ode = length(all_ode_free)
+    n_ode = length(all_model_free)
 
     turing_model = _infercell_model(
         data.observations, data.times, prob,
@@ -95,12 +95,11 @@ function _infer_abc(models, data;
     param_names = [p.name for p in all_free]
     species = reduce(vcat, states.(models))
 
-    # Compute observed summary statistics
-    observed_stats = _compute_data_summary_stats(data)
+    observed_stats = vec(data.observations)
+    base_prob = build_problem(models; tspan=t)
 
     function simulate(theta)
-        prob = build_problem(models; tspan=t)
-        prob = remake(prob, p=theta)
+        prob = remake(base_prob, p=theta)
         trajectories = [solve(prob, SSAStepper(); saveat=data.times) for _ in 1:n_replicates]
         return compute_summary_stats(trajectories, species; times=data.times)
     end
@@ -108,15 +107,6 @@ function _infer_abc(models, data;
     return abc_smc(simulate, observed_stats, priors, param_names;
                    n_particles=n_particles, n_populations=n_populations,
                    alpha=alpha, verbose=verbose, rng=rng)
-end
-
-function _compute_data_summary_stats(data::ObservedData)
-    # For a single observed dataset, use the observations directly as the "mean" stats
-    stats = Float64[]
-    for t_idx in eachindex(data.times)
-        append!(stats, data.observations[:, t_idx])
-    end
-    return stats
 end
 
 function observe(sol, times, model::AbstractSubModel;
@@ -146,56 +136,45 @@ function posterior_predictive(model::AbstractSubModel, chain;
                                tspan=nothing, saveat=nothing)
     tspan === nothing && error("tspan must be provided for posterior_predictive")
 
-    prob = build_problem([model]; tspan=tspan)
-    param_names = [string(p.name) for p in ode_free_params(parameters(model))]
-    save_times = saveat === nothing ? range(tspan[1], tspan[2]; length=100) : saveat
-
+    param_names = [string(p.name) for p in model_free_params(parameters(model))]
     n_chain = size(chain, 1)
     n_draw = min(n_samples, n_chain)
     idxs = rand(1:n_chain, n_draw)
 
-    solutions = Vector{Any}(undef, n_draw)
-    for (j, idx) in enumerate(idxs)
-        p_draw = [chain[name].data[idx] for name in param_names]
-        solutions[j] = solve(remake(prob, p=p_draw), solver; saveat=save_times)
-    end
+    extract_params(idx) = [chain[name].data[idx] for name in param_names]
 
-    return PosteriorPredictive(solutions, collect(Float64, save_times), states(model))
+    return _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, solver)
 end
 
 function posterior_predictive(model::AbstractSubModel, result::ABCPosterior;
                                n_samples=100, tspan=nothing, saveat=nothing)
     tspan === nothing && error("tspan must be provided for posterior_predictive")
 
+    n_available = size(result.particles, 2)
+    n_draw = min(n_samples, n_available)
+    idxs = [_weighted_sample(result.weights, Random.default_rng()) for _ in 1:n_draw]
+
+    stepper = formalism(model) == :jump ? SSAStepper() : Tsit5()
+    extract_params(idx) = result.particles[:, idx]
+
+    return _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, stepper)
+end
+
+function _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, solver)
     prob = build_problem([model]; tspan=tspan)
     save_times = saveat === nothing ? range(tspan[1], tspan[2]; length=100) : saveat
 
-    n_available = size(result.particles, 2)
-    n_draw = min(n_samples, n_available)
-    idxs = _weighted_sample_indices(result.weights, n_draw)
-
-    stepper = formalism(model) == :jump ? SSAStepper() : Tsit5()
-
-    solutions = Vector{Any}(undef, n_draw)
+    solutions = Vector{Any}(undef, length(idxs))
     for (j, idx) in enumerate(idxs)
-        p_draw = result.particles[:, idx]
-        solutions[j] = solve(remake(prob, p=p_draw), stepper; saveat=save_times)
+        solutions[j] = solve(remake(prob, p=extract_params(idx)), solver; saveat=save_times)
     end
 
     return PosteriorPredictive(solutions, collect(Float64, save_times), states(model))
 end
 
-function _weighted_sample_indices(weights::Vector{Float64}, n::Int)
-    indices = Int[]
-    for _ in 1:n
-        push!(indices, _weighted_sample(weights, Random.default_rng()))
-    end
-    return indices
-end
-
 function check_identifiability(model::AbstractSubModel, prob, times;
                                 solver=Tsit5())
-    all_free = ode_free_params(parameters(model))
+    all_free = model_free_params(parameters(model))
     p0 = [p.value for p in all_free]
 
     function forward_map(p)

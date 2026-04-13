@@ -53,7 +53,7 @@ function _build_contexts(models::Vector{<:AbstractSubModel})
 
     for m in models
         n_states = length(states(m))
-        n_params = length(ode_free_params(parameters(m)))
+        n_params = length(model_free_params(parameters(m)))
 
         state_idxs = (state_offset + 1):(state_offset + n_states)
         param_idxs = (param_offset + 1):(param_offset + n_params)
@@ -87,32 +87,26 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
     end
 end
 
-function _build_u0(models::Vector{<:AbstractSubModel})
-    u0_vals = Float64[]
+function _collect_ic_values(models::Vector{<:AbstractSubModel})
+    vals = Float64[]
     for m in models
         ics = ic_params(parameters(m))
         for s in states(m)
             ic = findfirst(p -> p.name == Symbol(s, "0") || p.name == s, ics)
-            push!(u0_vals, ic !== nothing ? ics[ic].value : 0.0)
+            push!(vals, ic !== nothing ? ics[ic].value : 0.0)
         end
     end
-    return SVector{length(u0_vals)}(u0_vals)
+    return vals
 end
 
-function _build_u0_integer(models::Vector{<:AbstractSubModel})
-    u0_vals = Int[]
-    for m in models
-        ics = ic_params(parameters(m))
-        for s in states(m)
-            ic = findfirst(p -> p.name == Symbol(s, "0") || p.name == s, ics)
-            push!(u0_vals, ic !== nothing ? round(Int, ics[ic].value) : 0)
-        end
-    end
-    return u0_vals
-end
+_build_u0(models::Vector{<:AbstractSubModel}) =
+    (v = _collect_ic_values(models); SVector{length(v)}(v))
+
+_build_u0_integer(models::Vector{<:AbstractSubModel}) =
+    round.(Int, _collect_ic_values(models))
 
 function _build_p0(models::Vector{<:AbstractSubModel})
-    reduce(vcat, [p.value for p in ode_free_params(parameters(m))] for m in models;
+    reduce(vcat, [p.value for p in model_free_params(parameters(m))] for m in models;
            init=Float64[])
 end
 

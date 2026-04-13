@@ -4,7 +4,6 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
     n_species = length(species)
 
     if times === nothing
-        # Use the last timepoint (steady state)
         final_vals = zeros(n_species, n_traj)
         for (j, sol) in enumerate(trajectories)
             for i in 1:n_species
@@ -16,13 +15,15 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
         fanos = [m > 0 ? v / m : 0.0 for (m, v) in zip(means, vars)]
         return vcat(means, vars, fanos)
     else
-        # Summary stats at each observed timepoint
         stats = Float64[]
+        sizehint!(stats, n_species * length(times))
+        vals = zeros(n_species, n_traj)
         for t_idx in eachindex(times)
-            vals = zeros(n_species, n_traj)
+            fill!(vals, 0.0)
             for (j, sol) in enumerate(trajectories)
+                snapshot = sol(times[t_idx])
                 for i in 1:n_species
-                    vals[i, j] = sol(times[t_idx])[i]
+                    vals[i, j] = snapshot[i]
                 end
             end
             means = vec(sum(vals; dims=2) ./ n_traj)
@@ -33,5 +34,10 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
 end
 
 function summary_distance(s1::Vector{Float64}, s2::Vector{Float64})
-    return norm(s1 .- s2)
+    d = 0.0
+    @inbounds for i in eachindex(s1, s2)
+        diff = s1[i] - s2[i]
+        d += diff * diff
+    end
+    return sqrt(d)
 end
