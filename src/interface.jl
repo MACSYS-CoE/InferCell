@@ -8,6 +8,8 @@ inputs(::AbstractSubModel) = Symbol[]
 formalism(::AbstractSubModel) = :ode
 inference_mode(::AbstractSubModel) = :differentiable
 
+reactions(m::AbstractSubModel) = error("reactions() not implemented for $(typeof(m))")
+
 struct SubModelContext
     state_idxs::UnitRange{Int}
     param_idxs::UnitRange{Int}

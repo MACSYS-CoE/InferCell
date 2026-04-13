@@ -2,6 +2,31 @@
 
 > Composable, inference-first whole-cell modelling in Julia.
 
+## Quick start
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/tkimpson/InferCell.jl")
+
+using InferCell
+
+model = TranscriptionTranslation()
+prob  = build_problem(model; tspan=(0.0, 50.0))
+sol   = solve(prob, Tsit5(); saveat=0:2.5:50)
+data  = observe(sol, 0:2.5:50, model; sigma=0.3)
+chain = infer(model, data; n_samples=1000)
+```
+
+Run tests:
+```bash
+julia --project -e 'using Pkg; Pkg.test()'
+
+# Include integration tests (~2 min, NUTS sampling):
+INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
+```
+
+**Status:** Phase 1 complete (TX/TL ODE + NUTS inference). Phase 2 (stochastic gene expression + ABC-SMC) under active development.
+
 ## Motivation
 
 Whole-cell models simulate a living cell from its molecular parts. The field has made real progress wiring sub-models of transcription, translation, metabolism, and replication into integrated simulations. But the software architectures that run these simulations were not designed for inference. Existing platforms treat sub-models as black boxes, orchestrated via message passing or multi-language pipelines. Good for running forward simulations. Opaque to parameter estimation, automatic differentiation, and uncertainty quantification. You can't push gradients or likelihoods through boundaries you can't see inside.

@@ -3,6 +3,24 @@ function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
         validate_formalism(formalism(m))
     end
 
+    collective = _determine_formalism(models)
+
+    if collective == :ode
+        return _build_ode_problem(models; tspan=tspan)
+    elseif collective == :jump
+        return _build_jump_problem(models; tspan=tspan)
+    else
+        error("Mixed formalism composition not yet supported")
+    end
+end
+
+function _determine_formalism(models::Vector{<:AbstractSubModel})
+    formalisms = unique(formalism.(models))
+    length(formalisms) == 1 && return formalisms[1]
+    return :mixed
+end
+
+function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
     contexts = _build_contexts(models)
     _resolve_coupling(models, contexts)
 
@@ -11,6 +29,19 @@ function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
     rhs = _build_rhs(models, contexts)
 
     return ODEProblem{false}(rhs, u0, tspan, p0)
+end
+
+function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
+    contexts = _build_contexts(models)
+    _resolve_coupling(models, contexts)
+
+    u0 = _build_u0_integer(models)
+    p0 = _build_p0(models)
+
+    dprob = DiscreteProblem(u0, tspan, p0)
+    jumps = JumpSet(; constant_jumps=reduce(vcat, reactions.(models)))
+
+    return JumpProblem(dprob, Direct(), jumps)
 end
 
 build_problem(model::AbstractSubModel; kwargs...) = build_problem([model]; kwargs...)
@@ -66,6 +97,18 @@ function _build_u0(models::Vector{<:AbstractSubModel})
         end
     end
     return SVector{length(u0_vals)}(u0_vals)
+end
+
+function _build_u0_integer(models::Vector{<:AbstractSubModel})
+    u0_vals = Int[]
+    for m in models
+        ics = ic_params(parameters(m))
+        for s in states(m)
+            ic = findfirst(p -> p.name == Symbol(s, "0") || p.name == s, ics)
+            push!(u0_vals, ic !== nothing ? round(Int, ics[ic].value) : 0)
+        end
+    end
+    return u0_vals
 end
 
 function _build_p0(models::Vector{<:AbstractSubModel})

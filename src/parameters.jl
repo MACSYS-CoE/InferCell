@@ -12,8 +12,11 @@ rate_params(params::Vector{InferParameter}) = filter(p -> p.role == :rate, param
 ic_params(params::Vector{InferParameter}) = filter(p -> p.role == :initial_condition, params)
 obs_params(params::Vector{InferParameter}) = filter(p -> p.role == :observation, params)
 
-ode_free_params(params::Vector{InferParameter}) =
+model_free_params(params::Vector{InferParameter}) =
     filter(p -> p.role != :observation, free_params(params))
 
 obs_free_params(params::Vector{InferParameter}) =
     filter(p -> p.role == :observation, free_params(params))
+
+# Backward compatibility alias
+const ode_free_params = model_free_params

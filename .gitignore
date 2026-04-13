@@ -17,3 +17,5 @@ docs/**
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
 !docs/log/2026-04-01-phase1-implementation.md
+!docs/log/2026-04-01-phase2-implementation.md
+!docs/handoff.md
