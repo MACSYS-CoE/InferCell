@@ -10,7 +10,8 @@ using StaticArrays
 using Random
 using MCMCChains: replacenames
 using ForwardDiff
-using LinearAlgebra: rank, norm
+using LinearAlgebra: rank
+using Statistics: quantile
 
 include("parameters.jl")
 include("interface.jl")

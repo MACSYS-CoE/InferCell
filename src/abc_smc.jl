@@ -15,7 +15,6 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
     weights = fill(1.0 / n_particles, n_particles)
     distances = zeros(n_particles)
 
-    # Population 1: sample from prior, accept all
     verbose && (print("ABC-SMC population 1/$n_populations (prior)..."); flush(stdout))
     for i in 1:n_particles
         for j in 1:n_params
@@ -25,7 +24,6 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
         distances[i] = summary_distance(sim_stats, observed_stats)
     end
 
-    # Initial tolerance: alpha-quantile of distances
     tolerance = quantile(distances, alpha)
     if verbose
         println(" tolerance=$(round(tolerance; digits=3))")
@@ -38,24 +36,19 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
 
         prev_particles = copy(particles)
         prev_weights = copy(weights)
-
-        # Compute perturbation kernel widths (twice the weighted std of each parameter)
         kernel_widths = _compute_kernel_widths(prev_particles, prev_weights)
 
         new_particles = zeros(n_params, n_particles)
         new_distances = zeros(n_particles)
         n_simulations = 0
 
+        candidate = zeros(n_params)
         for i in 1:n_particles
             accepted = false
             while !accepted
-                # Pick a particle from previous population (weighted)
                 idx = _weighted_sample(prev_weights, rng)
-                # Perturb
-                candidate = _perturb(prev_particles[:, idx], kernel_widths, rng)
-                # Check prior support
+                _perturb!(candidate, @view(prev_particles[:, idx]), kernel_widths, rng)
                 all(pdf(priors[j], candidate[j]) > 0 for j in 1:n_params) || continue
-                # Simulate and check distance
                 sim_stats = simulate(candidate)
                 n_simulations += 1
                 d = summary_distance(sim_stats, observed_stats)
@@ -67,12 +60,12 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
             end
         end
 
-        # Update weights
         for i in 1:n_particles
             prior_prob = prod(pdf(priors[j], new_particles[j, i]) for j in 1:n_params)
             kernel_sum = sum(
-                prev_weights[k] * _kernel_density(new_particles[:, i],
-                    prev_particles[:, k], kernel_widths)
+                prev_weights[k] * _kernel_density(
+                    @view(new_particles[:, i]),
+                    @view(prev_particles[:, k]), kernel_widths)
                 for k in 1:n_particles
             )
             weights[i] = prior_prob / kernel_sum
@@ -95,10 +88,17 @@ end
 
 function _compute_kernel_widths(particles::Matrix{Float64}, weights::Vector{Float64})
     n_params = size(particles, 1)
+    n_particles = size(particles, 2)
     widths = zeros(n_params)
     for j in 1:n_params
-        wmean = sum(weights .* particles[j, :])
-        wvar = sum(weights .* (particles[j, :] .- wmean).^2)
+        wmean = 0.0
+        for i in 1:n_particles
+            wmean += weights[i] * particles[j, i]
+        end
+        wvar = 0.0
+        for i in 1:n_particles
+            wvar += weights[i] * (particles[j, i] - wmean)^2
+        end
         widths[j] = 2.0 * sqrt(wvar)
     end
     return widths
@@ -114,8 +114,12 @@ function _weighted_sample(weights::Vector{Float64}, rng)
     return length(weights)
 end
 
-function _perturb(particle::Vector{Float64}, widths::Vector{Float64}, rng)
-    return particle .+ widths .* randn(rng, length(particle))
+function _perturb!(out::Vector{Float64}, particle::AbstractVector{Float64},
+                    widths::Vector{Float64}, rng)
+    for j in eachindex(out)
+        out[j] = particle[j] + widths[j] * randn(rng)
+    end
+    return out
 end
 
 function _kernel_density(x::AbstractVector, mu::AbstractVector, widths::Vector{Float64})
@@ -125,8 +129,3 @@ function _kernel_density(x::AbstractVector, mu::AbstractVector, widths::Vector{F
     return exp(exponent) / norm_const
 end
 
-function quantile(v::AbstractVector, p::Real)
-    sorted = sort(v)
-    idx = clamp(ceil(Int, p * length(sorted)), 1, length(sorted))
-    return sorted[idx]
-end

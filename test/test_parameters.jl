@@ -25,13 +25,13 @@ using Distributions
         @test length(rate_params(params)) == 2
         @test length(ic_params(params)) == 2
         @test length(obs_params(params)) == 1
-        @test length(ode_free_params(params)) == 2
+        @test length(model_free_params(params)) == 2
         @test length(obs_free_params(params)) == 1
 
         # All fixed
         fixed_params = [InferParameter(1.0, Normal(0,1), true, :x, :m, :rate)]
         @test length(free_params(fixed_params)) == 0
-        @test length(ode_free_params(fixed_params)) == 0
+        @test length(model_free_params(fixed_params)) == 0
 
         # Empty
         @test length(free_params(InferParameter[])) == 0
