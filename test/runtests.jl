@@ -15,5 +15,6 @@ using JumpProcesses
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
         include("test_stochastic_inference.jl")
+        include("test_joint_inference.jl")
     end
 end

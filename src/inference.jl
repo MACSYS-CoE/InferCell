@@ -112,9 +112,31 @@ function observe(sol, times, model::AbstractSubModel;
     return ObservedData(collect(Float64, times), pred .+ noise, states(model))
 end
 
+function observe(sol, times, models::Vector{<:AbstractSubModel};
+                 sigma=0.1, rng=Random.default_rng())
+    pred = Array(sol(times))
+    noise = sigma .* randn(rng, size(pred))
+    species = reduce(vcat, states.(models))
+    return ObservedData(collect(Float64, times), pred .+ noise, species)
+end
+
 function observe(trajectories::Vector, times, model::AbstractSubModel)
     # For stochastic models: take the mean across replicate trajectories
     species = states(model)
+    n_species = length(species)
+    n_times = length(times)
+    obs = zeros(n_species, n_times)
+    for sol in trajectories
+        for (j, t) in enumerate(times)
+            obs[:, j] .+= sol(t)
+        end
+    end
+    obs ./= length(trajectories)
+    return ObservedData(collect(Float64, times), obs, species)
+end
+
+function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel})
+    species = reduce(vcat, states.(models))
     n_species = length(species)
     n_times = length(times)
     obs = zeros(n_species, n_times)
@@ -139,7 +161,23 @@ function posterior_predictive(model::AbstractSubModel, chain;
 
     extract_params(idx) = [chain[name].data[idx] for name in param_names]
 
-    return _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, solver)
+    return _run_posterior_predictive([model], tspan, saveat, idxs, extract_params, solver)
+end
+
+function posterior_predictive(models::Vector{<:AbstractSubModel}, chain;
+                               n_samples=100, solver=Tsit5(),
+                               tspan=nothing, saveat=nothing)
+    tspan === nothing && error("tspan must be provided for posterior_predictive")
+
+    all_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
+    param_names = [string(p.name) for p in all_free]
+    n_chain = size(chain, 1)
+    n_draw = min(n_samples, n_chain)
+    idxs = rand(1:n_chain, n_draw)
+
+    extract_params(idx) = [chain[name].data[idx] for name in param_names]
+
+    return _run_posterior_predictive(models, tspan, saveat, idxs, extract_params, solver)
 end
 
 function posterior_predictive(model::AbstractSubModel, result::ABCPosterior;
@@ -153,11 +191,12 @@ function posterior_predictive(model::AbstractSubModel, result::ABCPosterior;
     stepper = formalism(model) == :jump ? SSAStepper() : Tsit5()
     extract_params(idx) = result.particles[:, idx]
 
-    return _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, stepper)
+    return _run_posterior_predictive([model], tspan, saveat, idxs, extract_params, stepper)
 end
 
-function _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, solver)
-    prob = build_problem([model]; tspan=tspan)
+function _run_posterior_predictive(models::Vector{<:AbstractSubModel}, tspan, saveat,
+                                   idxs, extract_params, solver)
+    prob = build_problem(models; tspan=tspan)
     save_times = saveat === nothing ? range(tspan[1], tspan[2]; length=100) : saveat
 
     solutions = Vector{Any}(undef, length(idxs))
@@ -165,7 +204,8 @@ function _run_posterior_predictive(model, tspan, saveat, idxs, extract_params, s
         solutions[j] = solve(remake(prob, p=extract_params(idx)), solver; saveat=save_times)
     end
 
-    return PosteriorPredictive(solutions, collect(Float64, save_times), states(model))
+    species = reduce(vcat, states.(models))
+    return PosteriorPredictive(solutions, collect(Float64, save_times), species)
 end
 
 function check_identifiability(model::AbstractSubModel, prob, times;
@@ -182,5 +222,23 @@ function check_identifiability(model::AbstractSubModel, prob, times;
     r = rank(J)
 
     return (rank=r, n_params=length(p0), n_obs=length(states(model)) * length(times),
+            full_rank=r >= length(p0), jacobian=J)
+end
+
+function check_identifiability(models::Vector{<:AbstractSubModel}, prob, times;
+                                solver=Tsit5())
+    all_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
+    p0 = [p.value for p in all_free]
+    n_states = sum(length(states(m)) for m in models)
+
+    function forward_map(p)
+        sol = solve(remake(prob, p=p), solver; saveat=times)
+        return vec(Array(sol))
+    end
+
+    J = ForwardDiff.jacobian(forward_map, p0)
+    r = rank(J)
+
+    return (rank=r, n_params=length(p0), n_obs=n_states * length(times),
             full_rank=r >= length(p0), jacobian=J)
 end

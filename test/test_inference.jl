@@ -52,4 +52,36 @@ using Random
         @test result.full_rank == true
         @test result.rank >= 4
     end
+
+    @testset "observe (composed models)" begin
+        Random.seed!(123)
+        txl = TranscriptionTranslation()
+        metab = LightMetabolism()
+        models = [txl, metab]
+        prob = build_problem(models; tspan=(0.0, 50.0))
+        sol = solve(prob, Tsit5())
+        times = 0.0:5.0:50.0
+
+        data = observe(sol, times, models; sigma=0.1)
+
+        @test data isa ObservedData
+        @test length(data.times) == 11
+        @test size(data.observations) == (5, 11)
+        @test data.species == [:mRNA, :protein, :ATP, :NTP, :AA]
+    end
+
+    @testset "check_identifiability (composed models)" begin
+        txl = TranscriptionTranslation()
+        metab = LightMetabolism()
+        models = [txl, metab]
+        prob = build_problem(models; tspan=(0.0, 50.0))
+        times = collect(0.0:2.5:50.0)
+
+        result = check_identifiability(models, prob, times)
+
+        @test result.n_params == 7
+        @test result.n_obs == 5 * length(times)  # 5 species x 21 times
+        @test result.full_rank == true
+        @test result.rank >= 7
+    end
 end
