@@ -19,6 +19,7 @@ docs/**
 # But allow the directory structure
 !docs/plans/
 !docs/notes/
+!docs/talk/
 !docs/log/
 
 # And track these specific files
@@ -28,6 +29,4 @@ docs/**
 !docs/notes/4D-minimal-cell.md
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
-!docs/log/2026-04-01-phase1-implementation.md
-!docs/log/2026-04-01-phase2-implementation.md
-!docs/handoff.md
+!docs/talk/talk.pdf
