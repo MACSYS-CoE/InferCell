@@ -83,12 +83,15 @@ end
 function _infer_abc(models, data;
                     n_particles=1000, n_populations=10, alpha=0.5,
                     n_replicates=100, tspan=nothing,
-                    verbose=false, rng=Random.default_rng())
+                    verbose=false, rng=Random.default_rng(),
+                    priors=nothing, param_names=nothing)
     t = tspan === nothing ? (data.times[1], data.times[end]) : tspan
 
-    all_free = unique_params(model_free_params(reduce(vcat, parameters.(models))))
-    priors = [p.prior for p in all_free]
-    param_names = [p.name for p in all_free]
+    if priors === nothing
+        all_free = unique_params(model_free_params(reduce(vcat, parameters.(models))))
+        priors = [p.prior for p in all_free]
+        param_names = [p.name for p in all_free]
+    end
     species = reduce(vcat, states.(models))
 
     observed_stats = vec(data.observations)
