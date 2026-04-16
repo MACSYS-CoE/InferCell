@@ -2,6 +2,39 @@
 
 > Composable, inference-first whole-cell modelling in Julia.
 
+## Quick start
+
+```julia
+using InferCell
+
+# ODE model → automatically uses NUTS (gradient-based)
+model = TranscriptionTranslation()
+prob  = build_problem(model; tspan=(0.0, 50.0))
+sol   = solve(prob, Tsit5(); saveat=0:2.5:50)
+data  = observe(sol, 0:2.5:50, model; sigma=0.3)
+chain = infer(model, data; n_samples=1000)
+
+# SSA model → automatically uses ABC-SMC (likelihood-free)
+model  = StochasticGeneExpression()
+prob   = build_problem(model; tspan=(0.0, 50.0))
+trajs  = [solve(prob, SSAStepper(); saveat=0:2.5:50) for _ in 1:200]
+data   = observe(trajs, 0:2.5:50, model)
+result = infer(model, data; n_samples=300, n_populations=5,
+               tspan=(0.0, 50.0))
+```
+
+Same four steps, same `infer()` call. The framework dispatches to the right backend based on the model's formalism.
+
+Run tests:
+```bash
+julia --project -e 'using Pkg; Pkg.test()'
+
+# Include integration tests (~2 min, NUTS sampling):
+INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
+```
+
+See [`docs/plans/`](docs/plans/) for current status, roadmap, and design decisions.
+
 ## Motivation
 
 Whole-cell models simulate a living cell from its molecular parts. The field has made real progress wiring sub-models of transcription, translation, metabolism, and replication into integrated simulations. But the software architectures that run these simulations were not designed for inference. Existing platforms treat sub-models as black boxes, orchestrated via message passing or multi-language pipelines. Good for running forward simulations. Opaque to parameter estimation, automatic differentiation, and uncertainty quantification. You can't push gradients or likelihoods through boundaries you can't see inside.
@@ -10,9 +43,9 @@ The problem is architectural. Simulation-first frameworks treat inference as an 
 
 ## What we're building
 
-InferCell is a minimal whole-cell model, a "0.1x cell" (transcription-translation coupled to coarse metabolism), designed so that inference works from the start. The model and the architecture are co-developed: biology validates the platform, the platform makes the biology calibratable.
+InferCell is a minimal whole-cell model designed so that inference works from the start. 
 
-Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design. The SciML and Turing.jl ecosystems provide the numerical and probabilistic foundations; InferCell composes them into one inference-ready whole-cell model.
+Instead of orchestrating isolated black-box simulators, InferCell compiles hybrid dynamics (ODEs/SDEs + stochastic simulation + discrete events) into a single computational graph in pure Julia. AD, likelihood evaluation, and Bayesian calibration fall out of this design. The `infer()` API selects the appropriate backend automatically -- NUTS for differentiable models, ABC-SMC for simulation-based models -- so the user writes the same code regardless of the underlying formalism. The SciML and Turing.jl ecosystems provide the numerical and probabilistic foundations; InferCell composes them into one inference-ready whole-cell model.
 
 ## Key design ideas
 
