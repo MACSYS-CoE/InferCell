@@ -2,7 +2,7 @@
 
 ## Current state
 
-Branch `main` implements Steps 1-2 of the [v1 minimal demo plan](plans/2026-04-13-v1-minimal-demo.md).
+Branch `step3-boundary-protocol` implements Steps 1-3 of the [v1 minimal demo plan](plans/2026-04-13-v1-minimal-demo.md).
 
 ### What's working
 
@@ -12,34 +12,40 @@ Branch `main` implements Steps 1-2 of the [v1 minimal demo plan](plans/2026-04-1
 - **Shared parameter composition** — `build_problem([TranscriptionTranslation(), LightMetabolism()])` produces a single ODEProblem with 5 states and 7 deduplicated free parameters
 - **Joint ODE inference** — `infer([txl, metab], data)` runs NUTS on the composed 5-state system, recovering all 8 parameters (7 ODE + 1 obs noise)
 - **Multi-model utilities** — `observe`, `posterior_predictive`, `check_identifiability` all accept model vectors with proper parameter deduplication
-- **121+ tests pass** including unit, composition, and joint inference integration tests
+- **Level 1 boundary protocol** — `sequential_infer(ode_model, ode_data, ssa_model, ssa_data)` runs the full pipeline: ODE NUTS → KDE boundary conditioning → SSA ABC-SMC with informed priors
+- **KDEPrior** — custom `ContinuousUnivariateDistribution` wrapping KDE-fitted posteriors, compatible with ABC-SMC's `rand`/`pdf` interface
+- **boundary_condition** — extracts ODE posterior samples, fits KDE (or Normal) priors for shared parameters, passes through original priors for unmatched parameters
+- **121+ unit tests pass** plus integration tests for joint inference and sequential inference
 
-### Key infrastructure added in Step 2
+### Key infrastructure added in Step 3
 
-- Multi-model `observe(sol, times, models::Vector)` — concatenates species from all models
-- Multi-model `posterior_predictive(models::Vector, chain)` — uses deduplicated params via `unique_params`
-- Multi-model `check_identifiability(models::Vector, prob, times)` — validates structural identifiability of composed system
-- Refactored `_run_posterior_predictive` to accept model vectors; single-model callers delegate to vector version
-- Joint inference integration test — synthetic twin on TX/TL + metabolism, 8-parameter recovery at 90% CI
-- Step 2 demo script with wall-clock benchmark and diagnostic figures
+- `KDEPrior <: ContinuousUnivariateDistribution` — wraps KernelDensity.jl KDE with `rand()`, `pdf()`, `logpdf()` methods for use as ABC-SMC priors
+- `boundary_condition(chain, ssa_models; method=:kde)` — builds conditioned priors from ODE posterior, supports `:kde` and `:normal` methods, handles partial conditioning
+- `sequential_infer(ode_models, ode_data, ssa_models, ssa_data)` — end-to-end two-stage pipeline returning `(ode_chain, ssa_posterior, boundary)` named tuple
+- Modified `_infer_abc` to accept optional `priors` and `param_names` kwargs for external prior injection
+- Sequential inference integration test — synthetic twin verifying parameter recovery and posterior tightening vs uninformed baseline
+- Step 3 demo script with conditioned vs unconditioned comparison and diagnostic figures
 
 ### Files changed/added
 
-- `src/inference.jl` — multi-model dispatches for `observe`, `posterior_predictive`, `check_identifiability`, `_run_posterior_predictive` refactor
-- `test/test_inference.jl` — unit tests for composed-model `observe` and `check_identifiability`
-- `test/test_joint_inference.jl` — new integration test for joint NUTS recovery
-- `test/runtests.jl` — registered joint inference integration test
-- `examples/step2_joint_demo.jl` — end-to-end demo script
-- `examples/run_step2_demo.slurm` — Slurm submission script
+- `src/boundary.jl` — new: KDEPrior, boundary_condition, sequential_infer
+- `src/inference.jl` — modified: `_infer_abc` accepts optional `priors`/`param_names` kwargs
+- `src/InferCell.jl` — added KernelDensity import, include boundary.jl, new exports
+- `Project.toml` — added KernelDensity dependency
+- `test/test_boundary.jl` — new: unit tests for KDEPrior, boundary_condition, partial conditioning
+- `test/test_sequential_inference.jl` — new: integration test for sequential inference + tightening comparison
+- `test/runtests.jl` — registered new test files
+- `examples/step3_boundary_demo.jl` — new: end-to-end demo script
+- `examples/run_step3_demo.slurm` — new: Slurm submission script
 
 ## Next step
 
-**Step 3 — Level 1 boundary protocol (sequential conditioning).** Infer the ODE block via NUTS, take posterior samples, condition the SSA block on those posteriors, run ABC-SMC for remaining stochastic parameters. This produces a cut posterior where information flows one direction only.
+**Step 4 — Level 2 boundary protocol (message-passing / bidirectional).** Close the loop so SSA posteriors can feed back to refine ODE inference, enabling iterative convergence of the cut posterior.
 
 Main tasks:
 
-- New function: `boundary_condition(ode_chain, ssa_model)` or extend `infer()` to accept a prior source
-- Replace ABC-SMC priors for shared parameters with KDE/empirical distribution from ODE posterior
-- Test: SSA posteriors tighten when conditioned on ODE posteriors vs uninformed priors
+- Implement iterative message-passing loop between ODE and SSA blocks
+- Define convergence criterion (e.g., KL divergence between successive posteriors)
+- Test: demonstrate convergence and improved parameter recovery over single-pass sequential conditioning
 
 See `docs/plans/2026-04-13-v1-minimal-demo.md` for the full 4-step plan.

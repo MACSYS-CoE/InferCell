@@ -6,6 +6,13 @@
 /*.md
 !README.md
 
+# Ignore slurm/job logs and core dumps anywhere
+*.log
+core.*
+
+# Ignore examples/ for now — a clean demo will be re-added later
+examples/
+
 # Ignore everything in docs
 docs/**
 
