@@ -8,6 +8,7 @@ docs/**
 # But allow the directory structure
 !docs/plans/
 !docs/notes/
+!docs/talk/
 
 # And track these specific files
 !docs/plans/overview.md
@@ -15,3 +16,4 @@ docs/**
 !docs/notes/4D-minimal-cell.md
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
+!docs/talk/talk.pdf
