@@ -7,15 +7,20 @@ struct LightMetabolism <: AbstractSubModel
     n_tl::Float64
     gamma_ntp::Float64
     gamma_aa::Float64
+    K_M_enzyme::Float64
+    mRNA_source::Symbol
+    enzyme_source::Symbol
 end
 
 function LightMetabolism(;
         k_atp=1.0, k_ntp=0.2, k_aa=0.4,
         k_tx=1.0, k_tl=2.0,
         ATP_max=10.0, e_tx=0.1, e_tl=0.05, n_tx=0.5, n_tl=0.5,
-        gamma_ntp=0.1, gamma_aa=0.1,
+        gamma_ntp=0.1, gamma_aa=0.1, K_M_enzyme=5.0,
         ATP0=5.0, NTP0=2.0, AA0=2.0,
-        sigma_obs=0.3)
+        sigma_obs=0.3,
+        mRNA_source::Symbol=:mRNA,
+        enzyme_source::Symbol=:protein)
     params = [
         InferParameter(k_atp, LogNormal(0, 1), false, :k_atp, :metab, :rate),
         InferParameter(k_ntp, LogNormal(0, 1), false, :k_ntp, :metab, :rate),
@@ -27,21 +32,25 @@ function LightMetabolism(;
         InferParameter(AA0,   Normal(2, 1),    true,  :AA0,    :metab, :initial_condition),
         InferParameter(sigma_obs, truncated(Normal(0, 1); lower=0.0), false, :sigma_obs, :metab, :observation),
     ]
-    return LightMetabolism(params, ATP_max, e_tx, e_tl, n_tx, n_tl, gamma_ntp, gamma_aa)
+    return LightMetabolism(params, ATP_max, e_tx, e_tl, n_tx, n_tl, gamma_ntp, gamma_aa,
+                           K_M_enzyme, mRNA_source, enzyme_source)
 end
 
 states(::LightMetabolism) = [:ATP, :NTP, :AA]
 parameters(m::LightMetabolism) = m.params
 formalism(::LightMetabolism) = :ode
 inference_mode(::LightMetabolism) = :differentiable
-inputs(::LightMetabolism) = [:mRNA]
+inputs(m::LightMetabolism) = [m.mRNA_source, m.enzyme_source]
 
 function dynamics(u_local, p_local, t, m::LightMetabolism, u_inputs)
     ATP, NTP, AA = u_local
     k_atp, k_ntp, k_aa, k_tx, k_tl = p_local
-    mRNA = u_inputs[1]
+    mRNA, enzyme = u_inputs
 
-    v_atp_prod = k_atp * (m.ATP_max - ATP)
+    # Michaelis-Menten enzyme modulation: factor in [0, 1), bounded.
+    # enzyme=0 preserves the Step-3 baseline rate; enzyme→∞ doubles it.
+    enzyme_factor = enzyme / (m.K_M_enzyme + enzyme)
+    v_atp_prod = k_atp * (1 + enzyme_factor) * (m.ATP_max - ATP)
     v_ntp_synth = k_ntp * ATP
     v_aa_synth = k_aa * ATP
 

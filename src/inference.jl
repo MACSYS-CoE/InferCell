@@ -24,12 +24,17 @@
 end
 
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
-                             solver=Tsit5(), sensealg=ForwardDiffSensitivity())
+                             solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
+                             priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
     all_model_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
     all_obs_free = unique_params(reduce(vcat, obs_free_params.(parameters.(models))))
     all_free = vcat(all_model_free, all_obs_free)
 
-    priors = [p.prior for p in all_free]
+    priors = [
+        priors_override !== nothing && haskey(priors_override, p.name) ?
+            priors_override[p.name] : p.prior
+        for p in all_free
+    ]
     param_names = [p.name for p in all_free]
     n_ode = length(all_model_free)
 
@@ -49,11 +54,14 @@ end
 function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                sampler=NUTS(), n_samples=1000,
                solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
-               prob=nothing, tspan=nothing, kwargs...)
+               prob=nothing, tspan=nothing,
+               priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+               kwargs...)
     mode = inference_mode(models[1])
     if mode == :differentiable
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
-                           solver=solver, sensealg=sensealg, prob=prob, tspan=tspan)
+                           solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
+                           priors_override=priors_override)
     elseif mode == :simulation
         return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     else
@@ -66,14 +74,16 @@ infer(model::AbstractSubModel, data::ObservedData; kwargs...) =
 
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
                      solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
-                     prob=nothing, tspan=nothing)
+                     prob=nothing, tspan=nothing,
+                     priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
     if prob === nothing
         t = tspan === nothing ? (data.times[1], data.times[end]) : tspan
         prob = build_problem(models; tspan=t)
     end
 
     turing_model, param_names = build_turing_model(
-        models, data, prob; solver=solver, sensealg=sensealg)
+        models, data, prob; solver=solver, sensealg=sensealg,
+        priors_override=priors_override)
 
     chain = sample(turing_model, sampler, n_samples)
 
