@@ -23,6 +23,7 @@ docs/**
 !docs/log/
 
 # And track these specific files
+!docs/positioning.md
 !docs/plans/overview.md
 !docs/plans/2026-03-13-phase1-design.md
 !docs/plans/2026-05-12-v0.0.1-scoping.md
