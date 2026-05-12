@@ -2,7 +2,7 @@
 
 ## Current state
 
-Branch `step3-boundary-protocol` implements Steps 1-3 of the [v1 minimal demo plan](plans/2026-04-13-v1-minimal-demo.md).
+Branch `step3-boundary-protocol` implements Steps 1-3 of the [v0.0.1 plan](plans/2026-05-12-v0.0.1-scoping.md).
 
 ### What's working
 
@@ -48,4 +48,4 @@ Main tasks:
 - Define convergence criterion (e.g., KL divergence between successive posteriors)
 - Test: demonstrate convergence and improved parameter recovery over single-pass sequential conditioning
 
-See `docs/plans/2026-04-13-v1-minimal-demo.md` for the full 4-step plan.
+See `docs/plans/2026-05-12-v0.0.1-scoping.md` for the full plan (now 6 steps, with Step 4 next).
