@@ -7,10 +7,13 @@ using JumpProcesses
     include("test_orchestrator.jl")
     include("test_inference.jl")
     include("test_stochastic_ge.jl")
+    include("test_bursty_gene_expression.jl")
     include("test_summary_stats.jl")
     include("test_abc_smc.jl")
     include("test_light_metabolism.jl")
     include("test_composition.jl")
+    include("test_multi_gene_txl.jl")
+    include("test_tier_b.jl")
     include("test_boundary.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
