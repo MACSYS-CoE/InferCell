@@ -53,6 +53,15 @@ Instead of orchestrating isolated black-box simulators, InferCell compiles hybri
 - **Interfaces over implementations.** Sub-models are defined by contracts (state variables, time-stepping, event handling), not internals. A metabolism module can be an ODE solver, a constraint-based method, or a neural surrogate, swappable without touching the rest of the system.
 - **Single-language computational graph.** Julia removes the language boundaries that make existing WCM stacks opaque. Solvers, models, and inference algorithms share one compiled representation with native interop to DifferentialEquations.jl, Catalyst.jl, and Turing.jl.
 
+## Capabilities
+
+Inference is the design discipline; the following fall out as named framework outputs, not separate features that need building. See [`docs/positioning.md`](docs/positioning.md) for the longer argument.
+
+- **Parameter inference.** Bayesian posteriors over rates, pool sizes, and initial conditions from time-series data. `infer()` dispatches to NUTS for differentiable models and ABC-SMC for stochastic ones behind one call. Posteriors propagate across heterogeneous block boundaries via explicit boundary protocols.
+- **Sensitivity analysis.** Local and global parameter sensitivities. The AD machinery powering NUTS gradients powers forward and adjoint sensitivities for free — useful for asking which parameters matter for which observables before committing to data collection.
+- **Model reduction.** Identifiability checks and sloppy-parameter analysis fall out of the same gradient and posterior machinery. The framework can tell you which parameters your data can't constrain, and where the model has more degrees of freedom than the biology warrants.
+- **Model comparison.** Bayes factors and posterior odds across competing model structures (constitutive vs bursty transcription, with vs without enzyme feedback, etc.). Each candidate is one `infer()` call; the comparison is downstream.
+
 ## What success looks like
 
 A working hybrid continuous-discrete model of a minimal biological subsystem that runs forward simulations and does Bayesian parameter inference end-to-end in pure Julia. Gradients flow where components are smooth, likelihoods where available, simulation-based methods everywhere else. Validated by calibration against synthetic or experimental data.

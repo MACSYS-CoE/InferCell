@@ -1,51 +1,51 @@
-# Handoff
+# Handoff — 2026-05-12
 
-## Current state
+## Goal
 
-Branch `step3-boundary-protocol` implements Steps 1-3 of the [v1 minimal demo plan](plans/2026-04-13-v1-minimal-demo.md).
+Scope a v0.0.1 minimal WCM (issue #6), settle the project's positioning, and tee up implementation of Steps 4–5 to be picked up on the HPC cluster.
 
-### What's working
+## Status
 
-- **TX/TL module** — ODE model with NUTS inference, posterior predictive, identifiability
-- **Stochastic gene expression** — SSA model with ABC-SMC, automatic dispatch via `infer()`
-- **LightMetabolism module** — minimal ODE metabolism (ATP, NTP, AA pools) coupled one-way to TX/TL
-- **Shared parameter composition** — `build_problem([TranscriptionTranslation(), LightMetabolism()])` produces a single ODEProblem with 5 states and 7 deduplicated free parameters
-- **Joint ODE inference** — `infer([txl, metab], data)` runs NUTS on the composed 5-state system, recovering all 8 parameters (7 ODE + 1 obs noise)
-- **Multi-model utilities** — `observe`, `posterior_predictive`, `check_identifiability` all accept model vectors with proper parameter deduplication
-- **Level 1 boundary protocol** — `sequential_infer(ode_model, ode_data, ssa_model, ssa_data)` runs the full pipeline: ODE NUTS → KDE boundary conditioning → SSA ABC-SMC with informed priors
-- **KDEPrior** — custom `ContinuousUnivariateDistribution` wrapping KDE-fitted posteriors, compatible with ABC-SMC's `rand`/`pdf` interface
-- **boundary_condition** — extracts ODE posterior samples, fits KDE (or Normal) priors for shared parameters, passes through original priors for unmatched parameters
-- **121+ unit tests pass** plus integration tests for joint inference and sequential inference
+Scoping and positioning complete and committed on branch `minimal-cell-scoping`. No code changes this session — all work is docs. Ready to start implementation (Step 4 or 5) on the cluster.
 
-### Key infrastructure added in Step 3
+## What changed this session
 
-- `KDEPrior <: ContinuousUnivariateDistribution` — wraps KernelDensity.jl KDE with `rand()`, `pdf()`, `logpdf()` methods for use as ABC-SMC priors
-- `boundary_condition(chain, ssa_models; method=:kde)` — builds conditioned priors from ODE posterior, supports `:kde` and `:normal` methods, handles partial conditioning
-- `sequential_infer(ode_models, ode_data, ssa_models, ssa_data)` — end-to-end two-stage pipeline returning `(ode_chain, ssa_posterior, boundary)` named tuple
-- Modified `_infer_abc` to accept optional `priors` and `param_names` kwargs for external prior injection
-- Sequential inference integration test — synthetic twin verifying parameter recovery and posterior tightening vs uninformed baseline
-- Step 3 demo script with conditioned vs unconditioned comparison and diagnostic figures
+- Consolidated `docs/plans/2026-04-13-v1-minimal-demo.md` into `docs/plans/2026-05-12-v0.0.1-scoping.md` — single canonical v0.0.1 plan that pairs scoping (syn3A, closed-loop three-block architecture, bursty regulator) with the 6-step engineering roadmap and the two-tier synthetic data strategy. Old file deleted; refs in `docs/handoff.md` and `docs/grant-application/questions_and_answers.md` repointed; `.gitignore` allowlist updated. Commit: `2c0a896`.
+- Added `## Capabilities` section to `README.md` and wrote `docs/positioning.md` — frames inference as the *design discipline*, with parameter inference, sensitivity analysis, model reduction, and model comparison as downstream capabilities of that discipline (not separate features). Commit: `79f72b8`.
+- Sharpened the Tier A vs Tier B framing in the v0.0.1 plan: Tier A (synthetic twin) shows the boundary protocol works as a *computational technique* (it has to — NUTS-ODE and ABC-SMC-SSA can't be jointly composed). Tier B (refit under mismatch) is what shows it's *honest under model error* — the actual scientific claim.
 
-### Files changed/added
+## State of the v0.0.1 plan
 
-- `src/boundary.jl` — new: KDEPrior, boundary_condition, sequential_infer
-- `src/inference.jl` — modified: `_infer_abc` accepts optional `priors`/`param_names` kwargs
-- `src/InferCell.jl` — added KernelDensity import, include boundary.jl, new exports
-- `Project.toml` — added KernelDensity dependency
-- `test/test_boundary.jl` — new: unit tests for KDEPrior, boundary_condition, partial conditioning
-- `test/test_sequential_inference.jl` — new: integration test for sequential inference + tightening comparison
-- `test/runtests.jl` — registered new test files
-- `examples/step3_boundary_demo.jl` — new: end-to-end demo script
-- `examples/run_step3_demo.slurm` — new: Slurm submission script
+Steps 1–3 done on `main` (TX/TL ODE + NUTS, Stochastic GE + ABC-SMC, LightMetabolism + shared params, joint NUTS, Level-1 boundary protocol via KDE priors, 121+ tests). The new plan has 6 steps total. Next:
 
-## Next step
+- **Step 4 — Level 2 boundary protocol.** Iterative ODE↔SSA message-passing with a KL-based convergence criterion. Demonstrate convergence and improved parameter recovery vs Step 3's single-pass conditioning.
+- **Step 5 — Close the v0.0.1 biology.** (1) Enzyme→metabolism feedback: block 2's enzyme protein concentration enters block 1 as a rate parameter, closing the autocatalytic loop. (2) Replace constitutive `StochasticGE` with a two-state bursty regulator. (3) Assign specific syn3A genes to block 2 slots. (4) Build the Tier B "v0.0.1+ε" mismatch generator.
 
-**Step 4 — Level 2 boundary protocol (message-passing / bidirectional).** Close the loop so SSA posteriors can feed back to refine ODE inference, enabling iterative convergence of the cut posterior.
+See `docs/plans/2026-05-12-v0.0.1-scoping.md` for full detail, plus Step 6 (end-to-end demo + figure) and the risks/AD-backend notes.
 
-Main tasks:
+## Open questions (carried from the plan)
 
-- Implement iterative message-passing loop between ODE and SSA blocks
-- Define convergence criterion (e.g., KL divergence between successive posteriors)
-- Test: demonstrate convergence and improved parameter recovery over single-pass sequential conditioning
+- Specific syn3A genes for block 2 — at minimum need ≥1 metabolic enzyme (its product is in block 1) and ≥1 ribosomal component (gates TL capacity).
+- Which syn3A gene plays the bursty regulator role (sigma-factor analogue is the obvious candidate).
+- Tier B mismatch design: probably one experiment each for (i) extra reactions in block 1, (ii) stochasticity in block 2, (iii) finite-volume effects on block 3.
+- Should `LightMetabolism` evolve in-place, or fork to a `Syn3AMetabolism` with named species and reactions?
+- Recommended start order (from this session): Step 5 first (mostly local code, light compute), then Step 4 (algorithmic, heavier compute) — but Tom hasn't committed to an order.
 
-See `docs/plans/2026-04-13-v1-minimal-demo.md` for the full 4-step plan.
+## Blockers / problems
+
+None. User is moving to the cluster to start implementation.
+
+## Next steps
+
+1. On the cluster, pull to current HEAD (`79f72b8` on `minimal-cell-scoping`).
+2. Decide Step 4 vs Step 5 start order. Suggested: Step 5 first.
+3. For Step 5: wire enzyme→metabolism coupling (watch for ODE instability — start at low gain, Michaelis–Menten fallback in the risks table); two-state bursty SSA replacing `StochasticGeneExpression`; commit specific syn3A gene assignments; build the Tier B generator.
+4. For Step 4: iterative loop, KL convergence criterion, integration test showing tightening vs single-pass.
+5. Plan for ForwardDiff → Mooncake benchmark as parameter count climbs past ~10 (AD-backend note in the plan).
+
+## Non-obvious context
+
+- Branch `minimal-cell-scoping` is a docs-only scoping branch — every commit on it is planning, no code. Implementation work should be done on a fresh branch off `main` (or the cluster's equivalent), not extended off this branch unless that's the explicit intent.
+- `.gitignore` uses a strict per-file allowlist for `docs/` (`docs/**` is ignored except for explicit `!docs/path/to/file.md` exceptions). Any new doc file needs to be added to that allowlist or it silently won't be tracked. The grant Q&A under `docs/grant-application/` is intentionally not allowlisted — local-only, edits there don't show in git.
+- `docs/handoff.md` (this file) is the project's handoff convention, separate from the `handoff.md`-at-root pattern that the `/handoff` skill suggests. Keep updating this file rather than creating a root-level one.
+- The Capabilities section in the README and the longer `docs/positioning.md` are the canonical "how to describe this project" — use them for grant text, talks, slides, etc., rather than reinventing the framing each time.
