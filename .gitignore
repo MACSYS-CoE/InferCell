@@ -19,7 +19,7 @@ docs/**
 # But allow the directory structure
 !docs/plans/
 !docs/notes/
-!docs/talk/
+!docs/talks/
 !docs/log/
 
 # And track these specific files
@@ -29,4 +29,19 @@ docs/**
 !docs/notes/4D-minimal-cell.md
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
-!docs/talk/talk.pdf
+
+# Talks: README + shared assets at the docs/talks/ root
+!docs/talks/README.md
+!docs/talks/*.sty
+!docs/talks/*.png
+!docs/talks/figures/
+!docs/talks/figures/*.png
+!docs/talks/posterior_plot/
+!docs/talks/posterior_plot/*.tex
+!docs/talks/posterior_plot/*.pdf
+
+# Per-talk subfolders: track .tex, .pdf, and the symlinked .sty
+!docs/talks/2026-04-macsys/
+!docs/talks/2026-04-macsys/talk.tex
+!docs/talks/2026-04-macsys/talk.pdf
+!docs/talks/2026-04-macsys/beamerthemeoxfordmaths.sty
