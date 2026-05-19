@@ -1,5 +1,26 @@
 # Handoff — 2026-05-12
 
+> **⚠ Brisbane talk: missing figure (added 2026-05-19).**
+> `docs/talks/2026-05-brisbane-macsys/talk.tex` has a slide in the *In Practice*
+> section titled *"Level-2 Iterative Boundary: Posterior Tightening"* that
+> currently shows the stock LaTeX placeholder `example-image-a` instead of a
+> real plot.
+> The plot should compare single-pass vs Level-2 iterative posteriors on the
+> shared params (`k_tl`, `gamma_mRNA`, `gamma_protein`) — ideally an overlay of
+> 1D posterior densities or a corner plot, mirroring the visual style of the
+> existing `figures/step3_corner.png` and `figures/step3_ssa_posteriors.png`.
+> Source data lives on the `milan` Slurm cluster (job 12122972) — log file
+> `test/integ_iter_12122972.log`, ~32 min wall-clock. The integration script
+> `test/run_integ_iterative.jl` only prints summaries; it does not save chains
+> or figures. Two paths:
+>   1. Re-run the integration on the cluster after adding `serialize`/`Plots`
+>      calls to dump `iter.ode_chain` and `single.ode_chain`, scp the artifact
+>      back, and produce the figure locally.
+>   2. Build the figure inline at the end of `run_integ_iterative.jl` and scp
+>      the PNG into `docs/talks/2026-05-brisbane-macsys/figures/`.
+> Replace `example-image-a` in `talk.tex` with the resulting filename and
+> remove the red placeholder caption.
+
 ## Goal
 
 Implement Steps 4 and 5 of the v0.0.1 plan (`docs/plans/2026-05-12-v0.0.1-scoping.md`): close the v0.0.1 biology (Step 5) and add the iterative Level-2 boundary protocol (Step 4). Tests run via Slurm per `CLAUDE.md`.
