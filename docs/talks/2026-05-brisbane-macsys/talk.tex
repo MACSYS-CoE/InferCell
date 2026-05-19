@@ -1110,46 +1110,23 @@ Joint inference over all parameters is intractable. \newline  Isolated submodel 
 \end{frame}
 
 % ----------------------------------------------------------------
-\begin{frame}{Joint parameter estimation}
+\begin{frame}{Joint parameter estimation - differentiable block}
 	\centering
 	\includegraphics[width=0.48\textwidth]{figures/step3_corner.png}
-	\includegraphics[width=0.48\textwidth]{figures/step3_ssa_posteriors.png}
+
 \end{frame}
 
 
+\begin{frame}{Joint parameter estimation - simulation block}
+	\centering
+\includegraphics[width=0.48\textwidth]{figures/step3_ssa_posteriors.png}
+\end{frame}
 
-\begin{frame}{Level-2 Iterative Boundary: Posterior Tightening}
-	\begin{columns}[T]
-		\begin{column}{0.55\textwidth}
+
+\begin{frame}{Joint parameter estimation - differentiable block - Gibbs-like}
 			\centering
-			\includegraphics[width=0.95\textwidth]{figures/step4_corner_talk_shared.png}\\[3pt]
-			{\scriptsize\itshape Single-pass (blue) vs Level-2 iterative (orange) posteriors on the shared params; truth in black.}
-		\end{column}
-		\begin{column}{0.42\textwidth}
-			\footnotesize
-			\textbf{Closed-loop synthetic biology}
-			\begin{itemize}\itemsep3pt
-				\item ODE block: TX/TL $+$ enzyme-feedback metabolism
-				\item SSA block: \textbf{bursty} (telegraph) regulator $-$ $k_{tx} \to k_{tx,\mathrm{burst}}$
-				\item Shared params: $k_{tl},\;\gamma_{mRNA},\;\gamma_{prot}$ (3, vs 4 for the constitutive SSA on the previous slide)
-			\end{itemize}
-			
-			\medskip
-			\textbf{90\% CI width on shared params}\\[2pt]
-			\begin{tabular}{lrrr}
-				\toprule
-				& single & iter & $\Delta$ \\
-				\midrule
-				$k_{tl}$        & 0.264 & 0.125 & $-53\%$ \\
-				$\gamma_{mRNA}$ & 0.083 & 0.041 & $-51\%$ \\
-				$\gamma_{prot}$ & 0.006 & 0.003 & $-50\%$ \\
-				\bottomrule
-			\end{tabular}
-		\end{column}
-	\end{columns}
-	
-	\vfill
-	{\scriptsize\itshape Single-pass 95\% CI covers truth on 4/4 ODE params; iter 95\% covers 2/4, iter 99\% covers 4/4 --- mild over-tightening on this seed; full calibration deferred to multi-seed sweeps.}
+			\vspace{3mm}
+			\includegraphics[width=0.47\textwidth]{figures/step4_corner_talk_shared.png}
 \end{frame}
 
 
