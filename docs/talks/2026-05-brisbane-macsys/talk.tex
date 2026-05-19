@@ -1122,16 +1122,16 @@ Joint inference over all parameters is intractable. \newline  Isolated submodel 
 	\begin{columns}[T]
 		\begin{column}{0.55\textwidth}
 			\centering
-			\includegraphics[width=0.95\textwidth]{figures/step4_corner.png}\\[3pt]
-			{\scriptsize\itshape Single-pass (blue) vs Level-2 iterative (orange) posteriors; truth in yellow.}
+			\includegraphics[width=0.95\textwidth]{figures/step4_corner_talk_shared.png}\\[3pt]
+			{\scriptsize\itshape Single-pass (blue) vs Level-2 iterative (orange) posteriors on the shared params; truth in black.}
 		\end{column}
 		\begin{column}{0.42\textwidth}
 			\footnotesize
 			\textbf{Closed-loop synthetic biology}
 			\begin{itemize}\itemsep3pt
 				\item ODE block: TX/TL $+$ enzyme-feedback metabolism
-				\item SSA block: bursty (telegraph) regulator
-				\item Shared params: $k_{tl},\;\gamma_{mRNA},\;\gamma_{prot}$
+				\item SSA block: \textbf{bursty} (telegraph) regulator $-$ $k_{tx} \to k_{tx,\mathrm{burst}}$
+				\item Shared params: $k_{tl},\;\gamma_{mRNA},\;\gamma_{prot}$ (3, vs 4 for the constitutive SSA on the previous slide)
 			\end{itemize}
 			
 			\medskip
