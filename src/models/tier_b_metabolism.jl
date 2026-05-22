@@ -2,6 +2,16 @@
 # model. Used to generate synthetic data that the v0.0.1 fitter must absorb under
 # model mismatch; not part of the inference pipeline itself.
 
+"""
+    TierBMetabolism(; …, k_atp_leak=0.2, n_hill=2.0, mRNA_source=:mRNA, enzyme_source=:protein)
+
+"v0.0.1 + ε" metabolism for Tier-B mismatch experiments. Identical interface
+to [`LightMetabolism`](@ref) but adds two sources of model error: a Hill
+enzyme response with exponent `n_hill > 1` (vs the linear-saturation form in
+`LightMetabolism`) and a constant ATP leak `k_atp_leak`. Used to generate
+synthetic data the v0.0.1 fitter must absorb under mismatch — not an
+inference target itself.
+"""
 struct TierBMetabolism <: AbstractSubModel
     params::Vector{InferParameter}
     ATP_max::Float64

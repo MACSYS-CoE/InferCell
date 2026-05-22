@@ -1,3 +1,17 @@
+"""
+    build_problem(models; tspan=(0.0, 100.0))
+    build_problem(model;  tspan=(0.0, 100.0))
+
+Compose one or more [`AbstractSubModel`](@ref)s into a SciML problem object.
+Returns an `ODEProblem` when every sub-model has `formalism = :ode`, or a
+`JumpProblem` when every sub-model has `formalism = :jump`; mixed-formalism
+composition is not yet supported.
+
+Shared parameters across sub-models are deduplicated by name and must agree
+on `value`, `prior`, and `fixed`. Cross-block coupling is resolved via each
+sub-model's [`inputs`](@ref) — input symbols must be `states` of some other
+sub-model in the composition.
+"""
 function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
     for m in models
         validate_formalism(formalism(m))

@@ -23,6 +23,18 @@
     end
 end
 
+"""
+    build_turing_model(models, data, prob; solver, sensealg, priors_override=nothing)
+
+Construct the Turing.jl probabilistic model used by [`infer`](@ref) for the
+differentiable (NUTS) path. `priors_override::Dict{Symbol,Distribution}`, when
+supplied, replaces the model-declared prior for each named parameter — used by
+the boundary protocol to feed conditioned priors back into NUTS.
+
+Returns `(turing_model, param_names::Vector{Symbol})` where `param_names`
+orders the sampled parameters (model free params first, then observation
+free params).
+"""
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
                              solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
                              priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
@@ -51,6 +63,18 @@ function _rename_chain(chain, param_names::Vector{Symbol})
     return replacenames(chain, mapping...)
 end
 
+"""
+    infer(models, data; sampler=NUTS(), n_samples=1000, kwargs...)
+    infer(model,  data; kwargs...)
+
+Dispatch entry point for parameter inference. Selects NUTS for sub-models with
+`inference_mode = :differentiable` and ABC-SMC for `:simulation`. Returns an
+`MCMCChains.Chains` object for NUTS or an [`ABCPosterior`](@ref) for ABC-SMC.
+
+`priors_override::Dict{Symbol,Distribution}` is forwarded to
+[`build_turing_model`](@ref) on the NUTS path and is the hook used by the
+boundary protocol's iterative loop.
+"""
 function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                sampler=NUTS(), n_samples=1000,
                solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
@@ -118,6 +142,18 @@ function _infer_abc(models, data;
                    alpha=alpha, verbose=verbose, rng=rng)
 end
 
+"""
+    observe(sol, times, model; sigma=0.1, rng=...) -> ObservedData
+    observe(sol, times, models; sigma=0.1, rng=...)
+    observe(trajectories, times, model)
+    observe(trajectories, times, models)
+
+Synthesise an [`ObservedData`](@ref) record from a forward simulation. The two
+`sol`-flavoured methods sample a single ODE solution at `times` and add
+i.i.d. Gaussian noise with standard deviation `sigma`. The two
+`trajectories`-flavoured methods average across SSA replicates — used when the
+generative model is stochastic and the "data" is a sample mean.
+"""
 function observe(sol, times, model::AbstractSubModel;
                  sigma=0.1, rng=Random.default_rng())
     pred = Array(sol(times))
@@ -162,6 +198,16 @@ function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel}
     return ObservedData(collect(Float64, times), obs, species)
 end
 
+"""
+    posterior_predictive(model_or_models, chain_or_posterior; n_samples=100, tspan, saveat=nothing)
+
+Draw forward simulations from the posterior. Accepts either an `MCMCChains`
+chain (NUTS path) or an [`ABCPosterior`](@ref) (ABC-SMC path; particles are
+resampled by their weights). `tspan` is required; `saveat` defaults to 100
+points across `tspan`.
+
+Returns a [`PosteriorPredictive`](@ref).
+"""
 function posterior_predictive(model::AbstractSubModel, chain;
                                n_samples=100, solver=Tsit5(),
                                tspan=nothing, saveat=nothing)
@@ -221,6 +267,15 @@ function _run_posterior_predictive(models::Vector{<:AbstractSubModel}, tspan, sa
     return PosteriorPredictive(solutions, collect(Float64, save_times), species)
 end
 
+"""
+    check_identifiability(model_or_models, prob, times; solver=Tsit5())
+
+Local structural-identifiability diagnostic: builds the forward-map Jacobian
+∂(sol(times)) / ∂p via ForwardDiff and returns its rank alongside the parameter
+and observation counts. `full_rank == true` means every parameter is locally
+identifiable from the chosen observation pattern; a deficient rank flags
+sloppy / unidentifiable directions that need richer data.
+"""
 function check_identifiability(model::AbstractSubModel, prob, times;
                                 solver=Tsit5())
     all_free = model_free_params(parameters(model))
