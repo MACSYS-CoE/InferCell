@@ -136,23 +136,11 @@
 				\draw[pipelinearr, gray] (cme) -- (sim);
 				\draw[pipelinearr, gray] (bd) -- (sim);
 				% Label
-				\node[below, font=\scriptsize\itshape, text width=4.5cm, align=center] at (1.75,-0.5) {4 solvers, 3 languages\\coupled via shared dictionary};
+%				\node[below, font=\scriptsize\itshape, text width=4.5cm, align=center] at (1.75,-0.5) {4 solvers, 3 languages\\coupled via shared dictionary};
 			\end{tikzpicture}
 		\end{column}
 	\end{columns}
 \end{frame}
-
-% SPEAKER NOTES:
-% - MC4D runs 50 replicate simulations (15,000 GPU-hours on A100s), which captures
-%   stochastic variation but NOT parameter uncertainty -- every replicate uses the
-%   same fixed parameter values.
-% - Direct quote from Thornburg et al. (2026): "no one organism has a complete set
-%   of experimentally determined kinetic parameters ... the model has depended on
-%   the transferability of quantities among related organisms"
-% - Promoter strengths are parameterised from quantitative proteomics (direct
-%   mapping, not formal inference). Some rates recalculated from M. pneumoniae.
-% - No Bayesian inference, no posteriors, no formal UQ anywhere in the paper.
-
 
 
 
@@ -169,7 +157,7 @@
 				\draw[pipelinearr] (p) -- (m);
 				\draw[pipelinearr] (m) -- (d);
 				% No UQ
-				\node[font=\scriptsize\itshape, text=red!70!black, anchor=west] at (1.5,-4.0) {No uncertainty};
+%				\node[font=\scriptsize\itshape, text=red!70!black, anchor=west] at (1.5,-4.0) {No uncertainty};
 			\end{tikzpicture}
 		\end{column}
 			\begin{column}{0.55\textwidth}
@@ -186,13 +174,12 @@
 \begin{frame}{But the parameters themselves are uncertain (epistemic uncertainty)}
 	\begin{columns}[T]
 		\begin{column}{0.55\textwidth}
-			\begin{enumerate}\itemsep8pt
-				\item \textbf{Parameters are uncertain.}\\
-				{\small Rate constants from different organisms, conditions, experiments. Typical uncertainty: 10--50\%+.}
-				\item \textbf{Uncertainty propagates nonlinearly.}\\
-				{\small Uncertain rates $\to$ mRNA $\to$ protein $\to$ flux $\to$ growth rate.}
-				\item \textbf{The architecture has no place to put it.}\\
-				{\small MC4D stores parameters as names $\to$ floats. No distributions, no uncertainty.}
+			\vspace*{2.5em}
+			\begin{enumerate}
+				\item Parameters are uncertain.
+				\item Uncertainty propagates nonlinearly.\\
+				{\small\itshape Uncertain rates $\to$ mRNA $\to$ protein $\to$ flux $\to$ growth rate.}
+				\item The architecture has no place to store/propagate uncertainty
 			\end{enumerate}
 		\end{column}
 		\begin{column}{0.42\textwidth}
@@ -265,8 +252,8 @@
 		\draw[pipelinearr] (mrna) -- (prot);
 
 		% Annotations
-		\node[font=\scriptsize\itshape, text=gray, anchor=west] at (8,-2.2) {$\times 6$ and $\times 4$ individually};
-		\node[font=\scriptsize\itshape, text=gray, anchor=west] at (8,-2.7) {$\to$ $\times$\,24 combined};
+%		\node[font=\scriptsize\itshape, text=gray, anchor=west] at (8,-2.2) {$\times 6$ and $\times 4$ individually};
+%		\node[font=\scriptsize\itshape, text=gray, anchor=west] at (8,-2.7) {$\to$ $\times$\,24 combined};
 	\end{tikzpicture}
 
 %	\vfill
@@ -568,7 +555,7 @@
 				{\small Every boundary: ``how does inference cross this?''}
 				
 				\item \textbf{Pure Julia.}\\
-				{\small One language, one computational graph, no barriers to AD.}
+				{\small One language, one computational graph}
 			\end{itemize}
 		\end{column}
 		\begin{column}{0.42\textwidth}
@@ -673,45 +660,80 @@
 
 \begin{frame}{What Becomes Possible}
 	\small
-	Scientific questions that forward simulation cannot pose:
-
+	Questions that forward simulation cannot pose:
 	\medskip
 	\begin{columns}[T]
+
 		\begin{column}{0.48\textwidth}
-			\textbf{Probabilistic predictions}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Credible intervals on observables
+			
+			\begin{itemize}\itemsep4pt
+				\item Probabilistic prediction
+				\item[] {\scriptsize\itshape ``Is doubling time 110\,$\pm$\,5\,min, or 60--200?''}
+				\item Parameter calibration
+				\item[] {\scriptsize\itshape ``What is $k_{tx}$ for this gene, given our data?''}
+				\item Identifiability
+				\item[] {\scriptsize\itshape ``Does data constrain $k_{tx}$ alone, or only $k_{tx}/\gamma$?''}
 			\end{itemize}
 
-			\medskip
-			\textbf{Inference from data}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Bayesian calibration + updating
-			\end{itemize}
 
-			\medskip
-			\textbf{Identifiability}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Which parameters does the data constrain?
-			\end{itemize}
 		\end{column}
 		\begin{column}{0.48\textwidth}
-			\textbf{Model criticism}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Posterior predictive checks; Bayes factors
+			\begin{itemize}\itemsep4pt
+				\item Model selection
+				\item[] {\scriptsize\itshape ``Does the data prefer ODE or SSA dynamics?''}
+				\item Experimental design
+				\item[] {\scriptsize\itshape ``Which experiment most reduces uncertainty in $\gamma_{prot}$?''}
+				\item Fundamental biology
+				\item[] {\scriptsize\itshape ``Does the data require enzyme feedback in metabolism?''}
 			\end{itemize}
 
-			\medskip
-			\textbf{Experimental design}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Expected information gain
-			\end{itemize}
+		\end{column}
+	\end{columns}
 
-			\medskip
-			\textbf{Biology discovery}
-			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Is mechanism $X$ consistent with the data?
-			\end{itemize}
+%	\vspace{6pt}
+	\begin{columns}[T]
+		\begin{column}{0.32\textwidth}
+			\centering
+			% 1. Predictions with uncertainty
+			\begin{tikzpicture}[scale=0.48]
+				\draw[->] (0,0) -- (4.2,0) node[right, font=\scriptsize] {$t$};
+				\draw[->] (0,0) -- (0,2.6);
+				\fill[violet!12] plot[smooth, domain=0:4] (\x, {1.8*(1-exp(-0.7*\x)) + 0.4})
+					-- plot[smooth, domain=4:0] (\x, {1.8*(1-exp(-0.7*\x)) - 0.4}) -- cycle;
+				\draw[thin, violet!40] plot[smooth, domain=0:4] (\x, {1.9*(1-exp(-0.65*\x)) + 0.15});
+				\draw[thin, violet!40] plot[smooth, domain=0:4] (\x, {1.7*(1-exp(-0.75*\x)) - 0.1});
+				\draw[thick, colPostLine] plot[smooth, domain=0:4] (\x, {1.8*(1-exp(-0.7*\x))});
+				\node[font=\scriptsize, colPostLine, anchor=west] at (2.5,2.3) {95\% CI};
+			\end{tikzpicture}
+		\end{column}
+		\begin{column}{0.32\textwidth}
+			\centering
+			% 2. Mechanistic inference: model selection
+			\begin{tikzpicture}[scale=0.48]
+				\draw[->] (0,0) -- (4.2,0) node[right, font=\scriptsize] {data};
+				\draw[->] (0,0) -- (0,2.2);
+				\fill[green!15] plot[smooth, domain=0.3:3.2] (\x, {1.8*exp(-1.8*(\x-1.6)^2)}) -- (3.2,0) -- (0.3,0) -- cycle;
+				\draw[thick, green!50!black] plot[smooth, domain=0.3:3.2] (\x, {1.8*exp(-1.8*(\x-1.6)^2)});
+				\fill[red!10] plot[smooth, domain=1.0:4.0] (\x, {1.0*exp(-0.8*(\x-2.8)^2)}) -- (4.0,0) -- (1.0,0) -- cycle;
+				\draw[thick, red!60!black] plot[smooth, domain=1.0:4.0] (\x, {1.0*exp(-0.8*(\x-2.8)^2)});
+				\node[font=\scriptsize, green!50!black] at (0.9,1.9) {$\mathcal{M}_1$};
+				\node[font=\scriptsize, red!60!black] at (3.6,1.2) {$\mathcal{M}_2$};
+			\end{tikzpicture}\\
+		\end{column}
+		\begin{column}{0.32\textwidth}
+			\centering
+			% 3. Identifiability: posterior vs prior
+			\begin{tikzpicture}[scale=0.48]
+				\draw[->] (0,0) -- (4,0) node[right, font=\scriptsize] {$\theta$};
+				\draw[->] (0,0) -- (0,2.4);
+				\fill[gray!10] plot[smooth, domain=0.2:3.8] (\x, {0.7*exp(-0.2*(\x-2)^2)}) -- (3.8,0) -- (0.2,0) -- cycle;
+				\draw[thick, gray!50] plot[smooth, domain=0.2:3.8] (\x, {0.7*exp(-0.2*(\x-2)^2)});
+				\fill[colPost] plot[smooth, domain=0.3:3.7] (\x, {2.2*exp(-1.5*(\x-2.1)^2)}) -- (3.7,0) -- (0.3,0) -- cycle;
+				\draw[thick, colPostLine] plot[smooth, domain=0.3:3.7] (\x, {2.2*exp(-1.5*(\x-2.1)^2)});
+				\node[font=\scriptsize, gray!60, anchor=west] at (3.5,0.8) {prior};
+				\node[font=\scriptsize, colPostLine, anchor=west] at (3.5,1.8) {posterior};
+			\end{tikzpicture}\\
+
 		\end{column}
 	\end{columns}
 \end{frame}
@@ -723,18 +745,14 @@
 		\begin{column}{0.55\textwidth}
 			\textbf{Standard WCMs are polyglot stacks.}
 			\begin{itemize}\itemsep5pt
-				\item Python $+$ C++ $+$ CUDA $+$ LAMMPS, glued by IO
-				\item Module boundaries are crossed by serialization, not by reference
+				\item Python $+$ C $+$ CUDA $+$ LAMMPS, glued by IO
+				\item Module boundaries require re-encoding data (file IO, language bindings, GPU---CPU copy) rather than passing pointers
 				\item Gradients don't compose across language boundaries
 			\end{itemize}
 			
-						\textbf{\footnotesize InferCell: one Julia stack}
-			\begin{itemize}\itemsep1pt\footnotesize
-				\item DifferentialEquations.jl --- solvers
-				\item Turing.jl --- Bayesian inference
-				\item SciMLSensitivity.jl --- AD through solvers
-				\item Catalyst.jl --- reaction networks
-			\end{itemize}
+						\textbf{ InferCell: one Julia stack}
+						
+
 			
 			
 		\end{column}
@@ -765,7 +783,7 @@
 				     {in-process} (sim);
 				\draw[<->, thick, colWarnLine] (cme) -- node[iolabel, below, pos=0.4, yshift=8pt, xshift=-18pt]
 				     {\texttt{lm} bindings} (sim);
-				\draw[<->, thick, colWarnLine] (bd) -- node[iolabel, below, pos=0.4, yshift=8pt, xshift=15pt]
+				\draw[<->, thick, colWarnLine] (bd) -- node[iolabel, below, pos=0.4, yshift=8pt, xshift=18pt]
 				     {subprocess.Popen} (sim);
 			\end{tikzpicture}
 
@@ -786,19 +804,19 @@
 		\begin{column}{0.48\textwidth}
 			\textbf{Performance \& HPC}
 			\begin{itemize}\itemsep0pt\parskip0pt
-				\item Whole model as one program; profile and run as a single GPU pipeline
+				\item Whole model as one program --- one type system, one IR, one GPU pipeline
 			\end{itemize}
 
 			\medskip
 			\textbf{End-to-end gradients}
 			\begin{itemize}\itemsep0pt\parskip0pt
-				\item AD through solvers, models, and inference --- HMC/NUTS, VI, gradient-based BOED at WCM scale
+				\item AD through solvers, models, and inference --- HMC/NUTS, BOED, Fisher information 
 			\end{itemize}
 
 			\medskip
 			\textbf{Hybrid inference}
 			\begin{itemize}\itemsep0pt\parskip0pt
-				\item NUTS and SBI blocks compose; boundary protocol lives in the type system
+				\item Combine NUTS and SBI in one inference pipeline --- no inter-language plumbing
 			\end{itemize}
 		\end{column}
 		\begin{column}{0.48\textwidth}
@@ -1504,6 +1522,68 @@ Joint inference over all parameters is intractable. \newline  Isolated submodel 
 \end{frame}
 
 % ----------------------------------------------------------------
+\begin{frame}[noframenumbering]{What ``Crossed by Serialization'' Means}
+	\footnotesize
+	\textit{A reference pass shares memory; a serialization re-encodes the data on the other side. The polyglot stack does the second at every boundary.}
+
+	\medskip
+	\begin{columns}[T]
+		\begin{column}{0.48\textwidth}
+			\textbf{By reference (within one runtime)}
+			\begin{itemize}\itemsep1pt\parskip0pt
+				\item Pointer passed, not bytes
+				\item Same memory, same type system, same garbage collector
+				\item AD tape stays attached
+				\item Distribution objects survive intact
+				\item Cost: O(1), nanoseconds
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\textbf{By serialization (across runtimes)}
+			\begin{itemize}\itemsep1pt\parskip0pt
+				\item Bytes encoded, shipped, decoded
+				\item Fresh allocation; type information re-established
+				\item AD tape broken at the boundary
+				\item Distributions reduced to point values
+				\item Cost: O(N) per call
+			\end{itemize}
+		\end{column}
+	\end{columns}
+
+	\medskip
+	\textbf{Four flavours in a typical polyglot WCM:}
+	\begin{itemize}\itemsep1pt\parskip0pt
+		\item \textbf{Subprocess (LAMMPS):} input file written, output file read --- disk IO
+		\item \textbf{Language bindings (\texttt{lm} C++):} pybind11/ctypes marshal types in shared address space
+		\item \textbf{GPU $\leftrightarrow$ CPU (CUDA RDME):} PCIe memory copy at every kernel boundary
+		\item \textbf{C/Fortran wrappers (Python ODE):} ``in-process'' but NumPy $\leftrightarrow$ C arrays marshalled per call
+	\end{itemize}
+\end{frame}
+
+% ----------------------------------------------------------------
+\begin{frame}[noframenumbering]{What Dies at a Module Boundary}
+	\footnotesize
+	\textit{Serialization re-encodes data and strips off everything except raw values. Three different objects survive a reference pass but die at a serialization. The polyglot stack pays each cost; a unified runtime pays none.}
+
+	\bigskip
+	\centering
+	\renewcommand{\arraystretch}{1.3}
+	\begin{tabular}{p{3cm} p{4.8cm} p{4.8cm}}
+		\toprule
+		\textbf{Object that dies} & \textbf{What it costs to lose} & \textbf{What InferCell preserves} \\
+		\midrule
+		Probability distribution & Information about $\theta$ destroyed at every boundary (data processing inequality) & Full posterior carried across modules; uncertainty propagates by construction \\
+		Derivative / AD tape     & No end-to-end gradients $\Rightarrow$ no NUTS, no HMC, no gradient-based BOED & End-to-end differentiability through solvers, models, inference \\
+		Type information         & Units lost, no compile-time validation, brittle cross-module contracts & Shared Julia type system; module interface is a typed contract \\
+		\bottomrule
+	\end{tabular}
+
+	\bigskip
+	\raggedright
+	\textbf{The unification.} One root cause: serialization is destructive. One architectural answer: keep the whole model in one runtime so boundaries are pointer passes. The talk's two ``roots'' --- probabilistic semantics and unified substrate --- are aspects of the same boundary-preservation property.
+\end{frame}
+
+% ----------------------------------------------------------------
 \begin{frame}[noframenumbering]{Cross-Cutting: Capabilities That Need Both Roots}
 	\footnotesize
 	A few headline capabilities require \emph{both} roots to be addressed --- Root 1 makes them definable, Root 2 makes them tractable.
@@ -1826,6 +1906,94 @@ ppc = posterior_predictive(txl, chain)
 	{\small Same \texttt{infer()} call works for a single module or a composed multi-module model.}
 \end{frame}
 
+
+% ================================================================
+% ML surrogates: differentiability and the block-mover lever
+% ================================================================
+
+% ----------------------------------------------------------------
+\begin{frame}[noframenumbering]{Neural Surrogates: Differentiable by Construction}
+	\footnotesize
+	\textit{An ML surrogate replaces an expensive module with a learned function. Because Julia's ML stack (Flux.jl, Lux.jl) shares the AD substrate, gradients flow through surrogates end-to-end --- when the surrogate lives in the same runtime.}
+
+	\bigskip
+	\begin{columns}[T]
+		\begin{column}{0.48\textwidth}
+			\textbf{Differentiable surrogate types}
+			\begin{itemize}\itemsep3pt\parskip0pt
+				\item Neural networks (MLP, neural ODE) --- Flux.jl, Lux.jl
+				\item Normalising flows --- Bijectors.jl
+				\item Gaussian processes --- AbstractGPs.jl
+			\end{itemize}
+
+			\bigskip
+			\textbf{Non-differentiable surrogates}
+			\begin{itemize}\itemsep3pt\parskip0pt
+				\item Trees, argmax outputs, non-reparameterised samplers
+				\item Slot into the SimulationBlock with SBI --- the hybrid architecture already handles this case
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\textbf{The catch --- same AD substrate}
+			\begin{itemize}\itemsep3pt\parskip0pt
+				\item Surrogates are only differentiable end-to-end if they live in the same AD universe as the rest of the model
+				\item A PyTorch surrogate plus a Julia model is still a polyglot stack
+				\item Gradients die at the language boundary, same as for any other serialised module
+				\item Julia's ML ecosystem (Flux, Lux) integrates with Zygote/Enzyme transparently; PyTorch-via-PyCall does not
+			\end{itemize}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+% ----------------------------------------------------------------
+\begin{frame}[noframenumbering]{Surrogates Move Modules Between Blocks}
+	\footnotesize
+	\textit{The architectural lever: a differentiable surrogate trained on a stochastic simulator's outputs can move a module from SimulationBlock to DifferentiableBlock.}
+
+	\bigskip
+	\begin{columns}[T]
+		\begin{column}{0.42\textwidth}
+			\centering
+			\begin{tikzpicture}[
+				scale=0.8,
+				mod/.style={draw, thick, rounded corners=4pt, minimum height=0.8cm, minimum width=3cm, align=center, font=\small},
+				blk/.style={font=\footnotesize\itshape, anchor=west},
+				>=Stealth
+			]
+				\node[mod, fill=orange!15] (ssa) at (0,3) {SSA module};
+				\node[blk, text=orange!70!black] at (1.9,3) {SimulationBlock (SBI)};
+
+				\draw[->, very thick, blue!60!black] (0,2.3) -- (0,1.0);
+				\node[font=\scriptsize, anchor=west] at (0.2,1.65) {train surrogate};
+				\node[font=\scriptsize, anchor=west] at (0.2,1.25) {offline};
+
+				\node[mod, fill=blue!15] (surr) at (0,0.3) {Neural surrogate};
+				\node[blk, text=blue!70!black] at (1.9,0.3) {DifferentiableBlock (NUTS)};
+			\end{tikzpicture}
+		\end{column}
+		\begin{column}{0.55\textwidth}
+			\textbf{Recipe}
+			\begin{enumerate}\itemsep3pt\parskip0pt
+				\item Run slow simulator offline; collect $(\theta, y)$ pairs
+				\item Train a differentiable surrogate (e.g.\ normalising flow over outputs)
+				\item Replace the simulator module with the surrogate
+				\item Module migrates to the DifferentiableBlock; NUTS now handles it
+			\end{enumerate}
+
+			\medskip
+			\textbf{Payoff}
+			\begin{itemize}\itemsep3pt\parskip0pt
+				\item Orders-of-magnitude speedup at inference time
+				\item End-to-end gradients across a previously stochastic module
+				\item Inference graph adapts to module changes --- not static
+			\end{itemize}
+		\end{column}
+	\end{columns}
+
+	\bigskip
+	\centering
+	{\scriptsize\textbf{Related literature:} neural likelihood/posterior estimation in SBI (Cranmer, Brehmer, Louppe \emph{et al.}). The architecture lets you mix and match these tools at the module level.}
+\end{frame}
 
 % ================================================================
 % Concrete module specifications: equations and priors used in the toy WCM
