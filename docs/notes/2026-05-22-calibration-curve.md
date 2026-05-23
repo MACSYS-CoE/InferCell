@@ -6,11 +6,15 @@
 
 ![Calibration curve](figures/step4_calibration_curve.png)
 
+## Scope of this note
+
+`iterative_infer` exists as a proof-of-concept that two separate inference modules (ODE/NUTS and SSA/ABC-SMC) can exchange information across a boundary. It is **not** the protocol the project intends to ship as the production default. The calibration result below is recorded so we know what the current implementation does; the follow-ups at the end are documented for reference, not queued as priorities.
+
 ## Verdict
 
 **The iterative (Level-2) boundary protocol is systematically over-confident.** The single-seed observation flagged in PR #10 generalises — it is not bad luck, it is a structural bias of the protocol as currently implemented.
 
-The single-pass (`sequential_infer`) baseline is honestly calibrated; empirical coverage tracks the diagonal and is slightly conservative at low nominal levels (0.80 → ~0.79). This is the floor we should hold the iterative protocol to.
+The single-pass (`sequential_infer`) baseline is honestly calibrated; empirical coverage tracks the diagonal and is slightly conservative at low nominal levels (0.80 → ~0.79). Single-pass is the honest default.
 
 ## Empirical coverage (n=20 seeds)
 
@@ -37,16 +41,17 @@ At a nominal 95% CI, iterative covers truth on only 35–70% of seeds (parameter
 
 KDE-based message-passing between ODE and SSA blocks. At each iteration, each block fits a KDE to the other block's samples and uses it as a prior. KDEs have finite (KDE-bandwidth-wide) support and finite tail mass. Treating each iteration's KDE as a hard prior repeatedly cuts the tails — a textbook over-propagation of confidence in cut-posterior loops. Without a moment-matching or tempering correction, this drift is one-way and monotone.
 
-## Follow-up priorities (separate PRs)
+## If we ever want to make this protocol production-grade
 
-1. **Moment-matching SSA→ODE handoff** (strongly motivated). Replace the KDE prior with a moment-fit Normal (or LogNormal in log-space) sampled from the previous block's posterior. This is the cleanest way to test whether KDE tail truncation is the dominant source of the drift. If moment-matching restores calibration, the KDE handoff is the bug.
-2. **`convergence::Symbol` kwarg on `iterative_infer`** (moderately motivated). Adding `:kl`, `:moment`, `:width` lets the next sweep compare convergence criteria in one job, rather than reshipping the script. The width-based criterion in particular is a natural circuit-breaker: stop iterating when the per-parameter CI width has stabilised, even if the KL hasn't reached the tolerance.
-3. **`max_iters=10, kl_tol=0.005` sweep** (weakly motivated). The KL trace never approaches `kl_tol=0.05`, so dropping the tolerance further is unlikely to help — but running the loop for 10 iterations might reveal a stable point if there is one. Worth a one-job test, but I do not expect it to recover calibration on its own.
+Recorded for reference, not queued. None of these are priorities given the protocol's current proof-of-concept status.
 
-## Out of scope
+1. **Moment-matching SSA→ODE handoff.** Replace the KDE prior with a moment-fit Normal (or LogNormal in log-space) sampled from the previous block's posterior. Would test whether KDE tail truncation is the dominant source of the drift.
+2. **`convergence::Symbol` kwarg on `iterative_infer`.** Adding `:kl`, `:moment`, `:width` would let a comparison sweep cover several criteria in one job. The width-based criterion in particular is a natural circuit breaker: stop iterating when the per-parameter CI width has stabilised, even if the KL hasn't reached the tolerance.
+3. **`max_iters=10, kl_tol=0.005` sweep.** The KL trace never approaches `kl_tol=0.05`, so dropping the tolerance further is unlikely to help on its own.
 
-- **Tier B (mismatch) calibration.** This sweep is Tier A only (synthetic twin). Tier B is its own follow-up.
-- **Performance optimisation of `iterative_infer`.** The protocol is wrong-shaped, not slow.
+## Practical takeaway
+
+Use `sequential_infer` for any inference that needs honestly calibrated CIs. Do not advertise `iterative_infer` as a production protocol on the strength of its CI tightening.
 
 ## Reproducibility
 

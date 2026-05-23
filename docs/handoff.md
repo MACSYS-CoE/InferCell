@@ -54,16 +54,21 @@ Two diagnostics worth highlighting:
   cut-posterior loops), follow-up priorities.
 - `.gitignore` — allowlist entries for the new note + `docs/notes/figures/`.
 
+## Scope clarification (from user, post-sweep)
+
+`iterative_infer` is a proof-of-concept of cross-module information exchange,
+**not** the production protocol. The calibration finding is informational —
+the documented follow-ups are *not* queued and should not be pursued unless
+the user explicitly changes priority. Single-pass `sequential_infer` is the
+honestly calibrated default.
+
 ## Next steps
 
-1. **Open PR** `issue-11-calibration-sweep` → `main`. Pending after this
-   commit.
-2. **Decide which follow-up to run.** The note recommends moment-matching
-   SSA→ODE handoff as the highest-leverage test of the mechanism hypothesis;
-   `convergence::Symbol` kwarg + width-based circuit breaker is the second
-   priority. Both are separate issues / PRs.
-3. **Do NOT advertise iterative as a public protocol** until calibration is
-   recovered. Single-pass `sequential_infer` is the current honest default.
+1. PR #21 is open. Merge after review.
+2. No iterative-protocol calibration follow-ups planned. If a future
+   session is asked to improve `iterative_infer`, check with the user
+   first — the protocol may be replaced wholesale rather than fixed
+   incrementally.
 
 ## Non-obvious context
 
