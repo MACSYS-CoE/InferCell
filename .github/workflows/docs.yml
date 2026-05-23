@@ -33,8 +33,13 @@ jobs:
           path: site
 
   deploy:
+    # Gated on the repo variable DOCS_DEPLOY_ENABLED so the job stays dormant
+    # while the repo is private and GitHub Pages can't be enabled. Flip the
+    # switch in Settings → Variables → Actions (set DOCS_DEPLOY_ENABLED=true)
+    # once Pages is available on the repo, and remember to also enable Pages
+    # itself under Settings → Pages → Source: GitHub Actions.
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DOCS_DEPLOY_ENABLED == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
