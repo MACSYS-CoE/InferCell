@@ -1,3 +1,11 @@
+"""
+    StochasticGeneExpression(; k_tx, k_tl, gamma_mRNA, gamma_protein, mRNA0, protein0)
+
+Constitutive stochastic transcription + translation as a jump process: four
+reactions (mRNA production at constant rate `k_tx`, mRNA degradation,
+translation, protein degradation). States `[:mRNA, :protein]`. Inference uses
+ABC-SMC; this block has no ODE equivalent below the law-of-large-numbers limit.
+"""
 struct StochasticGeneExpression <: AbstractSubModel
     params::Vector{InferParameter}
 end

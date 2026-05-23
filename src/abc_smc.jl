@@ -1,3 +1,11 @@
+"""
+    ABCPosterior(particles, weights, param_names, tolerance, n_populations)
+
+Result of [`abc_smc`](@ref): a weighted particle approximation of the
+posterior. `particles` is `n_params × n_particles`, `weights` sums to one, and
+`param_names` orders the rows of `particles`. `tolerance` and `n_populations`
+record the final acceptance threshold and the number of SMC populations run.
+"""
 struct ABCPosterior
     particles::Matrix{Float64}   # n_params x n_particles
     weights::Vector{Float64}
@@ -6,6 +14,16 @@ struct ABCPosterior
     n_populations::Int
 end
 
+"""
+    abc_smc(simulate, observed_stats, priors, param_names; n_particles=1000, n_populations=10, alpha=0.5, verbose=false, rng=...)
+
+Approximate Bayesian Computation with Sequential Monte Carlo (Beaumont et al.).
+`simulate(theta)` must return a summary-statistic vector comparable to
+`observed_stats`. The tolerance schedule is adaptive: at each population the
+new tolerance is the `alpha`-quantile of the previous distances.
+
+Returns an [`ABCPosterior`](@ref).
+"""
 function abc_smc(simulate, observed_stats::Vector{Float64},
                  priors::Vector{<:Distribution}, param_names::Vector{Symbol};
                  n_particles=1000, n_populations=10, alpha=0.5,

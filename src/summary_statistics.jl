@@ -1,3 +1,11 @@
+"""
+    compute_summary_stats(trajectories, species; times=nothing)
+
+Compress an ensemble of SSA trajectories into a summary-statistic vector for
+ABC-SMC. When `times === nothing`, returns `[means; vars; fanos]` of the final
+state per species. When `times` is provided, returns per-time-point species
+means concatenated into a single vector.
+"""
 function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
                                 times=nothing)
     n_traj = length(trajectories)
@@ -33,6 +41,12 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
     end
 end
 
+"""
+    summary_distance(s1, s2) -> Float64
+
+Euclidean distance between two summary-statistic vectors. The default distance
+metric used by [`abc_smc`](@ref).
+"""
 function summary_distance(s1::Vector{Float64}, s2::Vector{Float64})
     d = 0.0
     @inbounds for i in eachindex(s1, s2)

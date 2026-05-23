@@ -1,3 +1,13 @@
+"""
+    LightMetabolism(; k_atp, k_ntp, k_aa, k_tx, k_tl, ATP_max, …, mRNA_source=:mRNA, enzyme_source=:protein)
+
+Lightweight ODE metabolism block: ATP production (gated by enzyme via
+Michaelis-Menten with constant `K_M_enzyme`), NTP and amino-acid synthesis,
+and TX/TL-driven sinks. States `[:ATP, :NTP, :AA]`. Couples to a gene-
+expression block by reading `mRNA_source` (drives TX consumption) and
+`enzyme_source` (modulates ATP production). Closes the v0.0.1 autocatalytic
+loop with [`TranscriptionTranslation`](@ref).
+"""
 struct LightMetabolism <: AbstractSubModel
     params::Vector{InferParameter}
     ATP_max::Float64
