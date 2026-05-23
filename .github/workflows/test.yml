@@ -18,7 +18,10 @@ jobs:
   test:
     name: Julia ${{ matrix.julia-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # First run on a cold cache spends ~15 min in precompile (SciML + Turing
+    # stack). Cached runs land in ~3-5 min. 45 min gives headroom for
+    # cold-cache + integration tests; bump only if genuinely needed.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
