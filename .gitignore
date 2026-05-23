@@ -33,6 +33,9 @@ docs/**
 !docs/notes/4D-minimal-cell.md
 !docs/notes/the-case-for-inference.md
 !docs/notes/spatial-dynamics-and-rdme.md
+!docs/notes/2026-05-22-calibration-curve.md
+!docs/notes/figures/
+!docs/notes/figures/*.png
 
 # Talks: README + shared assets at the docs/talks/ root
 !docs/talks/README.md
