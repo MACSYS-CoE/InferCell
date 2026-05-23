@@ -1,5 +1,11 @@
 name: Test
 
+# Fast PR-gating tests: unit suite + Aqua quality checks only.
+# Expensive Bayesian integration tests (NUTS/ABC-SMC) live in
+# `integration.yml` and run on push to main + weekly cron instead —
+# they're CPU-bound and don't fit in a sensible PR feedback loop on
+# free GitHub-hosted runners.
+
 on:
   push:
     branches: [main]
@@ -16,19 +22,16 @@ permissions:
 
 jobs:
   test:
-    name: Julia ${{ matrix.julia-version }} on ${{ matrix.os }}
+    name: Unit tests (Julia ${{ matrix.julia-version }})
     runs-on: ${{ matrix.os }}
-    # First run on a cold cache spends ~15 min in precompile (SciML + Turing
-    # stack). Cached runs land in ~3-5 min. 45 min gives headroom for
-    # cold-cache + integration tests; bump only if genuinely needed.
-    timeout-minutes: 45
+    # Cached runs land in ~3-5 min. First-ever run (no cache anywhere)
+    # spends ~15 min in precompile; subsequent PRs reuse main's cache.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         julia-version: ["1.10"]
         os: [ubuntu-latest]
-    env:
-      INFERCELL_INTEGRATION_TESTS: "true"
     steps:
       - uses: actions/checkout@v4
 

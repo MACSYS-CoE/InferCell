@@ -67,14 +67,35 @@ re-enable after an audit.
 
 ## CI checks on every PR
 
-| Check                  | Blocking? | Notes                                              |
-| ---------------------- | --------- | -------------------------------------------------- |
-| `Test`                 | Yes       | Unit + integration tests, Aqua, coverage summary.  |
-| `Format`               | No (yet)  | JuliaFormatter diff; advisory until Stage 2.       |
-| `Documentation/build`  | Yes       | mkdocs strict build of the `docs/` site.           |
+| Check                  | Blocking? | Notes                                                     |
+| ---------------------- | --------- | --------------------------------------------------------- |
+| `Test`                 | Yes       | Unit tests + Aqua quality checks + coverage summary.      |
+| `Format`               | No (yet)  | JuliaFormatter diff; advisory until Stage 2.              |
+| `Documentation/build`  | Yes       | mkdocs strict build of the `docs/` site.                  |
 
 Coverage is reported on every CI run (job summary line and `lcov.info`
 artifact) but is **not** gated — there is no minimum coverage threshold.
+
+### What runs *off* the PR path
+
+The expensive Bayesian integration tests (NUTS / ABC-SMC, gated by
+`INFERCELL_INTEGRATION_TESTS=true`) live in a separate `Integration`
+workflow that runs:
+
+- On every push to `main` (catches regressions within minutes of merge).
+- On a weekly cron (Mondays 04:00 UTC) to catch upstream drift.
+- On demand via the GitHub UI (`workflow_dispatch`).
+
+These are CPU-bound and run too slowly on free GitHub-hosted runners
+to belong in the PR loop. They still gate releases — they just don't
+gate code review.
+
+You should still run them locally before opening a PR that touches
+inference code:
+
+```bash
+INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
+```
 
 ## Repo-level settings (admin checklist)
 
