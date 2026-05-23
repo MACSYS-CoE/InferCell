@@ -35,6 +35,8 @@ INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 
 See [`docs/plans/`](docs/plans/) for current status, roadmap, and design decisions.
 
+Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the local workflow, CI checks, and branch conventions.
+
 ## Motivation
 
 Whole-cell models simulate a living cell from its molecular parts. The field has made real progress wiring sub-models of transcription, translation, metabolism, and replication into integrated simulations. But the software architectures that run these simulations were not designed for inference. Existing platforms treat sub-models as black boxes, orchestrated via message passing or multi-language pipelines. Good for running forward simulations. Opaque to parameter estimation, automatic differentiation, and uncertainty quantification. You can't push gradients or likelihoods through boundaries you can't see inside.

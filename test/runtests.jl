@@ -1,8 +1,20 @@
 using Test
 using InferCell
 using JumpProcesses
+using Aqua
 
 @testset "InferCell" begin
+    @testset "Aqua quality" begin
+        # `ambiguities` and `piracies` are disabled initially: extending
+        # SciML / Turing types produces many false positives. Re-enable
+        # after an audit (tracked as a follow-up to issue #14).
+        Aqua.test_all(
+            InferCell;
+            ambiguities = false,
+            piracies = false,
+        )
+    end
+
     include("test_parameters.jl")
     include("test_orchestrator.jl")
     include("test_inference.jl")

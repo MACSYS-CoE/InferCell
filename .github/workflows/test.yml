@@ -1,0 +1,73 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ["1.10"]
+        os: [ubuntu-latest]
+    env:
+      INFERCELL_INTEGRATION_TESTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - uses: julia-actions/cache@v2
+
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - uses: julia-actions/julia-runtest@v1
+
+      - uses: julia-actions/julia-processcoverage@v1
+
+      - name: Summarise coverage
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f lcov.info ]; then
+            echo "No lcov.info produced; skipping coverage summary." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # lcov.info uses LF/LH records: lines-found / lines-hit per file.
+          read found hit < <(awk '
+            /^LF:/ { f += substr($0, 4) + 0 }
+            /^LH:/ { h += substr($0, 4) + 0 }
+            END { print f, h }
+          ' lcov.info)
+          if [ "${found:-0}" -gt 0 ]; then
+            pct=$(awk -v h="$hit" -v f="$found" 'BEGIN { printf "%.1f", (h / f) * 100 }')
+            echo "**Coverage: ${pct}%** (${hit} / ${found} lines)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Coverage: ${pct}% (${hit} / ${found} lines)"
+          else
+            echo "No coverage data recorded." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload lcov artifact
+        if: always() && hashFiles('lcov.info') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov-julia${{ matrix.julia-version }}
+          path: lcov.info
+          if-no-files-found: ignore
+          retention-days: 14

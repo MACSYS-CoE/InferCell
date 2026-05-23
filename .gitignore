@@ -1,10 +1,12 @@
 # Ignore all dotfiles/dotdirs except .gitignore
 .*
 !.gitignore
+!.JuliaFormatter.toml
 
 # Ignore root markdown files except README
 /*.md
 !README.md
+!CONTRIBUTING.md
 
 # Ignore slurm/job logs and core dumps anywhere
 *.log
