@@ -105,9 +105,9 @@ return direction of the boundary protocol. Weighted particles are resampled to
 unweighted samples; the rest mirrors the chain-based overload.
 """
 function boundary_condition(posterior::ABCPosterior,
-                            ode_models::Vector{<:AbstractSubModel};
+                            ode_models::Vector{T};
                             method::Symbol=:kde, n_samples::Int=1000,
-                            rng::Random.AbstractRNG=Random.default_rng())
+                            rng::Random.AbstractRNG=Random.default_rng()) where {T<:AbstractSubModel}
     all_free = unique_params(model_free_params(reduce(vcat, parameters.(ode_models))))
     abc_names = posterior.param_names
 

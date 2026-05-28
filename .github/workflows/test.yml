@@ -24,9 +24,10 @@ jobs:
   test:
     name: Unit tests (Julia ${{ matrix.julia-version }})
     runs-on: ${{ matrix.os }}
-    # Cached runs land in ~3-5 min. First-ever run (no cache anywhere)
-    # spends ~15 min in precompile; subsequent PRs reuse main's cache.
-    timeout-minutes: 25
+    # Cached runs land in ~3-5 min. The 40-min ceiling covers a first-ever
+    # cold run (no cache anywhere) that must precompile the full stack before
+    # it can save a cache; subsequent PRs reuse main's cache and finish fast.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
