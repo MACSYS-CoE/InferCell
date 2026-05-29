@@ -72,7 +72,7 @@ jobs:
 
       - name: Upload lcov artifact
         if: always() && hashFiles('lcov.info') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov-julia${{ matrix.julia-version }}
           path: lcov.info
