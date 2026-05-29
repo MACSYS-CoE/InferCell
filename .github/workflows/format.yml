@@ -1,0 +1,53 @@
+name: Format
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Stage 1: advisory only. `continue-on-error: true` means a formatting
+  # diff is surfaced as a warning, not a merge blocker. After the codebase
+  # is baseline-formatted in a follow-up PR, remove `continue-on-error`.
+  format:
+    name: JuliaFormatter (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+
+      - uses: julia-actions/cache@v2
+
+      - name: Install JuliaFormatter
+        run: julia -e 'using Pkg; Pkg.add(name="JuliaFormatter", version="1")'
+
+      - name: Run JuliaFormatter
+        run: julia -e 'using JuliaFormatter; format(["src", "test"]; verbose=true)'
+
+      - name: Check for formatting differences
+        run: |
+          if ! git diff --quiet; then
+            {
+              echo "### Formatting differences detected"
+              echo ""
+              echo "Run \`julia --project -e 'using JuliaFormatter; format(\".\")'\` locally to fix."
+              echo ""
+              echo '```diff'
+              git diff
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Formatting differences detected (advisory; not blocking)."
+            exit 1
+          fi
