@@ -2,7 +2,106 @@
 
 > Composable, inference-first whole-cell modelling in Julia.
 
-## Quick start
+## Quick start (zero to running)
+
+New to Julia? This walks you from nothing installed to running your first
+inference. It takes about 10–15 minutes, most of which is Julia downloading
+and precompiling dependencies the first time.
+
+### 1. Install Julia
+
+The recommended way is [`juliaup`](https://github.com/JuliaLang/juliaup), the
+official version manager — it installs Julia and keeps it up to date.
+
+```bash
+# macOS / Linux
+curl -fsSL https://install.julialang.org | sh
+
+# Windows (PowerShell)
+winget install julia -s msstore
+```
+
+Restart your shell, then confirm it works (InferCell needs Julia ≥ 1.10):
+
+```bash
+julia --version
+```
+
+### 2. Get the code
+
+```bash
+git clone https://github.com/MACSYS-CoE/InferCell.git
+cd InferCell
+```
+
+### 3. Install the dependencies
+
+`Manifest.toml` is committed, so this reproduces the *exact* package versions
+CI uses — no version guessing. Run it once after cloning:
+
+```bash
+julia --project -e 'using Pkg; Pkg.instantiate()'
+```
+
+The first run downloads and precompiles everything (Turing, the SciML stack,
+etc.), so expect a few minutes. Subsequent starts are fast.
+
+> **What does `--project` mean?** It tells Julia to use this repository's
+> environment (its `Project.toml`/`Manifest.toml`) instead of your global one,
+> so InferCell's dependencies stay isolated. Run every command below from the
+> `InferCell` directory so `--project` picks it up.
+
+### 4. Run your first inference
+
+Save this as `first_run.jl` in the repo root:
+
+```julia
+using InferCell
+
+# 1. Pick a model        2. Build the simulation problem
+model = TranscriptionTranslation()
+prob  = build_problem(model; tspan=(0.0, 50.0))
+
+# 3. Simulate, then fake some noisy "experimental" data from the solution
+sol  = solve(prob, Tsit5(); saveat=0:2.5:50)
+data = observe(sol, 0:2.5:50, model; sigma=0.3)
+
+# 4. Infer the parameters back from the data (NUTS, gradient-based)
+chain = infer(model, data; n_samples=1000)
+
+# Look at the posterior summary
+display(chain)
+```
+
+Run it:
+
+```bash
+julia --project first_run.jl
+```
+
+You'll see a posterior summary table for the model's parameters — that's a
+full simulate → observe → infer loop. Prefer working interactively? Start a
+REPL with `julia --project`, then paste the lines in one at a time (results
+stay in memory between lines, which is handy for poking at `chain`).
+
+### 5. Verify your setup with the test suite
+
+```bash
+# Unit tests only (~1 min)
+julia --project -e 'using Pkg; Pkg.test()'
+
+# Add the slower Bayesian integration tests (~2 min, runs NUTS sampling)
+INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
+```
+
+If these pass, you're fully set up. 🎉
+
+## The InferCell workflow at a glance
+
+The same four steps — pick a model, build a problem, generate data, call
+`infer()` — work for both differentiable (ODE) and simulation-based (SSA)
+models. `infer()` dispatches to the right backend based on the model's
+declared formalism:
 
 ```julia
 using InferCell
@@ -23,19 +122,16 @@ result = infer(model, data; n_samples=300, n_populations=5,
                tspan=(0.0, 50.0))
 ```
 
-Same four steps, same `infer()` call. The framework dispatches to the right backend based on the model's formalism.
+Same four steps, same `infer()` call — no separate "ABC API" or "NUTS API"
+exposed to the user.
 
-Run tests:
-```bash
-julia --project -e 'using Pkg; Pkg.test()'
+## Where to go next
 
-# Include integration tests (~2 min, NUTS sampling):
-INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
-```
-
-See [`docs/plans/`](docs/plans/) for current status, roadmap, and design decisions.
-
-Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the local workflow, CI checks, and branch conventions.
+- [`docs/getting-started.md`](docs/getting-started.md) — the same setup with
+  links into the detailed user guide.
+- [`docs/plans/`](docs/plans/) — current status, roadmap, and design decisions.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — local workflow, CI checks, and branch
+  conventions if you want to contribute.
 
 ## Motivation
 
