@@ -1,73 +1,40 @@
-# Ignore all dotfiles/dotdirs except .gitignore
+# Ignore all dotfiles/dotdirs except .gitignore (also covers .DS_Store everywhere)
 .*
 !.gitignore
 
-# Ignore root markdown files except README
+# Ignore root markdown except the few we track
 /*.md
 !README.md
+!handoff.md
+!log.md
 
-# Ignore slurm/job logs and core dumps anywhere
+# Slurm/job logs and core dumps anywhere
 *.log
 core.*
 
-# Ignore examples/ for now — a clean demo will be re-added later
+# LaTeX build artifacts (talks/)
+*.aux
+*.fdb_latexmk
+*.fls
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+
+# examples/ for now — a clean demo will be re-added later
 examples/
 
 # MkDocs build output
 /site/
 
-# Ignore everything in docs
-docs/**
-
-# But allow the directory structure
-!docs/plans/
-!docs/notes/
-!docs/talks/
-!docs/log/
-
-# And track these specific files
-!docs/positioning.md
-!docs/plans/overview.md
-!docs/plans/2026-03-13-phase1-design.md
-!docs/plans/2026-05-12-v0.0.1-scoping.md
-!docs/plans/2026-05-29-boundary-representation.md
-!docs/notes/4D-minimal-cell.md
-!docs/notes/the-case-for-inference.md
-!docs/notes/spatial-dynamics-and-rdme.md
-!docs/notes/2026-05-22-calibration-curve.md
-!docs/notes/figures/
-!docs/notes/figures/*.png
-
-# Talks: README + shared assets at the docs/talks/ root
-!docs/talks/README.md
-!docs/talks/*.sty
-!docs/talks/*.png
-!docs/talks/figures/
-!docs/talks/figures/*.png
-!docs/talks/posterior_plot/
-!docs/talks/posterior_plot/*.tex
-!docs/talks/posterior_plot/*.pdf
-
-# Per-talk subfolders: track .tex, .pdf, and the symlinked .sty
-!docs/talks/2026-04-macsys/
-!docs/talks/2026-04-macsys/talk.tex
-!docs/talks/2026-04-macsys/talk.pdf
-!docs/talks/2026-04-macsys/beamerthemeoxfordmaths.sty
-!docs/talks/2026-05-brisbane-macsys/
-!docs/talks/2026-05-brisbane-macsys/talk.tex
-!docs/talks/2026-05-brisbane-macsys/talk.pdf
-!docs/talks/2026-05-brisbane-macsys/beamerthemeoxfordmaths.sty
-
-# MkDocs site (rendered to https://macsys-coe.github.io/InferCell/)
-!docs/index.md
-!docs/getting-started.md
-!docs/requirements.txt
-!docs/user-guide/
-!docs/user-guide/*.md
-!docs/api/
-!docs/api/*.md
-!docs/javascripts/
-!docs/javascripts/*.js
+# Non-published content kept out of the repo deliberately:
+# private grant drafts, council transcripts, large reference PDFs.
+# (gitignore does not support trailing inline comments — keep these on their own lines)
+/grant/
+/research/council/
+/research/references/
 
 # GitHub Actions (the leading `.*` rule otherwise hides the whole tree)
 !.github/

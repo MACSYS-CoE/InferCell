@@ -81,8 +81,18 @@ honestly calibrated default.
   `sbatch --array=N examples/calibration_sweep.slurm` if a shard is missing.
 - **Sharding scheme**: shard `i` processes seeds `1001 + 5*i` ... `1005 + 5*i`.
   Output goes to `examples/results/step4_calibration_shard_$(i).csv`.
-- **`docs/handoff.md` is the project's handoff convention.** This file.
-  Keep updating it; do not create a root-level `handoff.md` even though
-  some skills suggest that path.
-- **`.gitignore` uses a strict per-file allowlist for `docs/`.** Any new doc
-  or figure needs an explicit `!docs/path/...` exception.
+- **`handoff.md` (repo root) is the project's handoff convention.** This file.
+  Moved from `docs/handoff.md` in the 2026-05-29 docs restructure so that
+  `docs/` holds only published site content. Keep updating it here at root
+  (the path the /handoff skill defaults to).
+- **`docs/` now holds only published, user-facing site content** (the eventual
+  released documentation): `index`, `getting-started`, `positioning`,
+  `user-guide/`, `api/`. Everything else lives in sibling dirs: `talks/` and
+  `research/` (`plans/` — the design/decision log; `notes/` — research notes incl.
+  the case-for-inference; `log/`; `council/`; `references/`), plus the private
+  `grant/`. The dated design docs and research notes are deliberately *not*
+  published — they're dev artifacts and may be dropped from the released docs.
+  The old `docs/**` + per-file allowlist in `.gitignore` is gone; `docs/` is
+  tracked normally, and only build junk, the private `grant/`,
+  `research/council/`, and `research/references/` are ignored. Adding a published
+  doc just means adding it to the mkdocs `nav`.

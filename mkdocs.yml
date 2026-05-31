@@ -42,12 +42,7 @@ plugins:
   - search
   - exclude:
       glob:
-        - handoff.md
-        - log/*
-        - grant/*
-        - council/*
-        - talks/*
-        - notes/*.pdf
+        - .DS_Store
 
 markdown_extensions:
   - admonition
@@ -75,11 +70,7 @@ extra_javascript:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
-  - Architecture:
-      - Positioning: positioning.md
-      - Roadmap overview: plans/overview.md
-      - Phase 1 design: plans/2026-03-13-phase1-design.md
-      - v0.0.1 scoping: plans/2026-05-12-v0.0.1-scoping.md
+  - Positioning: positioning.md
   - User guide:
       - ODE inference (NUTS): user-guide/ode-inference.md
       - SSA inference (ABC-SMC): user-guide/ssa-inference.md
@@ -92,7 +83,3 @@ nav:
       - Inference: api/inference.md
       - Boundary: api/boundary.md
       - Models: api/models.md
-  - Background notes:
-      - The case for inference: notes/the-case-for-inference.md
-      - 4D minimal cell: notes/4D-minimal-cell.md
-      - Spatial dynamics & RDME: notes/spatial-dynamics-and-rdme.md
