@@ -6,6 +6,8 @@
 
 A composable, inference-first whole-cell modelling framework in Julia. The goal is a working hybrid continuous-discrete model of a minimal cell where Bayesian parameter inference works end-to-end across heterogeneous blocks (ODE, SDE, SSA, discrete events) in one compiled computational graph.
 
+The framing is sequenced: every shipped version through v0.0.x is a methods contribution proven on a deliberately minimal cell, walking toward the longer-term vision of a whole-cell model that does inference — concretely, calibrated UQ over a well-mixed reduction of the Luthey-Schulten / Thornburg minimal cell. See the design docs under `research/plans/` in the repository for the full vision and v0.0.1 scope.
+
 ## The design discipline
 
 For every module boundary, ask: **how does inference cross this interface?** If you can't answer that, the design needs to change.
@@ -20,7 +22,7 @@ Four named capabilities are downstream consequences of inference-first design �
 
 ### Parameter inference
 
-Bayesian posteriors over kinetic parameters, pool sizes, and initial conditions from time-series data. The `infer()` API dispatches to NUTS (gradient-based) for differentiable models and ABC-SMC (likelihood-free) for stochastic ones, behind one call. Posteriors propagate across the ODE/SSA boundary via explicit boundary protocols — Level 1 (sequential conditioning) implemented; Level 2 (iterative message-passing) and Level 3 (joint cut posterior) on the roadmap.
+Bayesian posteriors over kinetic parameters, pool sizes, and initial conditions from time-series data. The `infer()` API dispatches to NUTS (gradient-based) for differentiable models and a simulation-based backend for stochastic ones, behind one call — ABC-SMC today, moving to a learned differentiable likelihood (NLE) so the stochastic block can join the graph. Posteriors propagate across the ODE/SSA boundary via explicit boundary protocols: Level 1 (sequential conditioning) and Level 2 (iterative message-passing) are implemented as a proof-of-concept; the EP-over-trajectories production form and a joint-NUTS oracle are the forward direction. Particle MCMC is ruled out.
 
 This is the headline capability and the one v0.0.1 is engineered around.
 
@@ -45,7 +47,7 @@ Bayes factors and posterior odds across competing model structures — constitut
 
 - **Not a simulation platform.** Forward simulation is necessary but not sufficient. If forward simulation is the only thing you need, Lattice Microbes, CobraToolbox, or Catalyst.jl directly are better choices.
 - **Not a genome-scale model.** v0.0.1 has ~5 named genes and ~5 metabolic reactions. The architectural claim is that the inference machinery scales with the model; the model itself stays deliberately minimal until each addition is justified by data.
-- **Not yet validated against real data.** v0.0.1 is synthetic; v0.0.2 commits to specific syn3A datasets (see `plans/2026-05-12-v0.0.1-scoping.md`). Until then, the project is a methods contribution, not a biological one.
+- **Not yet validated against real data.** v0.0.1 is synthetic; v0.0.2 commits to specific syn3A datasets (see `research/plans/2026-05-12-v0.0.1-scoping.md` in the repo). Until then, the project is a methods contribution, not a biological one.
 - **Not a replacement for domain expertise.** The framework makes inference easy; deciding *which inference question to ask* is still the user's job.
 
 ## Who this is for

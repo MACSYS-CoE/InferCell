@@ -2,6 +2,11 @@
 
 > Transcription-translation model with end-to-end Bayesian parameter inference.
 
+**Status: HISTORICAL.** Phase 1 is complete (the TX/TL spike validated AD-through-solver and
+end-to-end NUTS). This document is kept as a record of those decisions; it is not a
+forward-looking plan. For current scope see `2026-05-29-vision-and-scope-design.md` and
+`2026-05-12-v0.0.1-scoping.md`.
+
 For the overall architecture, see [Project Overview](overview.md).
 
 ## Goal
