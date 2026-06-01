@@ -2,6 +2,10 @@
 
 > Composable, inference-first whole-cell modelling in Julia.
 
+**Status:** Architecture & API reference. For current strategy, north star, and the v0.0.1
+deliverable, `2026-05-29-vision-and-scope-design.md` is the source of truth; where this
+document disagrees with it, the vision doc wins.
+
 ## What InferCell is
 
 Whole-cell models simulate a living cell from its molecular parts. The field has made real progress wiring sub-models of transcription, translation, metabolism, and replication into integrated simulations. But the software architectures that run these simulations were not designed for inference. Existing platforms treat sub-models as black boxes, orchestrated via message passing or multi-language pipelines. You can't push gradients or likelihoods through boundaries you can't see inside.
@@ -36,7 +40,7 @@ Parameters --> SubModels --> Orchestrator --> InferenceGraph
 ```
 
 - **DifferentiableBlock:** Groups ODE/SDE modules. Builds a joint Turing.jl model. Infers with NUTS/HMC or some other fast likelihood based technique.
-- **SimulationBlock:** Groups SSA/non-differentiable modules. Runs forward simulations. Infers with SBI (e.g., ABC-SMC, neural posterior estimation).
+- **SimulationBlock:** Groups SSA/non-differentiable modules. Runs forward simulations. Inference target is a learned differentiable likelihood (NLE); ABC-SMC is the current implementation, retained as a validation oracle (see the likelihood ladder in the vision doc).
 - **BoundaryProtocol:** Handles uncertainty propagation between blocks (see [Boundary Protocol](#boundary-protocol)).
 
 Each graph node declares:
@@ -144,7 +148,7 @@ Note: we may need to explore if NUTS/HMC is the best way to do this, or if there
 
 **Simulation block (SBI):**
 
-For non-differentiable modules (SSA, jump processes), inference uses simulation-based methods. v1 targets ABC-SMC (simple to implement, enough for v1). More advanced backends (neural posterior estimation) can be swapped in later. StochasticAD.jl may also be useful here. 
+For non-differentiable modules (SSA, jump processes), inference uses simulation-based methods. The production target is a **neural likelihood estimator (NLE)**: a learned, *differentiable* `p(x | θ)` for the stochastic block. A likelihood is chosen over an amortized posterior (NPE) because a likelihood composes into the graph — joint inference or a coherent boundary message — where a posterior does not. Start at the synthetic-likelihood end (conditional Gaussian / mixture-density network over summaries; Wood 2010) and upgrade to a normalizing flow only if needed. ABC-SMC is the current implementation, kept as a slow-but-trusted validation oracle. See the likelihood ladder in `2026-05-29-vision-and-scope-design.md`. StochasticAD.jl may also be useful here. 
 
 **Observation data:**
 
@@ -178,10 +182,10 @@ Infer differentiable block (NUTS) --> posterior samples --> condition simulation
 **Level 2 --- Gibbs-like alternation (v1 demonstration):**
 Alternate: fix stochastic module state --> NUTS on differentiable params; fix differentiable params --> SBI on stochastic params. Information flows both ways. Because the ABC-SMC step produces approximate (not exact) conditional samples, this is a pseudo-marginal Gibbs sampler ([Andrieu and Roberts 2009](https://doi.org/10.1214/07-AOS574)). The stationary distribution is biased by the ABC tolerance --- it converges to an approximation of the joint posterior, not the exact joint. The quality of this approximation must be characterised empirically. See [Open Design Questions](#open-design-questions).
 
-**Level 3 --- Particle MCMC / pseudo-marginal (future work):**
-Stochastic modules contribute unbiased likelihood estimates via particle filters into a joint MCMC sampler. Asymptotically exact. Good Julia infrastructure exists (AdvancedMH.jl, SequentialMonteCarlo.jl).
+**Level 3 --- Particle MCMC / pseudo-marginal: RULED OUT.**
+Asymptotically exact, but never useful at whole-cell scale, so it is cut rather than deferred. Its "ground-truth" role is filled instead by **joint NUTS over the whole graph** --- feasible on small problems precisely because the NLE makes the stochastic block's likelihood differentiable. Joint NUTS is the oracle; the modular cut/EP graph is the product.
 
-The boundary protocol representation (full posterior samples, summary statistics, normalizing flow approximations) is an empirical question. v1 implements Level 1, demonstrates Level 2, defers Level 3.
+The boundary protocol representation (full posterior samples, summary statistics, normalizing flow approximations) is an empirical question. v0.0.1 implements Level 1 (cut), demonstrates Level 2 (EP / message-passing), and uses joint NUTS as the small-scale oracle.
 
 ## v1 scope
 
@@ -243,11 +247,11 @@ These need answers before or during implementation:
 
 4. **`formalism()` returns bare Symbols.** `:ode`, `:sde`, `:jump`, `:ssa` are unchecked. A typo like `:ODE` fails silently. Consider an enum or type hierarchy for type safety.
 
-5. **Level 2 boundary protocol convergence.** Gibbs-like alternation between NUTS and ABC-SMC is heuristic --- the ABC-SMC step does not produce exact conditional samples, so standard Gibbs convergence guarantees do not apply. This should be presented as experimental, with Level 3 (particle MCMC) as the theoretically complete solution.
+5. **Level 2 boundary protocol convergence.** Gibbs-like / EP alternation across the boundary is heuristic when the stochastic step is approximate. Present it as experimental, validated against the joint-NUTS oracle (feasible at toy scale once the NLE makes the stochastic likelihood differentiable). Particle MCMC is ruled out, not held in reserve.
 
 6. **Parameter identifiability.** With 15-30 parameters and potentially correlated modules, structural and practical identifiability is a concern. Synthetic twin experiments provide empirical checks, but identifiability should be verified analytically (e.g., sensitivity matrix rank) before running any sampler.
 
-7. **SBI risk is higher than rated.** The stochastic gene expression module is what makes the inference graph real --- it's the whole point of the mixed-backend architecture. If Julia SBI tooling proves insufficient, the central demonstration is compromised. The PythonCall fallback introduces the Python dependency that the single-language design principle exists to avoid. Mitigations: keep the stochastic module's parameter count low (~5-8), start ABC-SMC implementation early to surface issues.
+7. **SBI risk is higher than rated.** The stochastic gene expression module is what makes the inference graph real --- it's the whole point of the mixed-backend architecture. If Julia SBI tooling proves insufficient, the central demonstration is compromised. Mitigation (revised): start the NLE at the **synthetic-likelihood end** of the ladder --- a conditional Gaussian / mixture-density network over summaries is a few hundred lines of pure differentiable Julia, needing no normalizing-flow dependency --- and keep the stochastic module's parameter count low (~5-8). This removes the PythonCall fallback that the single-language principle exists to avoid.
 
 8. **ForwardDiffSensitivity scaling.** Phase 1 uses `ForwardDiffSensitivity()` which costs O(n_params) per gradient evaluation. At 5 parameters this is fine; at 15-30 parameters across coupled ODE modules, gradient cost scales linearly and NUTS wall-clock may become impractical. Benchmark at increasing parameter counts before committing to v1 scope. If scaling is poor, switch to adjoint sensitivity methods (`InterpolatingAdjoint` or `BacksolveAdjoint` from SciMLSensitivity.jl).
 
