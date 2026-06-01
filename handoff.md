@@ -13,8 +13,8 @@ Branch `issue-11-calibration-sweep` (off `main`). Work complete:
 
 - 20-seed sweep run on Slurm (4 × 5-seed array, milan partition).
 - Calibration curve at `examples/figures/step4_calibration_curve.png` (also
-  mirrored to `docs/notes/figures/` so it renders in the writeup).
-- Interpretation note at `docs/notes/2026-05-22-calibration-curve.md`.
+  mirrored to `dev/notes/figures/` so it renders in the writeup).
+- Interpretation note at `dev/notes/2026-05-22-calibration-curve.md`.
 - PR pending: only the writeup + figure + `.gitignore` allowlist tweak go
   into git. The sweep scripts (`examples/calibration_sweep.{jl,slurm}`,
   `examples/step4_calibration_curve.py`) live in the gitignored `examples/`
@@ -25,7 +25,7 @@ Branch `issue-11-calibration-sweep` (off `main`). Work complete:
 **Iterative is systematically over-confident** (empirical coverage far below
 nominal across all 4 ODE parameters at all 4 nominal levels). The single-pass
 baseline is honestly calibrated. Full table and diagnostics in
-`docs/notes/2026-05-22-calibration-curve.md`.
+`dev/notes/2026-05-22-calibration-curve.md`.
 
 Two diagnostics worth highlighting:
 
@@ -49,10 +49,10 @@ Two diagnostics worth highlighting:
   computes empirical coverage per (protocol, param, level), renders 1×2
   subplots with diagonal reference. Mirrors `step4_plot_results.py` style
   (LaTeX, Wong palette, frameless legend).
-- `docs/notes/2026-05-22-calibration-curve.md` — writeup with verdict,
+- `dev/notes/2026-05-22-calibration-curve.md` — writeup with verdict,
   coverage table, mechanism hypothesis (KDE tail truncation in
   cut-posterior loops), follow-up priorities.
-- `.gitignore` — allowlist entries for the new note + `docs/notes/figures/`.
+- `.gitignore` — allowlist entries for the new note + `dev/notes/figures/`.
 
 ## Scope clarification (from user, post-sweep)
 
@@ -87,12 +87,11 @@ honestly calibrated default.
   (the path the /handoff skill defaults to).
 - **`docs/` now holds only published, user-facing site content** (the eventual
   released documentation): `index`, `getting-started`, `positioning`,
-  `user-guide/`, `api/`. Everything else lives in sibling dirs: `talks/` and
-  `research/` (`plans/` — the design/decision log; `notes/` — research notes incl.
-  the case-for-inference; `log/`; `council/`; `references/`), plus the private
-  `grant/`. The dated design docs and research notes are deliberately *not*
-  published — they're dev artifacts and may be dropped from the released docs.
-  The old `docs/**` + per-file allowlist in `.gitignore` is gone; `docs/` is
-  tracked normally, and only build junk, the private `grant/`,
-  `research/council/`, and `research/references/` are ignored. Adding a published
-  doc just means adding it to the mkdocs `nav`.
+  `user-guide/`, `api/`. Everything else lives under `dev/`: `plans/` (the
+  design/decision log), `notes/` (research notes incl. the case-for-inference),
+  `talks/`, `log/`, `council/`, and `references/`. The dated design docs and
+  research notes are deliberately *not* published — they're dev artifacts and may
+  be dropped from the released docs. The old `docs/**` + per-file allowlist in
+  `.gitignore` is gone; `docs/` is tracked normally, and only build junk plus
+  `dev/council/` and `dev/references/` are ignored. Adding a published doc just
+  means adding it to the mkdocs `nav`.

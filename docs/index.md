@@ -13,7 +13,7 @@ InferCell is a minimal whole-cell modelling framework designed so that **Bayesia
 ## Where to go next
 
 - New to the project? Start with [Getting started](getting-started.md) for installation and a runnable example.
-- Curious about the framing and why inference, not just simulation? Read [Positioning](positioning.md). (The detailed design log and research notes live under `research/` in the repository.)
+- Curious about the framing and why inference, not just simulation? Read [Positioning](positioning.md). (The detailed design log and research notes live under `dev/` in the repository.)
 - Building a model? Skim the [User guide](user-guide/ode-inference.md) tutorials, then jump into the [API reference](api/index.md).
 
 ## Status

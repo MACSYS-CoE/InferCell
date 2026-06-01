@@ -29,12 +29,11 @@ examples/
 # MkDocs build output
 /site/
 
-# Non-published content kept out of the repo deliberately:
-# private grant drafts, council transcripts, large reference PDFs.
+# Non-published dev content kept out of the repo deliberately:
+# council transcripts and large reference PDFs.
 # (gitignore does not support trailing inline comments — keep these on their own lines)
-/grant/
-/research/council/
-/research/references/
+/dev/council/
+/dev/references/
 
 # GitHub Actions (the leading `.*` rule otherwise hides the whole tree)
 !.github/

@@ -33,7 +33,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
-See [`docs/plans/`](docs/plans/) for current status, roadmap, and design decisions.
+See [`dev/plans/`](dev/plans/) for current status, roadmap, and design decisions.
 
 ## Motivation
 
