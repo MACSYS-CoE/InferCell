@@ -2,11 +2,10 @@
 .*
 !.gitignore
 
-# Ignore root markdown except the few we track
+# Ignore root markdown except README (handoff.md / log.md are local session
+# scratch — intentionally untracked).
 /*.md
 !README.md
-!handoff.md
-!log.md
 
 # Slurm/job logs and core dumps anywhere
 *.log
