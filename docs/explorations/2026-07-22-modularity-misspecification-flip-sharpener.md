@@ -5,7 +5,7 @@
 trajectory with no error bars; InferCell inverts that paradigm by making the cell
 model an *inference object*, which reveals whether a headline prediction is robust
 or fragile under the parameter uncertainty that actually exists — something forward
-simulation is structurally incapable of telling you.
+simulation is structurally incapable of revealing.
 
 **Date:** 2026-07-22
 **Source sprint:** none — drafted from `dev/notes/the-case-for-inference.md`, the
@@ -14,13 +14,13 @@ positioning doc, and the vision/scope doc; sharpened toward the biological frami
 **Verdict:** **NOT READY — keep exploring**, but one commitment away. The framing is
 right and the audience is clear; the surprise still resolves to a capability ("we can
 represent uncertainty") rather than a discovery ("and it turns out X is fragile") until
-you name the specific prediction. See the verdict for the single weak spot.
+a specific prediction is named. See the verdict for the single weak spot.
 
 ---
 
 ## 1 — THE WHAT
 
-### What are you claiming or showing?
+### What is being claimed or shown?
 
 > Be specific enough that a smart person could push back. Not "we investigate X"
 > but "we show that X, which matters because Y".
@@ -32,27 +32,27 @@ output is one trajectory: a single doubling time, a single flux profile, a singl
 protein-count curve, with no error bars. The architecture has no place to put a
 distribution, so it cannot answer "how much should we trust this number?"
 
-We invert the question the field asks. Instead of *"given these parameters, what does
-the cell do?"* we ask *"given data and the uncertainty that genuinely exists in the
-parameters, what does the cell do, and how confident should we be?"* — and we build the
-cell model so inference is its native operation rather than a bolt-on.
+The question the field asks is inverted. Instead of *"given these parameters, what does
+the cell do?"* the question becomes *"given data and the uncertainty that genuinely
+exists in the parameters, what does the cell do, and how confident should we be?"* — and
+the cell model is built so inference is its native operation rather than a bolt-on.
 
-The claim that makes this a *result* and not just an architecture: **when you propagate
-the parameter uncertainty that is already implicit in the literature through the model, the
-field's headline validation matches turn out not to be evidence** — either they are fragile
-(the reported number is one draw from a wide spread, so the match was a selection, not a
-prediction) or they are robust but non-discriminating (nearly any literature-consistent
-parameter set reproduces them, so the match cannot separate a right model from a wrong one).
-A single-number "it matches" report hides which of these it is — and in neither case is it
-the confirmation the field reads it as.
+The claim that makes this a *result* and not just an architecture: **when the parameter
+uncertainty that is already implicit in the literature is propagated through the model,
+the field's headline validation matches turn out not to be evidence** — either they are
+fragile (the reported number is one draw from a wide spread, so the match was a
+selection, not a prediction) or they are robust but non-discriminating (nearly any
+literature-consistent parameter set reproduces them, so the match cannot separate a right
+model from a wrong one). A single-number "it matches" report hides which of these it is —
+and in neither case is it the confirmation the field reads it as.
 
-> ⚠️ DRAFT — revise: this is the whole ballgame and only you can settle it. The pincer
-> means you no longer have to bet on *which* horn (wide or narrow) — either defeats the
-> match — but you do still have to name *which prediction* you put through it (doubling
-> time? a specific flux? a protein ratio?) and confirm the literature supplies usable
-> uncertainties for the parameters feeding it. The canonical, highest-impact target is the
-> doubling time — it is the field's main validation number, so demonstrating it fails
-> out-of-sample or discriminating lands hardest. You decide the target is real and reachable.
+> ⚠️ OPEN — to settle: this is the whole ballgame. The pincer removes the need to bet on
+> *which* horn (wide or narrow) — either defeats the match — but the specific prediction
+> to put through it still has to be named (doubling time? a specific flux? a protein
+> ratio?), and the literature must be confirmed to supply usable uncertainties for the
+> parameters feeding it. The canonical, highest-impact target is the doubling time — the
+> field's main validation number — so demonstrating it fails out-of-sample or
+> discriminating lands hardest. The target must be judged real and reachable.
 
 ### The Surprise
 
@@ -74,7 +74,7 @@ The violation, stated as a principle:
 - **Out-of-sample.** If the target quantity was available during model construction —
   through parameter tuning, or including/removing reactions until growth comes out right
   — then reproducing it is a *fit*, not a prediction. The comparison is not blind; it is
-  circular. You cannot validate a model on the data used to build it.
+  circular. A model cannot be validated on the data used to build it.
 - **Discriminating.** Even granting the match is genuinely out-of-sample, a single scalar
   reproduced by a ~1000-parameter model constrains roughly *one* direction in parameter
   space. The model can be wrong about the other ~999 and still hit the number. A test that
@@ -89,11 +89,11 @@ for that audience *provided* the finding is concrete. Note the honest failure mo
 finding is only "we added error bars and they are wide," that is a capability report, and a
 WCM modeller can shrug it off as "of course the parameters are uncertain." The surprise
 lives in showing that a *specific*, celebrated match fails the out-of-sample or
-discriminating test — that the number they validated against was never evidence.
+discriminating test — that the number validated against was never evidence.
 
-> ⚠️ DRAFT — revise: whether this clears the "nobody shrugs" bar depends on the target
+> ⚠️ OPEN — to settle: whether this clears the "nobody shrugs" bar depends on the target
 > prediction and on whether the literature uncertainty is large enough to actually move
-> it. Your call — you know the syn3A parameter provenance better than I can infer it.
+> it. This turns on the syn3A parameter provenance.
 
 ### One-Sentence Version
 
@@ -103,16 +103,16 @@ Whole-cell models report their predictions as validated single numbers; treat th
 an inference object instead and some of those numbers turn out to be artefacts of one
 arbitrary parameter choice — which the forward-simulation paradigm can never reveal.
 
-### Alignment with your research directions
+### Alignment with the project's research directions
 
-> Which of your research directions does this fall under?
+> Which research directions does this fall under?
 
 Dead-centre and it is the project's founding argument (`the-case-for-inference.md`): WCMs
-have an architectural blind spot for uncertainty. It is a clean fit for your comparative
-advantage — you bring Bayesian/stochastic inference into a cell-biology field that has
-been almost entirely forward-simulation. And it sequences correctly with the project's
-own north star: use the Luthey-Schulten simulator as the ground-truth generator (their
-literature parameters *are* the injection), which is what makes the fragility question
+have an architectural blind spot for uncertainty. It is a clean fit for the project's
+comparative advantage — bringing Bayesian/stochastic inference into a cell-biology field
+that has been almost entirely forward-simulation. And it sequences correctly with the
+project's own north star: use the Luthey-Schulten simulator as the ground-truth generator
+(its literature parameters *are* the injection), which is what makes the fragility question
 answerable without waiting on new wet-lab data.
 
 ---
@@ -137,15 +137,15 @@ fragility/identifiability hook is what keeps it a crossroads.
 
 1. **Which predictions are robust and which are fragile — and is there a pattern?** Do
    fragile predictions cluster around particular subsystems (e.g. anything downstream of a
-   poorly-constrained metabolic rate)? *Interesting because of the finding* — you can't ask
-   it until you can propagate uncertainty at all.
+   poorly-constrained metabolic rate)? *Interesting because of the finding* — it cannot be
+   asked until uncertainty can be propagated at all.
 2. **Which measurement would most shrink the posterior on a fragile prediction?** Inference
    turns "what should we measure next?" into a computable sensitivity/experimental-design
    question — a direct, actionable handoff to experimentalists. *New and useful.*
 3. **Are parameters the field reports as "fitted" actually identifiable from the data used
    to fit them?** A posterior that looks like its prior means the data never constrained
    that parameter. *Interesting because of the finding.*
-4. **When you calibrate a coupled cell model, should you infer jointly or cut the modules?**
+4. **When calibrating a coupled cell model, should one infer jointly or cut the modules?**
    The misspecification-flip question (does severing a boundary quarantine a wrong module's
    error?) becomes a live methods direction once the machinery exists. *A downstream
    crossroads in its own right — see note.*
@@ -157,8 +157,8 @@ fragility/identifiability hook is what keeps it a crossroads.
 
 > Name specific researchers, labs, or communities.
 
-> ⚠️ DRAFT — revise: verify these are the right names and that they'd care; inferred from
-> the literature, not your network.
+> ⚠️ OPEN — verify these are the right names and that they'd care; inferred from the
+> literature, not from the project's own network.
 
 - **Whole-cell modellers:** the Luthey-Schulten / Thornburg group (syn3A 4DWCM) and the
   Covert lab (E. coli WCM) — the primary audience, since the claim is about *their* outputs.
@@ -198,28 +198,28 @@ only if it never gets past "we can do UQ now."
    only needs the predictive width InferCell computes anyway. Honest caveat on horn (b): a
    robust doubling time may reflect genuinely correct coarse structure (stoichiometry,
    resource limits) rather than tuned rates — so horn (b) does not say "the model is wrong,"
-   it says "this match is not evidence your *parameterization* is right," which is exactly
+   it says "this match is not evidence the parameterization is right," which is exactly
    what UQ cares about. Horn (a) is the harder attack; keep the two distinct.
 
    The related "you've told us nothing — of course parameters are uncertain" dodge is the
    capability-vs-discovery line; it is foreclosed the same way, by tying the result to a
    *named* match that fails one horn, not to wide intervals in the abstract.
 
-   Their strongest counter — *"we don't validate on one scalar; Karr 2012 matched hundreds
+   The strongest counter — *"we don't validate on one scalar; Karr 2012 matched hundreds
    of observables"* — genuinely weakens the single-number version. The answer is the
    constructive program: identify which observables are both **discriminating** (sensitive
    to the parameters) and were **not used in construction**; those are the real tests; does
    the model pass them with calibrated uncertainty? This reframes InferCell from a gotcha
    into "here is what validation should mean, and here is the tool that does it."
-2. **"Your fragility is an artefact of inflated priors — you chose uncertainties big enough
+2. **"The fragility is an artefact of inflated priors — uncertainties chosen big enough
    to break it."** Foreclose by sourcing the parameter uncertainty from the literature
    provenance itself (measurement error, cross-organism/condition extrapolation), pre-
    registered, not tuned to produce a flip.
-3. **"Your well-mixed reduction, not the biology, is what's fragile."** Foreclose by showing
+3. **"The well-mixed reduction, not the biology, is what's fragile."** Foreclose by showing
    the reduction reproduces the full simulator's central prediction at the nominal
    parameters *before* propagating uncertainty, so fragility is a property of the model the
-   field actually uses, not of your simplification.
-4. **"Your calibration is overconfident, so you can't be trusted about robustness either
+   field actually uses, not of the simplification.
+4. **"The calibration is overconfident, so it can't be trusted about robustness either
    way."** This is live today: the project's own calibration note documents systematic
    overconfidence (0/20 seeds converged, 35–70% coverage at nominal 95%). Foreclose by
    fixing calibration and demonstrating it with simulation-based calibration before making
@@ -241,12 +241,12 @@ only if it never gets past "we can do UQ now."
 - **Success criterion:** a calibrated posterior-predictive distribution for the target, with
   a defensible robust/fragile verdict and the parameters responsible.
 
-> ⚠️ DRAFT — revise: runnability is the real blocker and it's yours to scope. Today's
-> evaluation says the closed feedback loop, the hybrid ODE-SSA graph, the honest boundary,
-> and a real observation model don't exist yet, and calibration is overconfident. And the
-> *biological discovery* grade needs the syn3A well-mixed reduction, which is a v0.1+ target
-> — v0.0.x is synthetic methods work. So the sharp claim is real but not executable on the
-> current tree; the path runs through the build-out the eval note prescribes.
+> ⚠️ OPEN — runnability is the real blocker and remains to be scoped. Today's evaluation
+> says the closed feedback loop, the hybrid ODE-SSA graph, the honest boundary, and a real
+> observation model don't exist yet, and calibration is overconfident. And the *biological
+> discovery* grade needs the syn3A well-mixed reduction, which is a v0.1+ target — v0.0.x
+> is synthetic methods work. So the sharp claim is real but not executable on the current
+> tree; the path runs through the build-out the eval note prescribes.
 
 ### What Rigor Looks Like Here
 
@@ -255,28 +255,28 @@ the reduction validated against the full simulator at nominal parameters before 
 simulation-based calibration with rank histograms to earn the right to talk about coverage;
 a robust/fragile threshold defined in advance; sensitivity/identifiability reported so the
 "which parameters" claim is quantitative. A WCM referee should be unable to attribute the
-fragility to your priors, your reduction, or a miscalibrated sampler.
+fragility to the priors, the reduction, or a miscalibrated sampler.
 
-### What Only You Can Do (& Agents Can't)
+### What Only the Researcher Can Do (& Agents Can't)
 
-> Which parts are prompt-resistant? Estimate your human-hours honestly.
+> Which parts are prompt-resistant? Estimate the human-hours honestly.
 
-Agent-suitable (let Claude Code attempt): the reduction code, the forward-UQ and inference
-harness, the SBC plumbing, sensitivity analysis, and drafting.
+Agent-suitable (worth letting Claude Code attempt): the reduction code, the forward-UQ and
+inference harness, the SBC plumbing, sensitivity analysis, and drafting.
 
-Prompt-resistant — yours alone:
+Prompt-resistant — for the researcher alone:
 
 - Choosing the target prediction and confirming the literature gives real, defensible
   uncertainties for the parameters that feed it (the whole surprise rests here).
 - Judging that the well-mixed reduction is *faithful enough* that fragility is the biology's,
   not the reduction's — a domain call.
-- The positioning against the WCM literature so this reads as "your validations may not be
+- The positioning against the WCM literature so this reads as "these validations may not be
   evidence," not "uncertainty exists."
 
-> ⚠️ DRAFT — revise: I can't estimate your hours. Rough guess: the non-automatable core
-> (target choice + provenance + faithfulness judgment + positioning) is a few focused days,
-> but it sits on top of a machinery + reduction build-out measured in weeks. Replace with
-> your real number.
+> ⚠️ OPEN — human-hours are hard to estimate from outside. Rough guess: the non-automatable
+> core (target choice + provenance + faithfulness judgment + positioning) is a few focused
+> days, but it sits on top of a machinery + reduction build-out measured in weeks. To be
+> replaced with a real number.
 
 ---
 
@@ -325,18 +325,17 @@ The single forced spot is the **Surprise**. As written it resolves to a capabili
 represent and propagate uncertainty" — which a WCM modeller can shrug off as a known caveat.
 It becomes a discovery only when pinned to a *named, fragile prediction* whose fragility
 retroactively voids a claimed validation (the doubling time is the highest-impact candidate).
-Until you commit that the target is real and the literature supplies uncertainties large
-enough to move it, the claim's surprise is a hypothesis, not a result.
+Until the target is committed as real and the literature is confirmed to supply uncertainties
+large enough to move it, the claim's surprise is a hypothesis, not a result.
 
 Two secondary gaps, both in the HOW rather than the WHAT: the machinery to do this doesn't
 exist on the current tree (closed loop, hybrid graph, honest observation model, calibrated
-sampler — per today's eval), and the *biological* grade of the claim needs the syn3A well-
-mixed reduction, which is a v0.1+ target while v0.0.x stays synthetic.
+sampler — per the current eval), and the *biological* grade of the claim needs the syn3A
+well-mixed reduction, which is a v0.1+ target while v0.0.x stays synthetic.
 
 **Recommendation:**
-- If you can already name the target prediction and vouch that the literature gives it
-  movable uncertainty, tell me and I'll flip this to READY — that is the only thing missing
-  from Section 1.
+- If a target prediction can already be named, with literature that gives it movable
+  uncertainty, the document flips to READY — that is the only thing missing from Section 1.
 - Otherwise, run a short exploration sprint (`/lossfunk-explore-research-question`) scoped as
   *"Is the syn3A doubling time (or another headline output) fragile under literature-consistent
   parameter uncertainty — and does the literature even supply usable uncertainties?"* That
