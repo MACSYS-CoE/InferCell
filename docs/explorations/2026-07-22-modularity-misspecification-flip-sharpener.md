@@ -10,7 +10,7 @@ simulation is structurally incapable of telling you.
 **Date:** 2026-07-22
 **Source sprint:** none — drafted from `dev/notes/the-case-for-inference.md`, the
 positioning doc, and the vision/scope doc; sharpened toward the biological framing
-Tom asked for (paradigm inversion, not the statistics-facing modularity result).
+(paradigm inversion, not the statistics-facing modularity result).
 **Verdict:** **NOT READY — keep exploring**, but one commitment away. The framing is
 right and the audience is clear; the surprise still resolves to a capability ("we can
 represent uncertainty") rather than a discovery ("and it turns out X is fragile") until
