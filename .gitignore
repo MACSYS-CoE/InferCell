@@ -10,8 +10,17 @@
 *.log
 core.*
 
-# Ignore examples/ for now — a clean demo will be re-added later
+# Ignore examples/ data for now — a clean demo will be re-added later.
+# The scripts themselves are tracked: they generate the talk figures under
+# docs/talks/figures/, and leaving them untracked made those figures
+# unreproducible from a fresh clone.
 examples/
+!examples/
+examples/results/
+examples/figures/
+!examples/*.py
+!examples/*.jl
+!examples/*.slurm
 
 # Ignore everything in docs
 docs/**
