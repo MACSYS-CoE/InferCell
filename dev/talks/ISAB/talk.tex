@@ -1068,13 +1068,22 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % schematic beside them: blue curve -> DifferentiableBlock, orange staircase ->
 % SimulationBlock. That mapping was left implicit while the two lived on
 % separate slides; here it is the whole point of the layout.
-% Retitled Aug 2026: was "A Three-Module Test Cell". Two of the three modules are
-% the same TX/TL reactions in different formalisms (see the SSA node below), which
-% is a control that makes boundary error attributable -- something a test rig has
-% and a cell would not. "Cell" invited "why does a cell need two descriptions of
-% its own transcription?"; "harness" does not. Count is unchanged and still true:
-% three module objects, two distinct biological subsystems.
-\begin{frame}{A Three-Module Test Harness}
+% Rebuilt Aug 2026 around the bursty-regulator cell (BurstyGeneExpression),
+% replacing the StochasticGeneExpression harness whose SSA module was the same
+% four reactions as the ODE TX/TL block. This one is three distinct subsystems:
+% metabolism and enzyme expression are state-coupled both ways (the enzyme gates
+% ATP production, mRNA drives the TX/TL sinks), and the regulator is
+% parameter-coupled to expression through the shared ribosomes and shared
+% degradation machinery. So "cell" is now honest and the retitle is reverted.
+%
+% The closing bullet is a QUESTION, not a goal. That is deliberate and it is the
+% fix for the transition that always read badly in practice: the results slide
+% shows a conditioned-vs-unconditioned contrast, and the old "Goal: the joint
+% posterior" bullet never set that contrast up, so the comparison arrived
+% unannounced. Now the next slide answers the question this one asks. If either
+% slide is edited, keep that pairing.
+% See docs/superpowers/specs/2026-08-06-minimal-cell-boundary-figure-design.md.
+\begin{frame}{A Minimal Cell, in Three Modules}
 
 
 	\vspace{0.5mm}
@@ -1082,7 +1091,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\begin{column}{0.38\textwidth}
 			\centering
 			{\scriptsize\bfseries\color{blue!70!black} Differentiable dynamics}\\[-2pt]
-			{\tiny ODE metabolism, continuous kinetics}\\[1pt]
+			{\tiny ODE metabolism \& expression, continuous kinetics}\\[1pt]
 			\begin{tikzpicture}[scale=0.34]
 				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
 				\draw[->] (0,0) -- (0,2.3);
@@ -1092,19 +1101,26 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 
 			\vspace{2.5mm}
 			{\scriptsize\bfseries\color{orange!70!black} Stochastic dynamics}\\[-2pt]
-			% NOT "bursty": the cell in these figures uses StochasticGeneExpression,
-			% which has no promoter switching (no k_on/k_off) -- it is the txl
-			% reactions as a jump process. BurstyGeneExpression is a different cell
-			% (the step4 one), whose figures are not in this deck.
-			{\tiny Gillespie SSA, discrete molecule counts}\\[1pt]
+			% "Bursty" is now correct: this deck's cell uses BurstyGeneExpression,
+			% a telegraph promoter (k_on/k_off gating k_tx_burst) with visible
+			% Fano > 1. The staircase below is drawn with bursts for that reason.
+			{\tiny Gillespie SSA, bursty promoter, discrete counts}\\[1pt]
 			\begin{tikzpicture}[scale=0.34]
 				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
 				\draw[->] (0,0) -- (0,2.3);
-				\draw[thick, orange] (0,0.3) -- (0.4,0.3) -- (0.4,0.8) -- (0.9,0.8)
-					-- (0.9,1.3) -- (1.2,1.3) -- (1.2,0.8) -- (1.7,0.8)
-					-- (1.7,1.5) -- (2.1,1.5) -- (2.1,2.0) -- (2.5,2.0)
-					-- (2.5,1.5) -- (3.0,1.5) -- (3.0,1.8) -- (3.5,1.8)
-					-- (3.5,1.3) -- (4.0,1.3);
+				% Bursty, not a random walk: long flat stretches with the promoter
+				% off, punctuated by tight runs of up-steps while it is on, then
+				% slow decay. That silhouette is the whole reason this module
+				% cannot be replaced by its mean-field limit, so it should be
+				% legible from the back of the room. Was a generic staircase.
+				\draw[thick, orange] (0,0.2) -- (1.0,0.2)
+					-- (1.0,0.7) -- (1.1,0.7) -- (1.1,1.2) -- (1.2,1.2)
+					-- (1.2,1.75) -- (1.35,1.75)
+					-- (1.35,1.5) -- (1.75,1.5) -- (1.75,1.25) -- (2.15,1.25)
+					-- (2.15,1.0) -- (2.75,1.0)
+					-- (2.75,1.5) -- (2.85,1.5) -- (2.85,1.95) -- (3.0,1.95)
+					-- (3.0,1.7) -- (3.4,1.7) -- (3.4,1.45) -- (3.8,1.45)
+					-- (3.8,1.2) -- (4.2,1.2);
 			\end{tikzpicture}\\[-1pt]
 			{\tiny no gradient path $\;\Rightarrow\;$ \textbf{ABC-SMC}}
 		\end{column}
@@ -1121,22 +1137,24 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				blk/.style={draw, dashed, thick, rounded corners=6pt, inner sep=4pt},
 				>=Stealth
 			]
-				\node[mod, fill=blue!12] (txl) at (-1.15,0) {\textbf{TX/TL}\\(ODE)};
+				% Two-headed arrow because the coupling really is two-way: the
+				% enzyme protein gates ATP production (Michaelis-Menten, see
+				% LightMetabolism.dynamics) and mRNA drives the TX/TL sinks. That
+				% closed loop is what makes these two modules one differentiable
+				% block rather than two things solved in sequence.
+				\node[mod, fill=blue!12] (txl) at (-1.15,0) {\textbf{Enzyme gene}\\(ODE)};
 				\node[mod, fill=blue!12] (met) at (1.15,0)  {\textbf{Metab.}\\(ODE)};
 				\draw[<->, thick, red!60!black] (txl) -- (met);
 				\node[blk, blue!50, fit=(txl)(met)] (diffblock) {};
 				\node[font=\tiny\itshape, text=blue!60!black, anchor=south]
 					(difflab) at (diffblock.north) {DifferentiableBlock $\cdot$ NUTS};
 
-				% Labelled TX/TL, not "Gene expr.": StochasticGeneExpression is the
-				% SAME four reactions as TranscriptionTranslation above (same states
-				% [mRNA, protein], same k_tx/k_tl/gamma_mRNA/gamma_protein, registered
-				% under the same names -- which is exactly why all four deduplicate).
-				% The ODE block is its mean-field limit. Two different names hid the
-				% one thing this cell exists to demonstrate: the same biology modelled
-				% twice, so the two posteriors can be compared. Identical bold labels
-				% plus differing formalism tags make the duplication self-evident.
-				\node[mod, fill=orange!12] (ssa) at (-1.15,-2.25) {\textbf{TX/TL}\\(SSA)};
+				% A genuinely different subsystem, not the ODE block in another
+				% formalism: BurstyGeneExpression carries a two-state promoter
+				% (states [promoter, mRNA, protein]; k_on, k_off, k_tx_burst) that
+				% has no counterpart upstream. Only k_tl, gamma_mRNA and
+				% gamma_protein deduplicate against the enzyme gene -- 3 of 11.
+				\node[mod, fill=orange!12] (ssa) at (-1.15,-2.25) {\textbf{Regulator gene}\\(SSA)};
 				\node[blk, orange!50, fit=(ssa)] (simblock) {};
 				\node[font=\tiny\itshape, text=orange!60!black, anchor=north]
 					(simlab) at (simblock.south) {SimulationBlock $\cdot$ ABC-SMC};
@@ -1146,20 +1164,21 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				% simlab is below the block, so nothing competes. Deliberately not in
 				% the (cell) fit list -- it already falls inside that border.
 				\node[font=\tiny\itshape, text=gray!70, anchor=west, align=left,
-					text width=1.9cm] at (-0.15,-2.25)
-					{same reactions,\\ two formalisms};
+					text width=2.0cm] at (-0.15,-2.25)
+					{bursty promoter,\\ low copy number};
 
 				\draw[->, very thick, red!60!black] (diffblock.south -| ssa) -- (simblock.north);
-				% Named rather than enumerated: the individual rate symbols carry no
-				% meaning without the equations, which this talk never shows. The count
-				% is the part that informs -- 4 of the 8 are shared. Numbers verified
-				% against export_results.jl's name lists and the exported CSVs, not
-				% inferred from the plots.
-				% Explicit breaks: at this width LaTeX hyphenates "parameters".
+				% Names the physical mechanism rather than the sampler step. The
+				% regulator is translated by the same ribosomes and cleared by the
+				% same machinery as the enzyme gene, so k_tl, gamma_mRNA and
+				% gamma_protein are literally the same three numbers -- that is the
+				% whole reason anything crosses this arrow. Count verified against
+				% the parameter lists in the two model constructors: 3 of 11.
+				% Explicit breaks: at this width LaTeX hyphenates "ribosomes".
 				\node[font=\tiny\itshape, text=red!60!black, anchor=west, align=left,
-					text width=1.95cm] at (-0.25,-1.15)
-					{conditioned on the\\ posterior over\\
-					$\boldsymbol{\theta}_\mathrm{shared}$};
+					text width=2.0cm] at (-0.25,-1.15)
+					{same ribosomes,\\ same degradation:\\
+					\textbf{3 of 11} shared};
 
 				% y, named where it enters. One arrow into each block because that is
 				% what actually happens: both blocks are conditioned on data. A single
@@ -1178,7 +1197,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				\node[draw, thick, rounded corners=8pt, gray!55, inner sep=5pt,
 					fit=(diffblock)(difflab)(simblock)(simlab)] (cell) {};
 				\node[font=\tiny\bfseries, text=gray!70, anchor=south]
-					at (cell.north) {Three-module test harness, $\boldsymbol{\theta}$};
+					at (cell.north) {Minimal cell, $\boldsymbol{\theta}$};
 			\end{tikzpicture}
 		\end{column}
 	\end{columns}
@@ -1186,80 +1205,114 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 	\vspace{1mm}
 	\scriptsize
 	\begin{itemize}\itemsep1pt
-		\item $\boldsymbol{\theta}$: \textbf{8} unique parameters after
-		deduplication.
-		$\boldsymbol{\theta}_\mathrm{shared} \subset \boldsymbol{\theta}$
+		\item $\boldsymbol{\theta}$: \textbf{11} unique parameters after
+		deduplication; \textbf{3} shared between the two expression modules.
 		\item A \textbf{synthetic twin}: $\mathbf{y}$ is generated from the model
 		being fitted, so ground truth is known.
-		\item \textbf{Goal:} the joint posterior
-		$p(\boldsymbol{\theta} \mid \mathbf{y})$ --- all 8, conditioned on all the
-		data at once.
+		% The question the next slide answers. Ask it out loud, then advance.
+		\item \textbf{The question:} the bulk data never sees the regulator gene.
+		Can it still tell us anything about single-molecule bursting?
 	\end{itemize}
 \end{frame}
 
 
 % ----------------------------------------------------------------
-% Results. The SSA figure leads on purpose: it is the only figure in the deck
-% that shows information crossing a module boundary and paying for itself
-% (unconditioned blue is broad and multimodal and misses truth; conditioned
-% green is tight and centred on it). The 9-parameter corner is the supporting
-% methods check, and it also pays off the identifiability bullet promised back
-% on "What Becomes Possible (Science)" -- the tilted ellipses are that claim
-% measured rather than asserted.
+% Results, rebuilt Aug 2026 for the bursty-regulator cell. Supersedes the
+% step3 (StochasticGeneExpression) figures, whose simulation module shared ALL
+% FOUR of its parameters with the differentiable block because it was the same
+% four reactions. That made the old green collapse dramatic but unattributable:
+% presented as a boundary result between distinct modules it claimed a transfer
+% effect the experiment had not tested, and "how many parameters do the two
+% blocks share?" was a one-question refutation. Here it is 3 of 11 and the
+% figure shows the transfer stopping at the coupling.
 %
-% Figures only, no prose: at 15 minutes this slide is spoken, not read, and
-% dropping the text is what lets both plots run to ~5.8cm. The headings label
-% each panel with the symbol slide 10 defined -- the 4-parameter plot is
-% theta_shared, the 8-parameter one is all of theta.
+% Figure: figures/isab_ssa_posteriors.png, from
+%   test/run_talk_bursty_boundary.jl        (compute -> CSV)
+%   figures/plot_bursty_boundary.py         (CSV -> figure)
+% Parameter ORDER in that figure is load-bearing: the three unshared parameters
+% (k_on, k_off, k_tx_burst) come first and the three shared ones (k_tl,
+% gamma_mRNA, gamma_protein) last, so the tightening is confined to the
+% bottom-right block and the dashed box sits exactly on the coupling. If the
+% export order changes, the plot script warns and drops the box rather than
+% drawing a wrong one -- check the log before trusting a regenerated figure.
 %
-% "theta" on the right panel is exact, not an approximation: the SSA module here
-% is StochasticGeneExpression, whose four parameters are all shared with the
-% differentiable block, so the whole system after deduplication is the same 8
-% the differentiable block carries. Both panel counts were verified against
-% export_results.jl's name lists and the exported CSVs (ode_chain.csv has 8
-% columns; cond/uncond_particles.csv have 4).
+% Counts (11 unique, 3 shared) are from the two model constructors:
+% BurstyGeneExpression contributes k_on, k_off, k_tx_burst on top of the
+% differentiable block's 8; k_tl, gamma_mRNA and gamma_protein deduplicate.
 %
-% Aug 2026: both figures replaced from PR #36 (branch talk-figure-legible-fonts),
-% which enlarged the fonts for projector legibility -- typography only, no change
-% to the palette or the statistics. The right panel is now step3_corner_reduced,
-% a 4-of-8 marginal cut of the full corner: the 8x8 grid at 5.8cm tall put the
-% axis labels below reading size from the back of a room. The chain is still the
-% joint over all 8 and the caption says so -- what is cut is the display, not the
-% inference. The full 8x8 (step3_corner.png, also refreshed) is still in figures/
-% if the whole grid is ever wanted for Q&A.
+% Superseded figures kept in figures/ for Q&A: step3_ssa_posteriors.png (the
+% all-four-shared version), step3_corner*.png, step4_corner_talk_shared.png.
 %
-% CAUTION: a second, different three-module cell exists in the repo
-% (BurstyGeneExpression instead of StochasticGeneExpression), for which the
-% counts are 8 differentiable / 6 simulation / 11 total with only 3 shared. Its
-% figure is step4_corner_talk_shared.png. Do not mix that figure into this slide
-% or reuse these numbers for it -- both are right, for different cells.
+% MEASURED NUMBERS (job 15152954, 400 particles / 6 populations / 50 replicates
+% / 1000 NUTS). Conditioned vs unconditioned, mean +/- sd, sd ratio:
+%   k_tl          truth 2.0   4.502+/-3.430 -> 2.074+/-0.086    40x   SHARED
+%   gamma_mRNA    truth 0.5   0.437+/-0.403 -> 0.514+/-0.031    13x   SHARED
+%   gamma_protein truth 0.1   0.384+/-0.328 -> 0.098+/-0.002   187x   SHARED
+%   k_on          truth 0.2   2.106+/-1.979 -> 2.494+/-2.031   0.97x
+%   k_off         truth 0.5   0.998+/-1.080 -> 0.893+/-0.883    1.2x
+%   k_tx_burst    truth 10.0  5.109+/-4.445 -> 4.259+/-1.447    3.1x
 %
-% NOTE: the deck no longer states anywhere -- main line or backup -- that the
+% ANTICIPATED QUESTION -- "your promoter rates miss truth, is the SSA inference
+% broken?" No, and the answer is worth having ready because it is the
+% identifiability claim from slide 8 showing up unprompted. The summary
+% statistics are replicate-MEAN trajectories, and a telegraph promoter enters
+% the mean only through the effective burst rate
+% k_tx_burst * k_on/(k_on + k_off). The individual rates are therefore not
+% identifiable from this data at all; the combination is, and it is recovered:
+%   truth 2.857   unconditioned 3.307 +/- 2.986   conditioned 2.793 +/- 0.244
+% So the boundary sharpens that combination 12x as well. This is why the slide
+% says "cannot separate them anyway" rather than claiming they are unconstrained.
+% Individual promoter rates would need distributional summaries (Fano factor,
+% autocorrelation), not means -- a genuine next step, not a bug.
+%
+% NOTE: the deck does not state anywhere -- main line or backup -- that the
 % computed object is a cut posterior rather than the joint, nor the coverage
 % result behind that (the iterative boundary protocol covered truth on 35-70% of
-% seeds at a nominal 95%, so single-pass is the default). Slide 10 promises the
-% joint posterior as the goal and nothing later qualifies it. If that caveat is
-% wanted back, the Open Questions slide is where it belongs, phrased as the
+% seeds at a nominal 95%, so single-pass is the default). The setup slide now
+% asks a question this result answers honestly, rather than promising the joint
+% posterior, so the gap is smaller than it was -- but if the caveat is wanted
+% explicitly, an Open Questions slide is where it belongs, phrased as the
 % coupling question; step4_calibration_curve.png is still in figures/.
-\begin{frame}{Results: Conditioning Across the Boundary Works}
+% One figure, not two. The 8-parameter NUTS corner that used to share this slide
+% is a methods check, not the argument, and it now lives in backup ("Is the
+% Differentiable Half Identifiable?"). A corner plot is square, so on a 16:9
+% frame a single one leaves half the width free -- spent here on a plain-language
+% read of the figure, which is what a mixed board needs and what a second corner
+% was crowding out.
+%
+% The right column is the spoken argument in three beats: what changed, why
+% those three, why not the others. Do not add a fourth.
+\begin{frame}{Results: Yes --- Where the Modules Share Machinery}
 	\vspace{-1mm}
-	% \par inside each caption group: without it the group closes before the
-	% paragraph ends, so \tiny's \baselineskip is discarded and the captions set
-	% on the outer \normalsize leading.
-	\begin{columns}[T,onlytextwidth]
-		\begin{column}{0.49\textwidth}
+	\begin{columns}[c,onlytextwidth]
+		\begin{column}{0.60\textwidth}
 			\centering
-			{\small $\boldsymbol{\theta}_\mathrm{shared}$ --- simulation block}\\[2pt]
-			\includegraphics[height=5.8cm]{figures/step3_ssa_posteriors.png}\\[2pt]
-			{\tiny\itshape Blue: SSA inferred alone. Green: conditioned on the
-			differentiable block. Orange: truth.\par}
+			\includegraphics[height=6.4cm]{figures/isab_ssa_posteriors.png}
 		\end{column}
-		\begin{column}{0.49\textwidth}
-			\centering
-			{\small $\boldsymbol{\theta}$ --- differentiable block}\\[2pt]
-			\includegraphics[height=5.8cm]{figures/step3_corner_reduced.png}\\[2pt]
-			{\tiny\itshape Joint NUTS over all 8; 4 shown. Tilted ellipses: the
-			data constrains \emph{combinations} of rates.\par}
+		% \footnotesize and bare paragraphs rather than \small and an itemize: at
+		% 0.38\textwidth the fuller version overran the frame top and bottom.
+		% Keep it to these four beats if it is edited again.
+		\begin{column}{0.38\textwidth}
+			\footnotesize
+			{\color{colODELine}$\blacksquare$}~\textbf{Alone} --- ABC-SMC on the
+			regulator's own data.
+
+			\smallskip
+			{\color{green!45!black}$\blacksquare$}~\textbf{Conditioned} --- shared
+			parameters carry the differentiable block's posterior.
+
+			\medskip
+			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth:
+			exactly the 3 the expression modules share.
+
+			\smallskip
+			$\rightarrow$~The other 3 govern \textbf{promoter switching} and
+			barely move --- the bulk data never sees them, and mean trajectories
+			cannot separate them anyway.
+
+			\medskip
+			{\scriptsize\itshape Information crossed the boundary --- and stopped
+			where the coupling stopped.\par}
 		\end{column}
 	\end{columns}
 \end{frame}
@@ -1398,9 +1451,16 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				model becomes something you condition on data, not just run
 				forward.
 
-				\item \textbf{Toy pilot works.} A three-module test harness, ODE and SSA in
-				one graph: conditioning across the module boundary sharpens the
-				posterior onto truth. On synthetic data, so far.
+				% Names the three modules: by this point the board has seen them
+				% once, and the recap is where a general audience fixes what the
+				% "cell" actually was. "Where the two share machinery" is the
+				% qualifier that keeps this honest -- the boundary sharpened 3 of
+				% 11 parameters, not all of them.
+				\item \textbf{Toy pilot works.} A three-module minimal cell ---
+				metabolism, gene expression, a bursty regulator --- with ODE and
+				SSA in one graph. Information crosses the module boundary and
+				sharpens the posterior onto truth, where the modules share
+				machinery. On synthetic data, so far.
 
 				\item \textbf{What would help most.} Real datasets to condition
 				on; a route into organisms beyond a minimal cell.\\[2pt]
@@ -1517,6 +1577,131 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 \backupbegin
 % ----------------------------------------------------------------
 \begin{frame}[noframenumbering]{Backup}
+\end{frame}
+
+% ----------------------------------------------------------------
+% Moved off the main results slide (Aug 2026). It is a methods check, not the
+% boundary argument, and sharing the results slide with the boundary figure made
+% that slide answer two questions at once -- the specific thing that made the
+% setup-to-results transition read badly. It still pays off the identifiability
+% bullet on "What Becomes Possible (Science)", so it is the first backup after
+% the divider: reach for it if anyone asks whether the differentiable half
+% actually worked.
+%
+% Same NUTS chain as the main result -- sequential_infer runs the ODE block
+% first and unconditioned, so this is that stage, not a separate fit. 4 of the
+% 8 parameters shown (see ODE_SUBSET in plot_bursty_boundary.py); the rates
+% carry the claim and the 8x8 grid is illegible at slide height.
+\begin{frame}[noframenumbering]{Is the Differentiable Half Identifiable?}
+	\begin{columns}[c,onlytextwidth]
+		\begin{column}{0.58\textwidth}
+			\centering
+			\includegraphics[height=6.2cm]{figures/isab_ode_corner.png}
+		\end{column}
+		\begin{column}{0.40\textwidth}
+			\small
+			Joint NUTS over the differentiable block: metabolism and the enzyme
+			gene, all \textbf{8} parameters at once. 4 rates shown.
+
+			\medskip
+			\begin{itemize}\itemsep3pt
+				\item Orange lines mark truth.
+				\item \textbf{Tilted ellipses} are the point: the data
+				constrains \emph{combinations} of rates, not every rate on its
+				own.
+			\end{itemize}
+
+			\medskip
+			{\scriptsize\itshape Identifiability measured, rather than assumed ---
+			one of the questions forward simulation cannot pose.\par}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+% ----------------------------------------------------------------
+% The answer to the question the results slide invites. Someone will notice
+% that k_on and k_tx_burst sit nowhere near their orange lines and ask whether
+% the SSA inference is broken. It is not, and the reason is the identifiability
+% claim from "What Becomes Possible (Science)" turning up unprompted -- which is
+% a better thing to be asked about than most. Have this slide ready.
+%
+% Numbers from job 15152954. Figure from
+% plot_bursty_boundary.py --mode burst.
+\begin{frame}[noframenumbering]{Why Do Three Parameters Miss Truth?}
+	\begin{columns}[c,onlytextwidth]
+		\begin{column}{0.52\textwidth}
+			\centering
+			\includegraphics[width=\linewidth]{figures/isab_burst_rate.png}
+		\end{column}
+		\begin{column}{0.46\textwidth}
+			\footnotesize
+			The data are replicate-\textbf{mean} trajectories. A telegraph
+			promoter enters the mean \emph{only} through the burst rate
+			$k_{\mathrm{tx}}^{\mathrm{burst}}k_{\mathrm{on}}/
+			(k_{\mathrm{on}}{+}k_{\mathrm{off}})$.
+
+			\smallskip
+			So the three rates are \textbf{not individually identifiable} from
+			this data --- by either block. Their combination is:
+
+			\smallskip
+			\begin{tabular}{@{}ll@{}}
+				truth & 2.86\\
+				alone & $3.31 \pm 2.99$\\
+				conditioned & $\mathbf{2.79 \pm 0.24}$\\
+			\end{tabular}
+
+			\smallskip
+			The boundary sharpens \emph{that} $12\times$ too --- and it is why
+			$k_{\mathrm{tx}}^{\mathrm{burst}}$'s own marginal tightened
+			$3\times$ without ever being conditioned.
+
+			\smallskip
+			{\scriptsize\itshape Not a broken sampler. An identifiability result
+			the framework surfaced on its own.\par}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+% ----------------------------------------------------------------
+% Follow-on from the slide above: what we would change to fix it. Worth having
+% because it converts the weakness into a concrete next step, and because the
+% closing argument here -- if means sufficed, the mean-field ODE would do, so
+% the SSA module only earns its place once the summaries see beyond the mean --
+% is the sharpest available answer to "why carry a stochastic module at all?".
+% That question is likelier from this board than the identifiability one.
+\begin{frame}[noframenumbering]{What Would Constrain the Promoter Rates?}
+	\small
+	Nothing about the model or the sampler --- the \textbf{summary statistics}.
+
+	\medskip
+	\begin{columns}[T,onlytextwidth]
+		\begin{column}{0.48\textwidth}
+			\textbf{What we use now}
+			\begin{itemize}\itemsep2pt
+				\item Replicate-mean trajectories
+				\item Sees the burst rate only
+				\item Identical information content to the mean-field ODE
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\textbf{What would separate the rates}
+			\begin{itemize}\itemsep2pt
+				\item \textbf{Fano factor} --- bursting pushes it above 1
+				\item \textbf{Autocorrelation time} --- sets
+				$k_{\mathrm{on}}{+}k_{\mathrm{off}}$
+				\item \textbf{Full count distribution} --- higher moments split
+				the burst size from its frequency
+			\end{itemize}
+		\end{column}
+	\end{columns}
+
+	\vfill
+	\centering
+	\alert{\small If the mean were enough, the mean-field ODE would do. The
+	stochastic module only earns its place once the summaries look past the
+	mean.}
+	\vspace{2mm}
 \end{frame}
 
 % ----------------------------------------------------------------
