@@ -58,9 +58,11 @@ Committed: the four PNGs only.
 ## Next steps
 
 1. **Look at the deck on a projector.** Specifically orange (`#D2762B`) against
-   green (`#3D9970`) for anyone colour-blind. This is the last unverified thing
-   about the figures and it cannot be checked from a terminal. The four
-   constants are together at the top of `plot_bursty_boundary.py`.
+   green (`#3D9970`) for anyone colour-blind — magenta truth (`#E5007D`) was
+   chosen partly to stay clear of that pair, but the orange/green pair itself is
+   still unverified in a room. This cannot be checked from a terminal. The five
+   constants are together at the top of `plot_bursty_boundary.py`, and
+   `talk.tex` carries hex copies as `figDiff`/`figAlone`/`figCond`/`figTruth`.
 2. Rehearse slides 10 → 11 → 12 as a unit. Slide 10 ends on a question ("How do
    you infer θ when half the cell has no gradients?") that 11 and 12 are the two
    answers to — say it out loud before advancing.
@@ -69,10 +71,14 @@ Committed: the four PNGs only.
 
 ## Non-obvious context
 
-- **Truth lines are thin black and get lost** against the dark orange contour
-  cores in slide 11's 2D panels. Legible at 200 dpi, marginal at slide size. If
-  it reads badly in the room, thicken `lw` on the truth artists rather than
-  recolouring — black is the corner-plot convention and orange is taken.
+- **Truth is magenta (`#E5007D`), not black, as of this session** — black was
+  disappearing into the dark contour cores at slide size. Cyan was tried first
+  and rejected: on the *blue* corner it reads as a tint of `COL_DIFF` rather
+  than a separate quantity, which is the one panel where that matters. Magenta
+  is the only hue no posterior owns, and it keeps its blue channel so it stays
+  separable from the orange/green pair under deuteranopia. `thicken_truths()`
+  also widens the lines to 2.6 — corner takes `truth_color` but no linewidth,
+  so the artists have to be reached after the fact.
 - **Say out loud on slide 12, deliberately not on the slide:** the flow is
   one-way (differentiable → regulator); nothing the regulator's data knows
   travels back. This is a cut posterior, a principled approximation to the joint
@@ -87,7 +93,10 @@ Committed: the four PNGs only.
   parameters, so its three tight columns are the three broad ones inside the
   dashed box on the right.
 - **Colour chips in `talk.tex` are hex copies of the script's constants**
-  (`figDiff`/`figAlone`/`figCond`). Change one, change both.
+  (`figDiff`/`figAlone`/`figCond`/`figTruth`). Change one, change both. Backup
+  slide 16 also *names* the truth colour in prose — it read "Orange lines mark
+  truth" for two palette revisions before anyone noticed, so grep the deck for
+  colour words, not just for `\definecolor`, after any recolour.
 - Carried over: the promoter rates are not individually identifiable from
   replicate-mean summary statistics; only `k_tx_burst·k_on/(k_on+k_off)` is, and
   it is recovered. Disclosed on backup slide 16. The fix is distributional

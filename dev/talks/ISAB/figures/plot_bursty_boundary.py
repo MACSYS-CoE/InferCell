@@ -72,12 +72,19 @@ def set_fonts(ndim):
 # lived on separate slides and stopped being so once "One Way" put them side by
 # side -- two adjacent same-coloured corners read as the same quantity.
 #
-# Truth moved off orange to make room. Black is the corner-plot convention
-# anyway, and it stops the truth lines competing with a posterior for the eye.
-COL_DIFF = "#3B7EA1"     # blue   -- the differentiable block's own posterior
-COL_ALONE = "#D2762B"    # orange -- the regulator inferred alone
-COL_COND = "#3D9970"     # green  -- conditioned across the boundary
-COL_TRUTH = "#1A1A1A"    # black  -- ground truth
+# Truth moved off orange to make room. It was black for one revision -- the
+# corner-plot convention -- but black is what a thin line loses with: against
+# the dark cores of the filled contours the crosshairs simply vanish at slide
+# size. Magenta is the only hue left that no posterior owns, so a magenta line
+# can only mean truth. Cyan was tried and rejected: it reads as a tint of
+# COL_DIFF on the blue corner, which is exactly the panel where truth matters.
+# Magenta also keeps its blue channel, so it stays separable from the orange /
+# green pair under deuteranopia.
+COL_DIFF = "#3B7EA1"     # blue    -- the differentiable block's own posterior
+COL_ALONE = "#D2762B"    # orange  -- the regulator inferred alone
+COL_COND = "#3D9970"     # green   -- conditioned across the boundary
+COL_TRUTH = "#E5007D"    # magenta -- ground truth
+TRUTH_LW = 2.6           # corner's default is ~1.0, too thin to read projected
 
 LABELS = {
     "k_on": r"$k_{\mathrm{on}}$",
@@ -168,9 +175,24 @@ def plot_ode_corner(res, out):
         contour_kwargs={"linewidths": 1.6},
         label_kwargs={"fontsize": fs}, max_n_ticks=3,
     )
+    thicken_truths(fig)
     for ext in ("png", "pdf"):
         fig.savefig(f"{out}.{ext}", dpi=200, bbox_inches="tight")
         print(f"wrote {out}.{ext}")
+
+
+def thicken_truths(fig):
+    """Widen corner's truth lines, which it draws at the rcParams default.
+
+    corner takes truth_color but no truth linewidth, so the only handle is the
+    artists after the fact. Truth is the one thing on these panels drawn in
+    COL_TRUTH, so matching on colour is unambiguous.
+    """
+    for ax in fig.axes:
+        for line in ax.get_lines():
+            if line.get_color() == COL_TRUTH:
+                line.set_linewidth(TRUTH_LW)
+                line.set_zorder(20)
 
 
 def weighted_kde(samples, weights, grid, bw_scale=1.0):
@@ -298,6 +320,8 @@ def plot_ssa(res, out, overlay=True):
             contour_kwargs={"linewidths": 1.6},
             label_kwargs={"fontsize": fs}, max_n_ticks=3,
         )
+
+    thicken_truths(fig)
 
     axes = np.array(fig.axes).reshape((ndim, ndim))
 

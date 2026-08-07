@@ -27,6 +27,7 @@
 \definecolor{figDiff}{HTML}{3B7EA1}    % differentiable block's own posterior
 \definecolor{figAlone}{HTML}{D2762B}   % regulator inferred alone
 \definecolor{figCond}{HTML}{3D9970}    % conditioned across the boundary
+\definecolor{figTruth}{HTML}{E5007D}   % ground truth
 % Infrastructure / neutral
 \colorlet{colNeutral}{gray!15}
 % Problems / no-UQ / fragile
@@ -1333,15 +1334,17 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % corner is smaller on 11 to make room). It is now a zoom-in instead -- same
 % figure, larger, with the green added.
 %
-% ALL THREE corner figures are STALE as of the Aug 2026 palette change and must
-% be regenerated together -- the ones on disk still draw the regulator in blue
-% and truth in orange. The particle CSVs are not in the repo; they were written
-% to examples/results on the cluster (job 15152954) and need fetching or the run
-% repeating. Then, from the repo root:
+% To regenerate the figures, from the repo root (the particle CSVs live in
+% examples/results, written by job 15152954; that directory is gitignored, so on
+% a fresh checkout the run has to be repeated):
 %
 %   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode
 %   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone
 %   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode burst
+%
+% Regenerate ALL FOUR together after any palette change -- burst draws from the
+% same constants and backup slide 17 goes stale with the rest.
 %
 % alone and ssa must come from the SAME particles or slides 11 and 12 disagree.
 % ----------------------------------------------------------------
@@ -1749,7 +1752,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 
 			\medskip
 			\begin{itemize}\itemsep3pt
-				\item Orange lines mark truth.
+				\item {\color{figTruth}$\blacksquare$}~Magenta lines mark truth.
 				\item \textbf{Tilted ellipses} are the point: the data
 				constrains \emph{combinations} of rates, not every rate on its
 				own.
