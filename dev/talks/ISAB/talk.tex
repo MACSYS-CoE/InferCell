@@ -234,6 +234,10 @@
 				{$\freeparam{k_{tx}} = 0.05\;\mathrm{s}^{-1}$\\[-2pt]\tiny measured in \textit{E.\,coli}, applied to syn3A\\[-1pt]\tiny \textbf{range: 0.02--0.12}};
 			\node[box, fill=blue!12, below=3mm of ktx] (gam)
 				{$\freeparam{\gamma} = 0.002\;\mathrm{s}^{-1}$\\[-2pt]\tiny extrapolated from \textit{M.\,pneumoniae}\\[-1pt]\tiny \textbf{range: 0.001--0.004}};
+			% Names what both boxes are already showing. The provenance lines
+			% ("measured in E. coli", "extrapolated from M. pneumoniae") were
+			% doing this work silently; the ISAB review asked for the claim to
+			% be made out loud, and this is the cheapest place to make it.
 		\end{tikzpicture}
 	\end{column}
 	\begin{column}{0.71\textwidth}
@@ -289,9 +293,16 @@
 
 \end{frame}
 
-% VERBAL: When MC4D predicts a 110-minute doubling time, we cannot distinguish
+% VERBAL: When MC4D predicts a 105-minute doubling time, we cannot distinguish
 % whether (a) the prediction is robust across plausible parameters, or
-% (b) it is fragile and depends on specific choices.
+% (b) it is fragile and depends on specific choices. That distinction is the
+% pincer, which is now a BACKUP slide ("Can We Build One?"). Land the
+% distinction here in one sentence; pull the slide up only if the "but it
+% works, their doubling time matches" objection actually arrives.
+%
+% (Was 110 throughout the deck. Changed Aug 2026 to 105, the figure the
+% project notes carry for syn3A, so the pincer slide, slide 8's illustration
+% and this note all quote one number. If 110 is right they move back together.)
 
 
 
@@ -456,6 +467,17 @@
 			{\small \textit{``Given data, what $\theta$ are consistent?''}}
 		\end{column}
 	\end{columns}
+
+	% The core claim, stated rather than implied. Added Aug 2026 after the ISAB
+	% review: the deck showed the inversion but never conceded that it costs
+	% more, and a concession is what makes the claim land as a judgement rather
+	% than as advocacy. Say it as a concession -- "yes, this is the harder
+	% way" -- then take the second half without hedging.
+	\vfill
+	\centering
+	% Must stay one line: wrapped, it orphans the last word and the concession
+	% loses its snap.
+	\vspace{1mm}
 \end{frame}
 
 
@@ -500,7 +522,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				\item \textbf{HPC penalties} --- serialise, spawn, copy at every
 				boundary.
 
-				\item \textbf{No differentiability} --- AD dies at the
+				\item \textbf{No differentiability} --- dies at the
 				boundary.
 
 				\item \textbf{No composability} --- every swap is cross-language
@@ -875,7 +897,10 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\begin{column}{0.49\textwidth}
 			\begin{itemize}\itemsep3pt\parskip0pt
 				\item \textbf{Probabilistic prediction}\\[1pt]
-				{\scriptsize\itshape ``Is doubling time 110\,$\pm$\,5\,min, or 60--200?''}
+				% 105, not 110: same number as the pincer backup slide, whose
+				% wide horn is this same 60--200 range. Deliberate, so the two
+				% agree if that slide gets pulled up.
+				{\scriptsize\itshape ``Is doubling time 105\,$\pm$\,5\,min, or 60--200?''}
 				\item \textbf{Parameter calibration}\\[1pt]
 				{\scriptsize\itshape ``What is $k_{tx}$ for this gene, given our data?''}
 				\item \textbf{Identifiability}\\[1pt]
@@ -1476,8 +1501,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 			slide, for comparison.
 
 			\medskip
-			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth:
-			exactly the 3 the expression modules share.
+			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth.
 
 			% One bullet, not two: the matched 4x4 keeps k_tx_burst and drops k_on,
 			% k_off, so this beat has two halves now, but splitting it into two
@@ -1616,10 +1640,15 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\begin{column}{0.68\textwidth}
 			\small
 			\begin{enumerate}\itemsep3pt
-				\item \textbf{The problem.} Whole-cell models take
-				${\sim}$1000 parameters from literature and simulate forward. No
-				uncertainty quantification, no way to learn from data, no way to
-				know which predictions to trust.
+				% Framed as maturation rather than deficiency, to bookend the
+				% "can we build one? / is it right?" slide. Same length as the
+				% old "take ~1000 parameters from literature and simulate
+				% forward" wording, so the item still sets in four lines --
+				% check that if it is edited again.
+				\item \textbf{The problem.} Whole-cell models can now simulate a
+				cell end to end --- from ${\sim}$1000 literature parameters,
+				fixed. No uncertainty quantification, no way to learn from data,
+				no way to know which predictions to trust.
 
 				\item \textbf{InferCell inverts the question.} Given
 				observations, infer parameters and their uncertainties --- the
@@ -1753,49 +1782,142 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 \end{frame}
 
 % ----------------------------------------------------------------
-% Moved off the main results slide (Aug 2026). It is a methods check, not the
-% boundary argument, and sharing the results slide with the boundary figure made
-% that slide answer two questions at once -- the specific thing that made the
-% setup-to-results transition read badly. It still pays off the identifiability
-% bullet on "What Becomes Possible (Science)", so it is the first backup after
-% the divider: reach for it if anyone asks whether the differentiable half
-% actually worked.
+% THE PINCER. First backup on purpose: it answers the single likeliest
+% challenge from this board, so it is the one to be able to reach without
+% hunting. Written Aug 2026 after ISAB review feedback that the core claim ---
+% this is the harder way, and the better one --- was implied rather than
+% stated. The maturation framing it carries is now SPOKEN in the main line
+% (the pivot slide's closing alert, Summary item 1, the in-vitro/in-vivo label
+% on the compounding slide); this slide is the picture for it if the argument
+% actually gets contested.
 %
-% Same NUTS chain as the main result -- sequential_infer runs the ODE block
-% first and unconditioned, so this is that stage, not a separate fit. 4 of the
-% 8 parameters shown (see ODE_SUBSET in plot_bursty_boundary.py); the rates
-% carry the claim and the 8x8 grid is illegible at slide height.
-% Deliberately repeats the main line's left-hand corner rather than replacing
-% it. On slide 11 the figure is small and its job is comparative -- tight next
-% to broad. Here it is full size and the job is the tilted ellipses, which are
-% invisible at slide-11 scale. Same figure, different claim; if this is ever
-% cut, move the ellipse point into the main line rather than losing it.
-\begin{frame}[noframenumbering]{Is the Differentiable Half Identifiable?}
-	\begin{columns}[c,onlytextwidth]
-		\begin{column}{0.58\textwidth}
-			\centering
-			\includegraphics[height=6.2cm]{figures/isab_ode_corner.png}
-		\end{column}
-		\begin{column}{0.40\textwidth}
-			\small
-			The left-hand posterior from ``One Way'', full size: joint NUTS over
-			the differentiable block, all \textbf{8} parameters at once. 4 rates
-			shown.
+% WHEN TO PULL IT UP: someone says a version of "but it works --- their
+% doubling time matches the measurement, what is the problem?". The pincer
+% answers without needing to know whether the model was tuned: propagate the
+% literature uncertainty and exactly one of two things is true, and both
+% defeat the match as evidence. Full argument in docs/explorations/
+% 2026-07-22-modularity-misspecification-flip-sharpener.md, "Killer
+% Alternative Explanation", item 1.
+%
+% THE NARROW HORN IS THE ONE THAT GETS PUSHED BACK ON. Do not read the bullet
+% aloud -- walk the middle step:
+% - The premise is that the INPUTS are wide (2--6x literature ranges, which
+%   the compounding slide establishes). A narrow output from wide inputs means
+%   the doubling time is insensitive to the rates.
+% - If the prediction does not move when theta moves, observing it cannot
+%   inform theta. Flat likelihood; the posterior comes back as the prior. It
+%   is the identifiability point from "What Becomes Possible", arriving
+%   backwards.
+% - Concrete version: perturb 200 rate constants by 3x each, stay
+%   literature-consistent, still get 105. A model with 200 wrong rates passes
+%   the doubling-time test exactly as well as the right one.
+% - CONCEDE FIRST. A tight prediction that matches reality IS good, for
+%   prediction. The claim is about what the match validates. What it validates
+%   is the coarse structure -- stoichiometry, mass balance, ribosome budget --
+%   which is the part nobody was worried about; it says nothing about the
+%   ~1000 numbers that are.
+% - Do NOT say the narrow horn means the model is wrong. It does not.
+%
+% ALSO WORTH SAYING: narrow is probably not the case we are in. For a
+% ~1000-parameter nonlinear model with those input ranges the doubling-time
+% distribution is almost certainly wide. The narrow horn exists to close the
+% escape route ("well, maybe it is robust"), not because we expect it. Saying
+% so makes the slide read as rigour rather than as a gotcha.
+%
+% The strongest counter is "we do not validate on one scalar --- Karr matched
+% hundreds of observables". Answer constructively: then the real tests are the
+% observables that are BOTH sensitive to the parameters AND were not used
+% during construction. Naming those is itself an inference calculation.
+%
+% NUMBER TO CONFIRM: ~105 min is the syn3A doubling time carried in the
+% project notes (the sharpener above). Slide 8's illustration and the verbal
+% note on the compounding slide both used to say 110; all three now say 105,
+% so if the 2026 paper's figure is 110 they move back together.
+%
+% Geometry: coordinates in cm, no scale= key -- TikZ scales positions but not
+% node minimum sizes. The two horn panels are deliberately IDENTICAL except
+% for the width of the curve: same axis, same magenta measured-value line,
+% same caption shape. Width is then the only thing a viewer can be looking at,
+% the same design rule the two corner plots on slide 11 follow.
+\begin{frame}[noframenumbering]{``Can We Build One?'' is Answered. ``Is It Right?'' is Not.}
+	\small
+	\textbf{First generation} --- \emph{can a whole cell be simulated at all?}
+	Karr 2012, Thornburg 2026: \textbf{yes}.\\
+	\textbf{Second generation} --- \emph{are the numbers right, and how would
+	we know?}
+	\par\smallskip
+	{\footnotesize The reflex: \emph{``but it works --- our doubling time
+	matches the measurement.''} Propagate the uncertainty and there are only
+	two cases:}
 
-			\medskip
-			\begin{itemize}\itemsep3pt
-				\item {\color{figTruth}$\blacksquare$}~Magenta lines mark truth.
-				\item \textbf{Tilted ellipses} are the point: the data
-				constrains \emph{combinations} of rates, not every rate on its
-				own.
-			\end{itemize}
+	\vspace{0.5mm}
+	\centering
+	\begin{tikzpicture}[>=Stealth]
+		% ===== The reported match =====
+		\node[draw, thick, rounded corners=4pt, fill=gray!12, font=\scriptsize,
+			align=center, inner sep=4pt] (rep) at (0,2.55)
+			{predicted doubling time ${\sim}105$\,min
+			\;$=$\; measured ${\sim}105$\,min};
 
-			\medskip
-			{\scriptsize\itshape Identifiability measured, rather than assumed ---
-			one of the questions forward simulation cannot pose.\par}
-		\end{column}
-	\end{columns}
+		% ===== The two horns =====
+		% cx / sd / amplitude. The amplitudes differ so the two curves enclose
+		% roughly the same area: a narrow spike drawn at the wide one's height
+		% would read as "more probable" rather than "more certain".
+		\foreach \cx/\sd/\amp in {-3.55/0.95/0.62, 3.55/0.26/0.86}{
+			\draw[thick, rounded corners=5pt, gray!45]
+				(\cx-3.0,-1.62) rectangle (\cx+3.0,1.62);
+			% Axis, with the measured value marked BELOW it. Above the axis is
+			% where the narrow curve's peak lives, so a label up there sits on
+			% the curve in one panel and in clear air in the other -- which
+			% breaks the panels' deliberate symmetry.
+			\draw[thin, gray!60] (\cx-2.5,0.62) -- (\cx+2.5,0.62);
+			\node[font=\tiny, text=gray!70, anchor=north east]
+				at (\cx+2.5,0.56) {doubling time};
+			% predictive distribution
+			\begin{scope}[shift={(\cx,0.62)}]
+				\fill[colPost] plot[smooth, domain=-2.4:2.4, samples=97]
+					(\x, {\amp*exp(-0.5*(\x/\sd)^2)}) -- (2.4,0) -- (-2.4,0) -- cycle;
+				\draw[thick, colPostLine] plot[smooth, domain=-2.4:2.4, samples=97]
+					(\x, {\amp*exp(-0.5*(\x/\sd)^2)});
+			\end{scope}
+			% the measured value, in the deck's truth colour
+			\draw[dashed, thick, figTruth] (\cx,0.62) -- (\cx,1.52);
+			\node[font=\tiny, text=figTruth, anchor=north]
+				at (\cx,0.56) {105\,min, measured};
+		}
+		% Arrows enter each panel off-centre, on the side facing the box, so
+		% they clear the dashed measured-value line at the panel's midline.
+		\draw[->, very thick, colWarnLine] (rep.south) -- (-2.05,1.62);
+		\draw[->, very thick, colWarnLine] (rep.south) -- ( 2.05,1.62);
+
+		% ===== What each horn costs them =====
+		\node[font=\tiny, anchor=north, align=left, text width=5.5cm]
+			at (-3.55,0.10)
+			{\textbf{Wide.} 105 was one draw. Another equally
+			literature-consistent parameter set gives 60, or 200.\\[3pt]
+			{\color{colWarnLine}$\Rightarrow$ the match was a
+			\textbf{selection}, not a prediction.}};
+		% Concedes the good thing FIRST. The earlier version jumped straight
+		% to "cannot separate a right model from a wrong one", which reads
+		% as a gotcha and invites the obvious objection -- a tight
+		% prediction that matches reality is a good outcome. It is, for
+		% prediction; the bullet's job is the validation claim, and that
+		% needs the middle step (insensitive to the rates => uninformative
+		% about the rates) stated rather than assumed.
+		\node[font=\tiny, anchor=north, align=left, text width=5.5cm]
+			at (3.55,0.10)
+			{\textbf{Narrow.} The prediction barely moves when the rates do
+			--- so measuring it cannot inform them.\\[3pt]
+			{\color{colWarnLine}$\Rightarrow$ tests the
+			\textbf{stoichiometry}, not the ${\sim}1000$ numbers.}};
+	\end{tikzpicture}
+
+	% One line, and short enough to stay one line: at \small the two-line
+	% version pushed the frame overfull and split the punch across a break.
+
 \end{frame}
+
+
 
 % ----------------------------------------------------------------
 % The answer to the question the results slide invites. Someone will notice
