@@ -21,6 +21,12 @@
 % Posteriors / inference output
 \colorlet{colPost}{violet!15}
 \colorlet{colPostLine}{violet!70!black}
+% Corner-plot series, as exact hex matches to plot_bursty_boundary.py. The
+% legend chips on the results slides are drawn in these, so if the palette
+% constants in that script move, move these with them or the chips start lying.
+\definecolor{figDiff}{HTML}{3B7EA1}    % differentiable block's own posterior
+\definecolor{figAlone}{HTML}{D2762B}   % regulator inferred alone
+\definecolor{figCond}{HTML}{3D9970}    % conditioned across the boundary
 % Infrastructure / neutral
 \colorlet{colNeutral}{gray!15}
 % Problems / no-UQ / fragile
@@ -1076,54 +1082,17 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % parameter-coupled to expression through the shared ribosomes and shared
 % degradation machinery. So "cell" is now honest and the retitle is reverted.
 %
-% The closing bullet is a QUESTION, not a goal. That is deliberate and it is the
-% fix for the transition that always read badly in practice: the results slide
-% shows a conditioned-vs-unconditioned contrast, and the old "Goal: the joint
-% posterior" bullet never set that contrast up, so the comparison arrived
-% unannounced. Now the next slide answers the question this one asks. If either
-% slide is edited, keep that pairing.
+% Bullets cut Aug 2026 -- the slide is the figure for now. The last one used to
+% be a QUESTION, not a goal, and it set up the conditioned-vs-unconditioned
+% contrast on the results slide that follows. If the bullets come back, keep
+% that pairing; if they stay cut, ask the question out loud instead.
+% Layout: schematic LHS (wide column), the two dynamics sketches RHS.
 % See docs/superpowers/specs/2026-08-06-minimal-cell-boundary-figure-design.md.
 \begin{frame}{A Minimal Cell, in Three Modules}
 
 
 	\vspace{0.5mm}
 	\begin{columns}[T,onlytextwidth]
-		\begin{column}{0.38\textwidth}
-			\centering
-			{\scriptsize\bfseries\color{blue!70!black} Differentiable dynamics}\\[-2pt]
-			{\tiny ODE metabolism \& expression, continuous kinetics}\\[1pt]
-			\begin{tikzpicture}[scale=0.34]
-				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
-				\draw[->] (0,0) -- (0,2.3);
-				\draw[thick, blue] plot[smooth, domain=0:4] (\x, {2*(1-exp(-\x))});
-			\end{tikzpicture}\\[-1pt]
-			{\tiny gradients exist $\;\Rightarrow\;$ \textbf{NUTS}}
-
-			\vspace{2.5mm}
-			{\scriptsize\bfseries\color{orange!70!black} Stochastic dynamics}\\[-2pt]
-			% "Bursty" is now correct: this deck's cell uses BurstyGeneExpression,
-			% a telegraph promoter (k_on/k_off gating k_tx_burst) with visible
-			% Fano > 1. The staircase below is drawn with bursts for that reason.
-			{\tiny Gillespie SSA, bursty promoter, discrete counts}\\[1pt]
-			\begin{tikzpicture}[scale=0.34]
-				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
-				\draw[->] (0,0) -- (0,2.3);
-				% Bursty, not a random walk: long flat stretches with the promoter
-				% off, punctuated by tight runs of up-steps while it is on, then
-				% slow decay. That silhouette is the whole reason this module
-				% cannot be replaced by its mean-field limit, so it should be
-				% legible from the back of the room. Was a generic staircase.
-				\draw[thick, orange] (0,0.2) -- (1.0,0.2)
-					-- (1.0,0.7) -- (1.1,0.7) -- (1.1,1.2) -- (1.2,1.2)
-					-- (1.2,1.75) -- (1.35,1.75)
-					-- (1.35,1.5) -- (1.75,1.5) -- (1.75,1.25) -- (2.15,1.25)
-					-- (2.15,1.0) -- (2.75,1.0)
-					-- (2.75,1.5) -- (2.85,1.5) -- (2.85,1.95) -- (3.0,1.95)
-					-- (3.0,1.7) -- (3.4,1.7) -- (3.4,1.45) -- (3.8,1.45)
-					-- (3.8,1.2) -- (4.2,1.2);
-			\end{tikzpicture}\\[-1pt]
-			{\tiny no gradient path $\;\Rightarrow\;$ \textbf{ABC-SMC}}
-		\end{column}
 		\begin{column}{0.60\textwidth}
 			\centering
 			% No scale= key, and all coordinates in cm: TikZ scales positions but
@@ -1138,13 +1107,13 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				>=Stealth
 			]
 				% Per-box free-parameter counts and per-arrow shared counts, so the
-				% arithmetic behind the "11 unique" bullet is checkable on screen:
+				% "11 unique parameters" arithmetic is checkable on screen:
 				% 5 + 6 + 6 = 17, minus 3 shared inside the block, minus 3 across
 				% the boundary, = 11. Counts are free parameters as the code counts
 				% them (fixed initial conditions excluded, sigma_obs INCLUDED --
 				% it is free and it deduplicates between the two ODE modules).
 				% Biological rates alone would read 4 / 5 / 6 and 10 unique; if the
-				% bullet below is ever changed to 10, change these too.
+				% spoken number is ever changed to 10, change these too.
 				%
 				% Boxes moved out to +-1.7 from +-1.15: at 1.15 the 1.55cm-wide boxes
 				% left a 0.75cm gap, and the "3 shared" label swallowed the arrow
@@ -1234,19 +1203,51 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 					at (cell.north) {Minimal cell, $\boldsymbol{\theta}$};
 			\end{tikzpicture}
 		\end{column}
+		\begin{column}{0.38\textwidth}
+			\centering
+			{\scriptsize\bfseries\color{blue!70!black} Differentiable dynamics}\\[-2pt]
+			{\tiny ODE metabolism \& expression, continuous kinetics}\\[1pt]
+			\begin{tikzpicture}[scale=0.34]
+				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
+				\draw[->] (0,0) -- (0,2.3);
+				\draw[thick, blue] plot[smooth, domain=0:4] (\x, {2*(1-exp(-\x))});
+			\end{tikzpicture}\\[-1pt]
+			{\tiny gradients exist $\;\Rightarrow\;$ \textbf{NUTS}}
+
+			\vspace{2.5mm}
+			{\scriptsize\bfseries\color{orange!70!black} Stochastic dynamics}\\[-2pt]
+			% "Bursty" is now correct: this deck's cell uses BurstyGeneExpression,
+			% a telegraph promoter (k_on/k_off gating k_tx_burst) with visible
+			% Fano > 1. The staircase below is drawn with bursts for that reason.
+			{\tiny Gillespie SSA, bursty promoter, discrete counts}\\[1pt]
+			\begin{tikzpicture}[scale=0.34]
+				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
+				\draw[->] (0,0) -- (0,2.3);
+				% Bursty, not a random walk: long flat stretches with the promoter
+				% off, punctuated by tight runs of up-steps while it is on, then
+				% slow decay. That silhouette is the whole reason this module
+				% cannot be replaced by its mean-field limit, so it should be
+				% legible from the back of the room. Was a generic staircase.
+				\draw[thick, orange] (0,0.2) -- (1.0,0.2)
+					-- (1.0,0.7) -- (1.1,0.7) -- (1.1,1.2) -- (1.2,1.2)
+					-- (1.2,1.75) -- (1.35,1.75)
+					-- (1.35,1.5) -- (1.75,1.5) -- (1.75,1.25) -- (2.15,1.25)
+					-- (2.15,1.0) -- (2.75,1.0)
+					-- (2.75,1.5) -- (2.85,1.5) -- (2.85,1.95) -- (3.0,1.95)
+					-- (3.0,1.7) -- (3.4,1.7) -- (3.4,1.45) -- (3.8,1.45)
+					-- (3.8,1.2) -- (4.2,1.2);
+			\end{tikzpicture}\\[-1pt]
+			{\tiny no gradient path $\;\Rightarrow\;$ \textbf{ABC-SMC}}
+		\end{column}
 	\end{columns}
 
+	% Spends the band the cut bullets left behind, and hands off to the next two
+	% slides, which are the two answers. Keep it a question -- the old "Goal: the
+	% joint posterior" phrasing promised something the result does not deliver.
+	\vfill
+	\centering
+	{\small \textbf{Goal}: compute $p(\theta | y)$\par}
 	\vspace{1mm}
-	\scriptsize
-	\begin{itemize}\itemsep1pt
-		\item $\boldsymbol{\theta}$: \textbf{11} unique parameters after
-		deduplication; \textbf{3} shared between the two expression modules.
-		\item A \textbf{synthetic twin}: $\mathbf{y}$ is generated from the model
-		being fitted, so ground truth is known.
-		% The question the next slide answers. Ask it out loud, then advance.
-		\item \textbf{The question:} the bulk data never sees the regulator gene.
-		Can it still tell us anything about single-molecule bursting?
-	\end{itemize}
 \end{frame}
 
 
@@ -1316,7 +1317,101 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 %
 % The right column is the spoken argument in three beats: what changed, why
 % those three, why not the others. Do not add a fourth.
-\begin{frame}{Results: Yes --- Where the Modules Share Machinery}
+%
+% SPLIT Aug 2026 into two frames -- the setup (each block, its own sampler) and
+% the result (the posterior becomes the prior).
+%
+% The setup slide shows BOTH independent fits side by side, not just the SSA
+% one. That is the whole argument made visually: two posteriors, computed by two
+% samplers, sitting next to each other with nothing passing between them. The
+% ODE corner earns its place because ODE_SUBSET is k_tx plus exactly the three
+% SHARED parameters -- so the three tight columns on the left are literally the
+% three that are broad inside the box on the right. Point at one, then the
+% other; that is the slide.
+%
+% Consequence: slides 11 and 12 are no longer a pixel-aligned build (the SSA
+% corner is smaller on 11 to make room). It is now a zoom-in instead -- same
+% figure, larger, with the green added.
+%
+% ALL THREE corner figures are STALE as of the Aug 2026 palette change and must
+% be regenerated together -- the ones on disk still draw the regulator in blue
+% and truth in orange. The particle CSVs are not in the repo; they were written
+% to examples/results on the cluster (job 15152954) and need fetching or the run
+% repeating. Then, from the repo root:
+%
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa
+%
+% alone and ssa must come from the SAME particles or slides 11 and 12 disagree.
+% ----------------------------------------------------------------
+% Beat 1 of 2. The point is NOT "ABC-SMC failed" -- both samplers did exactly
+% what they should. The point is that k_tl, gamma_mRNA and gamma_prot get fitted
+% twice, by two calculations that never exchange a number, and the second fit is
+% far worse than the first. That waste is what the next slide recovers.
+%
+% Asymmetric columns on purpose: the ODE corner is 4x4 and stays legible small,
+% the SSA corner is 6x6 and is the one the next slide zooms into, so it gets the
+% extra width.
+\begin{frame}{One Way: Each Block, Its Own Sampler}
+	\vspace{-2mm}
+	% [b], not [c]: the two corners are different heights (4x4 vs 6x6), and
+	% centring them puts the two captions at different y, which reads as a
+	% misalignment rather than a size difference. Bottom-aligning lines the
+	% captions up and lets the corners differ in height, which is the honest
+	% cue -- the right-hand posterior is the bigger object.
+	\begin{columns}[b,onlytextwidth]
+		\begin{column}{0.43\textwidth}
+			\centering
+			\includegraphics[height=4.7cm]{figures/isab_ode_corner.png}\\[1mm]
+			{\scriptsize{\color{figDiff}$\blacksquare$}~\textbf{Differentiable
+			block} $\cdot$ NUTS\par}
+			{\tiny all 8 parameters jointly, 4 rates shown\par}
+		\end{column}
+		\begin{column}{0.53\textwidth}
+			\centering
+			% Falls back rather than failing to build: the particle CSVs live on
+			% the cluster (job 15152954) and are not in the repo, so this export
+			% cannot be regenerated on a laptop. The placeholder is deliberately
+			% loud -- showing the overlay figure here instead would spoil the
+			% reveal on the next slide, and quietly.
+			\IfFileExists{figures/isab_ssa_alone.png}{%
+				\includegraphics[height=5.5cm]{figures/isab_ssa_alone.png}%
+			}{%
+				\fbox{\begin{minipage}[c][5.2cm][c]{0.90\linewidth}
+					\centering\footnotesize\color{red!70!black}
+					\textbf{FIGURE PENDING}\\[2mm]
+					{\scriptsize Run \texttt{plot\_bursty\_boundary.py
+					-{}-mode alone}\\ against the run's particle CSVs
+					(\texttt{examples/results}).\par}
+				\end{minipage}}%
+			}\\[1mm]
+			{\scriptsize{\color{figAlone}$\blacksquare$}~\textbf{Regulator}
+			$\cdot$ ABC-SMC\par}
+			{\tiny its own data, its own priors\par}
+		\end{column}
+	\end{columns}
+
+	% The waste, stated as waste. This is the sentence the green answers.
+	\vspace{1mm}
+	\centering
+	{\footnotesize Both calculations are correct --- and
+	$k_{tl}$, $\gamma_{mRNA}$, $\gamma_{prot}$ are fitted \textbf{twice},
+	by two calculations that never exchange a number.\par}
+\end{frame}
+
+% ----------------------------------------------------------------
+% Beat 2 of 2. Same figure, green added.
+%
+% SAY OUT LOUD, do not put on the slide (the board does not need the machinery,
+% but the claim should not be overstated either): the flow is ONE-WAY, the
+% differentiable block's posterior into the regulator's prior, and nothing the
+% regulator's data knows travels back. This is a cut posterior, a principled
+% approximation to the joint rather than the joint itself. If asked whether it
+% is exact: no, and the framework makes the gap measurable -- the iterative
+% protocol covered truth on 35-70% of seeds at a nominal 95%, which is why
+% single-pass is the default here. step4_calibration_curve.png is in figures/.
+\begin{frame}{Another Way: let information flow between modules}
 	\vspace{-1mm}
 	\begin{columns}[c,onlytextwidth]
 		\begin{column}{0.60\textwidth}
@@ -1328,12 +1423,13 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		% Keep it to these four beats if it is edited again.
 		\begin{column}{0.38\textwidth}
 			\footnotesize
-			{\color{colODELine}$\blacksquare$}~\textbf{Alone} --- ABC-SMC on the
-			regulator's own data.
+			{\color{figCond}$\blacksquare$}~\textbf{Conditioned} --- the
+			shared parameters now carry the differentiable block's posterior
+			across the boundary as their prior.
 
 			\smallskip
-			{\color{green!45!black}$\blacksquare$}~\textbf{Conditioned} --- shared
-			parameters carry the differentiable block's posterior.
+			{\color{figAlone}$\blacksquare$}~\textbf{Alone}, from the previous
+			slide, for comparison.
 
 			\medskip
 			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth:
@@ -1634,6 +1730,11 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % first and unconditioned, so this is that stage, not a separate fit. 4 of the
 % 8 parameters shown (see ODE_SUBSET in plot_bursty_boundary.py); the rates
 % carry the claim and the 8x8 grid is illegible at slide height.
+% Deliberately repeats the main line's left-hand corner rather than replacing
+% it. On slide 11 the figure is small and its job is comparative -- tight next
+% to broad. Here it is full size and the job is the tilted ellipses, which are
+% invisible at slide-11 scale. Same figure, different claim; if this is ever
+% cut, move the ellipse point into the main line rather than losing it.
 \begin{frame}[noframenumbering]{Is the Differentiable Half Identifiable?}
 	\begin{columns}[c,onlytextwidth]
 		\begin{column}{0.58\textwidth}
@@ -1642,8 +1743,9 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\end{column}
 		\begin{column}{0.40\textwidth}
 			\small
-			Joint NUTS over the differentiable block: metabolism and the enzyme
-			gene, all \textbf{8} parameters at once. 4 rates shown.
+			The left-hand posterior from ``One Way'', full size: joint NUTS over
+			the differentiable block, all \textbf{8} parameters at once. 4 rates
+			shown.
 
 			\medskip
 			\begin{itemize}\itemsep3pt

@@ -13,10 +13,21 @@ ribosomes, the same degradation machinery) come last. So the tightening is
 confined to the bottom-right block of the corner, and the boxed region is
 literally where the coupling is.
 
+--mode alone draws the SAME figure with the conditioned posterior suppressed,
+for the setup slide that precedes the result. The two are a build: identical
+axes, identical shared-parameter box, identical legend geometry, so advancing
+the slide makes the green appear and moves nothing else. That is why the axis
+ranges below are always computed from BOTH posteriors even when only one is
+drawn -- ranging the alone figure on its own particles would shift every panel
+between the two slides and destroy the effect.
+
 Usage:
     python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
         --results examples/results \
         --out dev/talks/ISAB/figures/isab_ssa_posteriors
+
+    python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
+        --results examples/results --mode alone
 """
 
 import argparse
@@ -55,9 +66,18 @@ def set_fonts(ndim):
     })
     return label
 
-COL_UNCOND = "#3B7EA1"   # blue  -- inferred alone
-COL_COND = "#3D9970"     # green -- conditioned across the boundary
-COL_TRUTH = "#E8A33D"    # orange -- ground truth
+# One colour code across the whole deck, matching the slide-10 schematic:
+# blue is the differentiable block, orange is the stochastic one. Before Aug
+# 2026 both corners were drawn in the same blue, which was survivable while they
+# lived on separate slides and stopped being so once "One Way" put them side by
+# side -- two adjacent same-coloured corners read as the same quantity.
+#
+# Truth moved off orange to make room. Black is the corner-plot convention
+# anyway, and it stops the truth lines competing with a posterior for the eye.
+COL_DIFF = "#3B7EA1"     # blue   -- the differentiable block's own posterior
+COL_ALONE = "#D2762B"    # orange -- the regulator inferred alone
+COL_COND = "#3D9970"     # green  -- conditioned across the boundary
+COL_TRUTH = "#1A1A1A"    # black  -- ground truth
 
 LABELS = {
     "k_on": r"$k_{\mathrm{on}}$",
@@ -141,7 +161,7 @@ def plot_ode_corner(res, out):
     fs = set_fonts(len(keep))
 
     fig = corner.corner(
-        sub, labels=labels, color=COL_UNCOND,
+        sub, labels=labels, color=COL_DIFF,
         truths=truths, truth_color=COL_TRUTH,
         plot_datapoints=False, fill_contours=True, smooth=1.0,
         levels=(0.68, 0.95), hist_kwargs={"linewidth": 2.4},
@@ -203,7 +223,7 @@ def plot_burst_rate(res, out):
     set_fonts(4)
     fig, ax = plt.subplots(figsize=(7.4, 4.6))
     for vals, wts, col, lab in (
-        (b_uncond, w_uncond, COL_UNCOND, "Regulator alone"),
+        (b_uncond, w_uncond, COL_ALONE, "Regulator alone"),
         (b_cond, w_cond, COL_COND, "Conditioned"),
     ):
         d = weighted_kde(vals, wts, grid)
@@ -223,26 +243,12 @@ def plot_burst_rate(res, out):
         print(f"wrote {out}.{ext}")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--results", default="examples/results")
-    ap.add_argument("--out", default=None,
-                    help="output stem; defaults per --mode")
-    ap.add_argument("--mode", choices=("ssa", "ode", "burst"), default="ssa",
-                    help="ssa: the boundary figure. ode / burst: backup slides.")
-    args = ap.parse_args()
+def plot_ssa(res, out, overlay=True):
+    """The boundary figure. overlay=False draws the unconditioned posterior only.
 
-    res = Path(args.results)
-    figdir = Path("dev/talks/ISAB/figures")
-
-    if args.mode in ("ode", "burst"):
-        default = {"ode": "isab_ode_corner", "burst": "isab_burst_rate"}[args.mode]
-        out = Path(args.out) if args.out else figdir / default
-        out.parent.mkdir(parents=True, exist_ok=True)
-        (plot_ode_corner if args.mode == "ode" else plot_burst_rate)(res, out)
-        return
-
-    args.out = args.out or str(figdir / "isab_ssa_posteriors")
+    Everything except the green contours is identical between the two modes --
+    see the module docstring for why that matters.
+    """
     names, cond = read_particles(res / "isab_cond_particles.csv")
     names_u, uncond = read_particles(res / "isab_uncond_particles.csv")
     if names != names_u:
@@ -277,26 +283,32 @@ def main():
 
     fig = corner.corner(
         uncond, weights=w_uncond, labels=labels, range=ranges,
-        color=COL_UNCOND, truths=truths, truth_color=COL_TRUTH,
+        color=COL_ALONE, truths=truths, truth_color=COL_TRUTH,
         plot_datapoints=False, fill_contours=True, smooth=1.0,
         levels=(0.68, 0.95), hist_kwargs={"linewidth": 2.4},
         contour_kwargs={"linewidths": 1.6},
         label_kwargs={"fontsize": fs}, max_n_ticks=3,
     )
-    corner.corner(
-        cond, weights=w_cond, labels=labels, range=ranges, fig=fig,
-        color=COL_COND, truths=truths, truth_color=COL_TRUTH,
-        plot_datapoints=False, fill_contours=True, smooth=1.0,
-        levels=(0.68, 0.95), hist_kwargs={"linewidth": 2.4},
-        contour_kwargs={"linewidths": 1.6},
-        label_kwargs={"fontsize": fs}, max_n_ticks=3,
-    )
+    if overlay:
+        corner.corner(
+            cond, weights=w_cond, labels=labels, range=ranges, fig=fig,
+            color=COL_COND, truths=truths, truth_color=COL_TRUTH,
+            plot_datapoints=False, fill_contours=True, smooth=1.0,
+            levels=(0.68, 0.95), hist_kwargs={"linewidth": 2.4},
+            contour_kwargs={"linewidths": 1.6},
+            label_kwargs={"fontsize": fs}, max_n_ticks=3,
+        )
 
     axes = np.array(fig.axes).reshape((ndim, ndim))
 
     # Box the shared-parameter block. These are contiguous by construction (the
     # Julia export orders unshared first), so one rectangle covers them; bail
     # out rather than draw a misleading box if that ever stops being true.
+    #
+    # Drawn in BOTH modes. It marks which parameters the two modules share --
+    # a fact about the model, not about the inference -- so on the alone figure
+    # it says "we already know these three from elsewhere and are refitting
+    # them anyway", and on the overlay the green then lands inside it.
     shared_idx = [j for j, n in enumerate(names) if shared[n]]
     if shared_idx and shared_idx == list(range(shared_idx[0], shared_idx[-1] + 1)):
         lo, hi = shared_idx[0], shared_idx[-1]
@@ -318,9 +330,18 @@ def main():
         print(f"WARNING: shared parameters are not contiguous ({shared_idx}); "
               "skipping the annotation box")
 
+    # The conditioned row is RESERVED rather than dropped when overlay=False: an
+    # invisible handle of the same height holds the slot, so "Truth" sits at the
+    # same y on both slides and advancing the build only adds the green line
+    # instead of shuffling the legend under the audience.
+    cond_handle = (
+        Line2D([], [], color=COL_COND, lw=6, label="Conditioned across the boundary")
+        if overlay else
+        Line2D([], [], color="none", lw=6, label=" ")
+    )
     handles = [
-        Line2D([], [], color=COL_UNCOND, lw=6, label="Regulator inferred alone"),
-        Line2D([], [], color=COL_COND, lw=6, label="Conditioned across the boundary"),
+        Line2D([], [], color=COL_ALONE, lw=6, label="Regulator inferred alone"),
+        cond_handle,
         Line2D([], [], color=COL_TRUTH, lw=3, label="Truth"),
     ]
     fig.legend(handles=handles, loc="upper right",
@@ -328,11 +349,42 @@ def main():
                fontsize=0.72 * fs, handlelength=1.4, labelspacing=0.35,
                borderaxespad=0.0)
 
-    out = Path(args.out)
+    out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "pdf"):
         fig.savefig(f"{out}.{ext}", dpi=200, bbox_inches="tight")
         print(f"wrote {out}.{ext}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--results", default="examples/results")
+    ap.add_argument("--out", default=None,
+                    help="output stem; defaults per --mode")
+    ap.add_argument("--mode", choices=("ssa", "alone", "ode", "burst"),
+                    default="ssa",
+                    help="ssa: the boundary figure. alone: the same figure with "
+                         "the conditioned posterior suppressed, for the setup "
+                         "slide. ode / burst: backup slides.")
+    args = ap.parse_args()
+
+    res = Path(args.results)
+    figdir = Path("dev/talks/ISAB/figures")
+    default = {
+        "ssa": "isab_ssa_posteriors",
+        "alone": "isab_ssa_alone",
+        "ode": "isab_ode_corner",
+        "burst": "isab_burst_rate",
+    }[args.mode]
+    out = Path(args.out) if args.out else figdir / default
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.mode == "ode":
+        plot_ode_corner(res, out)
+    elif args.mode == "burst":
+        plot_burst_rate(res, out)
+    else:
+        plot_ssa(res, out, overlay=(args.mode == "ssa"))
 
 
 if __name__ == "__main__":

@@ -1,75 +1,94 @@
-# Handoff — 2026-08-06 16:20
+# Handoff — 2026-08-06 (evening)
 
 ## Goal
 
-Make the ISAB talk's results legible to a general audience by building the deck
-on a genuinely three-module minimal cell instead of a rig whose "three modules"
-were two.
+Restructure ISAB slides 10–12 so the deck earns its result: schematic first,
+then the two blocks inferred independently, then the same regulator posterior
+conditioned across the boundary.
 
 ## Status
 
-Done and pushed. PR #37 open against `main` from `minimal-cell-example`. The
-deck compiles clean at 19 pages (13 main line, 5 backup) and every figure comes
-from one production run. Nothing is half-finished.
+Slides and plotting code are **done**; the deck compiles clean at 20 pages.
+But **all three corner figures on disk are stale** and the deck is not
+presentable until they are regenerated on OzStar. The talk is 12 Aug 2026.
 
 ## What changed this session
 
-See `dev/log/2026-08-06-isab-minimal-cell.md` for the narrative, and
-`docs/superpowers/specs/2026-08-06-minimal-cell-boundary-figure-design.md` for
-the design and the full measured tables.
-
-## Open questions
-
-- **Commit `dev/talks/ISAB/talk.pdf`?** Both previous talk directories track
-  their built PDF, but those are finished talks. This one is six days out and
-  the committed build came from TinyTeX on the cluster, not the user's local
-  TeX. Left out deliberately; trivial to add.
-- **Vector figures?** The deck uses the `.png` files because that matches what
-  the repo tracks for talk figures. `.pdf` versions of all three exist on disk
-  (untracked) if the projector warrants them.
+See `dev/log/2026-08-06-isab-slide-restructure.md`.
 
 ## Blockers / problems
 
-None blocking the talk.
+**The only blocker: three figures need regenerating, and the inputs are on the
+cluster.** `examples/` is gitignored, so the particle CSVs from job 15152954
+never left OzStar. The Aug 2026 palette change (blue = differentiable, orange =
+regulator-alone, green = conditioned, black = truth) made every existing corner
+PNG stale, not just the new one.
 
-One honest limitation, disclosed on backup slide 16 rather than hidden: the
-regulator's promoter rates (`k_on`, `k_off`, `k_tx_burst`) are not individually
-identifiable from the current summary statistics, because replicate-mean
-trajectories see a telegraph promoter only through
-`k_tx_burst·k_on/(k_on+k_off)`. That combination *is* recovered and the boundary
-sharpens it 12×. Fixing it properly means adding distributional summaries (Fano
-factor, autocorrelation time, full count distribution) to
-`src/summary_statistics.jl` — the single most valuable follow-up, and arguably
-the sharpest answer to "why carry a stochastic module at all?"
+On OzStar, either re-run `sbatch test/run_talk_bursty_boundary.slurm` or locate
+the job's `examples/results/isab_*.csv`, then from the repo root:
+
+```
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa
+```
+
+`alone` and `ssa` **must** come from the same particles or slides 11 and 12
+disagree. Needs `corner` installed (the laptop's default `python3` lacks it).
+
+Until `isab_ssa_alone.png` exists, slide 11's right panel renders a red
+**FIGURE PENDING** box — deliberate, so it cannot be missed in rehearsal.
+
+Unchanged from the previous session: the promoter rates are not individually
+identifiable from replicate-mean summary statistics; only the combination
+`k_tx_burst·k_on/(k_on+k_off)` is, and it is recovered. Disclosed on backup
+slide 16. The fix is distributional summaries in `src/summary_statistics.jl`.
+
+## Open questions
+
+- **`CLAUDE.md` does not exist at the repo root.** Worth adding one that points
+  future sessions at `docs/handoff.md` and `dev/log/` — this repo's convention
+  differs from the `/handoff` skill's default (`./handoff.md`, `./log.md`), so
+  every session has to rediscover it. Not created without a say-so.
+- **PR #37** was open against `main` at the last handoff. Still needs review and
+  merge; this session's commits land on the same branch.
+- Carried over: commit `dev/talks/ISAB/talk.pdf`? Use vector `.pdf` figures?
 
 ## Next steps
 
-1. Review PR #37 and merge.
-2. Rehearse the setup→results pair (slides 10→11). The fix for the old awkward
-   transition is that slide 10 now *asks* the question slide 11 answers — say
-   the question out loud before advancing, or the repair is wasted.
-3. Decide on `talk.pdf` and vector figures (above).
-4. After the talk: distributional summary statistics, then the growth/division
-   module that was deferred this session.
+1. On OzStar: regenerate the three corner figures (command block above),
+   rebuild the deck, and eyeball slides 11–12 — this is the one thing standing
+   between the deck and presentable.
+2. Check the new palette actually reads on a projector, especially orange
+   (`#D2762B`) against green (`#3D9970`) for anyone colour-blind. If it does
+   not, the four constants are in one place at the top of the plot script.
+3. Rehearse slides 10 → 11 → 12 as a unit. Slide 10 now ends on a question
+   ("How do you infer θ when half the cell has no gradients?") that slides 11
+   and 12 are the two answers to — say it out loud before advancing.
+4. Review and merge PR #37.
 
 ## Non-obvious context
 
-- **Reproducing the figures:** `sbatch test/run_talk_bursty_boundary.slurm`,
-  then run `dev/talks/ISAB/figures/plot_bursty_boundary.py` in its three modes
-  (`ssa`, `ode`, `burst`). Packages must be downloaded from the **login node**
-  first — compute nodes have no route to the Julia registry; the `.slurm` file
-  documents the exact command.
-- **Parameter order in the boundary figure is load-bearing.** The three unshared
-  parameters are exported first and the three shared ones last, so the
-  tightening lands in the bottom-right block and the dashed box sits exactly on
-  the coupling. The plot script warns and drops the box rather than drawing a
-  wrong one if that ordering ever changes — check the job log after any rerun.
-- **Do not trust smoke-setting runs here.** At 100 NUTS samples the
-  differentiable chain does not converge, and the boundary faithfully passes the
-  resulting overconfidence downstream, which makes the result look far better
-  than it is. Both run logs are in the design doc; only the production numbers
-  are quotable.
-- **Building the deck on the cluster** needs `~/.TinyTeX` on PATH — the system
-  TeX has no `beamer`. The user's usual build is on their laptop.
-- `examples/` is gitignored, so the exported CSVs behind the figures are not in
-  the repo. Rerun the job to regenerate them.
+- **Say out loud on slide 12, deliberately not on the slide:** the flow is
+  one-way (differentiable → regulator); nothing the regulator's data knows
+  travels back. This is a cut posterior, a principled approximation to the
+  joint rather than the joint itself. The iterative protocol covered truth on
+  35–70% of seeds at a nominal 95%, which is why single-pass is the default.
+  There is a `SAY OUT LOUD` comment on the frame.
+- **Slide 10 shows two different "3 shared" labels.** Only the boundary-crossing
+  three are the problem; the intra-block three are absorbed by the joint NUTS
+  fit. Be explicit when speaking it or they read as one thing.
+- **The two corner panels on slide 11 are the argument, not decoration.**
+  `ODE_SUBSET` reduces the left panel to `k_tx` plus exactly the three shared
+  parameters, so its three tight columns are the three broad ones inside the
+  dashed box on the right.
+- **Colour chips in `talk.tex` are hex copies of the script's constants**
+  (`figDiff`/`figAlone`/`figCond`). Change one, change both.
+- Parameter order in the boundary figure is still load-bearing — unshared three
+  first, shared three last. The script warns and drops the dashed box rather
+  than drawing a wrong one; check the log after any rerun.
+- Building the deck on the cluster needs `~/.TinyTeX` on PATH; the system TeX
+  has no `beamer`.
+- Do not trust smoke-setting runs: at 100 NUTS samples the differentiable chain
+  does not converge and the boundary passes the overconfidence downstream,
+  making the result look better than it is.
