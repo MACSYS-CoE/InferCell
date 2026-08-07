@@ -340,7 +340,7 @@ def draw_shared_box(fig, axes, names, shared, fs, caption):
     )
 
 
-def plot_ssa(res, out, overlay=True, subset="full"):
+def plot_ssa(res, out, overlay=True, subset="full", legend=True):
     """The boundary figure. overlay=False draws the unconditioned posterior only.
 
     Everything except the green contours is identical between the two modes --
@@ -350,6 +350,9 @@ def plot_ssa(res, out, overlay=True, subset="full"):
       "full"     all six
       "shared"   the three shared with the differentiable block
       "matched"  MATCHED_SUBSET -- four, shaped like the NUTS corner
+
+    legend=False suppresses the key, for the figure that shares a slide with
+    the NUTS corner, which has none.
     """
     names, cond = read_particles(res / "isab_cond_particles.csv")
     names_u, uncond = read_particles(res / "isab_uncond_particles.csv")
@@ -438,6 +441,11 @@ def plot_ssa(res, out, overlay=True, subset="full"):
         draw_shared_box(fig, axes, names, shared, fs,
                         "shared with the\ndifferentiable block")
 
+    # legend=False is for the figure that shares a slide with the NUTS corner,
+    # which carries no legend of its own -- one keyed panel beside an unkeyed
+    # one reads as a difference between the two quantities rather than a
+    # difference in annotation. The slide's own colour chips do the keying.
+    #
     # The conditioned row is RESERVED rather than dropped when overlay=False: an
     # invisible handle of the same height holds the slot, so "Truth" sits at the
     # same y on both slides and advancing the build only adds the green line
@@ -452,10 +460,11 @@ def plot_ssa(res, out, overlay=True, subset="full"):
         cond_handle,
         Line2D([], [], color=COL_TRUTH, lw=3, label="Truth"),
     ]
-    fig.legend(handles=handles, loc="upper right",
-               bbox_to_anchor=(0.995, 0.995), frameon=False,
-               fontsize=0.72 * fs, handlelength=1.4, labelspacing=0.35,
-               borderaxespad=0.0)
+    if legend:
+        fig.legend(handles=handles, loc="upper right",
+                   bbox_to_anchor=(0.995, 0.995), frameon=False,
+                   fontsize=0.72 * fs, handlelength=1.4, labelspacing=0.35,
+                   borderaxespad=0.0)
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -480,6 +489,10 @@ def main():
                          "just the three shared with the differentiable block. "
                          "matched: four, shaped like the NUTS corner. Suffixes "
                          "the default output name accordingly.")
+    ap.add_argument("--no-legend", action="store_true",
+                    help="ssa / alone only: drop the key. For the panel that "
+                         "sits beside the NUTS corner, which has no legend "
+                         "either. The slide's colour chips do the keying.")
     ap.add_argument("--box", action="store_true",
                     help="ode only: dash-box the parameters shared with the SSA "
                          "block, so the NUTS corner carries the same annotation "
@@ -490,6 +503,8 @@ def main():
         raise SystemExit(f"--subset does not apply to --mode {args.mode}")
     if args.box and args.mode != "ode":
         raise SystemExit(f"--box does not apply to --mode {args.mode}")
+    if args.no_legend and args.mode not in ("ssa", "alone"):
+        raise SystemExit(f"--no-legend does not apply to --mode {args.mode}")
 
     res = Path(args.results)
     figdir = Path("dev/talks/ISAB/figures")
@@ -511,7 +526,8 @@ def main():
     elif args.mode == "burst":
         plot_burst_rate(res, out)
     else:
-        plot_ssa(res, out, overlay=(args.mode == "ssa"), subset=args.subset)
+        plot_ssa(res, out, overlay=(args.mode == "ssa"), subset=args.subset,
+                 legend=not args.no_legend)
 
 
 if __name__ == "__main__":

@@ -38,10 +38,17 @@ back of a room:
 ```
 python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset shared
 python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset shared
-python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset matched
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset matched --no-legend
 python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset matched
 python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode   --box
 ```
+
+**`--no-legend` on that fourth line is load-bearing and easy to lose.** The
+committed `isab_ssa_alone_matched.png` has no key, because it is built to sit
+beside the NUTS corner, which has none either — one keyed panel next to an
+unkeyed one reads as a difference between the quantities rather than a
+difference in annotation. Rerunning that line without the flag silently puts
+the legend back and the pairing stops matching.
 
 - `--subset shared` → 3x3, just `k_tl`, `γ_mRNA`, `γ_prot`.
 - `--subset matched` → 4x4, `k_tx_burst` plus those three. `MATCHED_SUBSET` is
@@ -52,6 +59,15 @@ python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode   --box
   panels comparable rather than merely the same size.
 - `--mode ode --box` → the NUTS corner carrying the mirror-image dashed box,
   captioned "shared with the SSA block".
+
+The two `matched` figures crop to near-identical dimensions (1953x1890 and
+1913x1906), so at a fixed `height=` on the slide they read as a pair.
+
+**If slide 11 does adopt the matched pair, truth loses its key.** It was the
+`alone` figure's legend that named the magenta line; the NUTS corner never had
+one. Add a `{\color{figTruth}$\blacksquare$}~Truth` chip to the slide caption
+alongside the existing figDiff/figAlone chips, or the magenta lines appear
+unexplained.
 
 **None of these five is referenced by `talk.tex` yet.** They exist to be dropped
 in if slides 11–12 read badly in rehearsal.
