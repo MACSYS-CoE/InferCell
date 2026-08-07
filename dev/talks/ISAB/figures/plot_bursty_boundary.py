@@ -21,6 +21,14 @@ ranges below are always computed from BOTH posteriors even when only one is
 drawn -- ranging the alone figure on its own particles would shift every panel
 between the two slides and destroy the effect.
 
+--shared-only cuts either figure down to just the three shared parameters, for
+when a 6x6 corner is too dense to read from the back of a room. The axis ranges
+are unchanged by the cut -- each parameter's range is computed independently, so
+a reduced panel has exactly the limits it had in the full figure and the two
+sets can be shown together or in sequence. The dashed box is dropped, because a
+box around every parameter in the figure marks nothing; the caption carries it
+instead.
+
 Usage:
     python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
         --results examples/results \
@@ -28,6 +36,9 @@ Usage:
 
     python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
         --results examples/results --mode alone
+
+    python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
+        --results examples/results --mode alone --shared-only
 """
 
 import argparse
@@ -265,11 +276,47 @@ def plot_burst_rate(res, out):
         print(f"wrote {out}.{ext}")
 
 
-def plot_ssa(res, out, overlay=True):
+def draw_shared_box(fig, axes, names, shared, fs):
+    """Dash-box the shared-parameter block and caption it.
+
+    The shared parameters are contiguous by construction -- the Julia export
+    orders unshared first -- so one rectangle covers them. If that ever stops
+    being true, warn and draw nothing rather than box the wrong parameters:
+    a misleading box is worse than a missing one, and this figure's whole
+    argument is about which parameters are inside it.
+    """
+    shared_idx = [j for j, n in enumerate(names) if shared[n]]
+    if not (shared_idx
+            and shared_idx == list(range(shared_idx[0], shared_idx[-1] + 1))):
+        print(f"WARNING: shared parameters are not contiguous ({shared_idx}); "
+              "skipping the annotation box")
+        return
+
+    lo, hi = shared_idx[0], shared_idx[-1]
+    p0 = axes[hi, lo].get_position()
+    p1 = axes[lo, hi].get_position()
+    fig.add_artist(Rectangle(
+        (p0.x0 - 0.012, p0.y0 - 0.012),
+        p1.x1 - p0.x0 + 0.024, p1.y1 - p0.y0 + 0.024,
+        transform=fig.transFigure, fill=False,
+        edgecolor=COL_COND, linewidth=2.5, linestyle=(0, (6, 4)), zorder=10,
+    ))
+    fig.text(
+        p1.x1, p1.y1 + 0.030,
+        "shared with the\ndifferentiable block",
+        ha="right", va="bottom", fontsize=0.62 * fs, color=COL_COND,
+        linespacing=1.25,
+    )
+
+
+def plot_ssa(res, out, overlay=True, shared_only=False):
     """The boundary figure. overlay=False draws the unconditioned posterior only.
 
     Everything except the green contours is identical between the two modes --
     see the module docstring for why that matters.
+
+    shared_only=True keeps just the parameters the two modules share, for a
+    readable version of the same figure at slide size.
     """
     names, cond = read_particles(res / "isab_cond_particles.csv")
     names_u, uncond = read_particles(res / "isab_uncond_particles.csv")
@@ -279,6 +326,17 @@ def plot_ssa(res, out, overlay=True):
     w_cond = read_weights(res / "isab_cond_weights.csv")
     w_uncond = read_weights(res / "isab_uncond_weights.csv")
     truth, shared = read_truth(res / "isab_ssa_truth.csv")
+
+    # Subset BEFORE the ranges are computed, but note that this cannot change
+    # them: weighted_quantile runs per parameter, so a kept parameter gets the
+    # same limits either way. That is what lets the reduced and full figures be
+    # shown in sequence without anything moving.
+    if shared_only:
+        keep = [j for j, n in enumerate(names) if shared[n]]
+        if not keep:
+            raise SystemExit("--shared-only: no parameters are marked shared")
+        names = [names[j] for j in keep]
+        cond, uncond = cond[:, keep], uncond[:, keep]
 
     labels = [LABELS.get(n, n) for n in names]
     truths = [truth[n] for n in names]
@@ -325,34 +383,16 @@ def plot_ssa(res, out, overlay=True):
 
     axes = np.array(fig.axes).reshape((ndim, ndim))
 
-    # Box the shared-parameter block. These are contiguous by construction (the
-    # Julia export orders unshared first), so one rectangle covers them; bail
-    # out rather than draw a misleading box if that ever stops being true.
+    # The box marks which parameters the two modules share -- a fact about the
+    # model, not about the inference -- so it is drawn in BOTH overlay modes: on
+    # the alone figure it says "we already know these three from elsewhere and
+    # are refitting them anyway", and on the overlay the green lands inside it.
     #
-    # Drawn in BOTH modes. It marks which parameters the two modules share --
-    # a fact about the model, not about the inference -- so on the alone figure
-    # it says "we already know these three from elsewhere and are refitting
-    # them anyway", and on the overlay the green then lands inside it.
-    shared_idx = [j for j, n in enumerate(names) if shared[n]]
-    if shared_idx and shared_idx == list(range(shared_idx[0], shared_idx[-1] + 1)):
-        lo, hi = shared_idx[0], shared_idx[-1]
-        p0 = axes[hi, lo].get_position()
-        p1 = axes[lo, hi].get_position()
-        fig.add_artist(Rectangle(
-            (p0.x0 - 0.012, p0.y0 - 0.012),
-            p1.x1 - p0.x0 + 0.024, p1.y1 - p0.y0 + 0.024,
-            transform=fig.transFigure, fill=False,
-            edgecolor=COL_COND, linewidth=2.5, linestyle=(0, (6, 4)), zorder=10,
-        ))
-        fig.text(
-            p1.x1, p1.y1 + 0.030,
-            "shared with the\ndifferentiable block",
-            ha="right", va="bottom", fontsize=0.62 * fs, color=COL_COND,
-            linespacing=1.25,
-        )
-    else:
-        print(f"WARNING: shared parameters are not contiguous ({shared_idx}); "
-              "skipping the annotation box")
+    # Not under --shared-only, though: every parameter on that figure is a
+    # shared one, so a box around all of them would mark nothing. The reduced
+    # figure says the same thing by its choice of parameters.
+    if not shared_only:
+        draw_shared_box(fig, axes, names, shared, fs)
 
     # The conditioned row is RESERVED rather than dropped when overlay=False: an
     # invisible handle of the same height holds the slot, so "Truth" sits at the
@@ -390,7 +430,14 @@ def main():
                     help="ssa: the boundary figure. alone: the same figure with "
                          "the conditioned posterior suppressed, for the setup "
                          "slide. ode / burst: backup slides.")
+    ap.add_argument("--shared-only", action="store_true",
+                    help="ssa / alone only: keep just the parameters shared with "
+                         "the differentiable block, for a version that reads at "
+                         "slide size. Suffixes the default output with _shared.")
     args = ap.parse_args()
+
+    if args.shared_only and args.mode not in ("ssa", "alone"):
+        raise SystemExit(f"--shared-only does not apply to --mode {args.mode}")
 
     res = Path(args.results)
     figdir = Path("dev/talks/ISAB/figures")
@@ -400,6 +447,8 @@ def main():
         "ode": "isab_ode_corner",
         "burst": "isab_burst_rate",
     }[args.mode]
+    if args.shared_only:
+        default += "_shared"
     out = Path(args.out) if args.out else figdir / default
     out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -408,7 +457,8 @@ def main():
     elif args.mode == "burst":
         plot_burst_rate(res, out)
     else:
-        plot_ssa(res, out, overlay=(args.mode == "ssa"))
+        plot_ssa(res, out, overlay=(args.mode == "ssa"),
+                 shared_only=args.shared_only)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,19 @@ Note the fourth: `--mode burst` also draws from the recoloured constants
 (`COL_ALONE`/`COL_COND`/`COL_TRUTH`), so backup slide 17 was stale too. The
 previous handoff's command block listed only three.
 
+Then two reduced figures, for when the 6x6 corner is too dense to read from the
+back of a room:
+
+```
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --shared-only
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --shared-only
+```
+
+`--shared-only` keeps just `k_tl`, `γ_mRNA`, `γ_prot` and writes
+`isab_ssa_alone_shared` / `isab_ssa_posteriors_shared`. **Neither is referenced
+by `talk.tex` yet** — they exist to be dropped in if slides 11–12 read badly in
+rehearsal.
+
 Verified rather than assumed:
 
 - No parameter-order warning fired, and the dashed "shared with the
@@ -46,6 +59,11 @@ Committed: the four PNGs only.
 
 ## Open questions
 
+- **Do slides 11–12 want the reduced (`_shared`) corners instead?** They are
+  generated and committed but unwired. The full 6x6 carries more of the story —
+  it shows the three promoter rates staying broad, which is the honest caveat —
+  while the 3x3 is what actually reads at slide size. Possible compromise: 3x3
+  on 11–12, full 6x6 promoted to a backup slide. Decide in rehearsal, in a room.
 - **Not committed, deliberately: the `.pdf` twins** of all four figures and
   `dev/talks/ISAB/talk.pdf`. The plot script emits both formats; `talk.tex`
   still `\includegraphics` the `.png`s. Switching the deck to vector figures is
