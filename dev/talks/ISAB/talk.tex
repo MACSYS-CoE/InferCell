@@ -1137,14 +1137,36 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				blk/.style={draw, dashed, thick, rounded corners=6pt, inner sep=4pt},
 				>=Stealth
 			]
+				% Per-box free-parameter counts and per-arrow shared counts, so the
+				% arithmetic behind the "11 unique" bullet is checkable on screen:
+				% 5 + 6 + 6 = 17, minus 3 shared inside the block, minus 3 across
+				% the boundary, = 11. Counts are free parameters as the code counts
+				% them (fixed initial conditions excluded, sigma_obs INCLUDED --
+				% it is free and it deduplicates between the two ODE modules).
+				% Biological rates alone would read 4 / 5 / 6 and 10 unique; if the
+				% bullet below is ever changed to 10, change these too.
+				%
+				% Boxes moved out to +-1.7 from +-1.15: at 1.15 the 1.55cm-wide boxes
+				% left a 0.75cm gap, and the "3 shared" label swallowed the arrow
+				% whole. 1.7 leaves ~1.8cm, enough for label plus visible shaft.
+				%
 				% Two-headed arrow because the coupling really is two-way: the
 				% enzyme protein gates ATP production (Michaelis-Menten, see
 				% LightMetabolism.dynamics) and mRNA drives the TX/TL sinks. That
 				% closed loop is what makes these two modules one differentiable
 				% block rather than two things solved in sequence.
-				\node[mod, fill=blue!12] (txl) at (-1.15,0) {\textbf{Enzyme gene}\\(ODE)};
-				\node[mod, fill=blue!12] (met) at (1.15,0)  {\textbf{Metab.}\\(ODE)};
+				\node[mod, fill=blue!12] (txl) at (-1.7,0)
+					{\textbf{Enzyme gene}\\(ODE)\\\textbf{5} free};
+				\node[mod, fill=blue!12] (met) at (1.7,0)
+					{\textbf{Metab.}\\(ODE)\\\textbf{6} free};
+				% k_tx, k_tl and sigma_obs are declared by both -- metabolism
+				% consumes NTP/AA at the same transcription and translation rates
+				% that drive expression. This sharing is INSIDE the block: the joint
+				% NUTS fit absorbs it, it never crosses a boundary. Drawn plainly
+				% rather than in boundary red for that reason.
 				\draw[<->, thick, red!60!black] (txl) -- (met);
+				\node[font=\tiny, text=red!60!black, fill=white, inner sep=1pt]
+					at (0,0) {\textbf{3} shared};
 				\node[blk, blue!50, fit=(txl)(met)] (diffblock) {};
 				\node[font=\tiny\itshape, text=blue!60!black, anchor=south]
 					(difflab) at (diffblock.north) {DifferentiableBlock $\cdot$ NUTS};
@@ -1154,7 +1176,8 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				% (states [promoter, mRNA, protein]; k_on, k_off, k_tx_burst) that
 				% has no counterpart upstream. Only k_tl, gamma_mRNA and
 				% gamma_protein deduplicate against the enzyme gene -- 3 of 11.
-				\node[mod, fill=orange!12] (ssa) at (-1.15,-2.25) {\textbf{Regulator gene}\\(SSA)};
+				\node[mod, fill=orange!12] (ssa) at (-1.7,-2.25)
+					{\textbf{Regulator gene}\\(SSA)\\\textbf{6} free};
 				\node[blk, orange!50, fit=(ssa)] (simblock) {};
 				\node[font=\tiny\itshape, text=orange!60!black, anchor=north]
 					(simlab) at (simblock.south) {SimulationBlock $\cdot$ ABC-SMC};
@@ -1167,26 +1190,37 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 					text width=2.0cm] at (-0.15,-2.25)
 					{bursty promoter,\\ low copy number};
 
+				% THE boundary. Same count as the intra-block arrow above, but a
+				% different kind of sharing: these three are the only route by
+				% which anything the differentiable block learns can reach the
+				% simulation block. Count verified against the two constructors.
 				\draw[->, very thick, red!60!black] (diffblock.south -| ssa) -- (simblock.north);
-				% Names the physical mechanism rather than the sampler step. The
+				\node[font=\tiny, text=red!60!black, fill=white, inner sep=1pt]
+					at (-1.7,-1.15) {\textbf{3} shared};
+				% Names the physical mechanism rather than the sampler step: the
 				% regulator is translated by the same ribosomes and cleared by the
-				% same machinery as the enzyme gene, so k_tl, gamma_mRNA and
-				% gamma_protein are literally the same three numbers -- that is the
-				% whole reason anything crosses this arrow. Count verified against
-				% the parameter lists in the two model constructors: 3 of 11.
+				% same machinery, so these are literally the same three numbers.
 				% Explicit breaks: at this width LaTeX hyphenates "ribosomes".
 				\node[font=\tiny\itshape, text=red!60!black, anchor=west, align=left,
-					text width=2.0cm] at (-0.25,-1.15)
+					text width=2.1cm] at (-0.35,-1.15)
 					{same ribosomes,\\ same degradation:\\
-					\textbf{3 of 11} shared};
+					$k_{tl}$, $\gamma_{mRNA}$, $\gamma_{prot}$};
 
 				% y, named where it enters. One arrow into each block because that is
 				% what actually happens: both blocks are conditioned on data. A single
 				% arrow into the cell would draw the joint conditioning that is still
 				% the goal rather than the implementation.
+				%
+				% x=-4.5, not -3.6: the module boxes are wider than their 1.55cm
+				% minimum ("Regulator gene" sets the width), so the fitted cell
+				% border reaches further left than the nominal coordinates suggest.
+				% At -3.6 the border and both green arrows crossed straight through
+				% this node's text. Re-check this clearance if the boxes are ever
+				% moved or relabelled -- it is not visible at slide size, only when
+				% zoomed.
 				\node[draw, thick, rounded corners=3pt, fill=green!15, font=\tiny,
 					align=center, minimum width=1.2cm, minimum height=0.5cm]
-					(data) at (-3.6,-1.15) {observed\\data $\mathbf{y}$};
+					(data) at (-4.5,-1.15) {observed\\data $\mathbf{y}$};
 				\draw[->, thick, green!50!black] (data) -- (diffblock.west);
 				\draw[->, thick, green!50!black] (data) -- (simblock.west);
 
@@ -1305,14 +1339,22 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth:
 			exactly the 3 the expression modules share.
 
+			% NOT "barely move": k_tx_burst tightens 3.1x despite never being
+			% conditioned, because the six are fitted jointly and it is correlated
+			% with the pinned parameters (corr +0.36 with gamma_prot, -0.24 with
+			% k_tl). k_on and k_off are near-uncorrelated and genuinely do not
+			% move. "Indirectly" covers both honestly.
 			\smallskip
-			$\rightarrow$~The other 3 govern \textbf{promoter switching} and
-			barely move --- the bulk data never sees them, and mean trajectories
-			cannot separate them anyway.
+			$\rightarrow$~The other 3 govern \textbf{promoter switching}. They keep
+			their own priors and move only \textbf{indirectly}, through the
+			likelihood --- and mean trajectories cannot separate them anyway.
 
 			\medskip
-			{\scriptsize\itshape Information crossed the boundary --- and stopped
-			where the coupling stopped.\par}
+			% "Reached as far as the coupling carried it", not "stopped where the
+			% coupling stopped": the bullet above now says the unshared parameters
+			% move indirectly, so a hard stop would contradict it one line later.
+			{\scriptsize\itshape Information crossed the boundary --- and reached
+			as far as the coupling carried it.\par}
 		\end{column}
 	\end{columns}
 \end{frame}
