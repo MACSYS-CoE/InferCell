@@ -21,6 +21,13 @@
 % Posteriors / inference output
 \colorlet{colPost}{violet!15}
 \colorlet{colPostLine}{violet!70!black}
+% Corner-plot series, as exact hex matches to plot_bursty_boundary.py. The
+% legend chips on the results slides are drawn in these, so if the palette
+% constants in that script move, move these with them or the chips start lying.
+\definecolor{figDiff}{HTML}{3B7EA1}    % differentiable block's own posterior
+\definecolor{figAlone}{HTML}{D2762B}   % regulator inferred alone
+\definecolor{figCond}{HTML}{3D9970}    % conditioned across the boundary
+\definecolor{figTruth}{HTML}{E5007D}   % ground truth
 % Infrastructure / neutral
 \colorlet{colNeutral}{gray!15}
 % Problems / no-UQ / fragile
@@ -227,6 +234,10 @@
 				{$\freeparam{k_{tx}} = 0.05\;\mathrm{s}^{-1}$\\[-2pt]\tiny measured in \textit{E.\,coli}, applied to syn3A\\[-1pt]\tiny \textbf{range: 0.02--0.12}};
 			\node[box, fill=blue!12, below=3mm of ktx] (gam)
 				{$\freeparam{\gamma} = 0.002\;\mathrm{s}^{-1}$\\[-2pt]\tiny extrapolated from \textit{M.\,pneumoniae}\\[-1pt]\tiny \textbf{range: 0.001--0.004}};
+			% Names what both boxes are already showing. The provenance lines
+			% ("measured in E. coli", "extrapolated from M. pneumoniae") were
+			% doing this work silently; the ISAB review asked for the claim to
+			% be made out loud, and this is the cheapest place to make it.
 		\end{tikzpicture}
 	\end{column}
 	\begin{column}{0.71\textwidth}
@@ -282,9 +293,16 @@
 
 \end{frame}
 
-% VERBAL: When MC4D predicts a 110-minute doubling time, we cannot distinguish
+% VERBAL: When MC4D predicts a 105-minute doubling time, we cannot distinguish
 % whether (a) the prediction is robust across plausible parameters, or
-% (b) it is fragile and depends on specific choices.
+% (b) it is fragile and depends on specific choices. That distinction is the
+% pincer, which is now a BACKUP slide ("Can We Build One?"). Land the
+% distinction here in one sentence; pull the slide up only if the "but it
+% works, their doubling time matches" objection actually arrives.
+%
+% (Was 110 throughout the deck. Changed Aug 2026 to 105, the figure the
+% project notes carry for syn3A, so the pincer slide, slide 8's illustration
+% and this note all quote one number. If 110 is right they move back together.)
 
 
 
@@ -449,6 +467,17 @@
 			{\small \textit{``Given data, what $\theta$ are consistent?''}}
 		\end{column}
 	\end{columns}
+
+	% The core claim, stated rather than implied. Added Aug 2026 after the ISAB
+	% review: the deck showed the inversion but never conceded that it costs
+	% more, and a concession is what makes the claim land as a judgement rather
+	% than as advocacy. Say it as a concession -- "yes, this is the harder
+	% way" -- then take the second half without hedging.
+	\vfill
+	\centering
+	% Must stay one line: wrapped, it orphans the last word and the concession
+	% loses its snap.
+	\vspace{1mm}
 \end{frame}
 
 
@@ -493,7 +522,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				\item \textbf{HPC penalties} --- serialise, spawn, copy at every
 				boundary.
 
-				\item \textbf{No differentiability} --- AD dies at the
+				\item \textbf{No differentiability} --- dies at the
 				boundary.
 
 				\item \textbf{No composability} --- every swap is cross-language
@@ -868,7 +897,10 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\begin{column}{0.49\textwidth}
 			\begin{itemize}\itemsep3pt\parskip0pt
 				\item \textbf{Probabilistic prediction}\\[1pt]
-				{\scriptsize\itshape ``Is doubling time 110\,$\pm$\,5\,min, or 60--200?''}
+				% 105, not 110: same number as the pincer backup slide, whose
+				% wide horn is this same 60--200 range. Deliberate, so the two
+				% agree if that slide gets pulled up.
+				{\scriptsize\itshape ``Is doubling time 105\,$\pm$\,5\,min, or 60--200?''}
 				\item \textbf{Parameter calibration}\\[1pt]
 				{\scriptsize\itshape ``What is $k_{tx}$ for this gene, given our data?''}
 				\item \textbf{Identifiability}\\[1pt]
@@ -1068,46 +1100,25 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % schematic beside them: blue curve -> DifferentiableBlock, orange staircase ->
 % SimulationBlock. That mapping was left implicit while the two lived on
 % separate slides; here it is the whole point of the layout.
-% Retitled Aug 2026: was "A Three-Module Test Cell". Two of the three modules are
-% the same TX/TL reactions in different formalisms (see the SSA node below), which
-% is a control that makes boundary error attributable -- something a test rig has
-% and a cell would not. "Cell" invited "why does a cell need two descriptions of
-% its own transcription?"; "harness" does not. Count is unchanged and still true:
-% three module objects, two distinct biological subsystems.
-\begin{frame}{A Three-Module Test Harness}
+% Rebuilt Aug 2026 around the bursty-regulator cell (BurstyGeneExpression),
+% replacing the StochasticGeneExpression harness whose SSA module was the same
+% four reactions as the ODE TX/TL block. This one is three distinct subsystems:
+% metabolism and enzyme expression are state-coupled both ways (the enzyme gates
+% ATP production, mRNA drives the TX/TL sinks), and the regulator is
+% parameter-coupled to expression through the shared ribosomes and shared
+% degradation machinery. So "cell" is now honest and the retitle is reverted.
+%
+% Bullets cut Aug 2026 -- the slide is the figure for now. The last one used to
+% be a QUESTION, not a goal, and it set up the conditioned-vs-unconditioned
+% contrast on the results slide that follows. If the bullets come back, keep
+% that pairing; if they stay cut, ask the question out loud instead.
+% Layout: schematic LHS (wide column), the two dynamics sketches RHS.
+% See docs/superpowers/specs/2026-08-06-minimal-cell-boundary-figure-design.md.
+\begin{frame}{A Minimal Cell, in Three Modules}
 
 
 	\vspace{0.5mm}
 	\begin{columns}[T,onlytextwidth]
-		\begin{column}{0.38\textwidth}
-			\centering
-			{\scriptsize\bfseries\color{blue!70!black} Differentiable dynamics}\\[-2pt]
-			{\tiny ODE metabolism, continuous kinetics}\\[1pt]
-			\begin{tikzpicture}[scale=0.34]
-				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
-				\draw[->] (0,0) -- (0,2.3);
-				\draw[thick, blue] plot[smooth, domain=0:4] (\x, {2*(1-exp(-\x))});
-			\end{tikzpicture}\\[-1pt]
-			{\tiny gradients exist $\;\Rightarrow\;$ \textbf{NUTS}}
-
-			\vspace{2.5mm}
-			{\scriptsize\bfseries\color{orange!70!black} Stochastic dynamics}\\[-2pt]
-			% NOT "bursty": the cell in these figures uses StochasticGeneExpression,
-			% which has no promoter switching (no k_on/k_off) -- it is the txl
-			% reactions as a jump process. BurstyGeneExpression is a different cell
-			% (the step4 one), whose figures are not in this deck.
-			{\tiny Gillespie SSA, discrete molecule counts}\\[1pt]
-			\begin{tikzpicture}[scale=0.34]
-				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
-				\draw[->] (0,0) -- (0,2.3);
-				\draw[thick, orange] (0,0.3) -- (0.4,0.3) -- (0.4,0.8) -- (0.9,0.8)
-					-- (0.9,1.3) -- (1.2,1.3) -- (1.2,0.8) -- (1.7,0.8)
-					-- (1.7,1.5) -- (2.1,1.5) -- (2.1,2.0) -- (2.5,2.0)
-					-- (2.5,1.5) -- (3.0,1.5) -- (3.0,1.8) -- (3.5,1.8)
-					-- (3.5,1.3) -- (4.0,1.3);
-			\end{tikzpicture}\\[-1pt]
-			{\tiny no gradient path $\;\Rightarrow\;$ \textbf{ABC-SMC}}
-		\end{column}
 		\begin{column}{0.60\textwidth}
 			\centering
 			% No scale= key, and all coordinates in cm: TikZ scales positions but
@@ -1121,22 +1132,47 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				blk/.style={draw, dashed, thick, rounded corners=6pt, inner sep=4pt},
 				>=Stealth
 			]
-				\node[mod, fill=blue!12] (txl) at (-1.15,0) {\textbf{TX/TL}\\(ODE)};
-				\node[mod, fill=blue!12] (met) at (1.15,0)  {\textbf{Metab.}\\(ODE)};
+				% Per-box free-parameter counts and per-arrow shared counts, so the
+				% "11 unique parameters" arithmetic is checkable on screen:
+				% 5 + 6 + 6 = 17, minus 3 shared inside the block, minus 3 across
+				% the boundary, = 11. Counts are free parameters as the code counts
+				% them (fixed initial conditions excluded, sigma_obs INCLUDED --
+				% it is free and it deduplicates between the two ODE modules).
+				% Biological rates alone would read 4 / 5 / 6 and 10 unique; if the
+				% spoken number is ever changed to 10, change these too.
+				%
+				% Boxes moved out to +-1.7 from +-1.15: at 1.15 the 1.55cm-wide boxes
+				% left a 0.75cm gap, and the "3 shared" label swallowed the arrow
+				% whole. 1.7 leaves ~1.8cm, enough for label plus visible shaft.
+				%
+				% Two-headed arrow because the coupling really is two-way: the
+				% enzyme protein gates ATP production (Michaelis-Menten, see
+				% LightMetabolism.dynamics) and mRNA drives the TX/TL sinks. That
+				% closed loop is what makes these two modules one differentiable
+				% block rather than two things solved in sequence.
+				\node[mod, fill=blue!12] (txl) at (-1.7,0)
+					{\textbf{Enzyme gene}\\(ODE)\\\textbf{5} free};
+				\node[mod, fill=blue!12] (met) at (1.7,0)
+					{\textbf{Metab.}\\(ODE)\\\textbf{6} free};
+				% k_tx, k_tl and sigma_obs are declared by both -- metabolism
+				% consumes NTP/AA at the same transcription and translation rates
+				% that drive expression. This sharing is INSIDE the block: the joint
+				% NUTS fit absorbs it, it never crosses a boundary. Drawn plainly
+				% rather than in boundary red for that reason.
 				\draw[<->, thick, red!60!black] (txl) -- (met);
+				\node[font=\tiny, text=red!60!black, fill=white, inner sep=1pt]
+					at (0,0) {\textbf{3} shared};
 				\node[blk, blue!50, fit=(txl)(met)] (diffblock) {};
 				\node[font=\tiny\itshape, text=blue!60!black, anchor=south]
 					(difflab) at (diffblock.north) {DifferentiableBlock $\cdot$ NUTS};
 
-				% Labelled TX/TL, not "Gene expr.": StochasticGeneExpression is the
-				% SAME four reactions as TranscriptionTranslation above (same states
-				% [mRNA, protein], same k_tx/k_tl/gamma_mRNA/gamma_protein, registered
-				% under the same names -- which is exactly why all four deduplicate).
-				% The ODE block is its mean-field limit. Two different names hid the
-				% one thing this cell exists to demonstrate: the same biology modelled
-				% twice, so the two posteriors can be compared. Identical bold labels
-				% plus differing formalism tags make the duplication self-evident.
-				\node[mod, fill=orange!12] (ssa) at (-1.15,-2.25) {\textbf{TX/TL}\\(SSA)};
+				% A genuinely different subsystem, not the ODE block in another
+				% formalism: BurstyGeneExpression carries a two-state promoter
+				% (states [promoter, mRNA, protein]; k_on, k_off, k_tx_burst) that
+				% has no counterpart upstream. Only k_tl, gamma_mRNA and
+				% gamma_protein deduplicate against the enzyme gene -- 3 of 11.
+				\node[mod, fill=orange!12] (ssa) at (-1.7,-2.25)
+					{\textbf{Regulator gene}\\(SSA)\\\textbf{6} free};
 				\node[blk, orange!50, fit=(ssa)] (simblock) {};
 				\node[font=\tiny\itshape, text=orange!60!black, anchor=north]
 					(simlab) at (simblock.south) {SimulationBlock $\cdot$ ABC-SMC};
@@ -1146,28 +1182,40 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				% simlab is below the block, so nothing competes. Deliberately not in
 				% the (cell) fit list -- it already falls inside that border.
 				\node[font=\tiny\itshape, text=gray!70, anchor=west, align=left,
-					text width=1.9cm] at (-0.15,-2.25)
-					{same reactions,\\ two formalisms};
+					text width=2.0cm] at (-0.15,-2.25)
+					{bursty promoter,\\ low copy number};
 
+				% THE boundary. Same count as the intra-block arrow above, but a
+				% different kind of sharing: these three are the only route by
+				% which anything the differentiable block learns can reach the
+				% simulation block. Count verified against the two constructors.
 				\draw[->, very thick, red!60!black] (diffblock.south -| ssa) -- (simblock.north);
-				% Named rather than enumerated: the individual rate symbols carry no
-				% meaning without the equations, which this talk never shows. The count
-				% is the part that informs -- 4 of the 8 are shared. Numbers verified
-				% against export_results.jl's name lists and the exported CSVs, not
-				% inferred from the plots.
-				% Explicit breaks: at this width LaTeX hyphenates "parameters".
+				\node[font=\tiny, text=red!60!black, fill=white, inner sep=1pt]
+					at (-1.7,-1.15) {\textbf{3} shared};
+				% Names the physical mechanism rather than the sampler step: the
+				% regulator is translated by the same ribosomes and cleared by the
+				% same machinery, so these are literally the same three numbers.
+				% Explicit breaks: at this width LaTeX hyphenates "ribosomes".
 				\node[font=\tiny\itshape, text=red!60!black, anchor=west, align=left,
-					text width=1.95cm] at (-0.25,-1.15)
-					{conditioned on the\\ posterior over\\
-					$\boldsymbol{\theta}_\mathrm{shared}$};
+					text width=2.1cm] at (-0.35,-1.15)
+					{same ribosomes,\\ same degradation:\\
+					$k_{tl}$, $\gamma_{mRNA}$, $\gamma_{prot}$};
 
 				% y, named where it enters. One arrow into each block because that is
 				% what actually happens: both blocks are conditioned on data. A single
 				% arrow into the cell would draw the joint conditioning that is still
 				% the goal rather than the implementation.
+				%
+				% x=-4.5, not -3.6: the module boxes are wider than their 1.55cm
+				% minimum ("Regulator gene" sets the width), so the fitted cell
+				% border reaches further left than the nominal coordinates suggest.
+				% At -3.6 the border and both green arrows crossed straight through
+				% this node's text. Re-check this clearance if the boxes are ever
+				% moved or relabelled -- it is not visible at slide size, only when
+				% zoomed.
 				\node[draw, thick, rounded corners=3pt, fill=green!15, font=\tiny,
 					align=center, minimum width=1.2cm, minimum height=0.5cm]
-					(data) at (-3.6,-1.15) {observed\\data $\mathbf{y}$};
+					(data) at (-4.5,-1.15) {observed\\data $\mathbf{y}$};
 				\draw[->, thick, green!50!black] (data) -- (diffblock.west);
 				\draw[->, thick, green!50!black] (data) -- (simblock.west);
 
@@ -1178,88 +1226,292 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				\node[draw, thick, rounded corners=8pt, gray!55, inner sep=5pt,
 					fit=(diffblock)(difflab)(simblock)(simlab)] (cell) {};
 				\node[font=\tiny\bfseries, text=gray!70, anchor=south]
-					at (cell.north) {Three-module test harness, $\boldsymbol{\theta}$};
+					at (cell.north) {Minimal cell, $\boldsymbol{\theta}$};
 			\end{tikzpicture}
+		\end{column}
+		\begin{column}{0.38\textwidth}
+			\centering
+			{\scriptsize\bfseries\color{blue!70!black} Differentiable dynamics}\\[-2pt]
+			{\tiny ODE metabolism \& expression, continuous kinetics}\\[1pt]
+			\begin{tikzpicture}[scale=0.34]
+				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
+				\draw[->] (0,0) -- (0,2.3);
+				\draw[thick, blue] plot[smooth, domain=0:4] (\x, {2*(1-exp(-\x))});
+			\end{tikzpicture}\\[-1pt]
+			{\tiny gradients exist $\;\Rightarrow\;$ \textbf{NUTS}}
+
+			\vspace{2.5mm}
+			{\scriptsize\bfseries\color{orange!70!black} Stochastic dynamics}\\[-2pt]
+			% "Bursty" is now correct: this deck's cell uses BurstyGeneExpression,
+			% a telegraph promoter (k_on/k_off gating k_tx_burst) with visible
+			% Fano > 1. The staircase below is drawn with bursts for that reason.
+			{\tiny Gillespie SSA, bursty promoter, discrete counts}\\[1pt]
+			\begin{tikzpicture}[scale=0.34]
+				\draw[->] (0,0) -- (4.6,0) node[right, font=\tiny] {$t$};
+				\draw[->] (0,0) -- (0,2.3);
+				% Bursty, not a random walk: long flat stretches with the promoter
+				% off, punctuated by tight runs of up-steps while it is on, then
+				% slow decay. That silhouette is the whole reason this module
+				% cannot be replaced by its mean-field limit, so it should be
+				% legible from the back of the room. Was a generic staircase.
+				\draw[thick, orange] (0,0.2) -- (1.0,0.2)
+					-- (1.0,0.7) -- (1.1,0.7) -- (1.1,1.2) -- (1.2,1.2)
+					-- (1.2,1.75) -- (1.35,1.75)
+					-- (1.35,1.5) -- (1.75,1.5) -- (1.75,1.25) -- (2.15,1.25)
+					-- (2.15,1.0) -- (2.75,1.0)
+					-- (2.75,1.5) -- (2.85,1.5) -- (2.85,1.95) -- (3.0,1.95)
+					-- (3.0,1.7) -- (3.4,1.7) -- (3.4,1.45) -- (3.8,1.45)
+					-- (3.8,1.2) -- (4.2,1.2);
+			\end{tikzpicture}\\[-1pt]
+			{\tiny no gradient path $\;\Rightarrow\;$ \textbf{ABC-SMC}}
 		\end{column}
 	\end{columns}
 
+	% Spends the band the cut bullets left behind, and hands off to the next two
+	% slides, which are the two answers. Keep it a question -- the old "Goal: the
+	% joint posterior" phrasing promised something the result does not deliver.
+	\vfill
+	\centering
+	{\small \textbf{Goal}: compute $p(\theta | y)$\par}
 	\vspace{1mm}
-	\scriptsize
-	\begin{itemize}\itemsep1pt
-		\item $\boldsymbol{\theta}$: \textbf{8} unique parameters after
-		deduplication.
-		$\boldsymbol{\theta}_\mathrm{shared} \subset \boldsymbol{\theta}$
-		\item A \textbf{synthetic twin}: $\mathbf{y}$ is generated from the model
-		being fitted, so ground truth is known.
-		\item \textbf{Goal:} the joint posterior
-		$p(\boldsymbol{\theta} \mid \mathbf{y})$ --- all 8, conditioned on all the
-		data at once.
-	\end{itemize}
 \end{frame}
 
 
 % ----------------------------------------------------------------
-% Results. The SSA figure leads on purpose: it is the only figure in the deck
-% that shows information crossing a module boundary and paying for itself
-% (unconditioned blue is broad and multimodal and misses truth; conditioned
-% green is tight and centred on it). The 9-parameter corner is the supporting
-% methods check, and it also pays off the identifiability bullet promised back
-% on "What Becomes Possible (Science)" -- the tilted ellipses are that claim
-% measured rather than asserted.
+% Results, rebuilt Aug 2026 for the bursty-regulator cell. Supersedes the
+% step3 (StochasticGeneExpression) figures, whose simulation module shared ALL
+% FOUR of its parameters with the differentiable block because it was the same
+% four reactions. That made the old green collapse dramatic but unattributable:
+% presented as a boundary result between distinct modules it claimed a transfer
+% effect the experiment had not tested, and "how many parameters do the two
+% blocks share?" was a one-question refutation. Here it is 3 of 11 and the
+% figure shows the transfer stopping at the coupling.
 %
-% Figures only, no prose: at 15 minutes this slide is spoken, not read, and
-% dropping the text is what lets both plots run to ~5.8cm. The headings label
-% each panel with the symbol slide 10 defined -- the 4-parameter plot is
-% theta_shared, the 8-parameter one is all of theta.
+% Figure: figures/isab_ssa_posteriors.png, from
+%   test/run_talk_bursty_boundary.jl        (compute -> CSV)
+%   figures/plot_bursty_boundary.py         (CSV -> figure)
+% Parameter ORDER in that figure is load-bearing for the FULL 6x6 exports (now
+% backup only, see SHARED-ONLY below): the three unshared parameters (k_on,
+% k_off, k_tx_burst) come first and the three shared ones (k_tl, gamma_mRNA,
+% gamma_protein) last, so the tightening is confined to the bottom-right block
+% and the dashed box sits exactly on the coupling. If the export order changes,
+% the plot script warns and drops the box rather than drawing a wrong one --
+% check the log before trusting a regenerated 6x6 figure.
 %
-% "theta" on the right panel is exact, not an approximation: the SSA module here
-% is StochasticGeneExpression, whose four parameters are all shared with the
-% differentiable block, so the whole system after deduplication is the same 8
-% the differentiable block carries. Both panel counts were verified against
-% export_results.jl's name lists and the exported CSVs (ode_chain.csv has 8
-% columns; cond/uncond_particles.csv have 4).
+% Counts (11 unique, 3 shared) are from the two model constructors:
+% BurstyGeneExpression contributes k_on, k_off, k_tx_burst on top of the
+% differentiable block's 8; k_tl, gamma_mRNA and gamma_protein deduplicate.
 %
-% Aug 2026: both figures replaced from PR #36 (branch talk-figure-legible-fonts),
-% which enlarged the fonts for projector legibility -- typography only, no change
-% to the palette or the statistics. The right panel is now step3_corner_reduced,
-% a 4-of-8 marginal cut of the full corner: the 8x8 grid at 5.8cm tall put the
-% axis labels below reading size from the back of a room. The chain is still the
-% joint over all 8 and the caption says so -- what is cut is the display, not the
-% inference. The full 8x8 (step3_corner.png, also refreshed) is still in figures/
-% if the whole grid is ever wanted for Q&A.
+% Superseded figures kept in figures/ for Q&A: step3_ssa_posteriors.png (the
+% all-four-shared version), step3_corner*.png, step4_corner_talk_shared.png.
 %
-% CAUTION: a second, different three-module cell exists in the repo
-% (BurstyGeneExpression instead of StochasticGeneExpression), for which the
-% counts are 8 differentiable / 6 simulation / 11 total with only 3 shared. Its
-% figure is step4_corner_talk_shared.png. Do not mix that figure into this slide
-% or reuse these numbers for it -- both are right, for different cells.
+% MEASURED NUMBERS (job 15152954, 400 particles / 6 populations / 50 replicates
+% / 1000 NUTS). Conditioned vs unconditioned, mean +/- sd, sd ratio:
+%   k_tl          truth 2.0   4.502+/-3.430 -> 2.074+/-0.086    40x   SHARED
+%   gamma_mRNA    truth 0.5   0.437+/-0.403 -> 0.514+/-0.031    13x   SHARED
+%   gamma_protein truth 0.1   0.384+/-0.328 -> 0.098+/-0.002   187x   SHARED
+%   k_on          truth 0.2   2.106+/-1.979 -> 2.494+/-2.031   0.97x
+%   k_off         truth 0.5   0.998+/-1.080 -> 0.893+/-0.883    1.2x
+%   k_tx_burst    truth 10.0  5.109+/-4.445 -> 4.259+/-1.447    3.1x
 %
-% NOTE: the deck no longer states anywhere -- main line or backup -- that the
+% ANTICIPATED QUESTION -- "your promoter rates miss truth, is the SSA inference
+% broken?" No, and the answer is worth having ready because it is the
+% identifiability claim from slide 8 showing up unprompted. The summary
+% statistics are replicate-MEAN trajectories, and a telegraph promoter enters
+% the mean only through the effective burst rate
+% k_tx_burst * k_on/(k_on + k_off). The individual rates are therefore not
+% identifiable from this data at all; the combination is, and it is recovered:
+%   truth 2.857   unconditioned 3.307 +/- 2.986   conditioned 2.793 +/- 0.244
+% So the boundary sharpens that combination 12x as well. This is why the slide
+% says "cannot separate them anyway" rather than claiming they are unconstrained.
+% Individual promoter rates would need distributional summaries (Fano factor,
+% autocorrelation), not means -- a genuine next step, not a bug.
+%
+% NOTE: the deck does not state anywhere -- main line or backup -- that the
 % computed object is a cut posterior rather than the joint, nor the coverage
 % result behind that (the iterative boundary protocol covered truth on 35-70% of
-% seeds at a nominal 95%, so single-pass is the default). Slide 10 promises the
-% joint posterior as the goal and nothing later qualifies it. If that caveat is
-% wanted back, the Open Questions slide is where it belongs, phrased as the
+% seeds at a nominal 95%, so single-pass is the default). The setup slide now
+% asks a question this result answers honestly, rather than promising the joint
+% posterior, so the gap is smaller than it was -- but if the caveat is wanted
+% explicitly, an Open Questions slide is where it belongs, phrased as the
 % coupling question; step4_calibration_curve.png is still in figures/.
-\begin{frame}{Results: Conditioning Across the Boundary Works}
-	\vspace{-1mm}
-	% \par inside each caption group: without it the group closes before the
-	% paragraph ends, so \tiny's \baselineskip is discarded and the captions set
-	% on the outer \normalsize leading.
-	\begin{columns}[T,onlytextwidth]
-		\begin{column}{0.49\textwidth}
+% One figure, not two. The 8-parameter NUTS corner that used to share this slide
+% is a methods check, not the argument, and it now lives in backup ("Is the
+% Differentiable Half Identifiable?"). A corner plot is square, so on a 16:9
+% frame a single one leaves half the width free -- spent here on a plain-language
+% read of the figure, which is what a mixed board needs and what a second corner
+% was crowding out.
+%
+% The right column is the spoken argument in three beats: what changed, why
+% those three, why not the others. Do not add a fourth.
+%
+% SPLIT Aug 2026 into two frames -- the setup (each block, its own sampler) and
+% the result (the posterior becomes the prior).
+%
+% The setup slide shows BOTH independent fits side by side, not just the SSA
+% one. That is the whole argument made visually: two posteriors, computed by two
+% samplers, sitting next to each other with nothing passing between them. The
+% ODE corner earns its place because ODE_SUBSET is k_tx plus exactly the three
+% SHARED parameters -- so the three tight columns on the left are literally the
+% three that are broad inside the box on the right. Point at one, then the
+% other; that is the slide.
+%
+% Consequence: slides 11 and 12 are a build in content, not in pixels -- same
+% figure, larger, with the green added.
+%
+% MATCHED, Aug 2026. Slides 11 and 12 use the reduced 4x4 exports, not the 6x6:
+%   isab_ode_corner_boxed.png        (--mode ode --box)
+%   isab_ssa_alone_matched.png       (--mode alone --subset matched)
+%   isab_ssa_posteriors_matched.png  (--mode ssa   --subset matched)
+% A 6x6 corner is fine on paper and unreadable from the back of a lecture
+% theatre. MATCHED_SUBSET mirrors ODE_SUBSET -- one transcription rate plus the
+% three shared parameters, k_tx_burst standing in for k_tx -- so the two corners
+% on slide 11 have the same shape with the same parameters in the same places,
+% and --mode ode --box puts the mirror-image dashed box on the NUTS side. Each
+% side names the same three parameters from its own vantage; the panels are
+% comparable rather than merely the same size.
+%
+% What is NOT on these figures: k_on and k_off. Everything the deck claims about
+% them is spoken, backed by the numbers below -- they are near-uncorrelated with
+% the pinned three and genuinely do not move. Keep the slide-12 bullet honest
+% about their being unshown. k_tx_burst IS shown, outside the box, and visibly
+% tightens, which is the "reached as far as the coupling carried it" beat made
+% visual rather than asserted. The full 6x6 versions (isab_ssa_alone.png,
+% isab_ssa_posteriors.png) are still in figures/ and are what to pull up if
+% anyone asks to see the promoter rates.
+%
+% --subset shared (3x3, the shared parameters alone) also exists and is a
+% further fallback if even 4x4 does not read. It carries no box -- every
+% parameter on it is a shared one -- so the right-hand column would have to
+% carry that fact in words instead.
+%
+% To regenerate the figures, from the repo root (the particle CSVs live in
+% examples/results, written by job 15152954; that directory is gitignored, so on
+% a fresh checkout the run has to be repeated):
+%
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode --box
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset matched --no-legend
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset matched
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode burst
+%
+% Cutting a figure down cannot move an axis -- each parameter's range is
+% computed from BOTH posteriors independently of which panels are kept -- so the
+% 4x4s and the 6x6s can be shown in sequence without anything shifting.
+%
+% Regenerate ALL FOUR together after any palette change -- burst draws from the
+% same constants and backup slide 17 goes stale with the rest. Drop --box and
+% --subset to refresh the full-size backups too.
+%
+% isab_ssa_alone_matched is built with --no-legend so it pairs with the NUTS
+% corner, which has no legend either. Easy to lose on a rerun -- the flag is on
+% the regeneration line above; without it the frame gets one keyed panel beside
+% an unkeyed one, which reads as a difference between the two quantities rather
+% than a difference in annotation.
+%
+% Because neither corner carries a legend now, NOTHING on the frame named the
+% magenta truth lines -- the figTruth chip above the closing sentence is what
+% replaces that. Do not drop it while these two exports are in use. Slide 12
+% keeps its legend (orange against green genuinely needs one) and names truth
+% there itself.
+%
+% alone and ssa must come from the SAME particles or slides 11 and 12 disagree.
+% ----------------------------------------------------------------
+% Beat 1 of 2. The point is NOT "ABC-SMC failed" -- both samplers did exactly
+% what they should. The point is that k_tl, gamma_mRNA and gamma_prot get fitted
+% twice, by two calculations that never exchange a number, and the second fit is
+% far worse than the first. That waste is what the next slide recovers.
+%
+% Equal columns and equal heights, now that both corners are 4x4 over the same
+% four parameters. That symmetry IS the slide: the only thing that differs
+% between the two pictures is how broad the contours are, so it is the only
+% thing a viewer can be looking at.
+\begin{frame}{One Way: Each Block, Its Own Sampler}
+	\vspace{-2mm}
+	% [b] rather than [c]: the two exports have slightly different aspect ratios
+	% and the caption blocks are what must line up, not the image tops.
+	\begin{columns}[b,onlytextwidth]
+		\begin{column}{0.48\textwidth}
 			\centering
-			{\small $\boldsymbol{\theta}_\mathrm{shared}$ --- simulation block}\\[2pt]
-			\includegraphics[height=5.8cm]{figures/step3_ssa_posteriors.png}\\[2pt]
-			{\tiny\itshape Blue: SSA inferred alone. Green: conditioned on the
-			differentiable block. Orange: truth.\par}
+			% _boxed, not the plain corner: the green dashed box marks the same
+			% three parameters the SSA corner boxes, so each side names the
+			% coupling from its own vantage. Point at one box, then the other.
+			\includegraphics[height=5.4cm]{figures/isab_ode_corner_boxed.png}\\[1mm]
+			{\scriptsize{\color{figDiff}$\blacksquare$}~\textbf{Differentiable
+			block} $\cdot$ NUTS\par}
+			% Keep the two columns to the same number of \tiny lines: with [b]
+			% alignment an odd line out on one side pushes that corner up and the
+			% two captions stop lining up.
+			{\tiny all 8 parameters jointly, 4 shown\par}
 		\end{column}
-		\begin{column}{0.49\textwidth}
+		\begin{column}{0.48\textwidth}
 			\centering
-			{\small $\boldsymbol{\theta}$ --- differentiable block}\\[2pt]
-			\includegraphics[height=5.8cm]{figures/step3_corner_reduced.png}\\[2pt]
-			{\tiny\itshape Joint NUTS over all 8; 4 shown. Tilted ellipses: the
-			data constrains \emph{combinations} of rates.\par}
+			% Falls back rather than failing to build: the particle CSVs live on
+			% the cluster (job 15152954) and are not in the repo, so this export
+			% cannot be regenerated on a laptop. The placeholder is deliberately
+			% loud -- showing the overlay figure here instead would spoil the
+			% reveal on the next slide, and quietly.
+			\IfFileExists{figures/isab_ssa_alone_matched.png}{%
+				\includegraphics[height=5.4cm]{figures/isab_ssa_alone_matched.png}%
+			}{%
+				\fbox{\begin{minipage}[c][5.2cm][c]{0.90\linewidth}
+					\centering\footnotesize\color{red!70!black}
+					\textbf{FIGURE PENDING}\\[2mm]
+					{\scriptsize Run \texttt{plot\_bursty\_boundary.py
+					-{}-mode alone -{}-subset matched}\\ against the run's particle
+					CSVs (\texttt{examples/results}).\par}
+				\end{minipage}}%
+			}\\[1mm]
+			{\scriptsize{\color{figAlone}$\blacksquare$}~\textbf{Regulator}
+			$\cdot$ ABC-SMC\par}
+			{\tiny all 6 parameters jointly, 4 shown\par}
+		\end{column}
+	\end{columns}
+
+\end{frame}
+
+% ----------------------------------------------------------------
+% Beat 2 of 2. Same figure, green added.
+%
+% SAY OUT LOUD, do not put on the slide (the board does not need the machinery,
+% but the claim should not be overstated either): the flow is ONE-WAY, the
+% differentiable block's posterior into the regulator's prior, and nothing the
+% regulator's data knows travels back. This is a cut posterior, a principled
+% approximation to the joint rather than the joint itself. If asked whether it
+% is exact: no, and the framework makes the gap measurable -- the iterative
+% protocol covered truth on 35-70% of seeds at a nominal 95%, which is why
+% single-pass is the default here. step4_calibration_curve.png is in figures/.
+\begin{frame}{Another Way: let information flow between modules}
+	\vspace{-1mm}
+	\begin{columns}[c,onlytextwidth]
+		\begin{column}{0.60\textwidth}
+			\centering
+			\includegraphics[height=6.4cm]{figures/isab_ssa_posteriors_matched.png}
+		\end{column}
+		% \footnotesize and bare paragraphs rather than \small and an itemize: at
+		% 0.38\textwidth the fuller version overran the frame top and bottom.
+		% Keep it to these four beats if it is edited again.
+		\begin{column}{0.38\textwidth}
+			\footnotesize
+			{\color{figCond}$\blacksquare$}~\textbf{Conditioned} --- the
+			shared parameters now carry the differentiable block's posterior
+			across the boundary as their prior.
+
+			\smallskip
+			{\color{figAlone}$\blacksquare$}~\textbf{Alone}, from the previous
+			slide, for comparison.
+
+			\medskip
+			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth.
+
+			% One bullet, not two: the matched 4x4 keeps k_tx_burst and drops k_on,
+			% k_off, so this beat has two halves now, but splitting it into two
+			% bullets overran the frame top and bottom. Four beats is the ceiling.
+			% k_tx_burst tightens 3.1x despite never being conditioned -- the six
+			% are fitted jointly and it is correlated with the pinned parameters
+			% (corr +0.36 with gamma_prot, -0.24 with k_tl), which is visible on
+			% the figure. k_on and k_off are near-uncorrelated and genuinely do not
+			% move; they are off this figure, so say so.
+
 		\end{column}
 	\end{columns}
 \end{frame}
@@ -1388,21 +1640,31 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 		\begin{column}{0.68\textwidth}
 			\small
 			\begin{enumerate}\itemsep3pt
-				\item \textbf{The problem.} Whole-cell models take
-				${\sim}$1000 parameters from literature and simulate forward. No
-				uncertainty quantification, no way to learn from data, no way to
-				know which predictions to trust.
+				% Framed as maturation rather than deficiency, to bookend the
+				% "can we build one? / is it right?" slide. Same length as the
+				% old "take ~1000 parameters from literature and simulate
+				% forward" wording, so the item still sets in four lines --
+				% check that if it is edited again.
+				\item \textbf{The problem.} Whole-cell models can now simulate a
+				cell end to end --- from ${\sim}$1000 literature parameters,
+				fixed. No uncertainty quantification, no way to learn from data,
+				no way to know which predictions to trust.
 
 				\item \textbf{InferCell inverts the question.} Given
 				observations, infer parameters and their uncertainties --- the
 				model becomes something you condition on data, not just run
 				forward.
 
-				\item \textbf{Toy pilot works.} A three-module test harness, ODE and SSA in
-				one graph: conditioning across the module boundary sharpens the
-				posterior onto truth. On synthetic data, so far.
+				% Names the three modules: by this point the board has seen them
+				% once, and the recap is where a general audience fixes what the
+				% "cell" actually was. "Where the two share machinery" is the
+				% qualifier that keeps this honest -- the boundary sharpened 3 of
+				% 11 parameters, not all of them.
+				\item \textbf{Toy pilot.} A three-module minimal cell, synthetic data.  Information crosses the module boundary and
+				sharpens the posterior onto truth, where the modules share
+				machinery. On synthetic data, so far.
 
-				\item \textbf{What would help most.} Real datasets to condition
+				\item \textbf{Next steps} Real datasets to condition
 				on; a route into organisms beyond a minimal cell.\\[2pt]
 				% One line, and short enough to stay one line: the full
 				% repo-plus-issues-plus-come-talk-to-me version wrapped and left
@@ -1517,6 +1779,230 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 \backupbegin
 % ----------------------------------------------------------------
 \begin{frame}[noframenumbering]{Backup}
+\end{frame}
+
+% ----------------------------------------------------------------
+% THE PINCER. First backup on purpose: it answers the single likeliest
+% challenge from this board, so it is the one to be able to reach without
+% hunting. Written Aug 2026 after ISAB review feedback that the core claim ---
+% this is the harder way, and the better one --- was implied rather than
+% stated. The maturation framing it carries is now SPOKEN in the main line
+% (the pivot slide's closing alert, Summary item 1, the in-vitro/in-vivo label
+% on the compounding slide); this slide is the picture for it if the argument
+% actually gets contested.
+%
+% WHEN TO PULL IT UP: someone says a version of "but it works --- their
+% doubling time matches the measurement, what is the problem?". The pincer
+% answers without needing to know whether the model was tuned: propagate the
+% literature uncertainty and exactly one of two things is true, and both
+% defeat the match as evidence. Full argument in docs/explorations/
+% 2026-07-22-modularity-misspecification-flip-sharpener.md, "Killer
+% Alternative Explanation", item 1.
+%
+% THE NARROW HORN IS THE ONE THAT GETS PUSHED BACK ON. Do not read the bullet
+% aloud -- walk the middle step:
+% - The premise is that the INPUTS are wide (2--6x literature ranges, which
+%   the compounding slide establishes). A narrow output from wide inputs means
+%   the doubling time is insensitive to the rates.
+% - If the prediction does not move when theta moves, observing it cannot
+%   inform theta. Flat likelihood; the posterior comes back as the prior. It
+%   is the identifiability point from "What Becomes Possible", arriving
+%   backwards.
+% - Concrete version: perturb 200 rate constants by 3x each, stay
+%   literature-consistent, still get 105. A model with 200 wrong rates passes
+%   the doubling-time test exactly as well as the right one.
+% - CONCEDE FIRST. A tight prediction that matches reality IS good, for
+%   prediction. The claim is about what the match validates. What it validates
+%   is the coarse structure -- stoichiometry, mass balance, ribosome budget --
+%   which is the part nobody was worried about; it says nothing about the
+%   ~1000 numbers that are.
+% - Do NOT say the narrow horn means the model is wrong. It does not.
+%
+% ALSO WORTH SAYING: narrow is probably not the case we are in. For a
+% ~1000-parameter nonlinear model with those input ranges the doubling-time
+% distribution is almost certainly wide. The narrow horn exists to close the
+% escape route ("well, maybe it is robust"), not because we expect it. Saying
+% so makes the slide read as rigour rather than as a gotcha.
+%
+% The strongest counter is "we do not validate on one scalar --- Karr matched
+% hundreds of observables". Answer constructively: then the real tests are the
+% observables that are BOTH sensitive to the parameters AND were not used
+% during construction. Naming those is itself an inference calculation.
+%
+% NUMBER TO CONFIRM: ~105 min is the syn3A doubling time carried in the
+% project notes (the sharpener above). Slide 8's illustration and the verbal
+% note on the compounding slide both used to say 110; all three now say 105,
+% so if the 2026 paper's figure is 110 they move back together.
+%
+% Geometry: coordinates in cm, no scale= key -- TikZ scales positions but not
+% node minimum sizes. The two horn panels are deliberately IDENTICAL except
+% for the width of the curve: same axis, same magenta measured-value line,
+% same caption shape. Width is then the only thing a viewer can be looking at,
+% the same design rule the two corner plots on slide 11 follow.
+\begin{frame}[noframenumbering]{``Can We Build One?'' is Answered. ``Is It Right?'' is Not.}
+	\small
+	\textbf{First generation} --- \emph{can a whole cell be simulated at all?}
+	Karr 2012, Thornburg 2026: \textbf{yes}.\\
+	\textbf{Second generation} --- \emph{are the numbers right, and how would
+	we know?}
+	\par\smallskip
+	{\footnotesize The reflex: \emph{``but it works --- our doubling time
+	matches the measurement.''} Propagate the uncertainty and there are only
+	two cases:}
+
+	\vspace{0.5mm}
+	\centering
+	\begin{tikzpicture}[>=Stealth]
+		% ===== The reported match =====
+		\node[draw, thick, rounded corners=4pt, fill=gray!12, font=\scriptsize,
+			align=center, inner sep=4pt] (rep) at (0,2.55)
+			{predicted doubling time ${\sim}105$\,min
+			\;$=$\; measured ${\sim}105$\,min};
+
+		% ===== The two horns =====
+		% cx / sd / amplitude. The amplitudes differ so the two curves enclose
+		% roughly the same area: a narrow spike drawn at the wide one's height
+		% would read as "more probable" rather than "more certain".
+		\foreach \cx/\sd/\amp in {-3.55/0.95/0.62, 3.55/0.26/0.86}{
+			\draw[thick, rounded corners=5pt, gray!45]
+				(\cx-3.0,-1.62) rectangle (\cx+3.0,1.62);
+			% Axis, with the measured value marked BELOW it. Above the axis is
+			% where the narrow curve's peak lives, so a label up there sits on
+			% the curve in one panel and in clear air in the other -- which
+			% breaks the panels' deliberate symmetry.
+			\draw[thin, gray!60] (\cx-2.5,0.62) -- (\cx+2.5,0.62);
+			\node[font=\tiny, text=gray!70, anchor=north east]
+				at (\cx+2.5,0.56) {doubling time};
+			% predictive distribution
+			\begin{scope}[shift={(\cx,0.62)}]
+				\fill[colPost] plot[smooth, domain=-2.4:2.4, samples=97]
+					(\x, {\amp*exp(-0.5*(\x/\sd)^2)}) -- (2.4,0) -- (-2.4,0) -- cycle;
+				\draw[thick, colPostLine] plot[smooth, domain=-2.4:2.4, samples=97]
+					(\x, {\amp*exp(-0.5*(\x/\sd)^2)});
+			\end{scope}
+			% the measured value, in the deck's truth colour
+			\draw[dashed, thick, figTruth] (\cx,0.62) -- (\cx,1.52);
+			\node[font=\tiny, text=figTruth, anchor=north]
+				at (\cx,0.56) {105\,min, measured};
+		}
+		% Arrows enter each panel off-centre, on the side facing the box, so
+		% they clear the dashed measured-value line at the panel's midline.
+		\draw[->, very thick, colWarnLine] (rep.south) -- (-2.05,1.62);
+		\draw[->, very thick, colWarnLine] (rep.south) -- ( 2.05,1.62);
+
+		% ===== What each horn costs them =====
+		\node[font=\tiny, anchor=north, align=left, text width=5.5cm]
+			at (-3.55,0.10)
+			{\textbf{Wide.} 105 was one draw. Another equally
+			literature-consistent parameter set gives 60, or 200.\\[3pt]
+			{\color{colWarnLine}$\Rightarrow$ the match was a
+			\textbf{selection}, not a prediction.}};
+		% Concedes the good thing FIRST. The earlier version jumped straight
+		% to "cannot separate a right model from a wrong one", which reads
+		% as a gotcha and invites the obvious objection -- a tight
+		% prediction that matches reality is a good outcome. It is, for
+		% prediction; the bullet's job is the validation claim, and that
+		% needs the middle step (insensitive to the rates => uninformative
+		% about the rates) stated rather than assumed.
+		\node[font=\tiny, anchor=north, align=left, text width=5.5cm]
+			at (3.55,0.10)
+			{\textbf{Narrow.} The prediction barely moves when the rates do
+			--- so measuring it cannot inform them.\\[3pt]
+			{\color{colWarnLine}$\Rightarrow$ tests the
+			\textbf{stoichiometry}, not the ${\sim}1000$ numbers.}};
+	\end{tikzpicture}
+
+	% One line, and short enough to stay one line: at \small the two-line
+	% version pushed the frame overfull and split the punch across a break.
+
+\end{frame}
+
+
+
+% ----------------------------------------------------------------
+% The answer to the question the results slide invites. Someone will notice
+% that k_on and k_tx_burst sit nowhere near their orange lines and ask whether
+% the SSA inference is broken. It is not, and the reason is the identifiability
+% claim from "What Becomes Possible (Science)" turning up unprompted -- which is
+% a better thing to be asked about than most. Have this slide ready.
+%
+% Numbers from job 15152954. Figure from
+% plot_bursty_boundary.py --mode burst.
+\begin{frame}[noframenumbering]{Why Do Three Parameters Miss Truth?}
+	\begin{columns}[c,onlytextwidth]
+		\begin{column}{0.52\textwidth}
+			\centering
+			\includegraphics[width=\linewidth]{figures/isab_burst_rate.png}
+		\end{column}
+		\begin{column}{0.46\textwidth}
+			\footnotesize
+			The data are replicate-\textbf{mean} trajectories. A telegraph
+			promoter enters the mean \emph{only} through the burst rate
+			$k_{\mathrm{tx}}^{\mathrm{burst}}k_{\mathrm{on}}/
+			(k_{\mathrm{on}}{+}k_{\mathrm{off}})$.
+
+			\smallskip
+			So the three rates are \textbf{not individually identifiable} from
+			this data --- by either block. Their combination is:
+
+			\smallskip
+			\begin{tabular}{@{}ll@{}}
+				truth & 2.86\\
+				alone & $3.31 \pm 2.99$\\
+				conditioned & $\mathbf{2.79 \pm 0.24}$\\
+			\end{tabular}
+
+			\smallskip
+			The boundary sharpens \emph{that} $12\times$ too --- and it is why
+			$k_{\mathrm{tx}}^{\mathrm{burst}}$'s own marginal tightened
+			$3\times$ without ever being conditioned.
+
+			\smallskip
+			{\scriptsize\itshape Not a broken sampler. An identifiability result
+			the framework surfaced on its own.\par}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+% ----------------------------------------------------------------
+% Follow-on from the slide above: what we would change to fix it. Worth having
+% because it converts the weakness into a concrete next step, and because the
+% closing argument here -- if means sufficed, the mean-field ODE would do, so
+% the SSA module only earns its place once the summaries see beyond the mean --
+% is the sharpest available answer to "why carry a stochastic module at all?".
+% That question is likelier from this board than the identifiability one.
+\begin{frame}[noframenumbering]{What Would Constrain the Promoter Rates?}
+	\small
+	Nothing about the model or the sampler --- the \textbf{summary statistics}.
+
+	\medskip
+	\begin{columns}[T,onlytextwidth]
+		\begin{column}{0.48\textwidth}
+			\textbf{What we use now}
+			\begin{itemize}\itemsep2pt
+				\item Replicate-mean trajectories
+				\item Sees the burst rate only
+				\item Identical information content to the mean-field ODE
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\textbf{What would separate the rates}
+			\begin{itemize}\itemsep2pt
+				\item \textbf{Fano factor} --- bursting pushes it above 1
+				\item \textbf{Autocorrelation time} --- sets
+				$k_{\mathrm{on}}{+}k_{\mathrm{off}}$
+				\item \textbf{Full count distribution} --- higher moments split
+				the burst size from its frequency
+			\end{itemize}
+		\end{column}
+	\end{columns}
+
+	\vfill
+	\centering
+	\alert{\small If the mean were enough, the mean-field ODE would do. The
+	stochastic module only earns its place once the summaries look past the
+	mean.}
+	\vspace{2mm}
 \end{frame}
 
 % ----------------------------------------------------------------
