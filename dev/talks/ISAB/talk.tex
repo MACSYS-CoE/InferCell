@@ -1265,12 +1265,13 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % Figure: figures/isab_ssa_posteriors.png, from
 %   test/run_talk_bursty_boundary.jl        (compute -> CSV)
 %   figures/plot_bursty_boundary.py         (CSV -> figure)
-% Parameter ORDER in that figure is load-bearing: the three unshared parameters
-% (k_on, k_off, k_tx_burst) come first and the three shared ones (k_tl,
-% gamma_mRNA, gamma_protein) last, so the tightening is confined to the
-% bottom-right block and the dashed box sits exactly on the coupling. If the
-% export order changes, the plot script warns and drops the box rather than
-% drawing a wrong one -- check the log before trusting a regenerated figure.
+% Parameter ORDER in that figure is load-bearing for the FULL 6x6 exports (now
+% backup only, see SHARED-ONLY below): the three unshared parameters (k_on,
+% k_off, k_tx_burst) come first and the three shared ones (k_tl, gamma_mRNA,
+% gamma_protein) last, so the tightening is confined to the bottom-right block
+% and the dashed box sits exactly on the coupling. If the export order changes,
+% the plot script warns and drops the box rather than drawing a wrong one --
+% check the log before trusting a regenerated 6x6 figure.
 %
 % Counts (11 unique, 3 shared) are from the two model constructors:
 % BurstyGeneExpression contributes k_on, k_off, k_tx_burst on top of the
@@ -1330,31 +1331,63 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % three that are broad inside the box on the right. Point at one, then the
 % other; that is the slide.
 %
-% Consequence: slides 11 and 12 are no longer a pixel-aligned build (the SSA
-% corner is smaller on 11 to make room). It is now a zoom-in instead -- same
+% Consequence: slides 11 and 12 are a build in content, not in pixels -- same
 % figure, larger, with the green added.
+%
+% MATCHED, Aug 2026. Slides 11 and 12 use the reduced 4x4 exports, not the 6x6:
+%   isab_ode_corner_boxed.png        (--mode ode --box)
+%   isab_ssa_alone_matched.png       (--mode alone --subset matched)
+%   isab_ssa_posteriors_matched.png  (--mode ssa   --subset matched)
+% A 6x6 corner is fine on paper and unreadable from the back of a lecture
+% theatre. MATCHED_SUBSET mirrors ODE_SUBSET -- one transcription rate plus the
+% three shared parameters, k_tx_burst standing in for k_tx -- so the two corners
+% on slide 11 have the same shape with the same parameters in the same places,
+% and --mode ode --box puts the mirror-image dashed box on the NUTS side. Each
+% side names the same three parameters from its own vantage; the panels are
+% comparable rather than merely the same size.
+%
+% What is NOT on these figures: k_on and k_off. Everything the deck claims about
+% them is spoken, backed by the numbers below -- they are near-uncorrelated with
+% the pinned three and genuinely do not move. Keep the slide-12 bullet honest
+% about their being unshown. k_tx_burst IS shown, outside the box, and visibly
+% tightens, which is the "reached as far as the coupling carried it" beat made
+% visual rather than asserted. The full 6x6 versions (isab_ssa_alone.png,
+% isab_ssa_posteriors.png) are still in figures/ and are what to pull up if
+% anyone asks to see the promoter rates.
+%
+% --subset shared (3x3, the shared parameters alone) also exists and is a
+% further fallback if even 4x4 does not read. It carries no box -- every
+% parameter on it is a shared one -- so the right-hand column would have to
+% carry that fact in words instead.
 %
 % To regenerate the figures, from the repo root (the particle CSVs live in
 % examples/results, written by job 15152954; that directory is gitignored, so on
 % a fresh checkout the run has to be repeated):
 %
-%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode
-%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone
-%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode --box
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset matched --no-legend
+%   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset matched
 %   python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode burst
 %
-% Regenerate ALL FOUR together after any palette change -- burst draws from the
-% same constants and backup slide 17 goes stale with the rest.
+% Cutting a figure down cannot move an axis -- each parameter's range is
+% computed from BOTH posteriors independently of which panels are kept -- so the
+% 4x4s and the 6x6s can be shown in sequence without anything shifting.
 %
-% Reduced variants exist but are NOT used below: --subset shared (3x3),
-% --subset matched (4x4, same shape as the NUTS corner) and --mode ode --box
-% (the NUTS corner with the mirror-image shared box). Swap them in here if the
-% 6x6 does not read from the back of the room.
+% Regenerate ALL FOUR together after any palette change -- burst draws from the
+% same constants and backup slide 17 goes stale with the rest. Drop --box and
+% --subset to refresh the full-size backups too.
 %
 % isab_ssa_alone_matched is built with --no-legend so it pairs with the NUTS
-% corner, which has no legend either. If this frame adopts that pair, add a
-% figTruth chip to the caption below -- the legend was what named the magenta
-% truth lines, and nothing else on the frame does.
+% corner, which has no legend either. Easy to lose on a rerun -- the flag is on
+% the regeneration line above; without it the frame gets one keyed panel beside
+% an unkeyed one, which reads as a difference between the two quantities rather
+% than a difference in annotation.
+%
+% Because neither corner carries a legend now, NOTHING on the frame named the
+% magenta truth lines -- the figTruth chip above the closing sentence is what
+% replaces that. Do not drop it while these two exports are in use. Slide 12
+% keeps its legend (orange against green genuinely needs one) and names truth
+% there itself.
 %
 % alone and ssa must come from the SAME particles or slides 11 and 12 disagree.
 % ----------------------------------------------------------------
@@ -1363,54 +1396,52 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 % twice, by two calculations that never exchange a number, and the second fit is
 % far worse than the first. That waste is what the next slide recovers.
 %
-% Asymmetric columns on purpose: the ODE corner is 4x4 and stays legible small,
-% the SSA corner is 6x6 and is the one the next slide zooms into, so it gets the
-% extra width.
+% Equal columns and equal heights, now that both corners are 4x4 over the same
+% four parameters. That symmetry IS the slide: the only thing that differs
+% between the two pictures is how broad the contours are, so it is the only
+% thing a viewer can be looking at.
 \begin{frame}{One Way: Each Block, Its Own Sampler}
 	\vspace{-2mm}
-	% [b], not [c]: the two corners are different heights (4x4 vs 6x6), and
-	% centring them puts the two captions at different y, which reads as a
-	% misalignment rather than a size difference. Bottom-aligning lines the
-	% captions up and lets the corners differ in height, which is the honest
-	% cue -- the right-hand posterior is the bigger object.
+	% [b] rather than [c]: the two exports have slightly different aspect ratios
+	% and the caption blocks are what must line up, not the image tops.
 	\begin{columns}[b,onlytextwidth]
-		\begin{column}{0.43\textwidth}
+		\begin{column}{0.48\textwidth}
 			\centering
-			\includegraphics[height=4.7cm]{figures/isab_ode_corner.png}\\[1mm]
+			% _boxed, not the plain corner: the green dashed box marks the same
+			% three parameters the SSA corner boxes, so each side names the
+			% coupling from its own vantage. Point at one box, then the other.
+			\includegraphics[height=5.4cm]{figures/isab_ode_corner_boxed.png}\\[1mm]
 			{\scriptsize{\color{figDiff}$\blacksquare$}~\textbf{Differentiable
 			block} $\cdot$ NUTS\par}
-			{\tiny all 8 parameters jointly, 4 rates shown\par}
+			% Keep the two columns to the same number of \tiny lines: with [b]
+			% alignment an odd line out on one side pushes that corner up and the
+			% two captions stop lining up.
+			{\tiny all 8 parameters jointly, 4 shown\par}
 		\end{column}
-		\begin{column}{0.53\textwidth}
+		\begin{column}{0.48\textwidth}
 			\centering
 			% Falls back rather than failing to build: the particle CSVs live on
 			% the cluster (job 15152954) and are not in the repo, so this export
 			% cannot be regenerated on a laptop. The placeholder is deliberately
 			% loud -- showing the overlay figure here instead would spoil the
 			% reveal on the next slide, and quietly.
-			\IfFileExists{figures/isab_ssa_alone.png}{%
-				\includegraphics[height=5.5cm]{figures/isab_ssa_alone.png}%
+			\IfFileExists{figures/isab_ssa_alone_matched.png}{%
+				\includegraphics[height=5.4cm]{figures/isab_ssa_alone_matched.png}%
 			}{%
 				\fbox{\begin{minipage}[c][5.2cm][c]{0.90\linewidth}
 					\centering\footnotesize\color{red!70!black}
 					\textbf{FIGURE PENDING}\\[2mm]
 					{\scriptsize Run \texttt{plot\_bursty\_boundary.py
-					-{}-mode alone}\\ against the run's particle CSVs
-					(\texttt{examples/results}).\par}
+					-{}-mode alone -{}-subset matched}\\ against the run's particle
+					CSVs (\texttt{examples/results}).\par}
 				\end{minipage}}%
 			}\\[1mm]
 			{\scriptsize{\color{figAlone}$\blacksquare$}~\textbf{Regulator}
 			$\cdot$ ABC-SMC\par}
-			{\tiny its own data, its own priors\par}
+			{\tiny all 6 parameters jointly, 4 shown\par}
 		\end{column}
 	\end{columns}
 
-	% The waste, stated as waste. This is the sentence the green answers.
-	\vspace{1mm}
-	\centering
-	{\footnotesize Both calculations are correct --- and
-	$k_{tl}$, $\gamma_{mRNA}$, $\gamma_{prot}$ are fitted \textbf{twice},
-	by two calculations that never exchange a number.\par}
 \end{frame}
 
 % ----------------------------------------------------------------
@@ -1429,7 +1460,7 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 	\begin{columns}[c,onlytextwidth]
 		\begin{column}{0.60\textwidth}
 			\centering
-			\includegraphics[height=6.4cm]{figures/isab_ssa_posteriors.png}
+			\includegraphics[height=6.4cm]{figures/isab_ssa_posteriors_matched.png}
 		\end{column}
 		% \footnotesize and bare paragraphs rather than \small and an itemize: at
 		% 0.38\textwidth the fuller version overran the frame top and bottom.
@@ -1448,22 +1479,15 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 			$\rightarrow$~The \textbf{3 boxed} parameters sharpen onto truth:
 			exactly the 3 the expression modules share.
 
-			% NOT "barely move": k_tx_burst tightens 3.1x despite never being
-			% conditioned, because the six are fitted jointly and it is correlated
-			% with the pinned parameters (corr +0.36 with gamma_prot, -0.24 with
-			% k_tl). k_on and k_off are near-uncorrelated and genuinely do not
-			% move. "Indirectly" covers both honestly.
-			\smallskip
-			$\rightarrow$~The other 3 govern \textbf{promoter switching}. They keep
-			their own priors and move only \textbf{indirectly}, through the
-			likelihood --- and mean trajectories cannot separate them anyway.
+			% One bullet, not two: the matched 4x4 keeps k_tx_burst and drops k_on,
+			% k_off, so this beat has two halves now, but splitting it into two
+			% bullets overran the frame top and bottom. Four beats is the ceiling.
+			% k_tx_burst tightens 3.1x despite never being conditioned -- the six
+			% are fitted jointly and it is correlated with the pinned parameters
+			% (corr +0.36 with gamma_prot, -0.24 with k_tl), which is visible on
+			% the figure. k_on and k_off are near-uncorrelated and genuinely do not
+			% move; they are off this figure, so say so.
 
-			\medskip
-			% "Reached as far as the coupling carried it", not "stopped where the
-			% coupling stopped": the bullet above now says the unshared parameters
-			% move indirectly, so a hard stop would contradict it one line later.
-			{\scriptsize\itshape Information crossed the boundary --- and reached
-			as far as the coupling carried it.\par}
 		\end{column}
 	\end{columns}
 \end{frame}
@@ -1607,13 +1631,11 @@ SOTA 4DMC = four solvers in three languages, glued by a Python script.
 				% "cell" actually was. "Where the two share machinery" is the
 				% qualifier that keeps this honest -- the boundary sharpened 3 of
 				% 11 parameters, not all of them.
-				\item \textbf{Toy pilot works.} A three-module minimal cell ---
-				metabolism, gene expression, a bursty regulator --- with ODE and
-				SSA in one graph. Information crosses the module boundary and
+				\item \textbf{Toy pilot.} A three-module minimal cell, synthetic data.  Information crosses the module boundary and
 				sharpens the posterior onto truth, where the modules share
 				machinery. On synthetic data, so far.
 
-				\item \textbf{What would help most.} Real datasets to condition
+				\item \textbf{Next steps} Real datasets to condition
 				on; a route into organisms beyond a minimal cell.\\[2pt]
 				% One line, and short enough to stay one line: the full
 				% repo-plus-issues-plus-come-talk-to-me version wrapped and left
