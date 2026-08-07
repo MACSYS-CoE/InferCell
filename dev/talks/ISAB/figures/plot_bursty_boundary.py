@@ -21,13 +21,18 @@ ranges below are always computed from BOTH posteriors even when only one is
 drawn -- ranging the alone figure on its own particles would shift every panel
 between the two slides and destroy the effect.
 
---shared-only cuts either figure down to just the three shared parameters, for
-when a 6x6 corner is too dense to read from the back of a room. The axis ranges
-are unchanged by the cut -- each parameter's range is computed independently, so
-a reduced panel has exactly the limits it had in the full figure and the two
-sets can be shown together or in sequence. The dashed box is dropped, because a
-box around every parameter in the figure marks nothing; the caption carries it
-instead.
+--subset cuts either figure down, for when a 6x6 corner is too dense to read
+from the back of a room. "shared" keeps the three parameters that cross the
+boundary; "matched" keeps four, shaped like the NUTS corner (see
+MATCHED_SUBSET) so the two can sit side by side as the same figure computed two
+ways. Cutting cannot move an axis: each parameter's range is computed
+independently, so a kept panel has exactly the limits it had in the full
+figure and any two of these figures can be shown in sequence.
+
+The dashed box is drawn on every figure that has something to mark, which is
+all of them except --subset shared, where every parameter is a shared one and a
+box around all of them would say nothing. --mode ode --box puts the mirror-image
+box on the NUTS corner, so the two sides name the same three parameters.
 
 Usage:
     python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
@@ -38,7 +43,10 @@ Usage:
         --results examples/results --mode alone
 
     python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
-        --results examples/results --mode alone --shared-only
+        --results examples/results --mode alone --subset matched
+
+    python3 dev/talks/ISAB/figures/plot_bursty_boundary.py \
+        --results examples/results --mode ode --box
 """
 
 import argparse
@@ -117,6 +125,13 @@ LABELS = {
 # initial conditions are nuisance. Set to None to plot all of them.
 ODE_SUBSET = ["k_tx", "k_tl", "gamma_mRNA", "gamma_protein"]
 
+# The stochastic block's answer to ODE_SUBSET: one transcription rate plus the
+# three shared, so the two corners have the same shape and the same parameters
+# in the same places. k_tx_burst is the analogue of k_tx -- both are the rate at
+# which the module makes mRNA -- which is what makes the panels comparable
+# rather than merely the same size.
+MATCHED_SUBSET = ["k_tx_burst", "k_tl", "gamma_mRNA", "gamma_protein"]
+
 
 def read_particles(path):
     with open(path) as fh:
@@ -154,8 +169,12 @@ def read_truth(path):
     return truth, shared
 
 
-def plot_ode_corner(res, out):
+def plot_ode_corner(res, out, box=False):
     """Backup slide: the differentiable block's own posterior.
+
+    box=True dash-boxes the three parameters this block shares with the SSA
+    block, matching the annotation on the stochastic corner. Side by side on
+    slide 11 the two boxes then name the same three parameters from each side.
 
     One posterior, not two -- this is the identifiability check promised on
     "What Becomes Possible (Science)", not a boundary result. Tilted ellipses
@@ -174,8 +193,9 @@ def plot_ode_corner(res, out):
         raise SystemExit(f"ODE_SUBSET names not in chain: {sorted(missing)}")
 
     sub = chain[:, keep]
-    labels = [LABELS.get(names[j], names[j]) for j in keep]
-    truths = [truth.get(names[j]) for j in keep]
+    kept_names = [names[j] for j in keep]
+    labels = [LABELS.get(n, n) for n in kept_names]
+    truths = [truth.get(n) for n in kept_names]
     fs = set_fonts(len(keep))
 
     fig = corner.corner(
@@ -187,6 +207,18 @@ def plot_ode_corner(res, out):
         label_kwargs={"fontsize": fs}, max_n_ticks=3,
     )
     thicken_truths(fig)
+
+    # Which parameters cross the boundary is recorded once, in the SSA truth
+    # file's `conditioned` column. Read it back rather than hardcoding a second
+    # copy here -- two lists that must agree are one list that will not.
+    if box:
+        _, shared = read_truth(res / "isab_ssa_truth.csv")
+        ndim = len(keep)
+        axes = np.array(fig.axes).reshape((ndim, ndim))
+        draw_shared_box(fig, axes, kept_names,
+                        {n: shared.get(n, False) for n in kept_names},
+                        fs, "shared with the\nSSA block")
+
     for ext in ("png", "pdf"):
         fig.savefig(f"{out}.{ext}", dpi=200, bbox_inches="tight")
         print(f"wrote {out}.{ext}")
@@ -276,7 +308,7 @@ def plot_burst_rate(res, out):
         print(f"wrote {out}.{ext}")
 
 
-def draw_shared_box(fig, axes, names, shared, fs):
+def draw_shared_box(fig, axes, names, shared, fs, caption):
     """Dash-box the shared-parameter block and caption it.
 
     The shared parameters are contiguous by construction -- the Julia export
@@ -302,21 +334,22 @@ def draw_shared_box(fig, axes, names, shared, fs):
         edgecolor=COL_COND, linewidth=2.5, linestyle=(0, (6, 4)), zorder=10,
     ))
     fig.text(
-        p1.x1, p1.y1 + 0.030,
-        "shared with the\ndifferentiable block",
+        p1.x1, p1.y1 + 0.030, caption,
         ha="right", va="bottom", fontsize=0.62 * fs, color=COL_COND,
         linespacing=1.25,
     )
 
 
-def plot_ssa(res, out, overlay=True, shared_only=False):
+def plot_ssa(res, out, overlay=True, subset="full"):
     """The boundary figure. overlay=False draws the unconditioned posterior only.
 
     Everything except the green contours is identical between the two modes --
     see the module docstring for why that matters.
 
-    shared_only=True keeps just the parameters the two modules share, for a
-    readable version of the same figure at slide size.
+    subset trims the parameters for readability at slide size:
+      "full"     all six
+      "shared"   the three shared with the differentiable block
+      "matched"  MATCHED_SUBSET -- four, shaped like the NUTS corner
     """
     names, cond = read_particles(res / "isab_cond_particles.csv")
     names_u, uncond = read_particles(res / "isab_uncond_particles.csv")
@@ -331,10 +364,19 @@ def plot_ssa(res, out, overlay=True, shared_only=False):
     # them: weighted_quantile runs per parameter, so a kept parameter gets the
     # same limits either way. That is what lets the reduced and full figures be
     # shown in sequence without anything moving.
-    if shared_only:
-        keep = [j for j, n in enumerate(names) if shared[n]]
+    if subset != "full":
+        if subset == "shared":
+            keep = [j for j, n in enumerate(names) if shared[n]]
+        elif subset == "matched":
+            keep = [j for j, n in enumerate(names) if n in MATCHED_SUBSET]
+            missing = set(MATCHED_SUBSET) - set(names)
+            if missing:
+                raise SystemExit(
+                    f"MATCHED_SUBSET names not in particles: {sorted(missing)}")
+        else:
+            raise SystemExit(f"unknown subset: {subset}")
         if not keep:
-            raise SystemExit("--shared-only: no parameters are marked shared")
+            raise SystemExit(f"--subset {subset}: nothing left to plot")
         names = [names[j] for j in keep]
         cond, uncond = cond[:, keep], uncond[:, keep]
 
@@ -388,11 +430,13 @@ def plot_ssa(res, out, overlay=True, shared_only=False):
     # the alone figure it says "we already know these three from elsewhere and
     # are refitting them anyway", and on the overlay the green lands inside it.
     #
-    # Not under --shared-only, though: every parameter on that figure is a
-    # shared one, so a box around all of them would mark nothing. The reduced
-    # figure says the same thing by its choice of parameters.
-    if not shared_only:
-        draw_shared_box(fig, axes, names, shared, fs)
+    # Not under --subset shared, though: every parameter on that figure is a
+    # shared one, so a box around all of them would mark nothing. That figure
+    # says the same thing by its choice of parameters. Under --subset matched
+    # the box is back, and boxes the same three as the NUTS corner does.
+    if subset != "shared":
+        draw_shared_box(fig, axes, names, shared, fs,
+                        "shared with the\ndifferentiable block")
 
     # The conditioned row is RESERVED rather than dropped when overlay=False: an
     # invisible handle of the same height holds the slot, so "Truth" sits at the
@@ -430,14 +474,22 @@ def main():
                     help="ssa: the boundary figure. alone: the same figure with "
                          "the conditioned posterior suppressed, for the setup "
                          "slide. ode / burst: backup slides.")
-    ap.add_argument("--shared-only", action="store_true",
-                    help="ssa / alone only: keep just the parameters shared with "
-                         "the differentiable block, for a version that reads at "
-                         "slide size. Suffixes the default output with _shared.")
+    ap.add_argument("--subset", choices=("full", "shared", "matched"),
+                    default="full",
+                    help="ssa / alone only. full: all six parameters. shared: "
+                         "just the three shared with the differentiable block. "
+                         "matched: four, shaped like the NUTS corner. Suffixes "
+                         "the default output name accordingly.")
+    ap.add_argument("--box", action="store_true",
+                    help="ode only: dash-box the parameters shared with the SSA "
+                         "block, so the NUTS corner carries the same annotation "
+                         "as the stochastic one. Writes to a _boxed output.")
     args = ap.parse_args()
 
-    if args.shared_only and args.mode not in ("ssa", "alone"):
-        raise SystemExit(f"--shared-only does not apply to --mode {args.mode}")
+    if args.subset != "full" and args.mode not in ("ssa", "alone"):
+        raise SystemExit(f"--subset does not apply to --mode {args.mode}")
+    if args.box and args.mode != "ode":
+        raise SystemExit(f"--box does not apply to --mode {args.mode}")
 
     res = Path(args.results)
     figdir = Path("dev/talks/ISAB/figures")
@@ -447,18 +499,19 @@ def main():
         "ode": "isab_ode_corner",
         "burst": "isab_burst_rate",
     }[args.mode]
-    if args.shared_only:
-        default += "_shared"
+    if args.subset != "full":
+        default += f"_{args.subset}"
+    if args.box:
+        default += "_boxed"
     out = Path(args.out) if args.out else figdir / default
     out.parent.mkdir(parents=True, exist_ok=True)
 
     if args.mode == "ode":
-        plot_ode_corner(res, out)
+        plot_ode_corner(res, out, box=args.box)
     elif args.mode == "burst":
         plot_burst_rate(res, out)
     else:
-        plot_ssa(res, out, overlay=(args.mode == "ssa"),
-                 shared_only=args.shared_only)
+        plot_ssa(res, out, overlay=(args.mode == "ssa"), subset=args.subset)
 
 
 if __name__ == "__main__":

@@ -32,18 +32,29 @@ Note the fourth: `--mode burst` also draws from the recoloured constants
 (`COL_ALONE`/`COL_COND`/`COL_TRUTH`), so backup slide 17 was stale too. The
 previous handoff's command block listed only three.
 
-Then two reduced figures, for when the 6x6 corner is too dense to read from the
+Then the reduced variants, for when the 6x6 corner is too dense to read from the
 back of a room:
 
 ```
-python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --shared-only
-python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --shared-only
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset shared
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset shared
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode alone --subset matched
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ssa   --subset matched
+python3 dev/talks/ISAB/figures/plot_bursty_boundary.py --mode ode   --box
 ```
 
-`--shared-only` keeps just `k_tl`, `γ_mRNA`, `γ_prot` and writes
-`isab_ssa_alone_shared` / `isab_ssa_posteriors_shared`. **Neither is referenced
-by `talk.tex` yet** — they exist to be dropped in if slides 11–12 read badly in
-rehearsal.
+- `--subset shared` → 3x3, just `k_tl`, `γ_mRNA`, `γ_prot`.
+- `--subset matched` → 4x4, `k_tx_burst` plus those three. `MATCHED_SUBSET` is
+  the deliberate mirror of `ODE_SUBSET`: one transcription rate plus the three
+  shared, so the stochastic and NUTS corners have the same shape with the same
+  parameters in the same places. `k_tx_burst` is the analogue of `k_tx` — both
+  are the rate at which the module makes mRNA — which is what makes the two
+  panels comparable rather than merely the same size.
+- `--mode ode --box` → the NUTS corner carrying the mirror-image dashed box,
+  captioned "shared with the SSA block".
+
+**None of these five is referenced by `talk.tex` yet.** They exist to be dropped
+in if slides 11–12 read badly in rehearsal.
 
 Verified rather than assumed:
 
@@ -59,11 +70,14 @@ Committed: the four PNGs only.
 
 ## Open questions
 
-- **Do slides 11–12 want the reduced (`_shared`) corners instead?** They are
-  generated and committed but unwired. The full 6x6 carries more of the story —
-  it shows the three promoter rates staying broad, which is the honest caveat —
-  while the 3x3 is what actually reads at slide size. Possible compromise: 3x3
-  on 11–12, full 6x6 promoted to a backup slide. Decide in rehearsal, in a room.
+- **Which corners do slides 11–12 actually use?** Five variants are generated
+  and committed but unwired. The full 6x6 carries the most story — it shows the
+  three promoter rates staying broad, which is the honest identifiability
+  caveat — but it is the hardest to read projected. The `matched` 4x4 is
+  probably the best slide-11 pairing, since it puts the NUTS corner and the SSA
+  corner in the same shape with boxes pointing at each other from both sides;
+  the 6x6 then belongs on a backup slide where the caveat is visible. Decide in
+  rehearsal, in a room, not from a thumbnail.
 - **Not committed, deliberately: the `.pdf` twins** of all four figures and
   `dev/talks/ISAB/talk.pdf`. The plot script emits both formats; `talk.tex`
   still `\includegraphics` the `.png`s. Switching the deck to vector figures is
