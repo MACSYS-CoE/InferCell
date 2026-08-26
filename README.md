@@ -33,7 +33,8 @@ julia --project -e 'using Pkg; Pkg.test()'
 INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
-See [`dev/plans/`](dev/plans/) for current status, roadmap, and design decisions.
+See [`dev/notes/`](dev/notes/) for the research notes behind the current scope, and
+[`openspec/`](openspec/) for in-flight change proposals and specs.
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the local workflow, CI checks, and branch conventions.
 

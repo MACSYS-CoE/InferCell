@@ -1,0 +1,25 @@
+module,quantity,dependence,n,at_prior
+Central+AA+Cof,Michaelis constant,Basic,134,16.0
+Central+AA+Cof,catalytic rate constant geometric mean,Basic,37,1.0
+Central+AA+Cof,concentration,Basic,55,28.0
+Central+AA+Cof,concentration of enzyme,Basic,37,37.0
+Central+AA+Cof,equilibrium constant,Derived,37,0.0
+Central+AA+Cof,product catalytic rate constant,Derived,37,0.0
+Central+AA+Cof,standard chemical potential,Basic,55,
+Central+AA+Cof,substrate catalytic rate constant,Derived,37,0.0
+Nucleotide,Michaelis constant,Basic,177,25.0
+Nucleotide,catalytic rate constant geometric mean,Basic,45,6.0
+Nucleotide,concentration,Basic,53,18.0
+Nucleotide,concentration of enzyme,Basic,45,45.0
+Nucleotide,equilibrium constant,Derived,45,0.0
+Nucleotide,product catalytic rate constant,Derived,45,0.0
+Nucleotide,standard chemical potential,Basic,53,
+Nucleotide,substrate catalytic rate constant,Derived,45,0.0
+Lipid,Michaelis constant,Basic,58,0.0
+Lipid,catalytic rate constant geometric mean,Basic,17,0.0
+Lipid,concentration,Basic,32,12.0
+Lipid,concentration of enzyme,Basic,17,17.0
+Lipid,equilibrium constant,Derived,17,0.0
+Lipid,product catalytic rate constant,Derived,17,0.0
+Lipid,standard chemical potential,Basic,32,
+Lipid,substrate catalytic rate constant,Derived,17,0.0

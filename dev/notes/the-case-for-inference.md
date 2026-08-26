@@ -30,6 +30,14 @@ This is the architectural point. MC4D stores parameters in a `sim_properties` di
 
 This means that when MC4D predicts a 110-minute doubling time, we cannot distinguish between two very different scientific situations: (a) the prediction is robust and would hold across any plausible parameter set, or (b) the prediction is fragile and depends sensitively on particular parameter choices. Both look the same: a single number with no error bar.
 
+**4. Everything above applies more forcefully to model structure than to parameter values.**
+
+A whole-cell model does not only fix ~1000 rate constants; it fixes which reactions exist. Whether transcription is constitutive or bursty, whether a regulator acts on one gene or several, whether a metabolic step needs an explicit enzyme pool: each is a choice made once, from partial evidence, and then carried forward as certain. That is a larger implicit claim of knowledge than any of the parameter values.
+
+Structural error is also not a perturbation of parameter error. A two-fold change in a transcription rate shifts the mean of an mRNA distribution. Switching from constitutive to bursty transcription changes that distribution's *shape*, and with it the noise statistics single-cell data actually measures. Parameter uncertainty moves a prediction; structural uncertainty can change which predictions are well-posed at all.
+
+The asymmetry in how the field treats the two is the point. Parameter uncertainty is acknowledged and then not represented. Structural uncertainty is not acknowledged.
+
 ## What inference enables
 
 An inference-first architecture does not require full Bayesian inference over all parameters simultaneously. At 500+ parameters, that is computationally dificult and may even be intractable, especially as we scale up to more complex cells. But the architecture must *support* uncertainty quantification at every level, even if it is applied selectively.
@@ -44,7 +52,7 @@ Concretely, this means:
 
 Beyond uncertainty quantification, inference enables capabilities that forward simulation cannot provide:
 
-- **Model selection.** Formally compare competing biological hypotheses (e.g., constitutive vs. bursty transcription) using Bayes factors, rather than visual trajectory matching.
+- **Model comparison.** Formally compare competing biological hypotheses (e.g., constitutive vs. bursty transcription) against held-out data, rather than by visual trajectory matching. The natural criterion here is predictive — expected log predictive density, cross-validated or leave-one-stream-out — not the Bayes factor. Marginal likelihood is acutely sensitive to prior width, and the priors on kinetic parameters in a whole-cell model are diffuse and semi-arbitrary by construction, so a Bayes factor computed under them is not a number worth defending. See [model-uncertainty-and-selection.md](model-uncertainty-and-selection.md).
 
 - **Identifiability analysis.** Discover which parameters the data can actually constrain and which it cannot. When a posterior looks like the prior, the data is uninformative about that parameter. This is scientifically valuable information that forward simulation never reveals.
 
@@ -55,5 +63,7 @@ Beyond uncertainty quantification, inference enables capabilities that forward s
 We are not claiming that MC4D's parameter values are wrong, or that forward simulation is not useful. Forward simulation is essential for understanding emergent dynamics, testing whether a model can reproduce observed behaviour, and making predictions.
 
 We are claiming that the *architecture* of existing whole-cell models has a blind spot: it cannot represent or reason about the uncertainty that necessarily exists in its inputs and therefore its outputs. InferCell is designed to fill that gap. It complements forward simulation with the inferential machinery that rigorous science demands.
+
+We are not claiming that InferCell currently quantifies structural uncertainty. Parameter inference across heterogeneous blocks comes first, because every model-comparison quantity is a functional of a per-model posterior and cannot be computed before that works. The commitment made now is narrower: structural identity, and the normalisation semantics needed to compare structures at all, are tracked from the start so that the comparison layer can be added later without rebuilding the module interfaces. The reasoning is set out in [model-uncertainty-and-selection.md](model-uncertainty-and-selection.md).
 
 We are also not claiming that full Bayesian inference over a complete whole-cell model is currently feasible. The argument is that the framework should *support* inference as a first-class operation, applied where it is most needed and most tractable, rather than treating it as an afterthought that the architecture cannot accommodate.

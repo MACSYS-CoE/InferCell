@@ -1,0 +1,178 @@
+source,target,species,kind,protocol,differentiable,provenance
+Medium,Transport,adn_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,ca2_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,dcyt_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,dgsn_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,fthf_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,gsn_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,medium_aa,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,mg2_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,na_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,nac_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,p5p_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,pi_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,ribflv_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,sprm_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,thmpp_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,thmyd_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Medium,Transport,uri_e_conc,clamped-source,constant (growth medium),n/a,SBtab ReactionFormula
+Cofactor,AminoAcid,M_10fthfglu3_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_13dpg_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_13dpg_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_2dr1p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_2dr1p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_3pg_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_3pg_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_5fthf_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Transport,M_ac_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_ade_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_adn_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Lipid,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Lipid,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Central,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Cofactor,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Cofactor,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Central,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Lipid,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_adp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Central,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_amp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Lipid,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Transport,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Lipid,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Transport,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Central,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Cofactor,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Transport,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Cofactor,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Transport,M_atp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_cmp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Lipid,M_coa_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_ctp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_dad_2_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_dcyt_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_dgsn_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_duri_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Lipid,M_fa_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Lipid,M_g6p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Central,M_g6p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Central,M_g6p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Lipid,M_g6p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_gln__L_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Cofactor,M_glu__L_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_glu__L_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_gly_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Lipid,M_glyc_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_gsn_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_gua_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Transport,M_lac__L_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_nac_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_nad_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_nad_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_nadh_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_nadh_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_nadp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_nadp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Cofactor,M_nadp_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_nadph_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_nadph_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_nadph_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Cofactor,M_nh3_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_pep_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Transport,M_pep_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Lipid,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Central,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Lipid,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Central,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Central,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Lipid,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_pi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Lipid,M_ppi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Cofactor,Nucleotide,M_ppi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_ppi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_ppi_c,currency-mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Cofactor,M_prpp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_prpp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Transport,M_pyr_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_pyr_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Transport,M_pyr_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Central,M_pyr_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Central,Nucleotide,M_r1p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Central,M_r1p_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_ribflv_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Cofactor,M_ser__L_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+AminoAcid,Cofactor,M_thfglu3_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_thymd_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_udp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_ura_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Transport,Nucleotide,M_uri_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Lipid,Nucleotide,M_utp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+Nucleotide,Lipid,M_utp_c,mass,shared ODE state (continuous),yes,SBtab ReactionFormula
+CME:Transcription,Nucleotide,"M_atp_c,M_utp_c,M_ctp_c,M_gtp_c",counter-debit,"deferred 1 s; zero-clamped, deficit carried",no,in_out.py:180-259
+CME:Transcription,Central,M_atp_c,counter-debit,ATP_trsc hydrolysis at hook,no,"in_out.py:178,195"
+CME:mRNAdecay,Nucleotide,"M_amp_c,M_ump_c,M_cmp_c,M_gmp_c",counter-credit,NMP recycling at hook (unclamped),no,"in_out.py:185,286"
+CME:mRNAdecay,Central,M_atp_c,counter-debit,ATP_mRNAdeg hydrolysis at hook,no,in_out.py:178
+CME:Translation,Nucleotide,M_gtp_c,counter-debit,ATP_translat counter is paid in GTP,no,in_out.py:197-217
+CME:Translation,Central,M_atp_c,counter-debit,ATP_transloc hydrolysis (membrane ptns),no,in_out.py:178
+CME:Replication,Nucleotide,"M_datp_c,M_dttp_c,M_dctp_c,M_dgtp_c",counter-debit,deferred 1 s; zero-clamped,no,"in_out.py:189,263"
+CME:Replication,Central,M_atp_c,counter-debit,ATP_DNArep hydrolysis at hook,no,in_out.py:178
+CME:Translation,AminoAcid,M_fmettrna_c,counter-debit,only aa-tRNA reconciled at the hook,no,"in_out.py:192,296"
+Transport,CME:tRNAcharging,20 aa pools,mass,"CME reactant, counts synced each 1 s",no,MinCell_CMEODE.py:1308
+Central,CME:tRNAcharging,M_atp_c,mass,"CME reactant, counts synced each 1 s",no,MinCell_CMEODE.py:1307
+AminoAcid,CME:Translation,M_fmettrna_c,mass,R_FMETTRS is the one aa reaction left in the ODE,no,defMetRxns.py:288
+CME:tRNAcharging,CME:Translation,20 charged tRNAs,mass,"aa cost counters paid intra-CME, k=100/s",no,MinCell_CMEODE.py:1315
+CME:Transcription,CME:Translation,455 mRNAs,mass,mRNA is the translation reactant,no,MinCell_CMEODE.py:730
+CME:Transcription,CME:mRNAdecay,455 mRNAs,mass,mRNA is the decay reactant,no,MinCell_CMEODE.py:729
+CME:Replication,CME:Transcription,gene copy number,mass,gene locus is the transcription reactant,no,rep_start.py
+CME:Translation,Central,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+CME:Translation,Nucleotide,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+CME:Translation,Transport,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+CME:Translation,Lipid,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+CME:Translation,Cofactor,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+CME:Translation,AminoAcid,M_PTN_* counts,catalytic,enzyme conc. rebuilt from counts every 1 s,no,Simp.py:initModel / defMetRxns.py:1900+
+Nucleotide,CME:Transcription,"M_atp_c,M_utp_c,M_ctp_c,M_gtp_c",rate-constant,60 s rebuild; NTP conc. enters k_transcription,no,"MinCell_restart.py:442-445,468,564"
+CME:tRNAcharging,CME:Translation,20 charged tRNAs,rate-constant,60 s rebuild; live counts enter NMonoSum,no,translation_rate_restart.py:89
+AminoAcid,CME:Translation,M_fmettrna_c,rate-constant,60 s rebuild; live count enters k_translation,no,translation_rate_restart.py:113
+Lipid,Growth,9 lipid headgroups,derived,CellSA_Lip = 0.513 x sum(count x headgroup area),yes,in_out.py:73-95
+CME:Translation,Growth,93 membrane protein loci,derived,"CellSA_Prot = 28.0 nm^2 x count; 94 species terms (0779 -> ptsg, ptsg_P)",no,"in_out.py:31,48,58"
+Growth,Central,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,Nucleotide,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,Transport,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,Lipid,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,Cofactor,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,AminoAcid,CellV,volume,V rescales every count<->mM conversion at the hook,yes,Rxns.partTomM:42 / in_out.mMtoPart:143
+Growth,CME:Transcription,CellV,volume,CellV feeds getConc at the 60 s rebuild,no,MinCell_restart.py:173-176
+Growth,CME:Translation,CellV,volume,CellV feeds partTomM at the 60 s rebuild,no,"translation_rate_restart.py:89,113"
+Nucleotide,CME:Replication,"M_datp_c,M_dttp_c,M_dctp_c,M_dgtp_c",rate-constant,60 s rebuild; dNTP conc. enters replication elongation,no,rep_restart.py:239-243
+Growth,CME:Replication,CellV,volume,CellV feeds getConc at the 60 s rebuild,no,rep_restart.py:239-243
+CME:Transcription,CME:tRNAcharging,20 uncharged tRNAs,mass,tRNA transcription produces the charging reactant; 29 loci,no,"MinCell_restart.py:1533,1566"
+CME:Translation,CME:tRNAcharging,20 M_PTN_* synthetases,mass,synthetase is an explicit charging reactant/product,no,"MinCell_restart.py:1502-1509,1519-1525"
+CME:Translation,CME:Replication,M_DnaA_c,mass,DnaA filament on oriC initiates replication,no,protein_metabolites_frac.csv:7 / rep_restart.py:55-95
+CME:Translation,CME:Translation,ribosomeConc,clamped,"503 ribosomes, frozen through the rebuild",severed,MinCell_restart.py:506
+CME:Transcription,CME:Transcription,RnaPconc,clamped,"187 RNAP, frozen through the rebuild",severed,MinCell_restart.py:462
+CME:Replication,CME:Replication,DNApol3,clamped,"35 DNA pol III, frozen through the rebuild",severed,rep_restart.py:244
+Growth,Growth,CellV,clamped,V clamped at 6.70e-17 L = 2x initial; no division event,no,in_out.py:118-120

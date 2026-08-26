@@ -1,7 +1,7 @@
 # Boundary protocol
 
 !!! note "Stub page"
-    This page summarises the boundary-protocol API. A worked example will land alongside the v0.0.1 publication figure; see the v0.0.1 scoping doc (`dev/plans/2026-05-12-v0.0.1-scoping.md` in the repo) for the full design.
+    This page summarises the boundary-protocol API. For the calibration behaviour of the two levels, see `dev/notes/2026-05-22-calibration-curve.md` in the repo; for the inference design they sit inside, `dev/notes/modular-bayesian-inference-heterogeneous-modules.md`.
 
 NUTS-ODE and ABC-SMC-SSA cannot be jointly composed in a single sampler. InferCell instead **propagates posteriors across the heterogeneous block boundary** as an explicit step.
 
