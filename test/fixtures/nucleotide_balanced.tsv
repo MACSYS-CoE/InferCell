@@ -1,0 +1,7 @@
+!!SBtab TableType='Quantity' TableName='nucleotide balanced' Document='fixture'
+!ID	!Mode	!GeometricStd
+kcat_fwd_PGK3	140.8	1.051
+kcat_fwd_PYK3	672.8	1.051
+conc_M_gtp_c	1.6627	1.57
+kcat_fwd_ADK1	319.16	1.051
+kcat_fwd_SHARED	100.0	1.05

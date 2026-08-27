@@ -9,6 +9,10 @@
 
 module load julia/1.10.5
 
+# Compute nodes have no network. Skips the one Aqua check that needs the
+# registry; see the comment in test/runtests.jl.
+export INFERCELL_OFFLINE_TESTS=true
+
 echo "Running InferCell tests at $(date)"
 echo "Node: $(hostname)"
 echo ""

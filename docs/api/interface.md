@@ -21,11 +21,16 @@ reactions(m)     # Vector{ConstantRateJump} (required if formalism == :jump)
 
 ```julia
 inputs(m)           # Symbol[]              — coupling inputs from other sub-models
+coupling(m)         # CouplingEdge[]        — typed coupling declarations
+module_id(m)        # Symbol                — identity, defaults to the type name
+reduction_notes(m)  # String[]              — simplifications this module introduces
 formalism(m)        # :ode | :sde | :jump   — defaults to :ode
 inference_mode(m)   # :differentiable | :simulation — defaults to :differentiable
 ```
 
 `formalism` determines which problem type the orchestrator builds; `inference_mode` determines which sampler `infer()` dispatches to.
+
+`inputs` says *which* state a sub-model reads from another; `coupling` says *how* it crosses, as one of seven typed edge kinds. Both default to empty, so a sub-model written before the Core A′ contract needs no change. See [Core A′ interface contract](corea-interface.md).
 
 ## `SubModelContext`
 

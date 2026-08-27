@@ -60,6 +60,19 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
             end
         end
     end
+
+    # Equal values from different source files pass every check above — the
+    # values agree, so nothing fires, and deduplication silently keeps whichever
+    # module was seen first. That is the cross-file trap in its most easily
+    # missed form, so it is reported rather than resolved by first-come.
+    all_params = reduce(vcat, parameters.(models); init = InferParameter[])
+    for (name, files) in provenance_conflicts(all_params)
+        @warn "Parameter :$name is imported from more than one source file " *
+              "($(join(files, " and "))). Deduplication keeps the first-seen " *
+              "definition; declare which file governs rather than letting " *
+              "composition order decide."
+    end
+    return nothing
 end
 
 function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
@@ -113,6 +126,11 @@ end
 
 function _resolve_coupling(models::Vector{<:AbstractSubModel},
                            contexts::Vector{SubModelContext})
+    # Validate the Core A′ coupling contract before wiring anything up. This is
+    # a no-op for sub-models outside Core A′: they name no registry species and
+    # declare no typed edges, so nothing here fires for them.
+    resolve_coupling(models)
+
     state_owners = Dict{Symbol, Int}()
     for (i, m) in enumerate(models)
         for (j, s) in enumerate(states(m))

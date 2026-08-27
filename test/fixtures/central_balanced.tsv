@@ -1,0 +1,9 @@
+!!SBtab TableType='Quantity' TableName='central balanced' Document='fixture'
+!ID	!Mode	!GeometricStd
+% a comment line the parser skips
+kcat_fwd_PGK3	319.5	1.051
+kcat_fwd_PYK3	1874.0	1.051
+conc_M_gtp_c	0.1	10.0
+kcat_fwd_ENO	62.18	1.05
+kcat_fwd_SHARED	100.0	1.05
+k_pts_GLCpts0_fwd	100000.0	
