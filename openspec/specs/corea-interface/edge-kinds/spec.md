@@ -1,3 +1,5 @@
+# Core A′ coupling edge kinds Specification
+
 ## Purpose
 
 A typed contract for the seven distinct ways state crosses a module boundary in
@@ -5,7 +7,7 @@ Core A′, so that a module declares not only *which* state it couples to but *h
 and so that a disagreement between two modules is caught when they are composed
 rather than when they are run.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Modules declare typed coupling edges
 
