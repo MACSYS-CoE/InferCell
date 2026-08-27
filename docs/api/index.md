@@ -1,6 +1,6 @@
 # API reference
 
-InferCell exports its public API across a dozen source files. The pages in this section are organised by source module; each page lists the public API with the same docstring text returned by `?<symbol>` in the Julia REPL.
+InferCell exports its public API across nineteen source files. The pages in this section are organised by source module; each page lists the public API with the same docstring text returned by `?<symbol>` in the Julia REPL.
 
 | Module | Page | Highlights |
 |---|---|---|

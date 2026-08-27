@@ -20,8 +20,8 @@ See `proposal.md` — Why, for motivation. The constraints that shape the approa
   module exists. A validation that only fires when all seven are composed is a
   validation that fires too late to be useful.
 - **The figure is the source of truth for the edge kinds**, not this design. The
-  seven kinds and their one-line semantics come from the legend of
-  `dev/notes/figures/minimal-cell-coupling/draw_state.py`, rendered in
+  seven kinds and their one-line semantics come from the legend built in
+  `dev/notes/figures/reduced-syn3a-coupling/make_reduced.py`, rendered in
   `fig1r_state_graph_reduced.pdf`. If the figure and the code disagree, one of
   them is a bug.
 - **Tests run through Slurm** (`sbatch test/run_tests.slurm`); Julia is only on
@@ -70,11 +70,11 @@ that adds a typed declaration and forgets to keep `inputs` in step is told.
 ```
 abstract type CouplingEdge end
 
-struct MassEdge            <: CouplingEdge   # species, direction, module_id
+struct MassEdge            <: CouplingEdge   # species, direction, peer
 struct CurrencyEdge        <: CouplingEdge   # + pool
-struct DeferredCounterEdge <: CouplingEdge   # + counter, debited_pool, clip
+struct DeferredCounterEdge <: CouplingEdge   # + counter, clip, smoothing
 struct CatalyticEdge       <: CouplingEdge   # + param_slot
-struct RateConstantEdge    <: CouplingEdge   # + cadence
+struct RateConstantEdge    <: CouplingEdge   # + cadence, interval
 struct VolumeEdge          <: CouplingEdge
 struct ClampedEdge         <: CouplingEdge   # + held_value, origin
 ```
@@ -158,7 +158,7 @@ struct ParameterSource
     file::String
     table::Union{String,Nothing}
     identifier::Union{String,Nothing}
-    informedness::Symbol   # :balanced, :prior_default, :no_prior_asserted_by_us
+    informedness::Symbol   # :balanced, :prior_default, :asserted, :not_imported
     alternatives::Vector{Pair{String,Float64}}   # same id, other files
 end
 ```

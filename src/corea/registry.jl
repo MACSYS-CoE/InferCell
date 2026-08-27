@@ -60,14 +60,21 @@ struct SpeciesEntry
     # constructor would have the same signature and overwrite it.
     function SpeciesEntry(name, group, treatment, regime, initial_value, gstd,
                           source_file, informedness)
-        group in SPECIES_GROUPS || throw(ArgumentError(
-            "Species :$name has invalid group :$group. Must be one of $SPECIES_GROUPS"))
-        treatment in SPECIES_TREATMENTS || throw(ArgumentError(
-            "Species :$name has invalid treatment :$treatment. Must be one of $SPECIES_TREATMENTS"))
-        regime in SPECIES_REGIMES || throw(ArgumentError(
-            "Species :$name has invalid regime :$regime. Must be one of $SPECIES_REGIMES"))
-        informedness in INFORMEDNESS || throw(ArgumentError(
-            "Species :$name has invalid informedness :$informedness. Must be one of $INFORMEDNESS"))
+        context = "Species :$name"
+        _check_vocab(context, :group, group, SPECIES_GROUPS)
+        _check_vocab(context, :treatment, treatment, SPECIES_TREATMENTS)
+        _check_vocab(context, :regime, regime, SPECIES_REGIMES)
+        _check_vocab(context, :informedness, informedness, INFORMEDNESS)
+
+        # The prior-default rule is the loader's rule, enforced here too so a
+        # hand-transcribed row cannot drift from it: a gstd at or above the
+        # prior width is `:prior_default`, and nothing else is.
+        at_prior_width = gstd !== nothing && gstd >= PRIOR_DEFAULT_GSTD
+        at_prior_width == (informedness === :prior_default) || throw(ArgumentError(
+            "$context has gstd $gstd but informedness :$informedness. A gstd at " *
+            "or above the prior width ($PRIOR_DEFAULT_GSTD) is :prior_default, " *
+            "and a :prior_default entry must sit at that width"))
+
         return new(Symbol(name), group, treatment, regime,
                    initial_value === nothing ? nothing : Float64(initial_value),
                    gstd === nothing ? nothing : Float64(gstd),
@@ -170,20 +177,21 @@ const COREA_SPECIES = SpeciesEntry[
     SpeciesEntry(:M_o2_c,       :chemostat,  :chemostatted, :metabolite, nothing, nothing, nothing, :not_imported),
 ]
 
+# A duplicated name would make the index silently lose an entry, which is
+# exactly the class of error the registry exists to prevent. Catch it at load.
+allunique(e.name for e in COREA_SPECIES) || error(
+    "Duplicate species name in COREA_SPECIES: every registry entry must be " *
+    "named exactly once")
+
 """
     COREA_SPECIES_INDEX
 
 Name-to-position map over [`COREA_SPECIES`](@ref), built once at load. Position
-is the canonical ordering, so this is the only lookup a module needs.
+is the canonical ordering, so this is the only lookup a module needs — prefer
+[`species_index`](@ref), which throws a named error for a typo.
 """
 const COREA_SPECIES_INDEX = Dict{Symbol, Int}(
     e.name => i for (i, e) in enumerate(COREA_SPECIES))
-
-# A duplicated name would make the index silently lose an entry, which is
-# exactly the class of error the registry exists to prevent. Catch it at load.
-length(COREA_SPECIES_INDEX) == length(COREA_SPECIES) || error(
-    "Duplicate species name in COREA_SPECIES: the registry has " *
-    "$(length(COREA_SPECIES)) entries but only $(length(COREA_SPECIES_INDEX)) distinct names")
 
 """
     species_index(name::Symbol) -> Int
@@ -207,11 +215,7 @@ end
 The registry row for a species, by name or by canonical position.
 """
 species_entry(name::Symbol) = COREA_SPECIES[species_index(name)]
-
-function species_entry(i::Integer)
-    checkbounds(Bool, COREA_SPECIES, i) || throw(BoundsError(COREA_SPECIES, i))
-    return COREA_SPECIES[i]
-end
+species_entry(i::Integer) = COREA_SPECIES[i]
 
 """
     is_registered(name::Symbol) -> Bool
@@ -309,3 +313,9 @@ the suite rather than accumulating.
 """
 n_dynamic_states() = count(e -> e.treatment === :dynamic, COREA_SPECIES)
 n_chemostats() = count(e -> e.treatment === :chemostatted, COREA_SPECIES)
+
+export SpeciesEntry, COREA_SPECIES,
+       species_index, species_entry, is_registered, species_group,
+       is_chemostatted, is_dynamic, dynamic_species, chemostat_species,
+       species_in_group, held_value, is_informed, uninformed_species,
+       n_dynamic_states, n_chemostats

@@ -36,17 +36,20 @@ declaration governs.
 The system SHALL define exactly seven edge kinds, matching the legend of
 `fig1r_state_graph_reduced.pdf`, each with the fields its own semantics require:
 
-| Kind | Semantics | Required fields beyond species and direction |
+| Kind | Semantics | Fields beyond species and direction |
 |---|---|---|
 | mass | shared state, continuous; gradients cross inside the ODE block | none |
-| currency | routed via a shared pool node rather than module to module | the pool species |
-| deferred counter | the stochastic block accrues a cost, the hook debits it one step later | the counter name, the debited pool, the clipping policy |
-| catalytic | counts enter a rate law as parameters; no mass flows | the rate law's parameter slot |
-| rate constant | pools re-enter the stochastic block as recomputed rate constants | the refresh cadence |
+| currency | routed via a shared pool node rather than module to module | the pool species, defaulting to the species itself; the debited pool is the edge's own species |
+| deferred counter | the stochastic block accrues a cost, the hook debits it against the edge's species one step later | the counter name (required); a clipping policy defaulting to the published clamped drain; the smoothing width, required exactly when the policy is smoothed |
+| catalytic | counts enter a rate law as parameters; no mass flows | the rate law's parameter slot (required) |
+| rate constant | pools re-enter the stochastic block as recomputed rate constants | a refresh cadence defaulting to the published 60 s piecewise-constant rebuild |
 | volume | counts set surface area, which sets volume, which rescales every concentration | none |
-| clamped | a real dependence replaced by a constant | the held value, and whether the clamp is the published model's or ours |
+| clamped | a real dependence replaced by a constant | whether the clamp is the published model's or ours (required); optionally the held value, which must match the registry where the registry records one |
 
-An edge whose kind is not one of these seven SHALL be rejected.
+An edge whose kind is not one of these seven SHALL be rejected. Fields marked
+required have no default; the defaulted fields default to the published model's
+behaviour, so departing from the published model is something an author has to
+write down.
 
 #### Scenario: Each kind carries its own fields
 - **WHEN** an edge of a given kind is constructed without a field that kind
@@ -55,9 +58,10 @@ An edge whose kind is not one of these seven SHALL be rejected.
 - **AND** the failure is at declaration, not at composition or at run time
 
 #### Scenario: An unknown kind is rejected
-- **WHEN** a module declares an edge with a kind outside the seven
-- **THEN** construction fails naming the offending kind and listing the seven valid
-  ones
+- **WHEN** a module declares an edge whose kind is outside the seven
+- **THEN** resolving it fails naming the offending kind and listing the seven
+  valid ones — kinds are types, so the foreign declaration is caught at the
+  first point the vocabulary is consulted
 
 #### Scenario: Catalytic edges move no mass
 - **WHEN** the resolver examines a catalytic edge
@@ -67,11 +71,12 @@ An edge whose kind is not one of these seven SHALL be rejected.
 
 ### Requirement: Deferred counters declare a clipping policy
 
-A deferred-counter edge SHALL state explicitly how a debit larger than the
-available pool is handled. The permitted policies are: clamped at zero with the
-deficit carried forward to the next step, as the published model does; unclamped,
-allowing the pool to go negative; and smoothed, replacing the discontinuity with a
-differentiable approximation.
+A deferred-counter edge SHALL carry a clipping policy stating how a debit larger
+than the available pool is handled. The permitted policies are: clamped at zero
+with the deficit carried forward to the next step, as the published model does;
+unclamped, allowing the pool to go negative; and smoothed, replacing the
+discontinuity with a differentiable approximation. The policy defaults to the
+published clamped drain, so selecting anything else is an explicit act.
 
 The declaration SHALL record which policy is in force, so that a trajectory
 sampled with a gradient-based method can be checked against a policy that admits
@@ -100,7 +105,8 @@ gradients.
 A rate-constant edge SHALL declare whether the downstream rate constants are
 recomputed at a fixed interval, holding piecewise-constant between refreshes as the
 published model's 60 s rebuild does, or track the upstream pools continuously.
-A fixed-interval declaration SHALL carry its interval.
+A fixed-interval declaration SHALL carry its interval. The cadence defaults to
+the published 60 s rebuild, so a continuous edge is an explicit act.
 
 #### Scenario: The published 60 s rebuild is declarable
 - **WHEN** a module declares transcription rate constants refreshed from live NTP

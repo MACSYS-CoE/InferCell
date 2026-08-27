@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-08-27
-**Branch:** `change/establish-corea-interface` (not yet pushed, not yet a PR)
+**Branch:** `change/establish-corea-interface` (PR #38, open against `main`)
 
 ## What this session did
 
@@ -26,8 +26,9 @@ nothing. Wave 2 is where the resolved edges start driving actual coupling.
 ### Changed source
 
 - `src/parameters.jl` — added `ParameterSource` and a seventh `provenance` field
-  on `InferParameter`, behind a six-argument outer constructor so all 43
-  existing construction sites work untouched.
+  on `InferParameter`, behind a six-argument outer constructor so all 54
+  existing construction sites (47 in `src/models/`, 7 in `test/`) work
+  untouched.
 - `src/interface.jl` — added `coupling`, `module_id` and `reduction_notes`, all
   with defaults. `inputs` is unchanged.
 - `src/orchestrator.jl` — `_resolve_coupling` now calls `resolve_coupling`;
@@ -73,8 +74,9 @@ own verification steps:
 - `mkdocs build --strict` — passes, with the new `docs/api/corea-interface.md`
   rendering. Verified in a scratch venv, since mkdocs is not installed on the
   cluster.
-- Julia test suite — **701 passed, 0 failed, 0 errored** (job 15967322, 2m38s
-  wall). Up from 269 before this change; all 34 tasks in `tasks.md` are ticked.
+- Julia test suite — **759 passed, 0 failed, 0 errored** (job 15972827, ~3m
+  wall; 701 before the review-driven hardening, 269 before this change). All
+  34 tasks in `tasks.md` are ticked.
 
 Two failures were found and fixed along the way, both worth knowing about:
 `SpeciesEntry`'s validating constructor originally took eight untyped positional
@@ -86,16 +88,53 @@ all five new test files with it, so the first green-looking run had in fact neve
 executed any of the new tests. Worth remembering as a failure mode: a passing
 count that did not go *up* is not a passing run.
 
+## Pre-merge review (2026-08-27, later session)
+
+`/simplify` + `/check-PR` ran against PR #38: nine parallel review agents,
+every MAJOR finding adversarially verified. Verdict: merge after fixes, all of
+which are applied on this branch. The substance:
+
+- **Hardened the contract** where the review found silent-pass gaps, all
+  additive validation: an inbound `MassEdge` must appear in `inputs()` (the
+  drift wave-1 authors would hit — only `inputs` wires a state into dynamics);
+  producer-with-no-consumer is now a reported dead end (`DeadEnd` gained
+  `missing_role`, replacing `consumers` with `modules`); a `ClampedEdge` on a
+  chemostat must match the registry's held value; `conc_<species>` imports are
+  checked against the registry row's `initial_value` (the GTP 1.6627-vs-0.1
+  trap now fails at load); a `governing` declaration binds even with a single
+  holder; truncated TSV rows and misspelled `Informedness` cells error instead
+  of being skipped; `CurrencyEdge.pool` is registry-checked; positional edge
+  construction validates (inner constructors).
+- **`DeferredCounterEdge` gained `smoothing`**, required exactly when
+  `clip = :smoothed` — the edge-kinds spec's "parameter controlling the
+  smoothing is exposed" clause, previously unimplemented.
+- **Simplified**: vocab validation consolidated on `_check_vocab` (now in
+  `parameters.jl`, shared with the registry's gstd⟺informedness invariant);
+  `deviates_from_published` derives from `deviation_reason`; dead code dropped
+  (`_module_name`, unused accessors, write-only `SourceTable.path`, unreachable
+  `state_index::Nothing` arm); six unused exports removed; corea exports moved
+  into their own files so seven wave-1 branches don't all append to one block
+  in `src/InferCell.jl`.
+- **Spec/docs reconciled with the code**: the edge-kinds table no longer names
+  a `debited_pool` field that never existed, marks which fields default to the
+  published model's behaviour, and the unknown-kind failure is honestly
+  resolution-time; design.md sketches and the informedness vocabulary now match
+  the source.
+
+Wave-1 advisories the review surfaced but deliberately did not act on: lower
+`ResolvedEdge`s into concrete typed callback state before any hot path iterates
+them; resolve chemostat `held_value`s to plain `Float64` at build time if an
+RHS ever reads them; the cost-with-no-payer throw means an Expression module
+debiting ATP cannot resolve alone (spec-compliant, but the first wave-1 author
+will hit it); assert registry-vs-table agreement when wave 1 vendors the real
+balanced tables.
+
 ## Next steps
 
-1. Review the artifacts and the code together — this is the cheapest point at
-   which to get the contract wrong, because nothing consumes it yet. After a
-   wave-1 change merges, changing it means reworking seven modules.
-2. Push the branch and open the PR. Nothing has been pushed yet.
-3. `/opsx:sync establish-corea-interface` to promote the delta specs into
+1. `/opsx:sync establish-corea-interface` to promote the delta specs into
    `openspec/specs/`, **then** merge the PR to `main`. Sync rather than archive,
    so wave 0 stays open for amendment while wave 1 reads the contract.
-4. Only then propose the seven wave-1 changes. A wave-1 proposal written before
+2. Only then propose the seven wave-1 changes. A wave-1 proposal written before
    the sync will invent its own interface instead of consuming this one. Propose
    all seven before applying any — that is the last good chance to catch an
    interface assumption two modules disagree about.

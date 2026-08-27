@@ -119,7 +119,7 @@ any order; each group depends on the ones before it. Tests run via
   when it is absent, and recording the chosen and rejected files when it is
   present. Verify by one test per branch, the second asserting PGK3 loads the
   nucleotide value and its provenance names that file.
-- [x] 4.6 Mark loaded values as balanced, prior-default, or no-prior-asserted-by-us,
+- [x] 4.6 Mark loaded values as balanced, prior-default, asserted, or not-imported,
   and make the last two enumerable from a composed model. Verify by a test that a
   fixture PTS mass-action constant enumerates as asserted-by-us and a balanced
   glycolytic parameter does not.

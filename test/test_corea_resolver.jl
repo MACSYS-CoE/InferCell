@@ -8,7 +8,8 @@ using InferCell
             st = [:M_atp_c, :M_g6p_c],
             edges = [MassEdge(species=:M_atp_c, direction=:out, peer=:Expression)])
         consumer = CoreAStub(:Expression;
-            edges = [MassEdge(species=:M_atp_c, direction=:in, peer=:Central)])
+            edges = [MassEdge(species=:M_atp_c, direction=:in, peer=:Central)],
+            ins = [:M_atp_c])
 
         graph = resolve_coupling([producer, consumer])
 
@@ -91,6 +92,25 @@ using InferCell
         @test occursin("debited a step later", err.msg)
     end
 
+    @testset "One module describing one crossing two ways is also rejected" begin
+        both = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [MassEdge(species=:M_atp_c, direction=:in),
+                     CurrencyEdge(species=:M_atp_c, direction=:in)],
+            ins = [:M_atp_c])
+        err = try
+            resolve_coupling([both])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        # Named as one module describing one crossing, not as two modules
+        # disagreeing with themselves.
+        @test occursin("Module Central describes", err.msg)
+        @test occursin("mass", err.msg)
+        @test occursin("currency", err.msg)
+    end
+
     @testset "A module may not integrate a chemostat" begin
         bad = CoreAStub(:Central; st = [:M_ctp_c])
         err = try
@@ -153,7 +173,8 @@ using InferCell
         @test length(graph.dead_ends) == 1
         @test graph.dead_ends[1].species == :M_amp_c
         @test graph.dead_ends[1].moiety == :adenylate
-        @test graph.dead_ends[1].consumers == [:Charging]
+        @test graph.dead_ends[1].missing_role == :producer
+        @test graph.dead_ends[1].modules == [:Charging]
         @test occursin("adenylate", dead_end_report(graph))
 
         guanylate = CoreAStub(:Transcription;
@@ -163,6 +184,19 @@ using InferCell
         @test g2.dead_ends[1].species == :M_gmp_c
         @test g2.dead_ends[1].moiety == :guanylate
         @test occursin("guanylate", dead_end_report(g2))
+    end
+
+    @testset "A produced species with no consumer is the mirror dead end" begin
+        # The spec requires detecting both halves: no producer, and no consumer.
+        producer = CoreAStub(:Nucleotide;
+            edges = [MassEdge(species=:M_amp_c, direction=:out)])
+        owner = CoreAStub(:Charging; st = [:M_amp_c])
+        graph = resolve_coupling([producer, owner])
+        @test length(graph.dead_ends) == 1
+        @test graph.dead_ends[1].species == :M_amp_c
+        @test graph.dead_ends[1].missing_role == :consumer
+        @test graph.dead_ends[1].modules == [:Nucleotide]
+        @test occursin("nothing drawing it down", dead_end_report(graph))
     end
 
     @testset "Adding the producer closes the dead end" begin
@@ -222,6 +256,79 @@ using InferCell
         @test length(resolve_coupling([consistent]).edges) == 1
     end
 
+    @testset "An inbound mass edge must be listed in inputs()" begin
+        # The converse drift: only inputs() wires a state into dynamics, so an
+        # inbound mass edge on a state the module does not integrate would
+        # silently never arrive.
+        silent = CoreAStub(:Expression;
+            edges = [MassEdge(species=:M_atp_c, direction=:in)])
+        err = try
+            resolve_coupling([silent])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("M_atp_c", err.msg)
+        @test occursin("inputs()", err.msg)
+        @test occursin("Expression", err.msg)
+
+        # A module integrating the species itself needs no input for it, and
+        # the non-mass inbound kinds are not wired through inputs() at all.
+        own = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [MassEdge(species=:M_atp_c, direction=:in)])
+        @test length(resolve_coupling([own]).edges) == 1
+
+        counter = CoreAStub(:Expression;
+            st = [:M_atp_c],
+            edges = [DeferredCounterEdge(species=:M_atp_c, direction=:in,
+                                         counter=:ATP_trsc)])
+        @test length(resolve_coupling([counter]).edges) == 1
+    end
+
+    @testset "A currency pool must be a registry species" begin
+        typo = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [CurrencyEdge(species=:M_atp_c, direction=:out,
+                                  pool=:M_atp_typo_c)])
+        err = try
+            resolve_coupling([typo])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("M_atp_typo_c", err.msg)
+        @test occursin("pool", err.msg)
+    end
+
+    @testset "A clamp must hold a chemostat at the registry's value" begin
+        # Glucose is chemostatted at 40 mM. Two modules clamping the medium
+        # differently would each pass alone and silently disagree at the join.
+        wrong = CoreAStub(:Transport;
+            edges = [ClampedEdge(species=:M_glc__D_e, direction=:in,
+                                 origin=:published, held_value=20.0)])
+        err = try
+            resolve_coupling([wrong])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("20.0", err.msg)
+        @test occursin("40.0", err.msg)
+        @test occursin("M_glc__D_e", err.msg)
+
+        right = CoreAStub(:Transport;
+            edges = [ClampedEdge(species=:M_glc__D_e, direction=:in,
+                                 origin=:published, held_value=40.0)])
+        @test length(resolve_coupling([right]).edges) == 1
+
+        # A chemostat with no imported value constrains nothing yet.
+        open_value = CoreAStub(:Transcription;
+            edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
+                                 origin=:ours, held_value=1.0)])
+        @test length(resolve_coupling([open_value]).edges) == 1
+    end
+
     @testset "Gradient obstructions are collected and reported" begin
         clamped = CoreAStub(:Expression;
             st = [:M_atp_c],
@@ -235,7 +342,8 @@ using InferCell
         smoothed = CoreAStub(:Expression;
             st = [:M_atp_c],
             edges = [DeferredCounterEdge(species=:M_atp_c, direction=:in,
-                                         counter=:ATP_trsc, clip=:smoothed)])
+                                         counter=:ATP_trsc, clip=:smoothed,
+                                         smoothing=0.05)])
         @test isempty(resolve_coupling([smoothed]).gradient_obstructions)
         @test occursin("No gradient obstructions",
                        gradient_report(resolve_coupling([smoothed])))

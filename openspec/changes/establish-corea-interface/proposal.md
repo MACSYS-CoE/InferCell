@@ -110,8 +110,11 @@ in the project.
 
 ## Non-goals
 
-- Importing any actual syn3A parameter value. This change delivers the loader and
-  the provenance mechanism; wave 1 modules import their own values through it.
+- Importing syn3A parameter values through the loader. This change delivers the
+  loader and the provenance mechanism; wave 1 modules import their own values
+  through it. (The registry does transcribe the scoping note's initial
+  concentrations by hand, each with its source file — the loader checks imports
+  against those rows rather than replacing them.)
 - Implementing any reaction, rate law, or module. Wave 0 is contract only.
 - The orchestrator's use of the resolved edges to actually drive coupling at run
   time. That is wave 2 (`add-hook-1s-coupling`, `add-cme-rebuild-60s`,

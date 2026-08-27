@@ -43,6 +43,17 @@ using InferCell
         @test_throws ArgumentError ClampedEdge(species=:M_ctp_c, direction=:in)  # no origin
     end
 
+    @testset "Positional construction cannot bypass validation" begin
+        # Validation lives in the inner constructors, so the positional form is
+        # checked exactly like the keyword one.
+        @test_throws ArgumentError MassEdge(:M_atp_c, :sideways, nothing)
+        @test_throws ArgumentError DeferredCounterEdge(:M_atp_c, :in, nothing,
+                                                       :c, :hope, nothing)
+        @test_throws ArgumentError RateConstantEdge(:M_gtp_c, :out, nothing,
+                                                    :continuous, 60.0)
+        @test_throws ArgumentError ClampedEdge(:M_ctp_c, :in, nothing, 1.0, :borrowed)
+    end
+
     @testset "Vocabulary is checked" begin
         @test_throws ArgumentError MassEdge(species=:M_atp_c, direction=:sideways)
         @test_throws ArgumentError DeferredCounterEdge(
@@ -68,10 +79,37 @@ using InferCell
         @test !deviates_from_published(unclamped)
 
         smoothed = DeferredCounterEdge(species=:M_atp_c, direction=:in,
-                                       counter=:ATP_trsc, clip=:smoothed)
+                                       counter=:ATP_trsc, clip=:smoothed,
+                                       smoothing=0.05)
         @test !obstructs_gradients(smoothed)
+        @test smoothed.smoothing == 0.05
         @test deviates_from_published(smoothed)   # differs from the published model
         @test occursin("smoothed", deviation_reason(smoothed))
+        @test occursin("0.05", deviation_reason(smoothed))
+    end
+
+    @testset "The smoothing parameter is exposed, not hidden" begin
+        # A smoothed clip without its width is underdeclared, and the other
+        # policies take no width at all.
+        err = try
+            DeferredCounterEdge(species=:M_atp_c, direction=:in,
+                                counter=:ATP_trsc, clip=:smoothed)
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("smoothing", err.msg)
+
+        @test_throws ArgumentError DeferredCounterEdge(
+            species=:M_atp_c, direction=:in, counter=:ATP_trsc,
+            clip=:smoothed, smoothing=-1.0)
+        @test_throws ArgumentError DeferredCounterEdge(
+            species=:M_atp_c, direction=:in, counter=:ATP_trsc,
+            smoothing=0.05)   # clamped policy takes no smoothing
+
+        published = DeferredCounterEdge(species=:M_atp_c, direction=:in,
+                                        counter=:ATP_trsc)
+        @test published.smoothing === nothing
     end
 
     @testset "Rate-constant edges default to the published 60 s rebuild" begin
@@ -151,15 +189,15 @@ using InferCell
             VolumeEdge(species=:M_ptsg_c, direction=:out))
     end
 
-    @testset "Accessors and the currency pool" begin
+    @testset "The currency pool" begin
         e = CurrencyEdge(species=:M_atp_c, direction=:in, peer=:Central)
-        @test edge_species(e) == :M_atp_c
-        @test edge_direction(e) == :in
-        @test edge_peer(e) == :Central
+        @test e.species == :M_atp_c
+        @test e.direction == :in
+        @test e.peer == :Central
         @test e.pool == :M_atp_c            # defaults to the species itself
         @test CurrencyEdge(species=:M_atp_c, direction=:in, pool=:M_adp_c).pool == :M_adp_c
 
-        @test edge_peer(MassEdge(species=:M_atp_c, direction=:in)) === nothing
+        @test MassEdge(species=:M_atp_c, direction=:in).peer === nothing
     end
 
     @testset "Existing sub-models declare no coupling" begin

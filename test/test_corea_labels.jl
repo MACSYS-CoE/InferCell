@@ -22,7 +22,8 @@ using Distributions
             CoreAStub(:Expression;
                 st = [:M_atp_c],
                 edges = [DeferredCounterEdge(species=:M_atp_c, direction=:in,
-                                             counter=:ATP_trsc, clip=:smoothed),
+                                             counter=:ATP_trsc, clip=:smoothed,
+                                             smoothing=0.05),
                          MassEdge(species=:M_atp_c, direction=:out)]),
             # A continuous rebuild, where the published model holds rate
             # constants piecewise-constant between 60 s refreshes.

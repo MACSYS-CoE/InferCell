@@ -16,21 +16,14 @@ fetched over a network the compute nodes do not have.
 """
     SourceTable
 
-One parsed source file: its logical name (what provenance records), its path on
-disk, the identifier-to-value map it contributed, and how well each value is
-known.
+One parsed source file: its logical name (what provenance records), the
+identifier-to-value map it contributed, and how well each value is known.
 """
 struct SourceTable
     file::String
-    path::String
     values::Dict{String, Float64}
     informedness::Dict{String, Symbol}
 end
-
-# The prior median and prior width that mark a value as uninformed: 0.1 mM at a
-# geometric standard deviation of 10 is the balancing prior's default, and a row
-# sitting there was informed by nothing.
-const PRIOR_DEFAULT_GSTD = 10.0
 
 """
     read_source_table(path; file=basename(path), id_column="ID",
@@ -49,9 +42,10 @@ scoping note.
 
 How well each value is known is read from an `Informedness` column when the
 table has one, and otherwise derived: a row whose geometric standard deviation
-sits at the prior width is `:prior_default`, a row with no uncertainty column at
-all is `:asserted` — any prior on it is this project's, not the model's — and
-anything else is `:balanced`.
+sits at or above the prior width ([`PRIOR_DEFAULT_GSTD`](@ref), 10) is
+`:prior_default`, a row with no uncertainty column at all is `:asserted` — any
+prior on it is this project's, not the model's — and anything else is
+`:balanced`.
 """
 function read_source_table(path::AbstractString;
                            file::AbstractString = basename(path),
@@ -79,7 +73,13 @@ function read_source_table(path::AbstractString;
 
     for line in lines[2:end]
         cells = split(line, '\t')
-        length(cells) < max(id_idx, value_idx) && continue
+        # A truncated row is corruption, not something to skip: silently
+        # dropping it could collapse a two-file ambiguity to one holder and
+        # bypass the governs machinery entirely.
+        length(cells) < max(id_idx, value_idx) && throw(ArgumentError(
+            "Source table $path has a truncated row (\"$(first(line, 60))\"): " *
+            "$(length(cells)) cell(s) where the $value_column column is " *
+            "number $(max(id_idx, value_idx))"))
 
         id = String(strip(cells[id_idx]))
         isempty(id) && continue
@@ -94,10 +94,11 @@ function read_source_table(path::AbstractString;
             "each value once"))
 
         values[id] = value
-        informedness[id] = _row_informedness(cells, gstd_idx, informedness_idx)
+        informedness[id] = _row_informedness(cells, gstd_idx, informedness_idx,
+                                             id, path)
     end
 
-    return SourceTable(String(file), String(path), values, informedness)
+    return SourceTable(String(file), values, informedness)
 end
 
 function _column_index(header::Vector{<:AbstractString}, name::AbstractString,
@@ -109,10 +110,18 @@ function _column_index(header::Vector{<:AbstractString}, name::AbstractString,
     return idx
 end
 
-function _row_informedness(cells, gstd_idx, informedness_idx)
+function _row_informedness(cells, gstd_idx, informedness_idx, id, path)
     if informedness_idx !== nothing && length(cells) >= informedness_idx
-        declared = Symbol(strip(cells[informedness_idx]))
-        declared in INFORMEDNESS && return declared
+        raw = strip(cells[informedness_idx])
+        if !isempty(raw)
+            declared = Symbol(raw)
+            # A declared informedness must be a real one: silently re-deriving
+            # over a misspelling would let the declaration rot unnoticed.
+            declared in INFORMEDNESS || throw(ArgumentError(
+                "Row :$id of $path declares informedness \"$raw\", which is not " *
+                "one of $INFORMEDNESS"))
+            return declared
+        end
     end
 
     # No uncertainty column: the source carries a point value, so any prior on
@@ -162,8 +171,7 @@ function ambiguity_report(tables::Vector{SourceTable})
     for (id, entries) in seen
         length(entries) > 1 || continue
         sorted = sort(entries; by = first)
-        agrees = all(p -> last(p) == last(sorted[1]), sorted)
-        push!(report, AmbiguousValue(id, sorted, agrees))
+        push!(report, AmbiguousValue(id, sorted, allequal(last(p) for p in sorted)))
     end
     return sort!(report; by = a -> a.identifier)
 end
@@ -188,6 +196,16 @@ the file that wins. Without it the load fails, naming the identifier, both files
 and both values — an unresolved ambiguity is an error at load time, never a
 silent choice. With it, the parameter's provenance records both the file chosen
 and the ones rejected.
+
+A `governing` declaration is also checked when only one table holds the
+identifier: a declared governing file that is not the holder means the table
+set and the declaration disagree — a stale or truncated table — and failing is
+better than silently importing from the wrong file with clean provenance.
+
+An identifier of the form `conc_<species>` naming a registry species is checked
+against the registry: the imported value must match the registry row's
+`initial_value` where one is recorded, so the registry and the loader cannot
+carry two versions of the same concentration.
 """
 function load_parameter(tables::Vector{SourceTable}, identifier::AbstractString;
                         name::Symbol,
@@ -205,6 +223,17 @@ function load_parameter(tables::Vector{SourceTable}, identifier::AbstractString;
         "($(join([t.file for t in tables], ", ")))"))
 
     chosen = if length(holders) == 1
+        # The declared governing file is still binding: a single holder that is
+        # not the declared governor means the governing table is stale or
+        # missing, and importing from the other file would be exactly the
+        # silent cross-file substitution this loader exists to prevent.
+        if governing !== nothing && only(holders).file != governing
+            throw(ArgumentError(
+                "Identifier $id declares governing file \"$governing\" but is " *
+                "held only by $(only(holders).file). Either the governing table " *
+                "is stale or the declaration is wrong; refusing to import " *
+                "$(only(holders).values[id]) from a file the declaration rejects"))
+        end
         only(holders)
     else
         governing === nothing && throw(ArgumentError(
@@ -221,6 +250,8 @@ function load_parameter(tables::Vector{SourceTable}, identifier::AbstractString;
         holders[match]
     end
 
+    _check_registry_agreement(id, chosen)
+
     alternatives = [t.file => t.values[id] for t in holders if t.file != chosen.file]
 
     provenance = ParameterSource(chosen.file;
@@ -231,6 +262,28 @@ function load_parameter(tables::Vector{SourceTable}, identifier::AbstractString;
 
     return InferParameter(chosen.values[id], prior, fixed, name, module_id,
                           role, provenance)
+end
+
+# The registry transcribes initial concentrations by hand; the loader imports
+# the same tables live. Two channels for one number is the cross-file trap one
+# layer up, so where an identifier names a registry species with a recorded
+# value, the two must agree.
+function _check_registry_agreement(id::String, chosen::SourceTable)
+    startswith(id, "conc_") || return nothing
+    species = Symbol(chopprefix(id, "conc_"))
+    is_registered(species) || return nothing
+
+    entry = species_entry(species)
+    entry.initial_value === nothing && return nothing
+
+    value = chosen.values[id]
+    value == entry.initial_value || throw(ArgumentError(
+        "Identifier $id imports $value from $(chosen.file), but the registry " *
+        "records :$species at $(entry.initial_value)" *
+        (entry.source_file === nothing ? "" : " from $(entry.source_file)") *
+        ". The registry row and the imported value are two copies of one " *
+        "number; import from the governing file or correct the registry"))
+    return nothing
 end
 
 """
@@ -252,3 +305,6 @@ function governing_choices(params::Vector{InferParameter})
     end
     return sort!(out; by = first)
 end
+
+export SourceTable, AmbiguousValue, read_source_table, ambiguity_report,
+       disagreements, load_parameter, governing_choices

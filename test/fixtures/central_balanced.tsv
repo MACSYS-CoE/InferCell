@@ -1,9 +1,14 @@
 !!SBtab TableType='Quantity' TableName='central balanced' Document='fixture'
 !ID	!Mode	!GeometricStd
+% Synthetic test double: values chosen to exercise the loader's cross-file
+% cases, not copied from the published syn3A balanced tables (which are not
+% vendored in this repository). The registry-matching rows (conc_*) mirror
+% the hand-transcribed values in src/corea/registry.jl.
 % a comment line the parser skips
 kcat_fwd_PGK3	319.5	1.051
 kcat_fwd_PYK3	1874.0	1.051
 conc_M_gtp_c	0.1	10.0
+conc_M_g3p_c	0.1	10.0
 kcat_fwd_ENO	62.18	1.05
 kcat_fwd_SHARED	100.0	1.05
 k_pts_GLCpts0_fwd	100000.0	

@@ -52,10 +52,11 @@ so a sub-model with no cross-block coupling — and every sub-model written befo
 the Core A′ interface contract — needs no modification.
 
 [`inputs`](@ref) keeps its own meaning and its own default. A sub-model may
-declare both; where it declares any coupling edge,
-[`resolve_coupling`](@ref) checks that `inputs` is a subset of the species its
-inbound edges name, so a typed declaration that drifts out of step with `inputs`
-is caught rather than silently disagreeing.
+declare both; where it declares any coupling edge, [`resolve_coupling`](@ref)
+checks the two against each other in both directions — every input has an
+inbound edge, and every inbound mass edge on a state the module does not
+integrate is listed in `inputs` — so a typed declaration that drifts out of
+step with `inputs` is caught rather than silently disagreeing.
 """
 coupling(::AbstractSubModel) = CouplingEdge[]
 

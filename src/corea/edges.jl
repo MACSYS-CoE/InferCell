@@ -70,13 +70,6 @@ _require(kind::Symbol, field::Symbol, value) =
         "$kind requires the field `$field`, which was not given. " *
         "Every $kind must name it; see src/corea/edges.jl"))
 
-function _check_vocab(kind::Symbol, field::Symbol, value, allowed)
-    value in allowed || throw(ArgumentError(
-        "$kind field `$field` is :$value, which is not valid. " *
-        "Must be one of $allowed"))
-    return value
-end
-
 function _check_common(kind::Symbol, species, direction)
     _require(kind, :species, species)
     _require(kind, :direction, direction)
@@ -94,12 +87,17 @@ struct MassEdge <: CouplingEdge
     species::Symbol
     direction::Symbol
     peer::Union{Symbol, Nothing}
+
+    # Validation lives in the inner constructor so that positional
+    # construction cannot bypass it. Same pattern on all seven kinds.
+    function MassEdge(species, direction, peer)
+        _check_common(:MassEdge, species, direction)
+        return new(species, direction, peer)
+    end
 end
 
-function MassEdge(; species=nothing, direction=nothing, peer=nothing)
-    _check_common(:MassEdge, species, direction)
-    return MassEdge(species, direction, peer)
-end
+MassEdge(; species=nothing, direction=nothing, peer=nothing) =
+    MassEdge(species, direction, peer)
 
 """
     CurrencyEdge(; species, direction, peer=nothing, pool=species)
@@ -113,21 +111,30 @@ struct CurrencyEdge <: CouplingEdge
     direction::Symbol
     peer::Union{Symbol, Nothing}
     pool::Symbol
+
+    function CurrencyEdge(species, direction, peer, pool)
+        _check_common(:CurrencyEdge, species, direction)
+        _require(:CurrencyEdge, :pool, pool)
+        return new(species, direction, peer, pool)
+    end
 end
 
-function CurrencyEdge(; species=nothing, direction=nothing, peer=nothing, pool=nothing)
-    _check_common(:CurrencyEdge, species, direction)
-    return CurrencyEdge(species, direction, peer, pool === nothing ? species : pool)
-end
+CurrencyEdge(; species=nothing, direction=nothing, peer=nothing, pool=nothing) =
+    CurrencyEdge(species, direction, peer, pool === nothing ? species : pool)
 
 """
     DeferredCounterEdge(; species, direction, counter, peer=nothing,
-                          clip=:clamped_deficit_carried)
+                          clip=:clamped_deficit_carried, smoothing=nothing)
 
 The stochastic block accrues a cost in `counter`; the hook debits it against
 `species` one step later. This is the kind that carries the interface's
 `max(0, ·)`: see [`CLIP_POLICIES`](@ref), and [`obstructs_gradients`](@ref) for
 what a clamped policy costs a gradient-based sampler.
+
+`smoothing` is the width of the differentiable approximation and is required
+exactly when `clip = :smoothed` — the parameter controlling the smoothing is
+exposed rather than hidden, so the deviation is fully specified where it is
+declared. The other policies take no smoothing and reject one.
 """
 struct DeferredCounterEdge <: CouplingEdge
     species::Symbol
@@ -135,15 +142,32 @@ struct DeferredCounterEdge <: CouplingEdge
     peer::Union{Symbol, Nothing}
     counter::Symbol
     clip::Symbol
+    smoothing::Union{Float64, Nothing}
+
+    function DeferredCounterEdge(species, direction, peer, counter, clip, smoothing)
+        _check_common(:DeferredCounterEdge, species, direction)
+        _require(:DeferredCounterEdge, :counter, counter)
+        _check_vocab(:DeferredCounterEdge, :clip, clip, CLIP_POLICIES)
+        if clip === :smoothed
+            smoothing === nothing && throw(ArgumentError(
+                "DeferredCounterEdge with clip = :smoothed requires the field " *
+                "`smoothing` — the width of the differentiable approximation is " *
+                "part of the deviation, not an implementation detail"))
+            smoothing > 0 || throw(ArgumentError(
+                "DeferredCounterEdge field `smoothing` must be positive, got $smoothing"))
+            return new(species, direction, peer, counter, clip, Float64(smoothing))
+        end
+        smoothing === nothing || throw(ArgumentError(
+            "DeferredCounterEdge with clip = :$clip takes no `smoothing`; " *
+            "carrying one would imply an approximation it does not make"))
+        return new(species, direction, peer, counter, clip, nothing)
+    end
 end
 
-function DeferredCounterEdge(; species=nothing, direction=nothing, peer=nothing,
-                             counter=nothing, clip=:clamped_deficit_carried)
-    _check_common(:DeferredCounterEdge, species, direction)
-    _require(:DeferredCounterEdge, :counter, counter)
-    _check_vocab(:DeferredCounterEdge, :clip, clip, CLIP_POLICIES)
-    return DeferredCounterEdge(species, direction, peer, counter, clip)
-end
+DeferredCounterEdge(; species=nothing, direction=nothing, peer=nothing,
+                    counter=nothing, clip=:clamped_deficit_carried,
+                    smoothing=nothing) =
+    DeferredCounterEdge(species, direction, peer, counter, clip, smoothing)
 
 """
     CatalyticEdge(; species, direction, param_slot, peer=nothing)
@@ -158,14 +182,17 @@ struct CatalyticEdge <: CouplingEdge
     direction::Symbol
     peer::Union{Symbol, Nothing}
     param_slot::Symbol
+
+    function CatalyticEdge(species, direction, peer, param_slot)
+        _check_common(:CatalyticEdge, species, direction)
+        _require(:CatalyticEdge, :param_slot, param_slot)
+        return new(species, direction, peer, param_slot)
+    end
 end
 
-function CatalyticEdge(; species=nothing, direction=nothing, peer=nothing,
-                       param_slot=nothing)
-    _check_common(:CatalyticEdge, species, direction)
-    _require(:CatalyticEdge, :param_slot, param_slot)
-    return CatalyticEdge(species, direction, peer, param_slot)
-end
+CatalyticEdge(; species=nothing, direction=nothing, peer=nothing,
+              param_slot=nothing) =
+    CatalyticEdge(species, direction, peer, param_slot)
 
 """
     RateConstantEdge(; species, direction, peer=nothing,
@@ -184,24 +211,31 @@ struct RateConstantEdge <: CouplingEdge
     peer::Union{Symbol, Nothing}
     cadence::Symbol
     interval::Union{Float64, Nothing}
+
+    function RateConstantEdge(species, direction, peer, cadence, interval)
+        _check_common(:RateConstantEdge, species, direction)
+        _check_vocab(:RateConstantEdge, :cadence, cadence, RATE_CADENCES)
+        if cadence === :piecewise_constant
+            interval === nothing && throw(ArgumentError(
+                "RateConstantEdge requires the field `interval` when cadence is " *
+                ":piecewise_constant — the published model rebuilds every 60 s"))
+            interval > 0 || throw(ArgumentError(
+                "RateConstantEdge field `interval` must be positive, got $interval"))
+            return new(species, direction, peer, cadence, Float64(interval))
+        end
+        interval === nothing || throw(ArgumentError(
+            "RateConstantEdge with cadence = :continuous takes no `interval`; " *
+            "carrying one would imply a cadence it does not have"))
+        return new(species, direction, peer, cadence, nothing)
+    end
 end
 
 function RateConstantEdge(; species=nothing, direction=nothing, peer=nothing,
                           cadence=:piecewise_constant, interval=60.0)
-    _check_common(:RateConstantEdge, species, direction)
-    _check_vocab(:RateConstantEdge, :cadence, cadence, RATE_CADENCES)
-    if cadence === :piecewise_constant
-        interval === nothing && throw(ArgumentError(
-            "RateConstantEdge requires the field `interval` when cadence is " *
-            ":piecewise_constant — the published model rebuilds every 60 s"))
-        interval > 0 || throw(ArgumentError(
-            "RateConstantEdge field `interval` must be positive, got $interval"))
-        return RateConstantEdge(species, direction, peer, cadence, Float64(interval))
-    else
-        # A continuous edge has no refresh interval; carrying one would imply a
-        # cadence it does not have.
-        return RateConstantEdge(species, direction, peer, cadence, nothing)
-    end
+    # The keyword form drops the defaulted interval for a continuous cadence,
+    # so declaring `cadence=:continuous` alone is enough.
+    return RateConstantEdge(species, direction, peer, cadence,
+                            cadence === :continuous ? nothing : interval)
 end
 
 """
@@ -215,12 +249,15 @@ struct VolumeEdge <: CouplingEdge
     species::Symbol
     direction::Symbol
     peer::Union{Symbol, Nothing}
+
+    function VolumeEdge(species, direction, peer)
+        _check_common(:VolumeEdge, species, direction)
+        return new(species, direction, peer)
+    end
 end
 
-function VolumeEdge(; species=nothing, direction=nothing, peer=nothing)
-    _check_common(:VolumeEdge, species, direction)
-    return VolumeEdge(species, direction, peer)
-end
+VolumeEdge(; species=nothing, direction=nothing, peer=nothing) =
+    VolumeEdge(species, direction, peer)
 
 """
     ClampedEdge(; species, direction, origin, peer=nothing, held_value=nothing)
@@ -235,17 +272,20 @@ struct ClampedEdge <: CouplingEdge
     peer::Union{Symbol, Nothing}
     held_value::Union{Float64, Nothing}
     origin::Symbol
+
+    function ClampedEdge(species, direction, peer, held_value, origin)
+        _check_common(:ClampedEdge, species, direction)
+        _require(:ClampedEdge, :origin, origin)
+        _check_vocab(:ClampedEdge, :origin, origin, EDGE_ORIGINS)
+        return new(species, direction, peer,
+                   held_value === nothing ? nothing : Float64(held_value),
+                   origin)
+    end
 end
 
-function ClampedEdge(; species=nothing, direction=nothing, peer=nothing,
-                     held_value=nothing, origin=nothing)
-    _check_common(:ClampedEdge, species, direction)
-    _require(:ClampedEdge, :origin, origin)
-    _check_vocab(:ClampedEdge, :origin, origin, EDGE_ORIGINS)
-    return ClampedEdge(species, direction, peer,
-                       held_value === nothing ? nothing : Float64(held_value),
-                       origin)
-end
+ClampedEdge(; species=nothing, direction=nothing, peer=nothing,
+            held_value=nothing, origin=nothing) =
+    ClampedEdge(species, direction, peer, held_value, origin)
 
 """
     EDGE_KINDS
@@ -271,10 +311,6 @@ edge_kind(::ClampedEdge) = :clamped
 edge_kind(e::CouplingEdge) = throw(ArgumentError(
     "$(typeof(e)) is not one of the seven Core A′ edge kinds. " *
     "The kinds are closed: $(EDGE_KINDS)"))
-
-edge_species(e::CouplingEdge) = e.species
-edge_direction(e::CouplingEdge) = e.direction
-edge_peer(e::CouplingEdge) = e.peer
 
 """
     is_consumer(e::CouplingEdge) -> Bool
@@ -337,15 +373,13 @@ obstructs_gradients(::CouplingEdge) = false
     deviates_from_published(e::CouplingEdge) -> Bool
 
 Whether the edge departs from the published model. True for a smoothed deferred
-counter, a continuous rate-constant edge, and a clamp this reduction introduced.
+counter, a continuous rate-constant edge, and a clamp this reduction introduced
+— exactly the edges [`deviation_reason`](@ref) has a reason for.
 
 This is the predicate behind the "what is ours" enumeration: a deviation that
 reaches a result unlabelled is the failure mode it exists to prevent.
 """
-deviates_from_published(e::DeferredCounterEdge) = e.clip === :smoothed
-deviates_from_published(e::RateConstantEdge) = e.cadence === :continuous
-deviates_from_published(e::ClampedEdge) = e.origin === :ours
-deviates_from_published(::CouplingEdge) = false
+deviates_from_published(e::CouplingEdge) = deviation_reason(e) !== nothing
 
 """
     deviation_reason(e::CouplingEdge) -> Union{String, Nothing}
@@ -355,8 +389,9 @@ A one-line description of how an edge departs from the published model, or
 """
 function deviation_reason(e::DeferredCounterEdge)
     e.clip === :smoothed || return nothing
-    return "deferred counter on :$(e.species) uses a smoothed clip, replacing " *
-           "the published model's max(0, ·) with a differentiable approximation"
+    return "deferred counter on :$(e.species) uses a smoothed clip of width " *
+           "$(e.smoothing), replacing the published model's max(0, ·) with a " *
+           "differentiable approximation"
 end
 
 function deviation_reason(e::RateConstantEdge)
@@ -372,3 +407,8 @@ function deviation_reason(e::ClampedEdge)
 end
 
 deviation_reason(::CouplingEdge) = nothing
+
+export CouplingEdge, MassEdge, CurrencyEdge, DeferredCounterEdge, CatalyticEdge,
+       RateConstantEdge, VolumeEdge, ClampedEdge, EDGE_KINDS,
+       edge_kind, is_consumer, is_producer, carries_mass, mass_contribution,
+       obstructs_gradients, deviates_from_published, deviation_reason

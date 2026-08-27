@@ -2,7 +2,7 @@
 
 Source: [`src/corea/registry.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/registry.jl), [`src/corea/edges.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/edges.jl), [`src/corea/resolver.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/resolver.jl), [`src/corea/loader.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/loader.jl), [`src/corea/labels.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/labels.jl).
 
-Core A′ is the reduced JCVI-syn3A model scoped in `dev/notes/reduced-syn3a-scoping.md`: glycolysis through lactate, the PTS glucose cascade, lactate export, a live ATP/GTP energy interface, and three moiety-recycling reactions. It is built by seven independent modules that touch each other only through a coupling boundary.
+Core A′ is the reduced JCVI-syn3A model scoped in `dev/notes/reduced-syn3a-scoping.md`: glycolysis through lactate, the PTS glucose cascade, lactate export, a live ATP/GTP energy interface, and three moiety-recycling reactions. It will be built by seven independent modules that touch each other only through a coupling boundary.
 
 This page documents the contract that boundary is written in. It exists so that a module author working alone can declare how their block touches the others, and have that declaration checked before anything runs — rather than discovering at the join that two modules meant different things by the same word.
 
@@ -42,7 +42,7 @@ The legend of [`fig1r_state_graph_reduced.pdf`](https://github.com/MACSYS-CoE/In
 |---|---|---|
 | `MassEdge` | shared state, continuous; gradients cross inside the ODE block | — |
 | `CurrencyEdge` | routed via a shared pool node | `pool` |
-| `DeferredCounterEdge` | a cost accrued in one block, debited a step later | `counter`, `clip` |
+| `DeferredCounterEdge` | a cost accrued in one block, debited a step later | `counter`, `clip`, `smoothing` |
 | `CatalyticEdge` | counts entering a rate law as parameters; no mass flows | `param_slot` |
 | `RateConstantEdge` | pools re-entering the stochastic block as rate constants | `cadence`, `interval` |
 | `VolumeEdge` | counts set surface area, hence volume, hence every concentration | — |
@@ -68,8 +68,12 @@ The scoping note leaves two questions open, and both are properties of the bound
 ```julia
 DeferredCounterEdge(species=:M_atp_c, direction=:in, counter=:ATP_trsc)
 # clip defaults to :clamped_deficit_carried — the published model
-# alternatives: :unclamped, :smoothed
+# alternatives: :unclamped, and :smoothed, which requires its width:
+DeferredCounterEdge(species=:M_atp_c, direction=:in, counter=:ATP_trsc,
+                    clip=:smoothed, smoothing=0.05)
 ```
+
+The smoothing width is required exactly when the smoothed policy is selected — the parameter controlling the smoothing is exposed rather than hidden, so the deviation is fully specified where it is declared.
 
 `obstructs_gradients` reports whether an edge is non-differentiable, and `check_gradient_safety` warns when a composition containing a differentiable sub-model carries one. It warns rather than throws: a clamped interface is a legitimate model, just not a differentiable one.
 
@@ -88,14 +92,15 @@ RateConstantEdge(species=:M_gtp_c, direction=:out)
 ```julia
 graph = resolve_coupling([central, transport, nucleotide])
 graph.edges                  # every declared edge, resolved
-graph.dead_ends              # consumed species with no declared producer
+graph.dead_ends              # flow that stops: consumed with no producer,
+                             # or produced with no consumer
 graph.unowned_states         # registry states no module integrates
 graph.chemostat_exemptions   # costs exempted because the registry holds the pool
 graph.gradient_obstructions
 graph.deviations
 ```
 
-It **throws** when the boundary is inconsistent: an edge naming an unregistered species, an edge whose named peer is absent from the composition, two modules declaring the same species and direction with different kinds, a module integrating a chemostat, a state integrated twice, a declared cost with no state that can pay it, or an `inputs` list that has drifted from the module's own inbound edges.
+It **throws** when the boundary is inconsistent: an edge naming an unregistered species or pool, an edge whose named peer is absent from the composition, two modules declaring the same species and direction with different kinds, a module integrating a chemostat, a state integrated twice, a declared cost with no state that can pay it, a clamp holding a chemostat away from the registry's value, or an `inputs` list that has drifted from the module's own inbound edges in either direction — including an inbound mass edge whose species is missing from `inputs`, which is the drift that would otherwise silently never reach the module's dynamics.
 
 It **reports** what is merely incomplete: unowned states and dead ends, which a partial composition is expected to have.
 
@@ -123,6 +128,8 @@ load_parameter([central, nucleotide], "kcat_fwd_PGK3";
 ```
 
 An identifier present in more than one file **must** declare which file governs. Without it the load fails, naming the identifier, both files and both values — an unresolved ambiguity is an error at load time, never a silent choice. With it, the parameter's provenance records both the file chosen and the ones rejected, so the decision is visible in the assembled model rather than only in the module's source. `governing_choices` enumerates them.
+
+A `governing` declaration binds even when only one table holds the identifier: a declared governor that is not the holder means the table set and the declaration disagree — a stale or truncated table — and the load fails rather than silently importing from the wrong file with clean provenance. And an identifier of the form `conc_<species>` naming a registry species is checked against the registry row's `initial_value`, so the hand-transcribed registry and the loader cannot carry two versions of the same concentration.
 
 Parsing is SBtab-shaped tab-separated text, handled with Base only: the `!!SBtab` declaration and `%` comments are skipped, and the header's leading `!` is stripped. The value column defaults to `Mode`, because that is the column the published simulator reads — an earlier version of the scoping note used a balancing-distribution column instead and produced a fictitious capacity bottleneck.
 

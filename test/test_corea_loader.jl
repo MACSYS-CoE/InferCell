@@ -165,21 +165,118 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         eno = load_parameter(both, "kcat_fwd_ENO";
                              name = :kcat_ENO, module_id = :Central,
                              prior = LogNormal(0.0, 1.0))
-        gtp = load_parameter(both, "conc_M_gtp_c";
-                             name = :gtp0, module_id = :Nucleotide,
+        # G3P sits at the prior median at prior width in the central file — and
+        # at exactly that value in the registry, so the agreement check passes.
+        g3p = load_parameter(both, "conc_M_g3p_c";
+                             name = :g3p0, module_id = :Central,
                              prior = LogNormal(0.0, 1.0),
-                             role = :initial_condition,
-                             governing = "central_balanced")
+                             role = :initial_condition)
 
-        params = [pts, eno, gtp]
+        params = [pts, eno, g3p]
 
         # The PTS mass-action constants carry no quantified uncertainty in the
         # source, so any prior on them is this project's.
         @test [p.name for p in asserted_prior_params(params)] == [:k_GLCpts0_fwd]
         # The balanced glycolytic parameter is not asserted.
         @test informedness(eno) == :balanced
-        # And the central file's GTP entry is the prior default, not a value.
-        @test [p.name for p in uninformed_params(params)] == [:gtp0]
+        # And the prior-median row is flagged as uninformed.
+        @test [p.name for p in uninformed_params(params)] == [:g3p0]
+    end
+
+    @testset "The registry and the loader cannot disagree on a concentration" begin
+        # GTP is a nucleotide-module species: the registry records 1.6627 from
+        # the nucleotide file. Importing the central file's 0.1 prior default —
+        # the cross-file error of record — now fails instead of passing with
+        # clean provenance.
+        err = try
+            load_parameter(both, "conc_M_gtp_c";
+                           name = :gtp0, module_id = :Nucleotide,
+                           prior = LogNormal(0.0, 1.0),
+                           role = :initial_condition,
+                           governing = "central_balanced")
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("0.1", err.msg)
+        @test occursin("1.6627", err.msg)
+        @test occursin("M_gtp_c", err.msg)
+
+        # The governing file the registry agrees with loads cleanly.
+        gtp = load_parameter(both, "conc_M_gtp_c";
+                             name = :gtp0, module_id = :Nucleotide,
+                             prior = LogNormal(0.0, 1.0),
+                             role = :initial_condition,
+                             governing = "nucleotide_balanced")
+        @test gtp.value == 1.6627
+        @test informedness(gtp) == :balanced
+
+        # Identifiers that name no registry species are unconstrained.
+        @test load_parameter(both, "kcat_fwd_ENO";
+                             name = :kcat_ENO, module_id = :Central,
+                             prior = LogNormal(0.0, 1.0)).value == 62.18
+    end
+
+    @testset "A governing declaration binds even with a single holder" begin
+        # Only the central table holds ENO. Declaring the nucleotide file as
+        # governing means the table set and the declaration disagree — a stale
+        # table, not a resolvable ambiguity.
+        err = try
+            load_parameter(both, "kcat_fwd_ENO";
+                           name = :kcat_ENO, module_id = :Central,
+                           prior = LogNormal(0.0, 1.0),
+                           governing = "nucleotide_balanced")
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("kcat_fwd_ENO", err.msg)
+        @test occursin("nucleotide_balanced", err.msg)
+        @test occursin("central_balanced", err.msg)
+
+        # The matching declaration is redundant but consistent, so it loads.
+        p = load_parameter(both, "kcat_fwd_ENO";
+                           name = :kcat_ENO, module_id = :Central,
+                           prior = LogNormal(0.0, 1.0),
+                           governing = "central_balanced")
+        @test p.value == 62.18
+    end
+
+    @testset "A truncated row is corruption, not something to skip" begin
+        # Silently dropping a short row could collapse a two-file ambiguity to
+        # one holder and bypass the governs machinery entirely.
+        mktempdir() do dir
+            path = joinpath(dir, "truncated.tsv")
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_PGK3\n")
+            err = try
+                read_source_table(path; file = "truncated")
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin("truncated", err.msg)
+        end
+    end
+
+    @testset "A misspelled declared informedness is rejected, not re-derived" begin
+        mktempdir() do dir
+            path = joinpath(dir, "declared.tsv")
+            write(path, "!ID\t!Mode\t!Informedness\nkcat_fwd_X\t1.0\tblanced\n")
+            err = try
+                read_source_table(path; file = "declared")
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin("blanced", err.msg)
+
+            # A valid declaration is honoured, and an empty cell falls back to
+            # derivation.
+            write(path, "!ID\t!Mode\t!Informedness\nkcat_fwd_X\t1.0\tasserted\nkcat_fwd_Y\t1.0\t\n")
+            t = read_source_table(path; file = "declared")
+            @test t.informedness["kcat_fwd_X"] == :asserted
+            @test t.informedness["kcat_fwd_Y"] == :asserted   # no gstd column
+        end
     end
 
     @testset "A directly constructed parameter reports provenance as absent" begin

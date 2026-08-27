@@ -172,4 +172,18 @@ using InferCell
         @test_throws ArgumentError SpeciesEntry(:M_test_c, :redox, :dynamic,
                                                 :metabolite, nothing, nothing, nothing, :vibes)
     end
+
+    @testset "The prior-default rule is enforced per entry" begin
+        # A gstd at or above the prior width is :prior_default and nothing else
+        # is — the loader's rule, so a hand-transcribed row cannot drift from it.
+        @test_throws ArgumentError SpeciesEntry(:M_test_c, :redox, :dynamic,
+                                                :metabolite, 0.1, 10.0, nothing, :balanced)
+        @test_throws ArgumentError SpeciesEntry(:M_test_c, :redox, :dynamic,
+                                                :metabolite, 0.5, 2.0, nothing, :prior_default)
+        # And the consistent forms construct.
+        @test SpeciesEntry(:M_test_c, :redox, :dynamic, :metabolite,
+                           0.1, 10.0, nothing, :prior_default).informedness == :prior_default
+        @test SpeciesEntry(:M_test_c, :redox, :dynamic, :metabolite,
+                           0.5, 2.0, nothing, :balanced).informedness == :balanced
+    end
 end

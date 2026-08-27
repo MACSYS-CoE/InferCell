@@ -46,8 +46,7 @@ function reduction_declarations(models::Vector{<:AbstractSubModel})
 
     graph = resolve_coupling(models)
     for r in graph.deviations
-        reason = deviation_reason(r.edge)
-        reason === nothing && continue
+        reason = deviation_reason(r.edge)   # non-nothing for every deviation
         category = if r.edge isa ClampedEdge
             :clamp
         elseif r.edge isa DeferredCounterEdge
@@ -101,3 +100,5 @@ function reduction_report(models::Vector{<:AbstractSubModel})
 end
 
 reduction_report(model::AbstractSubModel) = reduction_report([model])
+
+export ReductionLabel, reduction_declarations, reduction_report

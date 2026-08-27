@@ -11,6 +11,21 @@ their provenance the same way.
 """
 const INFORMEDNESS = (:balanced, :prior_default, :asserted, :not_imported)
 
+# Shared vocabulary-membership check. `context` names the thing being
+# validated (an edge kind, a species, a struct) in the error message.
+function _check_vocab(context, field::Symbol, value, allowed)
+    value in allowed || throw(ArgumentError(
+        "$context field `$field` is :$value, which is not valid. " *
+        "Must be one of $allowed"))
+    return value
+end
+
+# The prior width that marks a value as uninformed: a geometric standard
+# deviation at or above this is the balancing prior's default, and a row
+# sitting there was informed by nothing. Shared by the species registry and
+# the loader so the rule lives once.
+const PRIOR_DEFAULT_GSTD = 10.0
+
 """
     ParameterSource(file; table, identifier, informedness, alternatives)
 
@@ -39,9 +54,7 @@ function ParameterSource(file::AbstractString;
                          identifier = nothing,
                          informedness::Symbol = :balanced,
                          alternatives = Pair{String, Float64}[])
-    informedness in INFORMEDNESS || throw(ArgumentError(
-        "ParameterSource informedness :$informedness is not valid. " *
-        "Must be one of $INFORMEDNESS"))
+    _check_vocab(:ParameterSource, :informedness, informedness, INFORMEDNESS)
     return ParameterSource(String(file),
                            table === nothing ? nothing : String(table),
                            identifier === nothing ? nothing : String(identifier),
@@ -202,8 +215,8 @@ function provenance_conflicts(params::Vector{InferParameter})
         bucket = get!(files, p.name, String[])
         f in bucket || push!(bucket, f)
     end
-    conflicts = [(name => sort(fs)) for (name, fs) in files if length(fs) > 1]
-    return [(name, fs) for (name, fs) in sort(conflicts; by = first)]
+    return sort!([(name, sort(fs)) for (name, fs) in files if length(fs) > 1];
+                 by = first)
 end
 
 """

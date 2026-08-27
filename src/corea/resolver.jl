@@ -20,7 +20,8 @@ no-op for it and composition behaves exactly as it did before.
 
 One declared edge after resolution: which module declared it, which species it
 touches, where that species sits in the registry, and which module it couples
-to. `state_index` is `nothing` for a species outside the Core A′ registry.
+to. `state_index` is always a registry position — an edge naming a species
+outside the registry fails resolution before a `ResolvedEdge` exists.
 """
 struct ResolvedEdge
     edge::CouplingEdge
@@ -28,23 +29,28 @@ struct ResolvedEdge
     species::Symbol
     declared_by::Symbol
     peer::Union{Symbol, Nothing}
-    state_index::Union{Int, Nothing}
+    state_index::Int
 end
 
 """
     DeadEnd
 
-A consumed species with no declared producer: the structural form of the failure
-that exhausted the adenylate pool after 2.3% of a cell cycle, and of the GMP
-that transcription buries and nothing returns.
+A mass-carrying species whose declared flow stops: consumed with no declared
+producer (`missing_role = :producer`) — the structural form of the failure that
+exhausted the adenylate pool after 2.3% of a cell cycle, and of the GMP that
+transcription buries and nothing returns — or produced with no declared
+consumer (`missing_role = :consumer`), mass accumulating with nothing drawing
+it down.
 
-`moiety` is the species' registry group, which is what makes those two the same
-class of error rather than two unrelated ones.
+`moiety` is the species' registry group, which is what makes stranded AMP and
+stranded GMP the same class of error rather than two unrelated ones. `modules`
+names the declarers on the side of the flow that exists.
 """
 struct DeadEnd
     species::Symbol
     moiety::Symbol
-    consumers::Vector{Symbol}
+    missing_role::Symbol   # :producer or :consumer
+    modules::Vector{Symbol}
 end
 
 """
@@ -55,7 +61,8 @@ The resolved boundary of a composition.
 - `edges` — every declared edge, resolved.
 - `unowned_states` — registry dynamic states no module integrates. A report, not
   an error: a single module under test legitimately leaves most of them unowned.
-- `dead_ends` — consumed species with no declared producer.
+- `dead_ends` — mass-carrying species consumed with no declared producer, or
+  produced with no declared consumer.
 - `chemostat_exemptions` — species whose costs were exempted from the dead-end
   check because the registry chemostats them. Recorded so that a later change
   making a pool live reinstates the check rather than inheriting the exemption
@@ -72,10 +79,6 @@ struct CouplingGraph
     deviations::Vector{ResolvedEdge}
 end
 
-# Module identity for error messages and peer matching, via the protocol so that
-# two instances of one type do not name themselves identically.
-_module_name(m::AbstractSubModel) = module_id(m)
-
 """
     resolve_coupling(models) -> CouplingGraph
     resolve_coupling(model)  -> CouplingGraph
@@ -83,10 +86,11 @@ _module_name(m::AbstractSubModel) = module_id(m)
 Resolve and validate the declared coupling of a composition.
 
 Throws when the boundary is inconsistent: an edge naming an unregistered
-species, an edge whose named peer is absent, two modules declaring the same
-species and direction with different kinds, a module integrating a chemostat, a
-state integrated twice, a declared cost with no state that can pay it, or an
-`inputs` list that has drifted from the module's own inbound edges.
+species or pool, an edge whose named peer is absent, two modules declaring the
+same species and direction with different kinds, a module integrating a
+chemostat, a state integrated twice, a declared cost with no state that can pay
+it, a clamp holding a chemostat away from the registry's value, or an `inputs`
+list that has drifted from the module's own inbound edges in either direction.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends, which a partial composition is expected to have.
@@ -116,7 +120,7 @@ function _owned_states(models::Vector{<:AbstractSubModel})
     owned = Dict{Symbol, Symbol}()   # species => declaring module
     for m in models
         for s in states(m)
-            is_registered(s) && (owned[s] = _module_name(m))
+            is_registered(s) && (owned[s] = module_id(m))
         end
     end
     return owned
@@ -128,7 +132,7 @@ end
 function _check_state_ownership(models::Vector{<:AbstractSubModel})
     seen = Dict{Symbol, Symbol}()
     for m in models
-        name = _module_name(m)
+        name = module_id(m)
         for s in states(m)
             is_registered(s) || continue
 
@@ -152,8 +156,8 @@ function _check_state_ownership(models::Vector{<:AbstractSubModel})
 end
 
 # Where a module declares typed coupling at all, its untyped `inputs` must not
-# name a species its inbound edges do not. Modules that declare no coupling —
-# every sub-model predating this contract — are skipped entirely.
+# drift from its inbound edges — in either direction. Modules that declare no
+# coupling — every sub-model predating this contract — are skipped entirely.
 function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
     for m in models
         edges = coupling(m)
@@ -162,21 +166,40 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
         inbound = Set(e.species for e in edges if is_consumer(e))
         for s in inputs(m)
             s in inbound || throw(ArgumentError(
-                "Module $(_module_name(m)) lists :$s in inputs() but declares no " *
+                "Module $(module_id(m)) lists :$s in inputs() but declares no " *
                 "inbound coupling edge for it. A typed declaration that has " *
                 "drifted from inputs() is the disagreement this check exists to " *
                 "catch; add the edge or drop the input"))
+        end
+
+        # The converse, for the one kind whose inbound side is wired through
+        # `inputs`: an inbound MassEdge on a dynamic species the module does not
+        # itself integrate reaches its dynamics only via inputs(), so leaving it
+        # out means the declared coupling silently never arrives.
+        own = Set(states(m))
+        declared = Set(inputs(m))
+        for e in edges
+            e isa MassEdge || continue
+            is_consumer(e) || continue
+            is_registered(e.species) && is_dynamic(e.species) || continue
+            e.species in own && continue
+            e.species in declared || throw(ArgumentError(
+                "Module $(module_id(m)) declares an inbound mass edge on " *
+                ":$(e.species) but does not list it in inputs(). Only inputs() " *
+                "wires a state into dynamics, so the declared coupling would " *
+                "silently never arrive; add :$(e.species) to inputs() or drop " *
+                "the edge"))
         end
     end
     return nothing
 end
 
 function _resolve_edges(models::Vector{<:AbstractSubModel})
-    present = Set(_module_name(m) for m in models)
+    present = Set(module_id(m) for m in models)
     resolved = ResolvedEdge[]
 
     for m in models
-        name = _module_name(m)
+        name = module_id(m)
         for e in coupling(m)
             kind = edge_kind(e)   # throws for a subtype outside the seven
 
@@ -193,6 +216,29 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
                     "unnamed peer resolves against whichever module owns the " *
                     "species, which is what a single-module composition under " *
                     "test should use"))
+            end
+
+            if e isa CurrencyEdge && !is_registered(e.pool)
+                throw(ArgumentError(
+                    "Module $name declares a currency edge on :$(e.species) " *
+                    "routed via pool :$(e.pool), which is not a Core A′ registry " *
+                    "species. The pool is the routing node; a typo here would " *
+                    "route the currency nowhere"))
+            end
+
+            # A clamp on a chemostatted species must hold it at the registry's
+            # value: two modules clamping one medium concentration differently
+            # would each pass alone and silently disagree at the join.
+            if e isa ClampedEdge && e.held_value !== nothing &&
+               is_chemostatted(e.species)
+                registry_value = held_value(e.species)
+                if registry_value !== nothing && e.held_value != registry_value
+                    throw(ArgumentError(
+                        "Module $name clamps :$(e.species) at $(e.held_value) mM, " *
+                        "but the registry chemostats it at $registry_value mM. " *
+                        "One held value per species; change the edge or the " *
+                        "registry, not one of two copies"))
+                end
             end
 
             push!(resolved, ResolvedEdge(e, kind, e.species, name, e.peer,
@@ -214,10 +260,12 @@ function _check_kind_agreement(resolved::Vector{ResolvedEdge})
         if prior === nothing
             seen[key] = r
         elseif prior.kind !== r.kind
+            who = prior.declared_by === r.declared_by ?
+                "Module $(prior.declared_by) describes" :
+                "Modules $(prior.declared_by) and $(r.declared_by) disagree about"
             throw(ArgumentError(
-                "Modules $(prior.declared_by) and $(r.declared_by) disagree about " *
-                "how :$(r.species) crosses the boundary in direction " *
-                ":$(r.edge.direction). $(prior.declared_by) declares it " *
+                "$who how :$(r.species) crosses the boundary in direction " *
+                ":$(r.edge.direction) in two ways. $(prior.declared_by) declares it " *
                 ":$(prior.kind) — $(_kind_gloss(prior.kind)); $(r.declared_by) " *
                 "declares it :$(r.kind) — $(_kind_gloss(r.kind)). These are " *
                 "different semantics, not two spellings of one"))
@@ -239,7 +287,8 @@ end
 
 # Every declared cost needs a state that can pay it and a reaction that returns
 # it. The first half is an error; the second is a report, because a partial
-# composition legitimately has no producer yet.
+# composition legitimately has no producer yet — as is the mirror image, a
+# species produced with nothing yet consuming it.
 function _find_dead_ends(resolved::Vector{ResolvedEdge}, owned::Dict{Symbol, Symbol})
     mass_edges = [r for r in resolved if carries_mass(r.edge)]
 
@@ -270,11 +319,21 @@ function _find_dead_ends(resolved::Vector{ResolvedEdge}, owned::Dict{Symbol, Sym
         end
 
         if !haskey(producers, species)
-            push!(dead_ends, DeadEnd(species, species_group(species), sort(consuming)))
+            push!(dead_ends,
+                  DeadEnd(species, species_group(species), :producer, sort(consuming)))
         end
     end
 
-    return sort!(dead_ends; by = d -> d.species), sort!(unique!(exemptions))
+    for (species, producing) in producers
+        is_chemostatted(species) && continue   # the chemostat absorbs it
+        if !haskey(consumers, species)
+            push!(dead_ends,
+                  DeadEnd(species, species_group(species), :consumer, sort(producing)))
+        end
+    end
+
+    return sort!(dead_ends; by = d -> (d.species, d.missing_role)),
+           sort!(unique!(exemptions))
 end
 
 """
@@ -285,11 +344,16 @@ moiety of each stranded species, because that is what identifies AMP with no
 route back and stranded GMP as one class of error rather than two.
 """
 function dead_end_report(graph::CouplingGraph)
-    isempty(graph.dead_ends) && return "No dead ends: every consumed species has a declared producer."
-    lines = ["$(length(graph.dead_ends)) consumed species with no declared producer:"]
+    isempty(graph.dead_ends) &&
+        return "No dead ends: every consumed species has a declared producer, " *
+               "and every produced species a declared consumer."
+    lines = ["$(length(graph.dead_ends)) species whose declared flow stops:"]
     for d in graph.dead_ends
-        push!(lines, "  :$(d.species) ($(d.moiety) moiety) consumed by " *
-                     "$(join(d.consumers, ", ")) with nothing returning it")
+        push!(lines, d.missing_role === :producer ?
+              "  :$(d.species) ($(d.moiety) moiety) consumed by " *
+              "$(join(d.modules, ", ")) with nothing returning it" :
+              "  :$(d.species) ($(d.moiety) moiety) produced by " *
+              "$(join(d.modules, ", ")) with nothing drawing it down")
     end
     return join(lines, "\n")
 end
@@ -330,8 +394,11 @@ function check_gradient_safety(models::Vector{<:AbstractSubModel})
     @warn """
     A composition with a differentiable sub-model contains a non-differentiable boundary edge.
     $(gradient_report(graph))
-    Declare clip = :smoothed on the edge to sample it with gradients, and label the result as \
-    departing from the published model.
+    Declare clip = :smoothed (with its smoothing width) on the edge to sample it with gradients, \
+    and label the result as departing from the published model.
     """
     return graph.gradient_obstructions
 end
+
+export ResolvedEdge, DeadEnd, CouplingGraph, resolve_coupling,
+       dead_end_report, gradient_report, check_gradient_safety
