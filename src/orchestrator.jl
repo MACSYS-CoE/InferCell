@@ -65,7 +65,7 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
     # values agree, so nothing fires, and deduplication silently keeps whichever
     # module was seen first. That is the cross-file trap in its most easily
     # missed form, so it is reported rather than resolved by first-come.
-    all_params = reduce(vcat, parameters.(models); init = InferParameter[])
+    all_params = InferParameter[p for m in models for p in parameters(m)]
     for (name, files) in provenance_conflicts(all_params)
         @warn "Parameter :$name is imported from more than one source file " *
               "($(join(files, " and "))). Deduplication keeps the first-seen " *
@@ -76,6 +76,7 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
 end
 
 function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
+    _validate_shared_params(models)
     contexts = _build_contexts(models)
     _resolve_coupling(models, contexts)
 
@@ -143,8 +144,23 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
 
     for (i, m) in enumerate(models)
         for inp in inputs(m)
-            haskey(state_owners, inp) || error(
-                "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")
+            if !haskey(state_owners, inp)
+                # A chemostat can never be owned — the resolver forbids
+                # integrating one — so inputs() cannot deliver it. Wiring the
+                # registry's held value into dynamics is coupling execution,
+                # which wave 2 owns; until then the value travels as a fixed
+                # parameter beside a declared ClampedEdge.
+                if is_registered(inp) && is_chemostatted(inp)
+                    error(
+                        "Input :$inp declared by $(typeof(m)) is chemostatted by " *
+                        "the Core A′ registry, so no sub-model integrates it and " *
+                        "inputs() cannot deliver it. Declare a ClampedEdge with " *
+                        "its held_value and carry the value as a fixed parameter " *
+                        "instead")
+                end
+                error(
+                    "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")
+            end
             contexts[i].input_map[inp] = state_owners[inp]
         end
     end

@@ -3,7 +3,7 @@ using InferCell
 # `using` brings these into scope but does not permit extending them; adding a
 # method to another module's function needs an explicit import.
 import InferCell: states, parameters, coupling, inputs, reduction_notes,
-                  inference_mode, module_id
+                  inference_mode, module_id, formalism
 
 """
     CoreAStub(id; st, edges, ins, params, notes, mode)
@@ -26,6 +26,7 @@ struct CoreAStub <: AbstractSubModel
     params::Vector{InferParameter}
     notes::Vector{String}
     mode::Symbol
+    form::Symbol
 end
 
 function CoreAStub(id::Symbol;
@@ -34,14 +35,16 @@ function CoreAStub(id::Symbol;
                    ins = Symbol[],
                    params = InferParameter[],
                    notes = String[],
-                   mode = :simulation)
+                   mode = :simulation,
+                   form = :ode)
     return CoreAStub(id,
                      collect(Symbol, st),
                      collect(CouplingEdge, edges),
                      collect(Symbol, ins),
                      collect(InferParameter, params),
                      collect(String, notes),
-                     mode)
+                     mode,
+                     form)
 end
 
 module_id(m::CoreAStub) = m.id
@@ -51,3 +54,4 @@ coupling(m::CoreAStub) = m.edges
 inputs(m::CoreAStub) = m.ins
 reduction_notes(m::CoreAStub) = m.notes
 inference_mode(m::CoreAStub) = m.mode
+formalism(m::CoreAStub) = m.form

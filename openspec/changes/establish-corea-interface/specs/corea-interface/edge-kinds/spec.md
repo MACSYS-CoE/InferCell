@@ -176,16 +176,26 @@ The resolver SHALL detect at least:
 
 ### Requirement: Every declared cost has a state that pays it and a reaction that returns it
 
-The resolver SHALL check that each deferred-counter and mass edge that consumes a
-species has, in the composition, both a registry state carrying that species and at
-least one declared producer of it. This is the mechanical form of the rule the
-scoping note derived from two errors of record: the adenylate dead end that would
-have exhausted the pool after 2.3% of the cell cycle, and the stranded GMP.
+The resolver SHALL report each deferred-counter and mass edge that consumes a
+species the composition gives no producer for, and SHALL report the species no
+module integrates. Both are reports rather than failures, because a module
+validated alone legitimately imports species whose owners and producers are
+absent — the standalone-validation constraint the contract exists to serve.
+This is the mechanical form of the rule the scoping note derived from two
+errors of record: the adenylate dead end that would have exhausted the pool
+after 2.3% of the cell cycle, and the stranded GMP.
+
+Because these are reports, **a resolution that succeeds is not evidence that the
+boundary is closed.** Asserting completeness — every registry dynamic state
+owned, every dead end empty — is out of scope for this capability. A composition
+intended to be the whole model therefore needs that assertion made separately,
+and MUST NOT infer it from a successful resolution.
 
 #### Scenario: A cost with no paying state
 - **WHEN** a module declares a cost debited against a species that no module
   integrates and the registry does not chemostat
-- **THEN** resolution fails naming the species and the declaring module
+- **THEN** resolution succeeds, listing the species among the graph's unowned
+  states and — absent a declared producer — as a dead end naming the consumer
 
 #### Scenario: A cost with no return path
 - **WHEN** a module declares a consumer of a dynamic species and no module in the

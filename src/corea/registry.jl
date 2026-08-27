@@ -85,7 +85,15 @@ end
 # Source files are the balanced SBtab tables of the published model, referred to
 # by the names the scoping note gives them. The tables are not vendored here —
 # wave 0 delivers the loader, wave 1 imports through it — so these are logical
-# source identifiers that the loader resolves to paths, not filenames on disk.
+# source identifiers, not filenames on disk. The loader takes a path from the
+# caller and records this logical name as provenance (its default is the path's
+# extension-free basename, which matches these); governing declarations and
+# provenance grouping compare these names by string equality.
+#
+# Initial-concentration identifiers in those tables follow the convention
+# `conc_<species>` (e.g. `conc_M_atp_c`). The loader's registry-agreement check
+# keys on that prefix, so a table naming concentrations differently silently
+# forfeits the check — adopt the convention when vendoring wave-1 tables.
 const CENTRAL_FILE = "central_balanced"
 const NUCLEOTIDE_FILE = "nucleotide_balanced"
 
@@ -265,8 +273,7 @@ chemostat_species() = [e.name for e in COREA_SPECIES if e.treatment === :chemost
 Registry members of one group, in canonical order.
 """
 function species_in_group(group::Symbol)
-    group in SPECIES_GROUPS || throw(ArgumentError(
-        "Unknown species group :$group. Must be one of $SPECIES_GROUPS"))
+    _check_vocab(:species_in_group, :group, group, SPECIES_GROUPS)
     return [e.name for e in COREA_SPECIES if e.group === group]
 end
 

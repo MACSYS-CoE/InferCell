@@ -234,6 +234,19 @@ would mask:
 4. adenylate/guanylate conservation **over a full cycle** → 4b. phosphate
 closure → 5. PTS protein conservation → 6. nominal trajectory
 
+**Wave 3 owns the completeness assertion the interface deliberately does not
+make.** Wave 0's `resolve_coupling` reports an unowned state or a dead end
+rather than failing on one, because a module author validating a single module
+alone imports species whose owners and producers are absent by construction. So
+a successful resolve says the declarations are mutually consistent, not that the
+boundary is closed. For the assembled model that distinction matters: a cost
+with no paying state and a stranded moiety are both errors there, and both would
+currently pass. Wave 3's first task is therefore to assert completeness — every
+registry dynamic state owned, `dead_ends` empty — and fail on it, whether as a
+`complete = true` mode on `resolve_coupling` or a separate assertion over the
+graph. Check 4 (adenylate/guanylate conservation) is the numerical form of the
+same property; this is the structural form, and it is cheap.
+
 Then, and only then, `add-corea-synthetic-recovery`: simulate at known θ, infer,
 check coverage, SBC per module.
 

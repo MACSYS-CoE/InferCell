@@ -44,7 +44,12 @@ See `proposal.md` — Why, for motivation. The constraints that shape the approa
 **Non-Goals:**
 
 - Executing coupling. The resolver produces a validated description; wave 2 turns
-  it into a callback that actually moves numbers.
+  it into a callback that actually moves numbers. This includes wiring chemostats:
+  a chemostatted species cannot be listed in `inputs()` (the ODE assembly resolves
+  inputs against integrated states only, and no module may integrate a chemostat),
+  so wave 0's pattern is a declared `ClampedEdge` with its `held_value` alongside a
+  fixed parameter carrying that value into the module's dynamics. Feeding registry
+  held values into `dynamics` automatically is wave-2 coupling execution.
 - Mixed-formalism composition. `build_problem` still errors on it; this change
   describes the boundary that a later change will teach it to cross.
 - Vendoring syn3A data files. See Decision 7.

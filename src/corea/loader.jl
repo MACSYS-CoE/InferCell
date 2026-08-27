@@ -26,10 +26,16 @@ struct SourceTable
 end
 
 """
-    read_source_table(path; file=basename(path), id_column="ID",
+    read_source_table(path; file=<extension-free basename>, id_column="ID",
                       value_column="Mode", gstd_column="GeometricStd")
 
 Parse an SBtab-shaped tab-separated table.
+
+`file` is the logical name provenance records — what `governing` declarations
+and the registry's `source_file` entries match against, by string equality. It
+defaults to the path's extension-free basename, so reading
+`.../central_balanced.tsv` records `"central_balanced"`, matching the
+registry's logical source names.
 
 Lines beginning `!!` (the SBtab document declaration), `%` (comments), and blank
 lines are skipped. The header row's column names may carry SBtab's leading `!`,
@@ -48,7 +54,7 @@ prior on it is this project's, not the model's — and anything else is
 `:balanced`.
 """
 function read_source_table(path::AbstractString;
-                           file::AbstractString = basename(path),
+                           file::AbstractString = first(splitext(basename(path))),
                            id_column::AbstractString = "ID",
                            value_column::AbstractString = "Mode",
                            gstd_column::AbstractString = "GeometricStd")
@@ -75,11 +81,16 @@ function read_source_table(path::AbstractString;
         cells = split(line, '\t')
         # A truncated row is corruption, not something to skip: silently
         # dropping it could collapse a two-file ambiguity to one holder and
-        # bypass the governs machinery entirely.
-        length(cells) < max(id_idx, value_idx) && throw(ArgumentError(
+        # bypass the governs machinery entirely — or, cut short before the
+        # uncertainty columns, silently re-derive an informedness the row
+        # declared. `split` keeps empty cells, so a short row means missing
+        # tabs, not a legitimately empty final column.
+        required = max(id_idx, value_idx,
+                       something(gstd_idx, 0), something(informedness_idx, 0))
+        length(cells) < required && throw(ArgumentError(
             "Source table $path has a truncated row (\"$(first(line, 60))\"): " *
-            "$(length(cells)) cell(s) where the $value_column column is " *
-            "number $(max(id_idx, value_idx))"))
+            "$(length(cells)) cell(s) where the widest header column is " *
+            "number $required"))
 
         id = String(strip(cells[id_idx]))
         isempty(id) && continue
@@ -111,7 +122,7 @@ function _column_index(header::Vector{<:AbstractString}, name::AbstractString,
 end
 
 function _row_informedness(cells, gstd_idx, informedness_idx, id, path)
-    if informedness_idx !== nothing && length(cells) >= informedness_idx
+    if informedness_idx !== nothing
         raw = strip(cells[informedness_idx])
         if !isempty(raw)
             declared = Symbol(raw)
@@ -124,13 +135,21 @@ function _row_informedness(cells, gstd_idx, informedness_idx, id, path)
         end
     end
 
-    # No uncertainty column: the source carries a point value, so any prior on
-    # it is ours rather than the model's.
+    # No uncertainty column, or an empty cell in it: the source carries a point
+    # value, so any prior on it is ours rather than the model's.
     gstd_idx === nothing && return :asserted
-    length(cells) < gstd_idx && return :asserted
+    raw_gstd = strip(cells[gstd_idx])
+    isempty(raw_gstd) && return :asserted
 
-    gstd = tryparse(Float64, strip(cells[gstd_idx]))
-    gstd === nothing && return :asserted
+    # A non-empty cell must be a real width. Falling back to :asserted over
+    # "N/A" would misfile a corrupt row, and NaN compares false against the
+    # prior width, which would report an unquantified value as informed.
+    gstd = tryparse(Float64, raw_gstd)
+    (gstd === nothing || isnan(gstd)) && throw(ArgumentError(
+        "Row :$id of $path has an unparseable geometric standard deviation " *
+        "\"$raw_gstd\". An empty cell means the source asserts a point value; " *
+        "anything else must be a number, or the row's informedness would be " *
+        "silently misclassified"))
     return gstd >= PRIOR_DEFAULT_GSTD ? :prior_default : :balanced
 end
 
@@ -277,7 +296,10 @@ function _check_registry_agreement(id::String, chosen::SourceTable)
     entry.initial_value === nothing && return nothing
 
     value = chosen.values[id]
-    value == entry.initial_value || throw(ArgumentError(
+    # The registry transcribes values to four decimal places while the source
+    # tables carry full precision, so agreement means equal up to that
+    # transcription — half a unit in the fourth decimal — not bit-for-bit.
+    isapprox(value, entry.initial_value; atol = 5e-5) || throw(ArgumentError(
         "Identifier $id imports $value from $(chosen.file), but the registry " *
         "records :$species at $(entry.initial_value)" *
         (entry.source_file === nothing ? "" : " from $(entry.source_file)") *

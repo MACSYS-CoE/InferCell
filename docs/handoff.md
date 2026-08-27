@@ -124,10 +124,65 @@ which are applied on this branch. The substance:
 Wave-1 advisories the review surfaced but deliberately did not act on: lower
 `ResolvedEdge`s into concrete typed callback state before any hot path iterates
 them; resolve chemostat `held_value`s to plain `Float64` at build time if an
-RHS ever reads them; the cost-with-no-payer throw means an Expression module
-debiting ATP cannot resolve alone (spec-compliant, but the first wave-1 author
-will hit it); assert registry-vs-table agreement when wave 1 vendors the real
-balanced tables.
+RHS ever reads them; assert registry-vs-table agreement when wave 1 vendors the
+real balanced tables. (A third advisory — the cost-with-no-payer throw blocking
+standalone validation — was resolved by the later `claude code-review` pass
+below.)
+
+## Automated code review fixes (2026-08-27, third session)
+
+`claude code-review` (high effort) reviewed PR #38 and reported 10 findings
+plus below-cap items; each was verified against the code, design.md and the
+spec deltas before acting. Seven findings plus four cleanups were fixed
+directly, two were resolved as design decisions (user-approved), one was
+documentation-only, and three cleanup suggestions were rejected (one would
+violate the spec's "registry positions it touches" requirement; two were
+YAGNI). The substance:
+
+- **Standalone validation now works for importing modules** (design amendment):
+  the cost-with-no-payer throw in `_find_dead_ends` is demoted to a report —
+  the species shows in `unowned_states` and, absent a producer, as a
+  `:producer` dead end. The edge-kinds spec delta's "A cost with no paying
+  state" scenario was amended to match. **This gives up a check the assembled
+  model needs** — in a complete composition a cost with no payer is an error,
+  and now nothing fails on it — so the spec states that a successful resolve is
+  not evidence of a closed boundary, and the obligation to assert completeness
+  is recorded against wave 3 in `dev/plans/reduced-syn3a-wave-plan.md`. It is
+  deliberately not a spec requirement here: promising behaviour this change does
+  not implement is the exact failure the earlier review round flagged as
+  blocking.
+- **Hybrid modules unblocked**: `_check_inputs_consistency` only holds
+  registry-species inputs to the typed contract, so a module with typed
+  coupling can still read legacy state (mRNA, protein) through `inputs()`.
+- **Clamp payloads compared edge-vs-edge**: two clamps on one species must
+  agree on `held_value` even when the registry records none
+  (`_check_clamp_agreement`).
+- **Chemostatted inputs get a real diagnostic**: the orchestrator now points at
+  the ClampedEdge + fixed-parameter pattern instead of "not owned by any
+  sub-model". Wiring held values into dynamics stays a wave-2 non-goal
+  (documented in design.md).
+- **Loader hardening**: registry agreement uses `atol=5e-5` (the 4-decimal
+  transcription's half-unit) instead of exact `==`, so full-precision wave-1
+  tables won't spuriously fail; the truncation guard covers the GeometricStd
+  and Informedness columns; a non-empty unparseable or NaN gstd throws instead
+  of misclassifying; the default logical file name is the extension-free
+  basename, matching the registry's `central_balanced`/`nucleotide_balanced`
+  names (the old `basename(path)` default could never match them, and the
+  registry comment claiming the loader resolves logical names to paths was
+  corrected). The `conc_<species>` identifier convention is now documented in
+  the registry so wave-1 tables adopt it rather than silently killing the
+  agreement check.
+- **Jump path parity**: `_build_jump_problem` now runs
+  `_validate_shared_params`, so `:jump` compositions get the shared-parameter
+  equality check and the cross-file provenance warning.
+- **Cleanups**: `RateConstantEdge`'s keyword constructor no longer silently
+  discards an explicit `interval` under `cadence=:continuous` (sentinel
+  default); duplicate `:asserted_prior` labels deduped via `unique_params`;
+  `species_in_group` reuses `_check_vocab`; two quadratic `reduce(vcat, …)`
+  flattened.
+
+`CoreAStub` gained a `form` (formalism) field for the jump-path test. Suite:
+**788 passed, 0 failed** (job 15974254; 759 before this session).
 
 ## Next steps
 

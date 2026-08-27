@@ -82,6 +82,16 @@ using Distributions
                        reduction_report([published]))
     end
 
+    @testset "A parameter shared by two modules is one asserted prior, not two" begin
+        shared = InferParameter(1.0, LogNormal(0.0, 2.0), false, :k_shared, :A, :rate,
+                                ParameterSource("central_balanced";
+                                                informedness = :asserted))
+        composition = [CoreAStub(:A; params = [shared]),
+                       CoreAStub(:B; params = [shared])]
+        labels = reduction_declarations(composition)
+        @test count(l -> l.subject === :k_shared, labels) == 1
+    end
+
     @testset "Existing sub-models carry no reduction labels" begin
         @test isempty(reduction_declarations([TranscriptionTranslation()]))
         @test isempty(reduction_declarations(LightMetabolism()))

@@ -134,6 +134,10 @@ using InferCell
         @test e.interval === nothing      # carrying one would imply a cadence it lacks
         @test deviates_from_published(e)
         @test occursin("continuous", deviation_reason(e))
+
+        # An interval passed explicitly is validated, not silently discarded.
+        @test_throws ArgumentError RateConstantEdge(species=:M_gtp_c, direction=:out,
+                                                    cadence=:continuous, interval=30.0)
     end
 
     @testset "Clamped edges record whether the clamp is ours" begin

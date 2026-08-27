@@ -1,5 +1,6 @@
 using Test
 using InferCell
+using Distributions
 
 @testset "Core A′ coupling resolver" begin
 
@@ -148,19 +149,20 @@ using InferCell
         @test :M_ctp_c ∉ graph.unowned_states
     end
 
-    @testset "A cost with no paying state is an error" begin
-        # Nothing integrates AMP and the registry does not chemostat it.
+    @testset "A cost with no paying state is reported, not thrown" begin
+        # Nothing integrates AMP and the registry does not chemostat it. A
+        # module validated alone legitimately imports species whose owners are
+        # absent — the standalone-validation constraint — so this resolves and
+        # reports rather than failing.
         spender = CoreAStub(:Charging;
             edges = [DeferredCounterEdge(species=:M_amp_c, direction=:in,
                                          counter=:AMP_charging)])
-        err = try
-            resolve_coupling([spender])
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("M_amp_c", err.msg)
-        @test occursin("Charging", err.msg)
+        graph = resolve_coupling([spender])
+        @test :M_amp_c in graph.unowned_states
+        @test length(graph.dead_ends) == 1
+        @test graph.dead_ends[1].species == :M_amp_c
+        @test graph.dead_ends[1].missing_role == :producer
+        @test graph.dead_ends[1].modules == [:Charging]
     end
 
     @testset "A consumed species with no producer is reported with its moiety" begin
@@ -256,6 +258,19 @@ using InferCell
         @test length(resolve_coupling([consistent]).edges) == 1
     end
 
+    @testset "A legacy non-registry input coexists with typed coupling" begin
+        # A hybrid module bridging Core A′ and the pre-contract blocks reads
+        # legacy state (mRNA) through inputs(), which no edge kind can name.
+        # Only registry species are held to the typed contract, so the two
+        # channels are not mutually exclusive.
+        hybrid = CoreAStub(:Expression;
+            st = [:M_atp_c],
+            edges = [RateConstantEdge(species=:M_gtp_c, direction=:out)],
+            ins = [:mRNA])
+        graph = resolve_coupling([hybrid])
+        @test length(graph.edges) == 1
+    end
+
     @testset "An inbound mass edge must be listed in inputs()" begin
         # The converse drift: only inputs() wires a state into dynamics, so an
         # inbound mass edge on a state the module does not integrate would
@@ -329,6 +344,35 @@ using InferCell
         @test length(resolve_coupling([open_value]).edges) == 1
     end
 
+    @testset "Two clamps at different held values are rejected" begin
+        # CTP has no imported registry value, so the edge-vs-registry check
+        # cannot fire; the two edges must still agree with each other, or
+        # composition order silently decides the held concentration.
+        one = CoreAStub(:Transcription;
+            edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
+                                 origin=:ours, held_value=1.0)])
+        other = CoreAStub(:Nucleotide;
+            edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
+                                 origin=:ours, held_value=2.0)])
+        err = try
+            resolve_coupling([one, other])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("M_ctp_c", err.msg)
+        @test occursin("1.0", err.msg)
+        @test occursin("2.0", err.msg)
+        @test occursin("Transcription", err.msg)
+        @test occursin("Nucleotide", err.msg)
+
+        # Agreeing clamps resolve cleanly.
+        agreeing = CoreAStub(:Nucleotide;
+            edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
+                                 origin=:ours, held_value=1.0)])
+        @test length(resolve_coupling([one, agreeing]).edges) == 2
+    end
+
     @testset "Gradient obstructions are collected and reported" begin
         clamped = CoreAStub(:Expression;
             st = [:M_atp_c],
@@ -377,5 +421,54 @@ using InferCell
         # And build_problem, which now runs the resolver, still works.
         prob = build_problem([txl, metab])
         @test length(prob.u0) == length(states(txl)) + length(states(metab))
+    end
+
+    @testset "A chemostatted input gets a diagnostic naming the clamp pattern" begin
+        # inputs() resolves against integrated states only, and nothing may
+        # integrate a chemostat, so the wiring cannot deliver one. Until wave 2
+        # executes coupling, the value travels as a fixed parameter beside a
+        # declared ClampedEdge — and the error should say so, not just "not
+        # owned by any sub-model".
+        reader = CoreAStub(:Transcription;
+            st = [:M_atp_c],
+            edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
+                                 origin=:ours, held_value=1.0)],
+            ins = [:M_ctp_c])
+        @test length(resolve_coupling([reader]).edges) == 1   # the contract passes
+        err = try
+            build_problem([reader])
+        catch e
+            e
+        end
+        @test err isa ErrorException
+        @test occursin("M_ctp_c", err.msg)
+        @test occursin("chemostatted", err.msg)
+        @test occursin("ClampedEdge", err.msg)
+    end
+
+    @testset "The jump path validates shared parameters too" begin
+        # Two :jump modules sharing a parameter name with different values must
+        # fail the same way an ODE composition does; the check runs before any
+        # reactions are assembled.
+        p_a = InferParameter(1.0, Normal(0, 1), false, :k_shared, :A, :rate)
+        p_b = InferParameter(2.0, Normal(0, 1), false, :k_shared, :B, :rate)
+        a = CoreAStub(:A; params = [p_a], form = :jump)
+        b = CoreAStub(:B; params = [p_b], form = :jump)
+        err = try
+            build_problem([a, b])
+        catch e
+            e
+        end
+        @test err isa ErrorException
+        @test occursin("k_shared", err.msg)
+
+        # And the cross-file provenance report fires for agreeing values from
+        # different source files.
+        tagged_a = InferParameter(1.0, Normal(0, 1), false, :k_shared, :A, :rate,
+                                  ParameterSource("central_balanced"))
+        tagged_b = InferParameter(1.0, Normal(0, 1), false, :k_shared, :B, :rate,
+                                  ParameterSource("nucleotide_balanced"))
+        @test_logs (:warn, r"more than one source file") InferCell._validate_shared_params(
+            [CoreAStub(:A; params = [tagged_a]), CoreAStub(:B; params = [tagged_b])])
     end
 end

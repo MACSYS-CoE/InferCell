@@ -202,8 +202,11 @@ Pools re-enter the stochastic block as recomputed rate constants. The only
 ODE→stochastic channel in the model, and so the edge that decides whether the
 coupling is bidirectional at all.
 
-Defaults to the published model's 60 s rebuild. A `:continuous` cadence takes no
-interval and is marked as a deviation.
+Defaults to the published model's 60 s rebuild: an unspecified `interval` is
+60 s for a `:piecewise_constant` cadence and absent for a `:continuous` one,
+which takes no interval and is marked as a deviation. An interval passed
+explicitly is always validated, so `:continuous` alongside one is an error
+rather than a silent discard.
 """
 struct RateConstantEdge <: CouplingEdge
     species::Symbol
@@ -230,12 +233,17 @@ struct RateConstantEdge <: CouplingEdge
     end
 end
 
+# Distinguishes "interval not given" from an explicit `nothing`: the default
+# adapts to the cadence, but an explicit value — including an explicit
+# `nothing` — must reach the inner constructor's validation untouched.
+const _INTERVAL_UNSET = :unset
+
 function RateConstantEdge(; species=nothing, direction=nothing, peer=nothing,
-                          cadence=:piecewise_constant, interval=60.0)
-    # The keyword form drops the defaulted interval for a continuous cadence,
-    # so declaring `cadence=:continuous` alone is enough.
-    return RateConstantEdge(species, direction, peer, cadence,
-                            cadence === :continuous ? nothing : interval)
+                          cadence=:piecewise_constant, interval=_INTERVAL_UNSET)
+    if interval === _INTERVAL_UNSET
+        interval = cadence === :continuous ? nothing : 60.0
+    end
+    return RateConstantEdge(species, direction, peer, cadence, interval)
 end
 
 """

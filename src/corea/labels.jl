@@ -57,7 +57,9 @@ function reduction_declarations(models::Vector{<:AbstractSubModel})
         push!(labels, ReductionLabel(category, r.species, reason))
     end
 
-    all_params = reduce(vcat, parameters.(models); init = InferParameter[])
+    # Deduplicate by name first: a parameter shared by two modules is one
+    # asserted prior, not two.
+    all_params = unique_params(InferParameter[p for m in models for p in parameters(m)])
     for p in asserted_prior_params(all_params)
         push!(labels, ReductionLabel(
             :asserted_prior, p.name,

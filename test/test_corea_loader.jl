@@ -258,6 +258,78 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         end
     end
 
+    @testset "A row truncated before the uncertainty columns is also corruption" begin
+        # Cut short before Informedness, the row would otherwise silently
+        # re-derive an informedness it declared — the declaration rot the
+        # declared-informedness check exists to reject.
+        mktempdir() do dir
+            path = joinpath(dir, "short.tsv")
+            write(path, "!ID\t!Mode\t!GeometricStd\t!Informedness\nkcat_fwd_X\t1.0\t20.0\n")
+            @test_throws ArgumentError read_source_table(path; file = "short")
+
+            # And cut short before GeometricStd, it would silently classify
+            # :asserted.
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\n")
+            @test_throws ArgumentError read_source_table(path; file = "short")
+        end
+    end
+
+    @testset "A non-empty unparseable uncertainty is rejected, not misfiled" begin
+        mktempdir() do dir
+            path = joinpath(dir, "gstd.tsv")
+            # "N/A" would otherwise classify :asserted — corruption misfiled as
+            # a point value.
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\tN/A\n")
+            err = try
+                read_source_table(path; file = "gstd")
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin("N/A", err.msg)
+
+            # NaN compares false against the prior width, which would report an
+            # unquantified value as informed.
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\tNaN\n")
+            @test_throws ArgumentError read_source_table(path; file = "gstd")
+
+            # An empty cell legitimately means the source asserts a point value.
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\t\n")
+            t = read_source_table(path; file = "gstd")
+            @test t.informedness["kcat_fwd_X"] == :asserted
+        end
+    end
+
+    @testset "The default logical name is the extension-free basename" begin
+        # What provenance records and governing declarations match is the
+        # registry's logical source name, not a filename with an extension.
+        t = read_source_table(joinpath(FIXTURES, "central_balanced.tsv"))
+        @test t.file == "central_balanced"
+    end
+
+    @testset "Registry agreement tolerates the 4-decimal transcription" begin
+        # The registry transcribes 1.6627; a real balanced table carries full
+        # precision. Agreement means equal up to the transcription, not
+        # bit-for-bit.
+        mktempdir() do dir
+            path = joinpath(dir, "fullprec.tsv")
+            write(path, "!ID\t!Mode\t!GeometricStd\nconc_M_gtp_c\t1.66271\t1.32\n")
+            t = read_source_table(path; file = "nucleotide_balanced")
+            p = load_parameter([t], "conc_M_gtp_c";
+                               name = :gtp0, module_id = :Nucleotide,
+                               prior = LogNormal(0.0, 1.0),
+                               role = :initial_condition)
+            @test p.value == 1.66271
+
+            # A genuinely different number is still two copies of one number.
+            write(path, "!ID\t!Mode\t!GeometricStd\nconc_M_gtp_c\t1.67\t1.32\n")
+            stale = read_source_table(path; file = "nucleotide_balanced")
+            @test_throws ArgumentError load_parameter([stale], "conc_M_gtp_c";
+                name = :gtp0, module_id = :Nucleotide,
+                prior = LogNormal(0.0, 1.0), role = :initial_condition)
+        end
+    end
+
     @testset "A misspelled declared informedness is rejected, not re-derived" begin
         mktempdir() do dir
             path = joinpath(dir, "declared.tsv")

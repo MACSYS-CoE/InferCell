@@ -88,12 +88,14 @@ Resolve and validate the declared coupling of a composition.
 Throws when the boundary is inconsistent: an edge naming an unregistered
 species or pool, an edge whose named peer is absent, two modules declaring the
 same species and direction with different kinds, a module integrating a
-chemostat, a state integrated twice, a declared cost with no state that can pay
-it, a clamp holding a chemostat away from the registry's value, or an `inputs`
-list that has drifted from the module's own inbound edges in either direction.
+chemostat, a state integrated twice, two clamps holding one species at
+different values, a clamp holding a chemostat away from the registry's value,
+or an `inputs` list that has drifted from the module's own inbound edges in
+either direction.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
-states and dead ends, which a partial composition is expected to have.
+states and dead ends — including a declared cost whose paying state is absent —
+which a partial composition is expected to have.
 """
 function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_state_ownership(models)
@@ -101,11 +103,12 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
 
     resolved = _resolve_edges(models)
     _check_kind_agreement(resolved)
+    _check_clamp_agreement(resolved)
 
     owned = _owned_states(models)
     unowned = [s for s in dynamic_species() if !haskey(owned, s)]
 
-    dead_ends, exemptions = _find_dead_ends(resolved, owned)
+    dead_ends, exemptions = _find_dead_ends(resolved)
 
     obstructions = [r for r in resolved if obstructs_gradients(r.edge)]
     deviations = [r for r in resolved if deviates_from_published(r.edge)]
@@ -165,6 +168,12 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
 
         inbound = Set(e.species for e in edges if is_consumer(e))
         for s in inputs(m)
+            # Only registry species are governed by the typed contract. A hybrid
+            # module may also read legacy non-registry state (mRNA, protein)
+            # through inputs(), which no edge kind can name, so demanding an
+            # edge for those would make typed coupling and the legacy channel
+            # mutually exclusive.
+            is_registered(s) || continue
             s in inbound || throw(ArgumentError(
                 "Module $(module_id(m)) lists :$s in inputs() but declares no " *
                 "inbound coupling edge for it. A typed declaration that has " *
@@ -274,6 +283,33 @@ function _check_kind_agreement(resolved::Vector{ResolvedEdge})
     return nothing
 end
 
+# The registry check in _resolve_edges covers a clamp against a recorded
+# chemostat value, but two modules can clamp a species the registry records no
+# value for. Their held values must still agree: two clamps that each pass
+# alone and disagree at the join would let composition order decide a held
+# concentration.
+function _check_clamp_agreement(resolved::Vector{ResolvedEdge})
+    seen = Dict{Symbol, ResolvedEdge}()
+    for r in resolved
+        r.edge isa ClampedEdge || continue
+        r.edge.held_value === nothing && continue
+        prior = get(seen, r.species, nothing)
+        if prior === nothing
+            seen[r.species] = r
+        elseif prior.edge.held_value != r.edge.held_value
+            who = prior.declared_by === r.declared_by ?
+                "Module $(prior.declared_by) clamps" :
+                "Modules $(prior.declared_by) and $(r.declared_by) clamp"
+            throw(ArgumentError(
+                "$who :$(r.species) at two different values, " *
+                "$(prior.edge.held_value) mM and $(r.edge.held_value) mM. One " *
+                "held value per species; composition order must not decide " *
+                "which one wins"))
+        end
+    end
+    return nothing
+end
+
 function _kind_gloss(kind::Symbol)
     kind === :mass && return "shared state, continuous, gradients cross inside the ODE block"
     kind === :currency && return "routed via a shared pool node"
@@ -285,11 +321,13 @@ function _kind_gloss(kind::Symbol)
     return "unknown kind"
 end
 
-# Every declared cost needs a state that can pay it and a reaction that returns
-# it. The first half is an error; the second is a report, because a partial
-# composition legitimately has no producer yet — as is the mirror image, a
-# species produced with nothing yet consuming it.
-function _find_dead_ends(resolved::Vector{ResolvedEdge}, owned::Dict{Symbol, Symbol})
+# Every declared cost needs a declared producer that returns it — and the
+# mirror image, a produced species needs a consumer drawing it down. Both are
+# reports rather than errors: a partial composition legitimately lacks the
+# counterpart, and a module author validating a single module alone imports
+# species whose owners and producers are absent by construction. The ownership
+# gap itself is reported through `unowned_states`.
+function _find_dead_ends(resolved::Vector{ResolvedEdge})
     mass_edges = [r for r in resolved if carries_mass(r.edge)]
 
     producers = Dict{Symbol, Vector{Symbol}}()
@@ -308,14 +346,6 @@ function _find_dead_ends(resolved::Vector{ResolvedEdge}, owned::Dict{Symbol, Sym
             # later change making the pool live reinstates the check.
             push!(exemptions, species)
             continue
-        end
-
-        if !haskey(owned, species)
-            throw(ArgumentError(
-                "Module(s) $(join(sort(consuming), ", ")) declare a cost debited " *
-                "against :$species, but no module in this composition integrates " *
-                "it and the registry does not chemostat it. Every declared cost " *
-                "needs a state that can pay it"))
         end
 
         if !haskey(producers, species)
