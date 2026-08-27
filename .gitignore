@@ -31,10 +31,7 @@ examples/
 /site/
 
 # Non-published dev content kept out of the repo deliberately:
-# council transcripts and large reference PDFs.
-# (gitignore does not support trailing inline comments — keep these on their own lines)
-/dev/council/
-/dev/references/
+/dev/local-scratch-notes/
 
 # GitHub Actions (the leading `.*` rule otherwise hides the whole tree)
 !.github/
