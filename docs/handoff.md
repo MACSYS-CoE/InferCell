@@ -1,7 +1,25 @@
 # Handoff
 
 **Session date:** 2026-08-28
-**Branch:** `change/establish-corea-interface` (PR #38, open against `main`)
+**Branch:** `archive-establish-corea-interface` (PR #39, open against `main`)
+
+## This session: archived the change (2026-08-28, after #38 merged)
+
+PR #38 merged as `d8ecf13`. This session ran `/opsx:archive
+establish-corea-interface` — resolving the decision left open in "Next steps"
+below in favour of archiving. Pre-archive checks: all 4 artifacts done, 34/34
+tasks ticked, and all three delta specs verified byte-identical (requirement
+bodies) to `openspec/specs/corea-interface/`, so no sync ran. The change
+directory moved, as a pure git rename, to
+`openspec/changes/archive/2026-08-28-establish-corea-interface/` on PR #39.
+
+**Next:** merge PR #39, then propose the seven wave-1 changes against
+`openspec/specs/corea-interface/` (see step 2 under "Next steps" below —
+still current).
+
+---
+
+Everything below is the handoff from the PR #38 sessions, kept for context.
 
 ## What this session did
 
