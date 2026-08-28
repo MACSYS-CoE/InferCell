@@ -63,10 +63,10 @@ The resolved boundary of a composition.
   an error: a single module under test legitimately leaves most of them unowned.
 - `dead_ends` — mass-carrying species consumed with no declared producer, or
   produced with no declared consumer.
-- `chemostat_exemptions` — species whose costs were exempted from the dead-end
-  check because the registry chemostats them. Recorded so that a later change
-  making a pool live reinstates the check rather than inheriting the exemption
-  silently.
+- `chemostat_exemptions` — species exempted from the dead-end check, on either
+  side of the flow, because the registry chemostats them. Recorded so that a
+  later change making a pool live reinstates the check rather than inheriting
+  the exemption silently.
 - `gradient_obstructions` — edges that are non-differentiable at the boundary.
 - `deviations` — edges that depart from the published model.
 """
@@ -86,18 +86,23 @@ end
 Resolve and validate the declared coupling of a composition.
 
 Throws when the boundary is inconsistent: an edge naming an unregistered
-species or pool, an edge whose named peer is absent, two modules declaring the
-same species and direction with different kinds, a module integrating a
-chemostat, a state integrated twice, two clamps holding one species at
-different values, a clamp holding a chemostat away from the registry's value,
-or an `inputs` list that has drifted from the module's own inbound edges in
-either direction.
+species or pool, an edge whose named peer is absent, one species-and-direction
+crossing described as both mass and currency — two spellings of one continuous
+transport (the other kinds are distinct mechanisms and coexist: the published
+model routes ATP through a currency pool, a deferred-counter debit and a
+rate-constant rebuild at once), a module integrating a chemostat, a state
+integrated twice, a clamp on a state another module integrates, two clamps
+holding one species at different values, a clamp holding a chemostat away from
+the registry's value, two coupled sub-models sharing one `module_id`, a
+chemostatted species listed in `inputs`, or an `inputs` list that has drifted
+from the module's own inbound edges in either direction.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
 which a partial composition is expected to have.
 """
 function resolve_coupling(models::Vector{<:AbstractSubModel})
+    _check_module_ids(models)
     _check_state_ownership(models)
     _check_inputs_consistency(models)
 
@@ -106,6 +111,7 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_clamp_agreement(resolved)
 
     owned = _owned_states(models)
+    _check_clamp_ownership(resolved, owned)
     unowned = [s for s in dynamic_species() if !haskey(owned, s)]
 
     dead_ends, exemptions = _find_dead_ends(resolved)
@@ -127,6 +133,25 @@ function _owned_states(models::Vector{<:AbstractSubModel})
         end
     end
     return owned
+end
+
+# Coupling errors name modules by module_id and edges resolve peers by it, so
+# the instances that participate in the contract must be distinguishable. Only
+# participating modules are checked: two instances of a legacy sub-model — no
+# edges, no registry states — compose exactly as they did before this contract.
+function _check_module_ids(models::Vector{<:AbstractSubModel})
+    seen = Set{Symbol}()
+    for m in models
+        isempty(coupling(m)) && !any(is_registered, states(m)) && continue
+        id = module_id(m)
+        id in seen && throw(ArgumentError(
+            "Two sub-models in this composition share module_id :$id. Errors " *
+            "name modules by id and edges resolve peers by it, so a shared id " *
+            "makes the instances indistinguishable; override module_id on one " *
+            "of them"))
+        push!(seen, id)
+    end
+    return nothing
 end
 
 # A module may not integrate a species the registry holds constant, and no two
@@ -174,6 +199,17 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
             # edge for those would make typed coupling and the legacy channel
             # mutually exclusive.
             is_registered(s) || continue
+
+            # inputs() resolves against integrated states, and nothing may
+            # integrate a chemostat, so a chemostatted input can never be
+            # delivered — build_problem would fail after this check passed.
+            is_chemostatted(s) && throw(ArgumentError(
+                "Module $(module_id(m)) lists :$s in inputs(), but the Core A′ " *
+                "registry chemostats :$s at a fixed concentration, so no module " *
+                "integrates it and inputs() can never deliver it. Remove :$s " *
+                "from inputs(); declare a ClampedEdge with its held_value and " *
+                "carry the value as a fixed parameter instead"))
+
             s in inbound || throw(ArgumentError(
                 "Module $(module_id(m)) lists :$s in inputs() but declares no " *
                 "inbound coupling edge for it. A typed declaration that has " *
@@ -181,23 +217,25 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
                 "catch; add the edge or drop the input"))
         end
 
-        # The converse, for the one kind whose inbound side is wired through
-        # `inputs`: an inbound MassEdge on a dynamic species the module does not
-        # itself integrate reaches its dynamics only via inputs(), so leaving it
-        # out means the declared coupling silently never arrives.
+        # The converse, for the kinds whose inbound side is wired through
+        # `inputs`: an inbound mass or currency edge on a dynamic species the
+        # module does not itself integrate reaches its dynamics only via
+        # inputs(), so leaving it out means the declared coupling silently
+        # never arrives. A deferred counter is exempt — the hook debits it, the
+        # RHS never reads it.
         own = Set(states(m))
         declared = Set(inputs(m))
         for e in edges
-            e isa MassEdge || continue
+            e isa MassEdge || e isa CurrencyEdge || continue
             is_consumer(e) || continue
             is_registered(e.species) && is_dynamic(e.species) || continue
             e.species in own && continue
             e.species in declared || throw(ArgumentError(
-                "Module $(module_id(m)) declares an inbound mass edge on " *
-                ":$(e.species) but does not list it in inputs(). Only inputs() " *
-                "wires a state into dynamics, so the declared coupling would " *
-                "silently never arrive; add :$(e.species) to inputs() or drop " *
-                "the edge"))
+                "Module $(module_id(m)) declares an inbound $(edge_kind(e)) " *
+                "edge on :$(e.species) but does not list it in inputs(). Only " *
+                "inputs() wires a state into dynamics, so the declared coupling " *
+                "would silently never arrive; add :$(e.species) to inputs() or " *
+                "drop the edge"))
         end
     end
     return nothing
@@ -241,7 +279,10 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
             if e isa ClampedEdge && e.held_value !== nothing &&
                is_chemostatted(e.species)
                 registry_value = held_value(e.species)
-                if registry_value !== nothing && e.held_value != registry_value
+                # Agreement up to the registry's 4-decimal transcription, the
+                # same rule as the loader's registry-agreement check.
+                if registry_value !== nothing &&
+                   !isapprox(e.held_value, registry_value; atol = TRANSCRIPTION_ATOL)
                     throw(ArgumentError(
                         "Module $name clamps :$(e.species) at $(e.held_value) mM, " *
                         "but the registry chemostats it at $registry_value mM. " *
@@ -257,13 +298,18 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
     return resolved
 end
 
-# Two modules may not describe the same crossing differently. Mass and a
-# deferred counter are not two spellings of one thing: one is continuous shared
-# state, the other is a cost accrued in one block and debited in another a step
-# later.
+# Mass and currency are two descriptions of the same continuous transport —
+# direct shared state versus the same shared state routed via a pool node — so
+# one (species, direction) crossing admits only one of them. The other kinds
+# are distinct mechanisms, not rival spellings: the published model routes ATP
+# through a currency pool, a deferred-counter debit and a rate-constant rebuild
+# simultaneously, so those coexist rather than conflict.
+const _EXCLUSIVE_TRANSPORT_KINDS = (:mass, :currency)
+
 function _check_kind_agreement(resolved::Vector{ResolvedEdge})
     seen = Dict{Tuple{Symbol, Symbol}, ResolvedEdge}()
     for r in resolved
+        r.kind in _EXCLUSIVE_TRANSPORT_KINDS || continue
         key = (r.species, r.edge.direction)
         prior = get(seen, key, nothing)
         if prior === nothing
@@ -276,9 +322,29 @@ function _check_kind_agreement(resolved::Vector{ResolvedEdge})
                 "$who how :$(r.species) crosses the boundary in direction " *
                 ":$(r.edge.direction) in two ways. $(prior.declared_by) declares it " *
                 ":$(prior.kind) — $(_kind_gloss(prior.kind)); $(r.declared_by) " *
-                "declares it :$(r.kind) — $(_kind_gloss(r.kind)). These are " *
-                "different semantics, not two spellings of one"))
+                "declares it :$(r.kind) — $(_kind_gloss(r.kind)). These are two " *
+                "descriptions of one continuous transport; the composition must " *
+                "pick one"))
         end
+    end
+    return nothing
+end
+
+# A clamp replaces a live dependence with a constant, so a clamp on a species a
+# module in the composition actively integrates is a contradiction: the value
+# cannot be both held and evolving. A clamp whose owner is absent is the
+# standalone case and passes — the contradiction needs both parties present.
+function _check_clamp_ownership(resolved::Vector{ResolvedEdge},
+                                owned::Dict{Symbol, Symbol})
+    for r in resolved
+        r.edge isa ClampedEdge || continue
+        owner = get(owned, r.species, nothing)
+        owner === nothing && continue
+        throw(ArgumentError(
+            "Module $(r.declared_by) clamps :$(r.species), but module $owner " *
+            "integrates it as a dynamic state in this composition. A dependence " *
+            "cannot be both replaced by a constant and live; drop the clamp or " *
+            "remove :$(r.species) from states($owner)"))
     end
     return nothing
 end
@@ -355,7 +421,13 @@ function _find_dead_ends(resolved::Vector{ResolvedEdge})
     end
 
     for (species, producing) in producers
-        is_chemostatted(species) && continue   # the chemostat absorbs it
+        if is_chemostatted(species)
+            # The chemostat absorbs it. Recorded like the consumer-side
+            # exemption, so a later change making the pool live reinstates
+            # this half of the check too.
+            push!(exemptions, species)
+            continue
+        end
         if !haskey(consumers, species)
             push!(dead_ends,
                   DeadEnd(species, species_group(species), :consumer, sort(producing)))
@@ -417,16 +489,15 @@ a legitimate model, just not a differentiable one.
 """
 function check_gradient_safety(models::Vector{<:AbstractSubModel})
     graph = resolve_coupling(models)
-    isempty(graph.gradient_obstructions) && return ResolvedEdge[]
-
-    any(m -> inference_mode(m) === :differentiable, models) || return graph.gradient_obstructions
-
-    @warn """
-    A composition with a differentiable sub-model contains a non-differentiable boundary edge.
-    $(gradient_report(graph))
-    Declare clip = :smoothed (with its smoothing width) on the edge to sample it with gradients, \
-    and label the result as departing from the published model.
-    """
+    if !isempty(graph.gradient_obstructions) &&
+       any(m -> inference_mode(m) === :differentiable, models)
+        @warn """
+        A composition with a differentiable sub-model contains a non-differentiable boundary edge.
+        $(gradient_report(graph))
+        Declare clip = :smoothed (with its smoothing width) on the edge to sample it with gradients, \
+        and label the result as departing from the published model.
+        """
+    end
     return graph.gradient_obstructions
 end
 

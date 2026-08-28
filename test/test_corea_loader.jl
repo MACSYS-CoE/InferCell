@@ -23,11 +23,9 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
 
     @testset "A missing file or column fails with a usable message" begin
         @test_throws ArgumentError read_source_table(joinpath(FIXTURES, "nope.tsv"))
-        err = try
+        err = caught() do
             read_source_table(joinpath(FIXTURES, "central_balanced.tsv");
                               value_column = "NotAColumn")
-        catch e
-            e
         end
         @test err isa ArgumentError
         @test occursin("NotAColumn", err.msg)
@@ -94,12 +92,10 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
     end
 
     @testset "An ambiguous import without a governing file fails at load" begin
-        err = try
+        err = caught() do
             load_parameter(both, "kcat_fwd_PGK3";
                            name = :kcat_PGK3, module_id = :Nucleotide,
                            prior = LogNormal(0.0, 1.0))
-        catch e
-            e
         end
         @test err isa ArgumentError
         # Names the identifier, both files and both values.
@@ -124,13 +120,11 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
     end
 
     @testset "A governing file that does not hold the identifier is rejected" begin
-        err = try
+        err = caught() do
             load_parameter(both, "kcat_fwd_PGK3";
                            name = :kcat_PGK3, module_id = :Nucleotide,
                            prior = LogNormal(0.0, 1.0),
                            governing = "lipid_balanced")
-        catch e
-            e
         end
         @test err isa ArgumentError
         @test occursin("lipid_balanced", err.msg)
@@ -188,14 +182,12 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         # the nucleotide file. Importing the central file's 0.1 prior default —
         # the cross-file error of record — now fails instead of passing with
         # clean provenance.
-        err = try
+        err = caught() do
             load_parameter(both, "conc_M_gtp_c";
                            name = :gtp0, module_id = :Nucleotide,
                            prior = LogNormal(0.0, 1.0),
                            role = :initial_condition,
                            governing = "central_balanced")
-        catch e
-            e
         end
         @test err isa ArgumentError
         @test occursin("0.1", err.msg)
@@ -221,13 +213,11 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         # Only the central table holds ENO. Declaring the nucleotide file as
         # governing means the table set and the declaration disagree — a stale
         # table, not a resolvable ambiguity.
-        err = try
+        err = caught() do
             load_parameter(both, "kcat_fwd_ENO";
                            name = :kcat_ENO, module_id = :Central,
                            prior = LogNormal(0.0, 1.0),
                            governing = "nucleotide_balanced")
-        catch e
-            e
         end
         @test err isa ArgumentError
         @test occursin("kcat_fwd_ENO", err.msg)
@@ -248,11 +238,7 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         mktempdir() do dir
             path = joinpath(dir, "truncated.tsv")
             write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_PGK3\n")
-            err = try
-                read_source_table(path; file = "truncated")
-            catch e
-                e
-            end
+            err = caught(() -> read_source_table(path; file = "truncated"))
             @test err isa ArgumentError
             @test occursin("truncated", err.msg)
         end
@@ -280,11 +266,7 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
             # "N/A" would otherwise classify :asserted — corruption misfiled as
             # a point value.
             write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\tN/A\n")
-            err = try
-                read_source_table(path; file = "gstd")
-            catch e
-                e
-            end
+            err = caught(() -> read_source_table(path; file = "gstd"))
             @test err isa ArgumentError
             @test occursin("N/A", err.msg)
 
@@ -334,11 +316,7 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         mktempdir() do dir
             path = joinpath(dir, "declared.tsv")
             write(path, "!ID\t!Mode\t!Informedness\nkcat_fwd_X\t1.0\tblanced\n")
-            err = try
-                read_source_table(path; file = "declared")
-            catch e
-                e
-            end
+            err = caught(() -> read_source_table(path; file = "declared"))
             @test err isa ArgumentError
             @test occursin("blanced", err.msg)
 
@@ -388,8 +366,50 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         @test source_file(survivor) == "central_balanced"
         @test provenance_of(survivor).identifier == "kcat_fwd_ENO"
 
+        # A provenance-less copy seen first does not shadow a tagged one seen
+        # later: which copy survives must not depend on composition order.
+        untracked = InferParameter(62.18, LogNormal(0.0, 1.0), false,
+                                   :kcat_ENO, :Other, :rate)
+        for ordering in ([tagged, untracked], [untracked, tagged])
+            kept = only(unique_params(ordering))
+            @test source_file(kept) == "central_balanced"
+        end
+
         # And the role filters carry it through too.
         @test source_file(only(rate_params([tagged]))) == "central_balanced"
         @test source_file(only(free_params([tagged]))) == "central_balanced"
+    end
+
+    @testset "Positional ParameterSource construction cannot bypass validation" begin
+        # Validation lives in the inner constructor, as for the edge kinds: an
+        # off-vocabulary informedness would silently drop the parameter from
+        # every provenance report.
+        @test_throws ArgumentError ParameterSource(
+            "central_balanced", nothing, nothing, :ballanced,
+            Pair{String, Float64}[])
+    end
+
+    @testset "An initial condition outside the conc_ convention warns" begin
+        # The registry-agreement check keys on the conc_<species> prefix, so an
+        # initial condition named otherwise forfeits the check silently — the
+        # role signal makes the forfeiture visible.
+        mktempdir() do dir
+            path = joinpath(dir, "renamed.tsv")
+            write(path, "!ID\t!Mode\t!GeometricStd\nIC_M_gtp_c\t1.6627\t1.32\n")
+            t = read_source_table(path; file = "nucleotide_balanced")
+            p = @test_logs (:warn, r"conc_") load_parameter(
+                [t], "IC_M_gtp_c";
+                name = :gtp0, module_id = :Nucleotide,
+                prior = LogNormal(0.0, 1.0), role = :initial_condition)
+            @test p.value == 1.6627
+
+            # A rate import outside the convention is not an initial condition
+            # and warns about nothing.
+            write(path, "!ID\t!Mode\t!GeometricStd\nkcat_fwd_X\t1.0\t1.3\n")
+            t2 = read_source_table(path; file = "misc")
+            @test_logs min_level=Base.CoreLogging.Warn load_parameter(
+                [t2], "kcat_fwd_X";
+                name = :k_x, module_id = :Central, prior = LogNormal(0.0, 1.0))
+        end
     end
 end

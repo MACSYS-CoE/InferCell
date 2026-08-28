@@ -85,17 +85,29 @@ end
 # Source files are the balanced SBtab tables of the published model, referred to
 # by the names the scoping note gives them. The tables are not vendored here —
 # wave 0 delivers the loader, wave 1 imports through it — so these are logical
-# source identifiers, not filenames on disk. The loader takes a path from the
-# caller and records this logical name as provenance (its default is the path's
-# extension-free basename, which matches these); governing declarations and
-# provenance grouping compare these names by string equality.
+# source identifiers, not filenames on disk. The physical files they name live
+# in github.com/Luthey-Schulten-Lab/Minimal_Cell at commit db048ac:
+# "central_balanced" is Central_AA_Zane_Balanced_direction_fixed_nounqATP.tsv
+# and "nucleotide_balanced" is Nucleotide_Kinetic_Parameters.tsv. The loader
+# takes a path from the caller and records the logical name as provenance (its
+# default is the path's extension-free basename, which matches these);
+# governing declarations and provenance grouping compare these names by string
+# equality.
 #
 # Initial-concentration identifiers in those tables follow the convention
 # `conc_<species>` (e.g. `conc_M_atp_c`). The loader's registry-agreement check
-# keys on that prefix, so a table naming concentrations differently silently
-# forfeits the check — adopt the convention when vendoring wave-1 tables.
+# keys on that prefix, so a table naming concentrations differently forfeits
+# the check (the loader warns when a role signal makes that visible) — adopt
+# the convention when vendoring wave-1 tables.
 const CENTRAL_FILE = "central_balanced"
 const NUCLEOTIDE_FILE = "nucleotide_balanced"
+
+# The registry transcribes values to four decimal places while the source
+# tables carry full precision, so "the same number" means equal up to that
+# transcription — half a unit in the fourth decimal, not bit-for-bit. Shared
+# by the loader's registry-agreement check and the resolver's clamp-vs-registry
+# check so the rule lives once.
+const TRANSCRIPTION_ATOL = 5e-5
 
 """
     COREA_SPECIES

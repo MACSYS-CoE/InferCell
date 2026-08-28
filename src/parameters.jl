@@ -47,6 +47,15 @@ struct ParameterSource
     identifier::Union{String, Nothing}
     informedness::Symbol
     alternatives::Vector{Pair{String, Float64}}
+
+    # Validation lives in the inner constructor so that positional
+    # construction cannot bypass it — the same pattern as the edge kinds. An
+    # off-vocabulary informedness would silently drop the parameter from every
+    # provenance report.
+    function ParameterSource(file, table, identifier, informedness, alternatives)
+        _check_vocab(:ParameterSource, :informedness, informedness, INFORMEDNESS)
+        return new(file, table, identifier, informedness, alternatives)
+    end
 end
 
 function ParameterSource(file::AbstractString;
@@ -54,7 +63,6 @@ function ParameterSource(file::AbstractString;
                          identifier = nothing,
                          informedness::Symbol = :balanced,
                          alternatives = Pair{String, Float64}[])
-    _check_vocab(:ParameterSource, :informedness, informedness, INFORMEDNESS)
     return ParameterSource(String(file),
                            table === nothing ? nothing : String(table),
                            identifier === nothing ? nothing : String(identifier),
@@ -224,14 +232,22 @@ end
 
 Deduplicate `params` by `name`, preserving first-occurrence order. Used when
 merging parameter lists from several sub-models that share named parameters.
+
+Where duplicates differ in provenance, the copy that carries a
+[`ParameterSource`](@ref) survives over one that carries none, whatever the
+order — otherwise whether an asserted prior reaches
+[`reduction_declarations`](@ref) would depend on module composition order.
 """
 function unique_params(params::Vector{InferParameter})
-    seen = Set{Symbol}()
+    index = Dict{Symbol, Int}()
     result = InferParameter[]
     for p in params
-        if !(p.name in seen)
-            push!(seen, p.name)
+        i = get(index, p.name, nothing)
+        if i === nothing
             push!(result, p)
+            index[p.name] = length(result)
+        elseif result[i].provenance === nothing && p.provenance !== nothing
+            result[i] = p   # prefer the copy that knows where it came from
         end
     end
     return result

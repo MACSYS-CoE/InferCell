@@ -65,30 +65,36 @@ any order; each group depends on the ones before it. Tests run via
   counterpart module is absent from the composition, distinguishing the latter from
   a deliberate single-module composition under test. Verify by one test per case
   asserting the error names the species or the missing counterpart.
-- [x] 3.3 Reject the same species-and-direction declared by two modules with
-  different kinds, with an error naming both modules, the species and both kinds
-  and distinguishing the two semantics. Verify by a test using mass versus deferred
-  counter, asserting on the error text.
+- [x] 3.3 Reject the same species-and-direction described as both mass and
+  currency — two descriptions of one continuous transport — with an error naming
+  both modules, the species and both kinds and distinguishing the two semantics;
+  other kind combinations are distinct mechanisms and coexist (amended in review
+  round 4: the published model routes ATP through currency, deferred-counter and
+  rate-constant edges at once). Verify by a test using mass versus currency
+  asserting on the error text, and a test composing the ATP triple that passes.
 - [x] 3.4 Reject a module that declares dynamics for a registry chemostat, and a
   dynamic state owned by two modules; report a dynamic state owned by none in a
   form that a single-module composition does not trip over. Verify by one test per
   case.
 - [x] 3.5 Implement the dead-end check over declared direction plus registry
   groups: a cost debited against a species no module integrates and the registry
-  does not chemostat is an error; a consumed dynamic species with no declared
-  producer is reported with its conserved moiety named. Verify by a test that AMP
-  consumed with no producer and GMP consumed with no producer both report, naming
-  adenylate and guanylate respectively.
+  does not chemostat is reported (not failed — a module validated alone imports
+  species whose owners are absent by construction), as is a consumed dynamic
+  species with no declared producer, each with its conserved moiety named. Verify
+  by a test that AMP consumed with no producer and GMP consumed with no producer
+  both report, naming adenylate and guanylate respectively.
 - [x] 3.6 Exempt chemostatted species from the dead-end check and record the
   exemption so a later change making the pool live reinstates it. Verify by a test
   that a cost against CTP raises nothing and that the exemption is enumerable.
 - [x] 3.7 Exclude catalytic edges from mass and moiety accounting, and reject an
   attempt to include one in a conservation check. Verify by a test asserting the
   rejection rather than a silent zero contribution.
-- [x] 3.8 Check that each module's `inputs` is a subset of the species named by its
-  inbound coupling edges, so a typed declaration that drifts from `inputs` is
-  caught. Verify by a test with a module declaring an inbound edge and an
-  inconsistent `inputs`.
+- [x] 3.8 Check `inputs` against the inbound coupling edges in both directions —
+  every registry-species input has an inbound edge, and every inbound mass or
+  currency edge on a state the module does not integrate appears in `inputs` —
+  with non-registry inputs (the legacy blocks' mRNA and protein) exempt, so a
+  typed declaration that drifts from `inputs` is caught. Verify by a test with a
+  module declaring an inbound edge and an inconsistent `inputs`.
 - [x] 3.9 Call `resolve_coupling` from the orchestrator's existing
   `_resolve_coupling` path so composition validates the boundary. Verify the full
   existing suite still passes via `sbatch test/run_tests.slurm`.

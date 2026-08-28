@@ -67,10 +67,12 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
     # missed form, so it is reported rather than resolved by first-come.
     all_params = InferParameter[p for m in models for p in parameters(m)]
     for (name, files) in provenance_conflicts(all_params)
+        # Once per parameter per session: an infer + posterior-predictive run
+        # rebuilds the problem many times, and the conflict does not change.
         @warn "Parameter :$name is imported from more than one source file " *
               "($(join(files, " and "))). Deduplication keeps the first-seen " *
               "definition; declare which file governs rather than letting " *
-              "composition order decide."
+              "composition order decide." maxlog = 1 _id = Symbol(:provenance_conflict_, name)
     end
     return nothing
 end
@@ -154,9 +156,9 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
                     error(
                         "Input :$inp declared by $(typeof(m)) is chemostatted by " *
                         "the Core A′ registry, so no sub-model integrates it and " *
-                        "inputs() cannot deliver it. Declare a ClampedEdge with " *
-                        "its held_value and carry the value as a fixed parameter " *
-                        "instead")
+                        "inputs() cannot deliver it. Remove :$inp from inputs(); " *
+                        "declare a ClampedEdge with its held_value and carry the " *
+                        "value as a fixed parameter instead")
                 end
                 error(
                     "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")

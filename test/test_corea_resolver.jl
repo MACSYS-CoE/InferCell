@@ -38,11 +38,7 @@ using Distributions
     @testset "An unregistered species is rejected, naming it" begin
         bad = CoreAStub(:Central;
             edges = [MassEdge(species=:M_not_a_species_c, direction=:out)])
-        err = try
-            resolve_coupling([bad])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([bad]))
         @test err isa ArgumentError
         @test occursin("M_not_a_species_c", err.msg)
         @test occursin("Central", err.msg)
@@ -52,11 +48,7 @@ using Distributions
         orphan = CoreAStub(:Central;
             st = [:M_atp_c],
             edges = [MassEdge(species=:M_atp_c, direction=:out, peer=:NotHere)])
-        err = try
-            resolve_coupling([orphan])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([orphan]))
         @test err isa ArgumentError
         @test occursin("NotHere", err.msg)
 
@@ -68,29 +60,63 @@ using Distributions
         @test length(resolve_coupling([lone]).edges) == 1
     end
 
-    @testset "Two modules disagreeing on an edge kind is rejected" begin
+    @testset "Two modules disagreeing on the transport description is rejected" begin
+        # Mass and currency are two spellings of one continuous crossing —
+        # direct shared state versus the same state routed via a pool — so one
+        # (species, direction) admits only one of them.
         as_mass = CoreAStub(:Central;
             st = [:M_atp_c],
             edges = [MassEdge(species=:M_atp_c, direction=:in)])
-        as_counter = CoreAStub(:Expression;
-            edges = [DeferredCounterEdge(species=:M_atp_c, direction=:in,
-                                         counter=:ATP_trsc)])
+        as_currency = CoreAStub(:Expression;
+            edges = [CurrencyEdge(species=:M_atp_c, direction=:in)],
+            ins = [:M_atp_c])
 
-        err = try
-            resolve_coupling([as_mass, as_counter])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([as_mass, as_currency]))
         @test err isa ArgumentError
         # Names both modules, the species, and both kinds.
         @test occursin("Central", err.msg)
         @test occursin("Expression", err.msg)
         @test occursin("M_atp_c", err.msg)
         @test occursin("mass", err.msg)
-        @test occursin("deferred_counter", err.msg)
+        @test occursin("currency", err.msg)
         # And distinguishes the semantics rather than reporting a generic clash.
         @test occursin("continuous", err.msg)
-        @test occursin("debited a step later", err.msg)
+        @test occursin("pool", err.msg)
+    end
+
+    @testset "Distinct mechanisms coexist on one species and direction" begin
+        # The published model routes ATP through a currency pool, a
+        # deferred-counter debit and a rate-constant rebuild simultaneously —
+        # three kinds, two directions. The kind-agreement check is scoped to
+        # the transport descriptions (mass, currency) precisely so this
+        # flagship boundary is declarable.
+        owner = CoreAStub(:Nucleotide;
+            st = [:M_atp_c],
+            edges = [CurrencyEdge(species=:M_atp_c, direction=:out)])
+        expression = CoreAStub(:Expression;
+            edges = [CurrencyEdge(species=:M_atp_c, direction=:in),
+                     DeferredCounterEdge(species=:M_atp_c, direction=:in,
+                                         counter=:ATP_trsc),
+                     RateConstantEdge(species=:M_atp_c, direction=:in)],
+            ins = [:M_atp_c])
+
+        graph = resolve_coupling([owner, expression])
+        @test length(graph.edges) == 4
+        @test Set(r.kind for r in graph.edges) ==
+              Set([:currency, :deferred_counter, :rate_constant])
+        # The currency return path covers the debit, so nothing is stranded.
+        @test isempty(graph.dead_ends)
+
+        # A mass consumer beside a deferred-counter debit is likewise two
+        # mechanisms, not a disagreement: the ODE block consumes continuously
+        # while the hook debits the same pool a step later.
+        continuous = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [MassEdge(species=:M_atp_c, direction=:in)])
+        debit = CoreAStub(:Hook;
+            edges = [DeferredCounterEdge(species=:M_atp_c, direction=:in,
+                                         counter=:ATP_translat)])
+        @test length(resolve_coupling([continuous, debit]).edges) == 2
     end
 
     @testset "One module describing one crossing two ways is also rejected" begin
@@ -99,11 +125,7 @@ using Distributions
             edges = [MassEdge(species=:M_atp_c, direction=:in),
                      CurrencyEdge(species=:M_atp_c, direction=:in)],
             ins = [:M_atp_c])
-        err = try
-            resolve_coupling([both])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([both]))
         @test err isa ArgumentError
         # Named as one module describing one crossing, not as two modules
         # disagreeing with themselves.
@@ -114,11 +136,7 @@ using Distributions
 
     @testset "A module may not integrate a chemostat" begin
         bad = CoreAStub(:Central; st = [:M_ctp_c])
-        err = try
-            resolve_coupling([bad])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([bad]))
         @test err isa ArgumentError
         @test occursin("M_ctp_c", err.msg)
         @test occursin("Central", err.msg)
@@ -127,11 +145,7 @@ using Distributions
     @testset "A dynamic state may not be owned twice" begin
         one = CoreAStub(:Central; st = [:M_atp_c])
         two = CoreAStub(:Nucleotide; st = [:M_atp_c])
-        err = try
-            resolve_coupling([one, two])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([one, two]))
         @test err isa ArgumentError
         @test occursin("M_atp_c", err.msg)
         @test occursin("Central", err.msg)
@@ -222,6 +236,14 @@ using Distributions
         graph = resolve_coupling([user])
         @test isempty(graph.dead_ends)
         @test :M_ctp_c in graph.chemostat_exemptions
+
+        # The producer side is exempted and recorded the same way: the
+        # chemostat absorbs what is produced into it.
+        feeder = CoreAStub(:Nucleotide;
+            edges = [MassEdge(species=:M_utp_c, direction=:out)])
+        g2 = resolve_coupling([feeder])
+        @test isempty(g2.dead_ends)
+        @test :M_utp_c in g2.chemostat_exemptions
     end
 
     @testset "Catalytic edges are excluded from the dead-end accounting" begin
@@ -242,11 +264,7 @@ using Distributions
             st = [:M_atp_c],
             edges = [MassEdge(species=:M_atp_c, direction=:in)],
             ins = [:M_gtp_c])          # declared as an input, but no inbound edge
-        err = try
-            resolve_coupling([drifted])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([drifted]))
         @test err isa ArgumentError
         @test occursin("M_gtp_c", err.msg)
         @test occursin("Metabolism", err.msg)
@@ -265,30 +283,36 @@ using Distributions
         # channels are not mutually exclusive.
         hybrid = CoreAStub(:Expression;
             st = [:M_atp_c],
-            edges = [RateConstantEdge(species=:M_gtp_c, direction=:out)],
+            edges = [RateConstantEdge(species=:M_gtp_c, direction=:in)],
             ins = [:mRNA])
         graph = resolve_coupling([hybrid])
         @test length(graph.edges) == 1
     end
 
-    @testset "An inbound mass edge must be listed in inputs()" begin
+    @testset "An inbound mass or currency edge must be listed in inputs()" begin
         # The converse drift: only inputs() wires a state into dynamics, so an
-        # inbound mass edge on a state the module does not integrate would
-        # silently never arrive.
+        # inbound mass or currency edge on a state the module does not
+        # integrate would silently never arrive.
         silent = CoreAStub(:Expression;
             edges = [MassEdge(species=:M_atp_c, direction=:in)])
-        err = try
-            resolve_coupling([silent])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([silent]))
         @test err isa ArgumentError
         @test occursin("M_atp_c", err.msg)
         @test occursin("inputs()", err.msg)
         @test occursin("Expression", err.msg)
 
-        # A module integrating the species itself needs no input for it, and
-        # the non-mass inbound kinds are not wired through inputs() at all.
+        # A currency consumer is continuous shared state exactly like mass, so
+        # the same omission would silently starve it of its declared coupling.
+        silent_currency = CoreAStub(:Expression;
+            edges = [CurrencyEdge(species=:M_atp_c, direction=:in)])
+        err2 = caught(() -> resolve_coupling([silent_currency]))
+        @test err2 isa ArgumentError
+        @test occursin("currency", err2.msg)
+        @test occursin("inputs()", err2.msg)
+
+        # A module integrating the species itself needs no input for it, and a
+        # deferred counter is not wired through inputs() at all — the hook
+        # debits it, the RHS never reads it.
         own = CoreAStub(:Central;
             st = [:M_atp_c],
             edges = [MassEdge(species=:M_atp_c, direction=:in)])
@@ -306,11 +330,7 @@ using Distributions
             st = [:M_atp_c],
             edges = [CurrencyEdge(species=:M_atp_c, direction=:out,
                                   pool=:M_atp_typo_c)])
-        err = try
-            resolve_coupling([typo])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([typo]))
         @test err isa ArgumentError
         @test occursin("M_atp_typo_c", err.msg)
         @test occursin("pool", err.msg)
@@ -322,11 +342,7 @@ using Distributions
         wrong = CoreAStub(:Transport;
             edges = [ClampedEdge(species=:M_glc__D_e, direction=:in,
                                  origin=:published, held_value=20.0)])
-        err = try
-            resolve_coupling([wrong])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([wrong]))
         @test err isa ArgumentError
         @test occursin("20.0", err.msg)
         @test occursin("40.0", err.msg)
@@ -337,11 +353,52 @@ using Distributions
                                  origin=:published, held_value=40.0)])
         @test length(resolve_coupling([right]).edges) == 1
 
+        # Agreement is up to the registry's 4-decimal transcription — the same
+        # tolerance as the loader — so a full-precision table value passes.
+        full_precision = CoreAStub(:Transport;
+            edges = [ClampedEdge(species=:M_glc__D_e, direction=:in,
+                                 origin=:published, held_value=40.00002)])
+        @test length(resolve_coupling([full_precision]).edges) == 1
+
         # A chemostat with no imported value constrains nothing yet.
         open_value = CoreAStub(:Transcription;
             edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
                                  origin=:ours, held_value=1.0)])
         @test length(resolve_coupling([open_value]).edges) == 1
+    end
+
+    @testset "A clamp on a species another module integrates is rejected" begin
+        # A dependence cannot be both replaced by a constant and live in one
+        # composition: the clamped module would run against a frozen value
+        # while the owner evolves it.
+        owner = CoreAStub(:Nucleotide; st = [:M_gtp_c])
+        clamper = CoreAStub(:Transcription;
+            edges = [ClampedEdge(species=:M_gtp_c, direction=:in,
+                                 origin=:ours, held_value=1.6627)])
+        err = caught(() -> resolve_coupling([owner, clamper]))
+        @test err isa ArgumentError
+        @test occursin("M_gtp_c", err.msg)
+        @test occursin("Transcription", err.msg)
+        @test occursin("Nucleotide", err.msg)
+
+        # The clamp alone is the standalone case — the owner is absent by
+        # construction, so a module author validating alone still passes.
+        @test length(resolve_coupling([clamper]).edges) == 1
+    end
+
+    @testset "Two coupled modules sharing one module_id are rejected" begin
+        one = CoreAStub(:Central; st = [:M_atp_c])
+        other = CoreAStub(:Central; st = [:M_g6p_c])
+        err = caught(() -> resolve_coupling([one, other]))
+        @test err isa ArgumentError
+        @test occursin("Central", err.msg)
+        @test occursin("module_id", err.msg)
+
+        # Two instances of a legacy sub-model — no edges, no registry states —
+        # compose exactly as they did before the contract.
+        graph = resolve_coupling([TranscriptionTranslation(),
+                                  TranscriptionTranslation()])
+        @test isempty(graph.edges)
     end
 
     @testset "Two clamps at different held values are rejected" begin
@@ -354,11 +411,7 @@ using Distributions
         other = CoreAStub(:Nucleotide;
             edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
                                  origin=:ours, held_value=2.0)])
-        err = try
-            resolve_coupling([one, other])
-        catch e
-            e
-        end
+        err = caught(() -> resolve_coupling([one, other]))
         @test err isa ArgumentError
         @test occursin("M_ctp_c", err.msg)
         @test occursin("1.0", err.msg)
@@ -423,27 +476,37 @@ using Distributions
         @test length(prob.u0) == length(states(txl)) + length(states(metab))
     end
 
-    @testset "A chemostatted input gets a diagnostic naming the clamp pattern" begin
+    @testset "A chemostatted input fails the contract with the actual remedy" begin
         # inputs() resolves against integrated states only, and nothing may
-        # integrate a chemostat, so the wiring cannot deliver one. Until wave 2
-        # executes coupling, the value travels as a fixed parameter beside a
-        # declared ClampedEdge — and the error should say so, not just "not
-        # owned by any sub-model".
+        # integrate a chemostat, so the wiring can never deliver one. The
+        # resolver rejects the declaration outright — build_problem would
+        # otherwise fail later whatever edges the module declared — and the
+        # error names the fix: drop the input, keep the ClampedEdge, carry the
+        # value as a fixed parameter until wave 2 executes coupling.
         reader = CoreAStub(:Transcription;
             st = [:M_atp_c],
             edges = [ClampedEdge(species=:M_ctp_c, direction=:in,
                                  origin=:ours, held_value=1.0)],
             ins = [:M_ctp_c])
-        @test length(resolve_coupling([reader]).edges) == 1   # the contract passes
-        err = try
-            build_problem([reader])
-        catch e
-            e
-        end
-        @test err isa ErrorException
+        err = caught(() -> resolve_coupling([reader]))
+        @test err isa ArgumentError
         @test occursin("M_ctp_c", err.msg)
-        @test occursin("chemostatted", err.msg)
+        @test occursin("chemostat", err.msg)
+        @test occursin("Remove :M_ctp_c from inputs()", err.msg)
         @test occursin("ClampedEdge", err.msg)
+
+        # A module outside the typed contract — no coupling declared — skips
+        # the resolver's inputs checks, so the orchestrator keeps the same
+        # diagnostic as a backstop.
+        legacy = CoreAStub(:Transcription;
+            st = [:M_atp_c],
+            ins = [:M_ctp_c])
+        err2 = caught(() -> build_problem([legacy]))
+        @test err2 isa ErrorException
+        @test occursin("M_ctp_c", err2.msg)
+        @test occursin("chemostatted", err2.msg)
+        @test occursin("Remove :M_ctp_c from inputs()", err2.msg)
+        @test occursin("ClampedEdge", err2.msg)
     end
 
     @testset "The jump path validates shared parameters too" begin
@@ -454,11 +517,7 @@ using Distributions
         p_b = InferParameter(2.0, Normal(0, 1), false, :k_shared, :B, :rate)
         a = CoreAStub(:A; params = [p_a], form = :jump)
         b = CoreAStub(:B; params = [p_b], form = :jump)
-        err = try
-            build_problem([a, b])
-        catch e
-            e
-        end
+        err = caught(() -> build_problem([a, b]))
         @test err isa ErrorException
         @test occursin("k_shared", err.msg)
 

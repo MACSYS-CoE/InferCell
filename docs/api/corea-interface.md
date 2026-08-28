@@ -48,7 +48,7 @@ The legend of [`fig1r_state_graph_reduced.pdf`](https://github.com/MACSYS-CoE/In
 | `VolumeEdge` | counts set surface area, hence volume, hence every concentration | — |
 | `ClampedEdge` | a real dependence replaced by a constant | `held_value`, `origin` |
 
-Every edge names a registry species and a direction — `:in` where the declaring module consumes, `:out` where it produces — and optionally a `peer` module. A `peer` of `nothing` resolves against whichever module owns the species, which is what a single module under test should use.
+Every edge names a registry species and a direction — `:in` where the declaring module consumes (or, for the information-carrying kinds, receives), `:out` where it produces or supplies — and optionally a `peer` module. A `peer` of `nothing` resolves against whichever module owns the species, which is what a single module under test should use.
 
 ```julia
 coupling(m::MyModule) = [
@@ -68,7 +68,8 @@ The scoping note leaves two questions open, and both are properties of the bound
 ```julia
 DeferredCounterEdge(species=:M_atp_c, direction=:in, counter=:ATP_trsc)
 # clip defaults to :clamped_deficit_carried — the published model
-# alternatives: :unclamped, and :smoothed, which requires its width:
+# alternatives, each a labelled deviation: :unclamped, and :smoothed,
+# which requires its width:
 DeferredCounterEdge(species=:M_atp_c, direction=:in, counter=:ATP_trsc,
                     clip=:smoothed, smoothing=0.05)
 ```
@@ -80,7 +81,9 @@ The smoothing width is required exactly when the smoothed policy is selected —
 **The rebuild cadence.** The published ODE→stochastic channel is piecewise-constant — rate constants recomputed once a minute, not propensities reading pools continuously.
 
 ```julia
-RateConstantEdge(species=:M_gtp_c, direction=:out)
+# Declared by the module whose rate constants are rebuilt from the pool (:in);
+# the pool's owner declares the matching :out.
+RateConstantEdge(species=:M_gtp_c, direction=:in)
 # cadence defaults to :piecewise_constant at interval = 60.0 — the published model
 # alternative: cadence=:continuous, which carries no interval and is marked a deviation
 ```
@@ -100,9 +103,11 @@ graph.gradient_obstructions
 graph.deviations
 ```
 
-It **throws** when the boundary is inconsistent: an edge naming an unregistered species or pool, an edge whose named peer is absent from the composition, two modules declaring the same species and direction with different kinds, a module integrating a chemostat, a state integrated twice, a declared cost with no state that can pay it, a clamp holding a chemostat away from the registry's value, or an `inputs` list that has drifted from the module's own inbound edges in either direction — including an inbound mass edge whose species is missing from `inputs`, which is the drift that would otherwise silently never reach the module's dynamics.
+It **throws** when the boundary is inconsistent: an edge naming an unregistered species or pool, an edge whose named peer is absent from the composition, one species-and-direction crossing described as both mass and currency — two spellings of one continuous transport — a module integrating a chemostat, a state integrated twice, a clamp on a state another module in the composition integrates, two clamps holding one species at different values, a clamp holding a chemostat away from the registry's value (agreement up to the registry's 4-decimal transcription), two coupled sub-models sharing one `module_id`, a chemostatted species listed in `inputs`, or an `inputs` list that has drifted from the module's own inbound edges in either direction — including an inbound mass or currency edge whose species is missing from `inputs`, which is the drift that would otherwise silently never reach the module's dynamics.
 
-It **reports** what is merely incomplete: unowned states and dead ends, which a partial composition is expected to have.
+Kinds beyond the mass/currency pair are distinct mechanisms, not rival spellings, and **coexist** on one species and direction: the published model routes ATP through a currency pool, a deferred-counter debit and a rate-constant rebuild simultaneously, and the resolver accepts exactly that.
+
+It **reports** what is merely incomplete: unowned states and dead ends — including a declared cost whose paying state is absent from the composition — which a partial composition is expected to have. A successful resolution is therefore **not** evidence that the boundary is closed; asserting completeness is wave 3's job, made separately.
 
 !!! note "Every declared cost needs a state that can pay it and a reaction that returns it"
     This is the mechanical form of a rule the scoping note derived from two errors of record. The lumped charging step converts ATP to AMP, and without ADK1 nothing returns it — 3.48M charging events against an adenylate pool of ~79,800 particles exhausts it after 2.3% of the cell cycle. Transcription buries GTP as GMP and, without GK1, that GMP is stranded. `dead_end_report` names the conserved moiety of each stranded species, because those two are one class of error, not two.
@@ -144,4 +149,4 @@ reduction_declarations(models)   # Vector{ReductionLabel}
 reduction_report(models)         # the same, written for a human
 ```
 
-It collects reduction-introduced clamps, smoothed deferred counters, continuous rate-constant edges, parameters whose prior this project asserted, and any lumping a module registers through `reduction_notes`. A composition that follows the published model throughout reports that nothing departs from it.
+It collects reduction-introduced clamps, smoothed and unclamped deferred counters, continuous rate-constant edges, parameters whose prior this project asserted, and any lumping a module registers through `reduction_notes`. A composition that follows the published model throughout reports that nothing departs from it.

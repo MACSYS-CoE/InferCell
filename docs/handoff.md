@@ -1,6 +1,6 @@
 # Handoff
 
-**Session date:** 2026-08-27
+**Session date:** 2026-08-28
 **Branch:** `change/establish-corea-interface` (PR #38, open against `main`)
 
 ## What this session did
@@ -184,15 +184,91 @@ YAGNI). The substance:
 `CoreAStub` gained a `form` (formalism) field for the jump-path test. Suite:
 **788 passed, 0 failed** (job 15974254; 759 before this session).
 
+After that session, `7a7d010` ran the delta→main promotion: the three specs now
+also live under `openspec/specs/corea-interface/`, byte-identical to the deltas
+modulo the title header. The sync that earlier drafts of this file listed as a
+pending next step is therefore **done, in-branch, before merge**.
+
+## Fourth review round (2026-08-28)
+
+A fresh `/check-PR` (six agents, adversarial verification) plus a second
+`claude code-review` pass (8 finder angles, 13 verifier passes) ran over the
+whole PR. One finding was CRITICAL and design-level; everything confirmed was
+fixed on this branch. Suite: **829 passed, 0 failed** (job 16003213, 1m11s;
+788 before this round). `openspec validate --strict` passes.
+
+- **The kind-agreement collision unit was redefined — the spec amendment of
+  this round.** The spec (and `_check_kind_agreement`, faithfully) treated any
+  two kinds on one global `(species, direction)` pair as a disagreement. But
+  the published boundary puts three kinds on ATP and on GTP at once — currency
+  traffic, a deferred-counter debit, a rate-constant rebuild — against only two
+  directions, so by pigeonhole the flagship composition this contract was
+  frozen for could not be declared without a resolver error. No test had
+  composed two kinds on one species and passed, which is how three review
+  rounds missed it. The amended rule: **mass and currency are mutually
+  exclusive per (species, direction)** — two descriptions of one continuous
+  transport — and every other kind combination coexists as distinct mechanisms.
+  Both spec copies, the resolver, the docs and the tests changed together; a
+  new test declares the full ATP triple and passes. The `RateConstantEdge`
+  direction convention this depends on is now pinned: the module whose rate
+  constants are rebuilt declares `:in`, the pool's owner `:out`.
+- **Silent-pass gaps closed** (each verifier-confirmed): the converse
+  inputs-drift check now covers `CurrencyEdge`, not just `MassEdge` — a
+  currency consumer omitting the `inputs()` entry used to build and silently
+  never receive the coupling; a `ClampedEdge` on a state another module
+  integrates now throws (a value cannot be both held and evolving); a
+  chemostatted species in a coupled module's `inputs()` now fails in the
+  resolver with the actual remedy (drop the input, keep the ClampedEdge)
+  instead of passing the contract and then always failing `build_problem` with
+  circular advice — the orchestrator diagnostic remains as the backstop for
+  legacy modules; `module_id` uniqueness is checked for participating modules
+  (legacy duplicates still compose); `clip = :unclamped` is now a labelled
+  deviation (`deviation_reason` recognised only `:smoothed`, so an unclamped
+  pool — negative counts — shipped unlabelled, falsifying the "no departure
+  reaches a result unlabelled" guarantee).
+- **Labelling and provenance hardening**: `unique_params` prefers the
+  provenance-carrying copy over a bare one, so `:asserted_prior` labelling no
+  longer depends on module composition order; `ParameterSource` validates in an
+  inner constructor (positional construction could bypass the informedness
+  vocabulary); `ReductionLabel.category` is a validated vocabulary
+  (`REDUCTION_CATEGORIES`, gaining `:unclamped_counter`), with the category
+  derived per edge kind by `deviation_category` in `edges.jl` instead of a
+  bare-else `isa` chain in `labels.jl`; the producer-side chemostat exemption
+  is recorded in `chemostat_exemptions` like the consumer side; clamp-vs-registry
+  agreement uses the shared `TRANSCRIPTION_ATOL` (5e-5) rather than exact `!=`;
+  the loader warns when `role = :initial_condition` arrives outside the
+  `conc_<species>` convention (the agreement check silently forfeits otherwise);
+  the cross-file provenance `@warn` fires once per parameter per session.
+- **Docs/specs reconciled**: `docs/api/corea-interface.md` no longer lists the
+  demoted cost-with-no-payer check as a throw (the one place the bfac1a5
+  demotion missed — found independently by four review agents); proposal.md and
+  tasks.md 3.5/3.8 now describe the final contract; the state-registry spec's
+  ownership requirement no longer calls an unowned state "an error" while its
+  own scenario reports it; registry.jl names the upstream repo, commit and
+  physical filenames (`Luthey-Schulten-Lab/Minimal_Cell` @ `db048ac`); the
+  central fixture's header says its GTP row is *deliberately* stale rather than
+  claiming to mirror the registry.
+- **Simplifications applied** (from the review's Agent E): a `caught(f)` helper
+  replaces the 5-line try/catch idiom at 31 sites; `RateConstantEdge`'s
+  sentinel keyword constructor collapsed to a cadence-dependent default;
+  `check_gradient_safety` has one return path; the loader's truncation bound is
+  hoisted out of the row loop. Two suggestions deliberately not taken:
+  `_owned_states`' Dict values are now read (by the clamp-ownership check), and
+  the governing-file branch merge would lose the bespoke stale-table message.
+
 ## Next steps
 
-1. `/opsx:sync establish-corea-interface` to promote the delta specs into
-   `openspec/specs/`, **then** merge the PR to `main`. Sync rather than archive,
-   so wave 0 stays open for amendment while wave 1 reads the contract.
-2. Only then propose the seven wave-1 changes. A wave-1 proposal written before
-   the sync will invent its own interface instead of consuming this one. Propose
-   all seven before applying any — that is the last good chance to catch an
-   interface assumption two modules disagree about.
+1. Push, let CI go green, re-run `openspec validate establish-corea-interface
+   --strict`, then merge PR #38. The delta→main spec sync is already done
+   (`7a7d010`); do **not** run it again. After merge, either archive the change
+   (`/opsx:archive establish-corea-interface`, the wave plan's assumption) or
+   leave it open for amendment while wave 1 reads the contract — decide once,
+   in one place.
+2. Only then propose the seven wave-1 changes. A wave-1 proposal written
+   against anything but `openspec/specs/corea-interface/` will invent its own
+   interface instead of consuming this one. Propose all seven before applying
+   any — that is the last good chance to catch an interface assumption two
+   modules disagree about.
 
 ## Open questions this change did not settle
 

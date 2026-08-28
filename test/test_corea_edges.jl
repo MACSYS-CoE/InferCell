@@ -20,20 +20,12 @@ using InferCell
 
     @testset "A missing required field fails at construction, naming field and kind" begin
         # Not at composition, and not at run time.
-        err = try
-            DeferredCounterEdge(species=:M_atp_c, direction=:in)
-        catch e
-            e
-        end
+        err = caught(() -> DeferredCounterEdge(species=:M_atp_c, direction=:in))
         @test err isa ArgumentError
         @test occursin("counter", err.msg)
         @test occursin("DeferredCounterEdge", err.msg)
 
-        err2 = try
-            CatalyticEdge(species=:M_ptsg_c, direction=:in)
-        catch e
-            e
-        end
+        err2 = caught(() -> CatalyticEdge(species=:M_ptsg_c, direction=:in))
         @test err2 isa ArgumentError
         @test occursin("param_slot", err2.msg)
         @test occursin("CatalyticEdge", err2.msg)
@@ -72,11 +64,16 @@ using InferCell
         @test deviation_reason(e) === nothing
     end
 
-    @testset "Unclamped and smoothed policies are declarable" begin
+    @testset "Unclamped and smoothed policies are declarable, and both deviate" begin
+        # Either departure from the published clamped drain is a labelled
+        # deviation: an unclamped pool can go negative, which the published
+        # model never allows, so a result depending on it must carry a label.
         unclamped = DeferredCounterEdge(species=:M_atp_c, direction=:in,
                                         counter=:ATP_trsc, clip=:unclamped)
         @test !obstructs_gradients(unclamped)
-        @test !deviates_from_published(unclamped)
+        @test deviates_from_published(unclamped)
+        @test occursin("negative", deviation_reason(unclamped))
+        @test deviation_category(unclamped) === :unclamped_counter
 
         smoothed = DeferredCounterEdge(species=:M_atp_c, direction=:in,
                                        counter=:ATP_trsc, clip=:smoothed,
@@ -86,16 +83,15 @@ using InferCell
         @test deviates_from_published(smoothed)   # differs from the published model
         @test occursin("smoothed", deviation_reason(smoothed))
         @test occursin("0.05", deviation_reason(smoothed))
+        @test deviation_category(smoothed) === :smoothed_counter
     end
 
     @testset "The smoothing parameter is exposed, not hidden" begin
         # A smoothed clip without its width is underdeclared, and the other
         # policies take no width at all.
-        err = try
+        err = caught() do
             DeferredCounterEdge(species=:M_atp_c, direction=:in,
                                 counter=:ATP_trsc, clip=:smoothed)
-        catch e
-            e
         end
         @test err isa ArgumentError
         @test occursin("smoothing", err.msg)
@@ -178,11 +174,7 @@ using InferCell
         # Counts entering a rate law move no matter. Returning a silent zero
         # would let the category error pass unnoticed.
         cat = CatalyticEdge(species=:M_ptsg_c, direction=:in, param_slot=:enzyme_conc)
-        err = try
-            mass_contribution(cat)
-        catch e
-            e
-        end
+        err = caught(() -> mass_contribution(cat))
         @test err isa ArgumentError
         @test occursin("carries no mass", err.msg)
         @test occursin("M_ptsg_c", err.msg)

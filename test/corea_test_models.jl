@@ -47,6 +47,10 @@ function CoreAStub(id::Symbol;
                      form)
 end
 
+# The suite's error-capture idiom: run `f`, return the exception it throws so
+# its message can be inspected, or `nothing` when it doesn't throw.
+caught(f) = try f(); nothing catch e; e end
+
 module_id(m::CoreAStub) = m.id
 states(m::CoreAStub) = m.st
 parameters(m::CoreAStub) = m.params

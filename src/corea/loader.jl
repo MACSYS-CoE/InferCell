@@ -77,16 +77,17 @@ function read_source_table(path::AbstractString;
     values = Dict{String, Float64}()
     informedness = Dict{String, Symbol}()
 
+    # A truncated row is corruption, not something to skip: silently dropping
+    # it could collapse a two-file ambiguity to one holder and bypass the
+    # governs machinery entirely — or, cut short before the uncertainty
+    # columns, silently re-derive an informedness the row declared. `split`
+    # keeps empty cells, so a short row means missing tabs, not a legitimately
+    # empty final column.
+    required = max(id_idx, value_idx,
+                   something(gstd_idx, 0), something(informedness_idx, 0))
+
     for line in lines[2:end]
         cells = split(line, '\t')
-        # A truncated row is corruption, not something to skip: silently
-        # dropping it could collapse a two-file ambiguity to one holder and
-        # bypass the governs machinery entirely — or, cut short before the
-        # uncertainty columns, silently re-derive an informedness the row
-        # declared. `split` keeps empty cells, so a short row means missing
-        # tabs, not a legitimately empty final column.
-        required = max(id_idx, value_idx,
-                       something(gstd_idx, 0), something(informedness_idx, 0))
         length(cells) < required && throw(ArgumentError(
             "Source table $path has a truncated row (\"$(first(line, 60))\"): " *
             "$(length(cells)) cell(s) where the widest header column is " *
@@ -269,7 +270,7 @@ function load_parameter(tables::Vector{SourceTable}, identifier::AbstractString;
         holders[match]
     end
 
-    _check_registry_agreement(id, chosen)
+    _check_registry_agreement(id, chosen, role)
 
     alternatives = [t.file => t.values[id] for t in holders if t.file != chosen.file]
 
@@ -287,8 +288,19 @@ end
 # the same tables live. Two channels for one number is the cross-file trap one
 # layer up, so where an identifier names a registry species with a recorded
 # value, the two must agree.
-function _check_registry_agreement(id::String, chosen::SourceTable)
-    startswith(id, "conc_") || return nothing
+function _check_registry_agreement(id::String, chosen::SourceTable, role::Symbol)
+    if !startswith(id, "conc_")
+        # The check keys on the `conc_<species>` convention; an initial
+        # condition named outside it silently forfeits the check, so say so
+        # where the role makes the forfeiture visible.
+        role === :initial_condition && @warn(
+            "Identifier $id was imported with role = :initial_condition but " *
+            "does not follow the conc_<species> naming, so the " *
+            "registry-agreement check cannot identify its species and was " *
+            "skipped. If it sets a registry species' initial value, adopt the " *
+            "convention in the table or verify the registry row by hand.")
+        return nothing
+    end
     species = Symbol(chopprefix(id, "conc_"))
     is_registered(species) || return nothing
 
@@ -296,10 +308,9 @@ function _check_registry_agreement(id::String, chosen::SourceTable)
     entry.initial_value === nothing && return nothing
 
     value = chosen.values[id]
-    # The registry transcribes values to four decimal places while the source
-    # tables carry full precision, so agreement means equal up to that
-    # transcription — half a unit in the fourth decimal — not bit-for-bit.
-    isapprox(value, entry.initial_value; atol = 5e-5) || throw(ArgumentError(
+    # Agreement up to the registry's 4-decimal transcription — half a unit in
+    # the fourth decimal — not bit-for-bit.
+    isapprox(value, entry.initial_value; atol = TRANSCRIPTION_ATOL) || throw(ArgumentError(
         "Identifier $id imports $value from $(chosen.file), but the registry " *
         "records :$species at $(entry.initial_value)" *
         (entry.source_file === nothing ? "" : " from $(entry.source_file)") *

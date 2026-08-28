@@ -28,7 +28,9 @@ Clipping policies for a deferred counter.
   therefore non-differentiable.
 - `:unclamped` — the pool is allowed to go negative.
 - `:smoothed` — the discontinuity is replaced by a differentiable approximation.
-  A deviation from the published model, and labelled as one.
+
+The published clamped drain is the default; either other policy is a deviation
+from the published model, and labelled as one.
 """
 const CLIP_POLICIES = (:clamped_deficit_carried, :unclamped, :smoothed)
 
@@ -202,6 +204,11 @@ Pools re-enter the stochastic block as recomputed rate constants. The only
 ODE→stochastic channel in the model, and so the edge that decides whether the
 coupling is bidirectional at all.
 
+No mass moves — the pool is read, not consumed — so `direction` follows the
+information: the module whose rate constants are rebuilt from the pool declares
+`:in`, and the module owning the pool declares `:out` where it names the
+channel from its own side.
+
 Defaults to the published model's 60 s rebuild: an unspecified `interval` is
 60 s for a `:piecewise_constant` cadence and absent for a `:continuous` one,
 which takes no interval and is marked as a deviation. An interval passed
@@ -233,18 +240,12 @@ struct RateConstantEdge <: CouplingEdge
     end
 end
 
-# Distinguishes "interval not given" from an explicit `nothing`: the default
-# adapts to the cadence, but an explicit value — including an explicit
-# `nothing` — must reach the inner constructor's validation untouched.
-const _INTERVAL_UNSET = :unset
-
-function RateConstantEdge(; species=nothing, direction=nothing, peer=nothing,
-                          cadence=:piecewise_constant, interval=_INTERVAL_UNSET)
-    if interval === _INTERVAL_UNSET
-        interval = cadence === :continuous ? nothing : 60.0
-    end
-    return RateConstantEdge(species, direction, peer, cadence, interval)
-end
+# The interval default adapts to the cadence; an explicit value — including an
+# explicit `nothing` — reaches the inner constructor's validation untouched.
+RateConstantEdge(; species=nothing, direction=nothing, peer=nothing,
+                 cadence=:piecewise_constant,
+                 interval=(cadence === :continuous ? nothing : 60.0)) =
+    RateConstantEdge(species, direction, peer, cadence, interval)
 
 """
     VolumeEdge(; species, direction, peer=nothing)
@@ -380,9 +381,10 @@ obstructs_gradients(::CouplingEdge) = false
 """
     deviates_from_published(e::CouplingEdge) -> Bool
 
-Whether the edge departs from the published model. True for a smoothed deferred
-counter, a continuous rate-constant edge, and a clamp this reduction introduced
-— exactly the edges [`deviation_reason`](@ref) has a reason for.
+Whether the edge departs from the published model. True for a smoothed or
+unclamped deferred counter, a continuous rate-constant edge, and a clamp this
+reduction introduced — exactly the edges [`deviation_reason`](@ref) has a
+reason for.
 
 This is the predicate behind the "what is ours" enumeration: a deviation that
 reaches a result unlabelled is the failure mode it exists to prevent.
@@ -396,10 +398,15 @@ A one-line description of how an edge departs from the published model, or
 `nothing` where it does not. Written for a report a human reads.
 """
 function deviation_reason(e::DeferredCounterEdge)
-    e.clip === :smoothed || return nothing
-    return "deferred counter on :$(e.species) uses a smoothed clip of width " *
-           "$(e.smoothing), replacing the published model's max(0, ·) with a " *
-           "differentiable approximation"
+    e.clip === :smoothed &&
+        return "deferred counter on :$(e.species) uses a smoothed clip of width " *
+               "$(e.smoothing), replacing the published model's max(0, ·) with a " *
+               "differentiable approximation"
+    e.clip === :unclamped &&
+        return "deferred counter on :$(e.species) is unclamped — the pool may go " *
+               "negative, where the published model floors it at zero and " *
+               "carries the deficit forward"
+    return nothing
 end
 
 function deviation_reason(e::RateConstantEdge)
@@ -416,7 +423,21 @@ end
 
 deviation_reason(::CouplingEdge) = nothing
 
+"""
+    deviation_category(e::CouplingEdge) -> Symbol
+
+The [`ReductionLabel`](@ref) category a deviating edge files under. Defined only
+for the kinds that can deviate — asking for the category of an edge whose
+[`deviation_reason`](@ref) is `nothing` is a caller error, and a new deviating
+kind must add its method here rather than fall through to a wrong default.
+"""
+deviation_category(e::DeferredCounterEdge) =
+    e.clip === :smoothed ? :smoothed_counter : :unclamped_counter
+deviation_category(::RateConstantEdge) = :continuous_rebuild
+deviation_category(::ClampedEdge) = :clamp
+
 export CouplingEdge, MassEdge, CurrencyEdge, DeferredCounterEdge, CatalyticEdge,
        RateConstantEdge, VolumeEdge, ClampedEdge, EDGE_KINDS,
        edge_kind, is_consumer, is_producer, carries_mass, mass_contribution,
-       obstructs_gradients, deviates_from_published, deviation_reason
+       obstructs_gradients, deviates_from_published, deviation_reason,
+       deviation_category

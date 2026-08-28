@@ -64,9 +64,11 @@ file for every imported value makes the third instance visible instead of silent
   cadence (piecewise-constant at an interval, or continuous).
 - **A validating resolver.** Given a set of sub-models, resolve every declared edge
   against the registry and against the other modules' declarations, and fail with a
-  named error when an edge references an unknown species, when two modules declare
-  the same edge with different kinds, or when a declared cost has no state that can
-  pay it.
+  named error when an edge references an unknown species, or when one crossing is
+  described as both mass and currency — two descriptions of one continuous
+  transport, where the other kinds are distinct mechanisms and coexist. A declared
+  cost whose paying state is absent is reported rather than failed, because a
+  module validated alone legitimately imports species whose owners are absent.
 - **A provenance-carrying parameter loader.** Every imported value — kinetic
   constant, initial concentration, prior — records the file it came from.
   `InferParameter` gains a provenance field; a query surfaces every value whose

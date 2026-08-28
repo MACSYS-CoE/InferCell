@@ -55,7 +55,7 @@ obs_params(params)          # role == :observation
 model_free_params(params)   # free and role != :observation  (dynamics RHS params)
 obs_free_params(params)     # free and role == :observation  (likelihood params)
 ode_free_params             # backward-compat alias for model_free_params
-unique_params(params)       # dedupe by name, first-occurrence wins
+unique_params(params)       # dedupe by name; a provenance-carrying copy wins over a bare one
 ```
 
 Each takes a `Vector{InferParameter}` and returns the filtered subset; chain them as needed.

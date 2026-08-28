@@ -49,11 +49,7 @@ using InferCell
     end
 
     @testset "An unregistered species is rejected by name" begin
-        err = try
-            species_index(:M_not_a_species_c)
-        catch e
-            e
-        end
+        err = caught(() -> species_index(:M_not_a_species_c))
         @test err isa ArgumentError
         @test occursin("M_not_a_species_c", err.msg)
 
@@ -135,11 +131,7 @@ using InferCell
     @testset "Asking a dynamic state for a held value is an error" begin
         @test is_dynamic(:M_atp_c)
         @test !is_chemostatted(:M_atp_c)
-        err = try
-            held_value(:M_atp_c)
-        catch e
-            e
-        end
+        err = caught(() -> held_value(:M_atp_c))
         @test err isa ArgumentError
         @test occursin("M_atp_c", err.msg)
     end

@@ -82,8 +82,10 @@ chemostat its own dynamics.
 ### Requirement: Each dynamic state is owned by exactly one module
 
 Every dynamic state in the registry SHALL be integrated by exactly one module in a
-composed Core A′ model. A state integrated by two modules, or by none, is an
-error in the composition rather than a runtime surprise.
+complete Core A′ composition. A state integrated by two modules is an error in
+the composition rather than a runtime surprise; a state integrated by none is
+reported rather than failed, so a partial composition — a single module under
+test — still resolves.
 
 #### Scenario: Two modules claim the same state
 - **WHEN** two modules in one composition both declare they integrate the same

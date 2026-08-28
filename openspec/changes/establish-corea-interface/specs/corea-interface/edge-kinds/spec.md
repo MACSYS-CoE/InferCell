@@ -80,7 +80,9 @@ published clamped drain, so selecting anything else is an explicit act.
 
 The declaration SHALL record which policy is in force, so that a trajectory
 sampled with a gradient-based method can be checked against a policy that admits
-gradients.
+gradients. Any policy other than the published clamped drain SHALL be recorded
+as a deviation from the published model, so it can reach any result that
+depends on it.
 
 #### Scenario: The published clipped drain is declarable
 - **WHEN** a module declares the expression-cost drain against ATP with the
@@ -100,13 +102,21 @@ gradients.
 - **THEN** the edge records that its behaviour differs from the published model
 - **AND** the parameter controlling the smoothing is exposed rather than hidden
 
+#### Scenario: An unclamped counter is a labelled deviation
+- **WHEN** the unclamped policy is selected
+- **THEN** the edge records that its behaviour differs from the published model
+- **AND** enumerating the composition's reduction declarations includes it
+
 ### Requirement: Rate-constant edges declare a refresh cadence
 
 A rate-constant edge SHALL declare whether the downstream rate constants are
 recomputed at a fixed interval, holding piecewise-constant between refreshes as the
 published model's 60 s rebuild does, or track the upstream pools continuously.
 A fixed-interval declaration SHALL carry its interval. The cadence defaults to
-the published 60 s rebuild, so a continuous edge is an explicit act.
+the published 60 s rebuild, so a continuous edge is an explicit act. No mass
+moves on this edge, so its direction follows the information: the module whose
+rate constants are rebuilt declares it inbound, and the pool's owner declares
+the matching outbound edge where it names the channel from its own side.
 
 #### Scenario: The published 60 s rebuild is declarable
 - **WHEN** a module declares transcription rate constants refreshed from live NTP
@@ -148,8 +158,20 @@ inconsistent.
 The resolver SHALL fail on at least:
 - an edge naming a species, or a currency pool, that is not in the state registry,
 - an edge whose counterpart module does not exist in the composition,
-- the same species-and-direction pair declared with different kinds,
-- two clamps holding one species at different values.
+- the same species-and-direction pair described as both mass and currency — two
+  descriptions of one continuous transport,
+- two clamps holding one species at different values,
+- a clamp on a dynamic state that a module in the composition integrates,
+- a chemostatted species listed in a coupled module's untyped inputs,
+- an untyped inputs list drifted from the module's inbound mass or currency
+  edges, in either direction,
+- two coupled sub-models sharing one module identity.
+
+Edge kinds beyond the mass/currency pair are distinct coupling mechanisms, not
+rival descriptions of one crossing, and SHALL coexist on one species and
+direction: the published model routes ATP through a currency pool, a
+deferred-counter debit and a rate-constant rebuild simultaneously, and the
+resolver accepts that composition.
 
 A species consumed with no declared producer, or produced with no declared
 consumer, is **reported rather than failed** — see "Every declared cost has a
@@ -159,12 +181,17 @@ state that pays it and a reaction that returns it" below for why.
 - **WHEN** a module declares an edge naming a species absent from the registry
 - **THEN** resolution fails naming the species and the declaring module
 
-#### Scenario: Two modules disagree on an edge kind
+#### Scenario: Two modules disagree on the transport description
 - **WHEN** one module declares a species crossing as mass and another declares the
-  same species and direction as a deferred counter
+  same species and direction as currency
 - **THEN** resolution fails naming both modules, the species, and the two kinds
 - **AND** the error text distinguishes the two semantics rather than reporting a
   generic conflict
+
+#### Scenario: Distinct mechanisms coexist on one crossing
+- **WHEN** a composition declares a currency edge, a deferred-counter debit and a
+  rate-constant rebuild on the same species
+- **THEN** resolution succeeds, carrying all three edges
 
 #### Scenario: An edge with a missing counterpart
 - **WHEN** a module declares an edge to a module that is not in the composition
@@ -216,3 +243,5 @@ and MUST NOT infer it from a successful resolution.
   the return path
 - **AND** the exemption is recorded, so that a later change making the pool live
   reinstates the check
+- **AND** a species produced into a chemostatted pool is likewise exempt, and
+  likewise recorded
