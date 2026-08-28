@@ -14,7 +14,12 @@ using LinearAlgebra: rank
 using Statistics: quantile, mean, std
 
 include("parameters.jl")
+include("corea/registry.jl")
+include("corea/edges.jl")
 include("interface.jl")
+include("corea/resolver.jl")
+include("corea/labels.jl")
+include("corea/loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
 include("models/transcription_translation.jl")
@@ -29,8 +34,15 @@ include("boundary.jl")
 
 export InferParameter, free_params, rate_params, ic_params, obs_params,
        model_free_params, ode_free_params, obs_free_params, unique_params
+export ParameterSource, provenance_of, source_file, informedness,
+       asserted_prior_params, uninformed_params, provenance_conflicts,
+       was_chosen_over_alternative
 export AbstractSubModel, SubModelContext
-export states, parameters, dynamics, inputs, formalism, inference_mode, reactions
+export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
+       coupling, reduction_notes, module_id
+# The Core A′ interface contract (registry, edge kinds, resolver, labels,
+# loader) exports from its own files under src/corea/, so seven parallel
+# wave-1 branches do not all append to one export block here.
 export ObservedData, PosteriorPredictive, ABCPosterior
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism

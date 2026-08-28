@@ -1,0 +1,300 @@
+# Handoff
+
+**Session date:** 2026-08-28
+**Branch:** `change/establish-corea-interface` (PR #38, open against `main`)
+
+## What this session did
+
+Implemented OpenSpec change `establish-corea-interface` — wave 0 of the Core A′
+port, per `dev/plans/reduced-syn3a-wave-plan.md`. The change was proposed and
+applied in the same session, so `openspec/changes/establish-corea-interface/`
+carries the proposal, three delta specs, design and tasks alongside the code.
+
+Wave 0 is contract only: it declares and validates a boundary, and executes
+nothing. Wave 2 is where the resolved edges start driving actual coupling.
+
+### New source
+
+| File | What it holds |
+|---|---|
+| `src/corea/registry.jl` | The 32 dynamic states and 5 chemostats, named and ordered once |
+| `src/corea/edges.jl` | The seven `CouplingEdge` kinds from fig1r's legend |
+| `src/corea/resolver.jl` | `resolve_coupling`, its checks and its reports |
+| `src/corea/loader.jl` | Provenance-carrying parameter import, cross-file ambiguity report |
+| `src/corea/labels.jl` | `reduction_declarations` — enumerating what is ours, not the model's |
+
+### Changed source
+
+- `src/parameters.jl` — added `ParameterSource` and a seventh `provenance` field
+  on `InferParameter`, behind a six-argument outer constructor so all 54
+  existing construction sites (47 in `src/models/`, 7 in `test/`) work
+  untouched.
+- `src/interface.jl` — added `coupling`, `module_id` and `reduction_notes`, all
+  with defaults. `inputs` is unchanged.
+- `src/orchestrator.jl` — `_resolve_coupling` now calls `resolve_coupling`;
+  `_validate_shared_params` warns when one parameter name arrives from two files.
+- `src/InferCell.jl` — includes and exports for the above.
+
+### Two decisions worth knowing
+
+**The boundary hazards became fields, not hard-coded behaviour.** The clipped
+`max(0, ·)` ATP drain and the 60 s piecewise-constant rebuild are both
+declarable, and both default to what the published model does. Departing from
+the published model is now something an author has to type, and
+`reduction_declarations` enumerates every departure so it can reach a report.
+This is how the scoping note's two open questions are handled without answering
+them prematurely.
+
+**The loader parses SBtab-shaped TSV with Base only.** `DelimitedFiles` stopped
+being a stdlib at Julia 1.9, so using it would mean a new `[deps]` entry, a
+`[compat]` bound, and a network fetch. Compute nodes have no network. The format
+needs no quoting logic, so a small Base parser was the lower-risk choice.
+
+## Two pre-existing problems fixed in passing
+
+Both were broken on `main` before this branch, and both blocked this change's
+own verification steps:
+
+1. **The test suite could not run on this cluster at all.** `Pkg.test()` resolves
+   a fresh test environment needing Aqua, Aqua was not in the Julia depot, and
+   compute nodes have no network — so every `sbatch test/run_tests.slurm` died in
+   ~20 s with `Could not resolve host: pkg.julialang.org`. Fixed by populating
+   the depot from the login node, which does have network and does have Julia at
+   `/apps/modules/software/Julia/1.10.5/bin/` (the wrapper needs `EBROOTJULIA`
+   set and its own `bin` on `PATH`). **If the depot is wiped, this recurs** — see
+   `reference_cluster_env` in auto-memory.
+2. **`mkdocs build --strict` was failing.** `docs/positioning.md` was deleted in
+   `390aa22` but was still referenced from `mkdocs.yml`'s nav *and* from a link
+   in `docs/index.md`. Under `strict: true` either one aborts the build, so
+   `.github/workflows/docs.yml` was red. Both references removed.
+
+## Status
+
+- `openspec validate establish-corea-interface --strict` — passes.
+- `mkdocs build --strict` — passes, with the new `docs/api/corea-interface.md`
+  rendering. Verified in a scratch venv, since mkdocs is not installed on the
+  cluster.
+- Julia test suite — **759 passed, 0 failed, 0 errored** (job 15972827, ~3m
+  wall; 701 before the review-driven hardening, 269 before this change). All
+  34 tasks in `tasks.md` are ticked.
+
+Two failures were found and fixed along the way, both worth knowing about:
+`SpeciesEntry`'s validating constructor originally took eight untyped positional
+arguments, which is the signature Julia auto-generates, so it overwrote the
+generated one and made precompilation illegal — it is an inner constructor now.
+And `test/corea_test_models.jl` extended `states` after a bare `using InferCell`,
+which Julia rejects; it needs an explicit `import`. That second one silently took
+all five new test files with it, so the first green-looking run had in fact never
+executed any of the new tests. Worth remembering as a failure mode: a passing
+count that did not go *up* is not a passing run.
+
+## Pre-merge review (2026-08-27, later session)
+
+`/simplify` + `/check-PR` ran against PR #38: nine parallel review agents,
+every MAJOR finding adversarially verified. Verdict: merge after fixes, all of
+which are applied on this branch. The substance:
+
+- **Hardened the contract** where the review found silent-pass gaps, all
+  additive validation: an inbound `MassEdge` must appear in `inputs()` (the
+  drift wave-1 authors would hit — only `inputs` wires a state into dynamics);
+  producer-with-no-consumer is now a reported dead end (`DeadEnd` gained
+  `missing_role`, replacing `consumers` with `modules`); a `ClampedEdge` on a
+  chemostat must match the registry's held value; `conc_<species>` imports are
+  checked against the registry row's `initial_value` (the GTP 1.6627-vs-0.1
+  trap now fails at load); a `governing` declaration binds even with a single
+  holder; truncated TSV rows and misspelled `Informedness` cells error instead
+  of being skipped; `CurrencyEdge.pool` is registry-checked; positional edge
+  construction validates (inner constructors).
+- **`DeferredCounterEdge` gained `smoothing`**, required exactly when
+  `clip = :smoothed` — the edge-kinds spec's "parameter controlling the
+  smoothing is exposed" clause, previously unimplemented.
+- **Simplified**: vocab validation consolidated on `_check_vocab` (now in
+  `parameters.jl`, shared with the registry's gstd⟺informedness invariant);
+  `deviates_from_published` derives from `deviation_reason`; dead code dropped
+  (`_module_name`, unused accessors, write-only `SourceTable.path`, unreachable
+  `state_index::Nothing` arm); six unused exports removed; corea exports moved
+  into their own files so seven wave-1 branches don't all append to one block
+  in `src/InferCell.jl`.
+- **Spec/docs reconciled with the code**: the edge-kinds table no longer names
+  a `debited_pool` field that never existed, marks which fields default to the
+  published model's behaviour, and the unknown-kind failure is honestly
+  resolution-time; design.md sketches and the informedness vocabulary now match
+  the source.
+
+Wave-1 advisories the review surfaced but deliberately did not act on: lower
+`ResolvedEdge`s into concrete typed callback state before any hot path iterates
+them; resolve chemostat `held_value`s to plain `Float64` at build time if an
+RHS ever reads them; assert registry-vs-table agreement when wave 1 vendors the
+real balanced tables. (A third advisory — the cost-with-no-payer throw blocking
+standalone validation — was resolved by the later `claude code-review` pass
+below.)
+
+## Automated code review fixes (2026-08-27, third session)
+
+`claude code-review` (high effort) reviewed PR #38 and reported 10 findings
+plus below-cap items; each was verified against the code, design.md and the
+spec deltas before acting. Seven findings plus four cleanups were fixed
+directly, two were resolved as design decisions (user-approved), one was
+documentation-only, and three cleanup suggestions were rejected (one would
+violate the spec's "registry positions it touches" requirement; two were
+YAGNI). The substance:
+
+- **Standalone validation now works for importing modules** (design amendment):
+  the cost-with-no-payer throw in `_find_dead_ends` is demoted to a report —
+  the species shows in `unowned_states` and, absent a producer, as a
+  `:producer` dead end. The edge-kinds spec delta's "A cost with no paying
+  state" scenario was amended to match. **This gives up a check the assembled
+  model needs** — in a complete composition a cost with no payer is an error,
+  and now nothing fails on it — so the spec states that a successful resolve is
+  not evidence of a closed boundary, and the obligation to assert completeness
+  is recorded against wave 3 in `dev/plans/reduced-syn3a-wave-plan.md`. It is
+  deliberately not a spec requirement here: promising behaviour this change does
+  not implement is the exact failure the earlier review round flagged as
+  blocking.
+- **Hybrid modules unblocked**: `_check_inputs_consistency` only holds
+  registry-species inputs to the typed contract, so a module with typed
+  coupling can still read legacy state (mRNA, protein) through `inputs()`.
+- **Clamp payloads compared edge-vs-edge**: two clamps on one species must
+  agree on `held_value` even when the registry records none
+  (`_check_clamp_agreement`).
+- **Chemostatted inputs get a real diagnostic**: the orchestrator now points at
+  the ClampedEdge + fixed-parameter pattern instead of "not owned by any
+  sub-model". Wiring held values into dynamics stays a wave-2 non-goal
+  (documented in design.md).
+- **Loader hardening**: registry agreement uses `atol=5e-5` (the 4-decimal
+  transcription's half-unit) instead of exact `==`, so full-precision wave-1
+  tables won't spuriously fail; the truncation guard covers the GeometricStd
+  and Informedness columns; a non-empty unparseable or NaN gstd throws instead
+  of misclassifying; the default logical file name is the extension-free
+  basename, matching the registry's `central_balanced`/`nucleotide_balanced`
+  names (the old `basename(path)` default could never match them, and the
+  registry comment claiming the loader resolves logical names to paths was
+  corrected). The `conc_<species>` identifier convention is now documented in
+  the registry so wave-1 tables adopt it rather than silently killing the
+  agreement check.
+- **Jump path parity**: `_build_jump_problem` now runs
+  `_validate_shared_params`, so `:jump` compositions get the shared-parameter
+  equality check and the cross-file provenance warning.
+- **Cleanups**: `RateConstantEdge`'s keyword constructor no longer silently
+  discards an explicit `interval` under `cadence=:continuous` (sentinel
+  default); duplicate `:asserted_prior` labels deduped via `unique_params`;
+  `species_in_group` reuses `_check_vocab`; two quadratic `reduce(vcat, …)`
+  flattened.
+
+`CoreAStub` gained a `form` (formalism) field for the jump-path test. Suite:
+**788 passed, 0 failed** (job 15974254; 759 before this session).
+
+After that session, `7a7d010` ran the delta→main promotion: the three specs now
+also live under `openspec/specs/corea-interface/`, byte-identical to the deltas
+modulo the title header. The sync that earlier drafts of this file listed as a
+pending next step is therefore **done, in-branch, before merge**.
+
+## Fourth review round (2026-08-28)
+
+A fresh `/check-PR` (six agents, adversarial verification) plus a second
+`claude code-review` pass (8 finder angles, 13 verifier passes) ran over the
+whole PR. One finding was CRITICAL and design-level; everything confirmed was
+fixed on this branch. Suite: **829 passed, 0 failed** (job 16003213, 1m11s;
+788 before this round). `openspec validate --strict` passes.
+
+- **The kind-agreement collision unit was redefined — the spec amendment of
+  this round.** The spec (and `_check_kind_agreement`, faithfully) treated any
+  two kinds on one global `(species, direction)` pair as a disagreement. But
+  the published boundary puts three kinds on ATP and on GTP at once — currency
+  traffic, a deferred-counter debit, a rate-constant rebuild — against only two
+  directions, so by pigeonhole the flagship composition this contract was
+  frozen for could not be declared without a resolver error. No test had
+  composed two kinds on one species and passed, which is how three review
+  rounds missed it. The amended rule: **mass and currency are mutually
+  exclusive per (species, direction)** — two descriptions of one continuous
+  transport — and every other kind combination coexists as distinct mechanisms.
+  Both spec copies, the resolver, the docs and the tests changed together; a
+  new test declares the full ATP triple and passes. The `RateConstantEdge`
+  direction convention this depends on is now pinned: the module whose rate
+  constants are rebuilt declares `:in`, the pool's owner `:out`.
+- **Silent-pass gaps closed** (each verifier-confirmed): the converse
+  inputs-drift check now covers `CurrencyEdge`, not just `MassEdge` — a
+  currency consumer omitting the `inputs()` entry used to build and silently
+  never receive the coupling; a `ClampedEdge` on a state another module
+  integrates now throws (a value cannot be both held and evolving); a
+  chemostatted species in a coupled module's `inputs()` now fails in the
+  resolver with the actual remedy (drop the input, keep the ClampedEdge)
+  instead of passing the contract and then always failing `build_problem` with
+  circular advice — the orchestrator diagnostic remains as the backstop for
+  legacy modules; `module_id` uniqueness is checked for participating modules
+  (legacy duplicates still compose); `clip = :unclamped` is now a labelled
+  deviation (`deviation_reason` recognised only `:smoothed`, so an unclamped
+  pool — negative counts — shipped unlabelled, falsifying the "no departure
+  reaches a result unlabelled" guarantee).
+- **Labelling and provenance hardening**: `unique_params` prefers the
+  provenance-carrying copy over a bare one, so `:asserted_prior` labelling no
+  longer depends on module composition order; `ParameterSource` validates in an
+  inner constructor (positional construction could bypass the informedness
+  vocabulary); `ReductionLabel.category` is a validated vocabulary
+  (`REDUCTION_CATEGORIES`, gaining `:unclamped_counter`), with the category
+  derived per edge kind by `deviation_category` in `edges.jl` instead of a
+  bare-else `isa` chain in `labels.jl`; the producer-side chemostat exemption
+  is recorded in `chemostat_exemptions` like the consumer side; clamp-vs-registry
+  agreement uses the shared `TRANSCRIPTION_ATOL` (5e-5) rather than exact `!=`;
+  the loader warns when `role = :initial_condition` arrives outside the
+  `conc_<species>` convention (the agreement check silently forfeits otherwise);
+  the cross-file provenance `@warn` fires once per parameter per session.
+- **Docs/specs reconciled**: `docs/api/corea-interface.md` no longer lists the
+  demoted cost-with-no-payer check as a throw (the one place the bfac1a5
+  demotion missed — found independently by four review agents); proposal.md and
+  tasks.md 3.5/3.8 now describe the final contract; the state-registry spec's
+  ownership requirement no longer calls an unowned state "an error" while its
+  own scenario reports it; registry.jl names the upstream repo, commit and
+  physical filenames (`Luthey-Schulten-Lab/Minimal_Cell` @ `db048ac`); the
+  central fixture's header says its GTP row is *deliberately* stale rather than
+  claiming to mirror the registry.
+- **Simplifications applied** (from the review's Agent E): a `caught(f)` helper
+  replaces the 5-line try/catch idiom at 31 sites; `RateConstantEdge`'s
+  sentinel keyword constructor collapsed to a cadence-dependent default;
+  `check_gradient_safety` has one return path; the loader's truncation bound is
+  hoisted out of the row loop. Two suggestions deliberately not taken:
+  `_owned_states`' Dict values are now read (by the clamp-ownership check), and
+  the governing-file branch merge would lose the bespoke stale-table message.
+
+## Next steps
+
+1. Push, let CI go green, re-run `openspec validate establish-corea-interface
+   --strict`, then merge PR #38. The delta→main spec sync is already done
+   (`7a7d010`); do **not** run it again. After merge, either archive the change
+   (`/opsx:archive establish-corea-interface`, the wave plan's assumption) or
+   leave it open for amendment while wave 1 reads the contract — decide once,
+   in one place.
+2. Only then propose the seven wave-1 changes. A wave-1 proposal written
+   against anything but `openspec/specs/corea-interface/` will invent its own
+   interface instead of consuming this one. Propose all seven before applying
+   any — that is the last good chance to catch an interface assumption two
+   modules disagree about.
+
+## Open questions this change did not settle
+
+Deliberately deferred, and none of them changes the contract:
+
+- Which clip policy Core A′ actually runs under for inference. All three are
+  declarable; whether NUTS on the ODE block needs `:smoothed` is answered by
+  trying it, in wave 3.
+- Whether the 60 s rebuild stays piecewise-constant. Same shape — declarable,
+  defaults to published, and the deviation should be measured rather than
+  assumed. A wave-2 task on `add-cme-rebuild-60s`.
+- The on-disk format and location of the real balanced tables. The loader takes
+  a path and a logical file name; only the parser behind it would differ. Wave 1
+  vendors them.
+
+## Scope notes for the reviewer
+
+Three things went slightly beyond the literal task list, each flagged rather
+than absorbed:
+
+- **`module_id` is a new protocol function** not named in `tasks.md`. The specs
+  require coupling errors to name both modules involved; using the type name
+  alone would name two instances of one type identically. It defaults to the
+  type name, so nothing changes for the five existing sub-models.
+- **The two `mkdocs` nav fixes** are unrelated to this change but were blocking
+  its docs verification and CI.
+- **`test/corea_test_models.jl`** establishes a test-double convention the suite
+  did not have — no existing test file subtypes `AbstractSubModel`, because they
+  all drive the five real models. The resolver cannot be tested without doubles.

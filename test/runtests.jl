@@ -8,10 +8,18 @@ using Aqua
         # `ambiguities` and `piracies` are disabled initially: extending
         # SciML / Turing types produces many false positives. Re-enable
         # after an audit (tracked as a follow-up to issue #14).
+        #
+        # `persistent_tasks` builds a fresh package depending on InferCell and
+        # resolves it from Project.toml alone, which needs the registry. Cluster
+        # compute nodes have no network, so it cannot run there — set
+        # INFERCELL_OFFLINE_TESTS=true to skip it. It stays on by default, so CI
+        # still runs it.
+        offline = get(ENV, "INFERCELL_OFFLINE_TESTS", "false") == "true"
         Aqua.test_all(
             InferCell;
             ambiguities = false,
             piracies = false,
+            persistent_tasks = !offline,
         )
     end
 
@@ -27,6 +35,15 @@ using Aqua
     include("test_multi_gene_txl.jl")
     include("test_tier_b.jl")
     include("test_boundary.jl")
+
+    # Core A′ interface contract. `corea_test_models.jl` defines the sub-model
+    # doubles the resolver tests compose, so it must come first.
+    include("corea_test_models.jl")
+    include("test_corea_registry.jl")
+    include("test_corea_edges.jl")
+    include("test_corea_resolver.jl")
+    include("test_corea_loader.jl")
+    include("test_corea_labels.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

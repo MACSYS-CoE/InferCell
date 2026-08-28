@@ -60,9 +60,25 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
             end
         end
     end
+
+    # Equal values from different source files pass every check above — the
+    # values agree, so nothing fires, and deduplication silently keeps whichever
+    # module was seen first. That is the cross-file trap in its most easily
+    # missed form, so it is reported rather than resolved by first-come.
+    all_params = InferParameter[p for m in models for p in parameters(m)]
+    for (name, files) in provenance_conflicts(all_params)
+        # Once per parameter per session: an infer + posterior-predictive run
+        # rebuilds the problem many times, and the conflict does not change.
+        @warn "Parameter :$name is imported from more than one source file " *
+              "($(join(files, " and "))). Deduplication keeps the first-seen " *
+              "definition; declare which file governs rather than letting " *
+              "composition order decide." maxlog = 1 _id = Symbol(:provenance_conflict_, name)
+    end
+    return nothing
 end
 
 function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
+    _validate_shared_params(models)
     contexts = _build_contexts(models)
     _resolve_coupling(models, contexts)
 
@@ -113,6 +129,11 @@ end
 
 function _resolve_coupling(models::Vector{<:AbstractSubModel},
                            contexts::Vector{SubModelContext})
+    # Validate the Core A′ coupling contract before wiring anything up. This is
+    # a no-op for sub-models outside Core A′: they name no registry species and
+    # declare no typed edges, so nothing here fires for them.
+    resolve_coupling(models)
+
     state_owners = Dict{Symbol, Int}()
     for (i, m) in enumerate(models)
         for (j, s) in enumerate(states(m))
@@ -125,8 +146,23 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
 
     for (i, m) in enumerate(models)
         for inp in inputs(m)
-            haskey(state_owners, inp) || error(
-                "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")
+            if !haskey(state_owners, inp)
+                # A chemostat can never be owned — the resolver forbids
+                # integrating one — so inputs() cannot deliver it. Wiring the
+                # registry's held value into dynamics is coupling execution,
+                # which wave 2 owns; until then the value travels as a fixed
+                # parameter beside a declared ClampedEdge.
+                if is_registered(inp) && is_chemostatted(inp)
+                    error(
+                        "Input :$inp declared by $(typeof(m)) is chemostatted by " *
+                        "the Core A′ registry, so no sub-model integrates it and " *
+                        "inputs() cannot deliver it. Remove :$inp from inputs(); " *
+                        "declare a ClampedEdge with its held_value and carry the " *
+                        "value as a fixed parameter instead")
+                end
+                error(
+                    "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")
+            end
             contexts[i].input_map[inp] = state_owners[inp]
         end
     end

@@ -43,6 +43,8 @@ plugins:
   - exclude:
       glob:
         - .DS_Store
+        # Session handoff notes are for the next session, not the docs site.
+        - handoff.md
 
 markdown_extensions:
   - admonition
@@ -70,7 +72,6 @@ extra_javascript:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
-  - Positioning: positioning.md
   - User guide:
       - ODE inference (NUTS): user-guide/ode-inference.md
       - SSA inference (ABC-SMC): user-guide/ssa-inference.md
@@ -79,6 +80,7 @@ nav:
       - Overview: api/index.md
       - Parameters: api/parameters.md
       - Sub-model interface: api/interface.md
+      - Core A′ interface contract: api/corea-interface.md
       - Orchestrator: api/orchestrator.md
       - Inference: api/inference.md
       - Boundary: api/boundary.md

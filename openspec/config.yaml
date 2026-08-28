@@ -1,32 +1,23 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
-
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+# Per-artifact rules.
+#
+# OpenSpec's dependency modelling is artifact-level and within a single change;
+# it has no notion of one change depending on another. The project-scope graph
+# lives in dev/plans/reduced-syn3a-wave-plan.md, and these two rules make every
+# proposal declare its own position in it so that file does not silently drift.
+#
+# These are prompt-level, not enforced: a "Dependencies: None" written by an
+# agent that did not check is worth nothing. They exist so the information is on
+# the page where a human can see it is wrong.
+rules:
+  proposal:
+    - Include a "Dependencies" section naming the other changes this one
+      requires, or "None". Name changes, not vague phases.
+    - State which wave this change belongs to, per
+      dev/plans/reduced-syn3a-wave-plan.md
+  tasks:
+    - Group tasks into numbered waves. Tasks within a wave must be
+      independently implementable, in any order.
+    - Every module change carries its own conservation or balance check as a
+      task, not deferred to a later validation change.
