@@ -1,9 +1,48 @@
 # Handoff
 
 **Session date:** 2026-08-28
-**Branch:** `archive-establish-corea-interface` (PR #39, open against `main`)
+**Branch:** `refactor/split-organism-from-framework`
 
-## This session: archived the change (2026-08-28, after #38 merged)
+## This session: split the organism from the framework (2026-08-28)
+
+`src/corea/` held two different kinds of thing under one name: the reduced-syn3A
+species registry (organism data) and the edge kinds, resolver, loader and labels
+(framework). Filing the framework under an organism name would have made a second
+organism reach sideways into `corea/` to compose itself, so the split ran the
+other way — `src/` root was already the framework layer, so the four framework
+files moved up into it and only the organism kept a directory:
+
+```
+src/edges.jl  src/resolver.jl  src/loader.jl  src/labels.jl   <- from src/corea/
+src/organisms/coreA/registry.jl                               <- from src/corea/
+```
+
+Four test files renamed to match (`test_corea_edges.jl` → `test_edges.jl`, and
+likewise resolver/loader/labels); `test_corea_registry.jl` and
+`corea_test_models.jl` keep their names because they really are Core A′-specific.
+All nine moves are git renames, so history follows. 829/829 tests pass — the same
+count as the last run on `main`, which is the check that nothing was dropped in
+the rename (job 16004286).
+
+**Timing was the reason to do it now.** Wave 1 fans out into seven parallel
+branches that all add sub-model files here. `dev/plans/reduced-syn3a-wave-plan.md`
+gained a "Where the files go" section under Wave 1 fixing the destination
+(`src/organisms/coreA/<module>.jl`) so seven branches do not invent seven
+locations.
+
+**What this did NOT do:** decouple the framework from Core A′. `edges.jl`,
+`resolver.jl` and `loader.jl` still call `held_value`, `is_registered`,
+`species_index` and `TRANSCRIPTION_ATOL` as free functions against the single
+global registry — which is why the registry is still included *before* them in
+`src/InferCell.jl`, with a comment saying so. Only `labels.jl` is standalone
+today. Parameterising the framework over a registry object is what organism #2
+costs, and it is deliberately unpaid. Out of scope for the same reason: the
+OpenSpec capability id `corea-interface` and `docs/api/corea-interface.md`, both
+arguably misnamed now, but not worth renaming with wave 1 about to start.
+
+---
+
+## Previous session: archived the change (2026-08-28, after #38 merged)
 
 PR #38 merged as `d8ecf13`. This session ran `/opsx:archive
 establish-corea-interface` — resolving the decision left open in "Next steps"
@@ -35,11 +74,11 @@ nothing. Wave 2 is where the resolved edges start driving actual coupling.
 
 | File | What it holds |
 |---|---|
-| `src/corea/registry.jl` | The 32 dynamic states and 5 chemostats, named and ordered once |
-| `src/corea/edges.jl` | The seven `CouplingEdge` kinds from fig1r's legend |
-| `src/corea/resolver.jl` | `resolve_coupling`, its checks and its reports |
-| `src/corea/loader.jl` | Provenance-carrying parameter import, cross-file ambiguity report |
-| `src/corea/labels.jl` | `reduction_declarations` — enumerating what is ours, not the model's |
+| `src/organisms/coreA/registry.jl` | The 32 dynamic states and 5 chemostats, named and ordered once |
+| `src/edges.jl` | The seven `CouplingEdge` kinds from fig1r's legend |
+| `src/resolver.jl` | `resolve_coupling`, its checks and its reports |
+| `src/loader.jl` | Provenance-carrying parameter import, cross-file ambiguity report |
+| `src/labels.jl` | `reduction_declarations` — enumerating what is ours, not the model's |
 
 ### Changed source
 

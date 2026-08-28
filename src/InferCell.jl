@@ -14,12 +14,17 @@ using LinearAlgebra: rank
 using Statistics: quantile, mean, std
 
 include("parameters.jl")
-include("corea/registry.jl")
-include("corea/edges.jl")
+# The Core A′ registry is included before the framework files because edges.jl,
+# resolver.jl and loader.jl still call its functions (held_value, is_registered,
+# species_index, TRANSCRIPTION_ATOL) directly. That dependency runs the wrong way
+# for a second organism; parameterising them over a registry is deferred until
+# there is one.
+include("organisms/coreA/registry.jl")
+include("edges.jl")
 include("interface.jl")
-include("corea/resolver.jl")
-include("corea/labels.jl")
-include("corea/loader.jl")
+include("resolver.jl")
+include("labels.jl")
+include("loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
 include("models/transcription_translation.jl")
@@ -41,8 +46,8 @@ export AbstractSubModel, SubModelContext
 export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
        coupling, reduction_notes, module_id
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
-# loader) exports from its own files under src/corea/, so seven parallel
-# wave-1 branches do not all append to one export block here.
+# loader) exports from its own file, so seven parallel wave-1 branches do not
+# all append to one export block here.
 export ObservedData, PosteriorPredictive, ABCPosterior
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism

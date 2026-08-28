@@ -164,6 +164,33 @@ Two of these carry a "ours, not the model's" label that must survive into the
 code and any results that depend on them: the lumped tRNA charging step, and the
 chemostatting of CTP/UTP/amino acids.
 
+### Where the files go
+
+Seven branches inventing seven locations is the cheapest kind of merge conflict
+to avoid, so the layout is fixed here rather than decided per branch.
+
+| | |
+|---|---|
+| Module source | `src/organisms/coreA/<module>.jl` |
+| Module tests | `test/test_corea_<module>.jl`, included from `test/runtests.jl` |
+| Wiring | one `include` in `src/InferCell.jl`, after the registry |
+
+`src/organisms/coreA/` is where everything specific to this organism lives — the
+registry, the seven modules, and the parameter tables under a `data/` subdirectory
+once they are vendored. Anything under a second organism would sit beside it.
+
+The framework files at `src/` root — `edges.jl`, `resolver.jl`, `loader.jl`,
+`labels.jl`, plus `interface.jl` and `orchestrator.jl` — are **read-only to a
+module branch.** They are the contract wave 0 froze; a module that needs one of
+them changed has found an interface bug, and that is a conversation on `main`,
+not an edit on a branch that six other branches will merge over.
+
+One caveat on that split: the framework files still call registry functions
+(`held_value`, `is_registered`, `species_index`, `TRANSCRIPTION_ATOL`) as free
+functions against the single global registry, which is why the registry is
+included before them. Making them take a registry is what a second organism
+costs, and it is deliberately not paid yet.
+
 ### Commands
 
 Propose all seven up front — it is cheap, and having the seven proposals side by

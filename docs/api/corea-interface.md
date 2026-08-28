@@ -1,6 +1,6 @@
 # Core A′ interface contract
 
-Source: [`src/corea/registry.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/registry.jl), [`src/corea/edges.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/edges.jl), [`src/corea/resolver.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/resolver.jl), [`src/corea/loader.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/loader.jl), [`src/corea/labels.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/corea/labels.jl).
+Source: [`src/organisms/coreA/registry.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/organisms/coreA/registry.jl), [`src/edges.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/edges.jl), [`src/resolver.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/resolver.jl), [`src/loader.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/loader.jl), [`src/labels.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/labels.jl).
 
 Core A′ is the reduced JCVI-syn3A model scoped in `dev/notes/reduced-syn3a-scoping.md`: glycolysis through lactate, the PTS glucose cascade, lactate export, a live ATP/GTP energy interface, and three moiety-recycling reactions. It will be built by seven independent modules that touch each other only through a coupling boundary.
 

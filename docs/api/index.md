@@ -6,7 +6,7 @@ InferCell exports its public API across nineteen source files. The pages in this
 |---|---|---|
 | `src/parameters.jl` | [Parameters](parameters.md) | `InferParameter`, role-filtering helpers |
 | `src/interface.jl` | [Sub-model interface](interface.md) | `AbstractSubModel`, protocol functions |
-| `src/corea/*.jl` | [Core A′ interface contract](corea-interface.md) | `COREA_SPECIES`, the seven `CouplingEdge` kinds, `resolve_coupling`, `load_parameter` |
+| `src/edges.jl`, `src/resolver.jl`, `src/loader.jl`, `src/labels.jl`, `src/organisms/coreA/registry.jl` | [Core A′ interface contract](corea-interface.md) | `COREA_SPECIES`, the seven `CouplingEdge` kinds, `resolve_coupling`, `load_parameter` |
 | `src/orchestrator.jl` | [Orchestrator](orchestrator.md) | `build_problem` |
 | `src/inference.jl` | [Inference](inference.md) | `infer`, `observe`, `posterior_predictive`, `check_identifiability` |
 | `src/boundary.jl` | [Boundary](boundary.md) | `sequential_infer`, `iterative_infer`, `KDEPrior` |

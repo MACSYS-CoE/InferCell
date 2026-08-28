@@ -36,14 +36,15 @@ using Aqua
     include("test_tier_b.jl")
     include("test_boundary.jl")
 
-    # Core A′ interface contract. `corea_test_models.jl` defines the sub-model
+    # The composition framework (edges, resolver, loader, labels) and the one
+    # organism that uses it. `corea_test_models.jl` defines the sub-model
     # doubles the resolver tests compose, so it must come first.
     include("corea_test_models.jl")
     include("test_corea_registry.jl")
-    include("test_corea_edges.jl")
-    include("test_corea_resolver.jl")
-    include("test_corea_loader.jl")
-    include("test_corea_labels.jl")
+    include("test_edges.jl")
+    include("test_resolver.jl")
+    include("test_loader.jl")
+    include("test_labels.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
