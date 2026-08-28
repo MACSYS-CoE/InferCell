@@ -185,10 +185,21 @@ module branch.** They are the contract wave 0 froze; a module that needs one of
 them changed has found an interface bug, and that is a conversation on `main`,
 not an edit on a branch that six other branches will merge over.
 
-One caveat on that split: the framework files still call registry functions
-(`held_value`, `is_registered`, `species_index`, `TRANSCRIPTION_ATOL`) as free
-functions against the single global registry, which is why the registry is
-included before them. Making them take a registry is what a second organism
+Keep the `corea_` prefix on the test file. A test is named after the source
+file it covers, so a module under `src/organisms/coreA/` keeps the prefix — the
+four files this convention was introduced alongside (`test_edges.jl`,
+`test_resolver.jl`, `test_loader.jl`, `test_labels.jl`) dropped it only because
+the code *they* cover moved to `src/` root.
+
+One caveat on the framework/organism split: `resolver.jl` and `loader.jl` still
+reach for the global registry — `resolver.jl` uses nine of its symbols
+(`is_registered`, `is_chemostatted`, `is_dynamic`, `dynamic_species`,
+`species_group`, `species_index`, `held_value`, `COREA_SPECIES`,
+`TRANSCRIPTION_ATOL`) and `loader.jl` four (`is_registered`, `species_entry`,
+the `SpeciesEntry` layout, `TRANSCRIPTION_ATOL`). `edges.jl` and `labels.jl`
+name none. Every one of those calls sits inside a function body, so the include
+order in `src/InferCell.jl` is a reading convention rather than a load-time
+constraint. Making resolver and loader take a registry is what a second organism
 costs, and it is deliberately not paid yet.
 
 ### Commands

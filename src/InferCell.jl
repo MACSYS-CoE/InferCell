@@ -14,11 +14,11 @@ using LinearAlgebra: rank
 using Statistics: quantile, mean, std
 
 include("parameters.jl")
-# The Core A′ registry is included before the framework files because edges.jl,
-# resolver.jl and loader.jl still call its functions (held_value, is_registered,
-# species_index, TRANSCRIPTION_ATOL) directly. That dependency runs the wrong way
-# for a second organism; parameterising them over a registry is deferred until
-# there is one.
+# Reading order, not a load-time requirement: resolver.jl and loader.jl call
+# registry functions only from inside function bodies, which Julia resolves at
+# call time, so this order could legally be anything. edges.jl and labels.jl
+# name no registry symbol at all. Making resolver and loader take a registry
+# rather than reach for the global one is what a second organism costs.
 include("organisms/coreA/registry.jl")
 include("edges.jl")
 include("interface.jl")
@@ -46,7 +46,7 @@ export AbstractSubModel, SubModelContext
 export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
        coupling, reduction_notes, module_id
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
-# loader) exports from its own file, so seven parallel wave-1 branches do not
+# loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.
 export ObservedData, PosteriorPredictive, ABCPosterior
 export build_problem
