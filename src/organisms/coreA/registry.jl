@@ -224,7 +224,7 @@ function species_index(name::Symbol)
     idx = get(COREA_SPECIES_INDEX, name, nothing)
     idx === nothing && throw(ArgumentError(
         "Unknown Core A′ species :$name. It is not in the registry of " *
-        "$(length(COREA_SPECIES)) species; see src/corea/registry.jl"))
+        "$(length(COREA_SPECIES)) species; see src/organisms/coreA/registry.jl"))
     return idx
 end
 

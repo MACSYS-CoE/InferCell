@@ -2,7 +2,7 @@
 !ID	!Mode	!GeometricStd
 % Synthetic test double: values chosen to exercise the loader's cross-file
 % cases, not copied from the published syn3A balanced tables (which are not
-% vendored in this repository). conc_M_g3p_c mirrors src/corea/registry.jl;
+% vendored in this repository). conc_M_g3p_c mirrors src/organisms/coreA/registry.jl;
 % conc_M_gtp_c is deliberately stale (registry holds 1.6627 from the
 % nucleotide file) — it IS the registry-disagreement test case, so do not
 % "correct" it to the registry value.

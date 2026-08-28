@@ -164,6 +164,44 @@ Two of these carry a "ours, not the model's" label that must survive into the
 code and any results that depend on them: the lumped tRNA charging step, and the
 chemostatting of CTP/UTP/amino acids.
 
+### Where the files go
+
+Seven branches inventing seven locations is the cheapest kind of merge conflict
+to avoid, so the layout is fixed here rather than decided per branch.
+
+| | |
+|---|---|
+| Module source | `src/organisms/coreA/<module>.jl` |
+| Module tests | `test/test_corea_<module>.jl`, included from `test/runtests.jl` |
+| Wiring | one `include` in `src/InferCell.jl`, after the registry |
+
+`src/organisms/coreA/` is where everything specific to this organism lives — the
+registry, the seven modules, and the parameter tables under a `data/` subdirectory
+once they are vendored. Anything under a second organism would sit beside it.
+
+The framework files at `src/` root — `edges.jl`, `resolver.jl`, `loader.jl`,
+`labels.jl`, plus `interface.jl` and `orchestrator.jl` — are **read-only to a
+module branch.** They are the contract wave 0 froze; a module that needs one of
+them changed has found an interface bug, and that is a conversation on `main`,
+not an edit on a branch that six other branches will merge over.
+
+Keep the `corea_` prefix on the test file. A test is named after the source
+file it covers, so a module under `src/organisms/coreA/` keeps the prefix — the
+four files this convention was introduced alongside (`test_edges.jl`,
+`test_resolver.jl`, `test_loader.jl`, `test_labels.jl`) dropped it only because
+the code *they* cover moved to `src/` root.
+
+One caveat on the framework/organism split: `resolver.jl` and `loader.jl` still
+reach for the global registry — `resolver.jl` uses nine of its symbols
+(`is_registered`, `is_chemostatted`, `is_dynamic`, `dynamic_species`,
+`species_group`, `species_index`, `held_value`, `COREA_SPECIES`,
+`TRANSCRIPTION_ATOL`) and `loader.jl` four (`is_registered`, `species_entry`,
+the `SpeciesEntry` layout, `TRANSCRIPTION_ATOL`). `edges.jl` and `labels.jl`
+name none. Every one of those calls sits inside a function body, so the include
+order in `src/InferCell.jl` is a reading convention rather than a load-time
+constraint. Making resolver and loader take a registry is what a second organism
+costs, and it is deliberately not paid yet.
+
 ### Commands
 
 Propose all seven up front — it is cheap, and having the seven proposals side by

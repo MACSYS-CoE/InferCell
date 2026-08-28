@@ -1,7 +1,7 @@
 !!SBtab TableType='Quantity' TableName='nucleotide balanced' Document='fixture'
 !ID	!Mode	!GeometricStd
 % Synthetic test double: values not copied from the published syn3A tables,
-% except conc_M_gtp_c, which mirrors src/corea/registry.jl.
+% except conc_M_gtp_c, which mirrors src/organisms/coreA/registry.jl.
 kcat_fwd_PGK3	140.8	1.051
 kcat_fwd_PYK3	672.8	1.051
 conc_M_gtp_c	1.6627	1.57

@@ -70,7 +70,7 @@ abstract type CouplingEdge end
 _require(kind::Symbol, field::Symbol, value) =
     value === nothing && throw(ArgumentError(
         "$kind requires the field `$field`, which was not given. " *
-        "Every $kind must name it; see src/corea/edges.jl"))
+        "Every $kind must name it; see src/edges.jl"))
 
 function _check_common(kind::Symbol, species, direction)
     _require(kind, :species, species)

@@ -252,8 +252,8 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
 
             is_registered(e.species) || throw(ArgumentError(
                 "Module $name declares a $kind edge on :$(e.species), which is " *
-                "not a Core A′ registry species. See src/corea/registry.jl for " *
-                "the $(length(COREA_SPECIES)) registered species"))
+                "not a Core A′ registry species. See src/organisms/coreA/registry.jl " *
+                "for the $(length(COREA_SPECIES)) registered species"))
 
             if e.peer !== nothing && !(e.peer in present)
                 throw(ArgumentError(
