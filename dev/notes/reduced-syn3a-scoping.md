@@ -38,6 +38,25 @@ specified:
 | ~533 glucose/s funds the doubling | That counts translation GTP only. Charging costs another 2 ~P per residue, so demand is **~1,106 glucose/s** — a 2x undercount |
 | GTP, GDP, AMP sit at 0.1 mM with gstd 10, uninformed | True of the *central* file. The **nucleotide** file — which governs, since these are nucleotide-module species — has GTP 1.6627 (gstd 1.57), GDP 0.2981 (2.65), AMP 0.0832 (3.76), GMP 0.0117 (5.82). Only PPi is genuinely at prior width |
 
+A third pass, from the module-level design work (2026-09-03), caught five more.
+These are recorded in full in `spec/spec.md` §4; the corrections of record are:
+
+| Was | Actually |
+|---|---|
+| "~35 `K_M` from the balanced file (with priors)" — i.e. the balanced column is what runs | The balanced `Parameter` table carries the priors; the **`Quantity` table is what the published simulator reads**, and the two disagree on **8 of the glycolytic module's 32** constants — PGI's G6P constant by 82x, FBA's G3P constant by 227x. Core A′ takes the balanced column for its priors and provenance, which makes those eight **ours, not the published model's** |
+| The cross-file trap affects PGK3 and PYK3 | **All five** nucleotide-module reactions are parameterised in both files. GK1 differs by **54x** and PPA by **902x**; the central file's gstd values of 1e33 to 1e63 identify them mechanically as balancing artefacts with no data behind them. Taking the central PPA constant would run the enzyme 902x too fast — an error that hides because it makes a conservation check pass |
+| Transcription's NTP demand is charged against the right pools | `TranscriptRate` permutes three of four base counts against the wrong NTP: U gets #C, C gets #G, G gets #U. Present on both code paths including the 60 s rebuild. The rate constant moves ~1%, but the **GTP term is weighted by #U rather than #G, making every transcription rate constant 1.9x more sensitive to the live GTP pool than it should be** — and that is the only ODE→CME channel. Core A′ corrects it and labels the correction |
+| The PTS phospho-state split is unspecified (state list leaves it open) | The model's own data files give it: `protein_metabolites_frac.csv` 0.05/0.95 for ptsi, ptsh and crr; `membrane_protein_metabolites.csv` 0.15/0.85 for ptsg, in a `proteomics_fraction` column read live at startup. Applied to the copy numbers these reproduce the totals exactly (353, 314, 290, 831), so both the totals and the split are the published model's. The transport SBtab's uniform 0.024 mM for all eight is a placeholder contradicting the proteomics for three of four carriers. Note also that its 42.77 mM external glucose is superseded by `setICs_two.py:279`'s 40 mM |
+| PPi comes from the lumped charging step, which is why PPA is required | Charging dominates, so the argument survives — but **transcription also produces PPi**, one per incorporated NTP monomer across four counters, and the note's phosphate accounting omits it. The published model charges transcription twice over: `n` ATP hydrolysed per nucleotide polymerised *and* one NTP monomer incorporated per base. Phosphate closure must see this flux |
+
+One measurement rather than a correction, from the same pass: the NTP-dependent
+term contributes only **4.4-5.1%** of each transcription rate constant's
+denominator, the rest being transcript length. So **channel 4's elasticity is
+about 0.045** — live and bidirectional, but weak: doubling every NTP pool moves a
+transcription rate constant by ~3%. That satisfies design criterion 2 and it
+bounds how much information can cross. `spec/spec.md` §8 K2 turns this into a
+kill criterion on the posterior rather than on the gain.
+
 
 ## What Step 1 is for
 

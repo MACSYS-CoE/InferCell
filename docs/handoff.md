@@ -1,5 +1,123 @@
 # Handoff
 
+**Session date:** 2026-09-03
+**Branch:** `establish-definitive-spec`
+
+## This session: OpenSpec out, one authoritative spec in (2026-09-03)
+
+`spec/spec.md` is now the authoritative document for Core A′ — 1,860 lines, 18
+phases, 135 tasks each carrying its own verification clause. It replaces the
+OpenSpec workflow entirely. `openspec/` moved to `dev/archive/openspec/`,
+read-only, so the frozen wave-0 interface requirements and the four drafted
+module designs stay citable.
+
+**Nothing executable changed.** `src/` and `test/` are untouched.
+
+### The four drafted changes were untracked
+
+`openspec/changes/add-central-glycolysis`, `add-pts-transport`,
+`add-nucleotide-recycling` and `add-corea-transcription` were never `git add`ed.
+They are now at `dev/archive/openspec/changes/`, still untracked. **`git add -A`
+before committing** or they are lost outright — they are not in history and
+cannot be recovered. Their derived findings are absorbed into `spec/spec.md` §4
+and into the scoping note's correction table, but the designs themselves are
+worth keeping.
+
+### What the spec changed about the plan
+
+**The wave ordering is reordered, and `dev/plans/reduced-syn3a-wave-plan.md`
+carries a superseded header saying so.** Four framework gaps were verified in
+source this session and none of them appears in the wave plan or in the four
+drafts:
+
+| Gap | Where |
+|---|---|
+| Mixed ODE/jump composition is refused in one line | `src/orchestrator.jl:27`, pinned by `test/test_stochastic_ge.jl:58` |
+| No execution layer for coupling — no callback, no periodic hook, no operator splitting anywhere | six of seven edge kinds are declare-only |
+| Jump composition mis-indexes state and parameters — the contexts are computed and discarded, and `reactions` gets no inputs | `_build_jump_problem` |
+| Inference dispatch reads only the first module of a composition | `src/inference.jl:84` |
+
+Two of the fixes change the sub-model protocol, and the wave plan freezes those
+files against module branches — so doing them after the seven modules re-opens
+seven merged PRs. They move ahead of the modules. The 1 s handshake becomes
+**phase 3, the kill phase**, proven on a two-module toy with wall-clock measured
+before any module is built.
+
+One drafted design's central assumption is wrong and is corrected in the spec:
+`add-corea-transcription/design.md` says the jump path is already exercised by
+the existing models. True for one module, false for a composition.
+
+### Five corrections of record added to the scoping note
+
+Absorbed from the four drafts, in the note's own inline correction table: the
+Michaelis-constant column trap (8 of 32 constants differ, one by 227×); the
+cross-file trap being wider than recorded (all five recycling reactions, GK1 by
+54× and PPA by **902×**); the base-to-nucleotide mapping bug (makes every
+transcription rate constant **1.9× too sensitive to GTP**, on the only ODE→CME
+channel); the PTS phospho-split, which the model's own data files do specify; and
+transcription's pyrophosphate, which the note's phosphate accounting omits.
+
+Plus one measurement: **channel 4's elasticity is ~0.045**. Live, bidirectional,
+and weak. The spec turns this into a kill criterion on the posterior rather than
+on the gain, because 0.045 costs tens to hundreds of cells, which is affordable.
+
+### Decisions taken, so they are not re-litigated
+
+- Scope runs through synthetic recovery, coverage and per-module calibration.
+- The claim is calibrated inference across the boundary; the architecture is the
+  enabling result, not the claim.
+- First target set is six parameters, **and it deviates from the scoping note**:
+  the polymerase turnover constant is replaced by the decay constant, because
+  only the product of the former and the promoter strengths enters the rate law
+  and the cap never binds, so the pair is exactly degenerate. The ptsG promoter
+  is added as the headline, being the only one crossing by two channels.
+- The protocol comparison is joint versus explicit cut. **The iterative exchange
+  protocol is deliberately excluded** — it is a proof-of-concept and no compute
+  is spent measuring its calibration.
+
+### Three findings carried as unverified
+
+Derived this session, in no note, not checked against a run. Each is marked in
+§9 with the phase that settles it:
+
+1. Whether the stochastic block's likelihood is closed-form (phase 12). The
+   lumped charging step has two reactants and may break it. **The inference
+   budget changes by ~2 orders of magnitude on the answer.**
+2. Whether the charged-tRNA channel is weaker than transcription's (phase 10).
+   The scoping note hopes it rescues the reverse direction; a first pass suggests
+   the opposite.
+3. Whether protein fold change over a cycle reaches two (phase 10). A first pass
+   suggests it may fall well short.
+
+### One thing to know about CLAUDE.md
+
+It is **gitignored** (`.gitignore:8`, the `/*.md` root pattern). It was updated
+this session to point at `spec/spec.md`, but that edit is local only and will not
+reach another clone or a teammate. If the spec pointer should travel, CLAUDE.md
+needs force-adding or the pattern needs narrowing.
+
+## Next steps
+
+1. `git add -A` (**mandatory** — see above), review `spec/spec.md`, commit and
+   open the PR. Phase 0's remaining items are the finding-by-finding diff (0.2)
+   and the test-suite confirmation (0.6).
+2. Then phase 1, alone: make a module able to contribute to a state it does not
+   own. It is the prerequisite for the three ODE modules, so nothing else starts
+   until it lands.
+3. Then the four-way fan-out: phases 6, 7 and 8 concurrently with the framework
+   track of phases 2 to 5.
+
+## Open questions this session did not settle
+
+In `spec/spec.md` §9, with the three unverified findings above. The two that most
+change the work: the closed-form likelihood question, and what handshake
+granularity the pools require — the GTP pool turns over in half the rebuild
+interval, so 60 s is expected to fail.
+
+---
+
+Everything below is the handoff from the wave-0 sessions, kept for context.
+
 **Session date:** 2026-08-28
 **Branch:** `refactor/split-organism-from-framework`
 
