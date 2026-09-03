@@ -96,8 +96,9 @@ holding one species at different values, a clamp holding a chemostat away from
 the registry's value, two coupled sub-models sharing one `module_id`, a
 chemostatted species listed in `inputs`, an `inputs` list that has drifted
 from the module's own inbound edges in either direction, a contribution to an
-unregistered or chemostatted species, or a `contributed_states` list that has
-drifted from the module's mass and currency edges on species it does not own.
+unregistered or chemostatted species, a `contributed_states` list that has
+drifted from an ODE module's mass and currency edges on species it does not
+own, or a `:jump` module listing any contribution at all.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
@@ -244,14 +245,14 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
-# The outbound counterpart of the check above. A mass or currency edge on a
-# dynamic registry species the module does not integrate is a promise to add a
-# derivative term to the owner's state — positive where the module produces,
-# negative where it consumes — and only `contributed_states` wires such a term
-# into the right-hand side. So the two lists are held to each other in both
-# directions, exactly as `inputs` is held to the inbound edges. Unlike that
-# check, a module with contributions but no edges is not skipped: a contribution
-# with nothing declaring it is the drift being caught.
+# The outbound counterpart of the check above, for ODE modules. A mass or
+# currency edge on a dynamic registry species the module does not integrate is
+# a promise to add a derivative term to the owner's state — positive where the
+# module produces, negative where it consumes — and only `contributed_states`
+# wires such a term into the right-hand side. So the two lists are held to each
+# other in both directions, exactly as `inputs` is held to the inbound edges.
+# Unlike that check, a module with contributions but no edges is not skipped: a
+# contribution with nothing declaring it is the drift being caught.
 #
 # A contribution target is also judged on its own. Whether the name is a
 # registry species, and whether that species is chemostatted, needs no
@@ -265,6 +266,20 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
         targets = contributed_states(m)
         isempty(edges) && isempty(targets) && continue
         name = module_id(m)
+
+        # A jump process cannot add a continuous derivative term, so a :jump
+        # module's mass and currency edges are declared and resolved but not
+        # held to contributed_states(): its writes to a peer's state go through
+        # its reactions (spec §11 phase 2). Listing a contribution is the error.
+        if formalism(m) === :jump
+            isempty(targets) || throw(ArgumentError(
+                "Module $name has formalism :jump but lists " *
+                "$(join(string.(":", targets), ", ")) in contributed_states(). A " *
+                "jump process cannot add continuous derivative terms; a jump " *
+                "module's writes to a peer's state go through its reactions " *
+                "(spec §11 phase 2). Drop the contribution and keep the edge"))
+            continue
+        end
 
         for s in targets
             is_registered(s) || throw(ArgumentError(

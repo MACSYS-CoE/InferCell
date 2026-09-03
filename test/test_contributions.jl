@@ -1,7 +1,7 @@
 using Test
 using InferCell
 using StaticArrays: SVector
-using OrdinaryDiffEq: Tsit5, solve
+using OrdinaryDiffEq: Tsit5, solve, ODEProblem
 using ForwardDiff
 using SciMLBase: ReturnCode
 
@@ -12,8 +12,6 @@ using SciMLBase: ReturnCode
 # Everything passed as an argument and nothing captured: measured inside a
 # @testset, `@allocated` would count the boxed return value of the closure.
 _rhs_alloc(rhs, u, p, t) = @allocated rhs(u, p, t)
-
-_gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
 
 @testset "Contributions" begin
     @testset "1.3 owner's derivative is its own term plus the contribution, exactly" begin
@@ -63,6 +61,11 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test err isa ErrorException
         msg = sprint(showerror, err)
         @test occursin("1 term", msg) && occursin("2 species", msg)
+        # A non-static container is the same protocol error.
+        prob2 = build_problem([EnergyPools(), VectorSource()]; tspan = (0.0, 1.0))
+        err2 = caught(() -> prob2.f.f(prob2.u0, prob2.p, 0.0))
+        @test err2 isa ErrorException
+        @test occursin("Vector{Float64}", sprint(showerror, err2)) && occursin("static", sprint(showerror, err2))
     end
 
     @testset "1.4 a contribution to a chemostatted species is rejected" begin
@@ -73,7 +76,7 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         msg = sprint(showerror, err)
         @test occursin("M_o2_c", msg) && occursin("CarbonBlock", msg) && occursin("chemostat", msg)
         # build_problem goes through the same resolver, so it fails identically.
-        @test caught(() -> build_problem([EnergyPools(), m])) isa ArgumentError
+        @test_throws ArgumentError build_problem([EnergyPools(), m])
     end
 
     @testset "1.4 a contribution to a name outside the registry is rejected" begin
@@ -97,16 +100,22 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test occursin("M_atp_c", msg) && occursin("CarbonBlock", msg) && occursin("own", msg)
     end
 
-    @testset "1.4 a jump module cannot contribute yet" begin
-        owner = CoreAStub(:Pools; st = [:M_atp_c])
+    @testset "1.4 a jump module cannot contribute yet, but may declare its edges" begin
+        owner = CoreAStub(:Pools; st = [:M_atp_c], form = :jump)
         j = CoreAStub(:JumpSrc; form = :jump, contribs = [:M_atp_c],
                       edges = [MassEdge(species = :M_atp_c, direction = :out)])
-        # Both jump so the composition reaches the shared resolution step.
-        owner_j = CoreAStub(:Pools; st = [:M_atp_c], form = :jump)
-        err = caught(() -> build_problem([owner_j, j]))
-        @test err isa ErrorException
+        err = caught(() -> resolve_coupling([owner, j]))
+        @test err isa ArgumentError
         msg = sprint(showerror, err)
         @test occursin("JumpSrc", msg) && occursin("M_atp_c", msg) && occursin("jump", msg)
+        @test_throws ArgumentError build_problem([owner, j])
+
+        # Phase 2's shape: a jump module writing a peer's state through its
+        # reactions declares the edge and no contribution, and resolves cleanly.
+        j_edges_only = CoreAStub(:JumpSrc; form = :jump,
+                                 edges = [MassEdge(species = :M_atp_c, direction = :out)])
+        graph = resolve_coupling([owner, j_edges_only])
+        @test length(graph.edges) == 1
     end
 
     @testset "1.5 drift: an edge on a non-owned species with no contribution throws" begin
@@ -150,7 +159,7 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
 
     @testset "1.5 the drift check is live through reduction_declarations too" begin
         m = CarbonBlock(; contribs = [:M_pi_c])
-        @test caught(() -> reduction_declarations([EnergyPools(), m])) isa ArgumentError
+        @test_throws ArgumentError reduction_declarations([EnergyPools(), m])
     end
 
     @testset "1.5 standalone resolution of a contributor still succeeds" begin
@@ -185,10 +194,13 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test _rhs_alloc(rhs, prob.u0, prob.p, 0.0) == 0
     end
 
-    @testset "at most 32 sub-models compose" begin
-        many = [CoreAStub(Symbol(:S, i)) for i in 1:33]
+    @testset "at most 31 sub-models compose" begin
+        # Base.Any32 matches any tuple of 32 or more, so 32 is already the
+        # non-unrolled case.
+        many = [CoreAStub(Symbol(:S, i)) for i in 1:32]
         err = caught(() -> build_problem(many))
         @test err isa ErrorException
-        @test occursin("32", sprint(showerror, err))
+        @test occursin("31", sprint(showerror, err))
+        @test build_problem(many[1:31]) isa ODEProblem
     end
 end

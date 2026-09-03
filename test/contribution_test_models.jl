@@ -28,6 +28,10 @@ const CARBON_SPECIES = [:M_g6p_c, :M_f6p_c, :M_fdp_c, :M_dhap_c, :M_g3p_c, :M_13
 _ic_params(species, id) = [InferParameter(1.0 + i, Normal(1.0 + i, 0.1), true,
                                           Symbol(s, "0"), id, :initial_condition)
                            for (i, s) in enumerate(species)]
+_rate(k, name, id) = InferParameter(k, LogNormal(log(k), 0.5), false, name, id, :rate)
+
+# Global index of a state in the composed vector, in _build_contexts order.
+_gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
 
 """
     EnergyPools(; gamma = 0.05)
@@ -40,8 +44,7 @@ struct EnergyPools <: AbstractSubModel
     params::Vector{InferParameter}
 end
 function EnergyPools(; gamma = 0.05)
-    params = vcat(InferParameter[InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_o, :EnergyPools, :rate)],
-                  _ic_params(ENERGY_SPECIES, :EnergyPools))
+    params = [_rate(gamma, :gamma_o, :EnergyPools); _ic_params(ENERGY_SPECIES, :EnergyPools)]
     return EnergyPools(params)
 end
 states(::EnergyPools) = ENERGY_SPECIES
@@ -71,10 +74,8 @@ function CarbonBlock(; k_prod = 0.3, k_cons = 0.2, gamma = 0.01,
                      edges = CouplingEdge[CurrencyEdge(species = :M_atp_c, direction = :out),
                                           MassEdge(species = :M_pi_c, direction = :in)],
                      ins = [:M_pi_c])
-    params = vcat(InferParameter[InferParameter(k_prod, LogNormal(log(k_prod), 0.5), false, :k_prod, :CarbonBlock, :rate),
-              InferParameter(k_cons, LogNormal(log(k_cons), 0.5), false, :k_cons, :CarbonBlock, :rate),
-              InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_c, :CarbonBlock, :rate)],
-              _ic_params(CARBON_SPECIES, :CarbonBlock))
+    params = [_rate(k_prod, :k_prod, :CarbonBlock), _rate(k_cons, :k_cons, :CarbonBlock),
+              _rate(gamma, :gamma_c, :CarbonBlock); _ic_params(CARBON_SPECIES, :CarbonBlock)]
     return CarbonBlock(params, collect(Symbol, contribs), collect(CouplingEdge, edges),
                        collect(Symbol, ins))
 end
@@ -113,8 +114,7 @@ outbound mass edge. The owner's state must then rise linearly at exactly `k`.
 struct Source <: AbstractSubModel
     params::Vector{InferParameter}
 end
-Source(; k = 0.7) = Source(vcat(InferParameter[InferParameter(k, LogNormal(log(k), 0.5), false, :k_src, :Source, :rate)],
-                            _ic_params([:M_gdp_c], :Source)))
+Source(; k = 0.7) = Source([_rate(k, :k_src, :Source); _ic_params([:M_gdp_c], :Source)])
 states(::Source) = [:M_gdp_c]
 parameters(m::Source) = m.params
 coupling(::Source) = CouplingEdge[MassEdge(species = :M_gtp_c, direction = :out)]
@@ -131,8 +131,8 @@ length-mismatch error has a witness.
 struct MiscountedSource <: AbstractSubModel
     params::Vector{InferParameter}
 end
-MiscountedSource() = MiscountedSource(vcat(InferParameter[InferParameter(0.5, LogNormal(log(0.5), 0.5), false, :k_mis, :MiscountedSource, :rate)],
-                                       _ic_params([:M_g6p_c], :MiscountedSource)))
+MiscountedSource() = MiscountedSource([_rate(0.5, :k_mis, :MiscountedSource);
+                                       _ic_params([:M_g6p_c], :MiscountedSource)])
 states(::MiscountedSource) = [:M_g6p_c]
 parameters(m::MiscountedSource) = m.params
 coupling(::MiscountedSource) = CouplingEdge[MassEdge(species = :M_gtp_c, direction = :out),
@@ -140,3 +140,19 @@ coupling(::MiscountedSource) = CouplingEdge[MassEdge(species = :M_gtp_c, directi
 contributed_states(::MiscountedSource) = [:M_gtp_c, :M_gmp_c]
 dynamics(u, p, t, ::MiscountedSource) = SA[zero(u[1])]
 contributions(u, p, t, ::MiscountedSource, u_inputs) = SA[p[1]]
+
+"""
+    VectorSource()
+
+Returns its one contribution as a plain `Vector`, which the protocol rejects.
+"""
+struct VectorSource <: AbstractSubModel
+    params::Vector{InferParameter}
+end
+VectorSource() = VectorSource([_rate(0.5, :k_vec, :VectorSource); _ic_params([:M_f6p_c], :VectorSource)])
+states(::VectorSource) = [:M_f6p_c]
+parameters(m::VectorSource) = m.params
+coupling(::VectorSource) = CouplingEdge[MassEdge(species = :M_gtp_c, direction = :out)]
+contributed_states(::VectorSource) = [:M_gtp_c]
+dynamics(u, p, t, ::VectorSource) = SA[zero(u[1])]
+contributions(u, p, t, ::VectorSource, u_inputs) = [p[1]]

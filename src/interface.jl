@@ -125,15 +125,18 @@ Where `inputs` lets a module read a state it does not own, this lets it write
 into one: the orchestrator adds each term returned by [`contributions`](@ref)
 to the owner's derivative at the owner's global index, so a shared pool
 receives terms from every module that produces into or draws from it. The
-names must be Core A′ registry species, may not be chemostatted, and must be
-owned by some module in the composition; the orchestrator rejects each of
-those with an error naming the species and this module.
+names must be Core A′ registry species and may not be chemostatted, which
+[`resolve_coupling`](@ref) checks, and must be owned by some module in the
+composition, which the orchestrator checks at build time; each rejection names
+the species and this module.
 
-Where `m` declares any coupling edge, [`resolve_coupling`](@ref) holds this list
-to the edges: every mass or currency edge, in either direction, on a dynamic
+For an ODE module the resolver holds this list to the coupling edges in both
+directions: every mass or currency edge, inbound or outbound, on a dynamic
 registry species `m` does not own must appear here, and every entry here must
-have such an edge. A consumer of a foreign pool contributes a negative term; a
-producer a positive one.
+have such an edge — a module listing contributions with no edges is checked,
+not skipped. A consumer of a foreign pool contributes a negative term; a
+producer a positive one. A `:jump` module may not list contributions at all;
+its writes to a peer's state go through its reactions.
 """
 contributed_states(::AbstractSubModel) = Symbol[]
 

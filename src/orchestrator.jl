@@ -169,17 +169,13 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
 
     # The contribution channel: each declared target resolves to the owner's
     # global index. The resolver has already rejected names outside the
-    # registry and chemostatted species, which need no composition to judge;
-    # ownership does, and standalone resolution must keep reporting an unowned
-    # target rather than failing on it, so that check lives here.
+    # registry, chemostatted species and contributions from a :jump module,
+    # none of which needs a composition to judge; ownership does, and
+    # standalone resolution must keep reporting an unowned target rather than
+    # failing on it, so that check lives here.
     for (i, m) in enumerate(models)
         targets = contributed_states(m)
         isempty(targets) && continue
-        formalism(m) === :jump && error(
-            "Module $(module_id(m)) has formalism :jump but declares contributions " *
-            "to $(join(string.(":", targets), ", ")). A jump process cannot add " *
-            "continuous derivative terms; a jump module's writes to a peer's state " *
-            "go through its reactions (spec §11 phase 2)")
         for s in targets
             haskey(state_owners, s) || error(
                 "Module $(module_id(m)) contributes to :$s, which no sub-model in " *
@@ -231,9 +227,10 @@ end
 # `SVector` returns a heap `Vector`, a `Vector{Int}` index allocates, and a
 # splatted `vcat` over a `Vector` of parts is not inferable — and that the
 # modules are held as a `Tuple`, so `map` and `reduce` unroll. Base stops
-# unrolling tuple `map` at 33 elements (`Base.Any32`), hence the guard; Core A′
-# is seven modules. The framework adds no allocation; the composed function is
-# allocation-free iff every `dynamics` and `contributions` is.
+# unrolling tuple `map` at 32 elements (`Base.Any32` matches any tuple of 32 or
+# more), hence the cap of 31; Core A′ is seven modules. The framework adds no
+# allocation; the composed function is allocation-free iff every `dynamics` and
+# `contributions` is.
 struct _Slot{S, P, I, C}
     sidx::S      # global indices of this module's states
     pidx::P      # global indices of its free parameters
@@ -245,15 +242,15 @@ _svec(v) = SVector{length(v), Int}(Tuple(v))
 
 function _build_rhs(models::Vector{<:AbstractSubModel},
                     contexts::Vector{SubModelContext})
-    length(models) <= 32 || error(
-        "build_problem composes at most 32 sub-models: Base.map over a longer " *
-        "tuple is not unrolled (Base.Any32), so the right-hand side would allocate " *
-        "and lose type stability. $(length(models)) were given")
+    length(models) <= 31 || error(
+        "build_problem composes at most 31 sub-models: Base.map over a tuple of " *
+        "32 or more is not unrolled (Base.Any32), so the right-hand side would " *
+        "allocate and lose type stability. $(length(models)) were given")
     slots = Tuple(_Slot(_svec(ctx.state_idxs), _svec(ctx.param_idxs),
                         _svec(Int[ctx.input_map[s] for s in inputs(m)]),
                         _svec(ctx.contrib_idxs))
                   for (m, ctx) in zip(models, contexts))
-    # Function barrier: the closure captures concrete tuple types.
+    # Build-time bookkeeping ends here; _make_rhs holds only the runtime closure.
     return _make_rhs(Tuple(models), slots)
 end
 
@@ -294,11 +291,9 @@ end
     return out
 end
 
-_accumulate(::SVector, ::SVector{C, Int}, c::SVector{K}) where {C, K} = error(
-    "contributions() returned $K term$(K == 1 ? "" : "s") but " *
-    "contributed_states() names $C species")
-
-# A contributions() method returning a plain Vector is a protocol error, not a
-# length mismatch; say so rather than failing inside StaticArrays.
+# Anything else — the wrong number of terms, or a non-static container — is a
+# protocol error; say so rather than failing inside StaticArrays.
 _accumulate(::SVector, ::SVector{C, Int}, c::AbstractVector) where {C} = error(
-    "contributions() must return a static vector (e.g. SA[...]); got $(typeof(c))")
+    "contributions() returned a $(typeof(c)) with $(length(c)) " *
+    "term$(length(c) == 1 ? "" : "s") but contributed_states() names $C species; " *
+    "return a static vector of length $C (e.g. SA[...])")
