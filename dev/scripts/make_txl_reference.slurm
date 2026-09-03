@@ -17,6 +17,7 @@ echo "HEAD: $(git rev-parse --short HEAD)"
 
 OUT=test/fixtures/txl_reference.jl
 TMP=$(mktemp -p dev/scripts txl_ref_check_XXXX.jl)
+trap 'rm -f "$TMP"' EXIT
 
 julia --project dev/scripts/make_txl_reference.jl "$OUT" || exit 1
 julia --project dev/scripts/make_txl_reference.jl "$TMP" || exit 1
@@ -25,7 +26,6 @@ julia --project dev/scripts/make_txl_reference.jl "$TMP" || exit 1
 if cmp <(grep -v '^# Julia' "$OUT") <(grep -v '^# Julia' "$TMP"); then
     echo "DETERMINISTIC: two independent runs produced identical bit patterns"
 else
-    echo "NOT DETERMINISTIC: the two runs differ" ; diff "$OUT" "$TMP"; rm -f "$TMP"; exit 2
+    echo "NOT DETERMINISTIC: the two runs differ" ; diff "$OUT" "$TMP"; exit 2
 fi
-rm -f "$TMP"
 echo "Finished at $(date)"

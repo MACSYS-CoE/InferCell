@@ -15,6 +15,7 @@ export INFERCELL_OFFLINE_TESTS=true
 
 echo "Running InferCell tests at $(date)"
 echo "Node: $(hostname)"
+echo "HEAD: $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain -- src test Project.toml Manifest.toml)" || echo ' (tree dirty)')"
 echo ""
 
 julia --project -e 'using Pkg; Pkg.test()'
