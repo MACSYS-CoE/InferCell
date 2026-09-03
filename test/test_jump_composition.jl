@@ -2,6 +2,8 @@ using Test
 using InferCell
 using JumpProcesses: SSAStepper
 using StaticArrays: SVector
+using Random
+using Statistics: mean, var
 
 # Jump composition (spec §11 phase 2). Doubles in jump_test_models.jl.
 
@@ -82,5 +84,32 @@ using StaticArrays: SVector
         prob_r = build_problem([peer, owner]; tspan = (0.0, 1.0))
         @test prob_r.prob.u0 == [0, 12]
         @test prob_r.prob.p == [0.3, 0.7]
+    end
+
+    # Task 2.4: a propensity proportional to a peer's count. The owner is
+    # frozen (birth rate zero), the reader fires at c · X and counts its own
+    # firings, so the count over [0, T] is Poisson(c · X0 · T). Doubling X0
+    # must double the mean; the tolerance is four standard errors of the ratio
+    # of two Poisson sample means, not a round number.
+    @testset "2.4 a jump module reads a declared peer's state in a propensity" begin
+        c, T, n = 0.1, 10.0, 200
+        function mean_fired(X0)
+            prob = build_problem([BirthOwner(k = 0.0, x0 = X0), PeerReader(c = c)]; tspan = (0.0, T))
+            Random.seed!(7)
+            fired = zeros(n)
+            peer_untouched = true
+            for i in 1:n
+                sol = solve(prob, SSAStepper(); saveat = [T])
+                peer_untouched &= sol[1, end] == X0   # the reader never writes its peer
+                fired[i] = sol[2, end]
+            end
+            @test peer_untouched
+            return mean(fired)
+        end
+        m1, m2 = mean_fired(20), mean_fired(40)
+        se_ratio = 2 * sqrt(1 / (n * 20) + 1 / (n * 40))   # ≈ 0.039
+        @test abs(m1 - c * 20 * T) < 4 * sqrt(c * 20 * T / n)
+        @test abs(m2 / m1 - 2) < 4 * se_ratio
+        @info "task 2.4 peer read" mean_at_20 = m1 mean_at_40 = m2 ratio = m2 / m1 four_se = 4 * se_ratio
     end
 end
