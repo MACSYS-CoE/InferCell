@@ -85,10 +85,60 @@ function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100
     u0 = _build_u0_integer(models)
     p0 = _build_p0(models)
 
-    dprob = DiscreteProblem(u0, tspan, p0)
-    jumps = JumpSet(; constant_jumps=reduce(vcat, reactions.(models)))
+    # Each module's reactions are written in local coordinates; the slot maps
+    # them onto the composed vectors (spec §11 phase 2). This is the jump-side
+    # twin of `_build_rhs`, without the tuple machinery: the SSA re-evaluates
+    # every propensity per event through JumpProcesses' own dispatch, so there
+    # is no static composed function to keep type-stable.
+    jumps = ConstantRateJump[]
+    for (m, ctx) in zip(models, contexts)
+        slot = _JumpSlot(_svec(ctx.state_idxs), _svec(ctx.param_idxs),
+                         _svec(Int[ctx.input_map[s] for s in inputs(m)]))
+        for r in _local_reactions(m)
+            push!(jumps, _global_jump(r, slot))
+        end
+    end
 
-    return JumpProblem(dprob, Direct(), jumps)
+    dprob = DiscreteProblem(u0, tspan, p0)
+    return JumpProblem(dprob, Direct(), JumpSet(; constant_jumps=jumps))
+end
+
+# Where a jump module's states, parameters and inputs sit in the composed vectors.
+struct _JumpSlot{S, P, I}
+    sidx::S      # global indices of this module's states
+    pidx::P      # global indices of its free parameters
+    iidx::I      # global indices of its inputs, in inputs(m) order
+end
+
+# A module still returning `ConstantRateJump`s — the pre-phase-2 contract — is
+# refused by name rather than composed: its closures index the global vectors,
+# which is the aliasing bug this path exists to prevent (spec §2, G3).
+function _local_reactions(m::AbstractSubModel)
+    rs = reactions(m)
+    for r in rs
+        r isa Reaction || throw(ArgumentError(
+            "Module $(module_id(m)) returned a $(nameof(typeof(r))) from reactions(). " *
+            "Its rate and affect closures index the composed state and parameter " *
+            "vectors at this module's local positions, so a second jump module in " *
+            "the composition would read and write the first module's slice. Return " *
+            "Reaction(rate, affect!) with rate(u, p, t, u_inputs) and " *
+            "affect!(u, u_inputs) written in local coordinates instead"))
+    end
+    return rs
+end
+
+# The rate sees the local slice, the local parameters and the inputs as views
+# of the global vectors, so `remake(prob; p = θ)` keeps working: nothing here
+# captures `p`. The affect mutates the same views, so a write lands on the
+# owner's global slot and nowhere else.
+function _global_jump(r::Reaction, sl::_JumpSlot)
+    rate = (u, p, t) -> r.rate(view(u, sl.sidx), view(p, sl.pidx), t, view(u, sl.iidx))
+    affect! = function (integrator)
+        u = integrator.u
+        r.affect!(view(u, sl.sidx), view(u, sl.iidx))
+        return nothing
+    end
+    return ConstantRateJump(rate, affect!)
 end
 
 build_problem(model::AbstractSubModel; kwargs...) = build_problem([model]; kwargs...)

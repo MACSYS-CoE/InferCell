@@ -35,38 +35,22 @@ formalism(::BurstyGeneExpression) = :jump
 inference_mode(::BurstyGeneExpression) = :simulation
 
 function reactions(::BurstyGeneExpression)
-    # Parameter order (free, deduplicated): k_on, k_off, k_tx_burst, k_tl, gamma_mRNA, gamma_protein
-    # State order: promoter (u[1]), mRNA (u[2]), protein (u[3])
+    # Local coordinates. Parameter order (free, deduplicated): k_on, k_off,
+    # k_tx_burst, k_tl, gamma_mRNA, gamma_protein. State order: promoter (u[1]),
+    # mRNA (u[2]), protein (u[3]).
 
     # Promoter OFF -> ON: fires only when promoter == 0
-    on_rate(u, p, t) = p[1] * (1 - u[1])
-    on_affect!(integrator) = (integrator.u[1] = 1)
-    rxn_on = ConstantRateJump(on_rate, on_affect!)
-
+    rxn_on = Reaction((u, p, t, _) -> p[1] * (1 - u[1]), (u, _) -> (u[1] = 1))
     # Promoter ON -> OFF: fires only when promoter == 1
-    off_rate(u, p, t) = p[2] * u[1]
-    off_affect!(integrator) = (integrator.u[1] = 0)
-    rxn_off = ConstantRateJump(off_rate, off_affect!)
-
+    rxn_off = Reaction((u, p, t, _) -> p[2] * u[1], (u, _) -> (u[1] = 0))
     # mRNA production: gated by promoter state
-    tx_rate(u, p, t) = p[3] * u[1]
-    tx_affect!(integrator) = (integrator.u[2] += 1)
-    rxn_tx = ConstantRateJump(tx_rate, tx_affect!)
-
+    rxn_tx = Reaction((u, p, t, _) -> p[3] * u[1], (u, _) -> (u[2] += 1))
     # mRNA degradation
-    mrna_deg_rate(u, p, t) = p[5] * u[2]
-    mrna_deg_affect!(integrator) = (integrator.u[2] -= 1)
-    rxn_mrna_deg = ConstantRateJump(mrna_deg_rate, mrna_deg_affect!)
-
+    rxn_mrna_deg = Reaction((u, p, t, _) -> p[5] * u[2], (u, _) -> (u[2] -= 1))
     # Translation
-    tl_rate(u, p, t) = p[4] * u[2]
-    tl_affect!(integrator) = (integrator.u[3] += 1)
-    rxn_tl = ConstantRateJump(tl_rate, tl_affect!)
-
+    rxn_tl = Reaction((u, p, t, _) -> p[4] * u[2], (u, _) -> (u[3] += 1))
     # Protein degradation
-    prot_deg_rate(u, p, t) = p[6] * u[3]
-    prot_deg_affect!(integrator) = (integrator.u[3] -= 1)
-    rxn_prot_deg = ConstantRateJump(prot_deg_rate, prot_deg_affect!)
+    rxn_prot_deg = Reaction((u, p, t, _) -> p[6] * u[3], (u, _) -> (u[3] -= 1))
 
     return [rxn_on, rxn_off, rxn_tx, rxn_mrna_deg, rxn_tl, rxn_prot_deg]
 end

@@ -42,9 +42,10 @@ export InferParameter, free_params, rate_params, ic_params, obs_params,
 export ParameterSource, provenance_of, source_file, informedness,
        asserted_prior_params, uninformed_params, provenance_conflicts,
        was_chosen_over_alternative
-export AbstractSubModel, SubModelContext
+export AbstractSubModel, SubModelContext, Reaction
 export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
-       coupling, reduction_notes, module_id, contributed_states, contributions
+       coupling, reduction_notes, module_id, contributed_states, contributions,
+       written_states
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
 # loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.
