@@ -1,7 +1,7 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** draft
-**Created:** 2026-09-03  ·  **Last amended:** —
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-03
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -14,6 +14,89 @@ It does **not** supersede `dev/notes/reduced-syn3a-scoping.md`. That note decide
 and the scoping note disagree on the model's content, the note wins and this
 spec is stale. Where they disagree on sequencing or on inference design, this
 spec wins, because the note does not address either.
+
+---
+
+## 0. Executive summary
+
+For a reader who knows whole-cell modelling but not this project. The rest of
+the document is written for the agent doing the work; this section is not.
+
+- **What this is.** A specification for building and testing Core A′, a small
+  organism carved out of the published JCVI-syn3A whole-cell model of Thornburg
+  et al. 2022, inside InferCell.jl. It is the first of three steps toward running
+  InferCell on the full syn3A model. Steps two and three are the full
+  well-stirred model and the spatially resolved one, and neither is addressed
+  here.
+
+- **The question.** Whole-cell models mix formalisms: metabolism is a system of
+  ordinary differential equations, gene expression is a stochastic jump process,
+  and the two exchange state on a clock. Can parameter uncertainty be propagated
+  *correctly* across that seam? Not just "does inference run", but: when we fit
+  the model to data, do the resulting posteriors mean what they claim to mean?
+
+- **What Core A′ contains.** Twenty-two metabolic reactions in four deterministic
+  modules (glycolysis to lactate, sugar transport and lactate export, nucleotide
+  recycling, and a lumped tRNA charging step), and seventeen genes in three
+  stochastic modules (transcription, translation, transcript decay). The blocks
+  swap state every simulated second and rate constants every sixty. About 92% of
+  the cell is removed. It is the best-measured region of the network, which is
+  why it was chosen.
+
+- **How the two blocks talk.** Through state, not through parameters. Enzyme
+  copy numbers set metabolic rates in one direction; nucleotide and charged-tRNA
+  pools set transcription and translation rates in the other. No single rate
+  constant appears in both blocks. This was discovered during specification,
+  turned out to be a property of the published model rather than of our
+  reduction, and reshaped the inference design (§4 D13, §12 amendment 2).
+
+- **What "correct" means here, and how it is tested.** Everything is run on
+  synthetic data generated from known parameter values, because that is the only
+  way to have a ground truth. The posteriors must then cover the truth at the
+  stated rate: a 90% interval should contain the true value about 90% of the
+  time over many repeated fits. Rank statistics must be uniform. And an exact
+  reference posterior on a two-gene toy must match the production one, so that a
+  calibration pass can be attributed to the method and not to luck (§6 F8 to
+  F10).
+
+- **The result the work exists for.** A table of how much each of six target
+  parameters' uncertainty shrinks under three data regimes: transcripts only,
+  metabolites only, and both. Two cells carry the claim. A gene-expression
+  parameter (the ptsG promoter strength) must shrink when only metabolite data
+  is supplied, and a metabolic parameter (an enolase catalytic constant) must
+  shrink when only transcript data is supplied. Each shows information crossing
+  the seam in one direction (§6 F6).
+
+- **What it is not.** It does not reproduce syn3A's 105-minute doubling time, its
+  metabolite concentrations or its proteome, and no result is to be compared to
+  them. Removing 92% of a cell guarantees that, and the code refuses the
+  comparison rather than relying on the prose to. It does not fit real data:
+  two published measurements are used as sanity checks only (§6 F5). It does not
+  compare alternative model structures or build surrogates. Those are later
+  steps (§7).
+
+- **Where it could fail.** The largest risk is cost: if a full trajectory takes
+  more than roughly ten seconds, the repeated fits that a calibration claim
+  needs become unaffordable and the claim cannot be made. This is tested on a
+  two-module toy before any real module is built, so the project can stop early
+  and cheaply if it must (§11 phase 3, §8 K1). Every kill criterion is scored
+  and published whether or not it fired (§6 T3).
+
+- **How the work is organised.** Seventeen phases plus a phase 0, each one
+  reviewable pull request. Framework fixes come first, then the kill test on the
+  toy, then the seven modules, then assembly, validation and inference. Phases
+  fan out where they are independent and run serially where each check would
+  mask the next (§11).
+
+- **How the document is kept honest.** The decisions are recorded in §4, each
+  with its reasoning and the alternatives rejected. Every departure from the
+  published model is declared and, where possible, its cost measured (§6 T2).
+  When reality contradicts the spec, the change is dated and logged in §12 with
+  the evidence that forced it, never applied silently.
+
+- **Where to read next.** `dev/notes/reduced-syn3a-scoping.md` for what Core A′
+  is and why; `docs/handoff.md` for where the work currently stands; §11 for
+  which phases are ticked; §12 for what has already changed and why.
 
 ---
 

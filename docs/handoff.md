@@ -3,7 +3,15 @@
 **Session date:** 2026-09-03
 **Branch:** `establish-definitive-spec`
 
-## Latest: the spec is amended for an unshared-parameter boundary (2026-09-03)
+## Latest: executive summary added to the spec (2026-09-03)
+
+`spec/spec.md` now opens with a §0 executive summary, eleven bullets written
+for a scientist who knows whole-cell modelling but not this project. It carries
+no decisions and no status; for current status it points here. The header's
+"Last amended" date is set to 2026-09-03, matching the §12 entry. Nothing else
+in the spec changed. Next step is unchanged: phase 0 of §11.
+
+## Previous: the spec is amended for an unshared-parameter boundary (2026-09-03)
 
 Four amendments to `spec/spec.md`, all logged in its §12 with evidence. **Read
 that log first**; this is the summary.
