@@ -22,10 +22,10 @@ spec wins, because the note does not address either.
 **Parameter uncertainty propagates correctly across a genuine ODE/stochastic
 boundary in a model derived from a published whole-cell simulation.** Concretely:
 in Core A′ — 21 metabolic reactions and 17 genes carved out of Thornburg et al.
-2022's well-stirred JCVI-syn3A model, with three deterministic modules and four
+2022's well-stirred JCVI-syn3A model, with four deterministic modules and three
 stochastic ones exchanging state every simulated second and rate constants every
-sixty — posteriors over parameters that cross the boundary are *calibrated*, not
-merely centred: coverage on synthetic data is nominal at stated levels, rank
+sixty — posteriors over parameters whose information crosses the boundary are
+*calibrated*, not merely centred: coverage on synthetic data is nominal at stated levels, rank
 statistics are uniform within test, and what the data does and does not constrain
 is characterised rather than assumed.
 
@@ -34,6 +34,16 @@ typed-interface architecture can host heterogeneous formalisms from a published
 whole-cell model, execute the coupling between them, and support inference over
 the whole with every reduction and every provenance choice enumerable from the
 composed model.
+
+**What "crosses the boundary" means here, precisely.** No parameter is *shared*
+between the two blocks; §4 D13 establishes that this is inherited from the
+published model rather than chosen by us. So the claim is not that one quantity
+appears in both blocks' rate laws and is informed by both data streams. It is
+that a parameter local to one block has its posterior moved by the *other*
+block's data, through the state coupling. That is a harder claim and a narrower
+one, and §6 F6 is where it is cashed out: the ptsG promoter strength shrinking
+under metabolite-only data, and the tight-prior catalytic constant shrinking
+under transcript-only data.
 
 **What this claim deliberately excludes.** Core A′ removes roughly 92% of the
 cell. It will not reproduce syn3A's 105-minute doubling time, its metabolite
@@ -70,11 +80,11 @@ coupling graph. The summary:
 
 | | |
 |---|---|
-| ODE block | 21 reactions in 3 modules: glycolysis through lactate (10), the phosphotransferase cascade plus lactate export (6), nucleotide recycling (5) |
-| Stochastic block | 17 genes × 3 reactions plus one translocation = 52 reactions in 4 modules: transcription, translation, transcript decay, lumped tRNA charging |
+| ODE block | 22 reactions in 4 modules: glycolysis through lactate (10), the phosphotransferase cascade plus lactate export (6), nucleotide recycling (5), the lumped tRNA charging step (1) |
+| Stochastic block | 52 reactions in 3 modules: 17 transcription, 17 translation, 17 decay, plus one translocation for ptsG. Matches the scoping note's own count. Protein degradation would be seventeen more and is **ours if kept** — see phase 11 |
 | State | 32 dynamic species and 5 chemostats, named and ordered once in the registry |
 | Copy-number span | mRNA 0–2, protein 266–1355, metabolites ~200–74,000 particles |
-| Coupling | 4 channels on 2 timescales: 3 at 1 s, 1 at 60 s, plus volume-mediated dilution |
+| Coupling | 6 channels: 3 at 1 s, 2 at 60 s, and volume-mediated dilution, which is on neither clock. Enumerated in §6 F1 |
 | Growth | Surface-area accounting; reaches ~1.07× initial volume, so the published 2× cap is never approached |
 
 The reduction is honest about what it preserves: a genuine ODE/stochastic split,
@@ -111,8 +121,8 @@ described. Each was read in the source this session.
 **G1 — mixed-formalism composition is refused in one line.**
 `build_problem` routes on `_determine_formalism`, which returns `:mixed` for a
 heterogeneous set, and the mixed branch is `error("Mixed formalism composition
-not yet supported")` at `src/orchestrator.jl:27`. Core A′ is three ODE modules
-and four jump modules. There is no hybrid path, no stub, and the refusal is
+not yet supported")` at `src/orchestrator.jl:27`. Core A′ is four ODE modules
+and three jump modules. There is no hybrid path, no stub, and the refusal is
 pinned by a test at `test/test_stochastic_ge.jl:58`. The same branch swallows a
 uniform `:sde` composition, which is why the copy-number table's "chemical
 Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented too.
@@ -129,8 +139,11 @@ deferred counter "is exempt — the hook debits it, the RHS never reads it."
 network fetch from a compute node.
 
 Note that `src/boundary.jl` is **not** this layer despite its name. It is
-inference-level message passing between two independently solved problems. It
-does not couple trajectories.
+inference-level message passing between two independently solved problems, and it
+does not couple trajectories. For Core A′ it in fact passes **nothing**: it
+decides what to hand over by matching parameter names across the blocks
+(`boundary_condition`, `:111-135`), and the two namespaces are disjoint. §4 D13
+records why, and §7 records the consequence.
 
 **G3 — jump composition mis-indexes state and parameters.**
 `_build_jump_problem` computes the per-module `SubModelContext` index maps,
@@ -171,8 +184,11 @@ comment conceding it is not research-grade.
 `dev/notes/well-stirred-minimal-cell.md` maps the source model, including the
 `Mode`-column trap that governs every imported parameter.
 `dev/notes/modular-bayesian-inference-heterogeneous-modules.md` supplies the
-tractability rungs, the prior-double-counting hazard, and the instruction that a
-reduced exact reference must exist before any approximation is trusted.
+tractability rungs and the instruction that a reduced exact reference must exist
+before any approximation is trusted. Its prior-double-counting hazard, and most
+of its method families, presuppose a quantity shared between modules; §4 D13
+records that Core A′ has none, and that note now carries a section on what would
+change if one appeared.
 `dev/notes/model-uncertainty-and-selection.md` supplies the reason model
 comparison is predictive rather than evidence-based here.
 
@@ -182,7 +198,8 @@ comparison is predictive rather than evidence-based here.
 
 ### Model
 
-- **ODE block.** 21 reactions. Every intracellular reaction takes the published
+- **ODE block.** 22 reactions: the 21 published metabolic reactions plus the
+  lumped tRNA charging step. Every intracellular metabolic reaction takes the published
   simulator's modular rate law, which is `Rxns.Enzymatic` in the source and *not*
   the SBtab `KineticLaw` column, which is inert for these reactions:
 
@@ -192,21 +209,39 @@ comparison is predictive rather than evidence-based here.
   ```
 
   One rate-law term per unit of stoichiometry, so a coefficient of two appears
-  squared. The phosphotransferase cascade is mass-action forward/reverse pairs
-  instead, and lactate export is passive diffusion, `P·(lac_c − lac_e)·3/r_cell`.
+  squared. Three reactions take a different form: the phosphotransferase cascade
+  is mass-action forward/reverse pairs, lactate export is passive diffusion,
+  `P·(lac_c − lac_e)·3/r_cell`, and the lumped charging step is mass-action
+  bimolecular:
+
+  ```
+  M_trna_c + ATP → M_trna_chg_c + AMP + PPi
+  v = k_chg · [M_trna_c] · [M_atp_c]
+  ```
+
+  `k_chg` is **asserted and calibrated by us**, not imported: the published
+  chain's four constants are hard-coded inline with no priors to inherit, so any
+  constant here is asserted whichever form is chosen. See D13 for why this
+  reaction is in the ODE block and D14 for how `k_chg` is fixed.
 - **Stochastic block.** Constant-rate jumps. Transcription is constitutive: one
   reaction per gene firing on gene presence, with no promoter switching. Decay
   is first order in the transcript at one global catalytic constant over
-  transcript length. Translation is first order in the transcript. The lumped
-  charging step is `M_trna_c + ATP → M_trna_chg_c + AMP + PPi`.
-- **Coupling.** Protein counts overwrite enzyme concentrations every 1 s;
-  accrued expression costs are debited against the metabolite pools every 1 s;
-  the pools set the stochastic block's rate constants at a 60 s rebuild;
-  membrane-protein counts set surface area, which sets volume, which rescales
-  every count-to-concentration conversion.
+  transcript length. Translation is first order in the transcript. **Every
+  reaction in this block is zeroth or first order**, which is what makes the
+  conditional likelihood of D10 closed form.
+- **Coupling.** Six channels. Every 1 s: protein counts overwrite enzyme
+  concentrations; accrued expression costs are debited against the metabolite
+  pools; and translation's charged-tRNA consumption is debited against the
+  charged pool with the uncharged pool credited. At the 60 s rebuild: the
+  nucleotide pools set transcription's rate constants, and the charged-tRNA pool
+  sets translation's. On neither clock: membrane-protein counts set surface area,
+  which sets volume, which rescales every count-to-concentration conversion.
+  Enumerated with measured gains in §6 F1.
 - **Discretisation.** Stiff implicit integration for the ODE block with pinned
   tolerances (§3, tolerance principle). Exact stochastic simulation for the jump
-  block. The two advance by a 1 s split-operator exchange, matching the published
+  block, which after D13 carries about 9,900 events per cycle, or 1.6 per
+  handshake interval, rather than the 3.49 million it would carry with charging
+  in it. The two advance by a 1 s split-operator exchange, matching the published
   model's own handshake.
 
 ### Assumptions and approximations, each with its regime
@@ -214,8 +249,10 @@ comparison is predictive rather than evidence-based here.
 | Assumption | Holds when | What breaks outside it |
 |---|---|---|
 | Metabolites are continuous and deterministic | Pools are large. True for ATP at ~74,000 particles | Marginal at ~198 particles (13DPG), where relative Poisson noise is ~7% — and those are the pools with the largest concentration control coefficients. Bounded by check 1b, not assumed away |
-| Enzyme counts enter the ODE deterministically | 266–1355 copies gives 3–6% relative Poisson noise | Core A′ therefore supports a claim about *parameter* uncertainty crossing the boundary, and honestly cannot support one about *stochasticity* crossing it. That is Step 1b's claim |
-| One lumped charged-tRNA pool replaces 20 per-amino-acid chains | Untested. **Ours, not the model's** | The pool size is a quantity we chose, and it may set the strength of the strongest candidate reverse channel. See R8 |
+| Enzyme counts enter the ODE deterministically | 266–1355 copies gives 3–6% relative Poisson noise | Core A′ therefore supports a claim about *parameter* uncertainty crossing the boundary, and honestly cannot support one about *stochasticity* crossing it. That is Step 1b's claim. D13 strengthens this caveat: the single most-fired process in the published stochastic block is now deterministic **by our choice** |
+| One lumped charged-tRNA pool replaces 20 per-amino-acid chains | Untested. **Ours, not the model's** | The pool size is a quantity we chose. It sets the strength of the reverse channel into translation **and**, after D13, the low-pass filter on the dominant forward channel. See R8, which this upgrades |
+| The lumped step is integrated deterministically in the ODE block | The registry marks both tRNA species metabolite-scale, and the step fires ~553/s. The scoping note already placed it here | The *formalism* is ours even though the placement is the note's. See D13 |
+| `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
 | CTP, UTP and the amino-acid pool are chemostatted | Their sources are in modules Core A′ cuts. **Ours, not the model's** | Stops being defensible the moment Step 1b makes the pools live |
 | Non-ptsG membrane growth is exogenous | ptsG is Core A′'s only membrane protein. **Ours, not the model's** | Growth reaches only ~1.07×, so the published 2× cap is never tested |
 | The 60 s rebuild is piecewise-constant | It is what the published model does | A continuous variant is a different and arguably better model. Declarable, defaults to published, and the deviation is measured rather than argued. See R11 |
@@ -273,15 +310,15 @@ conservation number is uninterpretable.
 |---|---|---|---|
 | 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
-| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise | Assembled |
+| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing |
-| 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately, corrected for declared drain and inbound flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed (**pool exhausted at ~141 s**); pyrophosphatase removed (pyrophosphate unbounded) | Assembled only. Standalone it is a tautology, which is why the drain double is the acceptance criterion and not scaffolding |
-| 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance** | Assembled only |
+| 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (pyrophosphate unbounded). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
+| 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
-| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters**. If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory | Assembled |
-| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve | Assembled, and independent of every balance check because it tests derivatives rather than balances |
+| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters**. If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it | Assembled |
+| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero | Assembled, and independent of every balance check because it tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
 Check 8 is the one genuinely analytic result the implementation must reproduce,
@@ -358,6 +395,12 @@ three ODE and four stochastic modules would be revisited — rejected because th
 cost is seven pull requests against one. Landing the protocol changes first but
 building the handshake directly on the real modules — rejected because it defers
 the kill measurement past the point where acting on it is cheap.
+
+**A supporting argument D13 supplies.** Charging, as an ODE module, contributes
+to ATP, AMP and pyrophosphate that nucleotide recycling owns. Executing that
+contribution is exactly what phase 1 builds. So the framework-first ordering is
+not only about avoiding rework: the charging relocation is unimplementable
+without phase 1, which is one more reason it cannot sit at the end.
 
 **Consequence to record.** The four drafted module designs each open by stating
 that the interface is frozen and read-only. That was true when they were written
@@ -482,9 +525,13 @@ dominated by transcript length. **The effect on the coupling is not.** Over the
 17 genes the base counts are A 7236, C 2078, G 3094, U 5868, so the bug weights
 the GTP term by the uracil count rather than the guanine count and makes every
 transcription rate constant **1.9× more sensitive to the live GTP pool than it
-should be.** That is the only reverse channel in the model, so porting the bug
-would mean demonstrating bidirectional coupling with a gain a typo nearly
-doubled.
+should be.** That is the only reverse channel **into transcription**, so porting
+the bug would mean demonstrating bidirectional coupling with a gain a typo nearly
+doubled. It is not the only reverse channel in the model: after D13 the
+charged-tRNA pool is an ODE state feeding translation's rate constants at the
+same rebuild, which is a second one. An earlier draft of this decision said
+"the only reverse channel in the model", contradicting the assumptions table and
+R1; that is corrected here.
 
 **This is the unusual case where the default is the labelled one.** Correcting is
 a departure, so the correction appears in `reduction_notes` while the published
@@ -514,7 +561,10 @@ lactate is integrated as a dynamic state with its accumulation scaled by a
 medium-to-cell volume ratio of 1e5.
 
 **Why export is required.** Glycolysis produces two lactate per glucose. At Core
-A′'s corrected demand of ~1,106 glucose/s that is ~13.9 M lactate over a cycle:
+A′'s corrected demand of ~1,106 glucose/s that is ~13.9 M lactate over a cycle
+— and note after D14 that this demand is an *emergent* quantity contingent on
+`k_chg` and the tRNA pool rather than an input, so the figures below are the
+nominal case rather than a bound:
 **~691 mM at initial volume and ~345 mM even at doubled volume**, exceeding the
 entire measured phosphate pool by a factor of forty. Without export the core is
 not a sustained pathway, it is a pathway that poisons itself in minutes, and
@@ -561,6 +611,11 @@ anywhere in the source.** The transport file has no `Parameter` table at all.
 They are point values, so every prior on the eleven is **asserted by this
 project**, marked as such, enumerable from the composed model, and fixed by
 default so nothing is inferred through an invented prior without a decision.
+
+Two more join that set after D13 and D14, making thirteen: the charging rate
+constant `k_chg`, and the total tRNA pool size, for which the registry records no
+value at all. They come from a different module, so the enumeration is no longer
+transport-only.
 
 ### D8. Observable design: what is safe, and the one rule that matters most
 
@@ -624,27 +679,57 @@ better — it is that they identify structurally different subspaces.
 
 **The gain asymmetry is a finding, not an obstacle.** The two forward channels
 are order one: the ATP pool turns over in about 109 s and the GTP pool in about
-30 s, both driven by expression cost, so a twofold change in aggregate promoter
-strength is unmissable in the adenylate and guanylate pools. The reverse channel
+30 s, so a twofold change in aggregate promoter strength is unmissable in the
+adenylate and guanylate pools. The two are not the same shape, though, and D13
+is why. The guanylate side is driven directly by translation's cost counter. The
+adenylate side is ~81% charging, which after D13 is an ODE reaction, so its
+forward channel is **two-stage and buffered by the tRNA pool**: translation
+consumes charged tRNA, the uncharged pool refills, charging then draws ATP. The
+pool size sets the lag, and we assert it. The reverse channel
 has a measured gain of 0.044 to 0.051. **The published coupling is therefore
 nearly unidirectional in gain even though it is bidirectional in topology**, and
 that is a substantive quotable statement about whole-cell model architecture
 rather than a shortcoming of the reduction. It is worth more than a symmetric
 result would have been.
 
-### D10. Three inference rungs, and the reference is mandatory
+### D10. The conditional scheme, and the reference is mandatory
 
-**Decision.** Build a reduced exact reference first, then the production sampler,
-then the protocol comparison.
+**Decision.** Exploit the conditional structure the boundary actually has, build a
+reduced exact reference first, then the production sampler. There is no protocol
+comparison; D13 explains why one is not available.
+
+Because no parameter is shared across the boundary (D13), the coupling is a fixed
+point in state space rather than a common entry in θ. That makes the following
+factorisation the natural one, and it is what the spec commits to:
+
+```
+theta_ODE | path, data   ->  gradient-based sampler
+theta_CME | path         ->  closed form
+path      | theta, data  ->  mechanism decided in phase 16
+```
+
+**Two things about this that are easy to get wrong.**
+
+*The middle block's conjugacy is real but narrow.* Given the path, each gene's
+firing count has a likelihood proportional to `k^n exp(-k ∫…)`, which is gamma in
+`k`. But the free parameters enter `k` as the product of polymerase turnover and
+promoter strength, so **the conjugate parameterisation is exactly the degenerate
+direction** D11 rejects the polymerase constant for and K6 tests. That is a
+convergence rather than a coincidence: the identifiable parameterisation and the
+tractable one are the same, and both point at the product.
+
+*Conditioning on the path does **not** make the first block smooth.* An earlier
+draft of this decision claimed the cost drains become known deterministic
+forcing once the path is fixed. They do not: the drain is clipped at zero against
+the pool, and the pool depends on `theta_ODE`, so the non-smoothness survives
+conditioning. K5 governs inside the conditional step exactly as it does outside
+it, and check 7's census is what decides whether it bites.
 
 **M0, the reference.** A deliberately small Core A′: two genes, 600 s horizon,
-small enough that a very long run is a defensible ground truth. Data-augmented
-blocked sampling: augment the stochastic path, so conditional on it the cost
-drains are known deterministic forcing and the ODE parameters go to a
-gradient-based sampler at tightened tolerances; conditional on the ODE
-trajectory, and hence on the rate-constant sequence, the stochastic block's
-likelihood for observed counts is closed-form. This targets the true joint
-posterior and is the only unambiguous ground truth the project will get.
+small enough that a very long run is a defensible ground truth. The three-block
+scheme above, run to convergence with a deliberately expensive path update. This
+targets the true joint posterior and is the only unambiguous ground truth the
+project will get.
 **Without it, a calibration pass is unattributable** — it could be a good
 approximation or a converged wrong answer.
 
@@ -658,22 +743,37 @@ likelihood. Force the choice with a measurement rather than an argument:
 > the coarser aggregate drain. Given the ATP pool's 109 s and the GTP pool's
 > 30 s turnover, 60 s is expected to fail this and 5 s to pass.
 
-Whichever passes becomes a labelled reduction with a *measured* cost. If path
-augmentation is genuinely needed, the fallback is pseudo-marginal sampling with a
-bootstrap particle filter, which must be built — the single largest missing piece
-if the closed-form route does not survive contact.
+Whichever passes becomes a labelled reduction with a *measured* cost.
 
-**M2, the protocol comparison.** Run the same problem, the same data and the same
-targets through the joint posterior and through the explicit cut in
-`src/boundary.jl`, and compare their calibration. One model, two interfaces, two
-calibrations, and the typed interface contract is what makes the swap a one-line
-change — which is the architecture claim's evidence.
+**The path update is deliberately left open, and phase 16 closes it.** After D13
+the stochastic block is purely first order and factorises over genes, and
+promoter strength reads the fixed proteomics count rather than the live protein
+count, so there is no feedback inside the block. That may admit exact forward
+filtering over a truncated state space, or no augmentation at all. Committing to
+a particle method now would foreclose the cheaper route D13 just opened. Phase 16
+chooses among three options and records which:
 
-**Alternatives considered.** Including the iterative exchange protocol as a third
-arm, with its predicted prior-double-counting signature. Rejected: it is a
-proof-of-concept rather than a production protocol, and measuring its calibration
-is investment in something the project has already decided not to carry forward.
-Its known limitation is stated in §7 and no compute is spent on it.
+| Option | What it needs |
+|---|---|
+| Particle Gibbs with ancestor sampling | The stochastic block written against the `SSMProblems` interface |
+| Exact forward filtering | A defensible truncation, hardest for the protein counts, which reach 1355 |
+| No augmentation | The 60 s aggregate drain passing the granularity measurement above |
+
+**Two installed facts that constrain the first option**, recorded here so nobody
+meets them the hard way. Ancestor sampling is implemented only for the
+`SSMProblems` state-space interface, not for Turing's model macro, so a `@model`
+cannot reach it. And Turing's compositional Gibbs does accept a particle sampler
+on a latent block, but its task-copying layer deep-copies only arrays and
+references, so a solver object held in a particle's state is **silently shared
+across forked particles** rather than copied. That is a correctness trap, not a
+performance note.
+
+**Alternatives considered.** A protocol comparison against the explicit cut and
+the iterative exchange, which earlier drafts made the architecture claim's
+headline evidence. Both are unavailable: they decide what to pass by matching
+parameter names across the blocks, and D13 shows that set is empty. §7 records
+the consequence and the survey note carries what would be needed if a shared
+parameter ever appeared.
 
 **Why the reference matters to the budget.** If the stochastic block's likelihood
 is closed-form, a posterior costs a few CPU-hours and a calibration study a
@@ -711,6 +811,12 @@ identifies independently of amplitude.
 Free the polymerase constant in a later round *as a deliberate demonstration of
 the ridge*. That is a result, not a failure.
 
+**The ridge is also the conjugate direction**, which is worth knowing before any
+Jacobian is computed. D10's closed-form conditional for the stochastic block is
+gamma in the product of polymerase turnover and promoter strength, so the
+tractable parameterisation and the identifiable one coincide. K6 tests this
+numerically; the analytic form says the answer in advance.
+
 **Two hard constraints.** Hold initial protein counts fixed at proteomics values
 (D8). And replace the single scalar observation noise: the states span 0.0098 to
 17.8 mM, so one additive term makes the small informative pools contribute
@@ -738,12 +844,17 @@ exactly what makes a conditional calibration check well defined:
    draw a path from the prior predictive, simulate the ODE with the path as known
    forcing, infer with the path held at its simulated truth, take ranks.
 2. **Stochastic block given the rate-constant sequence.** The mirror image.
-3. **Joint**, for the shared decay constant — the only place the composition can
-   go wrong without either conditional failing.
-4. **Message calibration.** Record each module's outgoing message at each
-   replication and rank the truth within it. Prior double-counting shows up in
-   the message before it shows up in the final posterior, which is what makes
-   this diagnostic worth building. It is directly the survey's open problem 5.
+3. **Joint**, over the whole target set. Note what this is *not*: there is no
+   shared parameter to check, because D13 establishes there is none. What the
+   joint catches is the composition itself — the path update, and whether the two
+   conditionals are consistent with each other — which is the only place the
+   scheme can go wrong without either conditional failing.
+
+There is no fourth check. An earlier draft had message calibration, ranking the
+truth within each module's outgoing message to catch prior double-counting
+before it reached the posterior. With no shared parameter there is no outgoing
+parameter message to rank, so the diagnostic is vacuous here. It is worth
+building for a system that does have one, and the survey note records that.
 
 **The attribution rule, stated once.** Calibration checks detect sampler error
 and approximation error together. Run the two conditionals; if both pass and the
@@ -755,6 +866,132 @@ Two mechanics: ranks for a weighted posterior must be computed with the weights,
 and use the rank-ECDF test with simultaneous bands rather than a bare histogram,
 because a ten-bin histogram has no usable power at the replication counts this
 project can afford.
+
+### D13. No parameters are shared across the boundary, and that is inherited
+
+**Decision.** Accept that Core A′ has no parameter appearing in both blocks, treat
+it as a first-stage assumption rather than a defect to fix, and move the lumped
+tRNA charging step to the ODE block, which the scoping note already required.
+
+**The finding, with its evidence.** The two blocks' parameter namespaces are
+disjoint. The ODE side carries `kcatF_R_*`, `kcatR_R_*`, `km_R_*_M_*`,
+`conc_M_*`, the eleven asserted transport constants and now `k_chg`; the
+stochastic side carries 17 promoter strengths and a handful of gene-expression
+globals. Nothing is in both. Four independent lines of evidence say this is the
+published model's structure and not ours:
+
+- The derived parameter-coupling figure in
+  `dev/notes/figures/minimal-cell-coupling/` draws metabolism and gene expression
+  as **separate panels with no edge between them**, and its Panel C is titled
+  "Gene expression: no factor structure at all".
+- Metabolism went through SBtab parameter balancing, with priors, balanced modes
+  and posterior widths. Gene expression did not: its globals are written into the
+  source with, in that figure's words, "no prior, no posterior, no provenance".
+  Two blocks parameterised by two different processes.
+- Upstream, 22 of 23 ODE synthetase reactions are commented out precisely because
+  charging moved to the stochastic block. Where one reaction could have carried
+  parameters on both sides, one copy was disabled deliberately.
+- `src/boundary.jl` decides what to pass by matching parameter names
+  (`boundary_condition`, `:111-135`). Run on Core A′ it passes nothing.
+
+**Where sharing does live: inside each block, not across.** The published
+stochastic block is a star — roughly 19 scalars set all 455 of its rate
+constants, so perturbing one moves all of them together. Core A′ inherits the
+hub of that star at 52 reactions rather than 455, which is exactly the ridge D11
+rejects the polymerase constant for. On the metabolic side, Wegscheider
+constraints tie equilibrium constants to standard chemical potentials within each
+balanced file, while **32 compounds carry a different potential in two
+separately balanced files** (`mu0_cross_file.csv`), so the assembled model is not
+thermodynamically consistent as a whole. That is the same class of hazard D2
+documents, and it is the one place a genuine shared-parameter problem exists.
+
+**Why the charging step moves, and why that is a correction rather than a
+departure.** The conditional scheme of D10 is only feasible if the stochastic
+block's path is small enough to represent. It was not:
+
+| | events per cycle | per 1 s handshake |
+|---|---|---|
+| charging, with it in the stochastic block | 3,494,391 | 555 |
+| everything else in that block | 9,873 | 1.6 |
+
+Charging is 353 times every other stochastic event combined, which is a
+forward-cost problem before it is an inference one, against K1's 10-second
+budget. But the decisive argument is that **the scoping note already places it on
+the ODE side and always did**: its CME-side count is "17 genes × 3 reactions
+plus one `TranslocRate` = 52 reactions", with no charging reaction; both tRNA
+species appear in its list of dynamic ODE states; and the charged pool sits in
+its energy-interface table beside ATP, ADP, Pi, AMP, PPi, GTP, GDP and GMP.
+`dev/plans/reduced-syn3a-wave-plan.md` assigned charging to the stochastic block,
+this spec inherited that, and the precedence rule at the top of this document
+says the note wins on model content. The frozen registry agrees: it marks both
+tRNA species `:metabolite` regime, the field that records which formalism is
+defensible.
+
+Independently, the lumping deleted the structure that justified the upstream
+placement. The published model puts charging in the stochastic block with 20
+chains, an explicit synthetase protein reactant drawn from its own translation,
+and per-amino-acid resolution. Core A′ lumps all of that away, leaving a bulk
+flux between two metabolite-scale pools with none of the properties that
+warranted a discrete treatment.
+
+**Two consequences that are costs, not benefits.** First, the dominant forward
+channel becomes two-stage. ATP turns over in about 109 s against ~74,000
+particles, so about 679 per second, of which charging was 553 — roughly 81%.
+With charging inside the ODE block its flux contains no stochastic-block
+quantity, so the adenylate forward channel survives only through the tRNA
+transfer: translation consumes charged tRNA, the uncharged pool refills, charging
+then draws ATP. **The tRNA pool size therefore sets a low-pass filter on the
+dominant forward channel, and that pool size is a quantity we assert.** This
+upgrades R8. It is not an artefact of the move — the published model has the same
+two-stage structure — but the pool size is ours. Second, the non-smooth boundary
+moves onto that pool rather than disappearing; see check 7.
+
+**What the move fixes.** As a stochastic module, charging declared currency edges
+on ATP, AMP and pyrophosphate, which a jump process cannot execute against ODE
+states. It would have needed three more clipped deferred counters. In the ODE
+block it contributes to those pools directly through the mechanism phase 1
+builds, which is what that phase exists for.
+
+**No frozen contract is touched.** The registry, the seven edge kinds, the
+resolver and the loader are unchanged, and so are the 32 dynamic states. Only
+which module integrates the tRNA pair changes, and the registry never said.
+
+**The extension path.** Nothing here forecloses a shared-parameter treatment
+later. Unfreezing cell volume on the stochastic side would create one, since the
+published model computes its polymerase capacities from a frozen initial radius
+while the ODE side reads volume live. Step 1b's dNTP branch is the other
+candidate. What that would require, and what the cut and iterative protocols need
+in order to run at all, is written up in
+`dev/notes/modular-bayesian-inference-heterogeneous-modules.md` rather than here.
+
+### D14. `k_chg` is calibrated, and the calibration is not the test
+
+**Decision.** Fix `k_chg` so the charging flux reproduces the published residue
+demand at nominal pools, mark it `:asserted`, hold it fixed by default, and
+report the total tRNA pool size as a separate asserted quantity.
+
+**Why a rate constant rather than a fixed flux.** A fixed flux would make
+charging a constant drain, which is what the published demand figure of 553.1 per
+second describes. But a constant drain drives ATP to zero in finite time and is
+insensitive to the pool it draws from, so it cannot participate in the two-stage
+forward channel D13 describes. Mass action is the minimal form that responds to
+both pools.
+
+**The calibration must not become the acceptance test.** 553.1 per second is
+derived: 3,484,518 residues over a 6,300 s cycle. If `k_chg` is set so the steady
+flux equals 553.1 and the module is then checked against 553.1, the test verifies
+arithmetic. So the flux target is derived independently, from published residue
+demand and the asserted pool size, and `k_chg` is the **derived** quantity that
+gets reported. The module's own acceptance test is conservation and the
+threshold-crossing behaviour of check 4, not flux agreement.
+
+**The pool size is the load-bearing assertion.** The registry records no initial
+value for either tRNA species. The pool size sets the charging flux at fixed
+`k_chg`, the buffer that decides whether check 7's counter clips, and the lag on
+the dominant forward channel. It is one number with three consequences, so it is
+reported as an asserted quantity in its own right rather than folded into
+`k_chg`, and check 1b is what bounds it.
+
 
 ---
 
@@ -772,6 +1009,7 @@ commit `db048ac`. Nothing is fetched at run time.
 | Cascade constants and permeability | transport TSV | Vendored extract with no uncertainty column, so every row loads as asserted |
 | Carrier initial conditions | proteomics counts × proteomics fractions | Vendored, with the derivation recorded |
 | Per-gene sequence data | genome record, proteomics table, measured transcript counts | One extract, three upstream sources, one column each, so no cross-file ambiguity |
+| Charging rate constant and tRNA pool size | nothing — **asserted by us** | No upstream value exists. `k_chg` is derived from published residue demand and the asserted pool size (D14); both are recorded as asserted, not vendored |
 
 Extracts live under `src/organisms/coreA/data/` with a `README.md` recording the
 upstream filename, the commit, which table each row class came from, that the
@@ -788,7 +1026,18 @@ convention does not fit the balanced `Parameter` table's three-part key and
 
 Julia 1.10.5, available on compute nodes only through a module load. Dependencies
 are pinned in `Project.toml`; `DiffEqCallbacks` and the stiff-solver subpackages
-are already in the depot, so no new dependency requires a network fetch. **If a
+are already in the depot, so no new dependency requires a network fetch. So are
+the packages D10's path update might need: AdvancedPS 0.6.2, SSMProblems 0.5.2,
+Turing 0.39.6 and Libtask 0.8.8, all pinned in `Manifest.toml`.
+
+**Two facts about those packages belong here rather than in a phase**, because
+one of them is a correctness trap. Ancestor sampling is implemented only for the
+`SSMProblems` state-space interface, not for Turing's model macro, so a `@model`
+cannot reach it. And Turing's compositional Gibbs does accept a particle sampler
+on a latent block, but its task-copying layer deep-copies only arrays and
+references, so a solver object held in a particle's state is **silently shared
+across every forked particle** rather than copied. Nothing errors; the results
+are simply wrong. **If a
 new dependency is genuinely needed, the depot must be populated from the login
 node first**, because compute nodes have no network and the failure mode is a
 job dying in seconds on a host-resolution error.
@@ -823,31 +1072,32 @@ is the enabler.
 
 | ID | Output | Claim | The number it delivers |
 |---|---|---|---|
-| **F1** | **Channel gain table.** Four rows — enzyme concentration, expression drain, pools to rate constants, volume — each with its analytic form and its measured value | C1 | The reverse channel at 0.044–0.051; the forward channels as pool turnover times of ~109 s and ~30 s; volume's contribution. **The most important table in the work, and it appears early** |
+| **F1** | **Channel gain table.** Six rows, matching §3's coupling bullet: enzyme concentration, the expression-cost drain, the tRNA transfer, nucleotide pools into transcription's rate constants, the charged pool into translation's, and volume. Each with its analytic form and its measured value | C1 | The reverse channels at 0.044–0.051 and the charged-tRNA figure R1 measures; the guanylate forward channel as a ~30 s turnover; the adenylate forward channel as a two-stage gain with the tRNA pool's lag stated separately, per D13. **The most important table in the work, and it appears early** |
 | **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel |
 | F2b | Flux control coefficients, same layout | C1 | Shows them near zero at 3.6% utilisation — the quantitative reason fluxes are ruled out of the likelihood |
 | **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive. Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
-| F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain, corroborating the reduction's noise estimate from an independent route |
+| F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
 | **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** | Two load-bearing cells: the ptsG promoter under *metabolites only* (shrinks ⟹ uncertainty crossed toward the ODE block) and the ENO constant under *transcripts only* (shrinks ⟹ crossed the other way) |
 | F7 | Leave-one-stream-out: refit dropping each transcript stream and each metabolite stream, reporting the change per target | C3 | Identifies load-bearing single points of failure, and streams that never informed anything |
 | **F8** | **Rank-ECDF difference plots with simultaneous bands**, per target, at the largest affordable replication count | C4 | Primary calibration evidence. Histograms are secondary |
 | F9 | Coverage curve: nominal against empirical at 50, 80, 90, 95 and 99 percent, per target, with binomial intervals | C4 | The two controls are the diagnostic rows, with the kill-criterion band drawn on |
 | **F10** | **Reference comparison** on the two-gene system: exact blocked posterior against production posterior, overlaid marginals plus a two-dimensional contour, plus the divergence between them | C4 — **without this a calibration pass is unattributable** | The number that makes every other calibration claim mean something |
-| **F11** | **The architecture figure.** Two boundary protocols — joint and explicit cut — on the same data and targets, with calibration and coverage panels for each | **C5** | One model, two interfaces, two calibrations. Prediction: the joint is uniform; the cut is biased and over-wide on whichever parameter drew its identifiability from the severed feedback |
-| **F12** | **Message-calibration histograms** for the outgoing boundary message under each protocol | C5, and the methodological contribution | Shows a site miscalibration before it reaches the posterior |
+| **F11** | **The architecture figure**, rebuilt after D13 removed the protocol comparison. Three panels: the hybrid composition running a full cycle at all, which no prior version of this framework could do; the machine-generated enumeration of every departure from the published model; and the completeness assertion of phase 13 shown both passing on the assembled model and failing on a deliberately incomplete one | **C5** | C5's evidence is now that the composition executes and audits itself, not that two interfaces calibrate differently. Weaker as a comparison, and honest: with no shared parameter there is no second protocol to compare against |
 | F13 | Jacobian singular-value spectrum for the target set, with and without the polymerase constant freed | C3 | The multiplicative ridge as a singular value dropping by orders. Uses the existing `check_identifiability` |
 | F14 | Wall-clock per trajectory against horizon and gene count, the budget per rung, and the achieved replication count | K1, reproducibility | The scoping note's binding practical number |
 | **T1** | **Provenance table**, generated by the loader and `reduction_declarations` — every parameter with its value, prior, width, informedness, source file and rejected alternatives | Honesty, C2 | Machine-generated, never typed. The audit trail for the cross-file errors of record |
-| **T2** | **Reduction declarations with measured costs** — the lumped charging step, the chemostatted pools, exogenous membrane growth, the corrected mapping, the rounding policy, the drain granularity, the lactate volume ratio, any smoothed counter | Scope honesty | Each row carries the *measured* cost where measured. This table is what stops a result depending on our choice unremarked |
+| **T2** | **Reduction declarations with measured costs** — the lumped charging step and its now-deterministic formalism, `k_chg` and the tRNA pool size, the chemostatted pools, exogenous membrane growth, the corrected mapping, the rounding policy, the drain granularity, the lactate volume ratio, any smoothed counter | Scope honesty | Each row carries the *measured* cost where measured. This table is what stops a result depending on our choice unremarked |
 | **T3** | **Kill-criteria scoreboard** — each criterion, its threshold, its measured value, pass or fail | Falsifiability | **Published whether or not everything passed.** A scoreboard with a fail on it is more credible than one without |
 | T4 | Target-set summary: truth, posterior mean, 90% interval, coverage, shrinkage | C3, C4 | The conventional recovery table |
 
 **Scalars that must appear in any abstract:** wall-clock per trajectory; the
 reverse-channel gain range; the achieved replication count; 95% coverage per
-target; the shrinkage of the ptsG promoter under metabolite-only data; and the
-coverage gap between the joint posterior and the cut.
+target; and the shrinkage of the ptsG promoter under metabolite-only data
+together with the tight-prior control's shrinkage under transcript-only data.
+Those last two are what "uncertainty crosses the boundary" reduces to once D13
+establishes there is no shared parameter to point at.
 
 ---
 
@@ -878,10 +1128,18 @@ coverage gap between the joint posterior and the cut.
 - **The chemical-Langevin formalism**, despite being a valid declared value and a
   natural fit for the 266-to-1355-copy enzymes. Unimplemented, and not needed for
   a claim about parameter uncertainty.
-- **Fixing the iterative exchange protocol.** It is a proof-of-concept of
-  cross-module exchange, not a production protocol. Its known limitation — naive
-  iterated conditioning re-counts the prior each pass — is stated and no compute
-  is spent measuring it.
+- **The cut and iterative exchange protocols, and any comparison against them.**
+  Both decide what to hand between blocks by matching parameter names, and D13
+  shows that set is empty for Core A′, so neither passes anything: the cut
+  degenerates into inferring each block alone and the iterative loop converges at
+  the first pass having moved nothing. This is a structural mismatch, not a
+  tuning problem. The iterative protocol is additionally a proof-of-concept
+  rather than a production route, with a known prior-double-counting limitation.
+  What either would require if a shared parameter ever appeared is written up in
+  `dev/notes/modular-bayesian-inference-heterogeneous-modules.md`.
+- **A shared-parameter treatment of the boundary.** Accepted as absent for this
+  stage (D13). Unfreezing cell volume on the stochastic side would create one and
+  is the named extension; it is not attempted here.
 - **Decoupling the framework from Core A′.** The resolver and loader still reach
   for the global registry. Parameterising them over a registry object is what a
   second organism costs, and it is deliberately unpaid.
@@ -897,7 +1155,10 @@ whether they fire or not.
 **K1 — the calibration claim, through feasibility.**
 *Fires when* measured wall-clock forces fewer than 50 calibration replications on
 the assembled model. Concretely, above roughly 10 s per full-cycle trajectory on
-the simulation-based path.
+the simulation-based path. **D13 loosened this considerably** by removing about
+350 times the stochastic block's event count, which is the largest single change
+to the budget in this spec; the threshold is unchanged but it should now be much
+easier to meet.
 *Why 50:* below it the rank-ECDF test cannot distinguish a 95%-to-85% coverage
 error from noise, so the posterior is uncheckable — and an uncheckable posterior
 is not a result. This is a scientific criterion, not a budgetary one.
@@ -950,7 +1211,12 @@ of prior draws clip (check 7).
 gradient-based sampling is invalid as posed, and the smoothed model must be built
 and validated against the clipped one before any posterior is reported.
 **This is the criterion most likely to actually fire, and it fires in phase 3,
-which is the good news.**
+which is the good news.** D13 did not reduce this risk, it relocated it: the
+charged-tRNA counter debits ~553 residues per second against a pool of order 10³
+particles, so it can clip on ordinary Poisson fluctuation in translation firing.
+The non-smooth boundary now sits on a pool whose size we assert (D14), which is
+either an opportunity — size it so it provably cannot clip — or a new way to
+fail.
 
 **K6 — structural non-identifiability of the target set.**
 *Fires when* `check_identifiability` reports a rank below six for the chosen set,
@@ -958,7 +1224,9 @@ or a condition number above 1e6. Computed *before* any sampling, at the cost of
 one Jacobian.
 *Predicted instance:* freeing the polymerase constant alongside the promoters
 drops one singular value by orders (D11). Reparameterise to the product plus a
-scale anchor rather than sample through the ridge.
+scale anchor rather than sample through the ridge. The prediction is analytic
+rather than empirical: D10's closed-form conditional is conjugate in exactly that
+product, so the ridge is visible before the Jacobian is computed.
 
 **K7 — the reduction is doing the statistical work.**
 *Fires when* the posterior width on the pyruvate-kinase constant changes by more
@@ -977,14 +1245,20 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
 
 ## 9. Open questions
 
-- **[NEEDS CLARIFICATION: is the stochastic block's likelihood closed-form?]**
-  Conditional on the 60 s rate constants, transcription, decay and translation
-  are zeroth or first order and the nucleotide pools enter as rate constants
-  rather than reactants — so the network looks monomolecular, which would make
-  the transition kernel closed-form and factorised over genes. **The lumped
-  charging step has two reactants and may break this.** Settled in phase 12. The
-  inference budget changes by roughly two orders of magnitude on the answer
-  (D10), so this is the highest-value open question in the spec.
+- **RESOLVED by D13, and recorded rather than deleted because it was the
+  spec's highest-value open question.** The obstruction was the lumped charging
+  step's two reactants. With that step in the ODE block, every remaining reaction
+  in the stochastic block — transcription, translation, decay, translocation and
+  protein degradation if phase 11 keeps it — is zeroth or first order conditional
+  on the 60 s rate constants, so the transition kernel is closed form and factorises over genes,
+  and the promoter conditional is conjugate with the polymerase constant fixed
+  (D10, D11). **Two residual caveats, neither a tractability problem.** The cost
+  counters are deterministic accumulators entering no propensity, so they do not
+  break the kernel's factorisation; what they do is restrict the ODE block to
+  aggregate linear combinations of the 17 promoter strengths, which is D9's
+  identifiability finding. And the factorisation is over genes *given the path*:
+  the ODE conditional does not factorise. Verified by construction in the
+  transcription and translation phases rather than by a determination task.
 - **[NEEDS CLARIFICATION: what handshake granularity do the pools require?]**
   Settled by the 1 s / 5 s / 60 s comparison in D10 — in miniature in phase 4,
   at full scale in phase 13. Expected to rule out 60 s, given the GTP pool turns
@@ -994,22 +1268,35 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   reverse direction. A first pass at the published rate law suggests the opposite
   — that both denominators are dominated by polymer length, bounding the whole
   reverse direction at a few percent structurally rather than accidentally.
-  Settled in phase 10, and it changes how the result is framed.
+  Settled in the translation phase, and it changes how the result is framed.
+  **D13 made this question well posed.** With charging in the stochastic block
+  the charged pool was an intra-block read, not a channel at all; now it is a
+  genuine second reverse channel alongside the nucleotide pools. Measuring it
+  needs the charging module composed, or a double — see R1.
 - **[NEEDS CLARIFICATION: does protein fold change over a cycle reach two?]** A
   first pass suggests it may fall well short, which would indicate the lumped
-  charging step throttling translation. Settled in phase 10, and far cheaper to
+  charging step throttling translation. Settled in phase 11, and far cheaper to
   diagnose there than to explain at the end.
 - **Does the lumped charging step's stoichiometry change the answer?** The
   published AMP-and-pyrophosphate form puts 553 events per second through the
   adenylate kinase; a two-ATP-to-two-ADP form puts zero. That changes how much
   the kinase's equilibrium constant can move the ATP/ADP ratio the rebuild reads,
   and so whether the kinase belongs in the target set. One cheap comparison run,
-  in phase 12.
+  in the charging phase. **After D14 it must be run at matched steady flux**
+  rather than matched event count, because both forms are now mass-action rate
+  laws with different self-limiting behaviour.
 - **Does the 60 s rebuild stay piecewise-constant?** Declarable, defaults to
   published, and the deviation is measured rather than argued (R11).
 - **Is the promoter proxy inherited verbatim at Step 2?** Barely matters for
   synthetic recovery, where it only sets the truth we recover. Leaning toward
   inheriting it as the baseline the surrogate is measured against.
+- **[NEEDS CLARIFICATION: how large is the tRNA pool, and can the charged
+  counter be made unable to clip?]** New with D14. The registry records no value
+  for either tRNA species, and the pool size sets three separate things: the
+  charging flux at fixed `k_chg`, the buffer that decides whether check 7's
+  counter clips, and the lag on the dominant forward channel. One number, three
+  consequences, and all three are ours. Check 1b bounds it from below and check 7
+  from above; whether a value satisfies both is not yet known.
 - **Whether the full-cycle checks belong in the default test suite.** They are
   the strongest evidence and the slowest thing added. Deciding needs the measured
   wall-clock. **Shortening the interval is not an option** — it is precisely the
@@ -1025,18 +1312,18 @@ point of D0's reordering.
 
 | # | Risk | Early warning | Pre-committed response |
 |---|---|---|---|
-| R1 | The reverse channel is too weak for the bidirectional claim | **Measure the charged-tRNA elasticity the week the translation module lands** (phase 10). Below 0.02 and the reverse direction is bounded at a few percent by the structure of both published rate laws | K2's response: reframe as a measured bound plus the replicate count needed, and promote Step 1b |
+| R1 | The reverse channel is too weak for the bidirectional claim | **Measure the charged-tRNA elasticity as soon as the translation rate law exists.** Below 0.02 and the reverse direction is bounded at a few percent by the structure of both published rate laws. **D13 delayed this warning and that is a real cost**: the charged pool is now an ODE state, so a jump module cannot produce it standalone. Either the translation phase carries a charged-pool double or the measurement waits for assembly. Carry the double | K2's response: reframe as a measured bound plus the replicate count needed, and promote Step 1b |
 | R2 | The non-smooth drain operates in-regime, so the ODE block is not differentiable where it matters | **Any non-zero deficit carried on the first full-cycle run at published parameters** (check 7, phase 3). Do not wait to meet it as sampler divergences, which look like a step-size problem | Smooth the drain; validate the smoothed model against the clipped one. K5 |
 | R3 | Integer rounding drift swamps the integrator and is read as a conservation leak | **The adenylate residual failing to shrink when tolerances tighten tenfold.** One extra run distinguishes the two | Fractional-carry rounding (check 0). The magnitudes differ by ~140×, so this is not hypothetical |
 | R4 | The reference system is skipped because production looks fine | **A calibration pass reported with no reference comparison beside it.** This is a process risk, so the warning is procedural | F10 is a phase deliverable, not an optional extra. A calibration claim without it is unattributable |
-| R5 | The message family's finite support truncates every hand-off | **Acceptance rate collapsing across populations**, or more than 1% of posterior mass within one bandwidth of the density estimate's grid edge. The existing prior returns zero outside its grid, and the sampler's support gate then rejects everything beyond the previous stage's range | A fat-tailed message family or a moment-matched Gaussian site; log the edge-mass fraction every iteration |
+| R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
 | R6 | The six targets are not identifiable as a set | **A rank below six or a condition number above 1e6, computed before any sampling.** Costs one Jacobian | Reparameterise to the product plus an anchor. K6 |
 | R7 | Calibration is unaffordable, so the claim cannot be made | **The phase 13 wall-clock exceeding 10 s per trajectory** | K1's ladder, pre-committed so it is not negotiated under pressure |
-| R8 | The lumped charging step — ours, not the model's — determines the answer | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, more likely, **the charged-tRNA pool size appearing in the top three by sensitivity in F2** — a quantity we chose setting the strength of the strongest candidate reverse channel | Report the channel gain as a *function* of the pool size rather than a point value; label the lumping in T2 with its measured posterior sensitivity |
+| R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound and check 7 as its upper |
 | R9 | Core A′ is better-conditioned than the same subnetwork inside the full model, so success over-claims | **Measurable now, without waiting:** the posterior width on the pyruvate-kinase constant with the seven dropped sibling reactions stubbed in as a competing sink | Quote the factor alongside every recovery claim. K7 |
 | R10 | Everything rests on synthetic data, so misspecification is untested by construction | **No internal early warning exists, and that is why this is a stated scope limit rather than a mitigated risk.** The nearest signal is F5: if either external check fails, the model is already misspecified against the data that does exist | State the limit in the abstract. Do not claim robustness that was not tested |
 | R11 | The 60 s rebuild is an implementation artefact the posterior depends on | **Nominal trajectory at 60 s against 6 s rebuild cadence; any observed pool differing by more than one percent.** With the GTP pool turning over in half the interval, expect this to fire | A labelled decision in T2 with the posterior sensitivity reported. Turns an open question into a measurement |
-| R12 | Protein fold change misses two, so the reduction throttles translation | **The arithmetic, run the week the translation rate law exists.** A first pass puts one gene near 1.3 against a published median near 2 | Diagnose in phase 10 — the charging step or the ribosome constant — rather than explain it in phase 16 |
+| R12 | Protein fold change misses two, so the reduction throttles translation | **The arithmetic, run as soon as the translation rate law exists.** A first pass puts one gene near 1.3 against a published median near 2. Inherits R1's sequencing cost: the charged pool is an ODE state, so this needs the charging module or a double | Diagnose in the translation phase — the charging step, `k_chg`, the pool size or the ribosome constant — rather than explain it at recovery |
 | R13 | The observation model's scale is wrong and every credible interval is misreported | **No noise-scale recovery test exists anywhere in `test/`.** A variance-versus-standard-deviation misreading of the multivariate normal constructor rescales every interval and passes every other check | Check 9, written before the first posterior |
 | R14 | Summary statistics discard the low-copy information the reduction exists to exercise | **The ensemble observer averages replicates and the summaries keep per-time means only** — both true in the code today, both contradicting the scoping note's own recommendation | Carry transcripts as counts per replicate; add distributional summaries and a lag-one autocovariance, or supersede summaries with the exact likelihood |
 | R15 | The seven module phases are written against a protocol that then changes again | **A framework need surfacing during a module phase.** That is an interface bug, and the wave plan's rule stands: it is a conversation on the main branch, not an edit on a module branch | Amend §12 with the change and its date, then land it as its own phase before the affected modules continue |
@@ -1049,11 +1336,15 @@ Seventeen phases plus a phase 0, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
-**Parallelism.** Phase 1 runs alone. Then a four-way fan-out: phases 6, 7 and 8
-(the ODE modules) run concurrently with the framework track of phases 2 to 5.
-Then phase 9 before phases 10 and 11, because both read the transcripts phase 9
-owns; phase 12 is parallel to them. Phases 13 to 17 are strictly serial, because
-each validation check catches errors the next would mask.
+**Parallelism.** Phase 1 runs alone. Then a four-way fan-out: the ODE track of
+phases 6 to 9 runs concurrently with the framework track of phases 2 to 5. The
+ODE track is **not** itself a clean fan-out after D13: phases 6, 7 and 8 are
+mutually independent, but phase 9 depends on phase 8, because charging
+contributes to the pools recycling owns. Then the stochastic track, phase 10
+before phases 11 and 12, because both read the transcripts phase 10 owns. Phase
+11 also wants phase 9 landed, since its rate constant reads an ODE state; it can
+proceed on a double, and R1 records that cost. Phases 13 to 17 are strictly
+serial, because each validation check catches errors the next would mask.
 
 ### Phase 0 — Retire OpenSpec, keep its findings
 
@@ -1161,7 +1452,7 @@ error.
   Fano-factor assertion, and by rewriting the "composition fails" test to assert
   what now actually fails (duplicate ownership) rather than what no longer does.
 - [ ] 2.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
-  by the handoff recording that the four gene-expression modules may now assume
+  by the handoff recording that the three gene-expression modules may now assume
   composability, correcting the drafted design that assumed it already held.
 
 ### Phase 3 — The 1 s handshake, on a two-module toy. **The kill phase.**
@@ -1220,8 +1511,11 @@ here and the architecture is revisited rather than scaled. See K1.
 
 ### Phase 4 — The 60 s rebuild
 
-**Goal:** execute the only reverse channel — live pools to recomputed jump rate
-constants, piecewise-constant at the interval the edge declares.
+**Goal:** execute the reverse direction — live pools to recomputed jump rate
+constants, piecewise-constant at the interval the edge declares. There are two
+such channels in the assembled model, the nucleotide pools into transcription and
+the charged-tRNA pool into translation; the toy exercises the mechanism, which is
+shared.
 **Done when:** the toy's propensities change only at interval boundaries, the
 interval is read from the declared edge rather than hard-coded, and the measured
 elasticity of a rate constant to its upstream pool is reported.
@@ -1243,7 +1537,7 @@ elasticity of a rate constant to its upstream pool is reported.
   with a named error; silently discarding the cadence field is the failure to
   avoid.
 - [ ] 4.5 Measure the channel's gain on the toy — verify by an elasticity
-  diagnostic and by the number recorded where phase 9 compares it against the
+  diagnostic and by the number recorded where phase 10 compares it against the
   0.044–0.051 the real transcription module predicts.
 - [ ] 4.6 Run D10's granularity comparison in miniature — verify by nominal
   trajectories at 1 s, 5 s and 60 s drain granularity with the largest relative
@@ -1391,15 +1685,15 @@ plain function on this module, which settles that design's own open question.
 phosphate moieties, owning the four adenylate, three guanylate and one
 pyrophosphate species — the pools every other module routes energy through.
 **Done when:** over a full 6,300 s cycle against a charging drain, adenylate and
-guanylate are each conserved and ATP stays positive; removing the adenylate
-kinase exhausts the pool at about 141 s and removing the pyrophosphatase leaves
-pyrophosphate unbounded.
+guanylate are each conserved; removing the adenylate kinase drives ATP below 1%
+of its initial value on the timescale the scoping note computes, and removing the
+pyrophosphatase leaves pyrophosphate unbounded.
 **PR:** _not started_
 
 Reference detail at
 `dev/archive/openspec/changes/add-nucleotide-recycling/tasks.md`. Its charging
 drain double is the acceptance criterion and not scaffolding; it gains one task,
-recording its stoichiometry so phase 12 can assert the real module reproduces it.
+recording its stoichiometry so phase 9 can assert the real module reproduces it.
 
 - [ ] 8.1 Vendor two extracts — the governing nucleotide file and the central
   file's rival values for the same identifiers — verify by every one of the 35
@@ -1420,22 +1714,95 @@ recording its stoichiometry so phase 12 can assert the real module reproduces it
   run at two concentrations, since two modules carry a nominal for each of the
   two shared genes.
 - [ ] 8.5 Declare the boundary: mass edges for species not owned, currency edges
-  only where this module is the sole producer or sole consumer of a pool it owns —
-  verify by the edge count and kinds matching, and by a test composing all three
-  ODE modules' declarations asserting no species is described as both mass and
-  currency in one direction.
+  where this module is the **principal** producer or consumer of a pool it owns.
+  The original rule said *sole*, and D13 broke it: charging also produces AMP and
+  pyrophosphate, so recycling is no longer the only holder of those crossings —
+  verify by the edge count and kinds matching the restated rule, by a test
+  composing **all four** ODE modules' declarations asserting no species is
+  described as both mass and currency in one direction, and by the restatement
+  recorded so a reader does not apply the stale rule.
 - [ ] 8.6 Build the charging drain double and run three full-cycle configurations
   — verify by the all-reactions run conserving both moieties with ATP positive and
-  pyrophosphate settling bounded, the kinase-removed run exhausting adenylate
-  within an order of magnitude of 141 s, and the pyrophosphatase-removed run
-  rising without bound.
+  pyrophosphate settling bounded; by the kinase-removed run driving ATP below 1%
+  of initial within an order of magnitude of the scoping note's 144 s; and by the
+  pyrophosphatase-removed run rising without bound. **Assert a threshold
+  crossing, not exhaustion**: the note's 144 s assumes a constant drain, and the
+  real charging module of phase 9 is mass-action, so ATP decays exponentially and
+  never reaches zero. Record both numbers and which model each belongs to.
 - [ ] 8.7 Check phosphate closure in both forms — verify by exact invariance with
   the GTP-branch reactions inactive, and by the flux-corrected form with them
   active *subtracting* the inbound flux rather than relaxing the bound.
-- [ ] 8.8 Record the drain's stoichiometry for phase 12 — verify by the recorded
-  rate being 553.1 per second and by phase 12's acceptance test citing it.
+- [ ] 8.8 Record the drain's stoichiometry and rate for phase 9 — verify by the
+  recorded rate being 553.1 per second, derived from 3,484,518 residues over
+  6,300 s, and by it being recorded as the *demand* the real module must meet
+  rather than as a value phase 9 may calibrate against and then re-check, which
+  would be circular (D14).
 
-### Phase 9 — Transcription
+### Phase 9 — Lumped tRNA charging, in the ODE block
+
+**Goal:** the one reaction that is ours rather than the published model's,
+integrated deterministically, owning the charged and uncharged tRNA pools and
+contributing to the energy pools nucleotide recycling owns.
+**Done when:** the tRNA pair is conserved over a full cycle against a
+translation-demand double, the charging flux reproduces the published residue
+demand from independently derived inputs, and `reduction_declarations` reports
+both the lumping and the formalism.
+**PR:** _not started_
+
+This is an ODE module, per D13. It was specced as a stochastic one, which
+contradicted both the frozen registry and the scoping note; §12 amendment 1
+records the correction. It is the fourth ODE module and it runs in the ODE track,
+but it depends on phase 8, so the track is not a clean fan-out.
+
+- [ ] 9.1 Implement the single reaction as an ODE sub-model owning both tRNA
+  states, with the mass-action rate law of §3 — verify by the state set equalling
+  the registry's tRNA group with strictly increasing indices, by `formalism`
+  reporting `:ode`, and by a hand-checked derivative at one state vector.
+- [ ] 9.2 Assert the total tRNA pool size and derive `k_chg` from it (D14) —
+  verify by both loading with informedness `asserted` and appearing in the
+  composed model's asserted-prior enumeration; by `k_chg` being computed from the
+  published residue demand and the pool size rather than typed in; and by the
+  derivation recorded so the pool size can be changed and `k_chg` follow.
+- [ ] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
+  recycling owns — verify by the kinds and directions matching, by composing with
+  phase 8 asserting no species is described as both mass and currency in one
+  direction, and by the contributions actually **executing** through phase 1's
+  mechanism rather than resolving and doing nothing, which is what they would
+  have done in the stochastic block.
+- [ ] 9.4 Register two declarations, not one — verify by `reduction_declarations`
+  returning the lumping under `lumping`, naming what it replaces (twenty chains
+  of five reactions) and why the published product stoichiometry was preferred
+  over a two-ATP form that closes the same moieties by fiat; **and** returning
+  the deterministic formalism separately, since the placement is the scoping
+  note's but integrating it deterministically is ours.
+- [ ] 9.5 Add a translation-demand double to this phase's tests — verify by it
+  consuming charged tRNA at the published residue rate and returning the
+  uncharged form, since without a consumer the pool saturates, the flux goes to
+  zero and every check below passes trivially.
+- [ ] 9.6 **This module's own check: tRNA conservation.** Assert the pair's sum
+  equals its initial value at every save point over a full cycle against the
+  double — verify by the check satisfying the tolerance principle, and by a
+  mutation that creates tRNA rather than transferring it making it fail.
+- [ ] 9.7 Show the flux is right without assuming it — verify by the steady
+  charging flux reproducing 553.1 per second where that figure is computed
+  independently, from 3,484,518 residues over 6,300 s, with `k_chg` reported as
+  the derived quantity; and by a test asserting the check is not circular, since
+  calibrating `k_chg` to 553.1 and then checking 553.1 verifies arithmetic (D14).
+- [ ] 9.8 Report the pool size's three consequences — verify by a diagnostic
+  giving, for a range of pool sizes, the charging flux, the buffer against
+  check 7's charged-tRNA counter, and the lag on the adenylate forward channel;
+  and by the §9 open question on the pool size being replaced with a value that
+  satisfies both check 1b and check 7, or by a statement that none does.
+- [ ] 9.9 Answer the stoichiometry question at matched steady flux — verify by a
+  comparison run under both lumpings, matched on flux rather than event count
+  (D14), recording the kinase traffic and the resulting ATP-to-ADP ratio the
+  rebuild reads, and by the scoping note's open-questions entry being replaced
+  with the measured answer.
+- [ ] 9.10 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
+  and by the handoff recording that phase 8's drain double is now superseded for
+  composed runs and kept only for standalone ones.
+
+### Phase 10 — Transcription
 
 **Goal:** seventeen genes, one constitutive transcription reaction each, with the
 corrected base mapping, the five cost counters, and rate constants that are
@@ -1452,44 +1819,44 @@ its assertion that simulating past the declared cadence leaves the constants
 unchanged becomes "phase 4's driver refreshes them, and the module still never
 refreshes itself".
 
-- [ ] 9.1 Vendor the per-gene extract from three upstream sources — verify by
+- [ ] 10.1 Vendor the per-gene extract from three upstream sources — verify by
   seventeen rows whose four base counts sum to the transcript length, by the
   totals matching A 7236, C 2078, G 3094, U 5868, and by the generator failing
   loudly on a missing locus rather than defaulting, since a silently absent gene
   shows up only as a model with sixteen transcripts.
-- [ ] 9.2 Implement the seventeen reactions, genes carried as fixed quantities
+- [ ] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
   rather than states — verify by the state count being 17 transcripts plus 5
   counters, by none being a registry species, and by a recorded note that adding
   replication later must promote the genes to states.
-- [ ] 9.3 Implement the rate constant with the corrected base mapping as default
+- [ ] 10.3 Implement the rate constant with the corrected base mapping as default
   and the published permutation behind a keyword (D4) — verify by the correction
   appearing in `reduction_notes` while the published mapping does not, by the
   turnover cap never binding (the largest is 8.85 against a ceiling of 180), and
   by both mappings computable so the difference is one argument away.
-- [ ] 9.4 Take all four nucleotide concentrations from balanced tables, never the
+- [ ] 10.4 Take all four nucleotide concentrations from balanced tables, never the
   first-minute setup constants — verify by the four values and their widths
   matching the balanced files, and by a recorded note that the nucleotide file
   repeats two of the setup constants, which makes the wrong choice look
   corroborated.
-- [ ] 9.5 Expose one recomputation entry point and confirm the module never calls
+- [ ] 10.5 Expose one recomputation entry point and confirm the module never calls
   it — verify by simulating past the declared cadence with the constants
   unchanged, and by phase 4's driver changing them when it is present.
-- [ ] 9.6 Declare the five deferred counters and the two clamped nucleotide pools
+- [ ] 10.6 Declare the five deferred counters and the two clamped nucleotide pools
   with origin ours — verify by the counter table matching what each drains into,
   by all five taking the published clamped policy so none is a labelled
   deviation, and by three kinds coexisting on ATP inbound as the contract requires.
-- [ ] 9.7 Register both promoter-proxy declarations (D5) — verify by
+- [ ] 10.7 Register both promoter-proxy declarations (D5) — verify by
   `reduction_declarations` returning one entry saying it is a proxy and a second
   naming the circularity and the seventeen parameters affected, and by a test
   asserting this module's copy numbers agree with the metabolic modules', since
   one number has three consumers.
-- [ ] 9.8 Simulate a full cycle and report the elasticities — verify by
+- [ ] 10.8 Simulate a full cycle and report the elasticities — verify by
   non-negative integer counts throughout, by each gene's mean within a factor of
   two of measured, by the elasticity to all four pools falling in 0.044 to 0.051,
   and by the GTP-alone elasticity being reported under both mappings so the 1.9×
   effect is measured rather than argued.
 
-### Phase 10 — Translation
+### Phase 11 — Translation
 
 **Goal:** one translation reaction per transcript plus ptsG translocation, with
 the rate constant built from the live lumped charged-tRNA pool, publishing the
@@ -1500,49 +1867,75 @@ translated, and the counts feed the metabolic modules' enzyme concentrations
 through executed catalytic edges rather than nominal stand-ins.
 **PR:** _not started_
 
-- [ ] 10.1 Extract per-gene amino-acid counts and residue totals for the
+- [ ] 11.1 Extract per-gene amino-acid counts and residue totals for the
   seventeen loci from the genome record — verify by the residue counts summing to
   3,484,518 for a full proteome doubling, matching the scoping note's own figure,
   and by four spot lengths matching the recorded 746, 574, 155 and 90 residues.
-- [ ] 10.2 Implement seventeen jumps catalytic in the transcript count, reading
+- [ ] 11.2 Implement seventeen jumps catalytic in the transcript count, reading
   transcripts as a phase-2 peer state — verify by firing one gene's reaction
   raising only that gene's protein by one, leaving the transcript unchanged, and
   raising the energy counter by exactly twice that gene's residue count.
-- [ ] 10.3 Implement the rate constant with the lumped pool substituted for the
-  twenty per-amino-acid pools — verify by the lumping registered as ours, and by
-  the three polymerase-capacity constants carried with the note that all are
-  computed at initial volume and are among the genuinely frozen quantities.
-- [ ] 10.4 Add the ptsG translocation reaction — verify by only that locus
+- [ ] 11.3 Implement the rate constant with the lumped pool substituted for the
+  twenty per-amino-acid pools — verify by the three polymerase-capacity constants
+  carried with the note that all are computed at initial volume and are among the
+  genuinely frozen quantities, and by the lumping **not** being registered here:
+  phase 9 owns that declaration after D13, and registering it twice would
+  double-count it in phase 13's enumeration.
+- [ ] 11.4 Add the ptsG translocation reaction — verify by only that locus
   carrying it, by translocation being what increments the state phase 5's volume
   edge reads, and by no cytosolic protein having it.
-- [ ] 10.5 Declare the boundary: an inbound rate-constant edge on the charged
-  pool at the declared cadence, a deferred counter on GTP under the published
-  policy, an outbound mass edge returning uncharged tRNA, seventeen outbound
-  catalytic edges naming each rate law's parameter slot, and a volume edge on
-  ptsG — verify by the exact edge count, kinds and directions, and by the
-  catalytic edges carrying no mass, with an attempt to include one in a
-  conservation check rejected rather than counted as zero.
-- [ ] 10.6 **This module's own check: residue-to-energy closure.** Assert the
+- [ ] 11.5 Declare the boundary, **rewritten by D13 and by the defect below**: a
+  60 s inbound rate-constant edge on the charged pool, a deferred counter on GTP
+  under the published clamped policy, **a paired deferred counter debiting the
+  charged pool and crediting the uncharged one**, seventeen outbound catalytic
+  edges naming each rate law's parameter slot, and a volume edge on ptsG —
+  verify by the exact edge count, kinds and directions; by the catalytic edges
+  carrying no mass, with an attempt to include one in a conservation check
+  rejected rather than counted as zero; and by no tRNA edge being declared as
+  *mass*, since a jump module cannot continuously write an ODE state, which is
+  the same constraint D13 applies to charging's currency edges.
+- [ ] 11.6 **Fix the missing debit, which is a defect in the committed spec.**
+  As originally written this module credited uncharged tRNA and never debited the
+  charged pool: it read the charged pool through a 60 s rate-constant edge rather
+  than consuming it. That is unbalanced — with charging producing and nothing
+  consuming, all tRNA charges, the uncharged pool empties, the charging flux
+  collapses and the composed model has no steady state. Verify by a composed run
+  with phase 9 reaching a steady tRNA split rather than a fully charged pool, and
+  by a test that removing the debit reproduces the collapse, so the fix has a
+  witness rather than a claim.
+- [ ] 11.7 Report whether the charged-tRNA counter can clip — verify by the
+  census of check 7 run on this counter specifically, since it debits ~553
+  residues per second against a pool of order 10³ particles and is now the most
+  likely clip in the model (K5); and by the result feeding phase 9's pool-size
+  diagnostic rather than being reported in isolation.
+- [ ] 11.8 **This module's own check: residue-to-energy closure.** Assert the
   accumulated counter equals exactly twice the residues translated at every write
   point — verify by the assertion passing and by a mutation halving one gene's
   residue count failing and naming that gene.
-- [ ] 10.7 Add protein degradation at the published rate — verify by the count
-  decaying with the expected mean lifetime absent translation, and by degradation
-  declared as returning nothing to the chemostatted amino-acid pool with the
-  exemption recorded, so a later change making that pool live reinstates the
-  check.
-- [ ] 10.8 **Settle two open questions from §9 here.** Measure the elasticity of
+- [ ] 11.9 **Resolve whether protein degradation is a reaction at all, then
+  implement or drop it.** The published model builds three reactions per locus
+  plus one translocation, which is the 52 the scoping note counts, and carries
+  `ptnDegRate` as a constant with no matching per-gene reaction in that list. So
+  adding seventeen degradation jumps is **ours**, and the committed spec added
+  them without saying so — verify by a written determination citing where
+  `ptnDegRate` is consumed upstream; if it is a reaction, implement it with the
+  count in §2 corrected and the departure labelled if it falls outside the
+  published 52; if it is not, drop it and record why. Either way §2's count and
+  the count the tests assert must agree. If kept, degradation returns nothing to
+  the chemostatted amino-acid pool, and that exemption is recorded so a later
+  change making the pool live reinstates the check.
+- [ ] 11.10 **Settle two open questions from §9 here.** Measure the elasticity of
   the translation rate constant to the charged pool, and the protein fold change
   over a full cycle — verify by both numbers recorded against the predictions
   (a reverse channel bounded at a few percent, and a fold change that may fall
   short of two), and by either shortfall diagnosed to the charging step or the
   ribosome constant *in this phase*, since R1 and R12 both say diagnosing here is
   far cheaper than explaining at the end.
-- [ ] 10.9 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
+- [ ] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the metabolic modules' nominal enzyme
   concentrations are now superseded by live counts.
 
-### Phase 11 — Transcript decay
+### Phase 12 — Transcript decay
 
 **Goal:** one decay reaction per transcript at the published length-dependent
 global rate, returning the four monomers to the pools that can accept them.
@@ -1552,74 +1945,31 @@ chemostatted monomers are exempt with the exemption recorded, and the guanylate
 return over a cycle matches the scoping note's ~24,000 particles.
 **PR:** _not started_
 
-- [ ] 11.1 Implement seventeen decay jumps with the published single global
+- [ ] 12.1 Implement seventeen decay jumps with the published single global
   constant over transcript length — verify by exactly one rate parameter across
   all seventeen genes, by each half-life being a function of length alone, and by
   the upstream hand-tuning comment recorded rather than silently inherited.
-- [ ] 11.2 Decrement the transcript this module does not own, through phase 2's
+- [ ] 12.2 Decrement the transcript this module does not own, through phase 2's
   declared peer write — verify by firing decay lowering only that transcript, by
   it being unable to fire at zero copies, and by the write throwing once the
   outbound edge is removed.
-- [ ] 11.3 Return the four monomers per firing — verify by the returned counts
-  equalling that gene's four base counts exactly, cross-checked against phase 9's
+- [ ] 12.3 Return the four monomers per firing — verify by the returned counts
+  equalling that gene's four base counts exactly, cross-checked against phase 10's
   extract so the two modules cannot disagree on a base count.
-- [ ] 11.4 Declare outbound counters on the two recyclable monomers and take the
+- [ ] 12.4 Declare outbound counters on the two recyclable monomers and take the
   chemostat exemption on the other two — verify by `resolve_coupling` reporting
   the exempt pair among its chemostat exemptions with the exemption recorded.
-- [ ] 11.5 Add the decay energy cost counter the published hook drains — verify
+- [ ] 12.5 Add the decay energy cost counter the published hook drains — verify
   by it accruing per firing and by the composed model reporting which registry
   species it debits.
-- [ ] 11.6 **This module's own check: monomer closure.** Assert that over a
+- [ ] 12.6 **This module's own check: monomer closure.** Assert that over a
   composed transcription-and-decay run the total monomers returned equals the
   total bases polymerised, per moiety — verify by the assertion passing and by a
   mutation to one gene's returned counts failing and naming the moiety.
-- [ ] 11.7 Record the leak this module closes — verify by the composed model
+- [ ] 12.7 Record the leak this module closes — verify by the composed model
   reporting the guanylate return over a cycle against the guanylate pool, about
   60%, as the recorded reason the guanylate kinase is in the core.
-- [ ] 11.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
-
-### Phase 12 — Lumped tRNA charging
-
-**Goal:** the one reaction that is ours rather than the published model's, owning
-the charged and uncharged tRNA pools, labelled everywhere it can reach a result.
-**Done when:** the tRNA pair is conserved over a full cycle, the charging flux
-reproduces the published demand, phase 8's drain double is retired against the
-real module, and `reduction_declarations` reports the lumping.
-**PR:** _not started_
-
-- [ ] 12.1 Implement the single reaction owning both tRNA states — verify by the
-  state set equalling the registry's tRNA group with strictly increasing indices.
-- [ ] 12.2 Assert the initial total pool, which the registry records as not
-  imported for both forms — verify by the value loading with informedness
-  `asserted`, appearing in the composed model's asserted-prior enumeration, and
-  carrying the note that the published chain's rates are hard-coded inline with
-  no priors to inherit.
-- [ ] 12.3 Declare the three currency edges — verify by the kinds and directions
-  matching, and by composing with phase 8 asserting no species is described as
-  both mass and currency in one direction.
-- [ ] 12.4 Register the lumping — verify by `reduction_declarations` returning it
-  under `lumping` as a sentence naming what it replaces (twenty chains of five
-  reactions) and why the published product stoichiometry was preferred over a
-  two-ATP form that would close the same moieties by fiat.
-- [ ] 12.5 **This module's own check: tRNA conservation.** Assert the pair's sum
-  equals its initial value at every save point over a full cycle — verify by the
-  check satisfying the tolerance principle, and by a mutation that creates tRNA
-  rather than transferring it making it fail.
-- [ ] 12.6 Retire phase 8's double — verify by composing the real module with the
-  recycling module and asserting the charging flux matches the double's 553.1 per
-  second within the tolerance the double used, so the stand-in is shown to have
-  stood in correctly.
-- [ ] 12.7 **Settle §9's highest-value open question here.** Determine whether the
-  stochastic block's likelihood is closed-form given this reaction's two
-  reactants — verify by a written determination with its consequence for the
-  inference budget stated, and by phase 16's method choice citing it. If it is
-  not closed-form, record the fallback (a particle filter) as work phase 16
-  inherits.
-- [ ] 12.8 Answer the stoichiometry question — verify by a comparison run under
-  both lumpings recording the kinase traffic (553 per second against zero) and
-  the resulting ATP-to-ADP ratio the rebuild reads, and by the scoping note's
-  open-questions entry being replaced with the measured answer.
-- [ ] 12.9 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+- [ ] 12.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
 
 ### Phase 13 — Assemble Core A′ and assert structural completeness
 
@@ -1653,11 +2003,13 @@ per-trajectory wall-clock is recorded.
   failure, and by the solver and tolerances recorded on the model rather than in
   a test file.
 - [ ] 13.6 Enumerate what is ours across the whole composition — verify by
-  `reduction_report` returning the lumped charging step, the chemostatted
-  nucleotide and amino-acid pools, the corrected base mapping, the eleven asserted
-  transport priors, the Michaelis-constant column choice, the lactate volume
-  ratio, the rounding policy, the drain granularity and exogenous membrane
-  growth, and by the count matching the phases that registered them.
+  `reduction_report` returning the lumped charging step **and its deterministic
+  formalism as two separate declarations**, `k_chg` and the tRNA pool size, the
+  chemostatted nucleotide and amino-acid pools, the corrected base mapping, the
+  thirteen asserted priors, the Michaelis-constant column choice, the lactate
+  volume ratio, the rounding policy, the drain granularity and exogenous membrane
+  growth; by the count matching the phases that registered them; and by the
+  lumping appearing exactly once, since phase 11 no longer registers it.
 - [ ] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
@@ -1693,10 +2045,16 @@ mutation test showing it can fail.
 - [ ] 14.5 Check 4, adenylate and guanylate **over a full cycle** — verify by both
   moieties closing over 6,300 s, by each being asserted separately so a failure
   names the moiety, and by an explicit assertion that the interval is a full
-  cycle, since 144 s of it looked fine before the dead end was found.
+  cycle, since 144 s of it looked fine before the dead end was found. After D13
+  charging's transfer is internal to the ODE block and conserves adenylate, so
+  there is no drain to correct for; the kinase-removed configuration asserts a
+  threshold crossing rather than exhaustion, per phase 8.
 - [ ] 14.6 Check 4b, phosphate closure — verify by closure after accounting for
   transcription's pyrophosphate, which the scoping note's own accounting omits,
   and by the flux correction being a subtraction rather than a relaxed bound.
+  Charging's pyrophosphate needs no correction after D13: ATP's three phosphates
+  become AMP's one plus pyrophosphate's two, exactly closed inside the block. A
+  test should assert that rather than leaving a reader to assume it.
 - [ ] 14.7 Check 5, carrier conservation — verify by four independent bounds
   naming the carrier that drifts, restated as conserved up to what translation
   adds, again by subtraction.
@@ -1767,40 +2125,51 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   very long run is defensible, and by the run's length justified rather than
   chosen. **This is a prerequisite, not an appendix:** a calibration pass without
   it is unattributable (D10, R4).
-- [ ] 16.2 Choose the production route and record it — verify by the choice
-  justified against phase 12's determination on the closed-form likelihood, and
-  against what the gradient report says about the assembled model's non-smooth
-  boundary edges.
-- [ ] 16.3 Recover the tight-prior control alone — verify by the posterior
+- [ ] 16.2 **Choose the path-update mechanism and record why.** D10 commits to the
+  three-block conditional scheme and leaves this one decision open. Choose among
+  particle Gibbs with ancestor sampling, exact forward filtering over a truncated
+  state space, and no augmentation at all — verify by the choice justified against
+  the granularity measurement of phase 13, against the first-order structure D13
+  established, and against what the gradient report says about the assembled
+  model's non-smooth boundary edges; and by the two installed constraints of §5
+  being addressed explicitly if a particle route is chosen, since one of them
+  silently shares a solver object across forked particles rather than erroring.
+- [ ] 16.3 Confirm the first block is not smooth just because the path is fixed —
+  verify by a test that a clipped drain under a fixed path still has a
+  discontinuous derivative in an ODE parameter, so the gradient-based step meets
+  K5 inside the conditional scheme exactly as it does outside it, and by check 7's
+  census being the thing consulted rather than an assumption.
+- [ ] 16.4 Recover the tight-prior control alone — verify by the posterior
   concentrating on truth well inside its prior, by a deliberate perturbation of
   the truth moving the posterior with it, and by shrinkage below 0.9. **If the
   control does not recover, the machinery is wrong and this phase stops** (K4).
-- [ ] 16.4 Recover the full six-parameter set — verify by every marginal
+- [ ] 16.5 Recover the full six-parameter set — verify by every marginal
   containing truth and by the run's cost reported against phase 13's measured
   per-trajectory budget.
-- [ ] 16.5 Compute coverage over repeated datasets — verify by nominal 50, 80, 90,
+- [ ] 16.6 Compute coverage over repeated datasets — verify by nominal 50, 80, 90,
   95 and 99 percent intervals covering truth at those rates within binomial
   error, per parameter, with the replicate count stated, and by the tight-prior
   control falling inside K4's band.
-- [ ] 16.6 Produce the shrinkage table, output F6 — verify by all six targets
+- [ ] 16.7 Produce the shrinkage table, output F6 — verify by all six targets
   reported under transcripts-only, metabolites-only and joint data, and by the two
   load-bearing cells present: the ptsG promoter under metabolites only and the
   tight-prior control under transcripts only. **These two cells are what "crosses
   the boundary" means operationally.**
-- [ ] 16.7 Compare against the reference and against the cut — verify by output
-  F10 reporting the divergence between the production and reference posteriors on
-  the two-gene system, and by output F11 running the same targets through the
-  joint posterior and the explicit cut with both calibrations reported.
-- [ ] 16.8 Decide K2 — verify by the prior-to-posterior divergence under
+- [ ] 16.8 Compare against the reference — verify by output F10 reporting the
+  divergence between the production and reference posteriors on the two-gene
+  system. There is no cut arm to compare against: D13 shows the existing cut
+  passes nothing here, so F11 is instead the composition-and-audit figure §6
+  describes, and this task does not produce it.
+- [ ] 16.9 Decide K2 — verify by the prior-to-posterior divergence under
   transcript-only data reported for every metabolic parameter against the 0.05-nat
   threshold, and by the verdict written as a sentence with its consequence for how
   the result is framed.
-- [ ] 16.9 Label what the result does and does not license — verify by the report
+- [ ] 16.10 Label what the result does and does not license — verify by the report
   carrying the scoping note's own caveats: that Core A′ is the best-measured
   region of the network, that enzyme competition is partly removed, that success
   is evidence the architecture works rather than that inference on the full model
   is well-posed, and K7's measured factor if it fired.
-- [ ] 16.10 Fill the kill-criteria scoreboard, output T3 — verify by all seven
+- [ ] 16.11 Fill the kill-criteria scoreboard, output T3 — verify by all seven
   criteria carrying a threshold, a measured value and a verdict, **published
   whether or not everything passed.**
 
@@ -1811,19 +2180,23 @@ centred, and that a failure can be attributed to the composition rather than the
 sampler.
 **Done when:** rank statistics are uniform within test for the ODE block given
 the stochastic path and for the stochastic block given the rate-constant
-sequence, the joint is checked for the shared parameter, and coverage on the
-boundary-crossing quantities is reported separately.
+sequence, the joint is checked over the whole target set, and coverage on the
+quantities whose information crosses the boundary is reported separately. The
+joint check is not about a shared parameter, because D13 establishes there is
+none; it is about the composition and the path update.
 **PR:** _not started_
 
 **Tasks are written when phase 16 has run.** This is deliberate rather than
-lazy. Calibration for a modular, message-passing system has no established
-protocol — the survey states that one will likely have to be built — and the
-natural formulation, calibrating each site's outgoing message, depends on the
-coupling structure phases 3 to 5 actually produce and on which sampler phase 16
-settles on. What is committed now is the shape in D12: the four checks, the
+lazy. Calibration for a modular system has no established protocol — the survey
+states that one will likely have to be built — and its shape depends on the
+coupling structure phases 3 to 5 actually produce and on which path update phase
+16 settles on. What is committed now is the shape in D12: the three checks, the
 attribution rule, the weighted-rank mechanic, and the rank-ECDF test with
-simultaneous bands rather than a bare histogram. Anything more detailed written
-now would be invented, and an executor would believe it.
+simultaneous bands rather than a bare histogram. **The survey's natural
+formulation, calibrating each site's outgoing message, is not available here**:
+with no shared parameter there is no outgoing parameter message to rank, which
+D12 records. Anything more detailed written now would be invented, and an
+executor would believe it.
 
 ### Beyond the horizon
 
@@ -1848,7 +2221,79 @@ fabricated task list.
 
 ## 12. Amendment log
 
-_No amendments yet._
+### 2026-09-03 — four amendments, from the unshared-parameter finding
+
+Logged together because one finding forced all four. Sections touched are named
+so a reader can see what moved.
+
+**Amendment 1 — the lumped tRNA charging step moves to the ODE block.**
+*Evidence:* the scoping note already placed it there and always did — its
+stochastic-side count is 52 reactions with no charging reaction, both tRNA
+species appear in its list of dynamic ODE states, and the charged pool sits in
+its energy-interface table beside the adenylate and guanylate species. The
+frozen registry independently marks both species `:metabolite` regime.
+`dev/plans/reduced-syn3a-wave-plan.md` assigned it to the stochastic block and
+this spec inherited the error; the precedence rule at the top of this document
+says the note wins on model content. Independently, the step fires 553 times a
+second, which is 3.49 million events per cycle and 353 times every other
+stochastic event combined, against K1's budget. *Sections:* §1, §2, §3, §4 D0,
+D6, D7, D9, D13, D14, §5, §6 F1, F5b, T2, §8 K1, K5, §9, §10 R1, R8, R12, and
+phases 2, 8, 9, 11, 13, 14. *Costs, not benefits:* the dominant adenylate forward
+channel becomes two-stage and buffered by a pool size we assert (D13), and the
+non-smooth boundary relocates onto that pool rather than disappearing (check 7).
+
+**Amendment 2 — no parameters are shared across the boundary, accepted as a
+first-stage assumption.** *Evidence:* the two namespaces are disjoint; the
+derived parameter-coupling figure draws the blocks as separate panels with no
+edge between them; metabolism went through parameter balancing and gene
+expression did not; and 22 of 23 upstream ODE synthetase reactions are commented
+out to avoid duplication. *Sections:* new §4 D13, plus corrections where the
+document assumed otherwise — §4 D12 item 3 called the decay constant shared when
+it is stochastic-block-local, and phase 17's done-when said the same. §1 now
+distinguishes a parameter *shared across blocks* from one whose posterior is
+moved by the other block's data. *Extension path:* recorded in
+`dev/notes/modular-bayesian-inference-heterogeneous-modules.md`, not here.
+
+**Amendment 3 — the inference architecture becomes a three-block conditional
+scheme, with the path update deferred.** *Evidence:* with no shared parameter the
+coupling is a fixed point in state space, so conditioning on the path is the
+natural factorisation, and it restores gradients to the ODE block that the
+survey's pseudo-marginal route forfeits. *Sections:* §4 D10 rewritten, D11 and
+§8 K6 gain the observation that the conjugate direction *is* the ridge, §5 gains
+the installed-package constraints, phase 16 gains the decision task. *One claim
+retracted:* an earlier draft of D10 said conditioning on the path makes the cost
+drains deterministic forcing and the ODE block smooth. It does not — the clip
+depends on the ODE pool and hence on the ODE parameters — so K5 governs inside
+the conditional step.
+
+**Amendment 4 — the joint-versus-cut comparison arm is dropped.** *Evidence:*
+`src/boundary.jl` decides what to hand over by matching parameter names
+(`boundary_condition`, `:111-135`), and for Core A′ nothing matches, so the cut
+degenerates into inferring each block alone. *Sections:* §4 D10's third rung and
+D12's fourth check deleted, §6 F11 rebuilt around the composition executing and
+auditing itself and F12 deleted, §6's abstract scalars lose the coverage gap, §7
+gains the cut beside the iterative protocol, §10 R5 retired, phase 16 task 7 and
+phase 17's formulation restated. *Cost:* C5 lost its primary evidence and now
+rests on the composition running and enumerating its own departures, which is
+weaker as a comparison and is stated as such.
+
+**Nine defects fixed in the same pass**, each wrong independently of the
+amendments: translation credited uncharged tRNA without debiting the charged pool
+so the composed model had no steady state; the adenylate exhaustion time cannot
+survive a mass-action rate law; check 8's summation theorem omitted `k_chg` from
+the perturbation set and its frozen-expression variant saturates the tRNA pool;
+the charging module's acceptance test was circular against its own calibration;
+the reaction count in §2 was wrong twice; phase 8's sole-producer edge rule broke;
+the charging module had no consumer standalone; R1 and R12's early warnings slip
+later than promised; and three pre-existing contradictions on the reverse-channel
+count, the channel total, and 141 against 144 seconds.
+
+**Phases 9 to 12 renumbered** so charging precedes translation: charging 12 to 9,
+transcription 9 to 10, translation 10 to 11, decay 11 to 12. Translation's rate
+constant reads an ODE state that charging owns, so the old order had the
+dependency backwards.
+
+---
 
 Reality will contradict this spec. When it does, the change is recorded here with
 its date and its reasoning, never applied silently. An amendment names what

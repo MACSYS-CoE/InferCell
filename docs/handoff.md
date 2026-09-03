@@ -3,6 +3,82 @@
 **Session date:** 2026-09-03
 **Branch:** `establish-definitive-spec`
 
+## Latest: the spec is amended for an unshared-parameter boundary (2026-09-03)
+
+Four amendments to `spec/spec.md`, all logged in its §12 with evidence. **Read
+that log first**; this is the summary.
+
+**The finding.** Core A′ has **no parameter shared between the ODE block and the
+stochastic block**, and that is inherited from the published model, not
+introduced by our reduction. Metabolism went through SBtab balancing and gene
+expression did not; the derived parameter-coupling figure draws them as separate
+panels with no edge between them; and 22 of 23 upstream ODE synthetase reactions
+are commented out to avoid duplication.
+
+**Amendment 1: the lumped tRNA charging step moved to the ODE block.** This is a
+**correction, not a departure**. The scoping note always put it there — its
+CME-side count is 52 reactions with no charging reaction, both tRNA species are
+in its dynamic-ODE-state list, and the charged pool is in its energy-interface
+table. `dev/plans/reduced-syn3a-wave-plan.md` assigned it to the CME and the spec
+inherited the error. The frozen registry agrees with the note, marking both
+species metabolite-scale.
+
+It also removes 3.49 million jump events per trajectory. Charging fired 553 times
+a second, 353 times every other stochastic event combined, which was a
+forward-cost problem before it was an inference one.
+
+**Two costs of that move, both recorded rather than buried.** The dominant
+adenylate forward channel becomes two-stage and buffered by the tRNA pool size,
+which is a quantity we assert — about 81% of ATP turnover was charging, and its
+flux now contains no stochastic-block quantity. And the non-smooth boundary
+*relocates* rather than disappearing: translation's charged-tRNA counter debits
+~553 residues per second against a pool of order 10³ particles, so it can clip on
+ordinary Poisson fluctuation. Kill criterion K5 may be more likely to fire, not
+less.
+
+**Amendments 2 to 4.** The unshared-parameter finding is recorded as new decision
+D13, accepted as a first-stage assumption with the extension path written up in
+the survey note. The inference architecture becomes a three-block conditional
+scheme (D10 rewritten), with the path-update mechanism deliberately deferred to
+phase 16 — because with charging gone the stochastic block is purely first order
+and may need no particles at all. And the joint-versus-cut comparison arm is
+**dropped**: `src/boundary.jl` matches parameter names to decide what to pass, so
+for Core A′ it passes nothing.
+
+**One claim retracted.** An earlier draft of D10 said conditioning on the path
+makes the ODE block smooth. It does not: the clip depends on the ODE pool and
+hence on the ODE parameters.
+
+**Nine defects fixed in the same pass.** The most serious: translation credited
+uncharged tRNA without ever debiting the charged pool, so the composed model had
+no steady state. Also the adenylate exhaustion time cannot survive a mass-action
+rate law, check 8's summation theorem omitted the charging rate constant, the
+charging acceptance test was circular against its own calibration, and §2's
+reaction count was wrong twice. All nine are listed in §12.
+
+**Phases 9 to 12 renumbered** so charging precedes translation: charging 12→9,
+transcription 9→10, translation 10→11, decay 11→12. Translation's rate constant
+reads an ODE state charging owns, so the old order had the dependency backwards.
+The ODE track is now phases 6 to 9 and is **not** a clean fan-out, since phase 9
+depends on phase 8.
+
+**Also changed:** the survey note
+`dev/notes/modular-bayesian-inference-heterogeneous-modules.md` gained a section
+on this boundary and what the cut and iterative protocols would need if a shared
+parameter ever appeared; the scoping note gained a clarifying row; the wave plan's
+superseded header records where the charging error entered.
+
+### Next steps
+
+1. Review the amended spec, starting at §12, then D13, D14 and the rewritten D10.
+2. Then phase 1, still alone: a module contributing to a state it does not own.
+   It is now a prerequisite for charging as well as for the other ODE modules.
+3. Open questions worth knowing: the tRNA pool size is a single asserted number
+   with three consequences and no value yet, and whether protein degradation is a
+   published reaction at all is unresolved (phase 11 task 9).
+
+---
+
 ## This session: OpenSpec out, one authoritative spec in (2026-09-03)
 
 `spec/spec.md` is now the authoritative document for Core A′ — 1,860 lines, 18
@@ -71,22 +147,23 @@ on the gain, because 0.045 costs tens to hundreds of cells, which is affordable.
   only the product of the former and the promoter strengths enters the rate law
   and the cap never binds, so the pair is exactly degenerate. The ptsG promoter
   is added as the headline, being the only one crossing by two channels.
-- The protocol comparison is joint versus explicit cut. **The iterative exchange
-  protocol is deliberately excluded** — it is a proof-of-concept and no compute
-  is spent measuring its calibration.
+- ~~The protocol comparison is joint versus explicit cut.~~ **Reversed by the
+  later amendment:** the cut arm is dropped too, because `src/boundary.jl` matches
+  parameter names to decide what to pass and Core A′ shares none. Both the cut
+  and the iterative protocol are now §7 non-goals.
 
 ### Three findings carried as unverified
 
 Derived this session, in no note, not checked against a run. Each is marked in
 §9 with the phase that settles it:
 
-1. Whether the stochastic block's likelihood is closed-form (phase 12). The
-   lumped charging step has two reactants and may break it. **The inference
-   budget changes by ~2 orders of magnitude on the answer.**
-2. Whether the charged-tRNA channel is weaker than transcription's (phase 10).
+1. ~~Whether the stochastic block's likelihood is closed-form (phase 12).~~
+   **RESOLVED by the later amendment**: moving charging out makes every remaining
+   reaction first order, so the kernel is closed form and factorises over genes.
+2. Whether the charged-tRNA channel is weaker than transcription's (now phase 11).
    The scoping note hopes it rescues the reverse direction; a first pass suggests
    the opposite.
-3. Whether protein fold change over a cycle reaches two (phase 10). A first pass
+3. Whether protein fold change over a cycle reaches two (now phase 11). A first pass
    suggests it may fall well short.
 
 ### One thing to know about CLAUDE.md
@@ -104,8 +181,8 @@ needs force-adding or the pattern needs narrowing.
 2. Then phase 1, alone: make a module able to contribute to a state it does not
    own. It is the prerequisite for the three ODE modules, so nothing else starts
    until it lands.
-3. Then the four-way fan-out: phases 6, 7 and 8 concurrently with the framework
-   track of phases 2 to 5.
+3. Then the four-way fan-out: the ODE track of phases 6 to 9 concurrently with
+   the framework track of phases 2 to 5. Phase 9 depends on phase 8.
 
 ## Open questions this session did not settle
 

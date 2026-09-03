@@ -16,6 +16,13 @@
 > composition. Its "7-way parallel" wave 1 is at most 5-way and its "3-way
 > parallel" wave 2 is serial.
 >
+> **One content error entered here, not just an ordering one.** The wave-1 table
+> below assigns `add-lumped-trna-charging` to the CME block. The scoping note puts
+> the charging step and both tRNA pools on the ODE side, and the frozen registry
+> marks both species metabolite-scale. `spec/spec.md` inherited the error and
+> corrected it in its §12 amendment 1: charging is an ODE module, which also
+> removes 3.49 million jump events per trajectory.
+>
 > **Do not follow this file's ordering.** It is kept for the reasoning behind the
 > decomposition — the module boundaries, the file layout, and the rule that each
 > module carries its own conservation check — all of which the spec adopts. The
