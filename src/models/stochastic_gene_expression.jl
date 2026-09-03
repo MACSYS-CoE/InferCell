@@ -30,25 +30,15 @@ formalism(::StochasticGeneExpression) = :jump
 inference_mode(::StochasticGeneExpression) = :simulation
 
 function reactions(::StochasticGeneExpression)
+    # Local coordinates: u = [mRNA, protein]; p = [k_tx, k_tl, gamma_mRNA, gamma_protein].
     # mRNA production: 0 -> mRNA (zeroth order)
-    tx_rate(u, p, t) = p[1]         # k_tx
-    tx_affect!(integrator) = (integrator.u[1] += 1)
-    tx = ConstantRateJump(tx_rate, tx_affect!)
-
+    tx = Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1))
     # mRNA degradation: mRNA -> 0
-    mrna_deg_rate(u, p, t) = p[3] * u[1]  # gamma_mRNA * mRNA
-    mrna_deg_affect!(integrator) = (integrator.u[1] -= 1)
-    mrna_deg = ConstantRateJump(mrna_deg_rate, mrna_deg_affect!)
-
+    mrna_deg = Reaction((u, p, t, _) -> p[3] * u[1], (u, _) -> (u[1] -= 1))
     # Translation: mRNA -> mRNA + protein
-    tl_rate(u, p, t) = p[2] * u[1]  # k_tl * mRNA
-    tl_affect!(integrator) = (integrator.u[2] += 1)
-    tl = ConstantRateJump(tl_rate, tl_affect!)
-
+    tl = Reaction((u, p, t, _) -> p[2] * u[1], (u, _) -> (u[2] += 1))
     # Protein degradation: protein -> 0
-    prot_deg_rate(u, p, t) = p[4] * u[2]  # gamma_protein * protein
-    prot_deg_affect!(integrator) = (integrator.u[2] -= 1)
-    prot_deg = ConstantRateJump(prot_deg_rate, prot_deg_affect!)
+    prot_deg = Reaction((u, p, t, _) -> p[4] * u[2], (u, _) -> (u[2] -= 1))
 
     return [tx, mrna_deg, tl, prot_deg]
 end

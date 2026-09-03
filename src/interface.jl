@@ -5,7 +5,7 @@ Abstract supertype for every InferCell block (TX/TL, metabolism, stochastic gene
 expression, …). Concrete sub-types implement the protocol functions
 [`states`](@ref), [`parameters`](@ref), [`dynamics`](@ref) and/or
 [`reactions`](@ref), and optionally override [`inputs`](@ref),
-[`formalism`](@ref), and [`inference_mode`](@ref).
+[`written_states`](@ref), [`formalism`](@ref), and [`inference_mode`](@ref).
 """
 abstract type AbstractSubModel end
 
@@ -44,6 +44,24 @@ Defaults to empty — sub-models with no cross-block coupling need not override.
 inputs(::AbstractSubModel) = Symbol[]
 
 """
+    written_states(m::AbstractSubModel) -> Vector{Symbol}
+
+States of *other* sub-models that a `:jump` module's reaction affects modify —
+the jump-side twin of [`contributed_states`](@ref). Defaults to empty. Every
+name must also appear in [`inputs`](@ref), since the write goes through the same
+`u_inputs` view the read does; the orchestrator refuses a write to an input not
+listed here, naming the module and the state, so removing the declaration makes
+the write fail rather than silently land. Where the state is a Core A′ registry
+species [`resolve_coupling`](@ref) additionally holds the declaration to a mass
+or currency edge in either direction — `:in` where the module consumes the
+pool, `:out` where it produces into it, and an outbound edge alone satisfies
+the inputs contract for that species, since the pool is an input only as the
+write channel. A non-registry state, such as a transcript, is gated by the
+declaration alone (spec §12, amendment of 2026-09-04).
+"""
+written_states(::AbstractSubModel) = Symbol[]
+
+"""
     coupling(m::AbstractSubModel) -> Vector{CouplingEdge}
 
 Typed coupling declarations for `m`: not only *which* state crosses a boundary
@@ -54,10 +72,11 @@ the Core A′ interface contract — needs no modification.
 [`inputs`](@ref) keeps its own meaning and its own default. A sub-model may
 declare both; where it declares any coupling edge, [`resolve_coupling`](@ref)
 checks the two against each other in both directions — every registry-species
-input has an inbound edge, and every inbound mass or currency edge on a state
-the module does not integrate is listed in `inputs` — so a typed declaration
-that drifts out of step with `inputs` is caught rather than silently
-disagreeing. Inputs naming non-registry state (the legacy blocks' mRNA and
+input has an inbound edge (or, for a jump module producing into the pool, an
+outbound mass or currency edge plus a [`written_states`](@ref) entry), and
+every inbound mass or currency edge on a state the module does not integrate is
+listed in `inputs` — so a typed declaration that drifts out of step with
+`inputs` is caught rather than silently disagreeing. Inputs naming non-registry state (the legacy blocks' mRNA and
 protein) are outside the typed contract and pass through unchecked.
 """
 coupling(::AbstractSubModel) = CouplingEdge[]
@@ -105,10 +124,36 @@ backend [`infer`](@ref) dispatches to. Defaults to `:differentiable`.
 inference_mode(::AbstractSubModel) = :differentiable
 
 """
-    reactions(m::AbstractSubModel) -> Vector{ConstantRateJump}
+    Reaction(rate, affect!)
 
-Jump-process reactions for SSA sub-models. Required for `formalism = :jump`;
-defaults to an error to catch incomplete sub-model definitions.
+One jump reaction of a `:jump` sub-model, written in the module's **own**
+coordinates. `rate(u, p, t, u_inputs)` returns the propensity; `affect!(u,
+u_inputs)` applies the state change by mutating `u`. Both receive the module's
+local state slice `u`, its local parameters `p` and its resolved coupling inputs
+`u_inputs`, in [`inputs`](@ref) order — exactly what [`dynamics`](@ref)
+receives — never the composed global vectors.
+
+The orchestrator wraps each `Reaction` in a `ConstantRateJump` over views of the
+global state and parameter vectors, so a module cannot address a slot outside
+its own slice: `u[1]` is this module's first state whether it is composed first
+or seventh. A peer's state is read through `u_inputs` and may be written through
+it only where [`written_states`](@ref) declares the write.
+"""
+struct Reaction{R, A}
+    rate::R
+    affect!::A
+end
+
+"""
+    reactions(m::AbstractSubModel) -> Vector{Reaction}
+
+Jump-process reactions for SSA sub-models, each a [`Reaction`](@ref) in local
+coordinates. Required for `formalism = :jump`; defaults to an error to catch
+incomplete sub-model definitions.
+
+Before spec §11 phase 2 this returned `ConstantRateJump`s whose closures indexed
+the global vectors at local positions, so a second jump module in a composition
+wrote the first module's slice. `build_problem` now rejects that form by name.
 """
 reactions(m::AbstractSubModel) = error("reactions() not implemented for $(typeof(m))")
 

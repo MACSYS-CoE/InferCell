@@ -49,6 +49,9 @@ using Aqua
     # Executable doubles for the contribution channel, then its tests.
     include("contribution_test_models.jl")
     include("test_contributions.jl")
+    # Executable jump doubles, then the jump-composition tests (spec phase 2).
+    include("jump_test_models.jl")
+    include("test_jump_composition.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
