@@ -40,8 +40,8 @@ struct EnergyPools <: AbstractSubModel
     params::Vector{InferParameter}
 end
 function EnergyPools(; gamma = 0.05)
-    params = [InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_o, :EnergyPools, :rate);
-              _ic_params(ENERGY_SPECIES, :EnergyPools)]
+    params = vcat(InferParameter[InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_o, :EnergyPools, :rate)],
+                  _ic_params(ENERGY_SPECIES, :EnergyPools))
     return EnergyPools(params)
 end
 states(::EnergyPools) = ENERGY_SPECIES
@@ -71,10 +71,10 @@ function CarbonBlock(; k_prod = 0.3, k_cons = 0.2, gamma = 0.01,
                      edges = CouplingEdge[CurrencyEdge(species = :M_atp_c, direction = :out),
                                           MassEdge(species = :M_pi_c, direction = :in)],
                      ins = [:M_pi_c])
-    params = [InferParameter(k_prod, LogNormal(log(k_prod), 0.5), false, :k_prod, :CarbonBlock, :rate),
+    params = vcat(InferParameter[InferParameter(k_prod, LogNormal(log(k_prod), 0.5), false, :k_prod, :CarbonBlock, :rate),
               InferParameter(k_cons, LogNormal(log(k_cons), 0.5), false, :k_cons, :CarbonBlock, :rate),
-              InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_c, :CarbonBlock, :rate);
-              _ic_params(CARBON_SPECIES, :CarbonBlock)]
+              InferParameter(gamma, LogNormal(log(gamma), 0.5), false, :gamma_c, :CarbonBlock, :rate)],
+              _ic_params(CARBON_SPECIES, :CarbonBlock))
     return CarbonBlock(params, collect(Symbol, contribs), collect(CouplingEdge, edges),
                        collect(Symbol, ins))
 end
@@ -113,8 +113,8 @@ outbound mass edge. The owner's state must then rise linearly at exactly `k`.
 struct Source <: AbstractSubModel
     params::Vector{InferParameter}
 end
-Source(; k = 0.7) = Source([InferParameter(k, LogNormal(log(k), 0.5), false, :k_src, :Source, :rate);
-                            _ic_params([:M_gdp_c], :Source)])
+Source(; k = 0.7) = Source(vcat(InferParameter[InferParameter(k, LogNormal(log(k), 0.5), false, :k_src, :Source, :rate)],
+                            _ic_params([:M_gdp_c], :Source)))
 states(::Source) = [:M_gdp_c]
 parameters(m::Source) = m.params
 coupling(::Source) = CouplingEdge[MassEdge(species = :M_gtp_c, direction = :out)]
@@ -131,8 +131,8 @@ length-mismatch error has a witness.
 struct MiscountedSource <: AbstractSubModel
     params::Vector{InferParameter}
 end
-MiscountedSource() = MiscountedSource([InferParameter(0.5, LogNormal(log(0.5), 0.5), false, :k_mis, :MiscountedSource, :rate);
-                                       _ic_params([:M_g6p_c], :MiscountedSource)])
+MiscountedSource() = MiscountedSource(vcat(InferParameter[InferParameter(0.5, LogNormal(log(0.5), 0.5), false, :k_mis, :MiscountedSource, :rate)],
+                                       _ic_params([:M_g6p_c], :MiscountedSource)))
 states(::MiscountedSource) = [:M_g6p_c]
 parameters(m::MiscountedSource) = m.params
 coupling(::MiscountedSource) = CouplingEdge[MassEdge(species = :M_gtp_c, direction = :out),
