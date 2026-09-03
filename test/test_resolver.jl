@@ -10,7 +10,8 @@ using Distributions
             edges = [MassEdge(species=:M_atp_c, direction=:out, peer=:Expression)])
         consumer = CoreAStub(:Expression;
             edges = [MassEdge(species=:M_atp_c, direction=:in, peer=:Central)],
-            ins = [:M_atp_c])
+            ins = [:M_atp_c],
+            contribs = [:M_atp_c])
 
         graph = resolve_coupling([producer, consumer])
 
@@ -69,7 +70,8 @@ using Distributions
             edges = [MassEdge(species=:M_atp_c, direction=:in)])
         as_currency = CoreAStub(:Expression;
             edges = [CurrencyEdge(species=:M_atp_c, direction=:in)],
-            ins = [:M_atp_c])
+            ins = [:M_atp_c],
+            contribs = [:M_atp_c])
 
         err = caught(() -> resolve_coupling([as_mass, as_currency]))
         @test err isa ArgumentError
@@ -98,7 +100,8 @@ using Distributions
                      DeferredCounterEdge(species=:M_atp_c, direction=:in,
                                          counter=:ATP_trsc),
                      RateConstantEdge(species=:M_atp_c, direction=:in)],
-            ins = [:M_atp_c])
+            ins = [:M_atp_c],
+            contribs = [:M_atp_c])
 
         graph = resolve_coupling([owner, expression])
         @test length(graph.edges) == 4
@@ -204,8 +207,11 @@ using Distributions
 
     @testset "A produced species with no consumer is the mirror dead end" begin
         # The spec requires detecting both halves: no producer, and no consumer.
+        # The producer does not own AMP, so since phase 1 it must also declare
+        # the contribution its edge promises; the dead-end logic is unchanged.
         producer = CoreAStub(:Nucleotide;
-            edges = [MassEdge(species=:M_amp_c, direction=:out)])
+            edges = [MassEdge(species=:M_amp_c, direction=:out)],
+            contribs = [:M_amp_c])
         owner = CoreAStub(:Charging; st = [:M_amp_c])
         graph = resolve_coupling([producer, owner])
         @test length(graph.dead_ends) == 1
@@ -221,7 +227,8 @@ using Distributions
             st = [:M_amp_c],
             edges = [MassEdge(species=:M_amp_c, direction=:in)])
         adk1 = CoreAStub(:Nucleotide;
-            edges = [MassEdge(species=:M_amp_c, direction=:out)])
+            edges = [MassEdge(species=:M_amp_c, direction=:out)],
+            contribs = [:M_amp_c])
         graph = resolve_coupling([charging, adk1])
         @test isempty(graph.dead_ends)
         @test occursin("No dead ends", dead_end_report(graph))

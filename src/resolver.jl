@@ -95,8 +95,9 @@ integrated twice, a clamp on a state another module integrates, two clamps
 holding one species at different values, a clamp holding a chemostat away from
 the registry's value, two coupled sub-models sharing one `module_id`, a
 chemostatted species listed in `inputs`, an `inputs` list that has drifted
-from the module's own inbound edges in either direction, or a contribution to
-an unregistered or chemostatted species.
+from the module's own inbound edges in either direction, a contribution to an
+unregistered or chemostatted species, or a `contributed_states` list that has
+drifted from the module's mass and currency edges on species it does not own.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
@@ -243,16 +244,26 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
-# A contribution target is judged in two places. Whether the name is a registry
-# species, and whether that species is chemostatted, needs no composition to
-# decide and is checked here so `reduction_declarations` sees it too. Whether
-# some module owns it does need the composition, and a module resolved alone
-# legitimately contributes to states whose owners are absent, so ownership is
-# the orchestrator's check.
+# The outbound counterpart of the check above. A mass or currency edge on a
+# dynamic registry species the module does not integrate is a promise to add a
+# derivative term to the owner's state — positive where the module produces,
+# negative where it consumes — and only `contributed_states` wires such a term
+# into the right-hand side. So the two lists are held to each other in both
+# directions, exactly as `inputs` is held to the inbound edges. Unlike that
+# check, a module with contributions but no edges is not skipped: a contribution
+# with nothing declaring it is the drift being caught.
+#
+# A contribution target is also judged on its own. Whether the name is a
+# registry species, and whether that species is chemostatted, needs no
+# composition to decide and is checked here so `reduction_declarations` sees it
+# too. Whether some module owns it does need the composition, and a module
+# resolved alone legitimately contributes to states whose owners are absent, so
+# ownership is the orchestrator's check.
 function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
     for m in models
+        edges = coupling(m)
         targets = contributed_states(m)
-        isempty(targets) && continue
+        isempty(edges) && isempty(targets) && continue
         name = module_id(m)
 
         for s in targets
@@ -266,6 +277,33 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
                 "chemostats :$s at a fixed concentration, so no module integrates " *
                 "it and there is no derivative to add to. Declare a ClampedEdge and " *
                 "drop the contribution"))
+        end
+
+        own = Set(states(m))
+        declared = Set(targets)
+        promised = Set{Symbol}()
+        for e in edges
+            e isa MassEdge || e isa CurrencyEdge || continue
+            is_registered(e.species) && is_dynamic(e.species) || continue
+            e.species in own && continue
+            push!(promised, e.species)
+            e.species in declared || throw(ArgumentError(
+                "Module $name declares an $(is_consumer(e) ? "inbound" : "outbound") " *
+                "$(edge_kind(e)) edge on :$(e.species), which it does not integrate, " *
+                "but does not list it in contributed_states(). Only " *
+                "contributed_states() wires a derivative term into the owner's " *
+                "state, so the declared $(is_consumer(e) ? "consumption" : "production") " *
+                "would silently never happen; add :$(e.species) to " *
+                "contributed_states() and return its term from contributions(), " *
+                "or drop the edge"))
+        end
+        for s in targets
+            s in promised || throw(ArgumentError(
+                "Module $name lists :$s in contributed_states() but declares no " *
+                "mass or currency edge on it" *
+                (s in own ? ", and integrates :$s itself, so it needs no contribution" : "") *
+                ". A contribution that no edge declares is the drift this check " *
+                "exists to catch; add the edge or drop the contribution"))
         end
     end
     return nothing

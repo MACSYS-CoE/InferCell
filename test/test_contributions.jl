@@ -110,6 +110,56 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test occursin("JumpSrc", msg) && occursin("M_atp_c", msg) && occursin("jump", msg)
     end
 
+    @testset "1.5 drift: an edge on a non-owned species with no contribution throws" begin
+        # Outbound edge kept, contribution deleted.
+        m = CarbonBlock(; contribs = [:M_pi_c])
+        err = caught(() -> resolve_coupling([EnergyPools(), m]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("M_atp_c", msg) && occursin("CarbonBlock", msg) && occursin("currency", msg)
+
+        # Inbound edge kept, contribution deleted: consumption is a derivative
+        # term too (§12 amendment of 2026-09-03).
+        m2 = CarbonBlock(; contribs = [:M_atp_c])
+        err2 = caught(() -> resolve_coupling([EnergyPools(), m2]))
+        @test err2 isa ArgumentError
+        msg2 = sprint(showerror, err2)
+        @test occursin("M_pi_c", msg2) && occursin("CarbonBlock", msg2) && occursin("mass", msg2)
+    end
+
+    @testset "1.5 drift: a contribution with no edge throws" begin
+        m = CarbonBlock(; contribs = [:M_atp_c, :M_pi_c, :M_gtp_c])
+        err = caught(() -> resolve_coupling([EnergyPools(), m]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("M_gtp_c", msg) && occursin("CarbonBlock", msg) && occursin("edge", msg)
+
+        # A module with contributions but no edges at all is not skipped.
+        lone = CoreAStub(:Lone; contribs = [:M_atp_c])
+        err2 = caught(() -> resolve_coupling([CoreAStub(:Pools; st = [:M_atp_c]), lone]))
+        @test err2 isa ArgumentError
+        @test occursin("Lone", sprint(showerror, err2))
+    end
+
+    @testset "1.5 an edge on a species the module itself owns needs no contribution" begin
+        # The pool's owner declaring the channel from its own side (the
+        # RateConstantEdge convention, and test_resolver's producer/consumer pair).
+        owner = CoreAStub(:Central; st = [:M_atp_c],
+                          edges = [MassEdge(species = :M_atp_c, direction = :out)])
+        @test resolve_coupling(owner) isa CouplingGraph
+    end
+
+    @testset "1.5 the drift check is live through reduction_declarations too" begin
+        m = CarbonBlock(; contribs = [:M_pi_c])
+        @test caught(() -> reduction_declarations([EnergyPools(), m])) isa ArgumentError
+    end
+
+    @testset "1.5 standalone resolution of a contributor still succeeds" begin
+        graph = resolve_coupling(CarbonBlock())
+        @test :M_atp_c in graph.unowned_states
+        @test :M_pi_c in graph.unowned_states
+    end
+
     @testset "AD: contributions differentiate, including into a Float64 owner derivative" begin
         models = [InertPool(), Source(; k = 0.7)]
         prob = build_problem(models; tspan = (0.0, 1.0))
