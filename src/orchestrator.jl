@@ -222,54 +222,83 @@ function _build_p0(models::Vector{<:AbstractSubModel})
     return vals
 end
 
+# The composed right-hand side.
+#
+# State-container decision, re-taken at 32 states (spec §11 task 1.6; numbers in
+# dev/scripts/bench_rhs_containers_result.md): the problem stays out-of-place
+# over an `SVector`. What makes that allocation-free is that every index the
+# closure uses is a static vector fixed at build time — a `UnitRange` slice of an
+# `SVector` returns a heap `Vector`, a `Vector{Int}` index allocates, and a
+# splatted `vcat` over a `Vector` of parts is not inferable — and that the
+# modules are held as a `Tuple`, so `map` and `reduce` unroll. Base stops
+# unrolling tuple `map` at 33 elements (`Base.Any32`), hence the guard; Core A′
+# is seven modules. The framework adds no allocation; the composed function is
+# allocation-free iff every `dynamics` and `contributions` is.
+struct _Slot{S, P, I, C}
+    sidx::S      # global indices of this module's states
+    pidx::P      # global indices of its free parameters
+    iidx::I      # global indices of its inputs, in inputs(m) order
+    cidx::C      # global indices of its contributed states, in contributed_states(m) order
+end
+
+_svec(v) = SVector{length(v), Int}(Tuple(v))
+
 function _build_rhs(models::Vector{<:AbstractSubModel},
                     contexts::Vector{SubModelContext})
-    model_inputs = [inputs(m) for m in models]
-    # Which modules contribute is known at build time, so a composition with
-    # no contributors runs the pre-phase-1 computation unchanged.
-    contributors = [i for (i, ctx) in enumerate(contexts) if !isempty(ctx.contrib_idxs)]
+    length(models) <= 32 || error(
+        "build_problem composes at most 32 sub-models: Base.map over a longer " *
+        "tuple is not unrolled (Base.Any32), so the right-hand side would allocate " *
+        "and lose type stability. $(length(models)) were given")
+    slots = Tuple(_Slot(_svec(ctx.state_idxs), _svec(ctx.param_idxs),
+                        _svec(Int[ctx.input_map[s] for s in inputs(m)]),
+                        _svec(ctx.contrib_idxs))
+                  for (m, ctx) in zip(models, contexts))
+    # Function barrier: the closure captures concrete tuple types.
+    return _make_rhs(Tuple(models), slots)
+end
+
+function _make_rhs(models::Tuple, slots::Tuple)
     function rhs(u, p, t)
-        du_parts = map(models, contexts, model_inputs) do m, ctx, inp_syms
-            u_local = u[ctx.state_idxs]
-            p_local = p[ctx.param_idxs]
-            u_inputs = [u[ctx.input_map[s]] for s in inp_syms]
-            dynamics(u_local, p_local, t, m, u_inputs)
+        parts = map(models, slots) do m, sl
+            u_local = u[sl.sidx]
+            p_local = p[sl.pidx]
+            u_inputs = u[sl.iidx]
+            (dynamics(u_local, p_local, t, m, u_inputs),
+             contributions(u_local, p_local, t, m, u_inputs))
         end
-        du = vcat(du_parts...)
-        isempty(contributors) && return du
-        for i in contributors
-            m, ctx = models[i], contexts[i]
-            u_local = u[ctx.state_idxs]
-            p_local = p[ctx.param_idxs]
-            u_inputs = [u[ctx.input_map[s]] for s in model_inputs[i]]
-            c = contributions(u_local, p_local, t, m, u_inputs)
-            du = _accumulate(du, ctx.contrib_idxs, c)
-        end
-        return du
+        du = reduce(vcat, map(first, parts))
+        return _fold_contributions(du, slots, map(last, parts))
     end
     return rhs
 end
 
+@inline _fold_contributions(du, ::Tuple{}, ::Tuple{}) = du
+@inline _fold_contributions(du, slots::Tuple, cs::Tuple) =
+    _fold_contributions(_accumulate(du, first(slots).cidx, first(cs)),
+                        Base.tail(slots), Base.tail(cs))
+
+# A module that contributes nothing leaves `du` untouched — same object, same
+# type — which is what keeps a non-contributing composition byte-identical to
+# the pre-phase-1 path.
+@inline _accumulate(du::SVector, ::SVector{0, Int}, ::SVector{0}) = du
+
 # Add each contribution to the owner's derivative. The eltype is promoted once
 # so a Float64 derivative can receive a dual-number contribution under
-# automatic differentiation. `du` is a static vector when every module returns
-# one and a plain Vector otherwise; both are handled.
-function _accumulate(du::AbstractVector, idxs, c)
-    length(idxs) == length(c) || error(
-        "contributions() returned $(length(c)) term$(length(c) == 1 ? "" : "s") " *
-        "but contributed_states() names $(length(idxs)) species")
-    T = promote_type(eltype(du), eltype(c))
-    if du isa SVector
-        out = SVector{length(du), T}(du)
-        for (j, i) in enumerate(idxs)
-            out = setindex(out, out[i] + c[j], i)
-        end
-        return out
-    else
-        out = Vector{T}(du)
-        for (j, i) in enumerate(idxs)
-            out[i] += c[j]
-        end
-        return out
+# automatic differentiation; `setindex` would otherwise refuse the conversion.
+@inline function _accumulate(du::SVector{N}, idxs::SVector{C, Int}, c::SVector{C}) where {N, C}
+    out = SVector{N, promote_type(eltype(du), eltype(c))}(du)
+    for j in 1:C
+        i = idxs[j]
+        out = setindex(out, out[i] + c[j], i)
     end
+    return out
 end
+
+_accumulate(::SVector, ::SVector{C, Int}, c::SVector{K}) where {C, K} = error(
+    "contributions() returned $K term$(K == 1 ? "" : "s") but " *
+    "contributed_states() names $C species")
+
+# A contributions() method returning a plain Vector is a protocol error, not a
+# length mismatch; say so rather than failing inside StaticArrays.
+_accumulate(::SVector, ::SVector{C, Int}, c::AbstractVector) where {C} = error(
+    "contributions() must return a static vector (e.g. SA[...]); got $(typeof(c))")

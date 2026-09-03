@@ -176,4 +176,19 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test J2[i_atp, 1] == -prob2.u0[i_atp]         # d(du_atp)/d(gamma_o)
     end
 
+    @testset "1.6 the framework adds no allocation per right-hand-side call at 32 states" begin
+        prob = build_problem([EnergyPools(), CarbonBlock()]; tspan = (0.0, 1.0))
+        rhs = prob.f.f
+        # Static all the way through: a Vector anywhere in the path would allocate.
+        @test rhs(prob.u0, prob.p, 0.0) isa SVector{32, Float64}
+        _rhs_alloc(rhs, prob.u0, prob.p, 0.0)   # warm-up: compiles for these argument types
+        @test _rhs_alloc(rhs, prob.u0, prob.p, 0.0) == 0
+    end
+
+    @testset "at most 32 sub-models compose" begin
+        many = [CoreAStub(Symbol(:S, i)) for i in 1:33]
+        err = caught(() -> build_problem(many))
+        @test err isa ErrorException
+        @test occursin("32", sprint(showerror, err))
+    end
 end
