@@ -34,7 +34,7 @@ INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
 See [`dev/notes/`](dev/notes/) for the research notes behind the current scope, and
-[`openspec/`](openspec/) for in-flight change proposals and specs.
+[`spec/spec.md`](spec/spec.md) for the authoritative Core A′ spec and its phased task list.
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the local workflow, CI checks, and branch conventions.
 

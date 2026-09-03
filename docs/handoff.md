@@ -1,5 +1,222 @@
 # Handoff
 
+**Session date:** 2026-09-03
+**Branch:** `establish-definitive-spec`
+
+## Latest: coupling figure redrawn with charging in the ODE block (2026-09-03)
+
+New figure `dev/notes/figures/corea-coupling/fig1c_state_graph_corea.{pdf,png}`,
+built by `make_corea.py` from fig 1r's machinery with the tRNA charging node
+moved onto the ODE grid and its edges redrawn by kind. Fig 1r is untouched and
+kept as the record of the wave plan's placement; spec §2 now cites fig 1c and
+§12 has a dated entry. Two things to know before rebuilding: fig 1r's
+byte-identity check against the shipped fig 1 raster cannot pass on the cluster
+(Graphviz 2.44 renders a larger canvas), so fig 1c reports the mismatch and
+continues, and fig 1r itself does not build here for the same reason. No
+`--verify` step and no ImageMagick dependency. The README records the
+judgement calls, including that currency traffic is drawn by fig 1's pool-node
+convention rather than as a labelled edge into Nucleotide.
+
+## Previous: executive summary added to the spec (2026-09-03)
+
+`spec/spec.md` now opens with a §0 executive summary, eleven bullets written
+for a scientist who knows whole-cell modelling but not this project. It carries
+no decisions and no status; for current status it points here. The header's
+"Last amended" date is set to 2026-09-03, matching the §12 entry. Nothing else
+in the spec changed. Next step is unchanged: phase 0 of §11.
+
+## Previous: the spec is amended for an unshared-parameter boundary (2026-09-03)
+
+Four amendments to `spec/spec.md`, all logged in its §12 with evidence. **Read
+that log first**; this is the summary.
+
+**The finding.** Core A′ has **no parameter shared between the ODE block and the
+stochastic block**, and that is inherited from the published model, not
+introduced by our reduction. Metabolism went through SBtab balancing and gene
+expression did not; the derived parameter-coupling figure draws them as separate
+panels with no edge between them; and 22 of 23 upstream ODE synthetase reactions
+are commented out to avoid duplication.
+
+**Amendment 1: the lumped tRNA charging step moved to the ODE block.** This is a
+**correction, not a departure**. The scoping note always put it there — its
+CME-side count is 52 reactions with no charging reaction, both tRNA species are
+in its dynamic-ODE-state list, and the charged pool is in its energy-interface
+table. `dev/plans/reduced-syn3a-wave-plan.md` assigned it to the CME and the spec
+inherited the error. The frozen registry agrees with the note, marking both
+species metabolite-scale.
+
+It also removes 3.49 million jump events per trajectory. Charging fired 553 times
+a second, 353 times every other stochastic event combined, which was a
+forward-cost problem before it was an inference one.
+
+**Two costs of that move, both recorded rather than buried.** The dominant
+adenylate forward channel becomes two-stage and buffered by the tRNA pool size,
+which is a quantity we assert — about 81% of ATP turnover was charging, and its
+flux now contains no stochastic-block quantity. And the non-smooth boundary
+*relocates* rather than disappearing: translation's charged-tRNA counter debits
+~553 residues per second against a pool of order 10³ particles, so it can clip on
+ordinary Poisson fluctuation. Kill criterion K5 may be more likely to fire, not
+less.
+
+**Amendments 2 to 4.** The unshared-parameter finding is recorded as new decision
+D13, accepted as a first-stage assumption with the extension path written up in
+the survey note. The inference architecture becomes a three-block conditional
+scheme (D10 rewritten), with the path-update mechanism deliberately deferred to
+phase 16 — because with charging gone the stochastic block is purely first order
+and may need no particles at all. And the joint-versus-cut comparison arm is
+**dropped**: `src/boundary.jl` matches parameter names to decide what to pass, so
+for Core A′ it passes nothing.
+
+**One claim retracted.** An earlier draft of D10 said conditioning on the path
+makes the ODE block smooth. It does not: the clip depends on the ODE pool and
+hence on the ODE parameters.
+
+**Nine defects fixed in the same pass.** The most serious: translation credited
+uncharged tRNA without ever debiting the charged pool, so the composed model had
+no steady state. Also the adenylate exhaustion time cannot survive a mass-action
+rate law, check 8's summation theorem omitted the charging rate constant, the
+charging acceptance test was circular against its own calibration, and §2's
+reaction count was wrong twice. All nine are listed in §12.
+
+**Phases 9 to 12 renumbered** so charging precedes translation: charging 12→9,
+transcription 9→10, translation 10→11, decay 11→12. Translation's rate constant
+reads an ODE state charging owns, so the old order had the dependency backwards.
+The ODE track is now phases 6 to 9 and is **not** a clean fan-out, since phase 9
+depends on phase 8.
+
+**Also changed:** the survey note
+`dev/notes/modular-bayesian-inference-heterogeneous-modules.md` gained a section
+on this boundary and what the cut and iterative protocols would need if a shared
+parameter ever appeared; the scoping note gained a clarifying row; the wave plan's
+superseded header records where the charging error entered.
+
+### Next steps
+
+1. Review the amended spec, starting at §12, then D13, D14 and the rewritten D10.
+2. Then phase 1, still alone: a module contributing to a state it does not own.
+   It is now a prerequisite for charging as well as for the other ODE modules.
+3. Open questions worth knowing: the tRNA pool size is a single asserted number
+   with three consequences and no value yet, and whether protein degradation is a
+   published reaction at all is unresolved (phase 11 task 9).
+
+---
+
+## This session: OpenSpec out, one authoritative spec in (2026-09-03)
+
+`spec/spec.md` is now the authoritative document for Core A′ — 1,860 lines, 18
+phases, 135 tasks each carrying its own verification clause. It replaces the
+OpenSpec workflow entirely. `openspec/` moved to `dev/archive/openspec/`,
+read-only, so the frozen wave-0 interface requirements and the four drafted
+module designs stay citable.
+
+**Nothing executable changed.** `src/` and `test/` are untouched.
+
+### The four drafted changes were untracked
+
+`openspec/changes/add-central-glycolysis`, `add-pts-transport`,
+`add-nucleotide-recycling` and `add-corea-transcription` were never `git add`ed.
+They are now at `dev/archive/openspec/changes/`, still untracked. **`git add -A`
+before committing** or they are lost outright — they are not in history and
+cannot be recovered. Their derived findings are absorbed into `spec/spec.md` §4
+and into the scoping note's correction table, but the designs themselves are
+worth keeping.
+
+### What the spec changed about the plan
+
+**The wave ordering is reordered, and `dev/plans/reduced-syn3a-wave-plan.md`
+carries a superseded header saying so.** Four framework gaps were verified in
+source this session and none of them appears in the wave plan or in the four
+drafts:
+
+| Gap | Where |
+|---|---|
+| Mixed ODE/jump composition is refused in one line | `src/orchestrator.jl:27`, pinned by `test/test_stochastic_ge.jl:58` |
+| No execution layer for coupling — no callback, no periodic hook, no operator splitting anywhere | six of seven edge kinds are declare-only |
+| Jump composition mis-indexes state and parameters — the contexts are computed and discarded, and `reactions` gets no inputs | `_build_jump_problem` |
+| Inference dispatch reads only the first module of a composition | `src/inference.jl:84` |
+
+Two of the fixes change the sub-model protocol, and the wave plan freezes those
+files against module branches — so doing them after the seven modules re-opens
+seven merged PRs. They move ahead of the modules. The 1 s handshake becomes
+**phase 3, the kill phase**, proven on a two-module toy with wall-clock measured
+before any module is built.
+
+One drafted design's central assumption is wrong and is corrected in the spec:
+`add-corea-transcription/design.md` says the jump path is already exercised by
+the existing models. True for one module, false for a composition.
+
+### Five corrections of record added to the scoping note
+
+Absorbed from the four drafts, in the note's own inline correction table: the
+Michaelis-constant column trap (8 of 32 constants differ, one by 227×); the
+cross-file trap being wider than recorded (all five recycling reactions, GK1 by
+54× and PPA by **902×**); the base-to-nucleotide mapping bug (makes every
+transcription rate constant **1.9× too sensitive to GTP**, on the only ODE→CME
+channel); the PTS phospho-split, which the model's own data files do specify; and
+transcription's pyrophosphate, which the note's phosphate accounting omits.
+
+Plus one measurement: **channel 4's elasticity is ~0.045**. Live, bidirectional,
+and weak. The spec turns this into a kill criterion on the posterior rather than
+on the gain, because 0.045 costs tens to hundreds of cells, which is affordable.
+
+### Decisions taken, so they are not re-litigated
+
+- Scope runs through synthetic recovery, coverage and per-module calibration.
+- The claim is calibrated inference across the boundary; the architecture is the
+  enabling result, not the claim.
+- First target set is six parameters, **and it deviates from the scoping note**:
+  the polymerase turnover constant is replaced by the decay constant, because
+  only the product of the former and the promoter strengths enters the rate law
+  and the cap never binds, so the pair is exactly degenerate. The ptsG promoter
+  is added as the headline, being the only one crossing by two channels.
+- ~~The protocol comparison is joint versus explicit cut.~~ **Reversed by the
+  later amendment:** the cut arm is dropped too, because `src/boundary.jl` matches
+  parameter names to decide what to pass and Core A′ shares none. Both the cut
+  and the iterative protocol are now §7 non-goals.
+
+### Three findings carried as unverified
+
+Derived this session, in no note, not checked against a run. Each is marked in
+§9 with the phase that settles it:
+
+1. ~~Whether the stochastic block's likelihood is closed-form (phase 12).~~
+   **RESOLVED by the later amendment**: moving charging out makes every remaining
+   reaction first order, so the kernel is closed form and factorises over genes.
+2. Whether the charged-tRNA channel is weaker than transcription's (now phase 11).
+   The scoping note hopes it rescues the reverse direction; a first pass suggests
+   the opposite.
+3. Whether protein fold change over a cycle reaches two (now phase 11). A first pass
+   suggests it may fall well short.
+
+### One thing to know about CLAUDE.md
+
+It is **gitignored** (`.gitignore:8`, the `/*.md` root pattern). It was updated
+this session to point at `spec/spec.md`, but that edit is local only and will not
+reach another clone or a teammate. If the spec pointer should travel, CLAUDE.md
+needs force-adding or the pattern needs narrowing.
+
+## Next steps
+
+1. `git add -A` (**mandatory** — see above), review `spec/spec.md`, commit and
+   open the PR. Phase 0's remaining items are the finding-by-finding diff (0.2)
+   and the test-suite confirmation (0.6).
+2. Then phase 1, alone: make a module able to contribute to a state it does not
+   own. It is the prerequisite for the three ODE modules, so nothing else starts
+   until it lands.
+3. Then the four-way fan-out: the ODE track of phases 6 to 9 concurrently with
+   the framework track of phases 2 to 5. Phase 9 depends on phase 8.
+
+## Open questions this session did not settle
+
+In `spec/spec.md` §9, with the three unverified findings above. The two that most
+change the work: the closed-form likelihood question, and what handshake
+granularity the pools require — the GTP pool turns over in half the rebuild
+interval, so 60 s is expected to fail.
+
+---
+
+Everything below is the handoff from the wave-0 sessions, kept for context.
+
 **Session date:** 2026-08-28
 **Branch:** `refactor/split-organism-from-framework`
 

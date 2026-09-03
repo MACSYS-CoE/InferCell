@@ -396,7 +396,142 @@ Flagging these because several sit at the intersection of this survey and existi
 
 ---
 
-## 7. Annotated references
+## 7. Application to Core A′: a boundary with no shared parameters
+
+Added 2026-09-03, after the finding below invalidated part of `spec/spec.md`.
+Everything above this section is a general survey; this section is what happens
+when it meets one concrete system.
+
+### The finding
+
+**Core A′ has no parameter appearing in both the ODE block and the CME block.**
+In §1.1's notation, $\varphi$ is empty. The coupling is pure feedback through
+*state*, with no parameter-sharing component at all.
+
+This is inherited from Thornburg et al. 2022, not introduced by the reduction.
+Four independent lines of evidence:
+
+- The two namespaces are disjoint. The ODE side carries `kcatF_R_*`,
+  `kcatR_R_*`, `km_R_*_M_*`, `conc_M_*` and a handful of asserted transport
+  constants; the CME side carries per-gene promoter strengths and the
+  gene-expression globals. Nothing is in both.
+- The derived parameter-coupling figure in
+  [`figures/minimal-cell-coupling/`](figures/minimal-cell-coupling/) draws
+  metabolism and gene expression as **separate panels with no edge between
+  them**, and its Panel C is titled "Gene expression: no factor structure at
+  all". That figure is computed from the model files, so the absence of an edge
+  is derived rather than drawn.
+- Metabolism went through SBtab parameter balancing, with priors, balanced modes
+  and posterior widths. Gene expression did not: its ~19 globals are written into
+  the source with "no prior, no posterior, no provenance". Two blocks
+  parameterised by two different processes.
+- Upstream, 22 of 23 ODE tRNA-synthetase reactions are commented out precisely
+  because charging moved into the CME. Where a reaction could have been
+  parameterised on both sides, one copy was deliberately disabled.
+
+### What this rules out, and it is most of §3
+
+With no shared quantity, several method families in this note have nothing to act
+on:
+
+| Method | Why it does not apply |
+|---|---|
+| Copies-and-tie (§3.8) | There is nothing to tie. The device gives each module its own copy of a shared quantity; there is no shared quantity |
+| EP over $\varphi$ (§3.2) | The site update passes moments of a shared parameter. The natural message here is over the *interface trajectory*, which is time-indexed and high-dimensional, not a low-dimensional exponential-family factor |
+| Markov melding (§3.5) | Melds submodels that each carry a prior on a shared quantity. Not this boundary — though see the metabolic side below, where it *does* apply |
+| Cut and SMI (§3.6) | A cut fixes the marginal of a shared quantity from the trusted module. With none, the "cut" that matters severs a distribution over state, which is a different and unbuilt object |
+| Prior double-counting (§3.2, §2.3c) | Presupposes a shared parameter counted twice. The hazard is real for the extension below, and absent today |
+
+**A concrete consequence in code.** `src/boundary.jl` implements this note's
+sequential and iterative protocols, and it discovers what to pass by intersecting
+the two blocks' free-parameter *names* (`boundary_condition`, `:111-135`;
+`iterative_infer`, `:263-268`). Run on Core A′ that intersection is empty, so
+`sequential_infer` passes the unmodified prior through and `iterative_infer`
+converges at the first pass having moved nothing. This is structural, not a
+tuning failure, and it is why `spec/spec.md` dropped its protocol-comparison arm.
+
+### What applies instead
+
+Data augmentation, which this note reaches for only obliquely. §3.4 recommends
+blocked Metropolis-within-Gibbs with a **pseudo-marginal** CME block, and §5.3
+Stage 1 prescribes "NUTS + PMMH" as the reference. That marginalises the latent
+path, and §3.4's own hard constraint then bites: you cannot run HMC on a
+pseudo-marginal block.
+
+**Conditioning on the path instead of marginalising it removes that constraint.**
+Let $z$ be the CME trajectory. Then:
+
+- $\theta_{\text{ODE}} \mid z, y$ — with the enzyme concentrations and cost
+  drains known as forcing, this is an ordinary IVP likelihood and gradients are
+  available again.
+- $\theta_{\text{CME}} \mid z$ — for a monomolecular network the complete-path
+  likelihood is $\prod_r k_r^{n_r}\exp(-k_r \int a_r)$, which is gamma-conjugate
+  in each rate constant.
+- $z \mid \theta, y$ — the remaining problem, and the only hard one.
+
+Two cautions that matter and are easy to miss. **The conjugacy is narrow.** The
+free parameters enter the CME rate constants as a *product* — polymerase turnover
+times promoter strength — so the conjugate parameterisation is exactly the
+degenerate direction. That is convenient rather than suspicious: the tractable
+and identifiable parameterisations coincide. **And conditioning does not buy
+smoothness at the interface.** The published cost drain is clipped at zero
+against the pool, and the pool depends on $\theta_{\text{ODE}}$, so the
+non-smoothness survives conditioning on $z$.
+
+### The intra-block sharing that does exist
+
+Sharing in this model is intense, but *within* blocks rather than across, and the
+two cases want different methods:
+
+- **The CME is a star.** Roughly 19 global scalars set all 455 rate constants in
+  the published model, so perturbing one moves all of them together. Core A′
+  inherits the hub at 52 reactions. This is a ridge, and the right treatment is
+  reparameterisation to the product plus a scale anchor, not a modular method.
+- **Metabolism has a genuine shared-parameter problem across files.** 32
+  compounds carry a *different* standard chemical potential in two separately
+  balanced files (`figures/minimal-cell-coupling/mu0_cross_file.csv`), so the
+  assembled model is not thermodynamically consistent as a whole. **This is
+  Markov melding's setup exactly**: one quantity estimated twice, with each
+  file's marginal implicit. Core A′ resolves it by declaring a governing file, a
+  hard choice rather than a pooled one, which is defensible at this scale and is
+  where §3.5 would earn its keep at Step 2.
+
+### The extension path, and what it would require
+
+Nothing above forecloses a shared-parameter treatment. Two candidates would
+create one:
+
+- **Unfreezing cell volume on the CME side.** The published model computes its
+  three polymerase capacities from a hard-coded initial radius while the ODE side
+  reads volume live at every hook. Making the CME side live would put one
+  state-derived quantity into both blocks' rate laws. The growth block's
+  calibrated constants — the 28.0 nm² membrane-protein footprint and the 0.513
+  outer-leaflet fraction — are then genuinely shared *parameters* sitting on the
+  boundary rather than inside either block.
+- **Step 1b's RNDR/dNTP branch**, which makes the NTP pools rate-limiting and
+  gives the two blocks a common kinetic quantity.
+
+If either is taken, the protocols this note surveys become applicable and three
+things must be built that do not exist:
+
+1. **A message family that is not hard-truncated.** `KDEPrior` returns zero
+   outside its grid and ABC's support gate then rejects everything beyond the
+   previous stage's sample range, so tails are lost each pass. A fat-tailed
+   family or a moment-matched Gaussian site is the fix, with the edge-mass
+   fraction logged every iteration.
+2. **Prior division, or an EP cavity.** Composing $Q$ per-module posteriors
+   multiply-counts the prior $Q$ times (§2.3c, §3.2). `iterative_infer` does
+   exactly this and its predicted signature is U-shaped SBC ranks deepening with
+   iteration count. Worth *measuring* as a negative result rather than fixing,
+   but only in a system where the protocol runs at all.
+3. **Message-level SBC.** Ranking the truth within each module's outgoing message
+   catches double-counting before it reaches the posterior, which is §6's open
+   problem 5. It is vacuous with no outgoing parameter message, so it waits for
+   the extension too.
+
+---
+
+## 8. Annotated references
 
 **Modular inference, cutting feedback, SMI**
 - Liu, Bayarri & Berger (2009), *Modularization in Bayesian analysis*. The origin of the framing.

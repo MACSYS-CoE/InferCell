@@ -1,5 +1,34 @@
 # Building Core A′ in waves
 
+> **SUPERSEDED — 2026-09-03.** `spec/spec.md` is now the authoritative plan, and
+> it **reorders this file**. Two of the framework changes filed here as "wave 2"
+> alter the sub-model protocol itself: letting a module contribute to a state it
+> does not own changes what `dynamics` returns, and fixing jump composition
+> changes what `reactions` receives. This file freezes those files against module
+> branches, so doing them after the seven modules re-opens seven merged PRs. They
+> move ahead of the modules, and the 1 s handshake is proven on a two-module toy
+> with wall-clock measured before the modules are built — because a mixed
+> ODE/jump composition is refused in one line today and no periodic-hook
+> machinery exists at all. See `spec/spec.md` §4 D0.
+>
+> Two further gaps this file does not name: jump-block composition mis-indexes
+> state and parameters, and inference dispatch reads only the first module in a
+> composition. Its "7-way parallel" wave 1 is at most 5-way and its "3-way
+> parallel" wave 2 is serial.
+>
+> **One content error entered here, not just an ordering one.** The wave-1 table
+> below assigns `add-lumped-trna-charging` to the CME block. The scoping note puts
+> the charging step and both tRNA pools on the ODE side, and the frozen registry
+> marks both species metabolite-scale. `spec/spec.md` inherited the error and
+> corrected it in its §12 amendment 1: charging is an ODE module, which also
+> removes 3.49 million jump events per trajectory.
+>
+> **Do not follow this file's ordering.** It is kept for the reasoning behind the
+> decomposition — the module boundaries, the file layout, and the rule that each
+> module carries its own conservation check — all of which the spec adopts. The
+> OpenSpec commands throughout are dead; `openspec/` is retired to
+> `dev/archive/openspec/`.
+
 How the Core A′ port is decomposed into parallel work, and which OpenSpec
 commands drive each stage.
 
