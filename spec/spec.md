@@ -1552,7 +1552,7 @@ error.
   what now actually fails (duplicate ownership) rather than what no longer does.
 - [x] 2.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the three gene-expression modules may now assume
-  composability, correcting the drafted design that assumed it already held. **Done:** job 16185348, 1002/1002 (932 before the phase); the handoff records the `Reaction` contract,
+  composability, correcting the drafted design that assumed it already held. **Done:** job 16185512, 1005/1005 (932 before the phase; 1002 before the review fixes); the handoff records the `Reaction` contract,
   `written_states`, and what phases 10–12 may now assume.
 
 ### Phase 3 — The 1 s handshake, on a two-module toy. **The kill phase.**

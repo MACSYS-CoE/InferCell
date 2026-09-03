@@ -63,7 +63,7 @@ ODE pools still go through the hook phase 3 builds, never through an affect.
 hand-written `BirthDeath`, λ = 12, 400 replicates each at ten relaxation
 times: means 12.04 (composed) and 12.12 (single), variances 13.68 and 11.71, against tolerances of 0.69 on each mean from λ and 4.9 on the variance difference. Task 2.4's peer read: over 200 replicates the mean firing count went from 19.78 at X = 20 to 39.47 at X = 40, a ratio of 1.995 against a four-standard-error tolerance of 0.155.
 
-**Suite:** 1002 passed, 0 failed (job 16185348); 932 before the phase.
+**Suite:** 1005 passed, 0 failed (job 16185512, after the review fixes; 1002 at job 16185348 before them); 932 before the phase.
 
 ### Next steps
 
