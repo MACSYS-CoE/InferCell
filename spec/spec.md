@@ -1,6 +1,6 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phase 1 landed
+**Status:** in progress — phases 0 and 1 done (PR #42)
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-03
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1435,7 +1435,7 @@ serial, because each validation check catches errors the next would mask.
 number.
 **Done when:** every finding in the four drafted changes appears in this spec or
 in a note, and `openspec/` is read-only history under `dev/archive/`.
-**PR:** #41 (merged 2026-09-02)
+**PR:** #41 (merged 2026-09-03)
 
 - [x] 0.1 Move `openspec/` to `dev/archive/openspec/` — verify by `git log
   --follow` on `dev/archive/openspec/specs/corea-interface/edge-kinds/spec.md`
@@ -1466,8 +1466,9 @@ in a note, and `openspec/` is read-only history under `dev/archive/`.
 
 ### Phase 1 — A module contributes to a state it does not own
 
-**Goal:** make an outbound mass or currency edge execute, so a shared pool can
-receive terms from every module that produces it.
+**Goal:** make an ~~outbound~~ mass or currency edge execute, so a shared pool can
+receive terms from every module that produces **into or draws from** it
+(amended 2026-09-03; see §12).
 **Done when:** a two-module ODE composition in which module A produces a species
 module B owns shows B's state rising at A's declared rate, and every ~~outbound~~
 mass or currency edge in the composition **on a species the declaring module
@@ -2310,23 +2311,25 @@ fabricated task list.
 
 ### 2026-09-03 — the contribution channel executes mass and currency edges in both directions
 
-**Trigger:** phase 1 was specified around *outbound* edges executing. But a
+*Evidence:* phase 1 was specified around *outbound* edges executing. But a
 module that draws on a pool it does not own — glycolysis consuming ATP that
 recycling owns at PFK, the phosphotransferase cascade consuming the PEP
 glycolysis owns — declares an *inbound* mass or currency edge, and that
 consumption is a derivative term the owner never sees unless it is executed
 too. Executing only the outbound side would leave every cross-module
 consumption silently absent from the pools, and phase 6 would have needed a
-second mechanism.
-**Change:** the phase-1 mechanism (`contributed_states` and `contributions`)
-carries one signed term per non-owned dynamic registry species on which the
-module declares a mass or currency edge, in either direction; the drift check
-of task 1.5 holds the two lists to each other on the same set. The phase's
-done-when and task 1.5 are annotated in place. Registry, chemostat and
-ownership rejections, and the both-ways drift check, are what phase 6 to 9's
-edge declarations are now written against.
-**Sections touched:** §11 phase 1 (done-when, task 1.5). Approved at planning
-time before implementation.
+second mechanism. *Change:* the phase-1 mechanism (`contributed_states` and
+`contributions`) carries one signed term per non-owned dynamic registry species
+on which an ODE module declares a mass or currency edge, in either direction;
+the drift check of task 1.5 holds the two lists to each other on the same set.
+A `:jump` module declares its mass and currency edges as before but may not
+list contributions: its writes to a peer's state go through its reactions,
+which phase 2 builds, so its edges are resolved and not held to the channel.
+The phase's goal, done-when and task 1.5 are annotated in place. Registry,
+chemostat and ownership rejections, and the both-ways drift check, are what
+phases 6 to 9's edge declarations are now written against. *Sections:* §11
+phase 1 (goal, done-when, task 1.5). Approved at planning time, before
+implementation; landed in PR #42.
 
 ### 2026-09-03 — the coupling figure follows amendment 1
 

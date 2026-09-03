@@ -5,7 +5,7 @@
 
 ## Latest: phase 1 — a module contributes to a state it does not own (2026-09-03)
 
-Spec §11 phase 1, landed as PR #42 on branch `phase-1`. **Mass and currency
+Spec §11 phase 1, delivered as PR #42 from branch `phase-1`. **Mass and currency
 edges now execute rather than merely resolve.** Two protocol functions, both
 defaulting to empty: `contributed_states(m)` names registry states of *other*
 modules this one adds derivative terms to, and `contributions(u, p, t, m[,
@@ -31,7 +31,9 @@ either direction. A module with contributions but no edges is *not* skipped.
 Ownership of the target is the orchestrator's check, so standalone
 `resolve_coupling(module)` still succeeds and reports the species as unowned
 (phase 6.5 depends on that). A `:jump` module declaring contributions is an
-error: phase 2 owns jump writes.
+error in the resolver; its mass and currency edges are declared and resolved but
+not held to the channel, because its writes go through its reactions, which
+phase 2 builds.
 
 **Consequences for the module phases (6–9).** Every module that produces into or
 draws from a pool it does not own declares the edge *and* lists the species in
@@ -41,18 +43,21 @@ its own; charging to ATP, AMP, PPi. Five `CoreAStub` fixtures in
 `test/test_resolver.jl` gained `contribs = [...]` for this reason.
 
 **State container (task 1.6).** Re-taken at 32 states; numbers in
-`dev/scripts/bench_rhs_containers_result.md` (Slurm job 16171921):
+`dev/scripts/bench_rhs_containers_result.md` (Slurm job 16184994, commit b14839a):
 
 | RHS | bytes / call | ns / call | Tsit5 solve | Rodas5P solve |
 |---|---|---|---|---|
-| legacy out-of-place (no contributions) | 3152 | 1456 | 4.0 ms | 19.5 ms |
-| **phase-1 static out-of-place** | **0** | **26** | 0.4 ms | 7.5 ms |
-| hand-fused in-place `Vector` | 0 | 11 | 0.2 ms | 4.0 ms |
+| legacy out-of-place (no contributions; Vector→SVector conversion added) | 3152 | 2087 | 3.9 ms | 18.4 ms |
+| **phase-1 static out-of-place** | **0** | **26** | 0.4 ms | 7.6 ms |
+| hand-written in-place `Vector` | 0 | 11 | 0.2 ms | 4.2 ms |
 
-The in-place row is one hand-fused function with no per-module dispatch, so it
+The in-place row is one hand-written function with no per-module dispatch, so it
 bounds what a mutating framework could reach rather than what one would cost;
 reaching it would rewrite every `dynamics` in mutating form and break ForwardDiff
-through `remake(p=Dual)` without a `DiffCache`.
+through `remake(p=Dual)` without a `DiffCache`. The legacy row needed an explicit
+result conversion: it handed each module a plain `Vector` slice, so a
+broadcasting `dynamics` returned a `Vector` and OrdinaryDiffEq refused the solve;
+the real models only ever worked by returning `SA[...]` by hand.
 
 Decision: static out-of-place stays. `_build_rhs` now holds the modules as a
 `Tuple` and every index as an `SVector{_,Int}`, so slicing, `reduce(vcat, …)`
@@ -60,10 +65,13 @@ and the contribution fold are all static; the composed RHS allocates nothing on
 the 32-state doubles, asserted in `test/test_contributions.jl`. Two things to
 know: (1) the zero-allocation claim is the framework's, not every model's —
 `TranscriptionTranslation`'s own `dynamics` branches on `gene_names` at runtime
-and is not inferable, so any composition containing it still allocates (fewer
-bytes than before); lifting its gene count into a type parameter is a follow-up,
-not phase 1. (2) At most 32 sub-models compose: Base stops unrolling tuple `map`
-at 33 (`Base.Any32`), and the guard says so.
+and is not inferable, so a composition containing it still allocates. Measured
+in the same benchmark: 560 → 224 bytes per call, but **549 → 866 ns per call**,
+because the uninferable return type now goes through dynamic dispatch inside the
+tuple machinery. Nothing in Core A′ is built from that model, and the Core A′
+modules return static vectors, but lifting the gene count into a type parameter
+is now a real follow-up rather than a nicety. (2) At most 31 sub-models compose: `Base.Any32` matches any tuple
+of 32 or more and Base stops unrolling tuple `map` there, and the guard says so.
 
 **Pre-existing side finding, out of scope.** Multi-gene `TranscriptionTranslation`
 `dynamics` allocates `Vector{eltype(u)}`, so calling it directly with Float64 `u`
