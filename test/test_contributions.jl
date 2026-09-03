@@ -23,7 +23,6 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         rhs = prob.f.f
         u, p = prob.u0, prob.p
         du = rhs(u, p, 0.0)
-        @test du isa SVector{32, Float64}
 
         gamma_o, k_prod, k_cons, gamma_c = p   # global parameter order
         i_atp, i_pi, i_g6p = _gidx(models, :M_atp_c), _gidx(models, :M_pi_c), _gidx(models, :M_g6p_c)

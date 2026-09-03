@@ -250,16 +250,26 @@ function _build_rhs(models::Vector{<:AbstractSubModel},
     return rhs
 end
 
-# Add each contribution to the owner's derivative. `du` is an SVector, so the
-# result is a new SVector; the eltype is promoted once so a Float64 derivative
-# can receive a dual-number contribution under automatic differentiation.
-function _accumulate(du::SVector{N}, idxs, c) where {N}
+# Add each contribution to the owner's derivative. The eltype is promoted once
+# so a Float64 derivative can receive a dual-number contribution under
+# automatic differentiation. `du` is a static vector when every module returns
+# one and a plain Vector otherwise; both are handled.
+function _accumulate(du::AbstractVector, idxs, c)
     length(idxs) == length(c) || error(
         "contributions() returned $(length(c)) term$(length(c) == 1 ? "" : "s") " *
         "but contributed_states() names $(length(idxs)) species")
-    out = SVector{N, promote_type(eltype(du), eltype(c))}(du)
-    for (j, i) in enumerate(idxs)
-        out = setindex(out, out[i] + c[j], i)
+    T = promote_type(eltype(du), eltype(c))
+    if du isa SVector
+        out = SVector{length(du), T}(du)
+        for (j, i) in enumerate(idxs)
+            out = setindex(out, out[i] + c[j], i)
+        end
+        return out
+    else
+        out = Vector{T}(du)
+        for (j, i) in enumerate(idxs)
+            out[i] += c[j]
+        end
+        return out
     end
-    return out
 end
