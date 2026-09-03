@@ -1,6 +1,6 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 and 1 done (PR #42)
+**Status:** in progress — phases 0, 1 and 2 done (PRs #41, #42, #43)
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-04
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1474,7 +1474,7 @@ module B owns shows B's state rising at A's declared rate, and every ~~outbound~
 mass or currency edge in the composition **on a species the declaring module
 does not own, in either direction,** maps one-to-one onto an executed
 contribution (amended 2026-09-03; see §12).
-**PR:** #42
+**PR:** #42 (merged 2026-09-03)
 
 - [x] 1.1 Choose and record the mechanism — a second return value from
   `dynamics`, a separate protocol function, or a global-index write buffer —
@@ -1517,22 +1517,22 @@ write a declared peer's state.
 incrementing and decrementing it — compose and produce a trajectory whose
 statistics match a hand-written single-module equivalent within Monte Carlo
 error.
-**PR:** _not started_
+**PR:** #43
 
-- [ ] 2.1 Pin the bug before fixing it — verify by a test composing two doubles
+- [x] 2.1 Pin the bug before fixing it — verify by a test composing two doubles
   with disjoint state names and asserting that *today* the second module's effect
   mutates the first module's state, so the fix has a witness rather than a claim.
-- [ ] 2.2 Give `reactions` the module's index context — verify by instrumenting
+- [x] 2.2 Give `reactions` the module's index context — verify by instrumenting
   each double's rate and effect functions and asserting every read and write
   falls inside that module's own state range.
-- [ ] 2.3 Use the contexts in `_build_jump_problem`, which currently computes and
+- [x] 2.3 Use the contexts in `_build_jump_problem`, which currently computes and
   discards them — verify by asserting the global initial-condition vector's
   length equals the sum of per-module state counts and that each module's counts
   sit at its own offsets.
-- [ ] 2.4 Let a jump module read a declared peer's state in a propensity — verify
+- [x] 2.4 Let a jump module read a declared peer's state in a propensity — verify
   by a propensity proportional to the peer's count and a test where doubling the
   peer's initial count doubles the measured firing rate over many replicates.
-- [ ] 2.5 Let a jump module write a declared peer's state, gated on ~~an outbound
+- [x] 2.5 Let a jump module write a declared peer's state, gated on ~~an outbound
   edge~~ **a `written_states` declaration** — verify by a decay-shaped double
   decrementing a transcript it does not own, and by the same write throwing once
   the ~~edge~~ **declaration** is removed. **Amended 2026-09-04:** no edge kind
@@ -1540,13 +1540,14 @@ error.
   10.2, so the gate is the declaration; where the written state *is* a registry
   species the resolver additionally holds the declaration to a mass or currency
   edge (§12).
-- [ ] 2.6 Preserve single-module behaviour exactly — verify by the existing
+- [x] 2.6 Preserve single-module behaviour exactly — verify by the existing
   stochastic and bursty gene-expression tests passing unchanged including the
   Fano-factor assertion, and by rewriting the "composition fails" test to assert
   what now actually fails (duplicate ownership) rather than what no longer does.
-- [ ] 2.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
+- [x] 2.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the three gene-expression modules may now assume
-  composability, correcting the drafted design that assumed it already held.
+  composability, correcting the drafted design that assumed it already held. **Done:** job 16185348, 1002/1002 (932 before the phase); the handoff records the `Reaction` contract,
+  `written_states`, and what phases 10–12 may now assume.
 
 ### Phase 3 — The 1 s handshake, on a two-module toy. **The kill phase.**
 
