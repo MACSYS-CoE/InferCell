@@ -35,8 +35,10 @@ using Statistics: mean, var
         # module's two states at 3:4 so neither tested module sits first.
         owner = BirthOwner(k = 1.0)
         peer = PeerBirthDeath(gamma = 0.5, b = 0.2)
-        slot_owner = InferCell._JumpSlot(SVector(4), SVector(3), SVector{0, Int}())
-        slot_peer = InferCell._JumpSlot(SVector(2), SVector(1, 2), SVector(4))
+        slot_owner = InferCell._JumpSlot(SVector(4), SVector(3), SVector{0, Int}(),
+                                         SVector{0, Bool}(), SVector{0, Symbol}(), :BirthOwner)
+        slot_peer = InferCell._JumpSlot(SVector(2), SVector(1, 2), SVector(4),
+                                        SVector(true), SVector(:X), :PeerBirthDeath)
         u = TrackedVector([10, 0, 7, 5])
         p = TrackedVector([0.5, 0.2, 1.0])
         for (m, sl, allowed_u, allowed_p) in ((owner, slot_owner, Set([4]), Set([3])),
@@ -76,7 +78,8 @@ using Statistics: mean, var
         @test ctxs[1].param_idxs == [1]
         @test ctxs[2].param_idxs == [2, 1]        # gamma_peer, then the shared k_birth
         # The peer's local p is [gamma, k_birth] = [0.3, 0.7] whichever slot each sits in.
-        sl = InferCell._JumpSlot(SVector(2), SVector(2, 1), SVector(1))
+        sl = InferCell._JumpSlot(SVector(2), SVector(2, 1), SVector(1),
+                                 SVector(true), SVector(:X), :PeerBirthDeath)
         death, birth = reactions(peer)
         @test InferCell._global_jump(death, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.3 * 12
         @test InferCell._global_jump(birth, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.7
@@ -111,5 +114,48 @@ using Statistics: mean, var
         @test abs(m1 - c * 20 * T) < 4 * sqrt(c * 20 * T / n)
         @test abs(m2 / m1 - 2) < 4 * se_ratio
         @info "task 2.4 peer read" mean_at_20 = m1 mean_at_40 = m2 ratio = m2 / m1 four_se = 4 * se_ratio
+    end
+
+    # Task 2.5: a declared peer write. The owner is frozen at 50 and the
+    # decay-shaped peer removes one X per firing through the peer view, so X
+    # runs to zero and the peer's counter reaches exactly 50 (the chance a
+    # single copy survives 1000 s at rate 0.2 is e^-200). Remove the
+    # declaration and the very same write throws at its first firing.
+    @testset "2.5 a jump module writes a declared peer's state" begin
+        owner = BirthOwner(k = 0.0, x0 = 50)
+        decay = PeerBirthDeath(gamma = 0.2, b = 0.0, writes = [:X])
+        prob = build_problem([owner, decay]; tspan = (0.0, 1000.0))
+        Random.seed!(11)
+        sol = solve(prob, SSAStepper(); saveat = [1000.0])
+        @test sol[1, end] == 0
+        @test sol[2, end] == 50
+        @test all(x -> x >= 0, sol[1, :])   # never fires at zero copies: rate is gamma · X
+
+        undeclared = PeerBirthDeath(gamma = 0.2, b = 0.0, writes = Symbol[])
+        prob_u = build_problem([owner, undeclared]; tspan = (0.0, 1000.0))
+        err = caught(() -> solve(prob_u, SSAStepper(); saveat = [1000.0]))
+        @test err isa ArgumentError
+        @test occursin("PeerBirthDeath", err.msg)
+        @test occursin(":X", err.msg)
+        @test occursin("written_states", err.msg)
+    end
+
+    @testset "2.5 the declaration is held to inputs() and, for registry species, to an edge" begin
+        # A write to a state not read through inputs() has no view to go through.
+        err = caught(() -> build_problem([BirthOwner(), PeerBirthDeath(writes = [:fired])]))
+        @test err isa ArgumentError
+        @test occursin("PeerBirthDeath", err.msg) && occursin(":fired", err.msg)
+        # An ODE module has no reactions to write through; it contributes instead.
+        err = caught(() -> build_problem([OdeWithWrites()]))
+        @test err isa ArgumentError
+        @test occursin("OdeWithWrites", err.msg) && occursin("contributed_states", err.msg)
+        # A registry species written by a jump module needs a mass or currency
+        # edge declaring the crossing; a transcript, being outside the registry,
+        # is gated by the declaration alone (spec §12, 2026-09-04).
+        err = caught(() -> resolve_coupling([RegistryJumpWriter(edges = CouplingEdge[])]))
+        @test err isa ArgumentError
+        @test occursin("RegistryJumpWriter", err.msg) && occursin(":M_atp_c", err.msg)
+        @test occursin("written_states", err.msg)
+        @test resolve_coupling([RegistryJumpWriter()]) isa CouplingGraph
     end
 end

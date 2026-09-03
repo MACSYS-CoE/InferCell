@@ -1,7 +1,7 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 and 1 done (PR #42)
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-03
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-04
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -1532,9 +1532,14 @@ error.
 - [ ] 2.4 Let a jump module read a declared peer's state in a propensity — verify
   by a propensity proportional to the peer's count and a test where doubling the
   peer's initial count doubles the measured firing rate over many replicates.
-- [ ] 2.5 Let a jump module write a declared peer's state, gated on an outbound
-  edge — verify by a decay-shaped double decrementing a transcript it does not
-  own, and by the same write throwing once the edge is removed.
+- [ ] 2.5 Let a jump module write a declared peer's state, gated on ~~an outbound
+  edge~~ **a `written_states` declaration** — verify by a decay-shaped double
+  decrementing a transcript it does not own, and by the same write throwing once
+  the ~~edge~~ **declaration** is removed. **Amended 2026-09-04:** no edge kind
+  can name a non-registry state and the transcripts are non-registry by task
+  10.2, so the gate is the declaration; where the written state *is* a registry
+  species the resolver additionally holds the declaration to a mass or currency
+  edge (§12).
 - [ ] 2.6 Preserve single-module behaviour exactly — verify by the existing
   stochastic and bursty gene-expression tests passing unchanged including the
   Fano-factor assertion, and by rewriting the "composition fails" test to assert
@@ -2040,7 +2045,9 @@ return over a cycle matches the scoping note's ~24,000 particles.
 - [ ] 12.2 Decrement the transcript this module does not own, through phase 2's
   declared peer write — verify by firing decay lowering only that transcript, by
   it being unable to fire at zero copies, and by the write throwing once the
-  outbound edge is removed.
+  ~~outbound edge~~ **`written_states` declaration** is removed (amended
+  2026-09-04; see §12 — a transcript is not a registry species, so no edge can
+  name it).
 - [ ] 12.3 Return the four monomers per firing — verify by the returned counts
   equalling that gene's four base counts exactly, cross-checked against phase 10's
   extract so the two modules cannot disagree on a base count.
@@ -2308,6 +2315,34 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-04 — a jump module's peer writes are gated on `written_states`, not on an edge
+
+**Trigger:** phase 2 task 2.5 (and task 12.2, its consumer) said a jump
+module's write to a peer's state is "gated on an outbound edge" and must
+throw "once the edge is removed". But `_resolve_edges` rejects any edge naming
+a species outside the Core A′ registry, and task 10.2 keeps the seventeen
+transcripts outside it. Decay decrementing a transcript — the case the task
+exists for — cannot carry an edge at all, so the gate as written was
+unimplementable. Found at planning time, before the phase's code was written.
+**Change:** a new protocol function `written_states(m)`, the jump-side twin of
+phase 1's `contributed_states`, names the peer states a jump module's affects
+modify. It must be a subset of `inputs(m)`; the write goes through the same
+`u_inputs` view as the read, and an undeclared write throws at its first
+firing, naming the module and the state. Where the written state *is* a
+registry species the resolver additionally requires a mass or currency edge on
+it, in either direction, since that write is a boundary crossing; the converse
+is not required, because an inbound edge may be a pure read. A non-registry
+state is gated by the declaration alone. The alternatives — promoting the
+transcripts to registry species, which contradicts task 10.2 and reopens the
+frozen registry; or gating on `inputs()` membership alone, which makes a read
+and a write indistinguishable so no write could ever be refused — were rejected.
+In the same phase, `reactions` changed shape: it returns `Reaction(rate,
+affect!)` values in local coordinates and the orchestrator wraps them over
+views of the composed vectors, mirroring `dynamics`; that is the mechanism task
+2.2 asked for, not an amendment, and the alternative of passing an explicit
+index context is recorded in the pull request.
+**Sections touched:** §11 tasks 2.5 and 12.2, annotated in place.
 
 ### 2026-09-03 — the contribution channel executes mass and currency edges in both directions
 

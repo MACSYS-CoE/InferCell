@@ -264,13 +264,20 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
     for m in models
         edges = coupling(m)
         targets = contributed_states(m)
-        isempty(edges) && isempty(targets) && continue
+        writes = written_states(m)
+        isempty(edges) && isempty(targets) && isempty(writes) && continue
         name = module_id(m)
 
         # A jump process cannot add a continuous derivative term, so a :jump
         # module's mass and currency edges are declared and resolved but not
         # held to contributed_states(): its writes to a peer's state go through
-        # its reactions (spec §11 phase 2). Listing a contribution is the error.
+        # its reactions, declared in written_states() (spec §11 phase 2).
+        # Listing a contribution is the error. A written *registry* species is
+        # a boundary crossing and must carry a mass or currency edge, in either
+        # direction; a written non-registry state — a transcript — is outside
+        # the typed contract and is gated by the declaration alone (spec §12,
+        # 2026-09-04). The converse is not required: an inbound edge may be a
+        # pure read.
         if formalism(m) === :jump
             isempty(targets) || throw(ArgumentError(
                 "Module $name has formalism :jump but lists " *
@@ -278,6 +285,15 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
                 "jump process cannot add continuous derivative terms; a jump " *
                 "module's writes to a peer's state go through its reactions " *
                 "(spec §11 phase 2). Drop the contribution and keep the edge"))
+            crossed = Set(e.species for e in edges if e isa MassEdge || e isa CurrencyEdge)
+            for s in writes
+                is_registered(s) || continue
+                s in crossed || throw(ArgumentError(
+                    "Module $name lists the registry species :$s in written_states() " *
+                    "but declares no mass or currency edge on it. A jump module's " *
+                    "write to a registry pool is a boundary crossing and must be " *
+                    "declared as one; add the edge or drop the write"))
+            end
             continue
         end
 

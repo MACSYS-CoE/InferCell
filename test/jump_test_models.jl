@@ -3,7 +3,7 @@ using Distributions: LogNormal, Normal
 using JumpProcesses: ConstantRateJump
 
 import InferCell: states, parameters, reactions, formalism, inputs, written_states,
-                  module_id
+                  coupling, module_id
 
 # Executable doubles for jump composition (spec §11 phase 2).
 #
@@ -165,3 +165,35 @@ Base.setindex!(v::TrackedVector, x, i::Int) = (push!(v.writes, i); v.data[i] = x
 struct FakeIntegrator{U}
     u::U
 end
+
+"""
+    RegistryJumpWriter(; edges = [CurrencyEdge(species = :M_atp_c, direction = :in)])
+
+A jump module that reads and writes the registry species `:M_atp_c` it does not
+own. With its default edge it resolves; with no edge the resolver refuses the
+write, since a registry crossing must be declared as one.
+"""
+struct RegistryJumpWriter <: AbstractSubModel
+    edges::Vector{CouplingEdge}
+end
+RegistryJumpWriter(; edges = CouplingEdge[CurrencyEdge(species = :M_atp_c, direction = :in)]) =
+    RegistryJumpWriter(collect(CouplingEdge, edges))
+states(::RegistryJumpWriter) = [:jw_counter]
+parameters(::RegistryJumpWriter) = [_jic(0, :jw_counter0, :RegistryJumpWriter)]
+formalism(::RegistryJumpWriter) = :jump
+inputs(::RegistryJumpWriter) = [:M_atp_c]
+written_states(::RegistryJumpWriter) = [:M_atp_c]
+coupling(m::RegistryJumpWriter) = m.edges
+reactions(::RegistryJumpWriter) = [Reaction((u, p, t, uin) -> 1.0, (u, uin) -> (uin[1] -= 1; u[1] += 1))]
+
+"""
+    OdeWithWrites()
+
+An ODE module that lists a written state. It has no reactions to write through,
+so the orchestrator refuses it and points at `contributed_states`.
+"""
+struct OdeWithWrites <: AbstractSubModel end
+states(::OdeWithWrites) = [:ode_w]
+parameters(::OdeWithWrites) = [_jic(0, :ode_w0, :OdeWithWrites)]
+written_states(::OdeWithWrites) = [:X]
+InferCell.dynamics(u, p, t, ::OdeWithWrites) = zero(u)
