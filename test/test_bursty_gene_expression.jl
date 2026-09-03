@@ -97,9 +97,6 @@ using Statistics: mean, var
         # test_stochastic_ge.jl.
         m1 = BurstyGeneExpression()
         m2 = StochasticGeneExpression()
-        err = try build_problem([m1, m2]); nothing catch e; e end
-        @test err isa ErrorException
-        @test occursin("owned by multiple sub-models", sprint(showerror, err))
-        @test occursin("mRNA", sprint(showerror, err))
+        @test_throws "State :mRNA is owned by multiple sub-models" build_problem([m1, m2])
     end
 end

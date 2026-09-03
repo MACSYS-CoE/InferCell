@@ -12,7 +12,10 @@ import InferCell: states, parameters, reactions, formalism, inputs, written_stat
 # use disjoint, non-registry state names so that what is being tested is the
 # composition itself and not the resolver's registry checks.
 
-_jrate(k, name, id) = InferParameter(k, LogNormal(log(max(k, 1e-12)), 0.5), false, name, id, :rate)
+# `_rate` is the helper contribution_test_models.jl defines (included first by
+# runtests.jl); a zero rate gives it a LogNormal(-Inf, 0.5) prior, which
+# Distributions constructs and nothing here ever samples.
+const _jrate = _rate
 _jic(x0, name, id) = InferParameter(Float64(x0), Normal(Float64(x0), 1.0), true, name, id, :initial_condition)
 
 # ---------------------------------------------------------------------------
@@ -161,10 +164,6 @@ Base.IndexStyle(::Type{<:TrackedVector}) = IndexLinear()
 Base.getindex(v::TrackedVector, i::Int) = (push!(v.reads, i); v.data[i])
 Base.setindex!(v::TrackedVector, x, i::Int) = (push!(v.writes, i); v.data[i] = x)
 
-# What the orchestrator's affect wrapper reads from a JumpProcesses integrator.
-struct FakeIntegrator{U}
-    u::U
-end
 
 """
     RegistryJumpWriter(; edges = [CurrencyEdge(species = :M_atp_c, direction = :in)])

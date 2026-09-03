@@ -92,14 +92,8 @@ function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100
     # is no static composed function to keep type-stable.
     jumps = ConstantRateJump[]
     for (m, ctx) in zip(models, contexts)
-        ins = inputs(m)
-        writes = written_states(m)
-        slot = _JumpSlot(_svec(ctx.state_idxs), _svec(ctx.param_idxs),
-                         _svec(Int[ctx.input_map[s] for s in ins]),
-                         SVector{length(ins), Bool}(Tuple(s in writes for s in ins)),
-                         SVector{length(ins), Symbol}(Tuple(ins)),
-                         module_id(m))
-        for r in _local_reactions(m)
+        slot = _jump_slot(m, ctx)
+        for r in reactions(m)
             push!(jumps, _global_jump(r, slot))
         end
     end
@@ -119,6 +113,16 @@ struct _JumpSlot{S, P, I, W, N}
     mod::Symbol  # module_id(m), likewise
 end
 
+function _jump_slot(m::AbstractSubModel, ctx::SubModelContext)
+    ins = inputs(m)
+    writes = written_states(m)
+    return _JumpSlot(_svec(ctx.state_idxs), _svec(ctx.param_idxs),
+                     _svec(Int[ctx.input_map[s] for s in ins]),
+                     SVector{length(ins), Bool}(Tuple(s in writes for s in ins)),
+                     SVector{length(ins), Symbol}(Tuple(ins)),
+                     module_id(m))
+end
+
 """
     PeerView
 
@@ -130,45 +134,23 @@ naming the module and the state, so a peer write that no declaration covers
 fails at its first firing rather than landing silently (spec §11 task 2.5, as
 amended 2026-09-04).
 """
-struct PeerView{T, U <: AbstractVector{T}, I, W, N} <: AbstractVector{T}
+struct PeerView{T, U <: AbstractVector{T}, S <: _JumpSlot} <: AbstractVector{T}
     u::U
-    idx::I
-    writable::W
-    inames::N
-    mod::Symbol
+    slot::S
 end
-PeerView(u::AbstractVector{T}, sl::_JumpSlot) where {T} =
-    PeerView{T, typeof(u), typeof(sl.iidx), typeof(sl.writable), typeof(sl.inames)}(
-        u, sl.iidx, sl.writable, sl.inames, sl.mod)
 
-Base.size(v::PeerView) = (length(v.idx),)
+Base.size(v::PeerView) = (length(v.slot.iidx),)
 Base.IndexStyle(::Type{<:PeerView}) = IndexLinear()
-Base.@propagate_inbounds Base.getindex(v::PeerView, i::Int) = v.u[v.idx[i]]
-Base.@propagate_inbounds function Base.setindex!(v::PeerView, x, i::Int)
-    v.writable[i] || throw(ArgumentError(
-        "Module $(v.mod) writes :$(v.inames[i]), which it does not own and does " *
+Base.getindex(v::PeerView, i::Int) = v.u[v.slot.iidx[i]]
+function Base.setindex!(v::PeerView, x, i::Int)
+    sl = v.slot
+    sl.writable[i] || throw(ArgumentError(
+        "Module $(sl.mod) writes :$(sl.inames[i]), which it does not own and does " *
         "not list in written_states(). A jump module may read any state in " *
-        "inputs() but may write only those it declares; add :$(v.inames[i]) to " *
+        "inputs() but may write only those it declares; add :$(sl.inames[i]) to " *
         "written_states() or make the affect leave it alone"))
-    v.u[v.idx[i]] = x
+    v.u[sl.iidx[i]] = x
     return v
-end
-
-# A module still returning `ConstantRateJump`s — the pre-phase-2 contract — is
-# refused by name rather than composed: its closures index the global vectors,
-# which is the aliasing bug this path exists to prevent (spec §2, G3).
-function _local_reactions(m::AbstractSubModel)
-    rs = reactions(m)
-    for r in rs
-        r isa Reaction || throw(ArgumentError(
-            "Module $(module_id(m)) returned a $(nameof(typeof(r))) from reactions(). " *
-            "Its rate and affect closures index the composed state and parameter " *
-            "vectors at this module's local positions, so a second jump module in " *
-            "the composition would read and write the first module's slice. Return " *
-            "Reaction(rate, affect!) with rate(u, p, t, u_inputs) and " *
-            "affect!(u, u_inputs) written in local coordinates instead"))
-    end
-    return rs
 end
 
 # The rate sees the local slice, the local parameters and the inputs as views
@@ -177,13 +159,20 @@ end
 # owner's global slot and nowhere else.
 function _global_jump(r::Reaction, sl::_JumpSlot)
     rate = (u, p, t) -> r.rate(view(u, sl.sidx), view(p, sl.pidx), t, PeerView(u, sl))
-    affect! = function (integrator)
-        u = integrator.u
-        r.affect!(view(u, sl.sidx), PeerView(u, sl))
-        return nothing
-    end
+    affect! = integrator -> (r.affect!(view(integrator.u, sl.sidx), PeerView(integrator.u, sl)); nothing)
     return ConstantRateJump(rate, affect!)
 end
+
+# Anything else — a `ConstantRateJump`, the pre-phase-2 contract — is refused
+# by name rather than composed: its closures index the global vectors, which
+# is the aliasing bug this path exists to prevent (spec §2, G3).
+_global_jump(r, sl::_JumpSlot) = throw(ArgumentError(
+    "Module $(sl.mod) returned a $(nameof(typeof(r))) from reactions(). " *
+    "Its rate and affect closures index the composed state and parameter " *
+    "vectors at this module's local positions, so a second jump module in " *
+    "the composition would read and write the first module's slice. Return " *
+    "Reaction(rate, affect!) with rate(u, p, t, u_inputs) and " *
+    "affect!(u, u_inputs) written in local coordinates instead"))
 
 build_problem(model::AbstractSubModel; kwargs...) = build_problem([model]; kwargs...)
 
@@ -258,29 +247,6 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
                     "Input :$inp declared by $(typeof(m)) is not owned by any sub-model")
             end
             contexts[i].input_map[inp] = state_owners[inp]
-        end
-    end
-
-    # The jump-side write channel. A write goes through the same view as a
-    # read, so every written state must be an input; and only a jump module has
-    # reactions to write through — an ODE module adds derivative terms instead.
-    # Ownership is the orchestrator's check as it is for inputs; whether a
-    # registry species' write is declared as an edge is the resolver's.
-    for m in models
-        writes = written_states(m)
-        isempty(writes) && continue
-        formalism(m) === :jump || throw(ArgumentError(
-            "Module $(module_id(m)) has formalism :$(formalism(m)) but lists " *
-            "$(join(string.(":", writes), ", ")) in written_states(). Only a jump " *
-            "module writes a peer's state through its reactions; an ODE module " *
-            "adds derivative terms through contributed_states() and contributions()"))
-        ins = inputs(m)
-        for s in writes
-            s in ins || throw(ArgumentError(
-                "Module $(module_id(m)) lists :$s in written_states() but not in " *
-                "inputs(). A peer write goes through the u_inputs view, so a state " *
-                "that is not an input has nowhere to be written; add :$s to " *
-                "inputs()" * (s in states(m) ? ", or drop it — the module integrates :$s itself" : "")))
         end
     end
 

@@ -1,6 +1,6 @@
 using Test
 using InferCell
-using JumpProcesses: SSAStepper
+using JumpProcesses: SSAStepper, JumpProblem
 using StaticArrays: SVector
 using Random
 using Statistics: mean, var
@@ -25,7 +25,7 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
         @test occursin("ConstantRateJump", err.msg)
         @test occursin("local coordinates", err.msg)
         # An empty legacy vector has nothing to alias and is not refused.
-        @test build_problem(LegacyOwner(x0 = 3)) isa JumpProcesses.JumpProblem
+        @test build_problem(LegacyOwner(x0 = 3)) isa JumpProblem
     end
 
     # Task 2.2: every read and write a module's reactions make falls inside its
@@ -50,7 +50,7 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
                 j = InferCell._global_jump(r, sl)
                 empty!(u.reads); empty!(u.writes); empty!(p.reads)
                 j.rate(u, p, 0.0)
-                j.affect!(FakeIntegrator(u))
+                j.affect!((u = u,))
                 @test !isempty(u.writes)
                 @test issubset(u.reads, allowed_u)
                 @test issubset(u.writes, allowed_u)
@@ -80,9 +80,11 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
         @test ctxs[1].state_idxs == 1:1 && ctxs[2].state_idxs == 2:2
         @test ctxs[1].param_idxs == [1]
         @test ctxs[2].param_idxs == [2, 1]        # gamma_peer, then the shared k_birth
-        # The peer's local p is [gamma, k_birth] = [0.3, 0.7] whichever slot each sits in.
-        sl = InferCell._JumpSlot(SVector(2), SVector(2, 1), SVector(1),
-                                 SVector(true), SVector(:X), :PeerBirthDeath)
+        # The peer's local p is [gamma, k_birth] = [0.3, 0.7] whichever slot each
+        # sits in; the slot is the orchestrator's own, built from the contexts.
+        InferCell._resolve_coupling(models, ctxs)
+        sl = InferCell._jump_slot(peer, ctxs[2])
+        @test sl.pidx == SVector(2, 1) && sl.iidx == SVector(1) && sl.writable == SVector(true)
         death, birth = reactions(peer)
         @test InferCell._global_jump(death, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.3 * 12
         @test InferCell._global_jump(birth, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.7
@@ -148,18 +150,29 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
         err = caught(() -> build_problem([BirthOwner(), PeerBirthDeath(writes = [:fired])]))
         @test err isa ArgumentError
         @test occursin("PeerBirthDeath", err.msg) && occursin(":fired", err.msg)
-        # An ODE module has no reactions to write through; it contributes instead.
-        err = caught(() -> build_problem([OdeWithWrites()]))
+        @test occursin("integrates :fired itself", err.msg)
+        # An ODE module has no reactions to write through; it contributes
+        # instead. Refused by the resolver, so a module checked alone hears it.
+        err = caught(() -> resolve_coupling([OdeWithWrites()]))
         @test err isa ArgumentError
         @test occursin("OdeWithWrites", err.msg) && occursin("contributed_states", err.msg)
+        @test_throws ArgumentError build_problem([OdeWithWrites()])
         # A registry species written by a jump module needs a mass or currency
-        # edge declaring the crossing; a transcript, being outside the registry,
-        # is gated by the declaration alone (spec §12, 2026-09-04).
+        # edge declaring the crossing, in either direction; a transcript, being
+        # outside the registry, is gated by the declaration alone (spec §12,
+        # 2026-09-04).
         err = caught(() -> resolve_coupling([RegistryJumpWriter(edges = CouplingEdge[])]))
         @test err isa ArgumentError
         @test occursin("RegistryJumpWriter", err.msg) && occursin(":M_atp_c", err.msg)
         @test occursin("written_states", err.msg)
-        @test resolve_coupling([RegistryJumpWriter()]) isa CouplingGraph
+        @test resolve_coupling([RegistryJumpWriter()]) isa CouplingGraph        # :in, consumes
+        producer = RegistryJumpWriter(edges = [CurrencyEdge(species = :M_atp_c, direction = :out)])
+        @test resolve_coupling([producer]) isa CouplingGraph                     # :out alone suffices
+        # ... but a read through some other edge kind is not a mass crossing.
+        reader = RegistryJumpWriter(edges = [RateConstantEdge(species = :M_atp_c, direction = :in,
+                                                              interval = 60.0)])
+        err = caught(() -> resolve_coupling([reader]))
+        @test err isa ArgumentError && occursin("mass or currency edge", err.msg)
     end
 
     # Task 2.6: the converted single-module models reproduce their pre-change

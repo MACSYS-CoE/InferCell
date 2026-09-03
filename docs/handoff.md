@@ -9,9 +9,10 @@ Spec §11 phase 2, delivered as PR #43 from branch `phase2`. **Two or more
 jump modules now compose correctly, and a jump module can read and write a
 declared peer's state.** The three gene-expression modules of phases 10–12 may
 assume composability; the drafted transcription design
-(`dev/archive/openspec/changes/add-corea-transcription/design.md`) said the
-jump path was "already exercised" by the existing models, which was true for
-one module and false for a composition (spec §2, G3). It is true now.
+(`dev/archive/openspec/changes/add-corea-transcription/design.md`) said that
+`build_problem` "already dispatches on `formalism = :jump`; the existing
+stochastic gene-expression models exercise that path", which was true for one
+module and false for a composition (spec §2, G3). It is true now.
 
 **The `reactions` contract changed shape.** `reactions(m)` returns
 `Reaction(rate, affect!)` values written in the module's *own* coordinates —
@@ -36,9 +37,17 @@ transcript could carry no edge. Now: `written_states ⊆ inputs` (orchestrator
 check); `u_inputs` is a `PeerView` whose `setindex!` throws, naming module and
 state, unless the write is declared, so removing the declaration makes the
 write fail at its first firing; where the written state *is* a registry species
-the resolver also requires a mass or currency edge on it (either direction —
-the converse is not required, an inbound edge may be a pure read). An ODE
-module listing `written_states` is refused and pointed at `contributed_states`.
+the resolver also requires a mass or currency edge on it, `:in` where the
+module consumes the pool and `:out` where it produces into it, and an outbound
+edge alone satisfies the inputs contract for that species (the pool is an input
+only as the write channel). The converse is not required: an inbound edge may
+be a pure read. An ODE module listing `written_states` is refused by the
+resolver and pointed at `contributed_states`. All of this runs in
+`resolve_coupling`, so a module checked alone hears it. Two facts about the
+fixture: it was generated on a tree whose `src/` equals the merge base
+(`e03d102`), and it is valid only while the random stream is unchanged — a
+JumpProcesses or Julia RNG change invalidates it legitimately, so a test 2.6
+failure after a Manifest bump means "rerun the slurm script", not "regression".
 
 **Consequences for phases 10–12.** Transcription owns the 17 transcripts (plus
 counters) and writes nothing of a peer's. Translation lists the transcripts in

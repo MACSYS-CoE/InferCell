@@ -98,7 +98,9 @@ chemostatted species listed in `inputs`, an `inputs` list that has drifted
 from the module's own inbound edges in either direction, a contribution to an
 unregistered or chemostatted species, a `contributed_states` list that has
 drifted from an ODE module's mass and currency edges on species it does not
-own, or a `:jump` module listing any contribution at all.
+own, a `:jump` module listing any contribution at all, or a `written_states`
+list that names a non-input, belongs to an ODE module, or names a registry
+species with no mass or currency edge.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
@@ -109,6 +111,7 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_state_ownership(models)
     _check_inputs_consistency(models)
     _check_contributions_consistency(models)
+    _check_written_states(models)
 
     resolved = _resolve_edges(models)
     _check_kind_agreement(resolved)
@@ -214,7 +217,11 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
                 "from inputs(); declare a ClampedEdge with its held_value and " *
                 "carry the value as a fixed parameter instead"))
 
-            s in inbound || throw(ArgumentError(
+            # A jump module that *produces* into a registry pool it does not own
+            # writes it through `u_inputs`, so the pool is an input only because
+            # that is the write channel; its outbound mass or currency edge is
+            # the declaration, and no inbound edge is owed (spec §12, 2026-09-04).
+            s in inbound || _writes_outbound(m, s, edges) || throw(ArgumentError(
                 "Module $(module_id(m)) lists :$s in inputs() but declares no " *
                 "inbound coupling edge for it. A typed declaration that has " *
                 "drifted from inputs() is the disagreement this check exists to " *
@@ -245,6 +252,10 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
+_writes_outbound(m::AbstractSubModel, s::Symbol, edges) =
+    formalism(m) === :jump && s in written_states(m) &&
+    any(e -> (e isa MassEdge || e isa CurrencyEdge) && is_producer(e) && e.species === s, edges)
+
 # The outbound counterpart of the check above, for ODE modules. A mass or
 # currency edge on a dynamic registry species the module does not integrate is
 # a promise to add a derivative term to the owner's state — positive where the
@@ -264,20 +275,15 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
     for m in models
         edges = coupling(m)
         targets = contributed_states(m)
-        writes = written_states(m)
-        isempty(edges) && isempty(targets) && isempty(writes) && continue
+        isempty(edges) && isempty(targets) && continue
         name = module_id(m)
 
         # A jump process cannot add a continuous derivative term, so a :jump
         # module's mass and currency edges are declared and resolved but not
         # held to contributed_states(): its writes to a peer's state go through
-        # its reactions, declared in written_states() (spec §11 phase 2).
-        # Listing a contribution is the error. A written *registry* species is
-        # a boundary crossing and must carry a mass or currency edge, in either
-        # direction; a written non-registry state — a transcript — is outside
-        # the typed contract and is gated by the declaration alone (spec §12,
-        # 2026-09-04). The converse is not required: an inbound edge may be a
-        # pure read.
+        # its reactions, declared in written_states() and checked by
+        # `_check_written_states` (spec §11 phase 2). Listing a contribution is
+        # the error.
         if formalism(m) === :jump
             isempty(targets) || throw(ArgumentError(
                 "Module $name has formalism :jump but lists " *
@@ -285,15 +291,6 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
                 "jump process cannot add continuous derivative terms; a jump " *
                 "module's writes to a peer's state go through its reactions " *
                 "(spec §11 phase 2). Drop the contribution and keep the edge"))
-            crossed = Set(e.species for e in edges if e isa MassEdge || e isa CurrencyEdge)
-            for s in writes
-                is_registered(s) || continue
-                s in crossed || throw(ArgumentError(
-                    "Module $name lists the registry species :$s in written_states() " *
-                    "but declares no mass or currency edge on it. A jump module's " *
-                    "write to a registry pool is a boundary crossing and must be " *
-                    "declared as one; add the edge or drop the write"))
-            end
             continue
         end
 
@@ -335,6 +332,47 @@ function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
                 (s in own ? ", and integrates :$s itself, so it needs no contribution" : "") *
                 ". A contribution that no edge declares is the drift this check " *
                 "exists to catch; add the edge or drop the contribution"))
+        end
+    end
+    return nothing
+end
+
+# The jump-side write channel (spec §11 phase 2; §12 amendment of 2026-09-04).
+# A write goes through the same `u_inputs` view as a read, so every written
+# state must be an input; only a jump module has reactions to write through —
+# an ODE module adds derivative terms via `contributed_states` instead; and a
+# written *registry* species is a boundary crossing, so it must carry a mass or
+# currency edge, in either direction. The converse is not required: an inbound
+# edge may be a pure read. A written non-registry state — a transcript — is
+# outside the typed contract and is gated by the declaration alone, at run time,
+# by the orchestrator's `PeerView`. None of this needs a composition to judge,
+# so a module resolved alone gets every check.
+function _check_written_states(models::Vector{<:AbstractSubModel})
+    for m in models
+        writes = written_states(m)
+        isempty(writes) && continue
+        name = module_id(m)
+        formalism(m) === :jump || throw(ArgumentError(
+            "Module $name has formalism :$(formalism(m)) but lists " *
+            "$(join(string.(":", writes), ", ")) in written_states(). Only a jump " *
+            "module writes a peer's state through its reactions; an ODE module " *
+            "adds derivative terms through contributed_states() and contributions()"))
+        ins = inputs(m)
+        for s in writes
+            s in ins || throw(ArgumentError(
+                "Module $name lists :$s in written_states() but not in inputs(). " *
+                "A peer write goes through the u_inputs view, so a state that is " *
+                "not an input has nowhere to be written; add :$s to inputs()" *
+                (s in states(m) ? ", or drop it — the module integrates :$s itself" : "")))
+        end
+        crossed = Set(e.species for e in coupling(m) if e isa MassEdge || e isa CurrencyEdge)
+        for s in writes
+            is_registered(s) || continue
+            s in crossed || throw(ArgumentError(
+                "Module $name lists the registry species :$s in written_states() " *
+                "but declares no mass or currency edge on it. A jump module's " *
+                "write to a registry pool is a boundary crossing and must be " *
+                "declared as one; add the edge or drop the write"))
         end
     end
     return nothing

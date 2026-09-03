@@ -52,9 +52,12 @@ name must also appear in [`inputs`](@ref), since the write goes through the same
 `u_inputs` view the read does; the orchestrator refuses a write to an input not
 listed here, naming the module and the state, so removing the declaration makes
 the write fail rather than silently land. Where the state is a Core A′ registry
-species the resolver additionally holds the declaration to a mass or currency
-edge; a non-registry state, such as a transcript, is gated by the declaration
-alone (spec §12, amendment of 2026-09-04).
+species [`resolve_coupling`](@ref) additionally holds the declaration to a mass
+or currency edge in either direction — `:in` where the module consumes the
+pool, `:out` where it produces into it, and an outbound edge alone satisfies
+the inputs contract for that species, since the pool is an input only as the
+write channel. A non-registry state, such as a transcript, is gated by the
+declaration alone (spec §12, amendment of 2026-09-04).
 """
 written_states(::AbstractSubModel) = Symbol[]
 

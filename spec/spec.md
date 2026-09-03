@@ -1474,7 +1474,7 @@ module B owns shows B's state rising at A's declared rate, and every ~~outbound~
 mass or currency edge in the composition **on a species the declaring module
 does not own, in either direction,** maps one-to-one onto an executed
 contribution (amended 2026-09-03; see §12).
-**PR:** #42 (merged 2026-09-03)
+**PR:** #42 (merged 2026-09-03 UTC; 2026-09-04 AEST)
 
 - [x] 1.1 Choose and record the mechanism — a second return value from
   `dynamics`, a separate protocol function, or a global-index write buffer —
@@ -1524,7 +1524,13 @@ error.
   mutates the first module's state, so the fix has a witness rather than a claim.
 - [x] 2.2 Give `reactions` the module's index context — verify by instrumenting
   each double's rate and effect functions and asserting every read and write
-  falls inside that module's own state range.
+  falls inside that module's own state range. **Annotated 2026-09-04:** the
+  context reaches the module as *views* rather than as indices — `reactions`
+  returns `Reaction(rate, affect!)` in local coordinates and the orchestrator
+  wraps them, mirroring `dynamics` — and the instrumented assertion is "own
+  slice or a declared input", since a declared peer read or write is the point
+  of tasks 2.4 and 2.5. Not an amendment; the mechanism choice and its rejected
+  alternative are recorded in PR #43.
 - [x] 2.3 Use the contexts in `_build_jump_problem`, which currently computes and
   discards them — verify by asserting the global initial-condition vector's
   length equals the sum of per-module state counts and that each module's counts
@@ -2319,31 +2325,35 @@ fabricated task list.
 
 ### 2026-09-04 — a jump module's peer writes are gated on `written_states`, not on an edge
 
-**Trigger:** phase 2 task 2.5 (and task 12.2, its consumer) said a jump
-module's write to a peer's state is "gated on an outbound edge" and must
-throw "once the edge is removed". But `_resolve_edges` rejects any edge naming
-a species outside the Core A′ registry, and task 10.2 keeps the seventeen
+*Evidence:* phase 2 task 2.5 (and task 12.2, its consumer) said a jump
+module's write to a peer's state is "gated on an outbound edge" and must throw
+"once the edge is removed". But `_resolve_edges` rejects any edge naming a
+species outside the Core A′ registry, and task 10.2 keeps the seventeen
 transcripts outside it. Decay decrementing a transcript — the case the task
 exists for — cannot carry an edge at all, so the gate as written was
 unimplementable. Found at planning time, before the phase's code was written.
-**Change:** a new protocol function `written_states(m)`, the jump-side twin of
+*Change:* a new protocol function `written_states(m)`, the jump-side twin of
 phase 1's `contributed_states`, names the peer states a jump module's affects
 modify. It must be a subset of `inputs(m)`; the write goes through the same
 `u_inputs` view as the read, and an undeclared write throws at its first
 firing, naming the module and the state. Where the written state *is* a
 registry species the resolver additionally requires a mass or currency edge on
-it, in either direction, since that write is a boundary crossing; the converse
-is not required, because an inbound edge may be a pure read. A non-registry
-state is gated by the declaration alone. The alternatives — promoting the
-transcripts to registry species, which contradicts task 10.2 and reopens the
-frozen registry; or gating on `inputs()` membership alone, which makes a read
-and a write indistinguishable so no write could ever be refused — were rejected.
-In the same phase, `reactions` changed shape: it returns `Reaction(rate,
-affect!)` values in local coordinates and the orchestrator wraps them over
-views of the composed vectors, mirroring `dynamics`; that is the mechanism task
-2.2 asked for, not an amendment, and the alternative of passing an explicit
-index context is recorded in the pull request.
-**Sections touched:** §11 tasks 2.5 and 12.2, annotated in place.
+it, in either direction, since that write is a boundary crossing: `:in` where
+the module consumes the pool, `:out` where it produces into it, and an outbound
+edge alone satisfies the inputs contract for that species, because the pool is
+an input only as the write channel. The converse is not required, because an
+inbound edge may be a pure read. A non-registry state is gated by the
+declaration alone. The alternatives — promoting the transcripts to registry
+species, which contradicts task 10.2 and reopens the frozen registry; or gating
+on `inputs()` membership alone, which makes a read and a write
+indistinguishable so no write could ever be refused — were rejected. In the
+same phase, `reactions` changed shape: it returns `Reaction(rate, affect!)`
+values in local coordinates and the orchestrator wraps them over views of the
+composed vectors, mirroring `dynamics`; that is the mechanism task 2.2 asked
+for, not an amendment, and the alternative of passing an explicit index
+context is recorded in the pull request. *Sections:* §11 tasks 2.2 (annotated),
+2.5 and 12.2, annotated in place. Approved at planning time, before
+implementation; landed in PR #43.
 
 ### 2026-09-03 — the contribution channel executes mass and currency edges in both directions
 
