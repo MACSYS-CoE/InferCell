@@ -94,8 +94,9 @@ rate-constant rebuild at once), a module integrating a chemostat, a state
 integrated twice, a clamp on a state another module integrates, two clamps
 holding one species at different values, a clamp holding a chemostat away from
 the registry's value, two coupled sub-models sharing one `module_id`, a
-chemostatted species listed in `inputs`, or an `inputs` list that has drifted
-from the module's own inbound edges in either direction.
+chemostatted species listed in `inputs`, an `inputs` list that has drifted
+from the module's own inbound edges in either direction, or a contribution to
+an unregistered or chemostatted species.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
@@ -105,6 +106,7 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_module_ids(models)
     _check_state_ownership(models)
     _check_inputs_consistency(models)
+    _check_contributions_consistency(models)
 
     resolved = _resolve_edges(models)
     _check_kind_agreement(resolved)
@@ -236,6 +238,34 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
                 "inputs() wires a state into dynamics, so the declared coupling " *
                 "would silently never arrive; add :$(e.species) to inputs() or " *
                 "drop the edge"))
+        end
+    end
+    return nothing
+end
+
+# A contribution target is judged in two places. Whether the name is a registry
+# species, and whether that species is chemostatted, needs no composition to
+# decide and is checked here so `reduction_declarations` sees it too. Whether
+# some module owns it does need the composition, and a module resolved alone
+# legitimately contributes to states whose owners are absent, so ownership is
+# the orchestrator's check.
+function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
+    for m in models
+        targets = contributed_states(m)
+        isempty(targets) && continue
+        name = module_id(m)
+
+        for s in targets
+            is_registered(s) || throw(ArgumentError(
+                "Module $name contributes to :$s, which is not a Core A′ registry " *
+                "species. Contributions are registry-resolved; see " *
+                "src/organisms/coreA/registry.jl for the $(length(COREA_SPECIES)) " *
+                "registered species"))
+            is_chemostatted(s) && throw(ArgumentError(
+                "Module $name contributes to :$s, but the Core A′ registry " *
+                "chemostats :$s at a fixed concentration, so no module integrates " *
+                "it and there is no derivative to add to. Declare a ClampedEdge and " *
+                "drop the contribution"))
         end
     end
     return nothing

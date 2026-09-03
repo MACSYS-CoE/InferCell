@@ -66,6 +66,50 @@ _gidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test occursin("1 term", msg) && occursin("2 species", msg)
     end
 
+    @testset "1.4 a contribution to a chemostatted species is rejected" begin
+        m = CarbonBlock(; contribs = [:M_o2_c],
+                        edges = [CurrencyEdge(species = :M_o2_c, direction = :out)], ins = Symbol[])
+        err = caught(() -> resolve_coupling([EnergyPools(), m]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("M_o2_c", msg) && occursin("CarbonBlock", msg) && occursin("chemostat", msg)
+        # build_problem goes through the same resolver, so it fails identically.
+        @test caught(() -> build_problem([EnergyPools(), m])) isa ArgumentError
+    end
+
+    @testset "1.4 a contribution to a name outside the registry is rejected" begin
+        m = CarbonBlock(; contribs = [:M_unobtainium_c], edges = CouplingEdge[], ins = Symbol[])
+        err = caught(() -> resolve_coupling([EnergyPools(), m]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("M_unobtainium_c", msg) && occursin("CarbonBlock", msg) && occursin("registry", msg)
+    end
+
+    @testset "1.4 a contribution to a species no module owns is rejected at build" begin
+        m = CarbonBlock(; ins = Symbol[], contribs = [:M_atp_c],
+                        edges = [CurrencyEdge(species = :M_atp_c, direction = :out)])
+        # Standalone resolution is a report, not an error: the species is merely unowned.
+        graph = resolve_coupling(m)
+        @test :M_atp_c in graph.unowned_states
+        # Building is where an unowned target becomes an error.
+        err = caught(() -> build_problem([m]))
+        @test err isa ErrorException
+        msg = sprint(showerror, err)
+        @test occursin("M_atp_c", msg) && occursin("CarbonBlock", msg) && occursin("own", msg)
+    end
+
+    @testset "1.4 a jump module cannot contribute yet" begin
+        owner = CoreAStub(:Pools; st = [:M_atp_c])
+        j = CoreAStub(:JumpSrc; form = :jump, contribs = [:M_atp_c],
+                      edges = [MassEdge(species = :M_atp_c, direction = :out)])
+        # Both jump so the composition reaches the shared resolution step.
+        owner_j = CoreAStub(:Pools; st = [:M_atp_c], form = :jump)
+        err = caught(() -> build_problem([owner_j, j]))
+        @test err isa ErrorException
+        msg = sprint(showerror, err)
+        @test occursin("JumpSrc", msg) && occursin("M_atp_c", msg) && occursin("jump", msg)
+    end
+
     @testset "AD: contributions differentiate, including into a Float64 owner derivative" begin
         models = [InertPool(), Source(; k = 0.7)]
         prob = build_problem(models; tspan = (0.0, 1.0))
