@@ -74,8 +74,9 @@ function CarbonBlock(; k_prod = 0.3, k_cons = 0.2, gamma = 0.01,
                      edges = CouplingEdge[CurrencyEdge(species = :M_atp_c, direction = :out),
                                           MassEdge(species = :M_pi_c, direction = :in)],
                      ins = [:M_pi_c])
-    params = [_rate(k_prod, :k_prod, :CarbonBlock), _rate(k_cons, :k_cons, :CarbonBlock),
-              _rate(gamma, :gamma_c, :CarbonBlock); _ic_params(CARBON_SPECIES, :CarbonBlock)]
+    params = vcat([_rate(k_prod, :k_prod, :CarbonBlock), _rate(k_cons, :k_cons, :CarbonBlock),
+                   _rate(gamma, :gamma_c, :CarbonBlock)],
+                  _ic_params(CARBON_SPECIES, :CarbonBlock))
     return CarbonBlock(params, collect(Symbol, contribs), collect(CouplingEdge, edges),
                        collect(Symbol, ins))
 end
