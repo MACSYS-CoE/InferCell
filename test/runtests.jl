@@ -46,6 +46,9 @@ using Aqua
     include("test_resolver.jl")
     include("test_loader.jl")
     include("test_labels.jl")
+    # Executable doubles for the contribution channel, then its tests.
+    include("contribution_test_models.jl")
+    include("test_contributions.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
