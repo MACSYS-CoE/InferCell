@@ -151,6 +151,8 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
         @test err isa ArgumentError
         @test occursin("PeerBirthDeath", err.msg) && occursin(":fired", err.msg)
         @test occursin("integrates :fired itself", err.msg)
+        err = caught(() -> resolve_coupling([PeerBirthDeath(writes = [:Y])]))   # neither owned nor an input
+        @test err isa ArgumentError && occursin(":Y", err.msg) && !occursin("integrates", err.msg)
         # An ODE module has no reactions to write through; it contributes
         # instead. Refused by the resolver, so a module checked alone hears it.
         err = caught(() -> resolve_coupling([OdeWithWrites()]))

@@ -10,12 +10,15 @@
 # that alters a single count — or the order in which the reactions are
 # registered, which changes how the random stream is consumed — is caught.
 #
-# First generated on the tree before phase 2 changed the `reactions` contract
-# (the commit named in the output header, whose src/ equals the merge base),
-# through `dev/scripts/make_ssa_reference.slurm`, which runs this twice and
-# diffs the two files to show the result is deterministic on the partition it
-# ran on. Any tree whose jump path is unchanged reproduces the body byte for
-# byte. What legitimately invalidates it is a change to the random stream —
+# Generated on a tree before phase 2 changed the `reactions` contract — the
+# commit named in the output header, whose src/ equals the merge base — by
+# running this file, at its current revision, against a git worktree checked
+# out at that commit: `julia --project=<worktree> dev/scripts/make_ssa_reference.jl
+# <out>` from inside the worktree, twice, and diffing the two outputs to show
+# the result is deterministic. `dev/scripts/make_ssa_reference.slurm` does the
+# same two-run check on whatever tree is checked out, so run from the branch
+# tip it stamps that tip's commit in the header. Any tree whose jump path is
+# unchanged reproduces the body byte for byte. What legitimately invalidates it is a change to the random stream —
 # a JumpProcesses bump that alters Direct's sampling order, or a Julia release
 # that changes integer seeding — so if test 2.6 fails after a Manifest or
 # Julia change, rerun the slurm script rather than reading it as a regression.

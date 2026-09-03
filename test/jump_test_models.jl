@@ -1,6 +1,7 @@
 using InferCell
 using Distributions: LogNormal, Normal
 using JumpProcesses: ConstantRateJump
+using InferCell: is_producer
 
 import InferCell: states, parameters, reactions, formalism, inputs, written_states,
                   coupling, module_id
@@ -12,10 +13,9 @@ import InferCell: states, parameters, reactions, formalism, inputs, written_stat
 # use disjoint, non-registry state names so that what is being tested is the
 # composition itself and not the resolver's registry checks.
 
-# `_rate` is the helper contribution_test_models.jl defines (included first by
-# runtests.jl); a zero rate gives it a LogNormal(-Inf, 0.5) prior, which
-# Distributions constructs and nothing here ever samples.
-const _jrate = _rate
+# `_rate` comes from contribution_test_models.jl, included first by runtests.jl;
+# a zero rate gives it a LogNormal(-Inf, 0.5) prior, which Distributions
+# constructs and nothing here ever samples.
 _jic(x0, name, id) = InferParameter(Float64(x0), Normal(Float64(x0), 1.0), true, name, id, :initial_condition)
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ struct LegacyOwner <: AbstractSubModel
 end
 function LegacyOwner(; x0 = 3, k = nothing)
     params = [_jic(x0, :legacy_x0, :LegacyOwner)]
-    k === nothing || pushfirst!(params, _jrate(k, :k_dead, :LegacyOwner))
+    k === nothing || pushfirst!(params, _rate(k, :k_dead, :LegacyOwner))
     return LegacyOwner(params)
 end
 states(::LegacyOwner) = [:legacy_x]
@@ -54,7 +54,7 @@ against the global vectors, which is the bug.
 struct LegacyWriter <: AbstractSubModel
     params::Vector{InferParameter}
 end
-LegacyWriter(; b = 1.0) = LegacyWriter([_jrate(b, :b_legacy, :LegacyWriter),
+LegacyWriter(; b = 1.0) = LegacyWriter([_rate(b, :b_legacy, :LegacyWriter),
                                         _jic(0, :legacy_y0, :LegacyWriter)])
 states(::LegacyWriter) = [:legacy_y]
 parameters(m::LegacyWriter) = m.params
@@ -75,7 +75,7 @@ frozen pool, which is what the peer-read test needs.
 struct BirthOwner <: AbstractSubModel
     params::Vector{InferParameter}
 end
-BirthOwner(; k = 1.0, x0 = 0) = BirthOwner([_jrate(k, :k_birth, :BirthOwner),
+BirthOwner(; k = 1.0, x0 = 0) = BirthOwner([_rate(k, :k_birth, :BirthOwner),
                                             _jic(x0, :X0, :BirthOwner)])
 states(::BirthOwner) = [:X]
 parameters(m::BirthOwner) = m.params
@@ -96,8 +96,8 @@ struct PeerBirthDeath <: AbstractSubModel
     writes::Vector{Symbol}
 end
 PeerBirthDeath(; gamma = 0.5, b = 0.0, bname = :b_peer, writes = [:X]) =
-    PeerBirthDeath([_jrate(gamma, :gamma_peer, :PeerBirthDeath),
-                    _jrate(b, bname, :PeerBirthDeath),
+    PeerBirthDeath([_rate(gamma, :gamma_peer, :PeerBirthDeath),
+                    _rate(b, bname, :PeerBirthDeath),
                     _jic(0, :fired0, :PeerBirthDeath)],
                    collect(Symbol, writes))
 states(::PeerBirthDeath) = [:fired]
@@ -121,7 +121,7 @@ own counter. It reads a peer and writes nothing of the peer's.
 struct PeerReader <: AbstractSubModel
     params::Vector{InferParameter}
 end
-PeerReader(; c = 1.0) = PeerReader([_jrate(c, :c_read, :PeerReader), _jic(0, :fired0, :PeerReader)])
+PeerReader(; c = 1.0) = PeerReader([_rate(c, :c_read, :PeerReader), _jic(0, :fired0, :PeerReader)])
 states(::PeerReader) = [:fired]
 parameters(m::PeerReader) = m.params
 formalism(::PeerReader) = :jump
@@ -138,7 +138,7 @@ struct BirthDeath <: AbstractSubModel
     params::Vector{InferParameter}
 end
 BirthDeath(; k = 1.0, gamma = 0.5, x0 = 0) =
-    BirthDeath([_jrate(k, :k_bd, :BirthDeath), _jrate(gamma, :gamma_bd, :BirthDeath),
+    BirthDeath([_rate(k, :k_bd, :BirthDeath), _rate(gamma, :gamma_bd, :BirthDeath),
                 _jic(x0, :X0, :BirthDeath)])
 states(::BirthDeath) = [:X]
 parameters(m::BirthDeath) = m.params
@@ -164,13 +164,14 @@ Base.IndexStyle(::Type{<:TrackedVector}) = IndexLinear()
 Base.getindex(v::TrackedVector, i::Int) = (push!(v.reads, i); v.data[i])
 Base.setindex!(v::TrackedVector, x, i::Int) = (push!(v.writes, i); v.data[i] = x)
 
-
 """
     RegistryJumpWriter(; edges = [CurrencyEdge(species = :M_atp_c, direction = :in)])
 
 A jump module that reads and writes the registry species `:M_atp_c` it does not
 own. With its default edge it resolves; with no edge the resolver refuses the
-write, since a registry crossing must be declared as one.
+write, since a registry crossing must be declared as one. Its affect follows
+its declaration: it produces a copy where any edge is outbound and consumes
+one otherwise, so the double never says one thing and does another.
 """
 struct RegistryJumpWriter <: AbstractSubModel
     edges::Vector{CouplingEdge}
@@ -183,7 +184,10 @@ formalism(::RegistryJumpWriter) = :jump
 inputs(::RegistryJumpWriter) = [:M_atp_c]
 written_states(::RegistryJumpWriter) = [:M_atp_c]
 coupling(m::RegistryJumpWriter) = m.edges
-reactions(::RegistryJumpWriter) = [Reaction((u, p, t, uin) -> 1.0, (u, uin) -> (uin[1] -= 1; u[1] += 1))]
+function reactions(m::RegistryJumpWriter)
+    step = any(is_producer, m.edges) ? 1 : -1
+    return [Reaction((u, p, t, uin) -> 1.0, (u, uin) -> (uin[1] += step; u[1] += 1))]
+end
 
 """
     OdeWithWrites()

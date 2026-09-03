@@ -72,10 +72,11 @@ the Core A′ interface contract — needs no modification.
 [`inputs`](@ref) keeps its own meaning and its own default. A sub-model may
 declare both; where it declares any coupling edge, [`resolve_coupling`](@ref)
 checks the two against each other in both directions — every registry-species
-input has an inbound edge, and every inbound mass or currency edge on a state
-the module does not integrate is listed in `inputs` — so a typed declaration
-that drifts out of step with `inputs` is caught rather than silently
-disagreeing. Inputs naming non-registry state (the legacy blocks' mRNA and
+input has an inbound edge (or, for a jump module producing into the pool, an
+outbound mass or currency edge plus a [`written_states`](@ref) entry), and
+every inbound mass or currency edge on a state the module does not integrate is
+listed in `inputs` — so a typed declaration that drifts out of step with
+`inputs` is caught rather than silently disagreeing. Inputs naming non-registry state (the legacy blocks' mRNA and
 protein) are outside the typed contract and pass through unchecked.
 """
 coupling(::AbstractSubModel) = CouplingEdge[]

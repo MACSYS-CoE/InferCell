@@ -225,7 +225,9 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
                 "Module $(module_id(m)) lists :$s in inputs() but declares no " *
                 "inbound coupling edge for it. A typed declaration that has " *
                 "drifted from inputs() is the disagreement this check exists to " *
-                "catch; add the edge or drop the input"))
+                "catch; add the edge or drop the input — or, for a jump module " *
+                "that produces into :$s through an outbound edge, add :$s to " *
+                "written_states()"))
         end
 
         # The converse, for the kinds whose inbound side is wired through
@@ -252,8 +254,11 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
+# No formalism guard: an ODE module listing written_states is refused by
+# `_check_written_states` with the message that names its remedy, which is
+# the one it should hear rather than "no inbound edge".
 _writes_outbound(m::AbstractSubModel, s::Symbol, edges) =
-    formalism(m) === :jump && s in written_states(m) &&
+    s in written_states(m) &&
     any(e -> (e isa MassEdge || e isa CurrencyEdge) && is_producer(e) && e.species === s, edges)
 
 # The outbound counterpart of the check above, for ODE modules. A mass or
@@ -358,17 +363,14 @@ function _check_written_states(models::Vector{<:AbstractSubModel})
             "module writes a peer's state through its reactions; an ODE module " *
             "adds derivative terms through contributed_states() and contributions()"))
         ins = inputs(m)
+        crossed = Set(e.species for e in coupling(m) if e isa MassEdge || e isa CurrencyEdge)
         for s in writes
             s in ins || throw(ArgumentError(
                 "Module $name lists :$s in written_states() but not in inputs(). " *
                 "A peer write goes through the u_inputs view, so a state that is " *
                 "not an input has nowhere to be written; add :$s to inputs()" *
                 (s in states(m) ? ", or drop it — the module integrates :$s itself" : "")))
-        end
-        crossed = Set(e.species for e in coupling(m) if e isa MassEdge || e isa CurrencyEdge)
-        for s in writes
-            is_registered(s) || continue
-            s in crossed || throw(ArgumentError(
+            is_registered(s) && !(s in crossed) && throw(ArgumentError(
                 "Module $name lists the registry species :$s in written_states() " *
                 "but declares no mass or currency edge on it. A jump module's " *
                 "write to a registry pool is a boundary crossing and must be " *

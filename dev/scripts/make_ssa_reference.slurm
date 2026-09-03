@@ -7,9 +7,11 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=dev/scripts/ssa_ref_%j.log
 
-# Regenerates test/fixtures/ssa_reference.jl on the pre-phase-2 tree and shows
+# Regenerates test/fixtures/ssa_reference.jl on the checked-out tree and shows
 # the result is deterministic: the script runs twice in two processes and the
-# two files must be byte-identical.
+# two files must be byte-identical. The committed header names a pre-phase-2
+# commit because the generator was run against a worktree at that commit; see
+# the comment at the top of make_ssa_reference.jl.
 module load julia/1.10.5
 
 echo "Generating seeded SSA reference at $(date) on $(hostname)"
