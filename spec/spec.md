@@ -19,9 +19,6 @@ spec wins, because the note does not address either.
 
 ## 0. Executive summary
 
-For a reader who knows whole-cell modelling but not this project. The rest of
-the document is written for the agent doing the work; this section is not.
-
 - **What this is.** A specification for building and testing Core A′, a small
   organism carved out of the published JCVI-syn3A whole-cell model of Thornburg
   et al. 2022, inside InferCell.jl. It is the first of three steps toward running
