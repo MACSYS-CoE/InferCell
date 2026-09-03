@@ -10,10 +10,15 @@
 # that alters a single count — or the order in which the reactions are
 # registered, which changes how the random stream is consumed — is caught.
 #
-# Run on the tree *before* phase 2 changed the `reactions` contract (the commit
-# named in the output header) through `dev/scripts/make_ssa_reference.slurm`,
-# which runs this twice and diffs the two files to show the result is
-# deterministic on the partition it ran on.
+# First generated on the tree before phase 2 changed the `reactions` contract
+# (the commit named in the output header, whose src/ equals the merge base),
+# through `dev/scripts/make_ssa_reference.slurm`, which runs this twice and
+# diffs the two files to show the result is deterministic on the partition it
+# ran on. Any tree whose jump path is unchanged reproduces the body byte for
+# byte. What legitimately invalidates it is a change to the random stream —
+# a JumpProcesses bump that alters Direct's sampling order, or a Julia release
+# that changes integer seeding — so if test 2.6 fails after a Manifest or
+# Julia change, rerun the slurm script rather than reading it as a regression.
 #
 # Usage: julia --project dev/scripts/make_ssa_reference.jl <output path>
 
@@ -43,6 +48,8 @@ open(out, "w") do io
     println(io, "# Source commit: $commit", dirty ? " (WARNING: src/ or manifest dirty at generation)" : "")
     println(io, "# Stepper: SSAStepper, Random.seed!($SEED) before each solve, tspan = $TSPAN, saveat = $SAVEAT")
     println(io, "# Default save_positions, so every jump is saved as well as the saveat points.")
+    println(io, "# Valid while the random stream is unchanged; a JumpProcesses or Julia RNG change")
+    println(io, "# invalidates it legitimately — rerun dev/scripts/make_ssa_reference.slurm.")
     println(io, "# Julia $(VERSION) on $(gethostname()), $(Dates.now())")
     println(io, "# Counts are Int; parameters are Float64 bit patterns, reinterpret(Float64, ·) recovers them.")
     println(io)

@@ -17,7 +17,7 @@ echo "HEAD: $(git rev-parse --short HEAD)"
 
 OUT=test/fixtures/ssa_reference.jl
 TMP=$(mktemp -p dev/scripts ssa_ref_check_XXXX.jl)
-trap 'rm -f "$TMP"' EXIT
+trap 'rm -f "$TMP"' EXIT INT TERM
 
 julia --project dev/scripts/make_ssa_reference.jl "$OUT" || exit 1
 julia --project dev/scripts/make_ssa_reference.jl "$TMP" || exit 1
