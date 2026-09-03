@@ -155,8 +155,11 @@ makes the nucleotide-triphosphate pools genuinely live, is out of scope (§7).
 ### What Core A′ is, in one table
 
 Read `dev/notes/reduced-syn3a-scoping.md` for the derivation and
-`dev/notes/figures/reduced-syn3a-coupling/fig1r_state_graph_reduced.png` for the
-coupling graph. The summary:
+`dev/notes/figures/corea-coupling/fig1c_state_graph_corea.png` for the coupling
+graph, which draws the charging step in the ODE block. Its predecessor,
+`dev/notes/figures/reduced-syn3a-coupling/fig1r_state_graph_reduced.png`, draws
+it in the stochastic block as the wave plan had it and is kept as a record. The
+summary:
 
 | | |
 |---|---|
@@ -2300,6 +2303,17 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-03 — the coupling figure follows amendment 1
+
+*Evidence:* the figure §2 cited, fig 1r, drew the lumped charging step as a
+stochastic-block node, contradicting amendment 1 below, the scoping note it
+illustrates, and this spec's reaction and module counts. *Change:* a new figure,
+fig 1c in `dev/notes/figures/corea-coupling/`, redraws it with charging on the
+ODE side, its three boundary crossings greyed and replaced by an intra-ODE
+currency flow, a chemostat edge from the medium, and a deferred-counter edge from
+the hook for translation's charged-tRNA debit. §2 now cites fig 1c; fig 1r is
+kept unaltered as the record of the wave plan's placement. No decision changed.
 
 ### 2026-09-03 — four amendments, from the unshared-parameter finding
 

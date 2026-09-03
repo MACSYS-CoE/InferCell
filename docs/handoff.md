@@ -3,7 +3,21 @@
 **Session date:** 2026-09-03
 **Branch:** `establish-definitive-spec`
 
-## Latest: executive summary added to the spec (2026-09-03)
+## Latest: coupling figure redrawn with charging in the ODE block (2026-09-03)
+
+New figure `dev/notes/figures/corea-coupling/fig1c_state_graph_corea.{pdf,png}`,
+built by `make_corea.py` from fig 1r's machinery with the tRNA charging node
+moved onto the ODE grid and its edges redrawn by kind. Fig 1r is untouched and
+kept as the record of the wave plan's placement; spec §2 now cites fig 1c and
+§12 has a dated entry. Two things to know before rebuilding: fig 1r's
+byte-identity check against the shipped fig 1 raster cannot pass on the cluster
+(Graphviz 2.44 renders a larger canvas), so fig 1c reports the mismatch and
+continues, and fig 1r itself does not build here for the same reason. No
+`--verify` step and no ImageMagick dependency. The README records the
+judgement calls, including that currency traffic is drawn by fig 1's pool-node
+convention rather than as a labelled edge into Nucleotide.
+
+## Previous: executive summary added to the spec (2026-09-03)
 
 `spec/spec.md` now opens with a §0 executive summary, eleven bullets written
 for a scientist who knows whole-cell modelling but not this project. It carries
