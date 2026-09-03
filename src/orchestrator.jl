@@ -166,6 +166,28 @@ function _resolve_coupling(models::Vector{<:AbstractSubModel},
             contexts[i].input_map[inp] = state_owners[inp]
         end
     end
+
+    # The contribution channel: each declared target resolves to the owner's
+    # global index. The resolver has already rejected names outside the
+    # registry and chemostatted species, which need no composition to judge;
+    # ownership does, and standalone resolution must keep reporting an unowned
+    # target rather than failing on it, so that check lives here.
+    for (i, m) in enumerate(models)
+        targets = contributed_states(m)
+        isempty(targets) && continue
+        formalism(m) === :jump && error(
+            "Module $(module_id(m)) has formalism :jump but declares contributions " *
+            "to $(join(string.(":", targets), ", ")). A jump process cannot add " *
+            "continuous derivative terms; a jump module's writes to a peer's state " *
+            "go through its reactions (spec §11 phase 2)")
+        for s in targets
+            haskey(state_owners, s) || error(
+                "Module $(module_id(m)) contributes to :$s, which no sub-model in " *
+                "this composition owns. A contribution needs an owner to add to; " *
+                "compose the module that integrates :$s, or drop the contribution")
+            push!(contexts[i].contrib_idxs, state_owners[s])
+        end
+    end
 end
 
 function _collect_ic_values(models::Vector{<:AbstractSubModel})
@@ -203,6 +225,9 @@ end
 function _build_rhs(models::Vector{<:AbstractSubModel},
                     contexts::Vector{SubModelContext})
     model_inputs = [inputs(m) for m in models]
+    # Which modules contribute is known at build time, so a composition with
+    # no contributors runs the pre-phase-1 computation unchanged.
+    contributors = [i for (i, ctx) in enumerate(contexts) if !isempty(ctx.contrib_idxs)]
     function rhs(u, p, t)
         du_parts = map(models, contexts, model_inputs) do m, ctx, inp_syms
             u_local = u[ctx.state_idxs]
@@ -210,7 +235,31 @@ function _build_rhs(models::Vector{<:AbstractSubModel},
             u_inputs = [u[ctx.input_map[s]] for s in inp_syms]
             dynamics(u_local, p_local, t, m, u_inputs)
         end
-        return vcat(du_parts...)
+        du = vcat(du_parts...)
+        isempty(contributors) && return du
+        for i in contributors
+            m, ctx = models[i], contexts[i]
+            u_local = u[ctx.state_idxs]
+            p_local = p[ctx.param_idxs]
+            u_inputs = [u[ctx.input_map[s]] for s in model_inputs[i]]
+            c = contributions(u_local, p_local, t, m, u_inputs)
+            du = _accumulate(du, ctx.contrib_idxs, c)
+        end
+        return du
     end
     return rhs
+end
+
+# Add each contribution to the owner's derivative. `du` is an SVector, so the
+# result is a new SVector; the eltype is promoted once so a Float64 derivative
+# can receive a dual-number contribution under automatic differentiation.
+function _accumulate(du::SVector{N}, idxs, c) where {N}
+    length(idxs) == length(c) || error(
+        "contributions() returned $(length(c)) term$(length(c) == 1 ? "" : "s") " *
+        "but contributed_states() names $(length(idxs)) species")
+    out = SVector{N, promote_type(eltype(du), eltype(c))}(du)
+    for (j, i) in enumerate(idxs)
+        out = setindex(out, out[i] + c[j], i)
+    end
+    return out
 end
