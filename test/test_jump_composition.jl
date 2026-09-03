@@ -5,7 +5,10 @@ using StaticArrays: SVector
 using Random
 using Statistics: mean, var
 
-# Jump composition (spec §11 phase 2). Doubles in jump_test_models.jl.
+# Jump composition (spec §11 phase 2). Doubles in jump_test_models.jl. The
+# seeded single-module reference was generated before `reactions` changed
+# shape (commit recorded in the fixture) by dev/scripts/make_ssa_reference.jl.
+include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
 
 @testset "Jump composition" begin
     # Task 2.1: the witness. Before phase 2 these two doubles composed and B's
@@ -157,5 +160,50 @@ using Statistics: mean, var
         @test occursin("RegistryJumpWriter", err.msg) && occursin(":M_atp_c", err.msg)
         @test occursin("written_states", err.msg)
         @test resolve_coupling([RegistryJumpWriter()]) isa CouplingGraph
+    end
+
+    # Task 2.6: the converted single-module models reproduce their pre-change
+    # trajectories exactly — every event time and every count — under the seed
+    # recorded in the fixture, which was generated before `reactions` changed.
+    @testset "2.6 converted models reproduce the pre-change seeded trajectories" begin
+        for (m, U0, PBITS, TBITS, U) in (
+                (StochasticGeneExpression(), SSA_REFERENCE_SGE_U0, SSA_REFERENCE_SGE_P_BITS,
+                 SSA_REFERENCE_SGE_T_BITS, SSA_REFERENCE_SGE_U),
+                (BurstyGeneExpression(), SSA_REFERENCE_BGE_U0, SSA_REFERENCE_BGE_P_BITS,
+                 SSA_REFERENCE_BGE_T_BITS, SSA_REFERENCE_BGE_U))
+            prob = build_problem(m; tspan = SSA_REFERENCE_TSPAN)
+            @test prob.prob.u0 == U0
+            @test reinterpret(UInt64, collect(Float64, prob.prob.p)) == PBITS
+            Random.seed!(SSA_REFERENCE_SEED)
+            sol = solve(prob, SSAStepper(); saveat = SSA_REFERENCE_SAVEAT)
+            @test reinterpret(UInt64, collect(Float64, sol.t)) == TBITS
+            @test length(sol.u) == length(U)
+            @test sol.u == U
+        end
+    end
+
+    # The phase's done-when: two distinct jump modules — one owning X, the other
+    # adding to and removing from it — reproduce the statistics of a hand-written
+    # single-module birth–death process within Monte Carlo error. Both are
+    # Poisson(λ) at stationarity with λ = (k + b) / γ = 12, sampled at ten
+    # relaxation times. Tolerances are four standard errors of the sample mean
+    # (√(λ/n)) and of the sample variance (√((λ + 2λ²)/n) for a Poisson).
+    @testset "Done when: composed statistics match the single-module equivalent" begin
+        k, b, γ, n, T = 2.0, 1.0, 0.25, 400, 40.0
+        λ = (k + b) / γ
+        function late_counts(models, seed)
+            prob = build_problem(models; tspan = (0.0, T))
+            Random.seed!(seed)
+            [solve(prob, SSAStepper(); saveat = [T])[1, end] for _ in 1:n]
+        end
+        composed = late_counts([BirthOwner(k = k), PeerBirthDeath(gamma = γ, b = b)], 1)
+        single = late_counts([BirthDeath(k = k + b, gamma = γ)], 2)
+        se_mean, se_var = sqrt(λ / n), sqrt((λ + 2λ^2) / n)
+        @test abs(mean(composed) - λ) < 4 * se_mean
+        @test abs(mean(single) - λ) < 4 * se_mean
+        @test abs(mean(composed) - mean(single)) < 4 * sqrt(2) * se_mean
+        @test abs(var(composed) - λ) < 4 * se_var
+        @test abs(var(composed) - var(single)) < 4 * sqrt(2) * se_var
+        @info "phase 2 done-when" mean_composed = mean(composed) mean_single = mean(single) var_composed = var(composed) var_single = var(single) λ
     end
 end

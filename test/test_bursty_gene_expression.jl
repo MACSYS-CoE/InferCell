@@ -88,11 +88,18 @@ using Statistics: mean, var
         @test fano > 1.5
     end
 
-    @testset "Composition with another jump model fails (mixed reactions over same state)" begin
-        # Mixed formalisms are disallowed; that path is exercised in test_stochastic_ge.jl.
-        # Composing two jump models that own the same state name should error in coupling.
+    @testset "Composition with another jump model fails on duplicate ownership" begin
+        # Both models own :mRNA and :protein, so the composition is refused for
+        # duplicate ownership — the only thing that ever made it fail. Before
+        # spec phase 2 this test read as if index aliasing were caught; it was
+        # not, and two jump models with disjoint states now compose correctly
+        # (test_jump_composition.jl). Mixed formalisms are exercised in
+        # test_stochastic_ge.jl.
         m1 = BurstyGeneExpression()
         m2 = StochasticGeneExpression()
-        @test_throws ErrorException build_problem([m1, m2])
+        err = try build_problem([m1, m2]); nothing catch e; e end
+        @test err isa ErrorException
+        @test occursin("owned by multiple sub-models", sprint(showerror, err))
+        @test occursin("mRNA", sprint(showerror, err))
     end
 end
