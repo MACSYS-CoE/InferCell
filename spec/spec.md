@@ -1,6 +1,6 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** draft
+**Status:** in progress — phases 0 and 1 done (PR #42)
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-03
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1435,9 +1435,7 @@ serial, because each validation check catches errors the next would mask.
 number.
 **Done when:** every finding in the four drafted changes appears in this spec or
 in a note, and `openspec/` is read-only history under `dev/archive/`.
-**PR:** _all six tasks done in the working tree alongside this spec, not yet
-committed. `git add -A` is required before committing, because the four drafted
-changes were untracked and are otherwise lost._
+**PR:** #41 (merged 2026-09-03)
 
 - [x] 0.1 Move `openspec/` to `dev/archive/openspec/` — verify by `git log
   --follow` on `dev/archive/openspec/specs/corea-interface/edge-kinds/spec.md`
@@ -1468,40 +1466,47 @@ changes were untracked and are otherwise lost._
 
 ### Phase 1 — A module contributes to a state it does not own
 
-**Goal:** make an outbound mass or currency edge execute, so a shared pool can
-receive terms from every module that produces it.
+**Goal:** make an ~~outbound~~ mass or currency edge execute, so a shared pool can
+receive terms from every module that produces **into or draws from** it
+(amended 2026-09-03; see §12).
 **Done when:** a two-module ODE composition in which module A produces a species
-module B owns shows B's state rising at A's declared rate, and every outbound
-mass or currency edge in the composition maps one-to-one onto an executed
-contribution.
-**PR:** _not started_
+module B owns shows B's state rising at A's declared rate, and every ~~outbound~~
+mass or currency edge in the composition **on a species the declaring module
+does not own, in either direction,** maps one-to-one onto an executed
+contribution (amended 2026-09-03; see §12).
+**PR:** #42
 
-- [ ] 1.1 Choose and record the mechanism — a second return value from
+- [x] 1.1 Choose and record the mechanism — a second return value from
   `dynamics`, a separate protocol function, or a global-index write buffer —
   verify by the pull request recording what each costs at 32 states and by the
   chosen one adding no dependency that is absent from the Julia depot.
-- [ ] 1.2 Extend the protocol with the chosen channel, defaulting to empty —
+- [x] 1.2 Extend the protocol with the chosen channel, defaulting to empty —
   verify by `build_problem(TranscriptionTranslation())` producing byte-identical
   initial conditions, parameters and trajectory to the pre-change run, and by all
   829 existing tests passing unchanged.
-- [ ] 1.3 Accumulate contributions into the global derivative by
+- [x] 1.3 Accumulate contributions into the global derivative by
   registry-resolved index in `_build_rhs` — verify by a two-module test asserting
   the owner's derivative equals its own term plus the contributor's exactly, and
   that the contributor's own slice is unchanged.
-- [ ] 1.4 Reject a contribution to a chemostatted species, to a species no module
+- [x] 1.4 Reject a contribution to a chemostatted species, to a species no module
   owns, and to a name outside the registry — verify by three tests each throwing
   and naming both the species and the contributing module.
-- [ ] 1.5 Cross-check contributions against declared edges in both directions —
+- [x] 1.5 Cross-check contributions against declared edges in both directions —
   verify by a test that deleting a contribution while keeping its outbound edge
   throws naming both, and that adding a contribution with no edge throws
   likewise; the drift check must be live, as the untyped-inputs check already is.
-- [ ] 1.6 Re-take the state-container decision at 32 states — the problem is
+  **Amended 2026-09-03:** "outbound edge" reads "mass or currency edge in either
+  direction on a species the module does not own" — a consumer of a foreign
+  pool owes a negative term exactly as a producer owes a positive one (§12).
+- [x] 1.6 Re-take the state-container decision at 32 states — the problem is
   currently built out-of-place over a static vector — verify by benchmarking
   static-out-of-place against mutable-in-place at 32 states and asserting the
   chosen path allocates nothing per right-hand-side call.
-- [ ] 1.7 Run the suite and hand off — verify by `sbatch test/run_tests.slurm`
+- [x] 1.7 Run the suite and hand off — verify by `sbatch test/run_tests.slurm`
   passing above 829 by the tests added, and by `docs/handoff.md` recording that
-  outbound edges now execute rather than merely resolve.
+  outbound edges now execute rather than merely resolve. **Done:** job 16171912,
+  932/932 (829 before the phase); the handoff records that mass and currency
+  edges execute in both directions.
 
 ### Phase 2 — Several jump modules compose
 
@@ -2303,6 +2308,28 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-03 — the contribution channel executes mass and currency edges in both directions
+
+*Evidence:* phase 1 was specified around *outbound* edges executing. But a
+module that draws on a pool it does not own — glycolysis consuming ATP that
+recycling owns at PFK, the phosphotransferase cascade consuming the PEP
+glycolysis owns — declares an *inbound* mass or currency edge, and that
+consumption is a derivative term the owner never sees unless it is executed
+too. Executing only the outbound side would leave every cross-module
+consumption silently absent from the pools, and phase 6 would have needed a
+second mechanism. *Change:* the phase-1 mechanism (`contributed_states` and
+`contributions`) carries one signed term per non-owned dynamic registry species
+on which an ODE module declares a mass or currency edge, in either direction;
+the drift check of task 1.5 holds the two lists to each other on the same set.
+A `:jump` module declares its mass and currency edges as before but may not
+list contributions: its writes to a peer's state go through its reactions,
+which phase 2 builds, so its edges are resolved and not held to the channel.
+The phase's goal, done-when and task 1.5 are annotated in place. Registry,
+chemostat and ownership rejections, and the both-ways drift check, are what
+phases 6 to 9's edge declarations are now written against. *Sections:* §11
+phase 1 (goal, done-when, task 1.5). Approved at planning time, before
+implementation; landed in PR #42.
 
 ### 2026-09-03 — the coupling figure follows amendment 1
 

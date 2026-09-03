@@ -44,7 +44,7 @@ export ParameterSource, provenance_of, source_file, informedness,
        was_chosen_over_alternative
 export AbstractSubModel, SubModelContext
 export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
-       coupling, reduction_notes, module_id
+       coupling, reduction_notes, module_id, contributed_states, contributions
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
 # loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.

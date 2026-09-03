@@ -35,6 +35,7 @@ using Aqua
     include("test_multi_gene_txl.jl")
     include("test_tier_b.jl")
     include("test_boundary.jl")
+    include("test_reference_trajectory.jl")
 
     # The composition framework (edges, resolver, loader, labels) and the one
     # organism that uses it. `corea_test_models.jl` defines the sub-model
@@ -45,6 +46,9 @@ using Aqua
     include("test_resolver.jl")
     include("test_loader.jl")
     include("test_labels.jl")
+    # Executable doubles for the contribution channel, then its tests.
+    include("contribution_test_models.jl")
+    include("test_contributions.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

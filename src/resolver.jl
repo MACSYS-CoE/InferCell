@@ -94,8 +94,11 @@ rate-constant rebuild at once), a module integrating a chemostat, a state
 integrated twice, a clamp on a state another module integrates, two clamps
 holding one species at different values, a clamp holding a chemostat away from
 the registry's value, two coupled sub-models sharing one `module_id`, a
-chemostatted species listed in `inputs`, or an `inputs` list that has drifted
-from the module's own inbound edges in either direction.
+chemostatted species listed in `inputs`, an `inputs` list that has drifted
+from the module's own inbound edges in either direction, a contribution to an
+unregistered or chemostatted species, a `contributed_states` list that has
+drifted from an ODE module's mass and currency edges on species it does not
+own, or a `:jump` module listing any contribution at all.
 
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
@@ -105,6 +108,7 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_module_ids(models)
     _check_state_ownership(models)
     _check_inputs_consistency(models)
+    _check_contributions_consistency(models)
 
     resolved = _resolve_edges(models)
     _check_kind_agreement(resolved)
@@ -236,6 +240,85 @@ function _check_inputs_consistency(models::Vector{<:AbstractSubModel})
                 "inputs() wires a state into dynamics, so the declared coupling " *
                 "would silently never arrive; add :$(e.species) to inputs() or " *
                 "drop the edge"))
+        end
+    end
+    return nothing
+end
+
+# The outbound counterpart of the check above, for ODE modules. A mass or
+# currency edge on a dynamic registry species the module does not integrate is
+# a promise to add a derivative term to the owner's state — positive where the
+# module produces, negative where it consumes — and only `contributed_states`
+# wires such a term into the right-hand side. So the two lists are held to each
+# other in both directions, exactly as `inputs` is held to the inbound edges.
+# Unlike that check, a module with contributions but no edges is not skipped: a
+# contribution with nothing declaring it is the drift being caught.
+#
+# A contribution target is also judged on its own. Whether the name is a
+# registry species, and whether that species is chemostatted, needs no
+# composition to decide and is checked here so `reduction_declarations` sees it
+# too. Whether some module owns it does need the composition, and a module
+# resolved alone legitimately contributes to states whose owners are absent, so
+# ownership is the orchestrator's check.
+function _check_contributions_consistency(models::Vector{<:AbstractSubModel})
+    for m in models
+        edges = coupling(m)
+        targets = contributed_states(m)
+        isempty(edges) && isempty(targets) && continue
+        name = module_id(m)
+
+        # A jump process cannot add a continuous derivative term, so a :jump
+        # module's mass and currency edges are declared and resolved but not
+        # held to contributed_states(): its writes to a peer's state go through
+        # its reactions (spec §11 phase 2). Listing a contribution is the error.
+        if formalism(m) === :jump
+            isempty(targets) || throw(ArgumentError(
+                "Module $name has formalism :jump but lists " *
+                "$(join(string.(":", targets), ", ")) in contributed_states(). A " *
+                "jump process cannot add continuous derivative terms; a jump " *
+                "module's writes to a peer's state go through its reactions " *
+                "(spec §11 phase 2). Drop the contribution and keep the edge"))
+            continue
+        end
+
+        for s in targets
+            is_registered(s) || throw(ArgumentError(
+                "Module $name contributes to :$s, which is not a Core A′ registry " *
+                "species. Contributions are registry-resolved; see " *
+                "src/organisms/coreA/registry.jl for the $(length(COREA_SPECIES)) " *
+                "registered species"))
+            is_chemostatted(s) && throw(ArgumentError(
+                "Module $name contributes to :$s, but the Core A′ registry " *
+                "chemostats :$s at a fixed concentration, so no module integrates " *
+                "it and there is no derivative to add to. Declare a ClampedEdge and " *
+                "drop the contribution"))
+        end
+
+        own = Set(states(m))
+        declared = Set(targets)
+        promised = Set{Symbol}()
+        for e in edges
+            e isa MassEdge || e isa CurrencyEdge || continue
+            is_registered(e.species) && is_dynamic(e.species) || continue
+            e.species in own && continue
+            push!(promised, e.species)
+            e.species in declared || throw(ArgumentError(
+                "Module $name declares an $(is_consumer(e) ? "inbound" : "outbound") " *
+                "$(edge_kind(e)) edge on :$(e.species), which it does not integrate, " *
+                "but does not list it in contributed_states(). Only " *
+                "contributed_states() wires a derivative term into the owner's " *
+                "state, so the declared $(is_consumer(e) ? "consumption" : "production") " *
+                "would silently never happen; add :$(e.species) to " *
+                "contributed_states() and return its term from contributions(), " *
+                "or drop the edge"))
+        end
+        for s in targets
+            s in promised || throw(ArgumentError(
+                "Module $name lists :$s in contributed_states() but declares no " *
+                "mass or currency edge on it" *
+                (s in own ? ", and integrates :$s itself, so it needs no contribution" : "") *
+                ". A contribution that no edge declares is the drift this check " *
+                "exists to catch; add the edge or drop the contribution"))
         end
     end
     return nothing

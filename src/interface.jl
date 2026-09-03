@@ -116,17 +116,69 @@ reactions(m::AbstractSubModel) = error("reactions() not implemented for $(typeof
 dynamics(u, p, t, m::AbstractSubModel, u_inputs) = dynamics(u, p, t, m)
 
 """
-    SubModelContext(state_idxs, param_idxs, input_map)
+    contributed_states(m::AbstractSubModel) -> Vector{Symbol}
+
+Registry states integrated by *other* sub-models to which `m` adds derivative
+terms — the outbound counterpart of [`inputs`](@ref). Defaults to empty.
+
+Where `inputs` lets a module read a state it does not own, this lets it write
+into one: the orchestrator adds each term returned by [`contributions`](@ref)
+to the owner's derivative at the owner's global index, so a shared pool
+receives terms from every module that produces into or draws from it. The
+names must be Core A′ registry species and may not be chemostatted, which
+[`resolve_coupling`](@ref) checks, and must be owned by some module in the
+composition, which the orchestrator checks at build time; each rejection names
+the species and this module.
+
+For an ODE module the resolver holds this list to the coupling edges in both
+directions: every mass or currency edge, inbound or outbound, on a dynamic
+registry species `m` does not own must appear here, and every entry here must
+have such an edge — a module listing contributions with no edges is checked,
+not skipped. A consumer of a foreign pool contributes a negative term; a
+producer a positive one. A `:jump` module may not list contributions at all;
+its writes to a peer's state go through its reactions.
+"""
+contributed_states(::AbstractSubModel) = Symbol[]
+
+"""
+    contributions(u, p, t, m::AbstractSubModel[, u_inputs])
+
+Signed derivative terms `m` adds to the states named by
+[`contributed_states`](@ref), in that order, as a static vector of the same
+length. Receives exactly what [`dynamics`](@ref) receives: the local state
+slice, local parameters, time and resolved inputs. Defaults to an empty static
+vector, so a sub-model that contributes nothing needs no method and takes the
+same code path through the right-hand side as before this channel existed.
+
+This is the phase-1 mechanism of `spec/spec.md` (§11, task 1.1). It was chosen
+over a second return value from `dynamics`, which would change the return
+arity of every existing model, and over an in-place global write buffer, which
+would force the composed problem in-place and every `dynamics` to a mutating
+form. Being a separate function with an empty default, it adds nothing to a
+module that does not use it.
+"""
+contributions(u, p, t, ::AbstractSubModel) = SVector{0, Float64}()
+# Fallback, as for `dynamics`: a module that defines only the four-argument
+# form is still reached from the orchestrator's five-argument call.
+contributions(u, p, t, m::AbstractSubModel, u_inputs) = contributions(u, p, t, m)
+
+"""
+    SubModelContext(state_idxs, param_idxs, input_map[, contrib_idxs])
 
 Per-sub-model bookkeeping built by the orchestrator: where this sub-model's
 states live in the global state vector, which global parameter indices it reads,
-and how its declared input symbols map onto global state indices.
+how its declared input symbols map onto global state indices, and the global
+index of each state in [`contributed_states`](@ref), in that order.
 """
 struct SubModelContext
     state_idxs::UnitRange{Int}
     param_idxs::Vector{Int}
     input_map::Dict{Symbol, Int}
+    contrib_idxs::Vector{Int}
 end
+
+SubModelContext(state_idxs, param_idxs, input_map) =
+    SubModelContext(state_idxs, param_idxs, input_map, Int[])
 
 const VALID_FORMALISMS = (:ode, :sde, :jump)
 
