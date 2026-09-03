@@ -57,4 +57,30 @@ using StaticArrays: SVector
         @test InferCell._global_jump(r_death, slot_peer).rate([10, 0, 7, 5], [0.5, 0.2, 1.0], 0.0) == 0.5 * 5
     end
 
+
+    # Task 2.3: the composed layout — state counts concatenate in module order,
+    # each module's initial counts sit at its own offsets, and a parameter name
+    # shared by two modules occupies one global slot that both slices read.
+    @testset "2.3 the composed layout has one slice per module" begin
+        owner = BirthOwner(k = 0.7, x0 = 12)
+        peer = PeerBirthDeath(gamma = 0.3, b = 0.7, bname = :k_birth)   # shares :k_birth
+        models = [owner, peer]
+        prob = build_problem(models; tspan = (0.0, 1.0))
+        @test length(prob.prob.u0) == sum(length(states(m)) for m in models) == 2
+        @test prob.prob.u0 == [12, 0]
+        @test prob.prob.p == [0.7, 0.3]           # k_birth once, then gamma_peer
+        ctxs = InferCell._build_contexts(models)
+        @test ctxs[1].state_idxs == 1:1 && ctxs[2].state_idxs == 2:2
+        @test ctxs[1].param_idxs == [1]
+        @test ctxs[2].param_idxs == [2, 1]        # gamma_peer, then the shared k_birth
+        # The peer's local p is [gamma, k_birth] = [0.3, 0.7] whichever slot each sits in.
+        sl = InferCell._JumpSlot(SVector(2), SVector(2, 1), SVector(1))
+        death, birth = reactions(peer)
+        @test InferCell._global_jump(death, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.3 * 12
+        @test InferCell._global_jump(birth, sl).rate([12, 0], [0.7, 0.3], 0.0) == 0.7
+        # Reversing the composition order moves the slices, not the values.
+        prob_r = build_problem([peer, owner]; tspan = (0.0, 1.0))
+        @test prob_r.prob.u0 == [0, 12]
+        @test prob_r.prob.p == [0.3, 0.7]
+    end
 end
