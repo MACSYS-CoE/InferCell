@@ -56,9 +56,12 @@ using Statistics
         # This used to assert that any mixed :ode/:jump composition is refused.
         # Spec §11 phase 3 replaced that refusal with the handshake driver, so
         # the test now asserts what actually fails: these two models both own
-        # :mRNA and :protein, and duplicate ownership is still an error. (Phase
-        # 2 rewrote the bursty model's composition test the same way, and for
-        # the same reason.)
+        # :mRNA and :protein, one on each side of the boundary. (Phase 2
+        # rewrote the bursty model's composition test the same way, and for the
+        # same reason.) Note the refusal comes from the hybrid driver's own
+        # cross-block check and not from `_check_state_ownership`, which sees
+        # duplicates only within a block and only on registry species — :mRNA
+        # is neither, so nothing caught this before phase 3.
         # `caught` lives in corea_test_models.jl, which runtests.jl includes
         # after this file, so the idiom is spelled out here.
         model_ode = TranscriptionTranslation()
@@ -70,6 +73,8 @@ using Statistics
             e
         end
         @test err !== nothing
-        @test occursin("owned by multiple sub-models", sprint(showerror, err))
+        msg = sprint(showerror, err)
+        @test occursin("owned in both blocks", msg)
+        @test occursin("mRNA", msg)
     end
 end
