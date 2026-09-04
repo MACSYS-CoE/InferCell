@@ -244,6 +244,35 @@ _exact_mM(n) = n / _F
         @test length(p1) == length(p2) == 3
     end
 
+    @testset "3.4 the metabolic block really integrates its own rate law" begin
+        # Every other assertion in this file would still pass if `step!` moved
+        # the clock without solving anything: the debit arithmetic is the
+        # driver's, the catalytic write is a parameter, and task 3.4's toy has
+        # a zero derivative by construction. So check the one thing they do not
+        # — that a handshake's ODE step reproduces an independent solve of the
+        # same problem over the same second.
+        n = 400
+        d = build_problem([ToyPool(kcat = 30.0, atp0 = _exact_mM(73717)),
+                           ToyExpression(k_tx = 0.0, k_tl = 0.0, protein0 = n)];
+                          tspan = (0.0, 10.0))
+        u0 = collect(Float64, d.ode.u)
+        handshake_step!(d)
+        @test d.ode.t == 1.0                       # the clock advanced by the interval
+
+        # The same problem, solved on its own for one second at the enzyme
+        # concentration the handshake wrote.
+        ref = build_problem([ToyPool(kcat = 30.0, enzyme = counts_to_mM(n, _F),
+                                     atp0 = _exact_mM(73717))]; tspan = (0.0, 1.0))
+        sol = solve(ref, Rodas5P(); abstol = 1e-10, reltol = 1e-8)
+        @test d.ode.u[1] ≈ sol.u[end][1] rtol = 1e-6
+        @test d.ode.u[2] ≈ sol.u[end][2] rtol = 1e-6
+
+        # And it actually moved: a no-op step would leave the pool untouched.
+        @test d.ode.u[1] < u0[1]
+        @test d.ode.u[2] > u0[2]
+        @info "3.4 integration against an independent solve" atp_handshake = d.ode.u[1] atp_reference = sol.u[end][1] atp_start = u0[1]
+    end
+
     @testset "3.7 check 7: the clipping census" begin
         # At nominal parameters the pool covers the cost many times over, so no
         # handshake may carry a deficit. K5 fires here or nowhere.
