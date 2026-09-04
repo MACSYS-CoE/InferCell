@@ -1517,7 +1517,7 @@ write a declared peer's state.
 incrementing and decrementing it — compose and produce a trajectory whose
 statistics match a hand-written single-module equivalent within Monte Carlo
 error.
-**PR:** #43
+**PR:** #43 (merged 2026-09-03 UTC; 2026-09-04 AEST)
 
 - [x] 2.1 Pin the bug before fixing it — verify by a test composing two doubles
   with disjoint state names and asserting that *today* the second module's effect

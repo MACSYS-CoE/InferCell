@@ -82,6 +82,7 @@ nav:
       - Sub-model interface: api/interface.md
       - Core A′ interface contract: api/corea-interface.md
       - Orchestrator: api/orchestrator.md
+      - Handshake driver: api/handshake.md
       - Inference: api/inference.md
       - Boundary: api/boundary.md
       - Models: api/models.md
