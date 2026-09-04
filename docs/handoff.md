@@ -5,7 +5,7 @@
 
 ## Latest: phase 3 — the 1 s handshake, on a two-module toy (2026-09-04)
 
-Spec §11 phase 3, **the kill phase**, delivered as PR_LINE from branch
+Spec §11 phase 3, **the kill phase**, delivered as PR #44 from branch
 `phase3`. **Neither of the phase's two stated kill conditions fired, and K5 did
 not fire on the toy. The project continues.**
 

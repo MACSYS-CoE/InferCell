@@ -1569,7 +1569,7 @@ wall-clock per simulated second is recorded from a compute node.
 inside the sub-model protocol without a per-module special case, or if the
 measured cost extrapolates above 10 s per 6,300 s trajectory, the project stops
 here and the architecture is revisited rather than scaled. See K1.
-**PR:** PR_LINE
+**PR:** #44
 
 - [x] 3.1 Choose and record the composition mechanism — an outer split-operator
   loop over stepped integrators, a discrete callback on a single problem, or a
