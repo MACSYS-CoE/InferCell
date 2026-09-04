@@ -1,9 +1,10 @@
 module InferCell
 
-using OrdinaryDiffEq: Tsit5, solve, ODEProblem
+using OrdinaryDiffEq: Tsit5, solve, ODEProblem, Rodas5P
 using SciMLSensitivity: ForwardDiffSensitivity
-using SciMLBase: ReturnCode, remake, DiscreteProblem
-using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper
+using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!
+using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
+                     reset_aggregated_jumps!
 using Turing
 using Distributions
 using StaticArrays
@@ -27,6 +28,7 @@ include("labels.jl")
 include("loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
+include("handshake.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
@@ -56,6 +58,6 @@ export build_turing_model, infer, observe, posterior_predictive, check_identifia
 export compute_summary_stats, summary_distance
 export abc_smc
 export KDEPrior, boundary_condition, sequential_infer, iterative_infer, kl_divergence, chain_kl
-export Tsit5, solve, NUTS, SSAStepper
+export Tsit5, solve, NUTS, SSAStepper, Rodas5P
 
 end # module InferCell

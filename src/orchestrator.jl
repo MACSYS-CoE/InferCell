@@ -2,35 +2,65 @@
     build_problem(models; tspan=(0.0, 100.0))
     build_problem(model;  tspan=(0.0, 100.0))
 
-Compose one or more [`AbstractSubModel`](@ref)s into a SciML problem object.
-Returns an `ODEProblem` when every sub-model has `formalism = :ode`, or a
-`JumpProblem` when every sub-model has `formalism = :jump`; mixed-formalism
-composition is not yet supported.
+Compose one or more [`AbstractSubModel`](@ref)s into a problem object.
+Returns an `ODEProblem` when every sub-model has `formalism = :ode`, a
+`JumpProblem` when every one has `formalism = :jump`, and a
+[`HandshakeDriver`](@ref) for a mixed ODE/jump composition — the two blocks are
+advanced by a split-operator exchange, so there is no single SciML problem
+object that means what the published coupling means (spec §11 phase 3).
+
+Keyword arguments other than `tspan` are the hybrid driver's declared policy
+(exchange `interval`, `rounding`, `radius_nm`, `ode_solver`, `abstol`,
+`reltol`) and are accepted only by that path.
 
 Shared parameters across sub-models are deduplicated by name and must agree
 on `value`, `prior`, and `fixed`. Cross-block coupling is resolved via each
 sub-model's [`inputs`](@ref) — input symbols must be `states` of some other
 sub-model in the composition.
 """
-function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
+function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0), kwargs...)
     for m in models
         validate_formalism(formalism(m))
     end
 
     collective = _determine_formalism(models)
 
+    # A homogeneous composition takes no policy keywords, and silently ignoring
+    # one — a rounding policy, say — would be worse than refusing it.
+    if collective !== :mixed && !isempty(kwargs)
+        error("build_problem accepts $(join(keys(kwargs), ", ")) only for a mixed " *
+              "ODE/jump composition, which is the one that runs a handshake. This " *
+              "composition is uniformly :$collective")
+    end
+
     if collective == :ode
         return _build_ode_problem(models; tspan=tspan)
     elseif collective == :jump
         return _build_jump_problem(models; tspan=tspan)
+    elseif collective == :sde
+        # Previously this fell through to the "mixed" refusal and was reported
+        # as a mixed composition, which it is not (spec §2, G1).
+        error("Composition of :sde sub-models is not implemented. The chemical " *
+              "Langevin formalism is a valid declared value and a natural fit for " *
+              "the 266-to-1355-copy enzymes, but it is a non-goal for Core A′ " *
+              "(spec §7) and no build path exists")
     else
-        error("Mixed formalism composition not yet supported")
+        return _build_hybrid_problem(models; tspan=tspan, kwargs...)
     end
 end
 
+# The collective formalism of a composition: the single declared value where the
+# sub-models agree, `:mixed` where they do not. `build_problem` routes on it, and
+# the hybrid path partitions the vector for itself.
 function _determine_formalism(models::Vector{<:AbstractSubModel})
     formalisms = unique(formalism.(models))
     length(formalisms) == 1 && return formalisms[1]
+    # An :sde sub-model has no execution path in any composition, hybrid
+    # included; refuse it by name here rather than inside the handshake driver.
+    :sde in formalisms && error(
+        "Composition mixes :sde with $(join(filter(!=(:sde), formalisms), " and ")). " *
+        "There is no build path for :sde in any composition (spec §7); the " *
+        "handshake driver composes :ode and :jump blocks only")
     return :mixed
 end
 
