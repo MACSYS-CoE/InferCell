@@ -53,8 +53,23 @@ using Statistics
     end
 
     @testset "Formalism validation" begin
+        # This used to assert that any mixed :ode/:jump composition is refused.
+        # Spec §11 phase 3 replaced that refusal with the handshake driver, so
+        # the test now asserts what actually fails: these two models both own
+        # :mRNA and :protein, and duplicate ownership is still an error. (Phase
+        # 2 rewrote the bursty model's composition test the same way, and for
+        # the same reason.)
+        # `caught` lives in corea_test_models.jl, which runtests.jl includes
+        # after this file, so the idiom is spelled out here.
         model_ode = TranscriptionTranslation()
         model_ssa = StochasticGeneExpression()
-        @test_throws ErrorException build_problem([model_ode, model_ssa])
+        err = try
+            build_problem([model_ode, model_ssa])
+            nothing
+        catch e
+            e
+        end
+        @test err !== nothing
+        @test occursin("owned by multiple sub-models", sprint(showerror, err))
     end
 end

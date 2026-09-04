@@ -52,6 +52,9 @@ using Aqua
     # Executable jump doubles, then the jump-composition tests (spec phase 2).
     include("jump_test_models.jl")
     include("test_jump_composition.jl")
+    # Executable hybrid doubles, then the handshake tests (spec phase 3).
+    include("hybrid_test_models.jl")
+    include("test_hybrid_handshake.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

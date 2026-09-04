@@ -93,8 +93,8 @@ using Statistics: mean, var
         # duplicate ownership — the only thing that ever made it fail. Before
         # spec phase 2 this test read as if index aliasing were caught; it was
         # not, and two jump models with disjoint states now compose correctly
-        # (test_jump_composition.jl). Mixed formalisms are exercised in
-        # test_stochastic_ge.jl.
+        # (test_jump_composition.jl). Mixed formalisms compose as of phase 3
+        # and are exercised in test_hybrid_handshake.jl.
         m1 = BurstyGeneExpression()
         m2 = StochasticGeneExpression()
         @test_throws "State :mRNA is owned by multiple sub-models" build_problem([m1, m2])
