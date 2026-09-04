@@ -1569,45 +1569,101 @@ wall-clock per simulated second is recorded from a compute node.
 inside the sub-model protocol without a per-module special case, or if the
 measured cost extrapolates above 10 s per 6,300 s trajectory, the project stops
 here and the architecture is revisited rather than scaled. See K1.
-**PR:** _not started_
+**PR:** PR_LINE
 
-- [ ] 3.1 Choose and record the composition mechanism — an outer split-operator
+- [x] 3.1 Choose and record the composition mechanism — an outer split-operator
   loop over stepped integrators, a discrete callback on a single problem, or a
   jump process over an ODE problem — verify by the pull request recording, for
   each, whether the published piecewise-constant 1 s handshake is faithfully
   representable, and by the chosen one adding no dependency absent from the
-  depot.
-- [ ] 3.2 Replace the mixed-formalism refusal at `src/orchestrator.jl:27` with a
+  depot. **Done:** the outer loop, mirroring the published `hookSimulation` at
+  `delt = 1.0` s. A `JumpProblem` over an `ODEProblem` makes propensities track
+  the pools continuously, so phase 4 task 4.3 would have nothing to be true
+  about; a discrete callback cannot advance the SSA half at all. `init`,
+  `step!` and `reset_aggregated_jumps!` come from SciMLBase and JumpProcesses,
+  both already direct dependencies, so `Project.toml` is unchanged.
+- [x] 3.2 Replace the mixed-formalism refusal at `src/orchestrator.jl:27` with a
   hybrid build path — verify by a mixed composition returning a driver rather
   than throwing, and by the same composition *still* throwing with a named error
-  when a required exchange declaration is absent.
-- [ ] 3.3 Implement the count-to-concentration conversion through the registry at
+  when a required exchange declaration is absent. **Done:** `build_problem`
+  returns a `HandshakeDriver`; five named refusals are asserted (a `param_slot`
+  that is not the declaring module's own free parameter, a catalytic species no
+  jump module owns, a debited pool no ODE module integrates, a counter no jump
+  module owns, and a policy keyword on a homogeneous composition). Two refusals
+  that did not exist before: a homogeneous `:sde` composition, which used to be
+  reported as mixed (§2 G1), and **a state name owned in both blocks**, which
+  would make every crossing that mentions it resolve to whichever block was
+  asked first — phase 2's aliasing bug arriving *between* blocks rather than
+  inside one. `_check_state_ownership` cannot see it: it looks only within a
+  block and only at registry species. **Annotated 2026-09-04:** this is a new
+  refusal, not a changed one, so it is recorded here and in the pull request
+  rather than as a §12 amendment; nothing the spec said became false. Phases 6
+  to 12 inherit it — a module may not name a state another block owns.
+- [x] 3.3 Implement the count-to-concentration conversion through the registry at
   fixed volume with an explicit rounding policy — verify by check 0: exact-zero
   round-trip residual under fractional carry, and by the policy being a stated
-  field on the driver rather than implicit in the arithmetic.
-- [ ] 3.4 Isolate exchange error from integration error — verify by a toy whose
+  field on the driver rather than implicit in the arithmetic. **Done:** the
+  factor is derived from Avogadro and the volume of a sphere and returns 20,180
+  particles per mM at 200 nm, reproducing the scoping note rather than
+  transcribing it. Check 0's round trip is exactly zero over 6,300 handshakes
+  under fractional carry (`==`, not `≈`). All three signatures measured: carry
+  drifts **0.0** particles at both 630 and 6,300 hooks; deterministic drifts
+  **252.0 → 2,520.0**, exactly linear; stochastic RMS over 60 seeds goes
+  **11.63 → 41.12**, a ratio of 3.53 against √10 = 3.16. Deterministic rounding
+  is now rejected on measured evidence rather than on assertion.
+- [x] 3.4 Isolate exchange error from integration error — verify by a toy whose
   ODE has zero derivative: after 600 handshakes every count is unchanged
-  *exactly*, so any drift is attributable to the exchange alone.
-- [ ] 3.5 Debit the deferred counters under the published clamped policy — verify
+  *exactly*, so any drift is attributable to the exchange alone. **Done:** every
+  count and every pool is bitwise unchanged across all 600 handshakes, not only
+  at the end, and the carried remainders stay below 1e-6. A second test closes
+  the gap this one leaves open — with a zero derivative nothing would catch a
+  `step!` that moved the clock without solving — by comparing a handshake's ODE
+  step against an independent solve of the same problem over the same second.
+- [x] 3.5 Debit the deferred counters under the published clamped policy — verify
   by a test where the cost exceeds the pool: the pool floors at zero, the carried
   deficit equals the shortfall exactly, and the next step debits it; and by the
   existing gradient report naming the edge when a differentiable sub-model is
-  present.
-- [ ] 3.6 Execute the enzyme-concentration channel — protein counts overwriting
+  present. **Done:** a 250-particle cost against a 100-particle pool floors the
+  pool at exactly 0.0 and carries a deficit of exactly 150.0, which the next
+  handshake repays in full against a refilled pool. `check_gradient_safety`
+  returns the one obstruction and names `M_atp_c`.
+- [x] 3.6 Execute the enzyme-concentration channel — protein counts overwriting
   the ODE's enzyme concentration through a catalytic edge's parameter slot —
   verify by a test that a step change in the toy's protein count changes the ODE
-  flux by the ratio of counts and changes nothing else.
-- [ ] 3.7 Run check 7's clipping census on the toy — verify by zero carried
+  flux by the ratio of counts and changes nothing else. **Done:** 400 and 800
+  copies fill the slot with exactly `n / 20180.5` mM, the flux ratio is exactly
+  2.0 at a common state, and every other parameter is untouched. `param_slot`
+  had been a required field no code read; it now has semantics and is resolved
+  at build time.
+- [x] 3.7 Run check 7's clipping census on the toy — verify by zero carried
   deficits at nominal parameters and by the fraction of 200 prior draws that clip
-  being recorded, since K5 fires here or nowhere.
-- [ ] 3.8 Measure and record wall-clock — verify by a Slurm run reporting seconds
+  being recorded, since K5 fires here or nowhere. **Done: K5 does not fire.**
+  Zero carried deficits over 600 handshakes at nominal parameters, and **0 of
+  200** prior draws clip at any handshake (0.0% against the 5% threshold). Read
+  narrowly: the toy's pool is ~74,000 particles against a ~40 particle/s drain,
+  so this bounds the *mechanism*, not Core A′'s charged-tRNA counter, which
+  D13/D14 put at ~553 residues/s against a pool of order 10³ and which is
+  re-scored in phase 14.
+- [x] 3.8 Measure and record wall-clock — verify by a Slurm run reporting seconds
   per simulated second and the 6,300 s extrapolation, an explicit pass or fail
   against the phase's stated budget, and the number written into `docs/handoff.md`
   and into the scoping note's open-questions list, which carries it as unmeasured
-  today.
-- [ ] 3.9 Suite, count and verdict — verify by `sbatch test/run_tests.slurm`
+  today. **Done:** job 16190602 on dave15, in
+  `dev/scripts/bench_handshake_result.md`. 1.53e-06 s per simulated second with
+  the pool frozen and 1.65e-06 s with the rate law live, steady across 60, 300
+  and 600 s horizons, extrapolating to **0.010 s per 6,300 s trajectory against
+  a 10 s budget — PASS**. Recorded as a *floor*: the toy is one gene and two
+  metabolite states against seventeen and thirty-two, so K1 is decided by task
+  13.7, not here.
+- [x] 3.9 Suite, count and verdict — verify by `sbatch test/run_tests.slurm`
   passing and by the kill-criterion verdict written down as a sentence rather
-  than implied by the pull request merging.
+  than implied by the pull request merging. **The verdict: the project
+  continues.** The 1 s handshake is expressible inside the sub-model protocol
+  with no per-module special case — the driver reads only `formalism`,
+  `coupling`, `states` and `parameters`, and neither toy module knows it is
+  being handshaked — and the measured cost is three orders of magnitude inside
+  the budget. Neither of the phase's two stated kill conditions fired, and K5
+  did not fire on the toy. **Suite:** job 16191331, 1083/1083 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
 
 ### Phase 4 — The 60 s rebuild
 

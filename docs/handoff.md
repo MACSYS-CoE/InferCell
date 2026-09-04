@@ -1,9 +1,101 @@
 # Handoff
 
 **Session date:** 2026-09-04
-**Branch:** `phase2`
+**Branch:** `phase3`
 
-## Latest: phase 2 — several jump modules compose (2026-09-04)
+## Latest: phase 3 — the 1 s handshake, on a two-module toy (2026-09-04)
+
+Spec §11 phase 3, **the kill phase**, delivered as PR_LINE from branch
+`phase3`. **Neither of the phase's two stated kill conditions fired, and K5 did
+not fire on the toy. The project continues.**
+
+**What now runs.** A mixed ODE/jump composition returns a `HandshakeDriver`
+instead of throwing (spec §2, G1 — the one-line refusal at
+`src/orchestrator.jl:27` is gone), and three of the seven edge kinds execute
+rather than merely resolve (G2). Every simulated second: protein counts fill
+rate-law parameter slots through a `CatalyticEdge`, the metabolic block
+integrates one second, accrued costs are debited against the pools through a
+`DeferredCounterEdge` under the published clamped policy, and the stochastic
+block advances one second.
+
+**Mechanism (task 3.1): an outer loop over two stepped integrators**, mirroring
+the published `hookSimulation` at `delt = 1.0` s. The two rejected candidates
+are in the PR. The one worth knowing: a `JumpProblem` over an `ODEProblem` — the
+SciML-native hybrid, and the obvious choice — makes propensities track the ODE
+pools *continuously*, which is a different model from the published one and
+leaves phase 4's task 4.3 ("propensities bitwise unchanged between refreshes")
+with nothing to be true about. No new dependency: `init`, `step!` and
+`reset_aggregated_jumps!` come from SciMLBase and JumpProcesses, both already
+direct deps, so `Project.toml` is untouched.
+
+**The two blocks keep separate state vectors** — ODE in mM over `Float64`, jump
+in particles over `Int`. That is what makes the conversion a real boundary, and
+it is the fact phases 4 to 12 most need to hold onto.
+
+**Measured, not asserted:**
+
+| What | Measured |
+|---|---|
+| conversion factor | 20,180 particles/mM at 200 nm, **derived** from Avogadro and a sphere |
+| check 0, fractional carry | drift **0.0** particles at 630 and at 6,300 hooks; round trip exactly zero |
+| check 0, deterministic | **252.0 → 2,520.0** — exactly linear, so the spec's rejection is now evidenced |
+| check 0, stochastic | RMS **11.63 → 41.12** over 60 seeds, ratio 3.53 vs √10 = 3.16 |
+| task 3.4 | every count and pool **bitwise unchanged** across all 600 handshakes |
+| task 3.5 | 250-particle cost on a 100-particle pool: floors at **0.0**, deficit **150.0** exactly, repaid next hook |
+| task 3.6 | 400 vs 800 copies: slot filled with exactly `n/20180.5`, flux ratio exactly **2.0**, nothing else moved |
+| check 7 census | **0** deficits at nominal; **0 of 200** prior draws clip |
+| task 3.8 wall-clock | **1.53e-06 s** per simulated second frozen, 1.65e-06 s live → **0.010 s per 6,300 s trajectory** against a 10 s budget |
+
+**Three things a reader should not over-read.**
+
+1. **The wall-clock is a floor, not Core A′'s cost.** One gene and two metabolite
+   states against seventeen and thirty-two. It establishes that the exchange
+   carries no fatal per-handshake overhead; K1 is decided by task 13.7.
+2. **The clipping census bounds the mechanism, not Core A′'s counter.** The toy
+   drains ~40 particles/s from ~74,000. D13/D14 put the charged-tRNA counter at
+   ~553 residues/s against a pool of order 10³, which is the case K5 is really
+   about, and it is re-scored in phase 14.
+3. **Nothing here executes the 60 s rebuild or the volume chain.** `RateConstantEdge`
+   and `VolumeEdge` are still declare-only. Phases 4 and 5 hook into the same loop.
+
+**A new refusal phases 6–12 inherit: a state name may not be owned in both
+blocks.** The blocks hold separate vectors, so one name for two states makes
+every crossing that mentions it resolve to whichever block was asked first —
+phase 2's aliasing bug arriving *between* blocks instead of inside one.
+`_check_state_ownership` cannot catch it: it looks only within a block and only
+at registry species. This surfaced because rewriting the test that pinned the
+old mixed-formalism refusal showed `TranscriptionTranslation` +
+`StochasticGeneExpression` had quietly *stopped* failing. Recorded as an
+annotation on task 3.2 rather than a §12 amendment: it is a new rule, not a
+contradicted one.
+
+**`param_slot` now has semantics.** It was a required field on `CatalyticEdge`
+that no code in `src/` read. It is resolved at build time to the declaring
+module's own free parameter, and a slot that is not one is refused by name.
+
+**Two facts about the test environment**, both cost time if met cold. The Julia
+depot had been wiped, so the first run rebuilt the whole stack (~20 min). And
+because caches are keyed on CPU target (`-C native`), alternating between the
+login node and compute nodes invalidates them and forces a full recompile each
+way — run the suite through Slurm and stay there.
+
+**Suite:** 1083 passed, 0 failed (job 16191331); 1006 before the phase.
+
+### Next steps
+
+1. Phase 4, the 60 s rebuild, is the natural next one: it hooks into
+   `handshake_step!` between the debit and the SSA step, where a comment marks
+   the slot. It is the user's call to start it.
+2. Phase 5 (growth and volume) then makes `radius_nm` live; the conversion
+   already takes it as an argument rather than closing over it, so that is a
+   call-site change and not an equation change.
+3. The ODE track (phases 6–9) remains independent and may still fan out.
+4. When writing any module: a state name may not be owned in both blocks; debits
+   to ODE pools go through a `DeferredCounterEdge`, never through an affect; and
+   a catalytic edge's `param_slot` must name the declaring module's own free
+   parameter.
+
+## Previous: phase 2 — several jump modules compose (2026-09-04)
 
 Spec §11 phase 2, delivered as PR #43 from branch `phase2`. **Two or more
 jump modules now compose correctly, and a jump module can read and write a
