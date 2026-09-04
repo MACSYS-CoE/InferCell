@@ -264,13 +264,25 @@ _exact_mM(n) = n / _F
         ref = build_problem([ToyPool(kcat = 30.0, enzyme = counts_to_mM(n, _F),
                                      atp0 = _exact_mM(73717))]; tspan = (0.0, 1.0))
         sol = solve(ref, Rodas5P(); abstol = 1e-10, reltol = 1e-8)
-        @test d.ode.u[1] ≈ sol.u[end][1] rtol = 1e-6
+
+        # ADP is not named by any deferred counter, so nothing quantises it and
+        # it must match the reference to solver tolerance.
         @test d.ode.u[2] ≈ sol.u[end][2] rtol = 1e-6
+
+        # ATP *is* the debited pool, so the hook writes it back through whole
+        # particles and it is quantised by construction — the two cannot agree
+        # to solver tolerance, and an assertion that they do would be asserting
+        # the rounding policy is inert. The right bound is the conversion's own
+        # resolution: one particle is 1/20180.5 mM, and the step agrees with an
+        # independent solve to better than that.
+        one_particle = 1.0 / _F
+        @test abs(d.ode.u[1] - sol.u[end][1]) < one_particle
+        @test d.ode.u[1] * _F ≈ round(d.ode.u[1] * _F) atol = 1e-6   # it is whole
+        @info "3.4 integration against an independent solve" atp_handshake = d.ode.u[1] atp_reference = sol.u[end][1] gap_in_particles = abs(d.ode.u[1] - sol.u[end][1]) * _F
 
         # And it actually moved: a no-op step would leave the pool untouched.
         @test d.ode.u[1] < u0[1]
         @test d.ode.u[2] > u0[2]
-        @info "3.4 integration against an independent solve" atp_handshake = d.ode.u[1] atp_reference = sol.u[end][1] atp_start = u0[1]
     end
 
     @testset "3.7 check 7: the clipping census" begin
