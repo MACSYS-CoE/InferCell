@@ -356,17 +356,37 @@ _exact_mM(n) = n / _F
         @test u.debits[1].deficit == 0.0
         @test u.n_clipped == 0                    # nothing was withheld
 
-        # :smoothed — the other labelled departure. The pool stays above zero,
-        # and a cost far inside a deep pool must NOT be scored as clipping: the
-        # softplus leaves a positive residue at every step, so a bare
-        # `deficit > 0` test would report 100% clipping and make the census that
-        # scores K5 useless exactly where :smoothed is adopted to escape K5.
+        # :smoothed — the other labelled departure, and the one whose whole
+        # purpose is to be a *differentiable* approximation of the clamp. Two
+        # things are worth pinning, and neither is "the pool stays positive":
+        # that is true only while the smoothing width is comparable to the
+        # shortfall.
+        #
+        # First, a cost far inside a deep pool must NOT be scored as clipping.
+        # The softplus leaves a strictly positive residue at every step however
+        # deep the pool, so a bare `deficit > 0` test would report 100% clipping
+        # and make the census that scores K5 useless exactly where :smoothed is
+        # adopted to escape K5.
         deep = clip_run(:smoothed; smoothing = 1.0, pool = 73717, accrued = 100)
         @test deep.ode.u[1] > 0
         @test deep.n_clipped == 0
-        starved = clip_run(:smoothed; smoothing = 1.0)
-        @test starved.ode.u[1] > 0                # smoothing keeps it off the floor
-        @test starved.n_clipped == 1              # but the shortfall is real
+
+        # Second, the approximation converges to the policy it approximates. At
+        # a width far below the shortfall the softplus is the hard max to well
+        # inside a particle, so :smoothed reproduces the clamped answer exactly
+        # — pool on the floor, deficit the full shortfall.
+        narrow = clip_run(:smoothed; smoothing = 1.0)
+        @test narrow.ode.u[1] == 0.0
+        @test narrow.debits[1].deficit ≈ 150.0
+        @test narrow.n_clipped == 1
+
+        # At a width comparable to the shortfall it visibly departs: the pool is
+        # held off the floor, at the price of withholding more than the hard
+        # shortfall. That gap is the deviation the label is for.
+        wide = clip_run(:smoothed; smoothing = 200.0)
+        @test wide.ode.u[1] > 0
+        @test wide.debits[1].deficit > 150.0
+        @test wide.n_clipped == 1
     end
 
     @testset "3.5 the clamped counter is reported as a gradient obstruction" begin
