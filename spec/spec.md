@@ -1983,7 +1983,7 @@ significant figures the source states it in — it is 200.03505 nm, and see task
   composition grows: it is a statement about the reduction. Phase 14 task 14.9
   consumes it.
 - [x] 5.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
-  **Done:** job 16225559, **1358/1358** (1230 before the phase). Task 3.8's
+  **Done:** job 16226536, **1381/1381** (1230 before the phase). Task 3.8's
   wall-clock artefact was re-run in the same pass, as phase 4 did, because step
   0 adds work to every handshake. `dev/scripts/bench_handshake.jl` gains a
   **matched pair** — the same gene at the same 831 initial copies, with and

@@ -52,7 +52,7 @@ false, the same call tasks 2.2 and 3.2 made.
 | task 5.3, dilution | at 831 → 1662 copies every concentration falls by **0.93440**, against `(200.035046/204.610919)³ = 0.93440` from the geometry; counts preserved to `rtol = 1e-14`; carried remainders bitwise unchanged; the exempt state untouched |
 | task 5.4, the cap | volume stops at exactly `2 × V(0)` at 50,000 copies and stays there at 500,000, while the radius keeps rising |
 | task 5.5, the arithmetic | area **502,831.0 → 526,099.0 nm² exactly**, radius **200.03505 → 204.61092 nm**, volume **1.07021×** |
-| task 5.7, wall-clock | worst extrapolation well inside K1's 10 s budget; the chain's own cost is reported against a **matched control** (the same gene at the same 831 copies without the flag) and beside the within-configuration spread, and is **not** claimed to be resolved above it |
+| task 5.7, wall-clock | worst extrapolation **0.019 s** per 6,300 s trajectory (job 16226707) against K1's 10 s budget, unchanged from phase 4; the chain's own cost against a **matched control** is **+1.9% / +4.4% / +2.2%** at the three horizons against within-configuration spreads of **1.5–8.5%**, so it is **not resolved above the scatter** and is not claimed to be |
 
 **Four things a reader should not over-read.**
 
@@ -122,7 +122,7 @@ model's** and is why growth reaches ~1.07× rather than approaching the 2× cap.
 §6 T2 already lists exogenous membrane growth as a row; the footprint is a row
 T2 does not yet have, and gains one through this label.
 
-**Suite:** 1358 passed, 0 failed (job 16225559); 1230 before the phase.
+**Suite:** 1381 passed, 0 failed (job 16226536); 1230 before the phase.
 
 ### Next steps
 
