@@ -1844,7 +1844,7 @@ elasticity of a rate constant to its upstream pool is reported.
   the mechanism and nothing else.**
 - [x] 4.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that bidirectional coupling is now executed rather
-  than declared. **Done:** job 16221973, **1230/1230** (1126 before the phase);
+  than declared. **Done:** job 16222708, **1230/1230** (1126 before the phase);
   the handoff records that five of the seven edge kinds now execute and that
   volume and clamped remain. Phase 3's wall-clock artefact was re-run in the
   same pass, since `run_handshake!` now copies the jump parameter vector per
