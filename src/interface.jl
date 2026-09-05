@@ -268,6 +268,74 @@ function of `pools` and of the module's *other* parameters.
 rate_constants(p, t, ::AbstractSubModel, pools) = SVector{0, Float64}()
 
 """
+    membrane_protein_states(m::AbstractSubModel) -> Vector{Symbol}
+
+States of `m` whose **counts** set the cell's membrane surface area, and so its
+radius, its volume, and every count-to-concentration conversion. Defaults to
+empty.
+
+This is the declaration side of the volume channel (spec §11 phase 5), the one
+coupling channel that runs on neither the 1 s nor the 60 s clock. The published
+model computes `CellSA_Prot = 28.0 nm² × Σ(membrane protein counts)` every hook
+and derives radius and volume from it
+(`dev/notes/well-stirred-minimal-cell.md:178-196`); the driver does the same
+over whatever a composition flags here.
+
+The flag is **data on the module** rather than knowledge in the growth code, so
+that a composition is *swept* for its membrane proteins rather than the driver
+knowing which sub-model to ask. Every name must therefore be one of the
+declaring module's own [`states`](@ref), and no two modules may flag the same
+species — it would be counted into the area twice. Both are refused by name.
+
+Either block may declare it. A `:jump` module's state is already a count; an
+`:ode` module's is a concentration, and its count is `u × factor` at the
+conversion factor in force at that hook, which is the published semantics —
+the particle map is master at the hook instant. The count is used as a
+continuous value rather than rounded, so the geometry injects no drift of its
+own into check 0's round trip.
+
+A module that declares names here must also declare an outbound
+[`VolumeEdge`](@ref) on each of them, and the converse: a volume edge with
+nothing flagged is a channel declared and never executed. Both are refused at
+build time.
+"""
+membrane_protein_states(::AbstractSubModel) = Symbol[]
+
+"""
+    membrane_protein_states(models::Vector{<:AbstractSubModel}) -> Vector{Symbol}
+
+Every membrane-protein state in a composition, in composition order, found by
+sweeping the models rather than by knowing which one declares them.
+
+This is the query spec §11 tasks 5.1 and 7.6 are written against: a module that
+did not declare the flag can find every contributing state without naming any
+other module's type. Refuses, by name, a flag on a state the declaring module
+does not own, and the same species flagged twice.
+"""
+function membrane_protein_states(models::Vector{<:AbstractSubModel})
+    flagged = Symbol[]
+    declarers = Dict{Symbol, Symbol}()
+    for m in models
+        id = module_id(m)
+        own = states(m)
+        for s in membrane_protein_states(m)
+            s in own || throw(ArgumentError(
+                "Module $id flags :$s as a membrane protein, but does not own " *
+                "it — states($id) is $own. The flag is data on the module that " *
+                "integrates the state, so that a composition can be swept for " *
+                "its membrane proteins; flag it on the module that owns it"))
+            haskey(declarers, s) && throw(ArgumentError(
+                "Modules $(declarers[s]) and $id both flag :$s as a membrane " *
+                "protein, so its count would enter the surface area twice. One " *
+                "declaration per species"))
+            declarers[s] = id
+            push!(flagged, s)
+        end
+    end
+    return flagged
+end
+
+"""
     SubModelContext(state_idxs, param_idxs, input_map[, contrib_idxs])
 
 Per-sub-model bookkeeping built by the orchestrator: where this sub-model's

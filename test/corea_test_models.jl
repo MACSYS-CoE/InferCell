@@ -3,10 +3,11 @@ using InferCell
 # `using` brings these into scope but does not permit extending them; adding a
 # method to another module's function needs an explicit import.
 import InferCell: states, parameters, coupling, inputs, reduction_notes,
-                  inference_mode, module_id, formalism, contributed_states
+                  inference_mode, module_id, formalism, contributed_states,
+                  membrane_protein_states
 
 """
-    CoreAStub(id; st, edges, ins, contribs, params, notes, mode, form)
+    CoreAStub(id; st, edges, ins, contribs, params, notes, mode, form, membrane)
 
 A minimal `AbstractSubModel` for exercising the Core A′ interface contract.
 
@@ -30,6 +31,7 @@ struct CoreAStub <: AbstractSubModel
     notes::Vector{String}
     mode::Symbol
     form::Symbol
+    membrane::Vector{Symbol}
 end
 
 function CoreAStub(id::Symbol;
@@ -40,7 +42,8 @@ function CoreAStub(id::Symbol;
                    params = InferParameter[],
                    notes = String[],
                    mode = :simulation,
-                   form = :ode)
+                   form = :ode,
+                   membrane = Symbol[])
     return CoreAStub(id,
                      collect(Symbol, st),
                      collect(CouplingEdge, edges),
@@ -49,7 +52,8 @@ function CoreAStub(id::Symbol;
                      collect(InferParameter, params),
                      collect(String, notes),
                      mode,
-                     form)
+                     form,
+                     collect(Symbol, membrane))
 end
 
 # The suite's error-capture idiom: run `f`, return the exception it throws so
@@ -65,3 +69,4 @@ contributed_states(m::CoreAStub) = m.contribs
 reduction_notes(m::CoreAStub) = m.notes
 inference_mode(m::CoreAStub) = m.mode
 formalism(m::CoreAStub) = m.form
+membrane_protein_states(m::CoreAStub) = m.membrane
