@@ -85,7 +85,7 @@ because caches are keyed on CPU target (`-C native`), alternating between the
 login node and compute nodes invalidates them and forces a full recompile each
 way — run the suite through Slurm and stay there.
 
-**Suite:** 1115 passed, 0 failed (job 16212263); 1006 before the phase.
+**Suite:** 1124 passed, 0 failed (job 16212915); 1006 before the phase.
 
 ### Next steps
 

@@ -1677,7 +1677,7 @@ here and the architecture is revisited rather than scaled. See K1.
   `coupling`, `states` and `parameters`, and neither toy module knows it is
   being handshaked — and the measured cost is three orders of magnitude inside
   the budget. Neither of the phase's two stated kill conditions fired, and K5
-  did not fire on the toy. **Suite:** job 16212263, 1115/1115 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
+  did not fire on the toy. **Suite:** job 16212915, 1124/1124 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
 
 ### Phase 4 — The 60 s rebuild
 
