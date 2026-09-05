@@ -115,6 +115,10 @@ end
 base = ensemble(1.0)
 factor = corea_particles_per_mM()
 
+# Which pool the deferred counter actually draws on, read from the lowered
+# channel rather than assumed, so the sawtooth is reported where it exists.
+const DEBITED = only(build_problem(MODELS(); tspan = (0.0, 60.0)).debits).pool_idx
+
 # The paired relative difference at one family of instants: mean over seeds of
 # (coarse - base) / mean(base), and the standard error of that mean taken from
 # the per-seed differences themselves.
@@ -136,8 +140,11 @@ for drain in DRAINS
     n = size(m, 1)
     last_i = argmax(abs.(m[n, :]))                      # the final instant, no selection
     k = argmax(abs.(m))                                 # the largest of n × 2
-    pm, _ = paired(e.predrain, base.predrain)
-    sawtooth_i = argmax(abs.(pm))
+    # The sawtooth belongs to the *debited* pool by construction, so it is read
+    # there and at the final pre-drain instant, rather than selected as a
+    # maximum — a maximum over both pools would pick a noise extreme on the pool
+    # the counter never touches, in a column whose whole claim is determinism.
+    pm, pse = paired(e.predrain, base.predrain)
     # The closed form the mid-period offset should equal: the accrual the coarse
     # configuration is still holding, as a fraction of the pool it has not left.
     held = mean(e.pending) - mean(base.pending)          # particles
@@ -146,8 +153,9 @@ for drain in DRAINS
            final = m[n, last_i], final_se = se[n, last_i], final_pool = POOLS[last_i],
            max = m[k], max_se = se[k], max_pool = POOLS[k[2]], max_t = k[1] * ALIGN,
            n_points = length(m),
-           sawtooth = pm[sawtooth_i], sawtooth_pool = POOLS[sawtooth_i[2]],
-           closed_form = held / factor / mean(@view base.predrain[:, end, 1])))
+           sawtooth = pm[end, DEBITED], sawtooth_se = pse[end, DEBITED],
+           sawtooth_pool = POOLS[DEBITED],
+           closed_form = held / factor / mean(@view base.predrain[:, end, DEBITED])))
 end
 
 resolved(r) = abs(r.final) > 2 * r.final_se
@@ -221,14 +229,14 @@ for r in drain_rows
 end
 println(io)
 println(io, "And the quantity that is **not** a granularity cost, reported separately so it")
-println(io, "cannot be mistaken for one: the sawtooth of the outstanding debit, measured one")
-println(io, "handshake before a drain, beside its closed form.")
+println(io, "cannot be mistaken for one: the sawtooth of the outstanding debit, measured on")
+println(io, "the debited pool one handshake before the last drain, beside its closed form.")
 println(io)
-println(io, "| drain (s) | mid-period offset | pool | closed form |")
-println(io, "|---|---|---|---|")
+println(io, "| drain (s) | mid-period offset | ± SE | pool | closed form |")
+println(io, "|---|---|---|---|---|")
 for r in drain_rows
-    @printf(io, "| %.0f | %+.5f | %s | %+.5f |\n",
-            r.drain, r.sawtooth, r.sawtooth_pool, r.closed_form)
+    @printf(io, "| %.0f | %+.5f | %.5f | %s | %+.5f |\n",
+            r.drain, r.sawtooth, r.sawtooth_se, r.sawtooth_pool, r.closed_form)
 end
 println(io)
 println(io, """
