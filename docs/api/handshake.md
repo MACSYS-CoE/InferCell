@@ -26,13 +26,17 @@ record.rebuilds      # one row per rebuilding module: params, pools, interval, r
 | `interval` | `1.0` | the exchange period, in simulated seconds |
 | `drain_interval` | `interval` | how often the deferred counters are debited; must be a whole number of exchanges, and is a labelled reduction when coarser |
 | `rounding` | `:fractional_carry` | how a continuous pool is written back as whole particles |
-| `radius_nm` | `200.0` | the cell radius behind the count↔concentration conversion |
+| `radius_nm` | `200.0` | the cell radius behind the count↔concentration conversion, for a composition with a **fixed** cell; refused alongside a growing one |
+| `initial_surface_area_nm2` | `502831.0` | the published initial membrane area, which is the primitive for a **growing** cell |
+| `footprint_nm2` | `28.0` | nm² of surface area per membrane protein |
 | `ode_solver` | `Rodas5P()` | the stiff integrator for the metabolic block |
 | `abstol`, `reltol` | `1e-10`, `1e-8` | pinned tolerances |
 
 ## Counts and concentrations
 
 `corea_particles_per_mM(radius_nm)` derives the conversion factor from Avogadro's constant and the volume of a sphere, rather than carrying a transcribed constant: at the published 200 nm radius it returns 20180.39 particles per mM, the 20,180 the scoping note records. `counts_to_mM(n, factor)` is exact division; the other direction needs a policy, because particles are whole.
+
+The factor is **live** where the composition grows. A growing cell starts from the published *area* rather than a radius, so its initial factor is 20190.998 rather than 20180.39 — a 0.05% difference, and the reason the driver refuses to be handed both.
 
 ### Rounding policies
 
@@ -64,10 +68,30 @@ Note that a rebuilt parameter is a *derived* quantity that the inference entry p
 
 `rebuild_census(driver)` reports one row per rebuilding module: its parameters, its pools, its interval and how many times it has refreshed.
 
+## Growth and volume
+
+A [`VolumeEdge`](corea-interface.md) declares that a state's count sets the cell's membrane surface area. The module owning that state flags it with `membrane_protein_states(m)` and declares one outbound edge per flagged state; `membrane_protein_states(models)` is the sweep that finds them all, so a composition is asked rather than a module type named. Either block may declare it — a jump state is already a count, an ODE state's count is `u * factor` at the factor in force at that hook, which is the published semantics.
+
+The chain is the published model's, from `in_out.py:107`:
+
+```
+area   = baseline + 28.0 nm² × Σ(membrane protein counts)
+radius = sqrt(area / 4π)
+volume = (4/3) π radius³,   capped at twice the initial volume
+```
+
+The baseline is derived at build time, not written down: it is whatever makes the composition's own initial counts come to `initial_surface_area_nm2`. For Core A′ that is 502,831 − 831 × 28.0 = 479,563 nm², and it is **frozen** — the lipid leaflet and the membrane-protein loci outside the reduction are exogenous, which is why growth reaches ~1.07× rather than approaching the cap.
+
+It runs at **step 0 of every handshake**, on neither the 1 s nor the 60 s clock, so every conversion in that exchange uses one volume. A change in the factor rescales every ODE state at constant particle count, which is what makes growth a coupling channel rather than a reported diagnostic. A state whose millimolar is referred to another volume — external lactate, in the medium — is exempted with `extracellular_states(m)` and is not diluted.
+
+`growth_census(driver)` reports the flagged states and which block each is read from, the membrane count, the baseline and footprint, and the live area, radius, volume, factor and fractional growth. `run_handshake!` records the same geometry per handshake, so the law is read off the trajectory rather than asserted from the counts that produced it.
+
+**Growth may be reported as fractional growth or time-to-threshold, and as nothing else.** `reporting_constraints(driver)` returns that constraint as retrievable data and `doubling_time(driver)` throws: Core A′ removes roughly 92% of the cell, so a comparison to syn3A's 105-minute doubling time would be meaningless, and spec §7 requires the code rather than the prose to refuse it. `growth_report(driver)` and `time_to_threshold(record, x)` are the two admissible reportings.
+
 ## Driver-level departures
 
-`driver_declarations(driver)` enumerates the departures carried by the driver's *policy* rather than by any module's declarations — a `drain_interval` coarser than the exchange, and a rounding policy other than fractional carry. `reduction_declarations(models)` structurally cannot see either, so pass the driver as a second argument to `reduction_declarations` or `reduction_report` when reporting beside a result.
+`driver_declarations(driver)` enumerates the departures carried by the driver's *policy* rather than by any module's declarations — a `drain_interval` coarser than the exchange, a rounding policy other than fractional carry, and, where the cell grows, the 28.0 nm² footprint being the published model's *calibrated* constant (its own docstring says 35 nm²; the code governs) and the frozen exogenous membrane baseline. `reduction_declarations(models)` structurally cannot see any of them, so pass the driver as a second argument to `reduction_declarations` or `reduction_report` when reporting beside a result.
 
 ## What this layer does not yet do
 
-The volume chain is declared by [`VolumeEdge`](corea-interface.md) and is **not** executed here; it hooks into the same loop in later work, as does the clamped edge's held value, which still travels as a fixed parameter. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it.
+Volume re-entering an ODE rate law — the other half of the volume channel, which spec §11 task 7.2 wants for the lactate exporter's `3P/r` — is not built: `VolumeEdge` carries no parameter slot to write it into, and an inbound edge is refused rather than left to resolve and never run. The clamped edge's held value still travels as a fixed parameter. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it.

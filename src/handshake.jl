@@ -1,14 +1,16 @@
 """
 The 1 s handshake: executing the coupling the edge kinds declare.
 
-Spec §11 phases 3 and 4. Phase 1 made mass and currency edges execute inside
-the ODE block; phase 3 added the catalytic and deferred-counter channels and
-phase 4 the rate-constant one, so five of the seven [`CouplingEdge`](@ref)
-kinds now run and two — volume and clamped — remain declare-and-validate only. It
-advances a jump block and an ODE block by a split-operator exchange, mirroring
-the published model's `hookSimulation` (`dev/notes/well-stirred-minimal-cell.md`):
-every `delt = 1.0` s, counts become initial conditions, the metabolic block
-integrates one second, and the accrued costs are debited back.
+Spec §11 phases 3, 4 and 5. Phase 1 made mass and currency edges execute inside
+the ODE block; phase 3 added the catalytic and deferred-counter channels, phase
+4 the rate-constant one and phase 5 the volume chain, so six of the seven
+[`CouplingEdge`](@ref) kinds now run and one — clamped — remains
+declare-and-validate only, its held value still travelling as a fixed
+parameter. It advances a jump block and an ODE block by a split-operator
+exchange, mirroring the published model's `hookSimulation`
+(`dev/notes/well-stirred-minimal-cell.md`): every `delt = 1.0` s the cell is
+remeasured from its membrane proteins, counts become initial conditions, the
+metabolic block integrates one second, and the accrued costs are debited back.
 
 **Mechanism, chosen in task 3.1: an outer loop over two stepped integrators.**
 The two rejected alternatives, and why, are recorded in the pull request. The
