@@ -1811,14 +1811,18 @@ elasticity of a rate constant to its upstream pool is reported.
   an assumption. **Done:** a `drain_interval` on the driver, defaulting to the
   handshake interval, required to be a whole number of them, and labelled by
   `driver_declarations` when coarser. Measured over 300 replicates at a 600 s
-  horizon, **paired per seed** and sampled at **drain-aligned** handshakes: the
-  difference in the dynamics is **not resolved above Monte Carlo noise at
-  either granularity** — 5 s at **−0.17% ± 0.16%** and 60 s at
-  **−0.04% ± 0.17%**, both far below D10's one percent.
+  horizon, **paired per seed**, sampled at **drain-aligned** handshakes and
+  reported one row per pool with nothing selected: the difference in the
+  dynamics is **not resolved above Monte Carlo noise at either granularity, on
+  either pool**. On the debited pool it is +0.02% ± 0.02% at 5 s and
+  +0.01% ± 0.02% at 60 s; on the product pool, −0.17% ± 0.16% and
+  −0.04% ± 0.17%. All four are far below D10's one percent.
 
   Reported separately, because it is not a granularity cost: the **sawtooth of
-  the outstanding debit**, +0.65% ± 0.02% at 60 s against a closed form of
-  +0.64%, and +0.06% ± 0.02% at 5 s against +0.04%. Between drains a coarse
+  the outstanding debit** on the debited pool, +0.65% ± 0.02% at 60 s against a
+  closed form of +0.64%, and +0.06% ± 0.02% at 5 s against +0.04%. The closed
+  form is `(drain − interval)·k_tl·(k_tx/γ)·cost / (factor·pool)`, computed from
+  the toy's own declared parameters with nothing simulated. Between drains a coarse
   configuration holds up to `drain − interval` seconds of unpaid cost, so its
   pools sit high by exactly that; the quantity is deterministic and needs no
   simulation. **The first version of this measurement reported that sawtooth as

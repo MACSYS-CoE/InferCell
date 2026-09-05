@@ -53,8 +53,8 @@ interval and there is no rebuild at t = 0.
 | task 4.2 written value | bitwise equal to the module's own law at that handshake's recorded pool |
 | task 4.3 piecewise-constancy | rebuilt slot bitwise unchanged across each inter-refresh window while the pool moves at >150 of 180 handshakes |
 | task 4.5 elasticity | 15 (km, pool) settings against the closed form `km/(km+pool)`, worst relative error **7e-9**; gain spans **0.0025–0.667**; the `km = 0.175`, 3.6529 mM row sits at **0.0457**, inside the 0.044–0.051 band phase 10 compares against |
-| task 4.6, dynamics | drain-aligned and paired per seed: 5 s at **−0.17% ± 0.16%**, 60 s at **−0.04% ± 0.17%** — *neither resolved above noise*, both far below D10's 1% |
-| task 4.6, sawtooth | reported separately: 60 s at **+0.65% ± 0.02%** against a closed form of **+0.64%**; 5 s at **+0.06% ± 0.02%** against **+0.04%** |
+| task 4.6, dynamics | drain-aligned, paired per seed, one row per pool: on the debited pool **+0.02% ± 0.02%** (5 s) and **+0.01% ± 0.02%** (60 s); on the product pool **−0.17% ± 0.16%** and **−0.04% ± 0.17%** — *none resolved above noise*, all far below D10's 1% |
+| task 4.6, sawtooth | reported separately, on the debited pool: 60 s at **+0.65% ± 0.02%** against a closed form of **+0.64%**; 5 s at **+0.06% ± 0.02%** against **+0.04%** |
 | task 3.8 re-run | `run_handshake!` now copies the jump parameter vector per handshake: worst extrapolation **0.019 s** per 6,300 s trajectory, up from 0.014 s, still ~500× inside K1's budget |
 
 Full tables in `dev/scripts/rebuild_channel_result.md`, which names the job and
