@@ -212,8 +212,9 @@ Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented t
 
 **G2 — there is no execution layer for coupling.** Six of the seven edge kinds
 are declare-and-validate only. **(Read as of 2026-09-03. Phase 1 made mass and
-currency execute and phase 3 the catalytic and deferred-counter channels, so
-three of the seven remain declare-only; §11 records which. G1 and G3 are
+currency execute, phase 3 the catalytic and deferred-counter channels and
+phase 4 the rate-constant one, so two of the seven — volume and clamped —
+remain declare-only; §11 records which. G1 and G3 are
 likewise closed. §2 is kept as the dated snapshot the phase ordering was
 derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
@@ -1575,7 +1576,7 @@ wall-clock per simulated second is recorded from a compute node.
 inside the sub-model protocol without a per-module special case, or if the
 measured cost extrapolates above 10 s per 6,300 s trajectory, the project stops
 here and the architecture is revisited rather than scaled. See K1.
-**PR:** #44
+**PR:** #44 (merged 2026-09-04 UTC; 2026-09-05 AEST)
 
 - [x] 3.1 Choose and record the composition mechanism — an outer split-operator
   loop over stepped integrators, a discrete callback on a single problem, or a
@@ -1694,33 +1695,94 @@ shared.
 **Done when:** the toy's propensities change only at interval boundaries, the
 interval is read from the declared edge rather than hard-coded, and the measured
 elasticity of a rate constant to its upstream pool is reported.
-**PR:** _not started_
+**PR:** #45
 
-- [ ] 4.1 Decide where mutable rate constants live — in the flat parameter vector
+- [x] 4.1 Decide where mutable rate constants live — in the flat parameter vector
   the builder already returns as mutable, or as mutable state on the sub-model as
   the drafted transcription design chose — verify by the pull request recording
   the consequence for the parameter-substitution call every inference path uses,
-  since a constant held on the struct is invisible to it.
-- [ ] 4.2 Schedule the rebuild from the edge's declared interval — verify by a
+  since a constant held on the struct is invisible to it. **Done:** the parameter
+  vector, written by the hook exactly as phase 3's catalytic channel writes the
+  ODE block's. A constant held on the struct is invisible to `remake(prob; p = θ)`
+  *and* to `model_free_params`, so it could never appear in a posterior, in T1 or
+  in K6's Jacobian; that is recorded in the pull request. Which slots and what
+  fills them is a module-level declaration — `rebuilt_params(m)` and
+  `rate_constants(p, t, m, pools)`, the rate-constant twins of phase 1's
+  `contributed_states`/`contributions` — because `RateConstantEdge` carries no
+  `param_slot` and one pool feeds many constants anyway. The pools arrive as an
+  argument rather than through `inputs()`, which phase 3 forbids across the
+  boundary. Mechanism recorded in the pull request, as tasks 2.2 and 3.1 recorded
+  theirs; no §12 amendment, because nothing the spec said became false.
+- [x] 4.2 Schedule the rebuild from the edge's declared interval — verify by a
   test that a 60 s edge refreshes ten times in 600 s and a 30 s edge twenty
-  times, with the count read from the trajectory rather than asserted.
-- [ ] 4.3 Assert piecewise-constancy — verify by sampling propensities between
+  times, with the count read from the trajectory rather than asserted. **Done:**
+  exactly **10** and **20**, counted by the handshakes at which the recorded jump
+  parameter vector's rebuilt slot changed — `run_handshake!` now records that
+  vector for the purpose. The value written at a refresh equals the module's own
+  law at that handshake's recorded pool, bitwise. Nine refusals, each naming what
+  is wrong: a rebuilt name that is not one of the module's own free parameters; a
+  name a second jump module also declares (the `param_slot` dedup trap, arriving
+  on the rebuild side); a pool no ODE module integrates; rebuilt parameters with
+  no edge; an edge with nothing to rebuild; an outbound edge no jump module
+  consumes; an `:ode` module declaring `rebuilt_params`; two intervals on one
+  module; and an interval that is not a whole number of handshakes, since the
+  rebuild can only fire at one.
+- [x] 4.3 Assert piecewise-constancy — verify by sampling propensities between
   refreshes and asserting they are bitwise unchanged, so the coupling is the
   published piecewise-constant one and not an accidental continuous one.
-- [ ] 4.4 Handle a continuous cadence explicitly — verify by either implementing
+  **Done:** over 180 s at a 60 s interval the rebuilt slot is bitwise unchanged
+  across each inter-refresh window and changes at each boundary, while the
+  upstream pool takes a different value at more than 150 of the 180 handshakes —
+  so the constancy is not vacuously true of a channel that never fired. The
+  propensity statement is made at a **fixed reference state**: a raw propensity
+  moves with the jump state at every event, so only at a held state does
+  "unchanged between refreshes" say anything about the coupling.
+- [x] 4.4 Handle a continuous cadence explicitly — verify by either implementing
   it and asserting `reduction_declarations` labels it a deviation, or rejecting it
   with a named error; silently discarding the cadence field is the failure to
-  avoid.
-- [ ] 4.5 Measure the channel's gain on the toy — verify by an elasticity
+  avoid. **Done: rejected, by name.** The outer loop of task 3.1 holds a constant
+  between refreshes by construction — which is what makes 4.3 assertable at all —
+  and propensities tracking a pool continuously would need the
+  `JumpProblem`-over-`ODEProblem` shape 3.1 rejected. The error names the module,
+  the species and that reason, and points at a shorter piecewise-constant
+  interval, which is what §10 R11's cadence comparison actually varies.
+  `reduction_declarations` still labels a declared-but-unexecuted continuous edge
+  a deviation, unchanged.
+- [x] 4.5 Measure the channel's gain on the toy — verify by an elasticity
   diagnostic and by the number recorded where phase 10 compares it against the
-  0.044–0.051 the real transcription module predicts.
-- [ ] 4.6 Run D10's granularity comparison in miniature — verify by nominal
+  0.044–0.051 the real transcription module predicts. **Done:**
+  `rate_constant_elasticity` computes `d ln k / d ln pool` by central difference
+  in log space. The toy's rebuild law is Michaelis-shaped, so its elasticity has
+  the closed form `km/(km + pool)` and the diagnostic is **checked** against it
+  rather than merely reported: fifteen (km, pool) settings in
+  `dev/scripts/rebuild_channel_result.md` (Slurm job 16221198), every one
+  agreeing to better than **7e-9** relative. The gain spans **0.0025 to 0.667**
+  across that sweep, which is the point R8 makes — a channel gain is a function
+  of the quantities we assert, not a constant of the model — and the row at
+  `km = 0.175`, pool 3.6529 mM sits at **0.0457**, inside the 0.044–0.051 band
+  phase 10 will compare the real transcription channel against.
+- [x] 4.6 Run D10's granularity comparison in miniature — verify by nominal
   trajectories at 1 s, 5 s and 60 s drain granularity with the largest relative
   difference in any pool reported, so phase 13 inherits a measurement rather than
-  an assumption.
-- [ ] 4.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
+  an assumption. **Done:** a `drain_interval` on the driver, defaulting to the
+  handshake interval, required to be a whole number of them, and labelled by
+  `driver_declarations` when coarser. Measured over 300 replicates at a 600 s
+  horizon: the 5 s drain differs from the published 1 s drain by at most
+  **0.24%** of any pool's mean, against a Monte Carlo noise floor of 0.28% — so
+  **not resolved**; the 60 s drain by **0.65%**, against 0.04% — resolved, and
+  still below D10's one percent. **Phase 13 inherits a method as well as a
+  number:** the comparison has to be an ensemble, because coarsening the drain
+  changes how often the propensity aggregation is rebuilt and therefore consumes
+  a different amount of randomness, so three configurations at one seed give
+  three different paths and a single-path difference would be Monte Carlo noise
+  wearing the label of a granularity effect. Read narrowly, as the result file
+  says: the toy's ATP pool is ~404,000 particles against a ~40 particle/s drain,
+  where the pools D10 is about turn over in 109 s and 30 s.
+- [x] 4.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that bidirectional coupling is now executed rather
-  than declared.
+  than declared. **Done:** job 16221197, 1208/1208 (1126 before the phase); the
+  handoff records that five of the seven edge kinds now execute and that volume
+  and clamped remain.
 
 ### Phase 5 — Growth and volume
 
