@@ -1,4 +1,4 @@
-# Spec §11 task 3.8: measure what the 1 s handshake costs.
+# Spec §11 task 3.8, re-run at task 5.7: measure what the 1 s handshake costs.
 #
 # Runs the phase-3 toy — one jump gene-expression module and one ODE metabolite
 # module, exchanging state every simulated second — and reports seconds of
@@ -43,6 +43,16 @@ build_toy(; kcat = 0.0) = () -> begin
     build_problem([ToyPool(kcat = kcat), ToyExpression()]; tspan = (0.0, CYCLE))
 end
 
+# Phase 5's volume chain adds work to every handshake — the membrane counts are
+# summed, the geometry is recomputed, and a change in the factor rescales every
+# ODE state. It is measured rather than assumed to be free, and against the same
+# budget, because a per-handshake cost is exactly what K1 is a threshold on.
+build_growing() = () -> begin
+    Random.seed!(20260904)
+    build_problem([ToyPool(kcat = 30.0), ToyGrowingExpression(k_tx = 2.0)];
+                  tspan = (0.0, CYCLE))
+end
+
 # Provenance is captured *before* the measurements, not after. Reading
 # `git rev-parse` at write time stamps whatever HEAD happens to be when the run
 # finishes, which on a long job can be a commit made after the code was loaded —
@@ -52,8 +62,11 @@ const DIRTY = !isempty(strip(read(`git status --porcelain -- src test Project.to
 
 rows = NamedTuple[]
 for horizon in (60, 300, 600)
-    for (label, kcat) in (("frozen pool (kcat = 0)", 0.0), ("live rate law", 30.0))
-        secs = time_run(build_toy(kcat = kcat), horizon)
+    configs = (("frozen pool (kcat = 0)", build_toy(kcat = 0.0)),
+               ("live rate law", build_toy(kcat = 30.0)),
+               ("live rate law + growth", build_growing()))
+    for (label, build) in configs
+        secs = time_run(build, horizon)
         per_sim_s = secs / horizon
         push!(rows, (horizon = horizon, label = label, wall = secs,
                      per_sim_s = per_sim_s, cycle = per_sim_s * CYCLE))
@@ -79,7 +92,10 @@ println(io, "Regenerate with `sbatch dev/scripts/bench_handshake.slurm`.")
 println(io)
 println(io, "Toy: `ToyPool` (2 ODE states, stiff `Rodas5P`, abstol 1e-10, reltol 1e-8) ")
 println(io, "composed with `ToyExpression` (3 jump states, 3 reactions), exchanging ")
-println(io, "every 1.0 s under the `:fractional_carry` rounding policy.")
+println(io, "every 1.0 s under the `:fractional_carry` rounding policy. The third ")
+println(io, "configuration swaps in `ToyGrowingExpression`, whose membrane protein ")
+println(io, "drives phase 5's volume chain, so every handshake also recomputes the ")
+println(io, "cell and dilutes the ODE block.")
 println(io)
 println(io, "| horizon (s) | configuration | wall-clock (s) | s per simulated s | extrapolated to 6,300 s |")
 println(io, "|---|---|---|---|---|")
@@ -103,8 +119,11 @@ task 13.7, at full scale.
 What the measurement does bound honestly is the per-handshake overhead of the
 exchange itself, which is the quantity the mechanism choice of task 3.1 was
 made on: the frozen-pool row runs the same 1 s loop with a zero derivative, so
-the gap between the two rows is integration and the frozen row is very nearly
-the handshake alone.""")
+the gap between it and the live row is integration and the frozen row is very
+nearly the handshake alone. The gap between the live row and the growth row is
+phase 5's volume chain, on two ODE states — it scales with the number of states
+diluted, so at Core A′'s thirty-two it is larger, and again bounded rather than
+estimated here.""")
 
 s = String(take!(io))
 print(s)
