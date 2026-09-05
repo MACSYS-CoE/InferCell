@@ -1,8 +1,10 @@
 """
 The 1 s handshake: executing the coupling the edge kinds declare.
 
-Spec §11 phase 3. Six of the seven [`CouplingEdge`](@ref) kinds were
-declare-and-validate only; this file is where three of them start to *run*. It
+Spec §11 phase 3. Phase 1 made mass and currency edges execute inside the ODE
+block; this file adds the catalytic and deferred-counter channels, so four of
+the seven [`CouplingEdge`](@ref) kinds now run and three — rate constant,
+volume and clamped — remain declare-and-validate only. It
 advances a jump block and an ODE block by a split-operator exchange, mirroring
 the published model's `hookSimulation` (`dev/notes/well-stirred-minimal-cell.md`):
 every `delt = 1.0` s, counts become initial conditions, the metabolic block
@@ -86,9 +88,14 @@ policies have three different *signatures*, and the check is on the signature
 rather than on any single magnitude:
 
 - `:fractional_carry` — the remainder is carried to the next handshake, so the
-  emitted counts track the exact running total and the residual is **exactly
-  zero**. The default, and the only policy under which the tolerance principle
-  of §3 tests the integrator rather than the rounding.
+  quantisation injected at each hook **telescopes**: the emitted counts track
+  the exact running total and what is left is one carry, bounded by half a
+  particle and not growing with the handshake count. The default, and the only
+  policy under which the tolerance principle of §3 tests the integrator rather
+  than the rounding. Note the telescoping is a statement about the injected
+  perturbations, not about the residual of the trajectory they are injected
+  into: a nonlinear right-hand side does not preserve it, which is why task
+  3.4 asserts exactness on a frozen pool.
 - `:stochastic` — round up with probability equal to the fraction. Unbiased, so
   the residual accumulates as the **square root** of the handshake count, about
   0.002 mM over a cycle.
@@ -154,20 +161,9 @@ function round_to_counts!(state::RoundingState, i::Integer, x::Real)
     end
 end
 
-"""
-    reset_rounding!(state)
-
-Zero every carried remainder. Used between independent runs so a driver reused
-across replicates cannot leak a fraction of a particle from one into the next.
-"""
-function reset_rounding!(state::RoundingState)
-    fill!(state.remainders, 0.0)
-    return state
-end
-
 export AVOGADRO, COREA_INITIAL_RADIUS_NM, cell_volume_litres, particles_per_mM,
        corea_particles_per_mM, counts_to_mM, ROUNDING_POLICIES, RoundingState,
-       round_to_counts!, reset_rounding!
+       round_to_counts!
 
 # ---------------------------------------------------------------------------
 # Lowered exchange records (spec §11 tasks 3.5 and 3.6)
@@ -220,6 +216,17 @@ mutable struct DeferredDebit
     declared_by::Symbol
 end
 
+# One counter may feed several pools — the published charged-tRNA transfer is
+# exactly that shape, debiting the charged pool and crediting the uncharged one
+# from a single accrual (spec §3). So the counter is read and cleared *once* per
+# handshake, before any pool is touched, and every debit on it sees the same
+# accrued value. Reading it inside the per-pool loop would let the first debit
+# zero it and hand every later one a silent zero.
+struct _CounterRead
+    counter_idx::Int
+    debit_idxs::Vector{Int}   # positions in `driver.debits` fed by this counter
+end
+
 # ---------------------------------------------------------------------------
 # The driver
 # ---------------------------------------------------------------------------
@@ -246,8 +253,8 @@ mutable struct HandshakeDriver{OI, JI}
     rounding::RoundingState
     catalytic::Vector{CatalyticExchange}
     debits::Vector{DeferredDebit}
-    ode_ids::Vector{Symbol}
-    jump_ids::Vector{Symbol}
+    counters::Vector{_CounterRead}        # debits grouped by the counter feeding them
+    t_end::Float64                        # the declared end of both blocks' tspan
     n_handshakes::Int
     n_clipped::Int
 end
@@ -284,87 +291,115 @@ function _block_state_index(models::Vector{<:AbstractSubModel}, s::Symbol)
     return nothing
 end
 
-# Where a free parameter sits in one block's parameter vector. Mirrors
-# `_build_p0`'s first-seen deduplication by name, which is the same order
-# `_build_contexts` assigns.
-function _block_param_index(models::Vector{<:AbstractSubModel}, name::Symbol)
-    seen = Symbol[]
-    for m in models, p in model_free_params(parameters(m))
-        p.name in seen || push!(seen, p.name)
-    end
-    return findfirst(==(name), seen)
-end
+# The ODE block's parameter layout, taken from the builder's own contexts
+# rather than re-derived. `_build_p0` and `_build_contexts` already agree on the
+# first-seen-by-name dedup; a third implementation of that rule here would be one
+# more thing to keep in step, and the failure if it drifted would be a silent
+# write to the wrong rate-law slot.
 
-_own_param_names(m::AbstractSubModel) = [p.name for p in model_free_params(parameters(m))]
-
-# Lower every edge that actually crosses the formalism boundary. An edge whose
-# two ends are in one block is that block's own business — phase 1's
-# contribution channel or phase 2's peer writes — and is deliberately not the
-# driver's.
-function _lower_exchanges(models, ode_models, jump_models)
+# Lower every edge that crosses the formalism boundary into an executable
+# record, with every index resolved at build time. An edge whose two ends are in
+# one block is that block's own business — phase 1's contribution channel or
+# phase 2's peer writes — and is deliberately not the driver's.
+function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     catalytic = CatalyticExchange[]
     debits = DeferredDebit[]
-    seen_debits = Set{Tuple{Symbol, Symbol}}()
 
-    for m in models
+    # A rate-law slot must belong to exactly one ODE module. Two modules
+    # declaring a free parameter of the same name share one slot in the composed
+    # vector (`_build_p0` dedups by name), so a catalytic write into it would
+    # silently drive the other module's rate law too.
+    slot_owners = Dict{Symbol, Vector{Symbol}}()
+    for m in ode_models, q in model_free_params(parameters(m))
+        push!(get!(slot_owners, q.name, Symbol[]), module_id(m))
+    end
+
+    for (i, m) in enumerate(ode_models)
         id = module_id(m)
+        own = model_free_params(parameters(m))
         for e in coupling(m)
+            e isa CatalyticEdge || continue
             # A catalytic channel is lowered from the ODE side only. The jump
-            # module that owns the count may name the same channel from its own
+            # module owning the count may name the same channel from its own
             # side, but only the consuming module has a `param_slot` — the slot
             # is a position in *its* rate law — so the peer declaration is the
             # same channel described twice and is not lowered again.
-            if e isa CatalyticEdge && formalism(m) === :ode
-                count_idx = _block_state_index(jump_models, e.species)
-                count_idx === nothing && throw(ArgumentError(
-                    "Module $id declares a CatalyticEdge on :$(e.species), but no " *
-                    "jump module in this composition owns that state. A catalytic " *
-                    "edge across the boundary reads a count from the stochastic " *
-                    "block; compose the module that owns :$(e.species), or drop " *
-                    "the edge"))
-                param_idx = _block_param_index(ode_models, e.param_slot)
-                (param_idx === nothing || !(e.param_slot in _own_param_names(m))) &&
-                    throw(ArgumentError(
-                        "Module $id declares a CatalyticEdge filling the parameter " *
-                        "slot :$(e.param_slot), which is not one of its own free " *
-                        "parameters. The slot names the rate-law parameter the " *
-                        "count fills, so it must exist on the module whose rate " *
-                        "law it belongs to; its free parameters are " *
-                        "$(_own_param_names(m))"))
-                push!(catalytic, CatalyticExchange(count_idx, param_idx, e.species,
-                                                   e.param_slot, id))
-
-            elseif e isa DeferredCounterEdge
-                counter_idx = _block_state_index(jump_models, e.counter)
-                pool_idx = _block_state_index(ode_models, e.species)
-                # An edge whose counter is not a jump state, or whose pool is not
-                # an ODE state, is not a boundary crossing this driver executes.
-                # Say so rather than skipping: a declared-but-inert debit is the
-                # failure mode phase 13.2 exists to catch, and it is cheaper to
-                # refuse it here.
-                counter_idx === nothing && throw(ArgumentError(
-                    "Module $id declares a DeferredCounterEdge accruing into " *
-                    ":$(e.counter), but no jump module in this composition owns " *
-                    "that state. The counter is the stochastic block's accrual " *
-                    "slot; it must be a state of a :jump module"))
-                pool_idx === nothing && throw(ArgumentError(
-                    "Module $id declares a DeferredCounterEdge debiting " *
-                    ":$(e.species), but no ODE module in this composition " *
-                    "integrates that pool. The hook debits a continuous pool; " *
-                    "compose the module that owns :$(e.species)"))
-                # Both blocks may name one channel from their own side. Debiting
-                # it twice would be silent and wrong, so the pair is the identity.
-                key = (e.counter, e.species)
-                key in seen_debits && continue
-                push!(seen_debits, key)
-                push!(debits, DeferredDebit(counter_idx, pool_idx,
-                                            mass_contribution(e), e.clip,
-                                            e.smoothing, 0.0, e.species,
-                                            e.counter, id))
-            end
+            count_idx = _block_state_index(jump_models, e.species)
+            count_idx === nothing && throw(ArgumentError(
+                "Module $id declares a CatalyticEdge on :$(e.species), but no " *
+                "jump module in this composition owns that state. A catalytic " *
+                "edge across the boundary reads a count from the stochastic " *
+                "block; compose the module that owns :$(e.species), or drop " *
+                "the edge"))
+            j = findfirst(q -> q.name === e.param_slot, own)
+            j === nothing && throw(ArgumentError(
+                "Module $id declares a CatalyticEdge filling the parameter " *
+                "slot :$(e.param_slot), which is not one of its own free " *
+                "parameters. The slot names the rate-law parameter the count " *
+                "fills, so it must exist on the module whose rate law it " *
+                "belongs to; its free parameters are $([q.name for q in own])"))
+            holders = slot_owners[e.param_slot]
+            length(holders) == 1 || throw(ArgumentError(
+                "Module $id fills the parameter slot :$(e.param_slot) from a " *
+                "catalytic edge, but $(join(holders, " and ")) all declare a " *
+                "free parameter of that name. Parameters are deduplicated by " *
+                "name into one slot, so the count would drive every one of " *
+                "those rate laws. Give the slot a name unique to $id"))
+            push!(catalytic, CatalyticExchange(count_idx, ode_contexts[i].param_idxs[j],
+                                               e.species, e.param_slot, id))
         end
     end
-    return catalytic, debits
+
+    # Deferred counters are lowered from the side that owns the counter — the
+    # block that accrues the cost. That side's `direction` is the one that means
+    # something: `:in` where it draws the pool down, `:out` where it produces
+    # into it. The pool's owner may name the same channel from its own side with
+    # the opposite direction; taking the sign from whichever declaration came
+    # first would let composition order decide whether a cost is debited or
+    # credited.
+    for m in models
+        id = module_id(m)
+        for e in coupling(m)
+            e isa DeferredCounterEdge || continue
+            counter_idx = _block_state_index(jump_models, e.counter)
+            counter_idx === nothing && continue      # the peer's mirror; not ours to lower
+            _block_state_index([m], e.counter) === nothing && continue
+            is_registered(e.counter) && throw(ArgumentError(
+                "Module $id accrues into :$(e.counter), which is a Core A′ " *
+                "registry species. A deferred counter is an accrual slot the " *
+                "hook clears every handshake, not a modelled pool; clearing a " *
+                "registry species would destroy it once per second"))
+            pool_idx = _block_state_index(ode_models, e.species)
+            pool_idx === nothing && throw(ArgumentError(
+                "Module $id declares a DeferredCounterEdge debiting " *
+                ":$(e.species), but no ODE module in this composition " *
+                "integrates that pool. The hook debits a continuous pool; " *
+                "compose the module that owns :$(e.species)"))
+            push!(debits, DeferredDebit(counter_idx, pool_idx, mass_contribution(e),
+                                        e.clip, e.smoothing, 0.0, e.species,
+                                        e.counter, id))
+        end
+    end
+
+    # A counter no jump module owns is a declaration that can never fire.
+    for m in models, e in coupling(m)
+        e isa DeferredCounterEdge || continue
+        _block_state_index(jump_models, e.counter) === nothing && throw(ArgumentError(
+            "Module $(module_id(m)) declares a DeferredCounterEdge accruing " *
+            "into :$(e.counter), but no jump module in this composition owns " *
+            "that state. The counter is the stochastic block's accrual slot; " *
+            "it must be a state of a :jump module"))
+    end
+
+    # Group the debits by counter, so the hook reads and clears each counter
+    # once and every pool it feeds sees the same accrued value.
+    groups = _CounterRead[]
+    for (k, b) in enumerate(debits)
+        g = findfirst(c -> c.counter_idx == b.counter_idx, groups)
+        g === nothing ? push!(groups, _CounterRead(b.counter_idx, [k])) :
+                        push!(groups[g].debit_idxs, k)
+    end
+    return catalytic, debits, groups
 end
 
 """
@@ -403,18 +438,22 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     isempty(jump_models) && error(
         "A hybrid composition needs at least one :jump sub-model; this one has none")
 
-    # The two blocks keep separate state vectors, so `_check_state_ownership`'s
-    # duplicate check does not see across them — and for a non-registry name it
-    # sees nothing at all. But a name owned in both blocks is two different
-    # states wearing one name, and every cross-block reference to it — a
-    # catalytic count, a debited pool — would silently resolve to whichever
-    # block happened to be asked. That is the aliasing bug phase 2 fixed inside
-    # a block, arriving between them.
+    # `_check_state_ownership` already spans both blocks — it iterates every
+    # model in the composition regardless of formalism — but it skips any name
+    # the registry does not know. So a *non-registry* name owned on both sides
+    # passes it, and the transcripts phase 10 owns are non-registry by task
+    # 10.2. A name owned in both blocks is two different states wearing one
+    # name, and every cross-block reference to it — a catalytic count, a debited
+    # pool — would silently resolve to whichever block happened to be asked.
+    # That is the aliasing bug phase 2 fixed inside a block, arriving between
+    # them.
     ode_owned = Dict{Symbol, Symbol}()
     for m in ode_models, s in states(m)
         ode_owned[s] = module_id(m)
     end
+    jump_owned = Dict{Symbol, Symbol}()
     for m in jump_models, s in states(m)
+        jump_owned[s] = module_id(m)
         haskey(ode_owned, s) && error(
             "State :$s is owned in both blocks of this hybrid composition — by " *
             "$(ode_owned[s]) on the ODE side and $(module_id(m)) on the jump " *
@@ -423,11 +462,45 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
             "one, or compose only the module that should own it")
     end
 
-    factor = corea_particles_per_mM(radius_nm)
-    catalytic, debits = _lower_exchanges(models, ode_models, jump_models)
+    # `inputs()` and `written_states()` are wired inside a block, by that block's
+    # own builder, from that block's own state vector. Naming a state the other
+    # block owns therefore cannot work — and left to the block builders it fails
+    # as "not owned by any sub-model", which is true of that block and useless as
+    # a diagnosis. Say what is actually wrong, and what the boundary offers
+    # instead.
+    for (block, foreign, other) in ((ode_models, jump_owned, "jump"),
+                                    (jump_models, ode_owned, "ODE"))
+        for m in block
+            for s in inputs(m)
+                haskey(foreign, s) && error(
+                    "Module $(module_id(m)) lists :$s in inputs(), but :$s is " *
+                    "owned by $(foreign[s]) in the $other block. inputs() is " *
+                    "resolved within a block, so it cannot reach across the " *
+                    "boundary. State crosses it through a declared edge that " *
+                    "the handshake executes: a CatalyticEdge to read a count " *
+                    "into a rate-law parameter, or a DeferredCounterEdge to " *
+                    "debit a pool")
+            end
+            for s in written_states(m)
+                haskey(foreign, s) && error(
+                    "Module $(module_id(m)) lists :$s in written_states(), but " *
+                    ":$s is owned by $(foreign[s]) in the $other block. A jump " *
+                    "module's affect writes its own block's vector and cannot " *
+                    "reach the other; debit an ODE pool through a " *
+                    "DeferredCounterEdge, which the hook applies between steps")
+            end
+        end
+    end
 
-    ode_prob = _build_ode_problem(ode_models; tspan = tspan)
-    jump_prob = _build_jump_problem(jump_models; tspan = tspan)
+    factor = corea_particles_per_mM(radius_nm)
+    catalytic, debits, counters = _lower_exchanges(models, ode_models, jump_models,
+                                                   _build_contexts(ode_models))
+
+    # The contract was resolved above, over the whole composition. The block
+    # builders must not resolve it again on their own module subset: from one
+    # side a boundary crossing looks like an edge naming an absent peer.
+    ode_prob = _build_ode_problem(ode_models; tspan = tspan, validate = false)
+    jump_prob = _build_jump_problem(jump_models; tspan = tspan, validate = false)
 
     ode_integ = init(ode_prob, ode_solver; abstol = abstol, reltol = reltol,
                      save_everystep = false)
@@ -435,10 +508,7 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
 
     return HandshakeDriver(ode_integ, jump_integ, Float64(interval), factor,
                            RoundingState(rounding; nspecies = length(ode_prob.u0)),
-                           catalytic, debits,
-                           Symbol[module_id(m) for m in ode_models],
-                           Symbol[module_id(m) for m in jump_models],
-                           0, 0)
+                           catalytic, debits, counters, Float64(tspan[2]), 0, 0)
 end
 
 # ---------------------------------------------------------------------------
@@ -464,8 +534,10 @@ end
 # refuses to be constructed without one.
 function _soft_excess(x, width)
     z = x / width
-    # `exp(z)` overflows for large z, where the softplus is its own argument to
-    # well under an ulp, so the branch is exact rather than an approximation.
+    # `exp(z)` overflows for large z. At the cut the two branches differ by
+    # `width * log1p(exp(-30))`, about fourteen ulps of the result — negligible
+    # against a quantity that is about to be rounded to whole particles, but not
+    # exact, so it is stated rather than claimed away.
     return z > 30 ? x : width * log1p(exp(z))
 end
 
@@ -487,54 +559,96 @@ function handshake_step!(d::HandshakeDriver)
     end
 
     # 2. Integrate the metabolic block one interval.
+    target = d.ode.t + d.interval
     step!(d.ode, d.interval, true)
+    _assert_ode_advanced(d, target)
 
     # 3. Debit the deferred counters against their pools.
+    #
+    # Each counter is read and cleared once, before any pool it feeds is
+    # touched, so that a counter feeding several pools hands the same accrued
+    # value to all of them. The published charged-tRNA transfer is exactly that
+    # shape — one accrual debiting the charged pool and crediting the uncharged
+    # one (spec §3) — and reading the counter inside the pool loop would give
+    # the second pool a silent zero.
     clipped = false
-    for b in d.debits
-        accrued = float(d.jump.u[b.counter_idx]) + b.deficit
-        d.jump.u[b.counter_idx] = 0
-        pool = d.ode.u[b.pool_idx] * d.factor          # the pool, in particles
+    for g in d.counters
+        accrued_now = float(d.jump.u[g.counter_idx])
+        d.jump.u[g.counter_idx] = 0
+        for k in g.debit_idxs
+            b = d.debits[k]
+            accrued = accrued_now + b.deficit
+            pool = d.ode.u[b.pool_idx] * d.factor      # the pool, in particles
 
-        if b.sign < 0                                   # the module draws the pool down
-            if b.clip === :clamped_deficit_carried
-                paid = min(accrued, max(pool, 0.0))
+            if b.sign < 0                              # the module draws the pool down
+                if b.clip === :clamped_deficit_carried
+                    paid = min(accrued, max(pool, 0.0))
+                elseif b.clip === :unclamped
+                    paid = accrued
+                else                                   # :smoothed
+                    paid = accrued - _soft_excess(accrued - pool, b.smoothing)
+                end
                 b.deficit = accrued - paid
-            elseif b.clip === :unclamped
+                new_pool = pool - paid
+            else                                       # the module produces into it
                 paid = accrued
                 b.deficit = 0.0
-            else                                        # :smoothed
-                paid = accrued - _soft_excess(accrued - pool, b.smoothing)
-                b.deficit = accrued - paid
+                new_pool = pool + accrued
             end
-            new_pool = pool - paid
-        else                                            # the module produces into it
-            new_pool = pool + accrued
-            b.deficit = 0.0
-        end
-        b.deficit > 0 && (clipped = true)
 
-        # Back to a concentration through whole particles, under the driver's
-        # stated policy. This is the round trip check 0 is about: the pool is a
-        # continuous quantity between hooks and a particle count across them.
-        n = round_to_counts!(d.rounding, b.pool_idx, new_pool)
-        _set_ode_state!(d.ode, b.pool_idx, counts_to_mM(n, d.factor))
+            # Whether this handshake clipped, judged against the cost rather than
+            # against zero. Under `:smoothed` the softplus leaves a strictly
+            # positive residue at every step however deep the pool is, so a
+            # `deficit > 0` test would report every handshake as clipping — and
+            # `:smoothed` is exactly the policy adopted to escape the clamped
+            # counter's gradient obstruction, so the census that scores K5 would
+            # be uninformative precisely where it is needed.
+            b.deficit > _CLIP_ATOL * max(accrued, 1.0) && (clipped = true)
+
+            # Back to a concentration through whole particles, under the driver's
+            # stated policy. This is the round trip check 0 is about: the pool is
+            # a continuous quantity between hooks and a particle count across
+            # them.
+            n = round_to_counts!(d.rounding, b.pool_idx, new_pool)
+            _set_ode_state!(d.ode, b.pool_idx, counts_to_mM(n, d.factor))
+        end
     end
 
     # 4. Advance the stochastic block one interval.
     #
-    # The hook zeroed the counters, and `Direct` caches propensities and their
-    # total between events. Nothing in this toy's rate laws reads a counter, so
-    # the cache would happen to stay correct — but that is a property of the
-    # toy, not of the mechanism, and a module whose propensity reads a state the
-    # hook touches would be silently wrong. Rebuild the aggregation instead of
-    # relying on it.
+    # The hook cleared the counters, and `Direct` caches propensities and their
+    # total between events. Nothing in the phase-3 toy's rate laws reads a
+    # counter, so the cache would happen to stay correct — but that is a
+    # property of the toy, not of the mechanism, and a module whose propensity
+    # reads a state the hook touches would be silently wrong. Rebuild the
+    # aggregation instead of relying on it.
     isempty(d.debits) || reset_aggregated_jumps!(d.jump)
     step!(d.jump, d.interval, true)
 
     d.n_handshakes += 1
     clipped && (d.n_clipped += 1)
     return d
+end
+
+# A fraction of a particle, relative to the cost being paid. Below this a
+# shortfall is the smoothing's own residue, not a pool that ran dry.
+const _CLIP_ATOL = 1e-9
+
+# `step!` returns normally when the solve has failed: it breaks out of its loop
+# on a non-success retcode, leaving `t` where it was. Without this the driver
+# would keep looping over a frozen — or NaN — state, incrementing the handshake
+# count and reporting a clean census. The clamped debit pins a pool at exactly
+# zero every time it clips, which is enough to put a rate law with that pool in
+# a denominator into `Unstable`, so this is a reachable state and not a
+# defensive flourish.
+function _assert_ode_advanced(d::HandshakeDriver, target)
+    ok = d.ode.sol.retcode === ReturnCode.Default || d.ode.sol.retcode === ReturnCode.Success
+    (ok && isapprox(d.ode.t, target; atol = 1e-9, rtol = 1e-12)) || error(
+        "The metabolic block failed to advance to t = $target at handshake " *
+        "$(d.n_handshakes + 1): it stopped at t = $(d.ode.t) with retcode " *
+        "$(d.ode.sol.retcode). The trajectory from here would be a frozen " *
+        "state advanced by a counter, so the run stops instead")
+    return nothing
 end
 
 """
@@ -548,6 +662,11 @@ record is per handshake rather than per solver step because the handshake is
 the only instant at which the two blocks agree on a state.
 """
 function run_handshake!(d::HandshakeDriver, n_steps::Integer)
+    finish = d.ode.t + n_steps * d.interval
+    finish <= d.t_end + 1e-9 || error(
+        "$n_steps handshakes of $(d.interval) s from t = $(d.ode.t) would reach " *
+        "t = $finish, past the tspan both blocks were built with, which ends at " *
+        "$(d.t_end). Build the driver with a tspan that covers the run")
     t = Vector{Float64}(undef, n_steps)
     ode = Vector{Vector{Float64}}(undef, n_steps)
     jump = Vector{Vector{Int}}(undef, n_steps)

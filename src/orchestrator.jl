@@ -64,10 +64,11 @@ function _determine_formalism(models::Vector{<:AbstractSubModel})
     return :mixed
 end
 
-function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
-    _validate_shared_params(models)
+function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0),
+                           validate=true)
+    validate && _validate_shared_params(models)
     contexts = _build_contexts(models)
-    _resolve_coupling(models, contexts)
+    _resolve_coupling(models, contexts; validate=validate)
 
     u0 = _build_u0(models)
     p0 = _build_p0(models)
@@ -107,10 +108,11 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
-function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0))
-    _validate_shared_params(models)
+function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0),
+                            validate=true)
+    validate && _validate_shared_params(models)
     contexts = _build_contexts(models)
-    _resolve_coupling(models, contexts)
+    _resolve_coupling(models, contexts; validate=validate)
 
     u0 = _build_u0_integer(models)
     p0 = _build_p0(models)
@@ -241,11 +243,18 @@ function _build_contexts(models::Vector{<:AbstractSubModel})
 end
 
 function _resolve_coupling(models::Vector{<:AbstractSubModel},
-                           contexts::Vector{SubModelContext})
+                           contexts::Vector{SubModelContext}; validate=true)
     # Validate the Core A′ coupling contract before wiring anything up. This is
     # a no-op for sub-models outside Core A′: they name no registry species and
     # declare no typed edges, so nothing here fires for them.
-    resolve_coupling(models)
+    #
+    # `validate = false` is for the hybrid driver, which has already resolved the
+    # contract over the *whole* composition and then builds each block on its own
+    # module subset. Re-resolving per block would judge a boundary crossing from
+    # one side: an edge naming a peer in the other block is not absent, it is
+    # across the boundary, and refusing it here would refuse the very
+    # compositions the driver exists to build.
+    validate && resolve_coupling(models)
 
     state_owners = Dict{Symbol, Int}()
     for (i, m) in enumerate(models)

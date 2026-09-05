@@ -61,20 +61,11 @@ using Statistics
         # same reason.) Note the refusal comes from the hybrid driver's own
         # cross-block check and not from `_check_state_ownership`, which sees
         # duplicates only within a block and only on registry species — :mRNA
-        # is neither, so nothing caught this before phase 3.
-        # `caught` lives in corea_test_models.jl, which runtests.jl includes
-        # after this file, so the idiom is spelled out here.
+        # is neither. `_check_state_ownership` does span both blocks — it
+        # iterates every model regardless of formalism — but skips anything the
+        # registry does not know, which is why :mRNA slipped through.
         model_ode = TranscriptionTranslation()
         model_ssa = StochasticGeneExpression()
-        err = try
-            build_problem([model_ode, model_ssa])
-            nothing
-        catch e
-            e
-        end
-        @test err !== nothing
-        msg = sprint(showerror, err)
-        @test occursin("owned in both blocks", msg)
-        @test occursin("mRNA", msg)
+        @test_throws "owned in both blocks" build_problem([model_ode, model_ssa])
     end
 end

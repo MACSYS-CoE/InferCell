@@ -27,7 +27,7 @@ _exact_mM(n) = n / _F
         # Both blocks were built, and each block's own layout is its own.
         @test length(d.ode.u) == 2          # M_atp_c, M_adp_c
         @test length(d.jump.u) == 3         # toy_mrna, M_ptsg_c, atp_cost
-        @test d.ode_ids == [:ToyPool] && d.jump_ids == [:ToyExpression]
+        @test length(d.counters) == 1                 # one counter feeds one pool
 
         # The refusal the composition used to give is gone for a genuine
         # hybrid, but the two shipped models still cannot compose — they both
@@ -75,6 +75,23 @@ _exact_mM(n) = n / _F
         @test err4 isa ArgumentError
         @test occursin("not_a_state", sprint(showerror, err4))
 
+        # A counter that is a registry species. The hook clears its counters
+        # every handshake, so accruing into a modelled pool would destroy that
+        # pool once a second — silently, since clearing looks like a debit.
+        bad5 = ToyExpression(edges = [DeferredCounterEdge(species = :M_atp_c,
+                                                          direction = :in,
+                                                          counter = :M_ptsg_c)])
+        err5 = caught(() -> build_problem([ToyPool(), bad5]))
+        @test err5 isa ArgumentError
+        @test occursin("M_ptsg_c", sprint(showerror, err5))
+        @test occursin("registry", sprint(showerror, err5))
+
+        # A catalytic slot whose name two ODE modules both declare. Parameters
+        # dedup by name into one slot, so the count would drive both rate laws.
+        err6 = caught(() -> build_problem([ToyPool(), ToyPool2(), ToyExpression()]))
+        @test err6 isa ArgumentError
+        @test occursin("enzyme_conc", sprint(showerror, err6))
+
         # A policy keyword on a homogeneous composition is refused rather than
         # silently ignored.
         err5 = caught(() -> build_problem([ToyPool()]; rounding = :deterministic))
@@ -91,6 +108,37 @@ _exact_mM(n) = n / _F
         err7 = caught(() -> build_problem([ToyPool(), sde]))
         @test err7 !== nothing
         @test occursin("sde", sprint(showerror, err7))
+    end
+
+    @testset "3.2 a named peer across the boundary is accepted, not refused" begin
+        # The edge kinds invite naming the counterpart module. Each block is
+        # built from its own modules, so a per-block re-resolution would see the
+        # peer as absent and refuse a composition that is in fact correct — the
+        # failure phase 4's real modules would hit on their first declaration.
+        pool = ToyPool(edges = [CatalyticEdge(species = :M_ptsg_c, direction = :in,
+                                              param_slot = :enzyme_conc,
+                                              peer = :ToyExpression)])
+        expr = ToyExpression(edges = [DeferredCounterEdge(species = :M_atp_c,
+                                          direction = :in, counter = :atp_cost,
+                                          peer = :ToyPool)])
+        d = build_problem([pool, expr]; tspan = (0.0, 10.0))
+        @test d isa HandshakeDriver
+        @test length(d.catalytic) == 1 && length(d.debits) == 1
+    end
+
+    @testset "3.2 a cross-block inputs() is refused, and says why" begin
+        # `inputs()` is wired within a block, from that block's own state
+        # vector, so it cannot reach the other side. Left to the block builders
+        # this fails as "not owned by any sub-model" — true of that block, and
+        # no help at all in diagnosing a boundary crossing.
+        reader = CoreAStub(:JumpReader; form = :jump, st = [:jr_counter],
+                           ins = [:M_atp_c],
+                           edges = [CurrencyEdge(species = :M_atp_c, direction = :in)])
+        err = caught(() -> build_problem([ToyPool(), reader]; tspan = (0.0, 10.0)))
+        @test err !== nothing
+        msg = sprint(showerror, err)
+        @test occursin("M_atp_c", msg) && occursin("JumpReader", msg)
+        @test occursin("inputs()", msg) && occursin("DeferredCounterEdge", msg)
     end
 
     @testset "3.3 the conversion is derived, not transcribed" begin
@@ -143,11 +191,14 @@ _exact_mM(n) = n / _F
         @test abs(d6300) > 2000          # ~0.4 particle per hook, biased one way
 
         # Stochastic: square root. Averaged over seeds, since one realisation of
-        # a random walk says little. The tolerance is four standard errors of
-        # the mean of |drift|, whose scale is sqrt(n_hooks * p(1-p)).
+        # a random walk says little. The ratio of two 60-seed RMS estimates has
+        # a sampling standard deviation of about 0.39 (measured over 2,000
+        # independent blocks), i.e. ~12.4% of sqrt(10), so four standard errors
+        # is rtol ≈ 0.50. An earlier 0.35 was called "four standard errors" and
+        # was in fact 2.8, which would flake on roughly one RNG stream in 160.
         rms(policy, n) = sqrt(mean(drift(policy, n; seed = s)^2 for s in 1:60))
         r630, r6300 = rms(:stochastic, 630), rms(:stochastic, 6300)
-        @test r6300 / r630 ≈ sqrt(10) rtol = 0.35
+        @test r6300 / r630 ≈ sqrt(10) rtol = 0.50
         @test r6300 < 200                # far below deterministic's ~2500
         @info "3.3 check 0 signatures" carry_630 = drift(:fractional_carry, 630) carry_6300 = drift(:fractional_carry, 6300) det_630 = d630 det_6300 = d6300 stoch_rms_630 = r630 stoch_rms_6300 = r6300
     end
@@ -164,6 +215,31 @@ _exact_mM(n) = n / _F
         @test occursin("nearest", sprint(showerror, err))
     end
 
+    @testset "3.3 the policy keywords reach the driver" begin
+        # Five of the six documented keywords were never passed through
+        # `build_problem`, so nothing pinned that they arrive where the docs say.
+        # Phase 5 changes `radius_nm` at a call site, and phase 4 the interval.
+        d = build_problem([ToyPool(), ToyExpression()]; tspan = (0.0, 10.0),
+                          interval = 0.5, radius_nm = 400.0,
+                          ode_solver = Tsit5(), abstol = 1e-8, reltol = 1e-6)
+        @test d.interval == 0.5
+        @test d.factor == corea_particles_per_mM(400.0)     # eight times the default
+        handshake_step!(d)
+        @test d.ode.t == 0.5                                 # the interval is honoured
+
+        err = caught(() -> build_problem([ToyPool(), ToyExpression()];
+                                         tspan = (0.0, 10.0), interval = 0.0))
+        @test err isa ArgumentError
+        @test occursin("interval", sprint(showerror, err))
+    end
+
+    @testset "3.4 a run past the declared tspan is refused rather than silently taken" begin
+        d = build_problem([ToyPool(kcat = 0.0), ToyExpression()]; tspan = (0.0, 10.0))
+        err = caught(() -> run_handshake!(d, 20))
+        @test err !== nothing
+        @test occursin("tspan", sprint(showerror, err))
+    end
+
     @testset "3.4 exchange error is isolated from integration error" begin
         # Zero derivative in the ODE block, no reactions in the jump block: the
         # only thing that can move a number is the exchange itself.
@@ -175,10 +251,9 @@ _exact_mM(n) = n / _F
         u0_jump = collect(Int, d.jump.u)
         rec = run_handshake!(d, 600)
         @test rec.t[end] == 600.0
-        @test rec.ode[end] == u0_ode       # exactly, after 600 handshakes
-        @test rec.jump[end] == u0_jump
-        # And not merely at the end: no handshake moved anything.
+        # Not merely at the end: no handshake moved anything.
         @test all(u -> u == u0_ode, rec.ode)
+        @test all(u -> u == u0_jump, rec.jump)
         # The carry never grows: it holds the sub-particle difference between a
         # pool and its own round trip, which is a float rounding error here and
         # not an accumulating one.
@@ -209,6 +284,89 @@ _exact_mM(n) = n / _F
         @test d.ode.u[pool] == _exact_mM(50)
         @test d.debits[1].deficit == 0.0
         @test d.n_clipped == 1                                  # no new clip
+    end
+
+    @testset "3.5 one counter feeding two pools debits both from the same accrual" begin
+        # Spec §3's charged-tRNA transfer is one accrual debiting a pool and
+        # crediting another. Reading the counter inside the per-pool loop makes
+        # the second pool see zero, which conserves nothing and reports nothing.
+        cost = 10
+        d = build_problem([ToyPool(kcat = 0.0, atp0 = _exact_mM(5000),
+                                   adp0 = _exact_mM(1000)),
+                           ToyExpression(k_tx = 0.0, k_tl = 0.0, cost = cost,
+                               edges = [DeferredCounterEdge(species = :M_atp_c,
+                                            direction = :in, counter = :atp_cost),
+                                        DeferredCounterEdge(species = :M_adp_c,
+                                            direction = :out, counter = :atp_cost)])];
+                          tspan = (0.0, 10.0))
+        @test length(d.debits) == 2
+        @test length(d.counters) == 1            # both debits share one accrual
+
+        counter = d.counters[1].counter_idx
+        d.jump.u[counter] = 250
+        handshake_step!(d)
+
+        # Every particle taken from ATP arrives in ADP: the moiety is conserved
+        # across the pair, which is the whole point of a shared counter.
+        @test d.ode.u[1] == _exact_mM(5000 - 250)
+        @test d.ode.u[2] == _exact_mM(1000 + 250)
+        @test d.jump.u[counter] == 0
+    end
+
+    @testset "3.5 the sign of a debit is the counter owner's, not the vector order's" begin
+        # Both blocks may name one channel from their own side, with opposite
+        # directions. If the sign came from whichever edge was seen first, the
+        # same two models in the other order would credit instead of debit.
+        function final_atp(order)
+            expr = ToyExpression(k_tx = 0.0, k_tl = 0.0,
+                       edges = [DeferredCounterEdge(species = :M_atp_c,
+                                    direction = :in, counter = :atp_cost)])
+            # The pool's owner names the same channel from its own side.
+            pool = ToyPool(kcat = 0.0, atp0 = _exact_mM(5000),
+                       edges = [CatalyticEdge(species = :M_ptsg_c, direction = :in,
+                                              param_slot = :enzyme_conc),
+                                DeferredCounterEdge(species = :M_atp_c,
+                                    direction = :out, counter = :atp_cost)])
+            d = build_problem(order ? [pool, expr] : [expr, pool]; tspan = (0.0, 10.0))
+            d.jump.u[d.counters[1].counter_idx] = 250
+            handshake_step!(d)
+            return d.ode.u[d.debits[1].pool_idx]
+        end
+        # One channel, so one debit however many times it is declared.
+        @test final_atp(true) == final_atp(false) == _exact_mM(5000 - 250)
+    end
+
+    @testset "3.5 the two labelled clip policies run, and the census judges them" begin
+        function clip_run(clip; smoothing = nothing, pool = 100, accrued = 250)
+            kw = smoothing === nothing ? (;) : (; smoothing = smoothing)
+            d = build_problem([ToyPool(kcat = 0.0, atp0 = _exact_mM(pool)),
+                               ToyExpression(k_tx = 0.0, k_tl = 0.0,
+                                   edges = [DeferredCounterEdge(species = :M_atp_c,
+                                       direction = :in, counter = :atp_cost,
+                                       clip = clip, kw...)])]; tspan = (0.0, 10.0))
+            d.jump.u[d.counters[1].counter_idx] = accrued
+            handshake_step!(d)
+            return d
+        end
+
+        # :unclamped — a labelled departure: the pool is allowed to go negative.
+        u = clip_run(:unclamped)
+        @test u.ode.u[1] == _exact_mM(100 - 250)
+        @test u.ode.u[1] < 0
+        @test u.debits[1].deficit == 0.0
+        @test u.n_clipped == 0                    # nothing was withheld
+
+        # :smoothed — the other labelled departure. The pool stays above zero,
+        # and a cost far inside a deep pool must NOT be scored as clipping: the
+        # softplus leaves a positive residue at every step, so a bare
+        # `deficit > 0` test would report 100% clipping and make the census that
+        # scores K5 useless exactly where :smoothed is adopted to escape K5.
+        deep = clip_run(:smoothed; smoothing = 1.0, pool = 73717, accrued = 100)
+        @test deep.ode.u[1] > 0
+        @test deep.n_clipped == 0
+        starved = clip_run(:smoothed; smoothing = 1.0)
+        @test starved.ode.u[1] > 0                # smoothing keeps it off the floor
+        @test starved.n_clipped == 1              # but the shortfall is real
     end
 
     @testset "3.5 the clamped counter is reported as a gradient obstruction" begin
@@ -273,7 +431,7 @@ _exact_mM(n) = n / _F
         # particles and it is quantised by construction — the two cannot agree
         # to solver tolerance, and an assertion that they do would be asserting
         # the rounding policy is inert. The right bound is the conversion's own
-        # resolution: one particle is 1/20180.5 mM, and the step agrees with an
+        # resolution: one particle is 1/20180.4 mM, and the step agrees with an
         # independent solve to better than that.
         one_particle = 1.0 / _F
         @test abs(d.ode.u[1] - sol.u[end][1]) < one_particle
