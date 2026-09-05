@@ -336,6 +336,31 @@ function membrane_protein_states(models::Vector{<:AbstractSubModel})
 end
 
 """
+    extracellular_states(m::AbstractSubModel) -> Vector{Symbol}
+
+States of `m` whose concentration is referred to a volume other than the
+cell's, so that cell growth does not dilute them. Defaults to empty.
+
+The growth chain rescales every ODE concentration when the volume changes,
+holding the particle count fixed — which is right for everything inside the
+cell and wrong for anything outside it. Core A′ integrates external lactate as
+a dynamic state whose millimolar is a *medium* concentration, scaled by a
+medium-to-cell volume ratio (spec §4 D6); diluting it by the cell's volume
+ratio would destroy lactate that has already left, and carbon balance (check 2)
+is the check that would fail. There is no extracellular marker in the registry
+— external lactate is an ordinary dynamic species there — so the exemption is
+declared by the module that integrates it.
+
+Only an `:ode` module may declare it: a `:jump` module's states are counts, and
+a count is not referred to a volume at all. Every name must be one of the
+declaring module's own [`states`](@ref), and a state may not be both exempt and
+flagged by [`membrane_protein_states`](@ref) — a membrane protein's count is
+read *from* its concentration, so exempting it would make the area depend on
+the volume it sets. All three are refused at build time, by name.
+"""
+extracellular_states(::AbstractSubModel) = Symbol[]
+
+"""
     SubModelContext(state_idxs, param_idxs, input_map[, contrib_idxs])
 
 Per-sub-model bookkeeping built by the orchestrator: where this sub-model's

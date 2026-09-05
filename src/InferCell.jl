@@ -48,7 +48,7 @@ export AbstractSubModel, SubModelContext, Reaction
 export states, parameters, dynamics, inputs, formalism, inference_mode, reactions,
        coupling, reduction_notes, module_id, contributed_states, contributions,
        written_states, rebuilt_params, rate_constants,
-       membrane_protein_states
+       membrane_protein_states, extracellular_states
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
 # loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.
