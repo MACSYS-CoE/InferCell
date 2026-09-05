@@ -6,11 +6,15 @@ UTP and amino-acid pools, a lumped tRNA charging step, asserted priors on the
 PTS mass-action constants, and — where an author selects them — a smoothed or
 unclamped expression-cost drain or a continuous rebuild.
 
-Two of the categories are the *driver's* policy rather than any module's
+Four of the categories are the *driver's* policy rather than any module's
 declaration, and so are enumerated by [`driver_declarations`](@ref) rather than
 by [`reduction_declarations`](@ref): a drain coarser than the handshake
-(`:coarse_drain`) and a rounding policy other than fractional carry
-(`:rounding_policy`). They share this vocabulary because they share the report.
+(`:coarse_drain`), a rounding policy other than fractional carry
+(`:rounding_policy`), and the two the growth chain carries — the membrane
+footprint being a calibrated constant of the published model rather than a
+measurement (`:calibrated_constant`) and the frozen non-ptsG membrane baseline
+(`:exogenous_growth`). They share this vocabulary because they share the
+report.
 
 Each is a place where a result could depend on our choice rather than on the
 published model, so each has to be able to reach the report that depends on it.
@@ -24,6 +28,7 @@ silently dropped from its body, so membership is enforced at construction.
 """
 const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
                               :continuous_rebuild, :coarse_drain, :rounding_policy,
+                              :calibrated_constant, :exogenous_growth,
                               :asserted_prior, :lumping)
 
 """

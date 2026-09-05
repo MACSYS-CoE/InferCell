@@ -54,4 +54,42 @@ using Random
         @test occursin("twice", msg)
     end
 
+    @testset "5.2 the surface-area, radius and volume chain" begin
+        # The published initial area is the primitive and the radius is derived
+        # from it, which is the only way the growth arithmetic of task 5.5
+        # closes. It is *not* an exact 200 nm sphere: 4pi(200 nm)^2 is
+        # 502,654.8 nm^2, so the published area is 176 nm^2 larger and the
+        # radius comes out at 200.0349 nm. The published 200 nm is reproduced
+        # to the four significant figures the source states it in, and the
+        # full-precision value is asserted alongside so the gap is on the
+        # record rather than hidden inside a tolerance.
+        r0 = radius_from_area_nm(COREA_INITIAL_SURFACE_AREA_NM2)
+        @test COREA_INITIAL_SURFACE_AREA_NM2 == 502831.0
+        @test round(r0; digits = 1) == 200.0
+        @test r0 ≈ 200.0349 atol = 1e-4
+        @test 4 * π * 200.0^2 ≈ 502654.8 atol = 0.1
+        @test COREA_INITIAL_SURFACE_AREA_NM2 - 4 * π * 200.0^2 ≈ 176.2 atol = 0.1
+
+        # The chain is derived, not transcribed: a sphere of the returned
+        # radius has the area it was built from.
+        @test 4 * π * r0^2 ≈ COREA_INITIAL_SURFACE_AREA_NM2 rtol = 1e-12
+
+        # The frozen baseline. Deriving it is what keeps 831 copies at 28 nm^2
+        # a *part* of the published area rather than all of it; getting this
+        # wrong is what would make doubling ptsG double the whole cell.
+        base = membrane_area_baseline_nm2(COREA_INITIAL_SURFACE_AREA_NM2, 831)
+        @test base == 479563.0
+        @test surface_area_nm2(base, 831) == COREA_INITIAL_SURFACE_AREA_NM2
+        @test MEMBRANE_PROTEIN_FOOTPRINT_NM2 == 28.0
+        @test 831 * MEMBRANE_PROTEIN_FOOTPRINT_NM2 == 23268.0
+
+        # The cap is twice the initial volume, applied to the volume as the
+        # published code does. Its hard-coded 6.70e-17 is twice its own rounded
+        # 3.35e-17; ours is twice the computed initial volume.
+        v0 = cell_volume_litres(r0)
+        @test v0 ≈ 3.3528e-17 rtol = 1e-4
+        @test corea_volume_cap_litres(v0) == 2 * v0
+        @test corea_volume_cap_litres(v0) ≈ 6.70e-17 rtol = 1e-2
+    end
+
 end

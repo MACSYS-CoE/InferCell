@@ -72,6 +72,111 @@ The conversion factor at a given radius. 20,180 particles per mM at 200 nm.
 corea_particles_per_mM(radius_nm = COREA_INITIAL_RADIUS_NM) =
     particles_per_mM(cell_volume_litres(radius_nm))
 
+# ---------------------------------------------------------------------------
+# The growth law (spec §11 phase 5)
+#
+# The published model's, from `in_out.py:107` by way of
+# `dev/notes/well-stirred-minimal-cell.md:178-196`:
+#
+#     CellSA_Lip  = 0.513 × Σ_lipids(count × headgroup area)
+#     CellSA_Prot = 28.0 nm² × Σ(membrane protein counts)
+#     r = sqrt(CellSA / 4π);  V = (4/3) π r³
+#
+# Core A′ keeps only the protein term for its own membrane protein and freezes
+# the rest, because the lipid module is cut and non-ptsG membrane growth is
+# exogenous — ours, not the model's (spec §3). `driver_declarations` labels
+# both that and the footprint.
+# ---------------------------------------------------------------------------
+
+"""
+The per-protein membrane footprint, in nm², that surface area is accumulated at.
+
+**Calibrated, not measured.** The published model chose 28.0 nm² to reproduce
+54% membrane protein coverage for the ~9,600 membrane proteins it carries, so
+it is a fitted constant of that model rather than a measurement of a protein.
+`getProtSA`'s own docstring says 35 nm² while its code uses 28.0; the code is
+what runs, so the code governs and the contradiction is recorded here rather
+than silently resolved. [`driver_declarations`](@ref) labels it, so the caveat
+reaches a report and not only this docstring.
+"""
+const MEMBRANE_PROTEIN_FOOTPRINT_NM2 = 28.0
+
+"""
+The published initial membrane surface area, in nm².
+
+`setICs_two.py:342` sets 231,875 nm² of lipid and 270,956 nm² of protein,
+totalling 502,831 nm². It is the *primitive*: the radius is derived from it,
+not the other way round, which is what makes the scoping note's growth
+arithmetic close — 831 ptsG copies at 28.0 nm² are 23,268 nm² of it, so
+doubling them gives 526,099 nm², 204.61 nm and 1.07× the volume.
+
+Note it is not exactly a 200 nm sphere. 4π(200 nm)² is 502,654.8 nm², so this
+area is 176 nm² larger and [`radius_from_area_nm`](@ref) returns 200.0349 nm.
+Both `dev/notes/well-stirred-minimal-cell.md:194` and the scoping note say "r =
+200.0 nm exactly"; that is four significant figures, and the published 200 nm
+is reproduced at the precision the source states it.
+"""
+const COREA_INITIAL_SURFACE_AREA_NM2 = 502831.0
+
+"""
+    surface_area_nm2(baseline_nm2, n_membrane, footprint_nm2) -> Float64
+
+Membrane surface area, in nm²: a frozen baseline plus one footprint per
+membrane protein.
+
+The baseline is everything Core A′ does not integrate — the lipid leaflet and
+the 92 membrane-protein loci outside the reduction. Holding it constant is the
+exogenous-membrane-growth reduction of spec §3, and it is why growth reaches
+only ~1.07× rather than the published 2×.
+"""
+surface_area_nm2(baseline_nm2, n_membrane, footprint_nm2 = MEMBRANE_PROTEIN_FOOTPRINT_NM2) =
+    baseline_nm2 + footprint_nm2 * n_membrane
+
+"""
+    membrane_area_baseline_nm2(total_nm2, n_membrane, footprint_nm2) -> Float64
+
+The frozen part of the surface area, derived so that a composition holding
+`n_membrane` membrane proteins starts at exactly `total_nm2`.
+
+Derived rather than written down: for Core A′ it is
+502,831 − 831 × 28.0 = 479,563 nm², and typing that number instead would be one
+more place for the three it is derived from to drift apart. Getting the offset
+wrong is the failure that makes doubling ptsG double the whole cell, so it is
+asserted directly as well as through the growth arithmetic.
+"""
+membrane_area_baseline_nm2(total_nm2, n_membrane,
+                           footprint_nm2 = MEMBRANE_PROTEIN_FOOTPRINT_NM2) =
+    total_nm2 - footprint_nm2 * n_membrane
+
+"""
+    radius_from_area_nm(area_nm2) -> Float64
+
+The radius, in nm, of the sphere with this surface area — the published
+`cellRadius = sqrt(SurfaceArea / 4π)` of `in_out.py:107`.
+
+At the published initial area it returns 200.0349 nm, reproducing the source's
+200 nm to the four significant figures the source states it in; see
+[`COREA_INITIAL_SURFACE_AREA_NM2`](@ref) for the 176 nm² this differs from an
+exact 200 nm sphere by.
+"""
+radius_from_area_nm(area_nm2) = sqrt(area_nm2 / (4 * π))
+
+"""
+    corea_volume_cap_litres(initial_volume_litres) -> Float64
+
+The volume growth stops at: exactly twice the initial volume, as
+`in_out.py:107` does.
+
+The published model hard-codes `6.70e-17` L, which is twice its own *rounded*
+3.35e-17; taking twice the computed initial volume gives 6.7057e-17, and the
+difference is the rounding rather than a different rule. The cap is applied to
+the volume and not to the radius or the area, again as the published code does
+— an equivalent cap on area would carry a factor of 2^(2/3), and mirroring the
+published form keeps the reported radius uncapped exactly as upstream leaves
+it.
+"""
+corea_volume_cap_litres(initial_volume_litres) = 2 * initial_volume_litres
+
 """
     counts_to_mM(n, factor) -> Float64
 
@@ -164,6 +269,9 @@ end
 export AVOGADRO, COREA_INITIAL_RADIUS_NM, cell_volume_litres, particles_per_mM,
        corea_particles_per_mM, counts_to_mM, ROUNDING_POLICIES, RoundingState,
        round_to_counts!
+export MEMBRANE_PROTEIN_FOOTPRINT_NM2, COREA_INITIAL_SURFACE_AREA_NM2,
+       surface_area_nm2, membrane_area_baseline_nm2, radius_from_area_nm,
+       corea_volume_cap_litres
 
 # ---------------------------------------------------------------------------
 # Lowered exchange records (spec §11 tasks 3.5 and 3.6)
