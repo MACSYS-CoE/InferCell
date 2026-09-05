@@ -53,20 +53,32 @@ interval and there is no rebuild at t = 0.
 | task 4.2 written value | bitwise equal to the module's own law at that handshake's recorded pool |
 | task 4.3 piecewise-constancy | rebuilt slot bitwise unchanged across each inter-refresh window while the pool moves at >150 of 180 handshakes |
 | task 4.5 elasticity | 15 (km, pool) settings against the closed form `km/(km+pool)`, worst relative error **7e-9**; gain spans **0.0025–0.667**; the `km = 0.175`, 3.6529 mM row sits at **0.0457**, inside the 0.044–0.051 band phase 10 compares against |
-| task 4.6, 5 s drain | **0.24%** max relative difference in any pool's mean against a **0.28%** noise floor — *not resolved* |
-| task 4.6, 60 s drain | **0.65%** against **0.04%** — resolved, and still below D10's 1% |
+| task 4.6, dynamics | drain-aligned and paired per seed: 5 s at **−0.17% ± 0.16%**, 60 s at **−0.04% ± 0.17%** — *neither resolved above noise*, both far below D10's 1% |
+| task 4.6, sawtooth | reported separately: 60 s at **+0.65% ± 0.02%** against a closed form of **+0.64%**; 5 s at **+0.06% ± 0.02%** against **+0.04%** |
+| task 3.8 re-run | `run_handshake!` now copies the jump parameter vector per handshake: worst extrapolation **0.019 s** per 6,300 s trajectory, up from 0.014 s, still ~500× inside K1's budget |
 
 Full tables in `dev/scripts/rebuild_channel_result.md` (Slurm job 16221198).
 
 **Three things a reader should not over-read.**
 
-1. **The granularity comparison has to be an ensemble, and that is a finding.**
-   Coarsening the drain changes how often the hook clears the counters, the
-   driver rebuilds the propensity aggregation whenever it does, and that
-   consumes randomness — so three configurations at one seed give three
-   *different* stochastic paths. A single-path difference would be Monte Carlo
-   noise wearing the label of a granularity effect. Phase 13 inherits the method
-   as well as the number.
+1. **The granularity measurement was got wrong first, and how it was wrong is
+   the part phase 13 needs.** The first version sampled at every handshake, and
+   its headline "0.65% granularity cost" was the *sawtooth of the outstanding
+   debit*: between drains a coarse configuration holds up to `drain − interval`
+   seconds of unpaid cost, so its pools sit high by exactly that, and `argmax`
+   landed at t = 599 — the instant furthest from the last drain. In closed form
+   59 s × 40 particles/s ÷ 20,180 ÷ 18.13 mM = 0.00645 against the 0.0065
+   reported: three significant figures, a deterministic bookkeeping offset
+   needing no simulation. Three method points follow, all now in §12's
+   amendment B and in D10 itself: sample at instants that are multiples of
+   every drain compared; pair the difference per seed, because coarsening the
+   drain changes how often the propensity aggregation is rebuilt and so
+   consumes different randomness (three configurations at one seed give three
+   different paths); and state the multiplicity behind any maximum, since a
+   maximum over a noisy field is a selection statistic. With all three applied,
+   **the dynamical effect is not resolved above noise at either granularity**
+   on this toy, and the sawtooth agrees with its closed form to within one
+   standard error.
 2. **The granularity numbers are the toy's.** Its ATP pool is ~404,000 particles
    against a ~40 particle/s drain; the pools D10 is really about turn over in
    109 s (adenylate) and 30 s (guanylate), which is why D10 expects 60 s to fail
@@ -106,7 +118,20 @@ phase 3's own docstring already called "a labelled departure" while nothing
 labelled it. `REDUCTION_CATEGORIES` gained `:coarse_drain` and
 `:rounding_policy`.
 
-**Suite:** 1208 passed, 0 failed (job 16221197); 1126 before the phase.
+**The pre-merge review changed the phase materially**, and `/check-PR`'s
+report is the record: two blocking findings (the granularity number above, and
+a §12 amendment that was owed and unwritten) plus eight majors. The three that
+matter downstream: `clipping_census`'s fraction was per *handshake*, so a
+coarse drain diluted it by exactly `steps_per_drain` — at 60 s a run in which
+every debit clipped would have reported 1.7% and passed K5's 5% gate, and it is
+now per drain with the pending accrual surfaced; `driver_declarations` could
+not reach `reduction_report`, and the one script running a coarse drain never
+called it, so the committed result file carried no label at all; and two
+refusals were missing, a jump module's outbound rate-constant edge (the
+direction convention read backwards, and the only remaining *quiet* mistake)
+and an ODE module sharing a rebuilt parameter's name.
+
+**Suite:** 1230 passed, 0 failed (job 16221973); 1126 before the phase.
 
 ### Next steps
 
@@ -117,9 +142,20 @@ labelled it. `REDUCTION_CATEGORIES` gained `:coarse_drain` and
 2. The ODE track (phases 6–9) remains independent and may still fan out.
 3. When writing any module: everything in phase 3's list still holds, plus —
    a rebuilt rate constant must be one of the module's *own* free parameters and
-   must carry a name no other jump module uses; the rebuild law must be a
-   function of the pools and of the module's *other* parameters, never of the
-   slot it fills, which would compound its own previous value.
+   must carry a name no other module in *either* block uses; the rebuild law
+   must be a function of the pools and of the module's *other* parameters, never
+   of the slot it fills, which would compound its own previous value; and the
+   consuming module declares `direction = :in`, the pool's owner `:out`.
+4. **Known and deliberately unfixed:** a rebuilt slot is still an entry of
+   `model_free_params`, so `build_turing_model` and the ABC path sample it and
+   the hook discards the draw at the first refresh. Harmless today — no hybrid
+   inference path exists — but at phase 10 that would be seventeen posterior
+   dimensions coming back shaped like their priors. Phases 15 to 17 own the
+   fix; the consequence is documented on `rebuilt_params`.
+5. Check 7 and K5 are scored at the **published 1 s drain** (§12, amendment C).
+   A coarse `drain_interval` makes each debit `steps_per_drain` times larger
+   against the same pool while there are that many fewer of them, so its census
+   is about our choice rather than the published model's.
 
 ## Previous: phase 3 — the 1 s handshake, on a two-module toy (2026-09-05)
 

@@ -1,6 +1,6 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 3 done (PRs #41, #42, #43, #44)
+**Status:** in progress — phases 0 to 4 done (PRs #41, #42, #43, #44, #45)
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-05
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -214,7 +214,9 @@ Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented t
 are declare-and-validate only. **(Read as of 2026-09-03. Phase 1 made mass and
 currency execute, phase 3 the catalytic and deferred-counter channels and
 phase 4 the rate-constant one, so two of the seven — volume and clamped —
-remain declare-only; §11 records which. G1 and G3 are
+remain declare-only. §11 phase 5 schedules the volume chain; **no phase
+schedules the clamped edge**, whose held value still travels as a fixed
+parameter beside the declaration. G1 and G3 are
 likewise closed. §2 is kept as the dated snapshot the phase ordering was
 derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
@@ -343,7 +345,7 @@ comparison is predictive rather than evidence-based here.
 | `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
 | CTP, UTP and the amino-acid pool are chemostatted | Their sources are in modules Core A′ cuts. **Ours, not the model's** | Stops being defensible the moment Step 1b makes the pools live |
 | Non-ptsG membrane growth is exogenous | ptsG is Core A′'s only membrane protein. **Ours, not the model's** | Growth reaches only ~1.07×, so the published 2× cap is never tested |
-| The 60 s rebuild is piecewise-constant | It is what the published model does | A continuous variant is a different and arguably better model. Declarable, defaults to published, and the deviation is measured rather than argued. See R11 |
+| The 60 s rebuild is piecewise-constant | It is what the published model does | A continuous variant is a different and arguably better model. Declarable, defaults to published. ~~The deviation is measured rather than argued.~~ **Amended 2026-09-05:** phase 4 refuses to *execute* a continuous cadence — the outer-loop mechanism of task 3.1 cannot represent it — so the deviation that is measured is a shorter piecewise-constant interval, which is what R11 varies. A genuinely continuous cadence remains declarable and labelled, and unmeasured. See R11 and §12 |
 | Michaelis constants come from the balanced table, not the hand-patch layer | Gives every constant a prior and one provenance | Eight of 32 differ from what the published simulator runs, one by 227×. **Ours**, labelled. See D3 |
 | The base-to-nucleotide mapping is corrected | The published code permutes three of four | A departure from the published model, labelled, with the published mapping retained behind a keyword. See D4 |
 
@@ -405,7 +407,7 @@ conservation number is uninterpretable.
 | 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
-| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters**. If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it | Assembled |
+| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters**. If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
 | 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero | Assembled, and independent of every balance check because it tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
@@ -830,6 +832,18 @@ likelihood. Force the choice with a measurement rather than an argument:
 > the largest relative difference in any observed pool is below one percent, use
 > the coarser aggregate drain. Given the ATP pool's 109 s and the GTP pool's
 > 30 s turnover, 60 s is expected to fail this and 5 s to pass.
+>
+> **Amended 2026-09-05, from phase 4's miniature run: "the nominal trajectory"
+> is an ensemble, paired per seed, and sampled at drain-aligned instants.**
+> Coarsening the drain changes how often the hook clears the counters and the
+> driver therefore rebuilds the SSA's propensity aggregation, which consumes
+> randomness — so one seed gives three different paths and a single-path
+> difference is Monte Carlo noise. And between drains a coarse configuration
+> holds up to `drain − interval` seconds of unpaid cost, so its pools sit high
+> by exactly that: an unaligned sampling instant measures a deterministic
+> bookkeeping offset, `(drain − interval)·cost_rate/pool`, and not the dynamics.
+> Report the difference at a pre-chosen instant, the maximum with the
+> multiplicity it was selected from, and the sawtooth separately. See §12.
 
 Whichever passes becomes a labelled reduction with a *measured* cost.
 
@@ -1294,7 +1308,10 @@ the 50% level. Report both; the 95% level carries the test.
 
 **K5 — the non-smooth drain is in the operating regime.**
 *Fires when* any deficit is carried at published parameters, or when more than 5%
-of prior draws clip (check 7).
+of prior draws clip (check 7). **Scored at the published 1 s drain** (amended
+2026-09-05): the fraction is per drain rather than per handshake, and a coarse
+`drain_interval` is a labelled reduction whose census is about our choice, not
+the published model's.
 *If it fires:* the ODE block is not differentiable where it matters,
 gradient-based sampling is invalid as posed, and the smoothed model must be built
 and validated against the clipped one before any posterior is reported.
@@ -1376,7 +1393,10 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   rather than matched event count, because both forms are now mass-action rate
   laws with different self-limiting behaviour.
 - **Does the 60 s rebuild stay piecewise-constant?** Declarable, defaults to
-  published, and the deviation is measured rather than argued (R11).
+  published. ~~The deviation is measured rather than argued (R11).~~
+  **Amended 2026-09-05:** what is measured is the *cadence*, at a shorter
+  piecewise-constant interval; a continuous cadence is refused at build time by
+  phase 4 and so is labelled but not measured. See §12.
 - **Is the promoter proxy inherited verbatim at Step 2?** Barely matters for
   synthetic recovery, where it only sets the truth we recover. Leaning toward
   inheriting it as the baseline the surrogate is measured against.
@@ -1412,7 +1432,7 @@ point of D0's reordering.
 | R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound and check 7 as its upper |
 | R9 | Core A′ is better-conditioned than the same subnetwork inside the full model, so success over-claims | **Measurable now, without waiting:** the posterior width on the pyruvate-kinase constant with the seven dropped sibling reactions stubbed in as a competing sink | Quote the factor alongside every recovery claim. K7 |
 | R10 | Everything rests on synthetic data, so misspecification is untested by construction | **No internal early warning exists, and that is why this is a stated scope limit rather than a mitigated risk.** The nearest signal is F5: if either external check fails, the model is already misspecified against the data that does exist | State the limit in the abstract. Do not claim robustness that was not tested |
-| R11 | The 60 s rebuild is an implementation artefact the posterior depends on | **Nominal trajectory at 60 s against 6 s rebuild cadence; any observed pool differing by more than one percent.** With the GTP pool turning over in half the interval, expect this to fire | A labelled decision in T2 with the posterior sensitivity reported. Turns an open question into a measurement |
+| R11 | The 60 s rebuild is an implementation artefact the posterior depends on | **Nominal trajectory at 60 s against 6 s rebuild cadence; any observed pool differing by more than one percent.** With the GTP pool turning over in half the interval, expect this to fire. **Amended 2026-09-05:** read "nominal trajectory" as D10 now reads it — a paired ensemble at aligned instants — because a rebuild also triggers the aggregation rebuild and so changes randomness consumption | A labelled decision in T2 with the posterior sensitivity reported. Turns an open question into a measurement |
 | R12 | Protein fold change misses two, so the reduction throttles translation | **The arithmetic, run as soon as the translation rate law exists.** A first pass puts one gene near 1.3 against a published median near 2. Inherits R1's sequencing cost: the charged pool is an ODE state, so this needs the charging module or a double | Diagnose in the translation phase — the charging step, `k_chg`, the pool size or the ribosome constant — rather than explain it at recovery |
 | R13 | The observation model's scale is wrong and every credible interval is misreported | **No noise-scale recovery test exists anywhere in `test/`.** A variance-versus-standard-deviation misreading of the multivariate normal constructor rescales every interval and passes every other check | Check 9, written before the first posterior |
 | R14 | Summary statistics discard the low-copy information the reduction exists to exercise | **The ensemble observer averages replicates and the summaries keep per-time means only** — both true in the code today, both contradicting the scoping note's own recommendation | Carry transcripts as counts per replicate; add distributional summaries and a lag-one autocovariance, or supersede summaries with the exact likelihood |
@@ -1576,7 +1596,7 @@ wall-clock per simulated second is recorded from a compute node.
 inside the sub-model protocol without a per-module special case, or if the
 measured cost extrapolates above 10 s per 6,300 s trajectory, the project stops
 here and the architecture is revisited rather than scaled. See K1.
-**PR:** #44 (merged 2026-09-04 UTC; 2026-09-05 AEST)
+**PR:** #44 (merged 2026-09-05)
 
 - [x] 3.1 Choose and record the composition mechanism — an outer split-operator
   loop over stepped integrators, a discrete callback on a single problem, or a
@@ -1713,6 +1733,14 @@ elasticity of a rate constant to its upstream pool is reported.
   argument rather than through `inputs()`, which phase 3 forbids across the
   boundary. Mechanism recorded in the pull request, as tasks 2.2 and 3.1 recorded
   theirs; no §12 amendment, because nothing the spec said became false.
+  **One consequence recorded rather than fixed here:** a rebuilt slot is still
+  an entry of `model_free_params`, so `build_turing_model` and the ABC path
+  sample it and the hook discards the draw at the first refresh. At seventeen
+  transcription constants that is seventeen posterior dimensions coming back
+  shaped like their priors, which must not be read as an identifiability
+  result. Excluding derived names from the sampled set belongs to phases 15 to
+  17, which are the first to compose a driver with `infer`; the consequence is
+  documented on `rebuilt_params` where it will be met.
 - [x] 4.2 Schedule the rebuild from the edge's declared interval — verify by a
   test that a 60 s edge refreshes ten times in 600 s and a 30 s edge twenty
   times, with the count read from the trajectory rather than asserted. **Done:**
@@ -1725,8 +1753,17 @@ elasticity of a rate constant to its upstream pool is reported.
   on the rebuild side); a pool no ODE module integrates; rebuilt parameters with
   no edge; an edge with nothing to rebuild; an outbound edge no jump module
   consumes; an `:ode` module declaring `rebuilt_params`; two intervals on one
-  module; and an interval that is not a whole number of handshakes, since the
-  rebuild can only fire at one.
+  module; an interval that is not a whole number of handshakes, since the
+  rebuild can only fire at one; and — added in the pre-merge review — a *jump*
+  module's **outbound** rate-constant edge, which is the direction convention
+  read backwards and was the one quiet mistake left, since the inbound form
+  throws for missing `rebuilt_params` while the outbound form fell through the
+  consumer filter and composed with the stochastic block silently keeping its
+  nominal constants. The name-clash guard likewise now scans **both** blocks:
+  across the boundary the two parameter vectors are separate, so the hook would
+  rewrite one copy and leave the other, and `_validate_shared_params` cannot
+  catch it because the declared values agree. Ten refusals in all, the
+  continuous cadence of 4.4 counted separately.
 - [x] 4.3 Assert piecewise-constancy — verify by sampling propensities between
   refreshes and asserting they are bitwise unchanged, so the coupling is the
   published piecewise-constant one and not an accidental continuous one.
@@ -1736,7 +1773,13 @@ elasticity of a rate constant to its upstream pool is reported.
   so the constancy is not vacuously true of a channel that never fired. The
   propensity statement is made at a **fixed reference state**: a raw propensity
   moves with the jump state at every event, so only at a held state does
-  "unchanged between refreshes" say anything about the coupling.
+  "unchanged between refreshes" say anything about the coupling. **The toy
+  rebuilds two constants for this test**, because transcription is zeroth order
+  — in Core A′ as in the toy — so its propensity simply *is* its rate constant
+  and asserting on that alone would restate the parameter-slot check. Rebuilding
+  translation's constant as well gives a propensity first order in the
+  transcript, which is the shape Core A′'s charged-tRNA channel has, and it is
+  that one the reference-state assertion is made on.
 - [x] 4.4 Handle a continuous cadence explicitly — verify by either implementing
   it and asserting `reduction_declarations` labels it a deviation, or rejecting it
   with a named error; silently discarding the cadence field is the failure to
@@ -1767,22 +1810,42 @@ elasticity of a rate constant to its upstream pool is reported.
   an assumption. **Done:** a `drain_interval` on the driver, defaulting to the
   handshake interval, required to be a whole number of them, and labelled by
   `driver_declarations` when coarser. Measured over 300 replicates at a 600 s
-  horizon: the 5 s drain differs from the published 1 s drain by at most
-  **0.24%** of any pool's mean, against a Monte Carlo noise floor of 0.28% — so
-  **not resolved**; the 60 s drain by **0.65%**, against 0.04% — resolved, and
-  still below D10's one percent. **Phase 13 inherits a method as well as a
-  number:** the comparison has to be an ensemble, because coarsening the drain
-  changes how often the propensity aggregation is rebuilt and therefore consumes
-  a different amount of randomness, so three configurations at one seed give
-  three different paths and a single-path difference would be Monte Carlo noise
-  wearing the label of a granularity effect. Read narrowly, as the result file
-  says: the toy's ATP pool is ~404,000 particles against a ~40 particle/s drain,
-  where the pools D10 is about turn over in 109 s and 30 s.
+  horizon, **paired per seed** and sampled at **drain-aligned** handshakes: the
+  difference in the dynamics is **not resolved above Monte Carlo noise at
+  either granularity** — 5 s at **−0.17% ± 0.16%** and 60 s at
+  **−0.04% ± 0.17%**, both far below D10's one percent.
+
+  Reported separately, because it is not a granularity cost: the **sawtooth of
+  the outstanding debit**, +0.65% ± 0.02% at 60 s against a closed form of
+  +0.64%, and +0.06% ± 0.02% at 5 s against +0.04%. Between drains a coarse
+  configuration holds up to `drain − interval` seconds of unpaid cost, so its
+  pools sit high by exactly that; the quantity is deterministic and needs no
+  simulation. **The first version of this measurement reported that sawtooth as
+  the granularity cost**, sampling at every handshake so that the maximum
+  landed at t = 599 — the instant furthest from the last drain. The pre-merge
+  review of PR #45 caught it; §12's amendment B records it, because phase 13
+  inherits the method and not only the number.
+
+  **Phase 13 inherits three method points.** Sample at instants that are
+  multiples of every drain compared, where each configuration has just debited
+  the same total accrual. Pair the difference per seed and quote the standard
+  error of *those*, since coarsening the drain changes how often the propensity
+  aggregation is rebuilt and so consumes a different amount of randomness —
+  three configurations at one seed give three different paths. And state the
+  multiplicity behind any maximum, since a maximum over a noisy field is a
+  selection statistic. Read narrowly, as the result file says: the toy's ATP
+  pool is ~404,000 particles against a ~40 particle/s drain, a buffer of hours,
+  where the pools D10 is about turn over in 109 s and 30 s — **so this bounds
+  the mechanism and nothing else.**
 - [x] 4.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that bidirectional coupling is now executed rather
-  than declared. **Done:** job 16221197, 1208/1208 (1126 before the phase); the
-  handoff records that five of the seven edge kinds now execute and that volume
-  and clamped remain.
+  than declared. **Done:** job 16221973, **1230/1230** (1126 before the phase);
+  the handoff records that five of the seven edge kinds now execute and that
+  volume and clamped remain. Phase 3's wall-clock artefact was re-run in the
+  same pass, since `run_handshake!` now copies the jump parameter vector per
+  handshake: job 16221975, worst extrapolation **0.019 s** per 6,300 s
+  trajectory against K1's 10 s budget, up from 0.014 s and still ~500× inside
+  it.
 
 ### Phase 5 — Growth and volume
 
@@ -2459,6 +2522,74 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-05 — three things phase 4 contradicted: the continuous cadence, the granularity comparison, and what the clipping census counts
+
+Logged together because one phase found all three, and because the pre-merge
+review of PR #45 found them rather than the phase itself — which is the more
+useful fact about them.
+
+**Amendment A — a continuous rebuild cadence is refused rather than measured.**
+*Evidence:* §3's assumptions table and §9's bullet both promised that the
+continuous variant is "declarable, defaults to published, and the deviation is
+**measured** rather than argued". Task 4.4 offered either implementing the
+cadence or rejecting it by name, and the phase rejected it: the mechanism of
+task 3.1 — an outer loop over two stepped integrators — holds a rate constant
+between refreshes *by construction*, which is precisely what makes task 4.3's
+piecewise-constancy assertion possible, and propensities tracking a pool
+continuously would need the `JumpProblem`-over-`ODEProblem` shape task 3.1
+rejected. Running it at 1 s and labelling that "continuous" would be a label
+that overstates what runs. So the choice is right and the promise is now false:
+the deviation can be declared and labelled, but not measured. *Change:* the
+deviation that §3, §9 and R11 measure is a shorter **piecewise-constant**
+interval; a continuous cadence is labelled and unmeasured, and is refused at
+build time with an error naming the module, the species and the mechanism.
+*Sections:* §3 assumptions table, §9, annotated in place.
+
+**Amendment B — D10's granularity comparison is a paired ensemble at
+drain-aligned instants, not a nominal trajectory.** *Evidence:* two findings
+from phase 4's miniature run, and the second was got wrong first. (i)
+Coarsening the drain changes how often the hook clears the counters, and the
+driver rebuilds the SSA's propensity aggregation whenever it does — which
+consumes randomness — so three configurations at one seed give three different
+stochastic paths and a single-path difference is Monte Carlo noise wearing the
+label of a granularity effect. The same applies to R11's rebuild cadence, since
+a rebuild triggers the same aggregation rebuild. (ii) Between drains a coarse
+configuration holds up to `drain − interval` seconds of accrued cost in its
+counters, so its pools sit high by exactly that unpaid balance. The first
+version of phase 4's measurement sampled at every handshake, and its headline
+"0.65% granularity cost" was that sawtooth: recomputed in closed form,
+59 s × 40 particles/s ÷ 20,180 ÷ 18.13 mM = 0.00645 against the 0.0065
+reported — three significant figures, a deterministic bookkeeping offset that
+needs no simulation at all. *Change:* D10's blockquote and R11's early warning
+now read "nominal trajectory" as a paired ensemble sampled at instants that are
+multiples of every drain compared, with the maximum reported alongside the
+multiplicity it was selected from and the sawtooth reported separately.
+Phase 13 inherits the method with the number. *Sections:* §4 D10, §10 R11,
+annotated in place.
+
+**Amendment C — check 7 and K5 are scored at the published 1 s drain.**
+*Evidence:* phase 4's `drain_interval` did not exist when check 7 and K5 were
+written, and it moves both of their inputs in opposite directions. Only a drain
+can clip, so a per-handshake denominator dilutes the clipping fraction by
+exactly `steps_per_drain` — at 60 s, a run in which *every* debit clipped would
+report 1.7% and pass K5's 5% gate — while each debit is `steps_per_drain` times
+larger against the same pool and so clips more readily. Applied to the counter
+§3 names as the one to watch, ~553 residues/s against a pool of order 10³
+becomes ~33,000 residues in one aggregate debit. *Change:* check 7 and K5 are
+scored at the published 1 s drain; `clipping_census`'s fraction is per drain
+rather than per handshake, and it reports the accrual still pending in the
+counters, because between drains that debt sits in no `deficit` and the ledger
+would otherwise read closed. *Sections:* §3 check 7, §8 K5, annotated in place.
+
+**What is *not* amended, recorded because the line matters.** Phase 4 also
+added two protocol functions (`rebuilt_params`, `rate_constants`), a
+`drain_interval` keyword, `driver_declarations` and two `REDUCTION_CATEGORIES`
+members. None of those contradicts anything the spec said: task 4.1 delegated
+the mechanism, task 4.6 mandated the comparison the knob serves, and §6 T2
+already listed both new label rows. They extend the spec, and extensions are
+recorded in the pull request, as tasks 2.2 and 3.1 recorded theirs. Approved
+before the fixes landed; landed in PR #45.
 
 ### 2026-09-05 — check 7's census on a toy does not decide K5
 
