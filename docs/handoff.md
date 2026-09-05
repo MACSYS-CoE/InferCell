@@ -46,7 +46,7 @@ it is the fact phases 4 to 12 most need to hold onto.
 | task 3.5 | 250-particle cost on a 100-particle pool: floors at **0.0**, deficit **150.0** exactly, repaid next hook |
 | task 3.6 | 400 vs 800 copies: slot filled with exactly `n/20180.39`, flux ratio exactly **2.0**, nothing else moved |
 | check 7 census | **0** deficits at nominal; **0 of 200** prior draws clip |
-| task 3.8 wall-clock | **1.53e-06 s** per simulated second frozen (steady across horizons), 1.65e-06 s live at 600 s rising to 2.16e-06 at 60 s → **0.014 s per 6,300 s trajectory** worst case against a 10 s budget |
+| task 3.8 wall-clock | **1.50e-06 s** per simulated second frozen (steady across horizons), 1.57e-06 s live at 600 s rising to 2.16e-06 at 60 s → **0.014 s per 6,300 s trajectory** worst case against a 10 s budget |
 
 **Three things a reader should not over-read.**
 

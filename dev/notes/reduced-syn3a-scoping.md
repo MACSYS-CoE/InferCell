@@ -819,11 +819,11 @@ careful about what Step 1a's success licenses.
   number, because the inverse problem needs thousands. The 2022 full model is
   reported at "a few hours" per cell cycle; Core A' should be orders of magnitude
   cheaper, but this needs measuring before any inference budget can be sized.
-  **First measurement, 2026-09-04 (spec phase 3, Slurm job 16190602).** On a
+  **First measurement, 2026-09-05 (spec phase 3, Slurm job 16212707).** On a
   two-module toy — one jump gene-expression module, one ODE metabolite module,
-  exchanging every simulated second — the 1 s handshake costs 1.53e-06 s of
+  exchanging every simulated second — the 1 s handshake costs 1.50e-06 s of
   wall-clock per simulated second with the pool frozen — steady across 60, 300
-  and 600 s horizons — and 1.65e-06 s with the rate law live at 600 s, rising to
+  and 600 s horizons — and 1.57e-06 s with the rate law live at 600 s, rising to
   2.16e-06 s at the shortest horizon. The worst row extrapolates to **0.014 s
   per 6,300 s trajectory** (0.010 s at 600 s), three orders of magnitude inside
   the 10 s budget the spec's kill criterion K1 is stated against. Read it as a *floor*

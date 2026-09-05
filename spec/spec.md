@@ -1656,13 +1656,13 @@ here and the architecture is revisited rather than scaled. See K1.
   per simulated second and the 6,300 s extrapolation, an explicit pass or fail
   against the phase's stated budget, and the number written into `docs/handoff.md`
   and into the scoping note's open-questions list, which carries it as unmeasured
-  today. **Done:** job 16190602 on dave15, in
-  `dev/scripts/bench_handshake_result.md`. 1.53e-06 s per simulated second with
-  the pool frozen and 1.65e-06 s with the rate law live at a 600 s horizon.
-  The frozen rows are steady across all three horizons (1.53e-06 throughout);
-  the live rows run 2.16e-06 at 60 s and settle to 1.65e-06 by 600 s, so the
-  **worst** row extrapolates to **0.014 s per 6,300 s trajectory against a 10 s
-  budget — PASS** (0.010 s at the 600 s horizon). Recorded as a *floor*: the toy is one gene and two
+  today. **Done:** job 16212707 on gina1, in
+  `dev/scripts/bench_handshake_result.md`. 1.50e-06 s per simulated second with
+  the pool frozen and 1.57e-06 s with the rate law live at a 600 s horizon. The
+  frozen rows are steady across all three horizons (1.50–1.51e-06); the live
+  rows run 2.16e-06 at 60 s and settle to 1.57e-06 by 600 s, so the **worst**
+  row extrapolates to **0.014 s per 6,300 s trajectory against a 10 s budget —
+  PASS** (0.010 s at the 600 s horizon). Recorded as a *floor*: the toy is one gene and two
   metabolite states against seventeen and thirty-two, so K1 is decided by task
   13.7, not here.
 - [x] 3.9 Suite, count and verdict — verify by `sbatch test/run_tests.slurm`
