@@ -2,20 +2,23 @@
 
 Source: [`src/orchestrator.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/orchestrator.jl).
 
-The orchestrator composes one or more sub-models into a single SciML problem object. Shared parameters are deduplicated by name; cross-block coupling is resolved through each sub-model's declared inputs.
+The orchestrator composes one or more sub-models into a single problem object. Shared parameters are deduplicated by name; cross-block coupling is resolved through each sub-model's declared inputs.
 
 ## `build_problem`
 
 ```julia
-build_problem(models; tspan=(0.0, 100.0))
-build_problem(model;  tspan=(0.0, 100.0))
+build_problem(models; tspan=(0.0, 100.0), kwargs...)
+build_problem(model;  tspan=(0.0, 100.0), kwargs...)
 ```
 
 Returns:
 
 - an `ODEProblem` when every sub-model has `formalism = :ode`
 - a `JumpProblem` when every sub-model has `formalism = :jump`
-- an error for `:mixed` (not yet supported in v0.0.1)
+- a [`HandshakeDriver`](handshake.md) for a mixed ODE/jump composition
+- an error for `:sde`, which has no build path in any composition
+
+Keyword arguments other than `tspan` are the handshake driver's declared policy (`interval`, `rounding`, `radius_nm`, `ode_solver`, `abstol`, `reltol`) and are refused on a homogeneous composition rather than silently ignored.
 
 ### Shared-parameter handling
 

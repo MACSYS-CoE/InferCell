@@ -1,4 +1,5 @@
-using Statistics: mean, var
+using Statistics: mean, var, std
+using Random
 
 @testset "BurstyGeneExpression" begin
     @testset "Construction" begin
@@ -66,13 +67,23 @@ using Statistics: mean, var
         n_reps = 200
         final_mRNA = zeros(n_reps)
         final_protein = zeros(n_reps)
+        Random.seed!(20260905)
         for i in 1:n_reps
             sol = solve(prob, SSAStepper(); saveat=[500.0])
             final_mRNA[i] = sol[2, end]
             final_protein[i] = sol[3, end]
         end
-        @test abs(mean(final_mRNA) - mRNA_ss) < 1.5
-        @test abs(mean(final_protein) - protein_ss) < 15.0
+        # Four standard errors of the sample mean, computed from the sample
+        # rather than picked. The bursty protein's variance is far above
+        # Poisson — its Fano factor here is of order fifty — so a tolerance
+        # chosen by eye is either vacuous or flaky, and the hand-picked 15.0
+        # this replaced was the second: it failed CI at a deviation of 16.4
+        # against a standard error of about 5.5. The claim being tested is
+        # that the sample mean agrees with telegraph theory, and this is that
+        # claim written down.
+        @test abs(mean(final_mRNA) - mRNA_ss) < 4 * std(final_mRNA) / sqrt(n_reps)
+        @test abs(mean(final_protein) - protein_ss) < 4 * std(final_protein) / sqrt(n_reps)
+        @info "bursty steady state" mRNA_mean = mean(final_mRNA) mRNA_theory = mRNA_ss protein_mean = mean(final_protein) protein_theory = protein_ss protein_4se = 4 * std(final_protein) / sqrt(n_reps)
     end
 
     @testset "Bursting: mRNA Fano factor > 1" begin
@@ -93,8 +104,8 @@ using Statistics: mean, var
         # duplicate ownership — the only thing that ever made it fail. Before
         # spec phase 2 this test read as if index aliasing were caught; it was
         # not, and two jump models with disjoint states now compose correctly
-        # (test_jump_composition.jl). Mixed formalisms are exercised in
-        # test_stochastic_ge.jl.
+        # (test_jump_composition.jl). Mixed formalisms compose as of phase 3
+        # and are exercised in test_hybrid_handshake.jl.
         m1 = BurstyGeneExpression()
         m2 = StochasticGeneExpression()
         @test_throws "State :mRNA is owned by multiple sub-models" build_problem([m1, m2])

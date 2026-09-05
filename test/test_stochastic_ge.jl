@@ -53,8 +53,18 @@ using Statistics
     end
 
     @testset "Formalism validation" begin
+        # This used to assert that any mixed :ode/:jump composition is refused.
+        # Spec §11 phase 3 replaced that refusal with the handshake driver, so
+        # the test now asserts what actually fails: these two models both own
+        # :mRNA and :protein, one on each side of the boundary. (Phase 2
+        # rewrote the bursty model's composition test the same way, and for the
+        # same reason.) Note the refusal comes from the hybrid driver's own
+        # cross-block check. `_check_state_ownership` does span both blocks —
+        # it iterates every model regardless of formalism — but skips any name
+        # the registry does not know, and :mRNA is one, which is why nothing
+        # caught this before phase 3.
         model_ode = TranscriptionTranslation()
         model_ssa = StochasticGeneExpression()
-        @test_throws ErrorException build_problem([model_ode, model_ssa])
+        @test_throws "owned in both blocks" build_problem([model_ode, model_ssa])
     end
 end

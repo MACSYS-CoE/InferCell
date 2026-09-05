@@ -819,6 +819,20 @@ careful about what Step 1a's success licenses.
   number, because the inverse problem needs thousands. The 2022 full model is
   reported at "a few hours" per cell cycle; Core A' should be orders of magnitude
   cheaper, but this needs measuring before any inference budget can be sized.
+  **First measurement, 2026-09-05 (spec phase 3, Slurm job 16212707).** On a
+  two-module toy — one jump gene-expression module, one ODE metabolite module,
+  exchanging every simulated second — the 1 s handshake costs 1.50–1.51e-06 s of
+  wall-clock per simulated second with the pool frozen — steady across 60, 300
+  and 600 s horizons — and 1.57e-06 s with the rate law live at 600 s, rising to
+  2.16e-06 s at the shortest horizon. The worst row extrapolates to **0.014 s
+  per 6,300 s trajectory** (0.010 s at 600 s), three orders of magnitude inside
+  the 10 s budget the spec's kill criterion K1 is stated against. Read it as a *floor*
+  rather than an estimate: the toy carries one gene and two metabolite states
+  against Core A''s seventeen and thirty-two, so the real composition can only
+  cost more. What it does establish is that the exchange itself carries no
+  fatal per-handshake overhead. The number at full scale is spec task 13.7, and
+  that is where K1 is decided. Details in
+  `dev/scripts/bench_handshake_result.md`.
 - **Does the 60 s CME rebuild need reproducing faithfully?** The published
   ODE→CME coupling is piecewise-constant: rate constants recomputed once a
   minute, not propensities reading pools continuously. A continuous version would

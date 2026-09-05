@@ -1,7 +1,7 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0, 1 and 2 done (PRs #41, #42, #43)
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-04
+**Status:** in progress — phases 0 to 3 done (PRs #41, #42, #43, #44)
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-05
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -211,7 +211,11 @@ uniform `:sde` composition, which is why the copy-number table's "chemical
 Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented too.
 
 **G2 — there is no execution layer for coupling.** Six of the seven edge kinds
-are declare-and-validate only. Searching `src/` and `test/` for periodic
+are declare-and-validate only. **(Read as of 2026-09-03. Phase 1 made mass and
+currency execute and phase 3 the catalytic and deferred-counter channels, so
+three of the seven remain declare-only; §11 records which. G1 and G3 are
+likewise closed. §2 is kept as the dated snapshot the phase ordering was
+derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
 returns nothing outside the `affect!` closures inside individual jump
 definitions. `solve` is called in five places, always as a single one-shot call.
@@ -1293,8 +1297,10 @@ of prior draws clip (check 7).
 *If it fires:* the ODE block is not differentiable where it matters,
 gradient-based sampling is invalid as posed, and the smoothed model must be built
 and validated against the clipped one before any posterior is reported.
-**This is the criterion most likely to actually fire, and it fires in phase 3,
-which is the good news.** D13 did not reduce this risk, it relocated it: the
+~~**This is the criterion most likely to actually fire, and it fires in phase 3,
+which is the good news.**~~ **Amended 2026-09-05:** it is scored on the
+assembled model in phase 14, not on phase 3's toy, whose drain-to-pool ratio is
+three orders of magnitude gentler. See §12. D13 did not reduce this risk, it relocated it: the
 charged-tRNA counter debits ~553 residues per second against a pool of order 10³
 particles, so it can clip on ordinary Poisson fluctuation in translation firing.
 The non-smooth boundary now sits on a pool whose size we assert (D14), which is
@@ -1396,7 +1402,7 @@ point of D0's reordering.
 | # | Risk | Early warning | Pre-committed response |
 |---|---|---|---|
 | R1 | The reverse channel is too weak for the bidirectional claim | **Measure the charged-tRNA elasticity as soon as the translation rate law exists.** Below 0.02 and the reverse direction is bounded at a few percent by the structure of both published rate laws. **D13 delayed this warning and that is a real cost**: the charged pool is now an ODE state, so a jump module cannot produce it standalone. Either the translation phase carries a charged-pool double or the measurement waits for assembly. Carry the double | K2's response: reframe as a measured bound plus the replicate count needed, and promote Step 1b |
-| R2 | The non-smooth drain operates in-regime, so the ODE block is not differentiable where it matters | **Any non-zero deficit carried on the first full-cycle run at published parameters** (check 7, phase 3). Do not wait to meet it as sampler divergences, which look like a step-size problem | Smooth the drain; validate the smoothed model against the clipped one. K5 |
+| R2 | The non-smooth drain operates in-regime, so the ODE block is not differentiable where it matters | **Any non-zero deficit carried on the first full-cycle run at published parameters** (check 7, ~~phase 3~~ **phase 14 — the assembled model; phase 3's toy exercises the mechanism only, see §12**). Do not wait to meet it as sampler divergences, which look like a step-size problem | Smooth the drain; validate the smoothed model against the clipped one. K5 |
 | R3 | Integer rounding drift swamps the integrator and is read as a conservation leak | **The adenylate residual failing to shrink when tolerances tighten tenfold.** One extra run distinguishes the two | Fractional-carry rounding (check 0). The magnitudes differ by ~140×, so this is not hypothetical |
 | R4 | The reference system is skipped because production looks fine | **A calibration pass reported with no reference comparison beside it.** This is a process risk, so the warning is procedural | F10 is a phase deliverable, not an optional extra. A calibration claim without it is unattributable |
 | R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
@@ -1517,7 +1523,7 @@ write a declared peer's state.
 incrementing and decrementing it — compose and produce a trajectory whose
 statistics match a hand-written single-module equivalent within Monte Carlo
 error.
-**PR:** #43
+**PR:** #43 (merged 2026-09-03 UTC; 2026-09-04 AEST)
 
 - [x] 2.1 Pin the bug before fixing it — verify by a test composing two doubles
   with disjoint state names and asserting that *today* the second module's effect
@@ -1569,45 +1575,114 @@ wall-clock per simulated second is recorded from a compute node.
 inside the sub-model protocol without a per-module special case, or if the
 measured cost extrapolates above 10 s per 6,300 s trajectory, the project stops
 here and the architecture is revisited rather than scaled. See K1.
-**PR:** _not started_
+**PR:** #44
 
-- [ ] 3.1 Choose and record the composition mechanism — an outer split-operator
+- [x] 3.1 Choose and record the composition mechanism — an outer split-operator
   loop over stepped integrators, a discrete callback on a single problem, or a
   jump process over an ODE problem — verify by the pull request recording, for
   each, whether the published piecewise-constant 1 s handshake is faithfully
   representable, and by the chosen one adding no dependency absent from the
-  depot.
-- [ ] 3.2 Replace the mixed-formalism refusal at `src/orchestrator.jl:27` with a
+  depot. **Done:** the outer loop, mirroring the published `hookSimulation` at
+  `delt = 1.0` s. A `JumpProblem` over an `ODEProblem` makes propensities track
+  the pools continuously, so phase 4 task 4.3 would have nothing to be true
+  about; a discrete callback cannot advance the SSA half at all. `init`,
+  `step!` and `reset_aggregated_jumps!` come from SciMLBase and JumpProcesses,
+  both already direct dependencies, so `Project.toml` is unchanged.
+- [x] 3.2 Replace the mixed-formalism refusal at `src/orchestrator.jl:27` with a
   hybrid build path — verify by a mixed composition returning a driver rather
   than throwing, and by the same composition *still* throwing with a named error
-  when a required exchange declaration is absent.
-- [ ] 3.3 Implement the count-to-concentration conversion through the registry at
+  when a required exchange declaration is absent. **Done:** `build_problem`
+  returns a `HandshakeDriver`; the named refusals are asserted (a `param_slot`
+  that is not the declaring module's own free parameter, a catalytic species no
+  jump module owns, a debited pool no ODE module integrates, a counter no jump
+  module owns, and a policy keyword on a homogeneous composition). Two refusals
+  that did not exist before: a homogeneous `:sde` composition, which used to be
+  reported as mixed (§2 G1); a deferred channel declared only by the pool's
+  owner, or a catalytic edge declared only by the module owning the count,
+  either of which would be declared and never executed; a counter that is a
+  registry species, or an ODE module's own state; more than one pool credited
+  from one counter, which would create matter; and **a state name owned in both
+  blocks**, which
+  would make every crossing that mentions it resolve to whichever block was
+  asked first — phase 2's aliasing bug arriving *between* blocks rather than
+  inside one. `_check_state_ownership` does span both blocks — it iterates every
+  model regardless of formalism — but skips any name the registry does not know,
+  and the transcripts phase 10 owns are non-registry by task 10.2, so that is
+  exactly the case it misses. **Annotated 2026-09-05:** this is a new refusal,
+  not a changed one, so it is recorded here and in the pull request rather than
+  as a §12 amendment; nothing the spec said became false. Phases 6 to 12 inherit
+  it, along with two more the same phase added: a module may not name a state
+  another block owns, may not reach across the boundary through `inputs()` or
+  `written_states()`, and may not fill a catalytic `param_slot` whose name a
+  second ODE module also declares.
+- [x] 3.3 Implement the count-to-concentration conversion through the registry at
   fixed volume with an explicit rounding policy — verify by check 0: exact-zero
   round-trip residual under fractional carry, and by the policy being a stated
-  field on the driver rather than implicit in the arithmetic.
-- [ ] 3.4 Isolate exchange error from integration error — verify by a toy whose
+  field on the driver rather than implicit in the arithmetic. **Done:** the
+  factor is derived from Avogadro and the volume of a sphere and returns 20,180
+  particles per mM at 200 nm, reproducing the scoping note rather than
+  transcribing it. Check 0's round trip is exactly zero over 6,300 handshakes
+  under fractional carry (`==`, not `≈`). All three signatures measured: carry
+  drifts **0.0** particles at both 630 and 6,300 hooks; deterministic drifts
+  **252.0 → 2,520.0**, exactly linear; stochastic RMS over 60 seeds goes
+  **11.63 → 41.12**, a ratio of 3.53 against √10 = 3.16. Deterministic rounding
+  is now rejected on measured evidence rather than on assertion.
+- [x] 3.4 Isolate exchange error from integration error — verify by a toy whose
   ODE has zero derivative: after 600 handshakes every count is unchanged
-  *exactly*, so any drift is attributable to the exchange alone.
-- [ ] 3.5 Debit the deferred counters under the published clamped policy — verify
+  *exactly*, so any drift is attributable to the exchange alone. **Done:** every
+  count and every pool is bitwise unchanged across all 600 handshakes, not only
+  at the end, and the carried remainders stay below 1e-6. A second test closes
+  the gap this one leaves open — with a zero derivative nothing would catch a
+  `step!` that moved the clock without solving — by comparing a handshake's ODE
+  step against an independent solve of the same problem over the same second.
+- [x] 3.5 Debit the deferred counters under the published clamped policy — verify
   by a test where the cost exceeds the pool: the pool floors at zero, the carried
   deficit equals the shortfall exactly, and the next step debits it; and by the
   existing gradient report naming the edge when a differentiable sub-model is
-  present.
-- [ ] 3.6 Execute the enzyme-concentration channel — protein counts overwriting
+  present. **Done:** a 250-particle cost against a 100-particle pool floors the
+  pool at exactly 0.0 and carries a deficit of exactly 150.0, which the next
+  handshake repays in full against a refilled pool. `check_gradient_safety`
+  returns the one obstruction and names `M_atp_c`.
+- [x] 3.6 Execute the enzyme-concentration channel — protein counts overwriting
   the ODE's enzyme concentration through a catalytic edge's parameter slot —
   verify by a test that a step change in the toy's protein count changes the ODE
-  flux by the ratio of counts and changes nothing else.
-- [ ] 3.7 Run check 7's clipping census on the toy — verify by zero carried
+  flux by the ratio of counts and changes nothing else. **Done:** 400 and 800
+  copies fill the slot with exactly `n / 20180.39` mM, the flux ratio is exactly
+  2.0 at a common state, and every other parameter is untouched. `param_slot`
+  had been a required field no code read; it now has semantics and is resolved
+  at build time.
+- [x] 3.7 Run check 7's clipping census on the toy — verify by zero carried
   deficits at nominal parameters and by the fraction of 200 prior draws that clip
-  being recorded, since K5 fires here or nowhere.
-- [ ] 3.8 Measure and record wall-clock — verify by a Slurm run reporting seconds
+  being recorded, ~~since K5 fires here or nowhere~~ **(amended 2026-09-05: the
+  census on a toy does not decide K5; see §12)**. **Done: K5 does not fire on the toy.**
+  Zero carried deficits over 600 handshakes at nominal parameters, and **0 of
+  200** prior draws clip at any handshake (0.0% against the 5% threshold). Read
+  narrowly: the toy's pool is ~74,000 particles against a ~40 particle/s drain,
+  so this bounds the *mechanism*, not Core A′'s charged-tRNA counter, which
+  D13/D14 put at ~553 residues/s against a pool of order 10³ and which is
+  re-scored in phase 14.
+- [x] 3.8 Measure and record wall-clock — verify by a Slurm run reporting seconds
   per simulated second and the 6,300 s extrapolation, an explicit pass or fail
   against the phase's stated budget, and the number written into `docs/handoff.md`
   and into the scoping note's open-questions list, which carries it as unmeasured
-  today.
-- [ ] 3.9 Suite, count and verdict — verify by `sbatch test/run_tests.slurm`
+  today. **Done:** job 16212707 on gina1, in
+  `dev/scripts/bench_handshake_result.md`. 1.50e-06 s per simulated second with
+  the pool frozen and 1.57e-06 s with the rate law live at a 600 s horizon. The
+  frozen rows are steady across all three horizons (1.50–1.51e-06); the live
+  rows run 2.16e-06 at 60 s and settle to 1.57e-06 by 600 s, so the **worst**
+  row extrapolates to **0.014 s per 6,300 s trajectory against a 10 s budget —
+  PASS** (0.010 s at the 600 s horizon). Recorded as a *floor*: the toy is one gene and two
+  metabolite states against seventeen and thirty-two, so K1 is decided by task
+  13.7, not here.
+- [x] 3.9 Suite, count and verdict — verify by `sbatch test/run_tests.slurm`
   passing and by the kill-criterion verdict written down as a sentence rather
-  than implied by the pull request merging.
+  than implied by the pull request merging. **The verdict: the project
+  continues.** The 1 s handshake is expressible inside the sub-model protocol
+  with no per-module special case — the driver reads only `formalism`,
+  `coupling`, `states` and `parameters`, and neither toy module knows it is
+  being handshaked — and the measured cost is three orders of magnitude inside
+  the budget. Neither of the phase's two stated kill conditions fired, and K5
+  did not fire on the toy. **Suite:** job 16213224, 1126/1126 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
 
 ### Phase 4 — The 60 s rebuild
 
@@ -2322,6 +2397,29 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-05 — check 7's census on a toy does not decide K5
+
+*Evidence:* phase 3 ran check 7's census on its two-module toy and measured zero
+carried deficits at published parameters over 600 handshakes, and zero of 200
+prior draws clipping. Read literally against the spec as written — "K5 fires
+here or nowhere" (task 3.7), "it fires in phase 3, which is the good news"
+(§8 K5) — that would retire the criterion. It does not, because the toy is not
+in the regime K5 is about: it drains ~40 particles per second from a pool of
+~74,000, a buffer of about half an hour, while the charged-tRNA counter D13 and
+D14 put at the centre of K5 debits ~553 residues per second against a pool of
+order 10³, a buffer of seconds. The toy's margin is roughly three orders of
+magnitude wider, so its census bounds the *mechanism* — that the debit clamps,
+carries and repays exactly — and says nothing about the operating regime.
+*Change:* the census that scores K5 is the assembled model's, in phase 14, not
+phase 3's. Task 3.7's "since K5 fires here or nowhere" is struck, §8 K5's "it
+fires in phase 3" is struck, and §10 R2's early warning now names phase 14.
+Phase 3's census stands as what it is: evidence the mechanism is correct, and a
+lower bound on nothing else. *Consistency note:* the spec was already divided
+against itself here — §3's check 7 row scopes the check "Assembled" and task
+14.8 already carries "(K5)" — so this records a resolution in favour of §3 and
+§14 rather than inventing one. *Sections:* §8 K5, §10 R2, §11 task 3.7.
+Approved before the fix landed; landed in PR #44.
 
 ### 2026-09-04 — a jump module's peer writes are gated on `written_states`, not on an edge
 
