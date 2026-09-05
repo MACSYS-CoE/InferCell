@@ -1715,7 +1715,7 @@ shared.
 **Done when:** the toy's propensities change only at interval boundaries, the
 interval is read from the declared edge rather than hard-coded, and the measured
 elasticity of a rate constant to its upstream pool is reported.
-**PR:** #45
+**PR:** #45 (merged 2026-09-05)
 
 - [x] 4.1 Decide where mutable rate constants live — in the flat parameter vector
   the builder already returns as mutable, or as mutable state on the sub-model as
