@@ -6,6 +6,12 @@ UTP and amino-acid pools, a lumped tRNA charging step, asserted priors on the
 PTS mass-action constants, and — where an author selects them — a smoothed or
 unclamped expression-cost drain or a continuous rebuild.
 
+Two of the categories are the *driver's* policy rather than any module's
+declaration, and so are enumerated by [`driver_declarations`](@ref) rather than
+by [`reduction_declarations`](@ref): a drain coarser than the handshake
+(`:coarse_drain`) and a rounding policy other than fractional carry
+(`:rounding_policy`). They share this vocabulary because they share the report.
+
 Each is a place where a result could depend on our choice rather than on the
 published model, so each has to be able to reach the report that depends on it.
 This file is the enumeration that makes that possible.
@@ -17,7 +23,8 @@ A label outside this vocabulary would be counted by the report's header and
 silently dropped from its body, so membership is enforced at construction.
 """
 const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
-                              :continuous_rebuild, :asserted_prior, :lumping)
+                              :continuous_rebuild, :coarse_drain, :rounding_policy,
+                              :asserted_prior, :lumping)
 
 """
     ReductionLabel
