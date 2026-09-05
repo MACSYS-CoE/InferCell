@@ -96,10 +96,23 @@ reduction_declarations(model::AbstractSubModel) = reduction_declarations([model]
 [`reduction_declarations`](@ref) written out for a human, grouped by category.
 Suitable for printing beside any result whose interpretation depends on a
 treatment that is ours rather than the published model's.
+
+Pass a [`HandshakeDriver`](@ref) as a second argument to include the driver's
+own policy — the drain granularity and the rounding — which is a departure the
+sub-models do not declare and which this method therefore cannot see. §6 F11's
+panel and §6 T2 are generated from the two-argument form; the one-argument form
+says so where it finds nothing.
 """
-function reduction_report(models::Vector{<:AbstractSubModel})
-    labels = reduction_declarations(models)
-    isempty(labels) && return "Nothing in this composition departs from the published model."
+reduction_report(models::Vector{<:AbstractSubModel}) =
+    _reduction_report(reduction_declarations(models))
+
+# The rendering, shared with the two-argument form in `handshake.jl`, which adds
+# the driver's own policy to the same list.
+function _reduction_report(labels::Vector{ReductionLabel})
+    isempty(labels) && return "Nothing in this composition's declarations departs " *
+        "from the published model. A driver's own policy — the drain granularity, " *
+        "the rounding — is not a declaration and is enumerated by " *
+        "`driver_declarations`; pass the driver to see both."
 
     lines = ["$(length(labels)) declaration(s) that are this reduction's, not the published model's:"]
     for category in REDUCTION_CATEGORIES

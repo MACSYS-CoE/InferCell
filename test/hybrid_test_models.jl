@@ -179,17 +179,28 @@ import InferCell: rebuilt_params, rate_constants
                            rebuilt = [:k_tx_rb],
                            edges = <rate-constant + deferred counter>)
 
-`ToyExpression` with its transcription rate constant on the 60 s rebuild:
+`ToyExpression` with its rate constants on the 60 s rebuild. The `i`-th name in
+`rebuilt` takes
 
 ```
-k_tx = k_tx_max * Π_j pool_j / (km_tx + pool_j)
+k_i = (k_tx_max / i) * Π_j pool_j / (km_tx + pool_j)
 ```
 
 A Michaelis-shaped law in each pool, chosen because its elasticity has a closed
-form — `d ln k / d ln pool_j = km_tx / (km_tx + pool_j)` — so task 4.5's
-diagnostic is checked against an analytic value rather than merely reported.
-`km_tx` therefore tunes the channel gain, which is what lets a test drive it to
-the 0.044–0.051 range the real transcription channel is measured at.
+form — `d ln k_i / d ln pool_j = km_tx / (km_tx + pool_j)`, the same for every
+`i` — so task 4.5's diagnostic is checked against an analytic value rather than
+merely reported. `km_tx` therefore tunes the channel gain, which is what lets a
+test drive it to the 0.044–0.051 range the real transcription channel is
+measured at. The `1/i` scaling is arbitrary and exists only so that two rebuilt
+constants take different values.
+
+Rebuilding more than one name matters for a reason beyond exercising the
+plural path. With `rebuilt = [:k_tx_rb, :k_tl_rb]` the translation propensity
+`k_tl_rb · mRNA` becomes a *state-dependent* function of a rebuilt constant,
+which is what makes "the propensities change only at interval boundaries"
+assertable at a held state as something more than a restatement of the
+parameter slot. Transcription is zeroth order — in Core A′ as here — so its
+propensity simply *is* its rate constant.
 
 Every keyword that names a declaration — `pools`, `interval`, `cadence`,
 `rebuilt`, `edges` — is overridable so a test can build a mis-declared variant
@@ -239,20 +250,22 @@ coupling(m::ToyRebuiltExpression) = m.edges
 rebuilt_params(m::ToyRebuiltExpression) = m.rebuilt
 
 # The rebuild reads only the pools and the module's *other* parameters. Reading
-# p[1] — the slot it is about to fill — would compound its own previous value.
-function rate_constants(p, t, ::ToyRebuiltExpression, pools)
+# a slot it is about to fill would compound that slot's own previous value.
+function rate_constants(p, t, m::ToyRebuiltExpression, pools)
     kmax, km = p[2], p[3]
-    return SA[kmax * prod(x / (km + x) for x in pools)]
+    base = kmax * prod(x / (km + x) for x in pools)
+    n = length(m.rebuilt)
+    return SVector{n, Float64}(ntuple(i -> base / i, n))
 end
 
 """
-    toy_rebuilt_k(m, pools) -> Float64
+    toy_rebuilt_k(m, pools[, i]) -> Float64
 
-The rebuild law written once, so a test asserts the model's own arithmetic
-rather than a copy of it.
+The rebuild law for the `i`-th rebuilt name, written once so a test asserts the
+model's own arithmetic rather than a copy of it.
 """
-toy_rebuilt_k(m::ToyRebuiltExpression, pools) =
-    m.params[2].value * prod(x / (m.params[3].value + x) for x in pools)
+toy_rebuilt_k(m::ToyRebuiltExpression, pools, i = 1) =
+    m.params[2].value * prod(x / (m.params[3].value + x) for x in pools) / i
 
 """
     toy_rebuilt_elasticity(m, pool) -> Float64
@@ -271,13 +284,28 @@ function reactions(m::ToyRebuiltExpression)
         Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1)),
         # mRNA -> ∅
         Reaction((u, p, t, _) -> p[4] * u[1], (u, _) -> (u[1] -= 1)),
-        # mRNA -> mRNA + protein, charging `cost` particles of ATP to the counter
+        # mRNA -> mRNA + protein, charging `cost` particles of ATP to the
+        # counter. First order in the transcript, as translation is in Core A′,
+        # so with :k_tl_rb rebuilt this propensity depends on both a rebuilt
+        # constant and the state.
         Reaction((u, p, t, _) -> p[5] * u[1], (u, _) -> (u[2] += 1; u[3] += cost)),
     ]
 end
 
 """
-    ToyPoolRebuildPeer(; species = :M_atp_c)
+    toy_slow_pool(; kwargs...)
+
+`ToyPool` with a slow enzyme and a large pool: ATP declines at every handshake
+and ends around two thirds full, so an upstream pool that genuinely *moves* is
+available without the drain ever clipping. Phase 3's long-horizon tests freeze
+the pool instead (`kcat = 0.0`), which is the opposite of what phase 4 needs.
+Defined here rather than in each caller so the test suite and
+`dev/scripts/rebuild_channel.jl` cannot drift apart on what "slow" means.
+"""
+toy_slow_pool(; kwargs...) = ToyPool(; kcat = 0.02, atp0 = 20.0, kwargs...)
+
+"""
+    ToyPoolRebuildPeer(; species = :M_gtp_c)
 
 An ODE double that declares the *outbound* half of a rate-constant channel and
 owns `:M_gtp_c`. It exists to witness one refusal: a pool's owner naming a
@@ -338,3 +366,22 @@ states(::ToyRebuildClash) = [:toy_clash]
 parameters(m::ToyRebuildClash) = m.params
 formalism(::ToyRebuildClash) = :jump
 reactions(::ToyRebuildClash) = [Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1))]
+
+"""
+    ToyOdeNameClash()
+
+An `:ode` double declaring a free parameter named `:k_tx_rb`, with the same
+declared value as `ToyRebuiltExpression`'s so `_validate_shared_params` passes.
+It witnesses the cross-block half of the rebuild name clash: the two blocks
+hold separate parameter vectors, so the hook would rewrite the jump block's
+copy and leave this one, and a single named parameter would carry two values.
+"""
+struct ToyOdeNameClash <: AbstractSubModel
+    params::Vector{InferParameter}
+end
+ToyOdeNameClash() = ToyOdeNameClash([_rate(2.0, :k_tx_rb, :ToyOdeNameClash),
+                                     _jic(1.0, :M_gtp_c0, :ToyOdeNameClash)])
+states(::ToyOdeNameClash) = [:M_gtp_c]
+parameters(m::ToyOdeNameClash) = m.params
+formalism(::ToyOdeNameClash) = :ode
+dynamics(u, p, t, ::ToyOdeNameClash) = SA[-p[1] * u[1]]

@@ -232,6 +232,18 @@ by name.
 A module that declares names here must also declare at least one inbound
 [`RateConstantEdge`](@ref), and the converse: an inbound rate-constant edge on
 a module that rebuilds nothing is a channel declared and never executed.
+
+**A rebuilt parameter is a derived quantity, and the inference layer does not
+know that yet.** `build_turing_model` and the ABC path both sample every entry
+of [`model_free_params`](@ref), a rebuilt slot included — and the hook
+overwrites the drawn value at the first refresh, so it influences the
+trajectory only over the first interval. At seventeen transcription constants
+that is seventeen posterior dimensions costing sampler effort and coming back
+shaped like their priors, which must not be read as an identifiability result.
+Excluding derived names from the sampled set belongs to the inference phases
+(spec §11 phases 15 to 17), which are the ones that will first compose a
+hybrid driver with `infer`; until then this is a documented consequence of the
+mechanism, not a defect in it.
 """
 rebuilt_params(::AbstractSubModel) = Symbol[]
 

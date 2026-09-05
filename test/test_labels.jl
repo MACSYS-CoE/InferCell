@@ -79,7 +79,7 @@ using Distributions
                                          counter=:ATP_trsc),
                      RateConstantEdge(species=:M_gtp_c, direction=:in)])
         @test isempty(reduction_declarations([published]))
-        @test occursin("Nothing in this composition departs",
+        @test occursin("Nothing in this composition's declarations departs",
                        reduction_report([published]))
     end
 

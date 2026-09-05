@@ -1,10 +1,10 @@
 """
 The 1 s handshake: executing the coupling the edge kinds declare.
 
-Spec §11 phase 3. Phase 1 made mass and currency edges execute inside the ODE
-block; this file adds the catalytic and deferred-counter channels, so four of
-the seven [`CouplingEdge`](@ref) kinds now run and three — rate constant,
-volume and clamped — remain declare-and-validate only. It
+Spec §11 phases 3 and 4. Phase 1 made mass and currency edges execute inside
+the ODE block; phase 3 added the catalytic and deferred-counter channels and
+phase 4 the rate-constant one, so five of the seven [`CouplingEdge`](@ref)
+kinds now run and two — volume and clamped — remain declare-and-validate only. It
 advances a jump block and an ODE block by a split-operator exchange, mirroring
 the published model's `hookSimulation` (`dev/notes/well-stirred-minimal-cell.md`):
 every `delt = 1.0` s, counts become initial conditions, the metabolic block
@@ -274,9 +274,11 @@ Holds two live integrators and the lowered exchange records between them.
 declared schedule. The volume chain (phase 5) hooks into the same loop and is
 deliberately absent here.
 
-`n_handshakes` and `n_clipped` are check 7's census: how many exchanges ran,
-and at how many of them any deferred counter carried a deficit. K5 is scored
-from the second number.
+`n_handshakes`, `n_drains` and `n_clipped` are check 7's census: how many
+exchanges ran, how many of them applied a debit, and at how many of *those* any
+deferred counter carried a deficit. K5 is scored from the last two, and the
+denominator is the drain count rather than the handshake count — see
+[`clipping_census`](@ref).
 """
 mutable struct HandshakeDriver{OI, JI}
     ode::OI
@@ -292,22 +294,41 @@ mutable struct HandshakeDriver{OI, JI}
     rebuilds::Vector{RateConstantRebuild} # the 60 s rate-constant channel
     t_end::Float64                        # the declared end of both blocks' tspan
     n_handshakes::Int
+    n_drains::Int
     n_clipped::Int
 end
 
 """
     clipping_census(driver) -> NamedTuple
 
-Check 7 on this driver: the number of handshakes run, the number at which any
-deferred counter carried a deficit, and the fraction. Spec §3 check 7 requires
-**zero at published parameters**; more than 5% of prior draws clipping puts the
-non-smooth drain in the operating regime and fires K5.
+Check 7 on this driver: the number of handshakes run, the number of them that
+applied a debit, the number of *those* at which any deferred counter carried a
+deficit, the fraction, the carried deficits and the accrual still sitting in
+the counters. Spec §3 check 7 requires **zero at published parameters**; more
+than 5% of prior draws clipping puts the non-smooth drain in the operating
+regime and fires K5.
+
+**`fraction` is per drain, not per handshake.** Only a drain can clip, so at a
+`drain_interval` coarser than the exchange a per-handshake denominator would
+dilute the fraction by exactly `steps_per_drain` — at 60 s, a run in which
+*every* debit clipped would report 1.7% and pass K5's 5% gate. `pending` exists
+for the same reason: between drains the accrual sits in the jump block's
+counters rather than in any `deficit`, so without it the ledger reads closed
+while a period of cost is unpaid.
+
+Note that a coarse drain changes what this census is *about*, in both
+directions: each debit is `steps_per_drain` times larger against the same pool,
+so it clips more readily, while there are that many fewer of them. Check 7 and
+K5 are scored at the published 1 s drain (spec §12, 2026-09-05).
 """
 clipping_census(d::HandshakeDriver) = (handshakes = d.n_handshakes,
+                                       drains = d.n_drains,
                                        clipped = d.n_clipped,
-                                       fraction = d.n_handshakes == 0 ? 0.0 :
-                                                  d.n_clipped / d.n_handshakes,
-                                       deficits = [b.deficit for b in d.debits])
+                                       fraction = d.n_drains == 0 ? 0.0 :
+                                                  d.n_clipped / d.n_drains,
+                                       deficits = [b.deficit for b in d.debits],
+                                       pending = [float(d.jump.u[c.counter_idx])
+                                                  for c in d.counters])
 
 """
     rebuild_census(driver) -> Vector{NamedTuple}
@@ -326,6 +347,27 @@ export CatalyticExchange, DeferredDebit, RateConstantRebuild, HandshakeDriver,
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
 # ---------------------------------------------------------------------------
+
+# A pool of Float64s as a static vector. `_svec` in the orchestrator does the
+# same for indices; this is its floating-point twin, and it exists because the
+# same construction appears at four sites, three of them in the per-handshake
+# path.
+_fvec(v) = SVector{length(v), Float64}(Tuple(v))
+
+# A hook fires only at a handshake — the one instant at which the two blocks
+# agree on a state — so a period between handshakes is unreachable, and rounding
+# one silently would run a cadence nobody declared. Written once because the
+# drain interval and the rebuild interval are held to the same rule, and a
+# silent divergence between two copies of it is exactly the failure the rule
+# exists to prevent.
+function _handshake_steps(period, interval, subject)
+    n = round(Int, period / interval)
+    (n >= 1 && isapprox(n * interval, period; rtol = 1e-12)) || throw(ArgumentError(
+        "$subject of $period s is not a whole number of $(interval) s handshakes. " *
+        "It is applied at a handshake — the only instant at which the two blocks " *
+        "agree on a state — so a period between handshakes is unreachable"))
+    return n
+end
 
 # Where a species sits in one block's composed state vector, or `nothing`.
 # Blocks are built by the existing homogeneous paths, so the layout is
@@ -524,8 +566,14 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
     # name into one slot, so rebuilding a shared name would drive the other
     # module's propensities too. With seventeen genes and a handful of shared
     # gene-expression globals, reusing a name is the obvious mistake.
+    # Scanned over *both* blocks. Within the jump block a shared name is one
+    # slot, so the rebuild would drive the other module's propensities. Across
+    # the boundary the two blocks hold separate parameter vectors, so the hook
+    # would rewrite only the jump block's copy and the two would silently carry
+    # different values for one named parameter — which `_validate_shared_params`
+    # cannot catch, because it compares *declared* values and they agree.
     slot_owners = Dict{Symbol, Vector{Symbol}}()
-    for m in jump_models, q in model_free_params(parameters(m))
+    for m in vcat(jump_models, ode_models), q in model_free_params(parameters(m))
         push!(get!(slot_owners, q.name, Symbol[]), module_id(m))
     end
 
@@ -541,6 +589,25 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
         id = module_id(m)
         names = rebuilt_params(m)
         edges = [e for e in coupling(m) if e isa RateConstantEdge && is_consumer(e)]
+
+        # The direction convention wave 0 pinned: the module whose constants are
+        # rebuilt declares `:in`, the pool's owner `:out`. So an outbound edge on
+        # a jump module is the convention read backwards, and without this it is
+        # the *quiet* mistake — the inbound form throws for a missing
+        # `rebuilt_params`, while the outbound one falls through the filter above
+        # and composes with the stochastic block silently keeping its nominal
+        # constants for the whole trajectory.
+        for e in coupling(m)
+            e isa RateConstantEdge && is_producer(e) || continue
+            throw(ArgumentError(
+                "Module $id is a :jump module and declares an *outbound* " *
+                "RateConstantEdge on :$(e.species). The direction follows the " *
+                "information: the module whose rate constants are rebuilt from " *
+                "the pool declares :in, and the pool's owner declares :out. As " *
+                "written this channel is lowered by nobody and $id would keep " *
+                "its nominal rate constants for the whole trajectory; declare " *
+                "direction = :in"))
+        end
 
         if isempty(names) && isempty(edges)
             continue
@@ -594,11 +661,14 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
                 "$([q.name for q in own])"))
             holders = slot_owners[n]
             length(holders) == 1 || throw(ArgumentError(
-                "Module $id rebuilds :$n, but $(join(holders, " and ")) all " *
-                "declare a free parameter of that name. Parameters are " *
-                "deduplicated by name into one slot, so the rebuild would drive " *
-                "every one of those modules' propensities. Give the parameter a " *
-                "name unique to $id"))
+                "Module $id rebuilds :$n, but $(join(holders, " and ")) each " *
+                "declare a free parameter of that name. Within the stochastic " *
+                "block those are one deduplicated slot, so the rebuild would " *
+                "drive every one of those modules' propensities; across the " *
+                "boundary they are two slots in two parameter vectors, so the " *
+                "hook would rewrite one and leave the other, and one named " *
+                "parameter would carry two values. Give the parameter a name " *
+                "unique to $id"))
             push!(fill_idxs, ctx.param_idxs[j])
         end
 
@@ -613,12 +683,7 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
             "($(join(declared, ", "))). One module rebuilds its constants on one " *
             "schedule; split the pools across modules, or declare one interval"))
         iv = first(declared)
-        steps = round(Int, iv / interval)
-        (steps >= 1 && isapprox(steps * interval, iv; rtol = 1e-12)) || throw(ArgumentError(
-            "Module $id declares a rate-constant interval of $iv s, which is not " *
-            "a whole number of $(interval) s handshakes. The rebuild fires at a " *
-            "handshake — the only instant at which the two blocks agree on a " *
-            "state — so an interval between handshakes is unreachable"))
+        steps = _handshake_steps(iv, interval, "Module $id's rate-constant interval")
 
         pool_idxs = Int[]
         for e in edges
@@ -684,13 +749,7 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     drain = drain_interval === nothing ? Float64(interval) : Float64(drain_interval)
     drain > 0 || throw(ArgumentError(
         "The drain interval must be positive, got $drain"))
-    steps_per_drain = round(Int, drain / interval)
-    (steps_per_drain >= 1 && isapprox(steps_per_drain * interval, drain; rtol = 1e-12)) ||
-        throw(ArgumentError(
-            "The drain interval of $drain s is not a whole number of $(interval) s " *
-            "handshakes. The debit is applied at a handshake — the only instant at " *
-            "which the two blocks agree on a state — so a drain interval between " *
-            "handshakes is unreachable"))
+    steps_per_drain = _handshake_steps(drain, interval, "The drain interval")
     _validate_shared_params(models)
     # The contract is validated over the whole composition, not per block: a
     # boundary crossing is by definition not visible from one side.
@@ -777,7 +836,7 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                            steps_per_drain, factor,
                            RoundingState(rounding; nspecies = length(ode_prob.u0)),
                            catalytic, debits, counters, rebuilds,
-                           Float64(tspan[2]), 0, 0)
+                           Float64(tspan[2]), 0, 0, 0)
 end
 
 # ---------------------------------------------------------------------------
@@ -913,8 +972,7 @@ function handshake_step!(d::HandshakeDriver)
     rebuilt = false
     for r in d.rebuilds
         step % r.steps == 0 || continue
-        pools = SVector{length(r.pool_idxs), Float64}(
-            Tuple(d.ode.u[k] for k in r.pool_idxs))
+        pools = _fvec([d.ode.u[k] for k in r.pool_idxs])
         vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model, pools)
         length(vals) == length(r.fill_idxs) || error(
             "rate_constants() for $(r.declared_by) returned $(length(vals)) " *
@@ -943,6 +1001,7 @@ function handshake_step!(d::HandshakeDriver)
     step!(d.jump, d.interval, true)
 
     d.n_handshakes += 1
+    drained && (d.n_drains += 1)
     clipped && (d.n_clipped += 1)
     return d
 end
@@ -996,6 +1055,15 @@ a refresh count is read off it by counting the handshakes at which a rebuilt
 slot changed, rather than asserted from the schedule that produced it.
 """
 function run_handshake!(d::HandshakeDriver, n_steps::Integer)
+    (d.n_handshakes + n_steps) % d.steps_per_drain == 0 || error(
+        "$n_steps handshakes from handshake $(d.n_handshakes) would end at " *
+        "handshake $(d.n_handshakes + n_steps), which is not a multiple of the " *
+        "$(d.steps_per_drain)-handshake drain interval. The run would stop with up " *
+        "to $(d.steps_per_drain - 1) exchanges of accrued cost still in the " *
+        "counters and never debited, so the recorded pools would be high by an " *
+        "amount nothing in the census names. Run a whole number of drain " *
+        "intervals, or step with handshake_step! if a mid-period state is what " *
+        "you want")
     finish = d.ode.t + n_steps * d.interval
     finish <= d.t_end + 1e-9 || error(
         "$n_steps handshakes of $(d.interval) s from t = $(d.ode.t) would reach " *
@@ -1048,8 +1116,8 @@ function rate_constant_elasticity(d::HandshakeDriver; rel = 1e-4)
     for r in d.rebuilds
         pools = [d.ode.u[k] for k in r.pool_idxs]
         p_local = collect(Float64, view(d.jump.p, r.p_idxs))
-        base = collect(Float64, rate_constants(p_local, d.ode.t, r.model,
-                                               SVector{length(pools), Float64}(Tuple(pools))))
+        k_at(v) = rate_constants(p_local, d.ode.t, r.model, _fvec(v))
+        base = collect(Float64, k_at(pools))
         for (j, species) in enumerate(r.species)
             x = pools[j]
             x > 0 || throw(ArgumentError(
@@ -1059,10 +1127,7 @@ function rate_constant_elasticity(d::HandshakeDriver; rel = 1e-4)
             up, down = copy(pools), copy(pools)
             up[j] = x * (1 + rel)
             down[j] = x * (1 - rel)
-            ku = rate_constants(p_local, d.ode.t, r.model,
-                                SVector{length(pools), Float64}(Tuple(up)))
-            kd = rate_constants(p_local, d.ode.t, r.model,
-                                SVector{length(pools), Float64}(Tuple(down)))
+            ku, kd = k_at(up), k_at(down)
             for (i, name) in enumerate(r.names)
                 base[i] > 0 || throw(ArgumentError(
                     "The elasticity of :$name is a log derivative and :$name " *
@@ -1118,6 +1183,25 @@ function driver_declarations(d::HandshakeDriver)
     end
     return labels
 end
+
+"""
+    reduction_declarations(models, driver) -> Vector{ReductionLabel}
+    reduction_report(models, driver) -> String
+
+The composition's declared departures together with the driver's own policy.
+
+[`reduction_declarations`](@ref) enumerates what the sub-models declare and
+structurally cannot see a field on the driver; [`driver_declarations`](@ref)
+covers the rest. Spec §6 F11's enumeration panel and §6 T2 are generated from
+these two-argument forms, because a result produced under a coarse drain or a
+non-carry rounding policy that carried only the one-argument enumeration would
+be exactly the unlabelled departure §6 T2 exists to prevent.
+"""
+reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
+    vcat(reduction_declarations(models), driver_declarations(d))
+
+reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
+    _reduction_report(reduction_declarations(models, d))
 
 export handshake_step!, run_handshake!, rate_constant_elasticity,
        driver_declarations

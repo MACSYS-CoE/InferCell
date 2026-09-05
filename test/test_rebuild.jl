@@ -21,23 +21,10 @@ function _slot_changes(jump_p, slot)
     return n
 end
 
-# A metabolic half that *moves* without running dry. Phase 3's long-horizon
-# tests freeze the pool (`kcat = 0.0`) so that any drift is the exchange's;
-# phase 4 needs the opposite — an upstream pool that changes at every handshake,
-# so that "the rate constant is unchanged between refreshes" is a statement
-# about the coupling rather than about a constant pool. A slow enzyme and a
-# large pool give both: ATP declines steadily and ends around two thirds full,
-# so nothing clips and check 7's census stays clean.
-_slow_pool(; kwargs...) = ToyPool(; kcat = 0.02, atp0 = 20.0, kwargs...)
-
-# The global slot a named free parameter occupies in a block's parameter vector.
-function _slot_of(models, name)
-    seen = Symbol[]
-    for m in models, q in InferCell.model_free_params(parameters(m))
-        q.name in seen || push!(seen, q.name)
-    end
-    return findfirst(==(name), seen)
-end
+# `toy_slow_pool` — a metabolic half that moves without running dry — lives in
+# `hybrid_test_models.jl` beside `ToyPool`, so this file and
+# `dev/scripts/rebuild_channel.jl` cannot drift apart on what "slow" means.
+const _slow_pool = toy_slow_pool
 
 @testset "Phase 4 — the 60 s rebuild" begin
 
@@ -56,7 +43,10 @@ end
         # A constant held as mutable state on the sub-model would be invisible to
         # both, and so could never appear in a posterior, a provenance table or
         # an identifiability Jacobian.
-        slot = _slot_of([m], :k_tx_rb)
+        # Recomputed independently of the orchestrator: for a single jump module
+        # the composed layout is just its own free parameters in order.
+        slot = findfirst(==(:k_tx_rb),
+                         [q.name for q in InferCell.model_free_params(parameters(m))])
         @test slot !== nothing
         @test r.fill_idxs == [slot]
         @test d.jump.p[slot] == m.params[1].value
@@ -121,29 +111,41 @@ end
 
     @testset "4.3 the coupling is piecewise-constant, not accidentally continuous" begin
         Random.seed!(4004)
-        m = ToyRebuiltExpression(interval = 60.0)
+        # Two rebuilt constants, so that a *state-dependent* propensity depends
+        # on one of them: translation fires at `k_tl_rb · mRNA`, first order in
+        # the transcript as it is in Core A′. Transcription is zeroth order —
+        # again as in Core A′ — so its propensity simply is its rate constant,
+        # and asserting on that alone would restate the parameter-slot check.
+        m = ToyRebuiltExpression(interval = 60.0, rebuilt = [:k_tx_rb, :k_tl_rb])
         d = build_problem([_slow_pool(), m]; tspan = (0.0, 180.0))
-        slot = only(d.rebuilds).fill_idxs[1]
+        r = only(d.rebuilds)
+        tx_slot, tl_slot = r.fill_idxs
         out = run_handshake!(d, 180)
 
         # The upstream pool moves at (very nearly) every handshake …
         @test length(unique(o[1] for o in out.ode)) > 150
-        # … and the rate constant does not: bitwise unchanged between refreshes.
-        for window in (61:119, 121:179)
+        # … and the rate constants do not: bitwise unchanged between refreshes.
+        for slot in (tx_slot, tl_slot), window in (61:119, 121:179)
             @test all(p -> p[slot] === out.jump_p[first(window)][slot],
                       out.jump_p[window])
         end
-        # It does change at the boundaries, so the assertion above is not
+        # They do change at every boundary, so the assertion above is not
         # vacuously true of a channel that never fired.
-        @test out.jump_p[120][slot] !== out.jump_p[119][slot]
+        for slot in (tx_slot, tl_slot), b in (60, 120, 180)
+            @test out.jump_p[b][slot] !== out.jump_p[b - 1][slot]
+        end
 
         # Propensities themselves move with the jump state, so the statement
         # "the propensities change only at interval boundaries" is made at a
         # *fixed reference state*: the module's own rate function there is
-        # bitwise unchanged across the same handshakes.
-        rate = first(reactions(m)).rate
-        ref_u, ref_pidx = SA[3, 7, 0], only(d.rebuilds).p_idxs
-        props = [rate(ref_u, view(p, ref_pidx), 0.0, nothing) for p in out.jump_p]
+        # bitwise unchanged across the same handshakes. Translation's rate is
+        # the load-bearing one — it reads both a rebuilt constant and the state,
+        # so its value at the held state is not the parameter slot.
+        translation = reactions(m)[3].rate
+        ref_u = SA[3, 7, 0]
+        props = [translation(ref_u, view(p, r.p_idxs), 0.0, nothing)
+                 for p in out.jump_p]
+        @test props[61] !== out.jump_p[61][tl_slot]        # genuinely state-scaled
         @test all(x -> x === props[61], props[61:119])
         @test props[120] !== props[119]
     end
@@ -236,6 +238,31 @@ end
         @test err isa ArgumentError
         msg = sprint(showerror, err)
         @test occursin("ToyPoolRebuildPeer", msg) && occursin("M_gtp_c", msg)
+
+        # The direction convention read backwards. This is the *quiet* mistake:
+        # an inbound edge with no rebuilt_params throws, but an outbound one
+        # would fall through the consumer filter and compose, with the jump
+        # block keeping its nominal constants for the whole trajectory.
+        backwards = ToyRebuiltExpression(
+            edges = [DeferredCounterEdge(species = :M_atp_c, direction = :in,
+                                         counter = :atp_cost),
+                     RateConstantEdge(species = :M_atp_c, direction = :out)])
+        err = caught(() -> build_problem([ToyPool(), backwards]; tspan = (0.0, 60.0)))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("outbound", msg) && occursin("direction = :in", msg)
+
+        # A rebuilt name an *ODE* module also declares. The blocks hold separate
+        # parameter vectors, so the hook would rewrite one copy and leave the
+        # other, and one named parameter would carry two values —
+        # `_validate_shared_params` cannot catch it, because the declared values
+        # agree.
+        err = caught(() -> build_problem([ToyPool(), ToyOdeNameClash(),
+                                          ToyRebuiltExpression()];
+                                         tspan = (0.0, 60.0)))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("k_tx_rb", msg) && occursin("ToyOdeNameClash", msg)
     end
 
     @testset "4.2 several pools feed one rebuild, and each is read" begin
@@ -315,7 +342,48 @@ end
         # and the SSA step that follows immediately starts refilling it — the
         # same one-exchange lag phase 3's done-when test asserts on the protein
         # count.
-        @test out.jump[19][3] > out.jump[20][3] > 0
+        @test out.jump[19][3] > 0
+
+        # The census counts drains, not handshakes, and surfaces what is still
+        # unpaid. Without the first, a coarse drain dilutes the clipping
+        # fraction by exactly `steps_per_drain` and K5's 5% gate stops meaning
+        # what it says; without the second, the ledger reads closed while a
+        # period of cost sits in the counters.
+        @test out.census.handshakes == 20
+        @test out.census.drains == 2
+        @test out.census.fraction == out.census.clipped / 2
+        @test only(out.census.pending) == out.jump[20][3]
+    end
+
+    @testset "4.6 a run that would leave a period unpaid is refused" begin
+        d = build_problem([ToyPool(kcat = 0.0), ToyExpression()];
+                          tspan = (0.0, 60.0), drain_interval = 10.0)
+        # 25 handshakes at a 10-handshake drain ends mid-period, leaving up to
+        # nine exchanges of accrued cost never debited and the recorded pools
+        # high by an amount nothing in the census names.
+        err = caught(() -> run_handshake!(d, 25))
+        @test err !== nothing
+        @test occursin("drain interval", sprint(showerror, err))
+        # The default drain is every handshake, so no run length is refused.
+        d1 = build_problem([ToyPool(kcat = 0.0), ToyExpression()]; tspan = (0.0, 60.0))
+        @test caught(() -> run_handshake!(d1, 7)) === nothing
+    end
+
+    @testset "4.6 the driver's policy reaches the human-facing report" begin
+        # `reduction_declarations` enumerates what the sub-models declare and
+        # structurally cannot see a field on the driver, so a result produced
+        # under a coarse drain would otherwise carry no label at all — the
+        # failure spec §6 T2 exists to prevent.
+        models = [ToyPool(), ToyExpression()]
+        d = build_problem(models; tspan = (0.0, 600.0),
+                          drain_interval = 60.0, rounding = :deterministic)
+        cats = [l.category for l in reduction_declarations(models, d)]
+        @test :coarse_drain in cats && :rounding_policy in cats
+        report = reduction_report(models, d)
+        @test occursin("coarse_drain", report) && occursin("rounding_policy", report)
+        # And the one-argument form says what it cannot see, rather than
+        # claiming nothing departs.
+        @test occursin("driver_declarations", reduction_report(models))
     end
 
     @testset "Done when: all three executed channels run together" begin
