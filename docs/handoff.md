@@ -57,7 +57,8 @@ interval and there is no rebuild at t = 0.
 | task 4.6, sawtooth | reported separately: 60 s at **+0.65% ± 0.02%** against a closed form of **+0.64%**; 5 s at **+0.06% ± 0.02%** against **+0.04%** |
 | task 3.8 re-run | `run_handshake!` now copies the jump parameter vector per handshake: worst extrapolation **0.019 s** per 6,300 s trajectory, up from 0.014 s, still ~500× inside K1's budget |
 
-Full tables in `dev/scripts/rebuild_channel_result.md` (Slurm job 16221198).
+Full tables in `dev/scripts/rebuild_channel_result.md`, which names the job and
+commit that produced it.
 
 **Three things a reader should not over-read.**
 
@@ -99,14 +100,18 @@ piecewise-constant interval instead, which is what §10 R11's cadence comparison
 actually varies. A declared-but-unexecuted continuous edge is still labelled a
 deviation by `reduction_declarations`, unchanged.
 
-**Nine refusals phases 10–12 inherit.** A rebuilt name that is not one of the
-module's own free parameters; a name a second jump module also declares (the
-`param_slot` dedup trap, arriving on the rebuild side — with seventeen genes and
-shared gene-expression globals this is the likely real mistake); a pool no ODE
-module integrates; rebuilt parameters with no edge; an edge with nothing to
-rebuild; an outbound edge no jump module consumes; an `:ode` module declaring
-`rebuilt_params`; two intervals on one module; and an interval that is not a
-whole number of handshakes.
+**Ten refusals phases 10–12 inherit.** A rebuilt name that is not one of the
+module's own free parameters; a name another module in **either** block also
+declares (the `param_slot` dedup trap arriving on the rebuild side — with
+seventeen genes and shared gene-expression globals this is the likely real
+mistake, and across the boundary the two parameter vectors are separate so the
+hook would rewrite one copy and leave the other); a pool no ODE module
+integrates; rebuilt parameters with no edge; an inbound edge with nothing to
+rebuild; an ODE module's outbound edge no jump module consumes; a *jump*
+module's **outbound** edge, the direction convention read backwards; an `:ode`
+module declaring `rebuilt_params`; two intervals on one module; and an interval
+that is not a whole number of handshakes. Phase 3's catalytic `param_slot`
+guard had the same one-block name scan and is widened to match.
 
 **`drain_interval` is new on the driver**, defaults to the handshake interval,
 must be a whole number of them, and is a labelled reduction when coarser. With

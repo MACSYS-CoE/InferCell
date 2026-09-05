@@ -88,6 +88,8 @@ RateConstantEdge(species=:M_gtp_c, direction=:in)
 # alternative: cadence=:continuous, which carries no interval and is marked a deviation
 ```
 
+A `:continuous` cadence is **declarable and labelled but not executable**: the handshake driver advances the two blocks by an outer split-operator loop, which holds a rate constant between refreshes by construction, so `build_problem` refuses a hybrid composition carrying one and points at a shorter `:piecewise_constant` interval instead — which is what a cadence-sensitivity comparison varies. See `spec/spec.md` §12, 2026-09-05, amendment A.
+
 ## Resolving a composition
 
 `resolve_coupling` validates a set of modules and returns a `CouplingGraph`. It is standalone: it needs no `ODEProblem`, works on a single module, and produces its reports without running a simulation.

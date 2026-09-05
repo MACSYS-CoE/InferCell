@@ -1747,23 +1747,24 @@ elasticity of a rate constant to its upstream pool is reported.
   exactly **10** and **20**, counted by the handshakes at which the recorded jump
   parameter vector's rebuilt slot changed — `run_handshake!` now records that
   vector for the purpose. The value written at a refresh equals the module's own
-  law at that handshake's recorded pool, bitwise. Nine refusals, each naming what
-  is wrong: a rebuilt name that is not one of the module's own free parameters; a
-  name a second jump module also declares (the `param_slot` dedup trap, arriving
-  on the rebuild side); a pool no ODE module integrates; rebuilt parameters with
-  no edge; an edge with nothing to rebuild; an outbound edge no jump module
-  consumes; an `:ode` module declaring `rebuilt_params`; two intervals on one
-  module; an interval that is not a whole number of handshakes, since the
-  rebuild can only fire at one; and — added in the pre-merge review — a *jump*
-  module's **outbound** rate-constant edge, which is the direction convention
-  read backwards and was the one quiet mistake left, since the inbound form
-  throws for missing `rebuilt_params` while the outbound form fell through the
-  consumer filter and composed with the stochastic block silently keeping its
-  nominal constants. The name-clash guard likewise now scans **both** blocks:
-  across the boundary the two parameter vectors are separate, so the hook would
-  rewrite one copy and leave the other, and `_validate_shared_params` cannot
-  catch it because the declared values agree. Ten refusals in all, the
-  continuous cadence of 4.4 counted separately.
+  law at that handshake's recorded pool, bitwise. **Ten refusals**, each naming
+  what is wrong: a rebuilt name that is not one of the module's own free
+  parameters; a name another module in **either** block also declares, since
+  across the boundary the two parameter vectors are separate and the hook would
+  rewrite one copy and leave the other — which `_validate_shared_params` cannot
+  catch, because the declared values agree; a pool no ODE module integrates;
+  rebuilt parameters with no edge; an inbound edge with nothing to rebuild; an
+  ODE module's outbound edge no jump module consumes; a *jump* module's
+  **outbound** edge, which is the direction convention read backwards and was
+  the one quiet mistake left, since the inbound form throws for missing
+  `rebuilt_params` while the outbound form fell through the consumer filter and
+  composed with the stochastic block silently keeping its nominal constants; an
+  `:ode` module declaring `rebuilt_params`; two intervals on one module; and an
+  interval that is not a whole number of handshakes, since the rebuild can only
+  fire at one. The continuous cadence of 4.4 is counted separately. The last two
+  of the ten — the outbound jump edge and the both-blocks name scan — came from
+  the pre-merge review; phase 3's catalytic `param_slot` guard had the same
+  one-block scan and is widened in the same pass.
 - [x] 4.3 Assert piecewise-constancy — verify by sampling propensities between
   refreshes and asserting they are bitwise unchanged, so the coupling is the
   published piecewise-constant one and not an accidental continuous one.
@@ -1798,7 +1799,7 @@ elasticity of a rate constant to its upstream pool is reported.
   in log space. The toy's rebuild law is Michaelis-shaped, so its elasticity has
   the closed form `km/(km + pool)` and the diagnostic is **checked** against it
   rather than merely reported: fifteen (km, pool) settings in
-  `dev/scripts/rebuild_channel_result.md` (Slurm job 16221198), every one
+  `dev/scripts/rebuild_channel_result.md`, every one
   agreeing to better than **7e-9** relative. The gain spans **0.0025 to 0.667**
   across that sweep, which is the point R8 makes — a channel gain is a function
   of the quantities we assert, not a constant of the model — and the row at

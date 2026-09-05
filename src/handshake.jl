@@ -399,8 +399,15 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     # declaring a free parameter of the same name share one slot in the composed
     # vector (`_build_p0` dedups by name), so a catalytic write into it would
     # silently drive the other module's rate law too.
+    # Scanned over *both* blocks, for the reason `_lower_rebuilds` scans both:
+    # within the ODE block a shared name is one deduplicated slot, so the count
+    # would drive the other module's rate law; across the boundary the two
+    # blocks hold separate parameter vectors, so the write would land in one and
+    # not the other and a single named parameter would carry two values —
+    # invisible to `_validate_shared_params`, which compares declared values and
+    # finds them equal.
     slot_owners = Dict{Symbol, Vector{Symbol}}()
-    for m in ode_models, q in model_free_params(parameters(m))
+    for m in vcat(ode_models, jump_models), q in model_free_params(parameters(m))
         push!(get!(slot_owners, q.name, Symbol[]), module_id(m))
     end
 
@@ -431,10 +438,12 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             holders = slot_owners[e.param_slot]
             length(holders) == 1 || throw(ArgumentError(
                 "Module $id fills the parameter slot :$(e.param_slot) from a " *
-                "catalytic edge, but $(join(holders, " and ")) all declare a " *
-                "free parameter of that name. Parameters are deduplicated by " *
-                "name into one slot, so the count would drive every one of " *
-                "those rate laws. Give the slot a name unique to $id"))
+                "catalytic edge, but $(join(holders, " and ")) each declare a " *
+                "free parameter of that name. Within the metabolic block those " *
+                "are one deduplicated slot, so the count would drive every one " *
+                "of those rate laws; across the boundary they are two slots in " *
+                "two parameter vectors, so the write would land in one and leave " *
+                "the other. Give the slot a name unique to $id"))
             push!(catalytic, CatalyticExchange(count_idx, ode_contexts[i].param_idxs[j],
                                                e.species, e.param_slot, id))
         end
@@ -1201,7 +1210,7 @@ reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
     vcat(reduction_declarations(models), driver_declarations(d))
 
 reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
-    _reduction_report(reduction_declarations(models, d))
+    _reduction_report(reduction_declarations(models, d); driver_seen = true)
 
 export handshake_step!, run_handshake!, rate_constant_elasticity,
        driver_declarations

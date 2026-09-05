@@ -108,11 +108,14 @@ reduction_report(models::Vector{<:AbstractSubModel}) =
 
 # The rendering, shared with the two-argument form in `handshake.jl`, which adds
 # the driver's own policy to the same list.
-function _reduction_report(labels::Vector{ReductionLabel})
-    isempty(labels) && return "Nothing in this composition's declarations departs " *
-        "from the published model. A driver's own policy — the drain granularity, " *
-        "the rounding — is not a declaration and is enumerated by " *
-        "`driver_declarations`; pass the driver to see both."
+function _reduction_report(labels::Vector{ReductionLabel}; driver_seen = false)
+    isempty(labels) && return driver_seen ?
+        "Nothing in this composition's declarations, and nothing in this driver's " *
+        "policy, departs from the published model." :
+        "Nothing in this composition's declarations departs from the published " *
+        "model. A driver's own policy — the drain granularity, the rounding — is " *
+        "not a declaration and is enumerated by `driver_declarations`; pass the " *
+        "driver to see both."
 
     lines = ["$(length(labels)) declaration(s) that are this reduction's, not the published model's:"]
     for category in REDUCTION_CATEGORIES

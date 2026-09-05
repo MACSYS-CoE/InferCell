@@ -106,18 +106,36 @@ function ensemble(drain)
             predrain[s, i, j] = out.ode[i * ALIGN - 1][j]
         end
         for i in 1:n
-            pending[s, i] = out.jump[i * ALIGN - 1][3]   # :atp_cost, undebited
+            pending[s, i] = out.jump[i * ALIGN - 1][COUNTER]   # undebited accrual
         end
     end
     return (aligned = aligned, predrain = predrain, pending = pending)
 end
 
+# The layouts every column below reads: the ODE block's states in order, and
+# the counter's slot in the jump block. Asserted rather than assumed, because a
+# reordering would silently mislabel every column rather than fail.
+const _PROBE = build_problem(MODELS(); tspan = (0.0, 60.0))
+const _ODE_STATES = states(MODELS()[1])
+_ODE_STATES == collect(POOLS) || error(
+    "This script names its pool columns $(POOLS) but the ODE module's states are " *
+    "$(_ODE_STATES); the columns would be mislabelled")
+# Which pool the deferred counter draws on, and which jump slot it accrues in,
+# both read from the lowered channel rather than assumed.
+const DEBITED = only(_PROBE.debits).pool_idx
+const COUNTER = only(_PROBE.debits).counter_idx
+
+# The mid-period offset in closed form, from the toy's own declared parameters:
+# a coarse configuration holds `drain - interval` seconds of accrued cost, and
+# the accrual rate is k_tl * (k_tx / gamma_m) * cost particles per second at the
+# transcript's steady state. No simulation enters this.
+const _EX = ToyExpression()
+const COST_RATE = _EX.params[3].value * (_EX.params[1].value / _EX.params[2].value) * _EX.cost
+sawtooth_closed_form(drain, interval, pool_mM, factor) =
+    (drain - interval) * COST_RATE / (factor * pool_mM)
+
 base = ensemble(1.0)
 factor = corea_particles_per_mM()
-
-# Which pool the deferred counter actually draws on, read from the lowered
-# channel rather than assumed, so the sawtooth is reported where it exists.
-const DEBITED = only(build_problem(MODELS(); tspan = (0.0, 60.0)).debits).pool_idx
 
 # The paired relative difference at one family of instants: mean over seeds of
 # (coarse - base) / mean(base), and the standard error of that mean taken from
@@ -133,29 +151,35 @@ function paired(a, b)
     return m, se
 end
 
+# One row per (drain, pool). Nothing is selected: the reported difference is the
+# one at the final aligned instant for *each* pool, and the maximum beside it is
+# over that pool's own instants with the multiplicity stated. A maximum over
+# both pools would be a two-way selection dressed as a measurement, which is the
+# class of mistake this script's first version made.
 drain_rows = NamedTuple[]
+sawtooth_rows = NamedTuple[]
 for drain in DRAINS
     e = ensemble(drain)
     m, se = paired(e.aligned, base.aligned)
     n = size(m, 1)
-    last_i = argmax(abs.(m[n, :]))                      # the final instant, no selection
-    k = argmax(abs.(m))                                 # the largest of n × 2
+    for j in eachindex(POOLS)
+        k = argmax(abs.(@view m[:, j]))
+        push!(drain_rows,
+              (drain = drain, pool = POOLS[j],
+               final = m[n, j], final_se = se[n, j],
+               max = m[k, j], max_se = se[k, j], max_t = k * ALIGN, n_points = n))
+    end
+
     # The sawtooth belongs to the *debited* pool by construction, so it is read
     # there and at the final pre-drain instant, rather than selected as a
     # maximum — a maximum over both pools would pick a noise extreme on the pool
     # the counter never touches, in a column whose whole claim is determinism.
     pm, pse = paired(e.predrain, base.predrain)
-    # The closed form the mid-period offset should equal: the accrual the coarse
-    # configuration is still holding, as a fraction of the pool it has not left.
-    held = mean(e.pending) - mean(base.pending)          # particles
-    push!(drain_rows,
-          (drain = drain,
-           final = m[n, last_i], final_se = se[n, last_i], final_pool = POOLS[last_i],
-           max = m[k], max_se = se[k], max_pool = POOLS[k[2]], max_t = k[1] * ALIGN,
-           n_points = length(m),
-           sawtooth = pm[end, DEBITED], sawtooth_se = pse[end, DEBITED],
-           sawtooth_pool = POOLS[DEBITED],
-           closed_form = held / factor / mean(@view base.predrain[:, end, DEBITED])))
+    pool_mM = mean(@view base.predrain[:, end, DEBITED])
+    push!(sawtooth_rows,
+          (drain = drain, pool = POOLS[DEBITED],
+           measured = pm[end, DEBITED], se = pse[end, DEBITED],
+           closed_form = sawtooth_closed_form(drain, 1.0, pool_mM, factor)))
 end
 
 resolved(r) = abs(r.final) > 2 * r.final_se
@@ -216,15 +240,15 @@ println(io)
 println(io, "seed** against the published 1 s drain and sampled at **drain-aligned**")
 @printf(io, "handshakes (every %d s), where every configuration has just debited the same\n", ALIGN)
 println(io, "total accrual — so what is left is the difference in the dynamics and not the")
-println(io, "unpaid balance. `final` is the difference at the last such instant, chosen")
-println(io, "before looking; `max` is the largest over all of them, and its `n` is the")
-println(io, "multiplicity that number was selected out of.")
+println(io, "unpaid balance. One row per pool, nothing selected: `final` is the difference")
+println(io, "at the last aligned instant, and `max` is the largest over that pool's own")
+println(io, "instants with `n` the multiplicity it was selected out of.")
 println(io)
-println(io, "| drain (s) | final | ± SE | pool | max | ± SE | at t (s) | n | resolved? | vs D10's 1% |")
+println(io, "| drain (s) | pool | final | ± SE | max | ± SE | at t (s) | n | resolved? | vs D10's 1% |")
 println(io, "|---|---|---|---|---|---|---|---|---|---|")
 for r in drain_rows
-    @printf(io, "| %.0f | %+.5f | %.5f | %s | %+.5f | %.5f | %d | %d | %s | %s |\n",
-            r.drain, r.final, r.final_se, r.final_pool, r.max, r.max_se,
+    @printf(io, "| %.0f | %s | %+.5f | %.5f | %+.5f | %.5f | %d | %d | %s | %s |\n",
+            r.drain, r.pool, r.final, r.final_se, r.max, r.max_se,
             r.max_t, r.n_points, resolved(r) ? "yes" : "no", verdict(r))
 end
 println(io)
@@ -232,19 +256,20 @@ println(io, "And the quantity that is **not** a granularity cost, reported separ
 println(io, "cannot be mistaken for one: the sawtooth of the outstanding debit, measured on")
 println(io, "the debited pool one handshake before the last drain, beside its closed form.")
 println(io)
-println(io, "| drain (s) | mid-period offset | ± SE | pool | closed form |")
+println(io, "| drain (s) | pool | measured | ± SE | closed form |")
 println(io, "|---|---|---|---|---|")
-for r in drain_rows
-    @printf(io, "| %.0f | %+.5f | %.5f | %s | %+.5f |\n",
-            r.drain, r.sawtooth, r.sawtooth_se, r.sawtooth_pool, r.closed_form)
+for r in sawtooth_rows
+    @printf(io, "| %.0f | %s | %+.5f | %.5f | %+.5f |\n",
+            r.drain, r.pool, r.measured, r.se, r.closed_form)
 end
 println(io)
 println(io, """
-That offset is deterministic — `(drain − interval) · cost_rate / pool` — needs
-no simulation, and is what an unaligned sampling instant measures. A first
-version of this script reported it as the granularity cost. It is bookkeeping:
-the cost has been accrued and not yet paid, not a trajectory that went
-somewhere else.""")
+The closed-form column is exactly that: `(drain − interval) · k_tl · (k_tx/γ) ·
+cost / (factor · pool)`, computed from the toy's own declared parameters with no
+simulation entering it at all. It is what an unaligned sampling instant
+measures, and a first version of this script reported it as the granularity
+cost. It is bookkeeping — the cost has been accrued and not yet paid, not a
+trajectory that went somewhere else.""")
 println(io)
 println(io, "The driver's own policy, as `reduction_report(models, driver)` renders it for")
 println(io, "the 60 s configuration:")
