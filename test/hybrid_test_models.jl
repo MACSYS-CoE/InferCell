@@ -153,3 +153,188 @@ states(::ToyPool2) = [:M_gtp_c]
 parameters(m::ToyPool2) = m.params
 formalism(::ToyPool2) = :ode
 dynamics(u, p, t, ::ToyPool2) = SA[-p[1] * p[2] * u[1]]
+
+# --- Phase 4: the 60 s rebuild ---------------------------------------------
+#
+# A second stochastic double, whose transcription rate constant is *rebuilt*
+# from live ODE pools rather than declared once. It owns the same three states
+# as `ToyExpression` — the protein `M_ptsg_c` so `ToyPool`'s catalytic edge
+# still has a count to read, and the accrual counter `:atp_cost` so the
+# deferred debit still runs — which is what lets one composition exercise all
+# three executed channels at once, the shape the assembled model has. The two
+# doubles are never composed together, so the shared state names cannot
+# collide.
+#
+# Written as its own type rather than as a keyword on `ToyExpression` so that
+# every phase-3 test keeps running exactly the model it was written against.
+
+import InferCell: rebuilt_params, rate_constants
+
+"""
+    ToyRebuiltExpression(; k_tx = 2.0, k_tx_max = 6.0, km_tx = 1.0,
+                           gamma_m = 0.5, k_tl = 1.0, cost = 10,
+                           mrna0 = 0, protein0 = 0,
+                           pools = [:M_atp_c], interval = 60.0,
+                           cadence = :piecewise_constant,
+                           rebuilt = [:k_tx_rb],
+                           edges = <rate-constant + deferred counter>)
+
+`ToyExpression` with its transcription rate constant on the 60 s rebuild:
+
+```
+k_tx = k_tx_max * Π_j pool_j / (km_tx + pool_j)
+```
+
+A Michaelis-shaped law in each pool, chosen because its elasticity has a closed
+form — `d ln k / d ln pool_j = km_tx / (km_tx + pool_j)` — so task 4.5's
+diagnostic is checked against an analytic value rather than merely reported.
+`km_tx` therefore tunes the channel gain, which is what lets a test drive it to
+the 0.044–0.051 range the real transcription channel is measured at.
+
+Every keyword that names a declaration — `pools`, `interval`, `cadence`,
+`rebuilt`, `edges` — is overridable so a test can build a mis-declared variant
+and witness the refusal.
+"""
+struct ToyRebuiltExpression <: AbstractSubModel
+    params::Vector{InferParameter}
+    cost::Int
+    edges::Vector{CouplingEdge}
+    rebuilt::Vector{Symbol}
+end
+
+function ToyRebuiltExpression(; k_tx = 2.0, k_tx_max = 6.0, km_tx = 1.0,
+                              gamma_m = 0.5, k_tl = 1.0, cost = 10,
+                              mrna0 = 0, protein0 = 0,
+                              pools = [:M_atp_c], interval = 60.0,
+                              cadence = :piecewise_constant,
+                              rebuilt = [:k_tx_rb],
+                              edges = nothing)
+    params = [_rate(k_tx, :k_tx_rb, :ToyRebuiltExpression),
+              _rate(k_tx_max, :k_tx_max_rb, :ToyRebuiltExpression),
+              _rate(km_tx, :km_tx_rb, :ToyRebuiltExpression),
+              _rate(gamma_m, :gamma_m_rb, :ToyRebuiltExpression),
+              _rate(k_tl, :k_tl_rb, :ToyRebuiltExpression),
+              _jic(mrna0, :toy_mrna0, :ToyRebuiltExpression),
+              _jic(protein0, :M_ptsg_c0, :ToyRebuiltExpression),
+              _jic(0, :atp_cost0, :ToyRebuiltExpression)]
+    default = CouplingEdge[DeferredCounterEdge(species = :M_atp_c,
+                                               direction = :in,
+                                               counter = :atp_cost)]
+    for s in pools
+        push!(default, cadence === :continuous ?
+              RateConstantEdge(species = s, direction = :in, cadence = :continuous) :
+              RateConstantEdge(species = s, direction = :in, cadence = cadence,
+                               interval = interval))
+    end
+    return ToyRebuiltExpression(params, Int(cost),
+                                collect(CouplingEdge, edges === nothing ? default : edges),
+                                collect(Symbol, rebuilt))
+end
+
+states(::ToyRebuiltExpression) = [:toy_mrna, :M_ptsg_c, :atp_cost]
+parameters(m::ToyRebuiltExpression) = m.params
+formalism(::ToyRebuiltExpression) = :jump
+inference_mode(::ToyRebuiltExpression) = :simulation
+coupling(m::ToyRebuiltExpression) = m.edges
+rebuilt_params(m::ToyRebuiltExpression) = m.rebuilt
+
+# The rebuild reads only the pools and the module's *other* parameters. Reading
+# p[1] — the slot it is about to fill — would compound its own previous value.
+function rate_constants(p, t, ::ToyRebuiltExpression, pools)
+    kmax, km = p[2], p[3]
+    return SA[kmax * prod(x / (km + x) for x in pools)]
+end
+
+"""
+    toy_rebuilt_k(m, pools) -> Float64
+
+The rebuild law written once, so a test asserts the model's own arithmetic
+rather than a copy of it.
+"""
+toy_rebuilt_k(m::ToyRebuiltExpression, pools) =
+    m.params[2].value * prod(x / (m.params[3].value + x) for x in pools)
+
+"""
+    toy_rebuilt_elasticity(m, pool) -> Float64
+
+The closed-form elasticity of the law above with respect to one pool,
+`km / (km + pool)`, which task 4.5's finite-difference diagnostic is checked
+against.
+"""
+toy_rebuilt_elasticity(m::ToyRebuiltExpression, pool) =
+    m.params[3].value / (m.params[3].value + pool)
+
+function reactions(m::ToyRebuiltExpression)
+    cost = m.cost
+    return [
+        # ∅ -> mRNA, at the rebuilt rate constant
+        Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1)),
+        # mRNA -> ∅
+        Reaction((u, p, t, _) -> p[4] * u[1], (u, _) -> (u[1] -= 1)),
+        # mRNA -> mRNA + protein, charging `cost` particles of ATP to the counter
+        Reaction((u, p, t, _) -> p[5] * u[1], (u, _) -> (u[2] += 1; u[3] += cost)),
+    ]
+end
+
+"""
+    ToyPoolRebuildPeer(; species = :M_atp_c)
+
+An ODE double that declares the *outbound* half of a rate-constant channel and
+owns `:M_gtp_c`. It exists to witness one refusal: a pool's owner naming a
+channel no jump module consumes, which would be declared and never executed.
+"""
+struct ToyPoolRebuildPeer <: AbstractSubModel
+    params::Vector{InferParameter}
+    edges::Vector{CouplingEdge}
+end
+
+ToyPoolRebuildPeer(; species = :M_gtp_c) =
+    ToyPoolRebuildPeer([_rate(0.1, :k_peer_rb, :ToyPoolRebuildPeer),
+                        _jic(1.0, :M_gtp_c0, :ToyPoolRebuildPeer)],
+                       CouplingEdge[RateConstantEdge(species = species,
+                                                     direction = :out)])
+
+states(::ToyPoolRebuildPeer) = [:M_gtp_c]
+parameters(m::ToyPoolRebuildPeer) = m.params
+formalism(::ToyPoolRebuildPeer) = :ode
+coupling(m::ToyPoolRebuildPeer) = m.edges
+dynamics(u, p, t, ::ToyPoolRebuildPeer) = SA[-p[1] * u[1]]
+
+"""
+    ToyPoolRebuilder()
+
+An `:ode` double that wrongly declares `rebuilt_params`. The rate-constant
+channel rebuilds the *stochastic* block's constants; an ODE module reads a pool
+directly.
+"""
+struct ToyPoolRebuilder <: AbstractSubModel
+    params::Vector{InferParameter}
+end
+ToyPoolRebuilder() = ToyPoolRebuilder([_rate(1.0, :k_odereb, :ToyPoolRebuilder),
+                                       _jic(1.0, :M_gtp_c0, :ToyPoolRebuilder)])
+states(::ToyPoolRebuilder) = [:M_gtp_c]
+parameters(m::ToyPoolRebuilder) = m.params
+formalism(::ToyPoolRebuilder) = :ode
+rebuilt_params(::ToyPoolRebuilder) = [:k_odereb]
+dynamics(u, p, t, ::ToyPoolRebuilder) = SA[-p[1] * u[1]]
+
+"""
+    ToyRebuildClash()
+
+A second jump double that declares a free parameter named `:k_tx_rb`. It exists
+to witness one refusal: free parameters deduplicate by name into a single slot,
+so a rebuild into a shared name would drive this module's propensities too —
+the trap `param_slot` has on the catalytic side, arriving on the rebuild side.
+"""
+struct ToyRebuildClash <: AbstractSubModel
+    params::Vector{InferParameter}
+end
+# The declared value matches `ToyRebuiltExpression`'s, so `_validate_shared_params`
+# passes and the refusal under test is the one this double exists for rather
+# than the shared-parameter disagreement check firing first.
+ToyRebuildClash() = ToyRebuildClash([_rate(2.0, :k_tx_rb, :ToyRebuildClash),
+                                     _jic(0, :toy_clash0, :ToyRebuildClash)])
+states(::ToyRebuildClash) = [:toy_clash]
+parameters(m::ToyRebuildClash) = m.params
+formalism(::ToyRebuildClash) = :jump
+reactions(::ToyRebuildClash) = [Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1))]

@@ -55,6 +55,8 @@ using Aqua
     # Executable hybrid doubles, then the handshake tests (spec phase 3).
     include("hybrid_test_models.jl")
     include("test_hybrid_handshake.jl")
+    # The 60 s rebuild (spec phase 4), on the same doubles file.
+    include("test_rebuild.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
