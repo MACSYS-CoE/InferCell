@@ -30,7 +30,7 @@ record.census        # (; handshakes, clipped, fraction, deficits)
 
 ## Counts and concentrations
 
-`corea_particles_per_mM(radius_nm)` derives the conversion factor from Avogadro's constant and the volume of a sphere, rather than carrying a transcribed constant: at the published 200 nm radius it returns 20,180 particles per mM. `counts_to_mM(n, factor)` is exact division; the other direction needs a policy, because particles are whole.
+`corea_particles_per_mM(radius_nm)` derives the conversion factor from Avogadro's constant and the volume of a sphere, rather than carrying a transcribed constant: at the published 200 nm radius it returns 20180.39 particles per mM, the 20,180 the scoping note records. `counts_to_mM(n, factor)` is exact division; the other direction needs a policy, because particles are whole.
 
 ### Rounding policies
 
@@ -38,7 +38,7 @@ Writing a pool back as whole particles once per handshake, ~6,300 times per cell
 
 - `:fractional_carry` — the remainder is carried to the next handshake, so the emitted counts track the exact running total and the residual **does not accumulate**. The default.
 - `:stochastic` — round up with probability equal to the fraction. Unbiased, so the residual accumulates as the **square root** of the handshake count.
-- `:deterministic` — round to nearest, discarding the remainder. Biased, so the residual accumulates **linearly**, reaching roughly 0.156 mM per species over a cycle — about 140× the integrator's own bound. Implemented only so that this signature can be demonstrated; it is not a policy this project runs under.
+- `:deterministic` — round to nearest, discarding the remainder. Biased, so the residual accumulates **linearly**, reaching up to 0.156 mM per species over a cycle — about 140× the integrator's own bound, and measured at 0.125 mM on the phase-3 toy. Implemented only so that this signature can be demonstrated; it is not a policy this project runs under.
 
 The policy is a field on the driver rather than an argument to the arithmetic, so a trajectory carries the policy that produced it.
 

@@ -11,8 +11,10 @@ not fire on the toy. The project continues.**
 
 **What now runs.** A mixed ODE/jump composition returns a `HandshakeDriver`
 instead of throwing (spec §2, G1 — the one-line refusal at
-`src/orchestrator.jl:27` is gone), and three of the seven edge kinds execute
-rather than merely resolve (G2). Every simulated second: protein counts fill
+`src/orchestrator.jl:27` is gone). Phase 1 made mass and currency edges
+execute; this phase adds catalytic and deferred counter, so four of the seven
+edge kinds now run and three — rate constant, volume, clamped — remain
+declare-only (G2). Every simulated second: protein counts fill
 rate-law parameter slots through a `CatalyticEdge`, the metabolic block
 integrates one second, accrued costs are debited against the pools through a
 `DeferredCounterEdge` under the published clamped policy, and the stochastic
@@ -42,9 +44,9 @@ it is the fact phases 4 to 12 most need to hold onto.
 | check 0, stochastic | RMS **11.63 → 41.12** over 60 seeds, ratio 3.53 vs √10 = 3.16 |
 | task 3.4 | every count and pool **bitwise unchanged** across all 600 handshakes |
 | task 3.5 | 250-particle cost on a 100-particle pool: floors at **0.0**, deficit **150.0** exactly, repaid next hook |
-| task 3.6 | 400 vs 800 copies: slot filled with exactly `n/20180.5`, flux ratio exactly **2.0**, nothing else moved |
+| task 3.6 | 400 vs 800 copies: slot filled with exactly `n/20180.39`, flux ratio exactly **2.0**, nothing else moved |
 | check 7 census | **0** deficits at nominal; **0 of 200** prior draws clip |
-| task 3.8 wall-clock | **1.53e-06 s** per simulated second frozen, 1.65e-06 s live → **0.010 s per 6,300 s trajectory** against a 10 s budget |
+| task 3.8 wall-clock | **1.53e-06 s** per simulated second frozen (steady across horizons), 1.65e-06 s live at 600 s rising to 2.16e-06 at 60 s → **0.014 s per 6,300 s trajectory** worst case against a 10 s budget |
 
 **Three things a reader should not over-read.**
 
@@ -62,12 +64,16 @@ it is the fact phases 4 to 12 most need to hold onto.
 blocks.** The blocks hold separate vectors, so one name for two states makes
 every crossing that mentions it resolve to whichever block was asked first —
 phase 2's aliasing bug arriving *between* blocks instead of inside one.
-`_check_state_ownership` cannot catch it: it looks only within a block and only
-at registry species. This surfaced because rewriting the test that pinned the
-old mixed-formalism refusal showed `TranscriptionTranslation` +
+`_check_state_ownership` does span both blocks — it iterates every model
+regardless of formalism — but skips any name the registry does not know, and
+phase 10's transcripts are non-registry by task 10.2, so that is exactly the
+case it misses. This surfaced because rewriting the test that pinned the old
+mixed-formalism refusal showed `TranscriptionTranslation` +
 `StochasticGeneExpression` had quietly *stopped* failing. Recorded as an
 annotation on task 3.2 rather than a §12 amendment: it is a new rule, not a
-contradicted one.
+contradicted one. Two more rules arrived with it — a module may not reach
+across the boundary through `inputs()` or `written_states()`, and may not fill
+a catalytic `param_slot` whose name a second ODE module also declares.
 
 **`param_slot` now has semantics.** It was a required field on `CatalyticEdge`
 that no code in `src/` read. It is resolved at build time to the declaring
