@@ -10,8 +10,8 @@ advanced by a split-operator exchange, so there is no single SciML problem
 object that means what the published coupling means (spec §11 phase 3).
 
 Keyword arguments other than `tspan` are the hybrid driver's declared policy
-(exchange `interval`, `rounding`, `radius_nm`, `ode_solver`, `abstol`,
-`reltol`) and are accepted only by that path.
+(exchange `interval`, `drain_interval`, `rounding`, `radius_nm`, `ode_solver`,
+`abstol`, `reltol`) and are accepted only by that path.
 
 Shared parameters across sub-models are deduplicated by name and must agree
 on `value`, `prior`, and `fixed`. Cross-block coupling is resolved via each

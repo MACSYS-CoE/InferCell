@@ -1,9 +1,168 @@
 # Handoff
 
 **Session date:** 2026-09-05
-**Branch:** `phase3`
+**Branch:** `phase4`
 
-## Latest: phase 3 — the 1 s handshake, on a two-module toy (2026-09-05)
+## Latest: phase 4 — the 60 s rebuild (2026-09-05)
+
+Spec §11 phase 4, delivered as PR #45 from branch `phase4`. **The coupling is
+now bidirectional in execution, not only in topology.** Live ODE pools re-enter
+the stochastic block as recomputed rate constants, held piecewise-constant
+between refreshes as the published model holds them. Five of the seven edge
+kinds now execute — mass and currency (phase 1), catalytic and deferred counter
+(phase 3), rate constant (this phase) — and **two remain declare-only: volume
+(phase 5) and clamped.**
+
+**The mechanism (task 4.1): the constants live in the jump block's parameter
+vector**, written by the hook, exactly as phase 3's catalytic channel writes the
+ODE block's. The rejected alternative is the one the drafted transcription
+design chose — mutable state on the sub-model struct — and the reason to reject
+it is not style: a constant held there is invisible to `remake(prob; p = θ)`
+*and* to `model_free_params`, so it could never reach a posterior, the
+provenance table T1, or K6's identifiability Jacobian.
+
+**Two protocol functions, both defaulting to empty**, the rate-constant twins of
+phase 1's `contributed_states`/`contributions`:
+
+```
+rebuilt_params(m)               the module's own free parameters the rebuild fills
+rate_constants(p, t, m, pools)  their values, given the pools its inbound
+                                RateConstantEdges name, in mM
+```
+
+`RateConstantEdge` carries no `param_slot`, and one pool feeds many constants —
+the nucleotide pools set all seventeen transcription rate constants — so the
+edges name the inputs and the module names the outputs. `pools` arrives as an
+argument rather than through `inputs()`, which phase 3 forbids across the
+boundary.
+
+**Where it fires.** After the debit and before the SSA step, so the pools it
+reads are the ones the hook just left behind — the published order. One
+correctness consequence worth knowing: phase 3 gated `reset_aggregated_jumps!`
+on `isempty(d.debits)` alone, and a rate-constant write rewrites what every
+propensity is computed from, so the gate is now "a debit or a rebuild happened
+this handshake". A rebuild fires at the handshake whose end time is a multiple
+of the edge's interval, so the declared nominal values hold for the first
+interval and there is no rebuild at t = 0.
+
+**Measured, not asserted:**
+
+| What | Measured |
+|---|---|
+| task 4.2 refresh count | **10** in 600 s at a 60 s edge, **20** at a 30 s edge — counted from the recorded jump parameter vector, not from the schedule |
+| task 4.2 written value | bitwise equal to the module's own law at that handshake's recorded pool |
+| task 4.3 piecewise-constancy | rebuilt slot bitwise unchanged across each inter-refresh window while the pool moves at >150 of 180 handshakes |
+| task 4.5 elasticity | 15 (km, pool) settings against the closed form `km/(km+pool)`, worst relative error **7e-9**; gain spans **0.0025–0.667**; the `km = 0.175`, 3.6529 mM row sits at **0.0457**, inside the 0.044–0.051 band phase 10 compares against |
+| task 4.6, dynamics | drain-aligned, paired per seed, one row per pool: on the debited pool **+0.02% ± 0.02%** (5 s) and **+0.01% ± 0.02%** (60 s); on the product pool **−0.17% ± 0.16%** and **−0.04% ± 0.17%** — *none resolved above noise*, all far below D10's 1% |
+| task 4.6, sawtooth | reported separately, on the debited pool: 60 s at **+0.65% ± 0.02%** against a closed form of **+0.64%**; 5 s at **+0.06% ± 0.02%** against **+0.04%** |
+| task 3.8 re-run | `run_handshake!` now copies the jump parameter vector per handshake: worst extrapolation **0.019 s** per 6,300 s trajectory, up from 0.014 s, still ~500× inside K1's budget |
+
+Full tables in `dev/scripts/rebuild_channel_result.md`, which names the job and
+commit that produced it.
+
+**Three things a reader should not over-read.**
+
+1. **The granularity measurement was got wrong first, and how it was wrong is
+   the part phase 13 needs.** The first version sampled at every handshake, and
+   its headline "0.65% granularity cost" was the *sawtooth of the outstanding
+   debit*: between drains a coarse configuration holds up to `drain − interval`
+   seconds of unpaid cost, so its pools sit high by exactly that, and `argmax`
+   landed at t = 599 — the instant furthest from the last drain. In closed form
+   59 s × 40 particles/s ÷ 20,180 ÷ 18.13 mM = 0.00645 against the 0.0065
+   reported: three significant figures, a deterministic bookkeeping offset
+   needing no simulation. Three method points follow, all now in §12's
+   amendment B and in D10 itself: sample at instants that are multiples of
+   every drain compared; pair the difference per seed, because coarsening the
+   drain changes how often the propensity aggregation is rebuilt and so
+   consumes different randomness (three configurations at one seed give three
+   different paths); and state the multiplicity behind any maximum, since a
+   maximum over a noisy field is a selection statistic. With all three applied,
+   **the dynamical effect is not resolved above noise at either granularity**
+   on this toy, and the sawtooth agrees with its closed form to within one
+   standard error.
+2. **The granularity numbers are the toy's.** Its ATP pool is ~404,000 particles
+   against a ~40 particle/s drain; the pools D10 is really about turn over in
+   109 s (adenylate) and 30 s (guanylate), which is why D10 expects 60 s to fail
+   *there* and 5 s to pass. Both rows here are below 1%; that bounds the
+   mechanism and nothing else.
+3. **The elasticity is the toy's law, not the model's.** What the table
+   establishes is that the diagnostic recovers a *known* elasticity exactly, so
+   phase 10's number will be the published rate law's and not the estimator's.
+
+**A continuous cadence is refused, by name (task 4.4).** The spec offered
+either implementing it or rejecting it; rejection is the honest option, because
+the outer-loop mechanism of task 3.1 holds a constant between refreshes by
+construction — which is precisely what makes task 4.3's assertion possible —
+and a genuinely continuous cadence needs the `JumpProblem`-over-`ODEProblem`
+shape 3.1 rejected. Running it at 1 s and calling that continuous would be a
+label that overstates what runs. The error points at a shorter
+piecewise-constant interval instead, which is what §10 R11's cadence comparison
+actually varies. A declared-but-unexecuted continuous edge is still labelled a
+deviation by `reduction_declarations`, unchanged.
+
+**Ten refusals phases 10–12 inherit.** A rebuilt name that is not one of the
+module's own free parameters; a name another module in **either** block also
+declares (the `param_slot` dedup trap arriving on the rebuild side — with
+seventeen genes and shared gene-expression globals this is the likely real
+mistake, and across the boundary the two parameter vectors are separate so the
+hook would rewrite one copy and leave the other); a pool no ODE module
+integrates; rebuilt parameters with no edge; an inbound edge with nothing to
+rebuild; an ODE module's outbound edge no jump module consumes; a *jump*
+module's **outbound** edge, the direction convention read backwards; an `:ode`
+module declaring `rebuilt_params`; two intervals on one module; and an interval
+that is not a whole number of handshakes. Phase 3's catalytic `param_slot`
+guard had the same one-block name scan and is widened to match.
+
+**`drain_interval` is new on the driver**, defaults to the handshake interval,
+must be a whole number of them, and is a labelled reduction when coarser. With
+it came `driver_declarations`, which enumerates departures carried by the
+driver's *policy* rather than by any module's declarations —
+`reduction_declarations` takes models and cannot see them. It labels the coarse
+drain and, as a carried-along fix, a non-fractional rounding policy, which
+phase 3's own docstring already called "a labelled departure" while nothing
+labelled it. `REDUCTION_CATEGORIES` gained `:coarse_drain` and
+`:rounding_policy`.
+
+**The pre-merge review changed the phase materially**, and `/check-PR`'s
+report is the record: two blocking findings (the granularity number above, and
+a §12 amendment that was owed and unwritten) plus eight majors. The three that
+matter downstream: `clipping_census`'s fraction was per *handshake*, so a
+coarse drain diluted it by exactly `steps_per_drain` — at 60 s a run in which
+every debit clipped would have reported 1.7% and passed K5's 5% gate, and it is
+now per drain with the pending accrual surfaced; `driver_declarations` could
+not reach `reduction_report`, and the one script running a coarse drain never
+called it, so the committed result file carried no label at all; and two
+refusals were missing, a jump module's outbound rate-constant edge (the
+direction convention read backwards, and the only remaining *quiet* mistake)
+and an ODE module sharing a rebuilt parameter's name.
+
+**Suite:** 1230 passed, 0 failed (job 16222708, on the final tree); 1126 before the phase.
+
+### Next steps
+
+1. Phase 5 (growth and volume) is the natural next one: it makes `radius_nm`
+   live, and the conversion already takes it as an argument rather than closing
+   over it, so that is a call-site change and not an equation change. It is the
+   user's call to start it.
+2. The ODE track (phases 6–9) remains independent and may still fan out.
+3. When writing any module: everything in phase 3's list still holds, plus —
+   a rebuilt rate constant must be one of the module's *own* free parameters and
+   must carry a name no other module in *either* block uses; the rebuild law
+   must be a function of the pools and of the module's *other* parameters, never
+   of the slot it fills, which would compound its own previous value; and the
+   consuming module declares `direction = :in`, the pool's owner `:out`.
+4. **Known and deliberately unfixed:** a rebuilt slot is still an entry of
+   `model_free_params`, so `build_turing_model` and the ABC path sample it and
+   the hook discards the draw at the first refresh. Harmless today — no hybrid
+   inference path exists — but at phase 10 that would be seventeen posterior
+   dimensions coming back shaped like their priors. Phases 15 to 17 own the
+   fix; the consequence is documented on `rebuilt_params`.
+5. Check 7 and K5 are scored at the **published 1 s drain** (§12, amendment C).
+   A coarse `drain_interval` makes each debit `steps_per_drain` times larger
+   against the same pool while there are that many fewer of them, so its census
+   is about our choice rather than the published model's.
+
+## Previous: phase 3 — the 1 s handshake, on a two-module toy (2026-09-05)
 
 Spec §11 phase 3, **the kill phase**, delivered as PR #44 from branch
 `phase3`. **Neither of the phase's two stated kill conditions fired, and K5 did

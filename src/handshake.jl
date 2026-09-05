@@ -1,10 +1,10 @@
 """
 The 1 s handshake: executing the coupling the edge kinds declare.
 
-Spec §11 phase 3. Phase 1 made mass and currency edges execute inside the ODE
-block; this file adds the catalytic and deferred-counter channels, so four of
-the seven [`CouplingEdge`](@ref) kinds now run and three — rate constant,
-volume and clamped — remain declare-and-validate only. It
+Spec §11 phases 3 and 4. Phase 1 made mass and currency edges execute inside
+the ODE block; phase 3 added the catalytic and deferred-counter channels and
+phase 4 the rate-constant one, so five of the seven [`CouplingEdge`](@ref)
+kinds now run and two — volume and clamped — remain declare-and-validate only. It
 advances a jump block and an ODE block by a split-operator exchange, mirroring
 the published model's `hookSimulation` (`dev/notes/well-stirred-minimal-cell.md`):
 every `delt = 1.0` s, counts become initial conditions, the metabolic block
@@ -227,6 +227,36 @@ struct _CounterRead
     debit_idxs::Vector{Int}   # positions in `driver.debits` fed by this counter
 end
 
+"""
+    RateConstantRebuild
+
+One module's [`RateConstantEdge`](@ref) declarations made executable: the 60 s
+rebuild, and the only ODE→stochastic channel in the model.
+
+Every `steps` handshakes the hook reads the pools the module's inbound
+rate-constant edges name, calls its [`rate_constants`](@ref), and writes the
+results into the jump block's **parameter vector** at the slots
+[`rebuilt_params`](@ref) names. Between refreshes nothing touches them, which
+is what makes the coupling the published piecewise-constant one rather than an
+accidental continuous one.
+
+The record is per module rather than per edge: one pool feeds many constants —
+the nucleotide pools set all seventeen transcription rate constants — so the
+edges name the inputs and the module names the outputs.
+"""
+mutable struct RateConstantRebuild
+    model::AbstractSubModel
+    p_idxs::Vector{Int}       # global jump-parameter slots of the module's own free params
+    fill_idxs::Vector{Int}    # the slots the rebuild fills, in rebuilt_params order
+    pool_idxs::Vector{Int}    # global ODE state indices of the pools, in edge order
+    steps::Int                # handshakes between refreshes
+    interval::Float64
+    names::Vector{Symbol}     # rebuilt_params(m), for reports and refusals
+    species::Vector{Symbol}   # the pools, in the same order as `pool_idxs`
+    declared_by::Symbol
+    n_refreshes::Int
+end
+
 # ---------------------------------------------------------------------------
 # The driver
 # ---------------------------------------------------------------------------
@@ -237,47 +267,107 @@ end
 A mixed ODE/jump composition, advanced by a split-operator exchange.
 
 Holds two live integrators and the lowered exchange records between them.
-`interval` is the exchange period — 1.0 s, the published model's `delt`. The
-60 s rate-constant rebuild (phase 4) and the volume chain (phase 5) hook into
-the same loop and are deliberately absent here.
+`interval` is the exchange period — 1.0 s, the published model's `delt` — and
+`drain_interval` how often the deferred counters are debited, which defaults to
+`interval` and is a labelled reduction when it is coarser (spec §4 D10). The
+60 s rate-constant rebuild runs on each [`RateConstantRebuild`](@ref)'s own
+declared schedule. The volume chain (phase 5) hooks into the same loop and is
+deliberately absent here.
 
-`n_handshakes` and `n_clipped` are check 7's census: how many exchanges ran,
-and at how many of them any deferred counter carried a deficit. K5 is scored
-from the second number.
+`n_handshakes`, `n_drains` and `n_clipped` are check 7's census: how many
+exchanges ran, how many of them applied a debit, and at how many of *those* any
+deferred counter carried a deficit. K5 is scored from the last two, and the
+denominator is the drain count rather than the handshake count — see
+[`clipping_census`](@ref).
 """
 mutable struct HandshakeDriver{OI, JI}
     ode::OI
     jump::JI
     interval::Float64
+    drain_interval::Float64               # how often the deferred counters are debited
+    steps_per_drain::Int                  # that interval, in handshakes
     factor::Float64                       # particles per mM, at fixed volume
     rounding::RoundingState
     catalytic::Vector{CatalyticExchange}
     debits::Vector{DeferredDebit}
     counters::Vector{_CounterRead}        # debits grouped by the counter feeding them
+    rebuilds::Vector{RateConstantRebuild} # the 60 s rate-constant channel
     t_end::Float64                        # the declared end of both blocks' tspan
     n_handshakes::Int
+    n_drains::Int
     n_clipped::Int
 end
 
 """
     clipping_census(driver) -> NamedTuple
 
-Check 7 on this driver: the number of handshakes run, the number at which any
-deferred counter carried a deficit, and the fraction. Spec §3 check 7 requires
-**zero at published parameters**; more than 5% of prior draws clipping puts the
-non-smooth drain in the operating regime and fires K5.
+Check 7 on this driver: the number of handshakes run, the number of them that
+applied a debit, the number of *those* at which any deferred counter carried a
+deficit, the fraction, the carried deficits and the accrual still sitting in
+the counters. Spec §3 check 7 requires **zero at published parameters**; more
+than 5% of prior draws clipping puts the non-smooth drain in the operating
+regime and fires K5.
+
+**`fraction` is per drain, not per handshake.** Only a drain can clip, so at a
+`drain_interval` coarser than the exchange a per-handshake denominator would
+dilute the fraction by exactly `steps_per_drain` — at 60 s, a run in which
+*every* debit clipped would report 1.7% and pass K5's 5% gate. `pending` exists
+for the same reason: between drains the accrual sits in the jump block's
+counters rather than in any `deficit`, so without it the ledger reads closed
+while a period of cost is unpaid.
+
+Note that a coarse drain changes what this census is *about*, in both
+directions: each debit is `steps_per_drain` times larger against the same pool,
+so it clips more readily, while there are that many fewer of them. Check 7 and
+K5 are scored at the published 1 s drain (spec §12, 2026-09-05).
 """
 clipping_census(d::HandshakeDriver) = (handshakes = d.n_handshakes,
+                                       drains = d.n_drains,
                                        clipped = d.n_clipped,
-                                       fraction = d.n_handshakes == 0 ? 0.0 :
-                                                  d.n_clipped / d.n_handshakes,
-                                       deficits = [b.deficit for b in d.debits])
+                                       fraction = d.n_drains == 0 ? 0.0 :
+                                                  d.n_clipped / d.n_drains,
+                                       deficits = [b.deficit for b in d.debits],
+                                       pending = [float(d.jump.u[c.counter_idx])
+                                                  for c in d.counters])
 
-export CatalyticExchange, DeferredDebit, HandshakeDriver, clipping_census
+"""
+    rebuild_census(driver) -> Vector{NamedTuple}
+
+How many times each rate-constant rebuild has fired, and on what schedule. One
+row per rebuilding module: its id, the parameters it rebuilds, the pools it
+reads, its declared interval and the refresh count.
+"""
+rebuild_census(d::HandshakeDriver) =
+    [(module_id = r.declared_by, params = copy(r.names), pools = copy(r.species),
+      interval = r.interval, refreshes = r.n_refreshes) for r in d.rebuilds]
+
+export CatalyticExchange, DeferredDebit, RateConstantRebuild, HandshakeDriver,
+       clipping_census, rebuild_census
 
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
 # ---------------------------------------------------------------------------
+
+# A pool of Float64s as a static vector. `_svec` in the orchestrator does the
+# same for indices; this is its floating-point twin, and it exists because the
+# same construction appears at four sites, three of them in the per-handshake
+# path.
+_fvec(v) = SVector{length(v), Float64}(Tuple(v))
+
+# A hook fires only at a handshake — the one instant at which the two blocks
+# agree on a state — so a period between handshakes is unreachable, and rounding
+# one silently would run a cadence nobody declared. Written once because the
+# drain interval and the rebuild interval are held to the same rule, and a
+# silent divergence between two copies of it is exactly the failure the rule
+# exists to prevent.
+function _handshake_steps(period, interval, subject)
+    n = round(Int, period / interval)
+    (n >= 1 && isapprox(n * interval, period; rtol = 1e-12)) || throw(ArgumentError(
+        "$subject of $period s is not a whole number of $(interval) s handshakes. " *
+        "It is applied at a handshake — the only instant at which the two blocks " *
+        "agree on a state — so a period between handshakes is unreachable"))
+    return n
+end
 
 # Where a species sits in one block's composed state vector, or `nothing`.
 # Blocks are built by the existing homogeneous paths, so the layout is
@@ -309,8 +399,15 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     # declaring a free parameter of the same name share one slot in the composed
     # vector (`_build_p0` dedups by name), so a catalytic write into it would
     # silently drive the other module's rate law too.
+    # Scanned over *both* blocks, for the reason `_lower_rebuilds` scans both:
+    # within the ODE block a shared name is one deduplicated slot, so the count
+    # would drive the other module's rate law; across the boundary the two
+    # blocks hold separate parameter vectors, so the write would land in one and
+    # not the other and a single named parameter would carry two values —
+    # invisible to `_validate_shared_params`, which compares declared values and
+    # finds them equal.
     slot_owners = Dict{Symbol, Vector{Symbol}}()
-    for m in ode_models, q in model_free_params(parameters(m))
+    for m in vcat(ode_models, jump_models), q in model_free_params(parameters(m))
         push!(get!(slot_owners, q.name, Symbol[]), module_id(m))
     end
 
@@ -341,10 +438,12 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             holders = slot_owners[e.param_slot]
             length(holders) == 1 || throw(ArgumentError(
                 "Module $id fills the parameter slot :$(e.param_slot) from a " *
-                "catalytic edge, but $(join(holders, " and ")) all declare a " *
-                "free parameter of that name. Parameters are deduplicated by " *
-                "name into one slot, so the count would drive every one of " *
-                "those rate laws. Give the slot a name unique to $id"))
+                "catalytic edge, but $(join(holders, " and ")) each declare a " *
+                "free parameter of that name. Within the metabolic block those " *
+                "are one deduplicated slot, so the count would drive every one " *
+                "of those rate laws; across the boundary they are two slots in " *
+                "two parameter vectors, so the write would land in one and leave " *
+                "the other. Give the slot a name unique to $id"))
             push!(catalytic, CatalyticExchange(count_idx, ode_contexts[i].param_idxs[j],
                                                e.species, e.param_slot, id))
         end
@@ -459,6 +558,178 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     return catalytic, debits, groups
 end
 
+# Lower the rate-constant channel (spec §11 phase 4). One record per jump module
+# that rebuilds anything, with every index resolved at build time.
+#
+# The channel is lowered from the module whose constants are rebuilt — the side
+# that declares `:in`, by the direction convention wave 0 pinned. Unlike a
+# deferred counter, no mass moves, so the pool's owner has nothing to execute
+# and is not required to mirror the declaration; an `:out` edge with no `:in`
+# counterpart is refused below, because that one *is* a channel declared and
+# never run.
+function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
+    rebuilds = RateConstantRebuild[]
+
+    # A rebuilt slot must belong to exactly one jump module, for the reason a
+    # catalytic `param_slot` must: `_build_p0` deduplicates free parameters by
+    # name into one slot, so rebuilding a shared name would drive the other
+    # module's propensities too. With seventeen genes and a handful of shared
+    # gene-expression globals, reusing a name is the obvious mistake.
+    # Scanned over *both* blocks. Within the jump block a shared name is one
+    # slot, so the rebuild would drive the other module's propensities. Across
+    # the boundary the two blocks hold separate parameter vectors, so the hook
+    # would rewrite only the jump block's copy and the two would silently carry
+    # different values for one named parameter — which `_validate_shared_params`
+    # cannot catch, because it compares *declared* values and they agree.
+    slot_owners = Dict{Symbol, Vector{Symbol}}()
+    for m in vcat(jump_models, ode_models), q in model_free_params(parameters(m))
+        push!(get!(slot_owners, q.name, Symbol[]), module_id(m))
+    end
+
+    for m in ode_models
+        isempty(rebuilt_params(m)) || throw(ArgumentError(
+            "Module $(module_id(m)) is an :ode sub-model and declares " *
+            "rebuilt_params. The rate-constant channel rebuilds the *stochastic* " *
+            "block's constants from live pools; an ODE module reads a pool it " *
+            "does not own directly, through inputs() and a mass or currency edge"))
+    end
+
+    for (i, m) in enumerate(jump_models)
+        id = module_id(m)
+        names = rebuilt_params(m)
+        edges = [e for e in coupling(m) if e isa RateConstantEdge && is_consumer(e)]
+
+        # The direction convention wave 0 pinned: the module whose constants are
+        # rebuilt declares `:in`, the pool's owner `:out`. So an outbound edge on
+        # a jump module is the convention read backwards, and without this it is
+        # the *quiet* mistake — the inbound form throws for a missing
+        # `rebuilt_params`, while the outbound one falls through the filter above
+        # and composes with the stochastic block silently keeping its nominal
+        # constants for the whole trajectory.
+        for e in coupling(m)
+            e isa RateConstantEdge && is_producer(e) || continue
+            throw(ArgumentError(
+                "Module $id is a :jump module and declares an *outbound* " *
+                "RateConstantEdge on :$(e.species). The direction follows the " *
+                "information: the module whose rate constants are rebuilt from " *
+                "the pool declares :in, and the pool's owner declares :out. As " *
+                "written this channel is lowered by nobody and $id would keep " *
+                "its nominal rate constants for the whole trajectory; declare " *
+                "direction = :in"))
+        end
+
+        if isempty(names) && isempty(edges)
+            continue
+        end
+        isempty(edges) && throw(ArgumentError(
+            "Module $id declares rebuilt_params $(names) but no inbound " *
+            "RateConstantEdge. The rebuild reads the pools its edges name, so " *
+            "with none declared there is nothing to rebuild from; declare the " *
+            "edge, or drop the rebuilt parameters"))
+        isempty(names) && throw(ArgumentError(
+            "Module $id declares an inbound RateConstantEdge on " *
+            "$(join((string(":", e.species) for e in edges), ", ")) but no " *
+            "rebuilt_params, so the channel would be declared and never " *
+            "executed: the pool would be read by nothing and the module would " *
+            "keep its nominal rate constants for the whole trajectory. Name the " *
+            "parameters the rebuild fills, or drop the edge"))
+
+        # Task 4.4. The mechanism chosen in task 3.1 — an outer loop over two
+        # stepped integrators — holds the constants between refreshes by
+        # construction, which is precisely what makes task 4.3's assertion
+        # possible. A genuinely continuous cadence needs propensities that track
+        # the pools between handshakes, which is the `JumpProblem` over
+        # `ODEProblem` shape task 3.1 rejected. Refuse it by name rather than
+        # silently discard the cadence field, or run it at 1 s and call that
+        # continuous.
+        for e in edges
+            e.cadence === :continuous && throw(ArgumentError(
+                "Module $id declares a RateConstantEdge on :$(e.species) with " *
+                "cadence = :continuous, which the handshake driver cannot " *
+                "execute. It advances the two blocks by an outer split-operator " *
+                "loop (spec §11 task 3.1), so a rate constant is by construction " *
+                "held between refreshes; propensities tracking a pool " *
+                "continuously would need a JumpProblem over an ODEProblem, which " *
+                "that task rejected. Declare cadence = :piecewise_constant with " *
+                "a shorter interval instead — that is what a cadence-sensitivity " *
+                "comparison varies (spec §10 R11) — or drop the edge"))
+        end
+
+        # Every rebuilt name must be one of this module's own free parameters:
+        # the slot is a position in *its* propensities, exactly as a catalytic
+        # `param_slot` is a position in the consuming module's rate law.
+        own = model_free_params(parameters(m))
+        ctx = jump_contexts[i]
+        fill_idxs = Int[]
+        for n in names
+            j = findfirst(q -> q.name === n, own)
+            j === nothing && throw(ArgumentError(
+                "Module $id names :$n in rebuilt_params, which is not one of its " *
+                "own free parameters. The rebuild fills a slot in this module's " *
+                "own parameter vector; its free parameters are " *
+                "$([q.name for q in own])"))
+            holders = slot_owners[n]
+            length(holders) == 1 || throw(ArgumentError(
+                "Module $id rebuilds :$n, but $(join(holders, " and ")) each " *
+                "declare a free parameter of that name. Within the stochastic " *
+                "block those are one deduplicated slot, so the rebuild would " *
+                "drive every one of those modules' propensities; across the " *
+                "boundary they are two slots in two parameter vectors, so the " *
+                "hook would rewrite one and leave the other, and one named " *
+                "parameter would carry two values. Give the parameter a name " *
+                "unique to $id"))
+            push!(fill_idxs, ctx.param_idxs[j])
+        end
+
+        # The refresh interval is the edge's, not the driver's, and the rebuild
+        # can only fire at a handshake — that is the one instant at which the two
+        # blocks agree on a state. So an interval that is not a whole number of
+        # handshakes is unreachable, and rounding it silently would run a cadence
+        # nobody declared.
+        declared = unique(e.interval for e in edges)
+        length(declared) == 1 || throw(ArgumentError(
+            "Module $id declares rate-constant edges with different intervals " *
+            "($(join(declared, ", "))). One module rebuilds its constants on one " *
+            "schedule; split the pools across modules, or declare one interval"))
+        iv = first(declared)
+        steps = _handshake_steps(iv, interval, "Module $id's rate-constant interval")
+
+        pool_idxs = Int[]
+        for e in edges
+            k = _block_state_index(ode_models, e.species)
+            k === nothing && throw(ArgumentError(
+                "Module $id declares an inbound RateConstantEdge on " *
+                ":$(e.species), but no ODE module in this composition integrates " *
+                "that pool. The rebuild reads a live concentration from the " *
+                "metabolic block; compose the module that owns :$(e.species), or " *
+                "drop the edge"))
+            push!(pool_idxs, k)
+        end
+
+        push!(rebuilds, RateConstantRebuild(m, collect(Int, ctx.param_idxs), fill_idxs,
+                                            pool_idxs, steps, Float64(iv), collect(names),
+                                            [e.species for e in edges], id, 0))
+    end
+
+    # The mirror trap: the pool's owner names the channel, nothing consumes it.
+    # Nothing would be rebuilt and nothing would say so.
+    consumed = Set{Symbol}(s for r in rebuilds for s in r.species)
+    for m in ode_models, e in coupling(m)
+        e isa RateConstantEdge || continue
+        is_producer(e) || continue
+        e.species in consumed && continue
+        throw(ArgumentError(
+            "Module $(module_id(m)) declares an outbound RateConstantEdge on " *
+            ":$(e.species), but no jump module in this composition rebuilds any " *
+            "constant from it. The channel is lowered from the side whose " *
+            "constants are rebuilt, so this declaration would never fire and the " *
+            "stochastic block would keep its nominal rate constants. Compose the " *
+            "module that reads :$(e.species), or drop the edge"))
+    end
+
+    return rebuilds
+end
+
 """
     _build_hybrid_problem(models; tspan, interval, rounding, radius_nm,
                           ode_solver, abstol, reltol)
@@ -477,12 +748,17 @@ principle).
 function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                                tspan = (0.0, 100.0),
                                interval = 1.0,
+                               drain_interval = nothing,
                                rounding = :fractional_carry,
                                radius_nm = COREA_INITIAL_RADIUS_NM,
                                ode_solver = Rodas5P(),
                                abstol = 1e-10, reltol = 1e-8)
     interval > 0 || throw(ArgumentError(
         "The handshake interval must be positive, got $interval"))
+    drain = drain_interval === nothing ? Float64(interval) : Float64(drain_interval)
+    drain > 0 || throw(ArgumentError(
+        "The drain interval must be positive, got $drain"))
+    steps_per_drain = _handshake_steps(drain, interval, "The drain interval")
     _validate_shared_params(models)
     # The contract is validated over the whole composition, not per block: a
     # boundary crossing is by definition not visible from one side.
@@ -552,6 +828,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     factor = corea_particles_per_mM(radius_nm)
     catalytic, debits, counters = _lower_exchanges(models, ode_models, jump_models,
                                                    _build_contexts(ode_models))
+    rebuilds = _lower_rebuilds(ode_models, jump_models, _build_contexts(jump_models),
+                               Float64(interval))
 
     # The contract was resolved above, over the whole composition. The block
     # builders must not resolve it again on their own module subset: from one
@@ -563,9 +841,11 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                      save_everystep = false)
     jump_integ = init(jump_prob, SSAStepper())
 
-    return HandshakeDriver(ode_integ, jump_integ, Float64(interval), factor,
+    return HandshakeDriver(ode_integ, jump_integ, Float64(interval), drain,
+                           steps_per_drain, factor,
                            RoundingState(rounding; nspecies = length(ode_prob.u0)),
-                           catalytic, debits, counters, Float64(tspan[2]), 0, 0)
+                           catalytic, debits, counters, rebuilds,
+                           Float64(tspan[2]), 0, 0, 0)
 end
 
 # ---------------------------------------------------------------------------
@@ -610,6 +890,8 @@ makes it deferred: the cost accrued during one stochastic interval is paid at
 the next hook, exactly as `hookSimulation` does it.
 """
 function handshake_step!(d::HandshakeDriver)
+    step = d.n_handshakes + 1
+
     # 1. The enzyme-concentration channel: counts fill rate-law parameter slots.
     for c in d.catalytic
         d.ode.p[c.param_idx] = counts_to_mM(d.jump.u[c.count_idx], d.factor)
@@ -628,57 +910,89 @@ function handshake_step!(d::HandshakeDriver)
     # shape — one accrual debiting the charged pool and crediting the uncharged
     # one (spec §3) — and reading the counter inside the pool loop would give
     # the second pool a silent zero.
+    #
+    # `drain_interval` decides how often. At the default of one handshake this
+    # is the published 1 s drain; coarser, the counters accrue across several
+    # handshakes and the pool sees one aggregate debit, which is the reduction
+    # spec §4 D10 measures the cost of and `driver_declarations` labels.
     clipped = false
-    for g in d.counters
-        accrued_now = float(d.jump.u[g.counter_idx])
-        d.jump.u[g.counter_idx] = 0
+    drained = step % d.steps_per_drain == 0
+    if drained
+        for g in d.counters
+            accrued_now = float(d.jump.u[g.counter_idx])
+            d.jump.u[g.counter_idx] = 0
 
-        # Consumers first, and remember what they actually paid. A credit on the
-        # same accrual must match the debit, not the demand: if the drawn pool
-        # clips, only what left it may arrive anywhere else. Crediting the raw
-        # accrual would create matter out of a shortfall — and on the charged-tRNA
-        # transfer this shape exists for, it would do so every time the charged
-        # pool ran dry.
-        paid_total = 0.0
-        consumers = false
-        for k in g.debit_idxs
-            b = d.debits[k]
-            b.sign < 0 || continue
-            consumers = true
-            accrued = accrued_now + b.deficit
-            pool = d.ode.u[b.pool_idx] * d.factor     # the pool, in particles
+            # Consumers first, and remember what they actually paid. A credit on the
+            # same accrual must match the debit, not the demand: if the drawn pool
+            # clips, only what left it may arrive anywhere else. Crediting the raw
+            # accrual would create matter out of a shortfall — and on the charged-tRNA
+            # transfer this shape exists for, it would do so every time the charged
+            # pool ran dry.
+            paid_total = 0.0
+            consumers = false
+            for k in g.debit_idxs
+                b = d.debits[k]
+                b.sign < 0 || continue
+                consumers = true
+                accrued = accrued_now + b.deficit
+                pool = d.ode.u[b.pool_idx] * d.factor     # the pool, in particles
 
-            if b.clip === :clamped_deficit_carried
-                paid = min(accrued, max(pool, 0.0))
-            elseif b.clip === :unclamped
-                paid = accrued
-            else                                      # :smoothed
-                paid = accrued - _soft_excess(accrued - pool, b.smoothing)
+                if b.clip === :clamped_deficit_carried
+                    paid = min(accrued, max(pool, 0.0))
+                elseif b.clip === :unclamped
+                    paid = accrued
+                else                                      # :smoothed
+                    paid = accrued - _soft_excess(accrued - pool, b.smoothing)
+                end
+                b.deficit = accrued - paid
+                paid_total += paid
+
+                # Whether this handshake clipped, judged against the cost rather
+                # than against zero. Under `:smoothed` the softplus leaves a
+                # strictly positive residue at every step however deep the pool, so
+                # a `deficit > 0` test would report every handshake as clipping —
+                # and `:smoothed` is exactly the policy adopted to escape the
+                # clamped counter's gradient obstruction, so the census that scores
+                # K5 would be uninformative precisely where it is needed.
+                b.deficit > _CLIP_ATOL * max(accrued, 1.0) && (clipped = true)
+                _write_pool!(d, b.pool_idx, pool - paid)
             end
-            b.deficit = accrued - paid
-            paid_total += paid
 
-            # Whether this handshake clipped, judged against the cost rather
-            # than against zero. Under `:smoothed` the softplus leaves a
-            # strictly positive residue at every step however deep the pool, so
-            # a `deficit > 0` test would report every handshake as clipping —
-            # and `:smoothed` is exactly the policy adopted to escape the
-            # clamped counter's gradient obstruction, so the census that scores
-            # K5 would be uninformative precisely where it is needed.
-            b.deficit > _CLIP_ATOL * max(accrued, 1.0) && (clipped = true)
-            _write_pool!(d, b.pool_idx, pool - paid)
+            # Then the producers, crediting what was taken rather than what was
+            # asked for. With no consumer on this counter there is nothing to match,
+            # and the accrual is a pure production.
+            credit = consumers ? paid_total : accrued_now
+            for k in g.debit_idxs
+                b = d.debits[k]
+                b.sign > 0 || continue
+                b.deficit = 0.0
+                _write_pool!(d, b.pool_idx, d.ode.u[b.pool_idx] * d.factor + credit)
+            end
         end
+    end
 
-        # Then the producers, crediting what was taken rather than what was
-        # asked for. With no consumer on this counter there is nothing to match,
-        # and the accrual is a pure production.
-        credit = consumers ? paid_total : accrued_now
-        for k in g.debit_idxs
-            b = d.debits[k]
-            b.sign > 0 || continue
-            b.deficit = 0.0
-            _write_pool!(d, b.pool_idx, d.ode.u[b.pool_idx] * d.factor + credit)
+    # 3b. The 60 s rebuild: live pools become the stochastic block's rate
+    # constants, on each module's own declared schedule (spec §11 phase 4).
+    #
+    # It runs after the debit, so the pools it reads are the ones the hook just
+    # left behind — the published order. The values go into the jump block's
+    # parameter vector rather than onto the sub-model, so `remake(prob; p = θ)`
+    # and `model_free_params` still see them.
+    rebuilt = false
+    for r in d.rebuilds
+        step % r.steps == 0 || continue
+        pools = _fvec([d.ode.u[k] for k in r.pool_idxs])
+        vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model, pools)
+        length(vals) == length(r.fill_idxs) || error(
+            "rate_constants() for $(r.declared_by) returned $(length(vals)) " *
+            "value$(length(vals) == 1 ? "" : "s") but rebuilt_params() names " *
+            "$(length(r.fill_idxs)) parameter$(length(r.fill_idxs) == 1 ? "" : "s") " *
+            "($(r.names)); return a static vector of the same length")
+        for (k, v) in zip(r.fill_idxs, vals)
+            d.jump.p[k] = v
         end
+        r.n_refreshes += 1
+        rebuilt = true
     end
 
     # 4. Advance the stochastic block one interval.
@@ -687,12 +1001,16 @@ function handshake_step!(d::HandshakeDriver)
     # total between events. Nothing in the phase-3 toy's rate laws reads a
     # counter, so the cache would happen to stay correct — but that is a
     # property of the toy, not of the mechanism, and a module whose propensity
-    # reads a state the hook touches would be silently wrong. Rebuild the
-    # aggregation instead of relying on it.
-    isempty(d.debits) || reset_aggregated_jumps!(d.jump)
+    # reads a state the hook touches would be silently wrong. A rebuild is not
+    # a matter of luck at all: it rewrites the parameters every propensity is
+    # computed from. Rebuild the aggregation whenever either happened.
+    if rebuilt || (drained && !isempty(d.debits))
+        reset_aggregated_jumps!(d.jump)
+    end
     step!(d.jump, d.interval, true)
 
     d.n_handshakes += 1
+    drained && (d.n_drains += 1)
     clipped && (d.n_clipped += 1)
     return d
 end
@@ -734,12 +1052,27 @@ end
 
 Run `n_steps` exchanges, recording the two blocks' states after each.
 
-Returns `(; t, ode, jump, census)` — the handshake times, the ODE state in mM
-and the jump state in particles at each of them, and check 7's census. The
-record is per handshake rather than per solver step because the handshake is
-the only instant at which the two blocks agree on a state.
+Returns `(; t, ode, jump, jump_p, census, rebuilds)` — the handshake times, the
+ODE state in mM and the jump state in particles at each of them, the jump
+block's parameter vector at each of them, check 7's census and
+[`rebuild_census`](@ref). The record is per handshake rather than per solver
+step because the handshake is the only instant at which the two blocks agree on
+a state.
+
+`jump_p` is what makes the rate-constant channel observable from the outside:
+a refresh count is read off it by counting the handshakes at which a rebuilt
+slot changed, rather than asserted from the schedule that produced it.
 """
 function run_handshake!(d::HandshakeDriver, n_steps::Integer)
+    (d.n_handshakes + n_steps) % d.steps_per_drain == 0 || error(
+        "$n_steps handshakes from handshake $(d.n_handshakes) would end at " *
+        "handshake $(d.n_handshakes + n_steps), which is not a multiple of the " *
+        "$(d.steps_per_drain)-handshake drain interval. The run would stop with up " *
+        "to $(d.steps_per_drain - 1) exchanges of accrued cost still in the " *
+        "counters and never debited, so the recorded pools would be high by an " *
+        "amount nothing in the census names. Run a whole number of drain " *
+        "intervals, or step with handshake_step! if a mid-period state is what " *
+        "you want")
     finish = d.ode.t + n_steps * d.interval
     finish <= d.t_end + 1e-9 || error(
         "$n_steps handshakes of $(d.interval) s from t = $(d.ode.t) would reach " *
@@ -748,13 +1081,136 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
     t = Vector{Float64}(undef, n_steps)
     ode = Vector{Vector{Float64}}(undef, n_steps)
     jump = Vector{Vector{Int}}(undef, n_steps)
+    jump_p = Vector{Vector{Float64}}(undef, n_steps)
     for i in 1:n_steps
         handshake_step!(d)
         t[i] = d.ode.t
         ode[i] = collect(Float64, d.ode.u)
         jump[i] = collect(Int, d.jump.u)
+        jump_p[i] = collect(Float64, d.jump.p)
     end
-    return (t = t, ode = ode, jump = jump, census = clipping_census(d))
+    return (t = t, ode = ode, jump = jump, jump_p = jump_p,
+            census = clipping_census(d), rebuilds = rebuild_census(d))
 end
 
-export handshake_step!, run_handshake!
+# ---------------------------------------------------------------------------
+# The channel's gain (spec §11 task 4.5)
+# ---------------------------------------------------------------------------
+
+"""
+    rate_constant_elasticity(driver; rel = 1e-4) -> Vector{NamedTuple}
+
+The gain of the rate-constant channel: the elasticity
+
+```
+ε = d ln k / d ln pool
+```
+
+of every rebuilt rate constant with respect to every pool its module reads, at
+the driver's **current** pool concentrations, by a central difference in log
+space.
+
+One row per (module, parameter, pool) triple, carrying the pool concentration
+it was measured at. This is the diagnostic behind §6 F1's reverse-channel rows:
+`dev/notes/reduced-syn3a-scoping.md` measures the real transcription channel at
+0.044–0.051, and phase 10 compares against that.
+
+An elasticity is a local derivative, so it is a function of the pools and not a
+constant of the model. Spec §10 R8 requires the channel gains to be reported as
+functions of the quantities we assert rather than as point values, which is why
+the pool concentration travels with the number.
+"""
+function rate_constant_elasticity(d::HandshakeDriver; rel = 1e-4)
+    rows = NamedTuple[]
+    for r in d.rebuilds
+        pools = [d.ode.u[k] for k in r.pool_idxs]
+        p_local = collect(Float64, view(d.jump.p, r.p_idxs))
+        k_at(v) = rate_constants(p_local, d.ode.t, r.model, _fvec(v))
+        base = collect(Float64, k_at(pools))
+        for (j, species) in enumerate(r.species)
+            x = pools[j]
+            x > 0 || throw(ArgumentError(
+                "The elasticity of $(r.declared_by)'s rate constants to :$species " *
+                "is a log derivative, and :$species is at $x mM. Measure it at a " *
+                "positive pool concentration"))
+            up, down = copy(pools), copy(pools)
+            up[j] = x * (1 + rel)
+            down[j] = x * (1 - rel)
+            ku, kd = k_at(up), k_at(down)
+            for (i, name) in enumerate(r.names)
+                base[i] > 0 || throw(ArgumentError(
+                    "The elasticity of :$name is a log derivative and :$name " *
+                    "rebuilds to $(base[i]) at the current pools. Measure it " *
+                    "where the rate constant is positive"))
+                eps = (log(ku[i]) - log(kd[i])) / (log(up[j]) - log(down[j]))
+                push!(rows, (module_id = r.declared_by, param = name,
+                             pool = species, concentration = x,
+                             rate_constant = base[i], elasticity = eps))
+            end
+        end
+    end
+    return rows
+end
+
+# ---------------------------------------------------------------------------
+# Driver-level departures from the published model (spec §6 T2)
+# ---------------------------------------------------------------------------
+
+"""
+    driver_declarations(driver) -> Vector{ReductionLabel}
+
+Departures from the published model carried by the **driver's policy** rather
+than by any module's declarations.
+
+[`reduction_declarations`](@ref) enumerates what the sub-models declare, and
+cannot see this: the drain granularity and the count-to-concentration rounding
+policy are fields on the driver. Both are rows in spec §6 T2, and both are
+departures a result could depend on unremarked — which is the failure the
+labelling exists to prevent. Call it beside `reduction_declarations`, not
+instead of it.
+"""
+function driver_declarations(d::HandshakeDriver)
+    labels = ReductionLabel[]
+    if d.drain_interval > d.interval
+        push!(labels, ReductionLabel(
+            :coarse_drain, :drain_interval,
+            "the deferred counters are debited every $(d.drain_interval) s rather " *
+            "than at every $(d.interval) s handshake, so the pools see one " *
+            "aggregate drain where the published model applies " *
+            "$(d.steps_per_drain) — a labelled reduction whose cost spec §4 D10 " *
+            "requires to be measured, not assumed"))
+    end
+    if d.rounding.policy !== :fractional_carry
+        push!(labels, ReductionLabel(
+            :rounding_policy, d.rounding.policy,
+            "counts are written back under the :$(d.rounding.policy) rounding " *
+            "policy rather than fractional carry, which is the only policy whose " *
+            "round trip is exact (spec §3, check 0)" *
+            (d.rounding.policy === :deterministic ?
+             " — and deterministic rounding is rejected by the spec, its residual " *
+             "accumulating linearly in the handshake count" : "")))
+    end
+    return labels
+end
+
+"""
+    reduction_declarations(models, driver) -> Vector{ReductionLabel}
+    reduction_report(models, driver) -> String
+
+The composition's declared departures together with the driver's own policy.
+
+[`reduction_declarations`](@ref) enumerates what the sub-models declare and
+structurally cannot see a field on the driver; [`driver_declarations`](@ref)
+covers the rest. Spec §6 F11's enumeration panel and §6 T2 are generated from
+these two-argument forms, because a result produced under a coarse drain or a
+non-carry rounding policy that carried only the one-argument enumeration would
+be exactly the unlabelled departure §6 T2 exists to prevent.
+"""
+reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
+    vcat(reduction_declarations(models), driver_declarations(d))
+
+reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
+    _reduction_report(reduction_declarations(models, d); driver_seen = true)
+
+export handshake_step!, run_handshake!, rate_constant_elasticity,
+       driver_declarations

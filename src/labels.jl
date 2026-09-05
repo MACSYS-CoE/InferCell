@@ -6,6 +6,12 @@ UTP and amino-acid pools, a lumped tRNA charging step, asserted priors on the
 PTS mass-action constants, and — where an author selects them — a smoothed or
 unclamped expression-cost drain or a continuous rebuild.
 
+Two of the categories are the *driver's* policy rather than any module's
+declaration, and so are enumerated by [`driver_declarations`](@ref) rather than
+by [`reduction_declarations`](@ref): a drain coarser than the handshake
+(`:coarse_drain`) and a rounding policy other than fractional carry
+(`:rounding_policy`). They share this vocabulary because they share the report.
+
 Each is a place where a result could depend on our choice rather than on the
 published model, so each has to be able to reach the report that depends on it.
 This file is the enumeration that makes that possible.
@@ -17,7 +23,8 @@ A label outside this vocabulary would be counted by the report's header and
 silently dropped from its body, so membership is enforced at construction.
 """
 const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
-                              :continuous_rebuild, :asserted_prior, :lumping)
+                              :continuous_rebuild, :coarse_drain, :rounding_policy,
+                              :asserted_prior, :lumping)
 
 """
     ReductionLabel
@@ -89,10 +96,26 @@ reduction_declarations(model::AbstractSubModel) = reduction_declarations([model]
 [`reduction_declarations`](@ref) written out for a human, grouped by category.
 Suitable for printing beside any result whose interpretation depends on a
 treatment that is ours rather than the published model's.
+
+Pass a [`HandshakeDriver`](@ref) as a second argument to include the driver's
+own policy — the drain granularity and the rounding — which is a departure the
+sub-models do not declare and which this method therefore cannot see. §6 F11's
+panel and §6 T2 are generated from the two-argument form; the one-argument form
+says so where it finds nothing.
 """
-function reduction_report(models::Vector{<:AbstractSubModel})
-    labels = reduction_declarations(models)
-    isempty(labels) && return "Nothing in this composition departs from the published model."
+reduction_report(models::Vector{<:AbstractSubModel}) =
+    _reduction_report(reduction_declarations(models))
+
+# The rendering, shared with the two-argument form in `handshake.jl`, which adds
+# the driver's own policy to the same list.
+function _reduction_report(labels::Vector{ReductionLabel}; driver_seen = false)
+    isempty(labels) && return driver_seen ?
+        "Nothing in this composition's declarations, and nothing in this driver's " *
+        "policy, departs from the published model." :
+        "Nothing in this composition's declarations departs from the published " *
+        "model. A driver's own policy — the drain granularity, the rounding — is " *
+        "not a declaration and is enumerated by `driver_declarations`; pass the " *
+        "driver to see both."
 
     lines = ["$(length(labels)) declaration(s) that are this reduction's, not the published model's:"]
     for category in REDUCTION_CATEGORIES

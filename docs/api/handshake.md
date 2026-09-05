@@ -1,4 +1,4 @@
-# The 1 s handshake
+# The 1 s handshake and the 60 s rebuild
 
 Source: [`src/handshake.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/handshake.jl).
 
@@ -13,16 +13,18 @@ Returned by [`build_problem`](orchestrator.md) for a mixed composition. It holds
 ```julia
 driver = build_problem([metabolism, expression]; tspan = (0.0, 600.0))
 record = run_handshake!(driver, 600)
-record.census        # (; handshakes, clipped, fraction, deficits)
+record.census        # (; handshakes, drains, clipped, fraction, deficits, pending)
+record.rebuilds      # one row per rebuilding module: params, pools, interval, refreshes
 ```
 
-`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and returns the handshake times, the ODE state in mM and the jump state in particles at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `handshake_step!` runs one exchange.
+`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and refuses a run that would not end on a drain, since that would leave accrued cost in the counters that nothing debits and nothing names. It returns `(; t, ode, jump, jump_p, census, rebuilds)`: the handshake times, the ODE state in mM, the jump state in particles, and the jump block's parameter vector at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `jump_p` is what makes the rate-constant channel observable from outside: a refresh count is read off it rather than restated from the schedule. `handshake_step!` runs one exchange.
 
 ### Policy keywords
 
 | keyword | default | what it fixes |
 |---|---|---|
 | `interval` | `1.0` | the exchange period, in simulated seconds |
+| `drain_interval` | `interval` | how often the deferred counters are debited; must be a whole number of exchanges, and is a labelled reduction when coarser |
 | `rounding` | `:fractional_carry` | how a continuous pool is written back as whole particles |
 | `radius_nm` | `200.0` | the cell radius behind the count↔concentration conversion |
 | `ode_solver` | `Rodas5P()` | the stiff integrator for the metabolic block |
@@ -48,8 +50,24 @@ A [`DeferredCounterEdge`](corea-interface.md) declares that the stochastic block
 
 One counter may feed several pools — the published charged-tRNA transfer debits the charged pool and credits the uncharged one from a single accrual. The counter is read and cleared once per handshake, so every pool it feeds sees the same accrued value, and a credit matches what the debited pool actually paid rather than what was asked of it.
 
-`clipping_census(driver)` reports how many handshakes ran and at how many of them a counter carried a shortfall material against its cost. The comparison is relative rather than against zero: under `:smoothed` the softplus leaves a strictly positive residue at every step however deep the pool, so an absolute test would report every handshake as clipping. A non-zero count at published parameters means the non-smooth drain is in the operating regime.
+`clipping_census(driver)` reports how many handshakes ran, how many of them applied a debit, and at how many of *those* a counter carried a shortfall material against its cost. **The fraction is per drain, not per handshake** — only a drain can clip, so at a coarse `drain_interval` a per-handshake denominator would dilute it by exactly `steps_per_drain`. `pending` reports the accrual still sitting in the counters, which between drains belongs to no `deficit`. The comparison is relative rather than against zero: under `:smoothed` the softplus leaves a strictly positive residue at every step however deep the pool, so an absolute test would report every handshake as clipping. A non-zero count at published parameters means the non-smooth drain is in the operating regime.
+
+## The 60 s rebuild
+
+A [`RateConstantEdge`](corea-interface.md) declares that a pool re-enters the stochastic block as a recomputed rate constant. A jump module names the parameters the rebuild fills with `rebuilt_params(m)` and computes them in `rate_constants(p, t, m, pools)`, receiving the pools its inbound edges name, in mM. The edge carries no parameter slot and one pool feeds many constants, so the edges name the inputs and the module names the outputs.
+
+The values go into the jump block's **parameter vector**, written by the hook after the debit and before the SSA step — so `remake(prob; p = θ)` and `model_free_params` still see them, where a constant held on the sub-model struct would be invisible to both. A rebuild fires at the handshake whose end time is a multiple of the edge's declared interval, and an interval that is not a whole number of handshakes is refused rather than rounded. A `cadence = :continuous` edge is refused too: the outer loop holds a constant between refreshes by construction, so declare a shorter piecewise-constant interval instead.
+
+Note that a rebuilt parameter is a *derived* quantity that the inference entry points do not yet know is derived — they sample every `model_free_params` entry, and the hook overwrites the draw at the first refresh.
+
+`rate_constant_elasticity(driver)` measures the channel's gain, `d ln k / d ln pool`, at the driver's current pools, by a central difference in log space. It carries the pool concentration with the number, because an elasticity is a function of the pools and not a constant of the model.
+
+`rebuild_census(driver)` reports one row per rebuilding module: its parameters, its pools, its interval and how many times it has refreshed.
+
+## Driver-level departures
+
+`driver_declarations(driver)` enumerates the departures carried by the driver's *policy* rather than by any module's declarations — a `drain_interval` coarser than the exchange, and a rounding policy other than fractional carry. `reduction_declarations(models)` structurally cannot see either, so pass the driver as a second argument to `reduction_declarations` or `reduction_report` when reporting beside a result.
 
 ## What this layer does not yet do
 
-The 60 s rate-constant rebuild and the volume chain are declared by [`RateConstantEdge`](corea-interface.md) and [`VolumeEdge`](corea-interface.md) and are **not** executed here; they hook into the same loop in later work. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it.
+The volume chain is declared by [`VolumeEdge`](corea-interface.md) and is **not** executed here; it hooks into the same loop in later work, as does the clamped edge's held value, which still travels as a fixed parameter. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it.

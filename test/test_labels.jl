@@ -79,7 +79,7 @@ using Distributions
                                          counter=:ATP_trsc),
                      RateConstantEdge(species=:M_gtp_c, direction=:in)])
         @test isempty(reduction_declarations([published]))
-        @test occursin("Nothing in this composition departs",
+        @test occursin("Nothing in this composition's declarations departs",
                        reduction_report([published]))
     end
 
@@ -99,8 +99,14 @@ using Distributions
 
     @testset "A label category outside the vocabulary is rejected" begin
         @test_throws ArgumentError ReductionLabel(:clmap, :M_atp_c, "typo")
+        # Pinned, because a category outside this tuple is counted by the
+        # report's header and dropped from its body. The last two are the
+        # *driver's* policy rather than any module's declaration, and are
+        # enumerated by `driver_declarations` (spec §11 tasks 4.6 and 3.3);
+        # they share the vocabulary because they share the report.
         @test REDUCTION_CATEGORIES == (:clamp, :smoothed_counter,
                                        :unclamped_counter, :continuous_rebuild,
+                                       :coarse_drain, :rounding_policy,
                                        :asserted_prior, :lumping)
     end
 
