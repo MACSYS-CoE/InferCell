@@ -15,9 +15,10 @@ driver = build_problem([metabolism, expression]; tspan = (0.0, 600.0))
 record = run_handshake!(driver, 600)
 record.census        # (; handshakes, drains, clipped, fraction, deficits, pending)
 record.rebuilds      # one row per rebuilding module: params, pools, interval, refreshes
+record.growth        # per handshake: area_nm2, radius_nm, volume_litres, factor, fractional, capped
 ```
 
-`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and refuses a run that would not end on a drain, since that would leave accrued cost in the counters that nothing debits and nothing names. It returns `(; t, ode, jump, jump_p, census, rebuilds)`: the handshake times, the ODE state in mM, the jump state in particles, and the jump block's parameter vector at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `jump_p` is what makes the rate-constant channel observable from outside: a refresh count is read off it rather than restated from the schedule. `handshake_step!` runs one exchange.
+`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and refuses a run that would not end on a drain, since that would leave accrued cost in the counters that nothing debits and nothing names. It returns `(; t, ode, jump, jump_p, growth, census, rebuilds)`: the handshake times, the ODE state in mM, the jump state in particles, the jump block's parameter vector and the cell's geometry at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `jump_p` and `growth` are what make the two channels with no state of their own observable from outside: a refresh count is read off `jump_p` and the growth law off `growth`, rather than restated from the schedule or the counts that produced them. `handshake_step!` runs one exchange.
 
 ### Policy keywords
 
@@ -26,9 +27,11 @@ record.rebuilds      # one row per rebuilding module: params, pools, interval, r
 | `interval` | `1.0` | the exchange period, in simulated seconds |
 | `drain_interval` | `interval` | how often the deferred counters are debited; must be a whole number of exchanges, and is a labelled reduction when coarser |
 | `rounding` | `:fractional_carry` | how a continuous pool is written back as whole particles |
-| `radius_nm` | `200.0` | the cell radius behind the count↔concentration conversion, for a composition with a **fixed** cell; refused alongside a growing one |
-| `initial_surface_area_nm2` | `502831.0` | the published initial membrane area, which is the primitive for a **growing** cell |
-| `footprint_nm2` | `28.0` | nm² of surface area per membrane protein |
+| `radius_nm` | `COREA_INITIAL_RADIUS_NM` (200.0) | the cell radius behind the count↔concentration conversion, for a composition with a **fixed** cell; refused alongside a growing one |
+| `initial_surface_area_nm2` | `COREA_INITIAL_SURFACE_AREA_NM2` (502831.0) | the published initial membrane area, the primitive for a **growing** cell; refused on a fixed one |
+| `footprint_nm2` | `MEMBRANE_PROTEIN_FOOTPRINT_NM2` (28.0) | nm² of surface area per membrane protein; refused on a fixed cell |
+
+The three geometry keywords all default to `nothing` in the signature and resolve to the constants above, so that a value passed to the composition it does not apply to can be refused rather than accepted and never read.
 | `ode_solver` | `Rodas5P()` | the stiff integrator for the metabolic block |
 | `abstol`, `reltol` | `1e-10`, `1e-8` | pinned tolerances |
 

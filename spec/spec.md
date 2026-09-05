@@ -1882,15 +1882,22 @@ significant figures the source states it in — it is 200.03505 nm, and see task
   `u × factor` at the factor in force at that hook, continuous rather than
   rounded so the geometry adds no quantisation to check 0's round trip. A
   composition flagging none has an empty chain, a bitwise constant factor over
-  100 handshakes and no growth label. **Nine refusals**, each naming what is
-  wrong: a flag on a state its declarer does not own; the same species flagged
-  twice, whose count would enter the area twice; a flag with no `VolumeEdge`,
-  which would execute undeclared; an edge with nothing flagged, which would be
-  declared and never executed; an edge on a species the module does not flag;
-  an *inbound* edge, which is the half of this channel phase 5 does not build
-  (see task 7.2); `radius_nm` passed alongside a growing cell, which would state
-  the geometry twice at two disagreeing values; plus the two `extracellular_states`
-  refusals below.
+  100 handshakes and no growth label. **Fifteen refusals**, each naming what is
+  wrong, and each asserted on its own message. From the sweep (2): a flag on a
+  state its declarer does not own; the same species flagged twice, whose count
+  would enter the area twice. From the lowering (8): an *inbound* edge, which is
+  the half of this channel phase 5 does not build (see task 7.2); a flag with no
+  `VolumeEdge`, which would execute undeclared; an edge with nothing flagged,
+  which would be declared and never executed; an edge on a species the module
+  does not flag; a flagged state with no edge of its own — the trap a module
+  flagging both ptsG phospho-forms and edging one would hit; and the three
+  `extracellular_states` refusals of task 5.3. From the build (5): a growth
+  keyword passed to a composition whose cell does not grow, and `radius_nm`
+  passed to one whose cell does, either of which would state the geometry twice
+  or not at all; a non-positive initial area; a non-positive footprint, which
+  would leave the chain declared, labelled and frozen; and a derived baseline
+  below zero, which would make area a super-linear function of count instead of
+  the published law's affine one.
 - [x] 5.2 Implement the surface-area, radius and volume chain — verify by
   asserting the published initial 502,831 nm² returns ~~exactly~~ 200.0 nm, and by
   the 28.0 nm² footprint carrying its calibrated-not-measured label, with the
@@ -1935,8 +1942,11 @@ significant figures the source states it in — it is 200.03505 nm, and see task
   by the cell's volume ratio would destroy lactate that has already left and open
   check 2. The registry has no extracellular marker (`M_lac__L_e` is an ordinary
   dynamic species there), so a second protocol declaration `extracellular_states`
-  carries it, empty by default, `:ode`-only, refusing a state the declarer does
-  not own and a state that is both exempt and membrane-flagged. Recorded here and
+  carries it, empty by default, with three refusals: a `:jump` module declaring
+  it at all, since its states are counts and a count is referred to no volume; a
+  state the declarer does not own; and a state that is both exempt and
+  membrane-flagged, which would make the area depend on the volume it sets.
+  Recorded here and
   in the pull request rather than as a §12 amendment, as tasks 2.2 and 3.2
   recorded theirs: nothing the spec said became false.
 - [x] 5.4 Cap growth at exactly twice initial volume as the published model does —
@@ -1975,15 +1985,18 @@ significant figures the source states it in — it is 200.03505 nm, and see task
 - [x] 5.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
   **Done:** job 16225559, **1358/1358** (1230 before the phase). Task 3.8's
   wall-clock artefact was re-run in the same pass, as phase 4 did, because step
-  0 adds work to every handshake: a third configuration in
-  `dev/scripts/bench_handshake.slurm` composes the growing toy, so the gap
-  between it and the live row is the volume chain and nothing else. Job
-  16225558, worst extrapolation **0.019 s** per 6,300 s trajectory against K1's
-  10 s budget — unchanged from phase 4's 0.019 s, and at the 600 s horizon the
-  chain costs **2.7%** (1.871e-06 against 1.822e-06 s per simulated second) on
-  two diluted ODE states. It scales with that count, so at Core A′'s thirty-two
-  it is larger; this bounds the mechanism, as every toy number in phases 3 to 5
-  does.
+  0 adds work to every handshake. `dev/scripts/bench_handshake.jl` gains a
+  **matched pair** — the same gene at the same 831 initial copies, with and
+  without the flag and the edge — because the pre-existing `live rate law` row
+  starts at zero protein and that count fills the ODE rate law through a
+  catalytic edge, so a gap against *it* would be a different trajectory as much
+  as a volume chain. Each row is now the minimum of five repetitions with the
+  spread reported beside it, because at this scale the scatter and the effect
+  are the same size. Verdict unchanged: worst extrapolation well inside K1's
+  10 s budget. **The chain's own cost is reported against its control and beside
+  that spread, and is not claimed to be resolved above it** — and it is measured
+  on two diluted ODE states against Core A′'s thirty-two, so it bounds the
+  mechanism, as every toy number in phases 3 to 5 does.
 
 ### Phase 6 — Central glycolysis
 

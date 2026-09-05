@@ -365,12 +365,103 @@ using Random
         @test g.fractional ≈ 1.0702 atol = 1e-3
         @test !haskey(pairs(g), :doubling_time)
         @test time_to_threshold(rec, 1.05) == rec.t[1]
-        @test time_to_threshold(rec, 5.0) === nothing
+        @test time_to_threshold(rec, 1.5) === nothing
+
+        # 2.0 is the cap ratio, so `fractional` saturates there: the query would
+        # return the handshake growth *stopped* at, which is a doubling time
+        # wearing another name. Refused for the same reason.
+        err = caught(() -> time_to_threshold(rec, 2.0))
+        @test err isa ErrorException
+        @test occursin("doubling time wearing another name", sprint(showerror, err))
+        @test all(g -> !g.capped, rec.growth)
 
         # A refusal that does not depend on this composition happening to grow.
         fixed = build_problem([ToyPool(), ToyExpression()]; tspan = (0.0, 10.0))
         @test !growth_report(fixed).growing
         @test any(x -> x.quantity === :doubling_time, reporting_constraints(fixed))
+    end
+
+    @testset "5.1 a flagged state with no edge of its own is refused" begin
+        # Distinct from "an edge on a species the module does not flag": here
+        # the module flags two states and edges only one, so the second state's
+        # count would reach the surface area with nothing declaring that it
+        # does. The trap phase 7 walks into if it flags both ptsG phospho-forms
+        # and declares one edge.
+        err = caught(() -> build_problem(
+            [ToyPool(), ToyGrowingExpression(membrane = [:M_ptsg_c, :atp_cost])];
+            tspan = (0.0, 10.0)))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("atp_cost", msg)
+        @test occursin("One outbound edge per flagged", msg)
+    end
+
+    @testset "5.3 the ODE-side count is particles, asserted independently" begin
+        # The build-time baseline and every hook read counts through the same
+        # function, so an error in the ODE branch of that conversion cancels
+        # against the baseline and is invisible in the area. Assert the count
+        # itself: 353 ptsI (ODE, held as a concentration) plus 831 ptsG (jump,
+        # already particles).
+        d = build_problem([ToyMembranePool(), _no_counter()]; tspan = (0.0, 20.0))
+        c = growth_census(d)
+        @test c.n_membrane ≈ 1184.0 rtol = 1e-12
+        @test c.area_nm2 ≈ COREA_INITIAL_SURFACE_AREA_NM2 rtol = 1e-12
+        @test c.baseline_nm2 ≈ 502831.0 - 1184.0 * 28.0 rtol = 1e-12
+
+        # Were the ODE branch to return mM rather than particles, the count
+        # would be 831 + 0.0175 and the baseline would absorb it silently — so
+        # the count is the assertion that catches it, not the area.
+        @test c.n_membrane - 831.0 ≈ 353.0 rtol = 1e-12
+    end
+
+    @testset "5.2 the frozen fraction is reported against the *initial* area" begin
+        # The label is generated beside a result, which by then is many
+        # handshakes old. Reporting the live area would state a frozen fraction
+        # that falls as the cell grows — 89.5% instead of 95.4% on the done-when
+        # composition — and it is the label that travels into §6 T2.
+        models = [ToyPool(kcat = 0.0), _no_counter()]
+        d = build_problem(models; tspan = (0.0, 20.0))
+        Random.seed!(5007)
+        d.jump.u[2] = 5000
+        handshake_step!(d)
+        @test d.area_nm2 > COREA_INITIAL_SURFACE_AREA_NM2      # the cell grew
+        report = reduction_report(models, d)
+        @test occursin("479563.0 nm² of the initial 502831.0 nm²", report)
+        @test !occursin("of the initial $(round(d.area_nm2; digits = 1))", report)
+    end
+
+    @testset "5.2 the geometry is stated once, and has to be sane" begin
+        # Non-positive area, and a footprint that would freeze the chain while
+        # still labelling it.
+        err = caught(() -> build_problem([ToyPool(kcat = 0.0), _no_counter()];
+                                         tspan = (0.0, 10.0),
+                                         initial_surface_area_nm2 = 0.0))
+        @test err isa ArgumentError
+        @test occursin("must be positive", sprint(showerror, err))
+
+        err = caught(() -> build_problem([ToyPool(kcat = 0.0), _no_counter()];
+                                         tspan = (0.0, 10.0), footprint_nm2 = 0.0))
+        @test err isa ArgumentError
+        @test occursin("declared, labelled and frozen", sprint(showerror, err))
+
+        # A baseline that is not a baseline: 831 proteins at 28 nm² exceed the
+        # area they are supposed to be part of, so the law stops being affine.
+        err = caught(() -> build_problem([ToyPool(kcat = 0.0), _no_counter()];
+                                         tspan = (0.0, 10.0),
+                                         initial_surface_area_nm2 = 1000.0))
+        @test err isa ArgumentError
+        @test occursin("super-linear", sprint(showerror, err))
+
+        # And the mirror of the radius refusal: a growth keyword on a cell that
+        # does not grow would be accepted and never read.
+        for kw in (:initial_surface_area_nm2, :footprint_nm2)
+            err = caught(() -> build_problem([ToyPool(), ToyExpression()];
+                                             tspan = (0.0, 10.0),
+                                             (kw => 600000.0,)...))
+            @test err isa ArgumentError
+            @test occursin("never be read", sprint(showerror, err)) ||
+                  occursin("never read", sprint(showerror, err))
+        end
     end
 
     @testset "Done when: the volume channel runs beside the other three" begin

@@ -40,10 +40,13 @@ const AVOGADRO = 6.02214076e23
 The published initial cell radius, in nm.
 
 `dev/notes/reduced-syn3a-scoping.md` records the derived figure this must
-reproduce: at 200 nm, 1 mM is 20,180 particles. Phase 5 makes the radius grow;
-until then it is the one fixed number the conversion closes over, and it is
-passed as an argument rather than baked in so that phase 5 changes a call site
-and not an equation.
+reproduce: at 200 nm, 1 mM is 20,180 particles.
+
+It is the geometry of a composition whose cell does **not** grow. Phase 5 made
+the radius live, and a growing composition takes
+[`COREA_INITIAL_SURFACE_AREA_NM2`](@ref) as its primitive instead — which is not
+exactly a 200 nm sphere, so its initial factor is 20,190.998 rather than
+20,180.39. That is why the two are refused together.
 """
 const COREA_INITIAL_RADIUS_NM = 200.0
 
@@ -442,6 +445,7 @@ mutable struct HandshakeDriver{OI, JI}
     area_nm2::Float64                     # live, recomputed at every handshake
     radius_nm::Float64                    # live, and *uncapped*, as the published code leaves it
     volume_litres::Float64                # live, and capped
+    initial_area_nm2::Float64             # what the frozen baseline is a fraction of
     initial_volume_litres::Float64        # what fractional growth is reported against
     t_end::Float64                        # the declared end of both blocks' tspan
     n_handshakes::Int
@@ -1066,8 +1070,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                                drain_interval = nothing,
                                rounding = :fractional_carry,
                                radius_nm = nothing,
-                               initial_surface_area_nm2 = COREA_INITIAL_SURFACE_AREA_NM2,
-                               footprint_nm2 = MEMBRANE_PROTEIN_FOOTPRINT_NM2,
+                               initial_surface_area_nm2 = nothing,
+                               footprint_nm2 = nothing,
                                ode_solver = Rodas5P(),
                                abstol = 1e-10, reltol = 1e-8)
     interval > 0 || throw(ArgumentError(
@@ -1153,6 +1157,17 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     # sphere it is. Stating both would be stating the geometry twice, and the
     # published area is not exactly a 200 nm sphere, so the two would disagree.
     if isempty(growth)
+        # A fixed cell. The two growth keywords would be accepted and never
+        # read, which `build_problem`'s own keyword guard calls worse than
+        # refusing them.
+        for (name, value) in ((:initial_surface_area_nm2, initial_surface_area_nm2),
+                              (:footprint_nm2, footprint_nm2))
+            value === nothing || throw(ArgumentError(
+                "$name = $value was passed, but no module in this composition " *
+                "flags a membrane protein, so its cell does not grow and the " *
+                "value would be accepted and never read. Flag the states whose " *
+                "counts set the surface area, or pass radius_nm for a fixed cell"))
+        end
         radius0 = radius_nm === nothing ? COREA_INITIAL_RADIUS_NM : Float64(radius_nm)
         area0 = 4 * π * radius0^2
     else
@@ -1162,11 +1177,17 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
             "502,831 nm², which is 176 nm² larger than a 200 nm sphere. Passing " *
             "radius_nm = $radius_nm alongside it would state the geometry twice, " *
             "and the two disagree in the fourth significant figure. Pass one"))
-        area0 = Float64(initial_surface_area_nm2)
+        area0 = initial_surface_area_nm2 === nothing ?
+                COREA_INITIAL_SURFACE_AREA_NM2 : Float64(initial_surface_area_nm2)
         area0 > 0 || throw(ArgumentError(
             "The initial surface area must be positive, got $area0"))
         radius0 = radius_from_area_nm(area0)
     end
+    footprint = footprint_nm2 === nothing ? MEMBRANE_PROTEIN_FOOTPRINT_NM2 :
+                Float64(footprint_nm2)
+    footprint > 0 || throw(ArgumentError(
+        "The membrane-protein footprint must be positive, got $footprint. At " *
+        "zero the chain would be declared, labelled and frozen"))
     volume0 = cell_volume_litres(radius0)
     factor = particles_per_mM(volume0)
 
@@ -1185,9 +1206,9 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                         RoundingState(rounding; nspecies = length(ode_prob.u0)),
                         catalytic, debits, counters, rebuilds,
                         growth, dilute,
-                        0.0, Float64(footprint_nm2),
+                        0.0, footprint,
                         corea_volume_cap_litres(volume0),
-                        area0, radius0, volume0, volume0,
+                        area0, radius0, volume0, area0, volume0,
                         Float64(tspan[2]), 0, 0, 0)
 
     # The baseline is derived, never typed: it is whatever makes this
@@ -1202,7 +1223,17 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     # implementations staying in step.
     if !isempty(growth)
         n0 = sum(_membrane_count(d, g) for g in growth)
-        d.area_baseline_nm2 = membrane_area_baseline_nm2(area0, n0, d.footprint_nm2)
+        base = membrane_area_baseline_nm2(area0, n0, d.footprint_nm2)
+        base >= 0 || throw(ArgumentError(
+            "This composition's $(round(n0; digits = 1)) initial membrane " *
+            "protein(s) at $(d.footprint_nm2) nm² come to more than the " *
+            "$area0 nm² initial surface area, so the frozen baseline would be " *
+            "$(round(base; digits = 1)) nm². Area would then be a steeply " *
+            "super-linear function of count rather than the published law's " *
+            "affine one, and a count falling below its initial value would take " *
+            "the radius negative under the square root. Raise " *
+            "initial_surface_area_nm2, or flag fewer states"))
+        d.area_baseline_nm2 = base
     end
     return d
 end
@@ -1493,7 +1524,7 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
     jump_p = Vector{Vector{Float64}}(undef, n_steps)
     growth = Vector{@NamedTuple{area_nm2::Float64, radius_nm::Float64,
                                 volume_litres::Float64, factor::Float64,
-                                fractional::Float64}}(undef, n_steps)
+                                fractional::Float64, capped::Bool}}(undef, n_steps)
     for i in 1:n_steps
         handshake_step!(d)
         t[i] = d.ode.t
@@ -1502,7 +1533,8 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
         jump_p[i] = collect(Float64, d.jump.p)
         growth[i] = (area_nm2 = d.area_nm2, radius_nm = d.radius_nm,
                      volume_litres = d.volume_litres, factor = d.factor,
-                     fractional = d.volume_litres / d.initial_volume_litres)
+                     fractional = d.volume_litres / d.initial_volume_litres,
+                     capped = d.volume_litres >= d.volume_cap_litres)
     end
     return (t = t, ode = ode, jump = jump, jump_p = jump_p, growth = growth,
             census = clipping_census(d), rebuilds = rebuild_census(d))
@@ -1618,7 +1650,8 @@ function driver_declarations(d::HandshakeDriver)
         push!(labels, ReductionLabel(
             :exogenous_growth, :membrane_area_baseline,
             "$(round(d.area_baseline_nm2; digits = 1)) nm² of the initial " *
-            "$(round(d.area_nm2; digits = 1)) nm² surface area is held frozen: " *
+            "$(round(d.initial_area_nm2; digits = 1)) nm² surface area is held " *
+            "frozen: " *
             "the lipid leaflet and every membrane-protein locus outside this " *
             "reduction are exogenous, so only the flagged proteins grow the " *
             "cell. **Ours, not the published model's**, which grows both terms " *
@@ -1734,8 +1767,22 @@ The first handshake time at which fractional volume reaches `threshold`, from a
 The second of the two admissible growth reportings. It is read off the recorded
 trajectory rather than extrapolated from a rate, because a rate is one algebraic
 step from the doubling time [`doubling_time`](@ref) refuses.
+
+**A threshold at or above 2.0 is refused**, for the same reason and by the same
+argument. Growth stops at exactly twice the initial volume, so `fractional`
+saturates there: a query at 2.0 would return the handshake at which growth
+*stopped* rather than the one at which the cell doubled, and would be a doubling
+time wearing another name. The record carries `capped` so a caller can see which
+handshakes are at the stop.
 """
 function time_to_threshold(record, threshold)
+    threshold < 2.0 || error(
+        "time_to_threshold refuses a threshold of $threshold. Growth stops at " *
+        "exactly twice the initial volume, so fractional volume saturates at " *
+        "2.0 and this query would return the handshake at which growth stopped, " *
+        "not one at which the cell reached $threshold — a doubling time wearing " *
+        "another name, and doubling_time refuses it for the reasons in " *
+        "reporting_constraints. Ask for a threshold below 2.0")
     for (i, g) in enumerate(record.growth)
         g.fractional >= threshold && return record.t[i]
     end

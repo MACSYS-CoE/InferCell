@@ -52,7 +52,7 @@ false, the same call tasks 2.2 and 3.2 made.
 | task 5.3, dilution | at 831 → 1662 copies every concentration falls by **0.93440**, against `(200.035046/204.610919)³ = 0.93440` from the geometry; counts preserved to `rtol = 1e-14`; carried remainders bitwise unchanged; the exempt state untouched |
 | task 5.4, the cap | volume stops at exactly `2 × V(0)` at 50,000 copies and stays there at 500,000, while the radius keeps rising |
 | task 5.5, the arithmetic | area **502,831.0 → 526,099.0 nm² exactly**, radius **200.03505 → 204.61092 nm**, volume **1.07021×** |
-| task 5.7, wall-clock | worst extrapolation **0.019 s** per 6,300 s trajectory (job 16225558), unchanged from phase 4; the chain costs **2.7%** at the 600 s horizon on two diluted ODE states |
+| task 5.7, wall-clock | worst extrapolation well inside K1's 10 s budget; the chain's own cost is reported against a **matched control** (the same gene at the same 831 copies without the flag) and beside the within-configuration spread, and is **not** claimed to be resolved above it |
 
 **Four things a reader should not over-read.**
 
@@ -78,9 +78,17 @@ false, the same call tasks 2.2 and 3.2 made.
    order — going through the volume ratio instead would conserve the ratio and
    let the counts drift. Exactness is **one ulp, not bitwise**: `(u·f_old)/f_new`
    multiplied back by `f_new` need not return `u·f_old` in binary floating point.
-4. **The numbers are the toy's.** Two ODE states diluted against Core A′'s
-   thirty-two, one membrane protein against ptsG's two phospho-forms. The 2.7%
-   overhead scales with the number of states diluted.
+4. **The numbers are the toy's, and the wall-clock one is not resolved.** Two
+   ODE states diluted against Core A′'s thirty-two, one membrane protein against
+   ptsG's two phospho-forms; the chain's cost scales with the number of states
+   diluted. And on a shared node these timings scatter by several percent, which
+   is the size of the effect — the benchmark now prints the within-configuration
+   spread beside each row precisely so that a future reader checks it before
+   quoting a gap. The first version of the measurement compared the growing toy
+   against a row that starts at **zero** protein, and since the protein count
+   fills the ODE rate law through a catalytic edge, that gap was a different ODE
+   trajectory as much as a volume chain; the pre-merge review of PR #46 caught
+   it, and the matched control is the fix.
 
 **Growth may be reported as fractional growth or time-to-threshold, and as
 nothing else — in code (task 5.6).** `reporting_constraints(driver)` returns
@@ -90,14 +98,19 @@ that as structured data so a composed model is asked rather than read, and
 recorded trajectory rather than extrapolated from a rate — a rate being one
 algebraic step from the quantity being refused. Phase 14 task 14.9 consumes it.
 
-**Nine refusals phases 6–12 inherit.** A flag on a state its declarer does not
-own; the same species flagged twice, whose count would enter the area twice; a
-flag with no `VolumeEdge`, which would execute undeclared; an edge with nothing
-flagged, declared and never executed; an edge on a species the module does not
-flag; an **inbound** `VolumeEdge`; `radius_nm` passed alongside a growing cell;
-a `:jump` module declaring `extracellular_states`, which has counts and not
-concentrations; and a state both exempt and membrane-flagged, which would make
-the area depend on the volume it sets.
+**Fifteen refusals phases 6–12 inherit**, each asserted on its own message.
+*From the sweep (2):* a flag on a state its declarer does not own; the same
+species flagged twice, whose count would enter the area twice. *From the
+lowering (8):* an **inbound** `VolumeEdge`; a flag with no `VolumeEdge`, which
+would execute undeclared; an edge with nothing flagged, declared and never
+executed; an edge on a species the module does not flag; a flagged state with no
+edge of its own — the trap a module flagging both ptsG phospho-forms and edging
+one would hit; a `:jump` module declaring `extracellular_states`, which has
+counts and not concentrations; an exempt state the declarer does not own; and a
+state both exempt and membrane-flagged, which would make the area depend on the
+volume it sets. *From the build (5):* a growth keyword on a fixed cell and
+`radius_nm` on a growing one; a non-positive initial area; a non-positive
+footprint; and a derived baseline below zero.
 
 **`REDUCTION_CATEGORIES` gained two**, both emitted by `driver_declarations`
 whenever the chain is live: `:calibrated_constant` for the 28.0 nm² footprint —
@@ -106,7 +119,8 @@ the published model's *calibrated* value, chosen to reproduce 54% coverage for
 its code uses 28.0, so the code governs and the contradiction is recorded — and
 `:exogenous_growth` for the frozen non-ptsG baseline, which is **ours, not the
 model's** and is why growth reaches ~1.07× rather than approaching the 2× cap.
-§6 T2 wants both as rows.
+§6 T2 already lists exogenous membrane growth as a row; the footprint is a row
+T2 does not yet have, and gains one through this label.
 
 **Suite:** 1358 passed, 0 failed (job 16225559); 1230 before the phase.
 
@@ -346,6 +360,7 @@ it is the fact phases 4 to 12 most need to hold onto.
    about, and it is re-scored in phase 14.
 3. **Nothing here executes the 60 s rebuild or the volume chain.** `RateConstantEdge`
    and `VolumeEdge` are still declare-only. Phases 4 and 5 hook into the same loop.
+   *(Both have since landed; only the clamped edge remains.)*
 
 **A new refusal phases 6–12 inherit: a state name may not be owned in both
 blocks.** The blocks hold separate vectors, so one name for two states makes

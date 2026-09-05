@@ -18,7 +18,7 @@ Returns:
 - a [`HandshakeDriver`](handshake.md) for a mixed ODE/jump composition
 - an error for `:sde`, which has no build path in any composition
 
-Keyword arguments other than `tspan` are the handshake driver's declared policy (`interval`, `rounding`, `radius_nm`, `ode_solver`, `abstol`, `reltol`) and are refused on a homogeneous composition rather than silently ignored.
+Keyword arguments other than `tspan` are the handshake driver's declared policy (`interval`, `drain_interval`, `rounding`, `radius_nm`, `initial_surface_area_nm2`, `footprint_nm2`, `ode_solver`, `abstol`, `reltol`) and are refused on a homogeneous composition rather than silently ignored.
 
 ### Shared-parameter handling
 

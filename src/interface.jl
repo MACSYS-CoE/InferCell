@@ -298,6 +298,13 @@ A module that declares names here must also declare an outbound
 [`VolumeEdge`](@ref) on each of them, and the converse: a volume edge with
 nothing flagged is a channel declared and never executed. Both are refused at
 build time.
+
+**The chain runs only under the hybrid handshake driver**, since it converts
+counts to concentrations and back and only a mixed composition has both sides.
+A homogeneous `build_problem` resolves this declaration and executes nothing
+from it — as it already does for the catalytic, deferred-counter and
+rate-constant edges, which are equally cross-block — so a module smoke-tested
+alone is not evidence that its volume channel works.
 """
 membrane_protein_states(::AbstractSubModel) = Symbol[]
 
