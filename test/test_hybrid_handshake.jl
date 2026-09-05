@@ -341,7 +341,7 @@ _exact_mM(n) = n / _F
             kw = smoothing === nothing ? (;) : (; smoothing = smoothing)
             d = build_problem([ToyPool(kcat = 0.0, atp0 = _exact_mM(pool)),
                                ToyExpression(k_tx = 0.0, k_tl = 0.0,
-                                   edges = [DeferredCounterEdge(species = :M_atp_c,
+                                   edges = [DeferredCounterEdge(; species = :M_atp_c,
                                        direction = :in, counter = :atp_cost,
                                        clip = clip, kw...)])]; tspan = (0.0, 10.0))
             d.jump.u[d.counters[1].counter_idx] = accrued
