@@ -367,6 +367,21 @@ _exact_mM(n) = n / _F
         @test occursin("M_ptsg_c", sprint(showerror, err2))
     end
 
+    @testset "3.5 two pools credited from one counter is refused" begin
+        # Consumers share what a counter holds; producers would each be credited
+        # the whole of it. One accrual, two credits, matter from nothing — the
+        # defect this phase already shipped once and had to fix.
+        two_credits = ToyExpression(k_tx = 0.0, k_tl = 0.0,
+            edges = [DeferredCounterEdge(species = :M_atp_c, direction = :out,
+                                         counter = :atp_cost),
+                     DeferredCounterEdge(species = :M_adp_c, direction = :out,
+                                         counter = :atp_cost)])
+        err = caught(() -> build_problem([ToyPool(kcat = 0.0), two_credits];
+                                         tspan = (0.0, 10.0)))
+        @test err isa ArgumentError
+        @test occursin("atp_cost", sprint(showerror, err))
+    end
+
     @testset "3.5 the sign of a debit is the counter owner's, not the vector order's" begin
         # Both blocks may name one channel from their own side, with opposite
         # directions. If the sign came from whichever edge was seen first, the
@@ -519,7 +534,8 @@ _exact_mM(n) = n / _F
 
     @testset "3.7 check 7: the clipping census" begin
         # At nominal parameters the pool covers the cost many times over, so no
-        # handshake may carry a deficit. K5 fires here or nowhere.
+        # handshake may carry a deficit. K5 itself is scored on the assembled
+        # model in phase 14, not here — see §12, 2026-09-05.
         Random.seed!(3001)
         d = build_problem([ToyPool(kcat = 0.0), ToyExpression()]; tspan = (0.0, 600.0))
         rec = run_handshake!(d, 600)

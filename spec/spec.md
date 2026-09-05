@@ -1592,12 +1592,17 @@ here and the architecture is revisited rather than scaled. See K1.
   hybrid build path — verify by a mixed composition returning a driver rather
   than throwing, and by the same composition *still* throwing with a named error
   when a required exchange declaration is absent. **Done:** `build_problem`
-  returns a `HandshakeDriver`; five named refusals are asserted (a `param_slot`
+  returns a `HandshakeDriver`; the named refusals are asserted (a `param_slot`
   that is not the declaring module's own free parameter, a catalytic species no
   jump module owns, a debited pool no ODE module integrates, a counter no jump
   module owns, and a policy keyword on a homogeneous composition). Two refusals
   that did not exist before: a homogeneous `:sde` composition, which used to be
-  reported as mixed (§2 G1), and **a state name owned in both blocks**, which
+  reported as mixed (§2 G1); a deferred channel declared only by the pool's
+  owner, or a catalytic edge declared only by the module owning the count,
+  either of which would be declared and never executed; a counter that is a
+  registry species, or an ODE module's own state; more than one pool credited
+  from one counter, which would create matter; and **a state name owned in both
+  blocks**, which
   would make every crossing that mentions it resolve to whichever block was
   asked first — phase 2's aliasing bug arriving *between* blocks rather than
   inside one. `_check_state_ownership` does span both blocks — it iterates every

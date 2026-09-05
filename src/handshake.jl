@@ -366,6 +366,12 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             # counter, so it is either the pool owner's mirror of a channel the
             # accruing side lowers, or an orphan. The loop below decides which.
             _block_state_index([m], e.counter) === nothing && continue
+            counter_idx = _block_state_index(jump_models, e.counter)
+            counter_idx === nothing && throw(ArgumentError(
+                "Module $id accrues into :$(e.counter), which it owns itself but " *
+                "which is not a jump-block state. A deferred counter is the " *
+                "stochastic block's accrual slot, cleared by the hook every " *
+                "handshake; an ODE module's own state cannot be one"))
             is_registered(e.counter) && throw(ArgumentError(
                 "Module $id accrues into :$(e.counter), which is a Core A′ " *
                 "registry species. A deferred counter is an accrual slot the " *
@@ -381,7 +387,7 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             key = (e.counter, e.species)
             key in seen && continue
             push!(seen, key)
-            push!(debits, DeferredDebit(_block_state_index(jump_models, e.counter),
+            push!(debits, DeferredDebit(counter_idx,
                                         pool_idx, mass_contribution(e), e.clip,
                                         e.smoothing, 0.0, e.species, e.counter, id))
         end
@@ -427,6 +433,19 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             "matching channel. `param_slot` names a position in the *consuming* " *
             "module's rate law, so the channel is lowered from the ODE side; " *
             "declared only from here it would never write anything"))
+    end
+
+    # One accrual can be split among several consumers — they share what the
+    # counter holds — but two producers would each be credited the whole of it,
+    # which creates matter. Spec §3's only shape is one of each; refuse the rest
+    # rather than leave a silent doubling for a later phase to meet.
+    for c in unique(b.counter for b in debits)
+        producers = [b for b in debits if b.counter === c && b.sign > 0]
+        length(producers) <= 1 || throw(ArgumentError(
+            "Counter :$c credits more than one pool — " *
+            "$(join((string(":", b.species) for b in producers), ", ")) — and each " *
+            "would receive the whole accrual, creating matter from one cost. " *
+            "Split the accrual across separate counters, one per credited pool"))
     end
 
     # Group the debits by counter, so the hook reads and clears each counter
