@@ -17,6 +17,7 @@ using InferCell
 using Random
 using Printf
 using Dates
+using Statistics: median
 
 include(joinpath(@__DIR__, "..", "..", "test", "contribution_test_models.jl"))
 include(joinpath(@__DIR__, "..", "..", "test", "jump_test_models.jl"))
@@ -26,11 +27,16 @@ const CYCLE = 6300.0        # s, the published cell cycle
 const BUDGET = 10.0         # s of wall-clock per trajectory, spec §8 K1
 
 # Best of `reps` after one warm-up, matching dev/scripts/bench_rhs_containers.jl:
-# the minimum is the honest estimator for a timing floor on a shared node. The
-# *spread* is returned beside it, because without it a reader cannot tell a real
-# per-handshake cost from run-to-run scatter — and at this scale the two are the
-# same size.
-function time_run(build, n_steps; reps = 5)
+# the minimum is the honest estimator for a timing floor on a shared node.
+#
+# The *spread* is returned beside it, because without it a reader cannot tell a
+# real per-handshake cost from run-to-run scatter, and at this scale the two are
+# the same size. It is `(median - min) / min` rather than `(max - min) / min`:
+# a single repetition stalled by another job on the node — the first version of
+# this measurement recorded one at 577x the minimum — makes a max-based spread
+# say nothing about the other six. The median is what a second run of this
+# script would be expected to reproduce.
+function time_run(build, n_steps; reps = 7)
     d = build()
     run_handshake!(d, min(n_steps, 10))          # warm-up: compile for these types
     times = Float64[]
@@ -38,7 +44,7 @@ function time_run(build, n_steps; reps = 5)
         d = build()
         push!(times, @elapsed run_handshake!(d, n_steps))
     end
-    return minimum(times), maximum(times)
+    return minimum(times), median(times)
 end
 
 build_toy(; kcat = 0.0) = () -> begin
@@ -83,10 +89,10 @@ for horizon in (60, 300, 600)
                ("831 copies, no growth (control)", build_control()),
                ("831 copies, growth live", build_growing()))
     for (label, build) in configs
-        secs, worst_rep = time_run(build, horizon)
+        secs, med = time_run(build, horizon)
         per_sim_s = secs / horizon
         push!(rows, (horizon = horizon, label = label, wall = secs,
-                     spread = (worst_rep - secs) / secs,
+                     spread = (med - secs) / secs,
                      per_sim_s = per_sim_s, cycle = per_sim_s * CYCLE))
     end
 end
@@ -114,11 +120,13 @@ println(io, "every 1.0 s under the `:fractional_carry` rounding policy. The last
 println(io, "two rows are a matched pair: the same gene at the same 831 initial ")
 println(io, "protein copies, with and without the membrane flag and volume edge, so ")
 println(io, "the pair differs in phase 5's volume chain and in nothing else. Each ")
-println(io, "row is the minimum of five repetitions; `spread` is (max - min) / min ")
-println(io, "over those, which is what says whether a gap between rows means ")
-println(io, "anything.")
+println(io, "row is the minimum of seven repetitions; `spread` is ")
+println(io, "(median - min) / min over those, which is what says whether a gap ")
+println(io, "between rows means anything. The median rather than the maximum, ")
+println(io, "because one repetition stalled by another job on the node says ")
+println(io, "nothing about the other six.")
 println(io)
-println(io, "| horizon (s) | configuration | wall-clock (s) | spread over 5 reps | s per simulated s | extrapolated to 6,300 s |")
+println(io, "| horizon (s) | configuration | wall-clock (s) | spread (median vs min, 7 reps) | s per simulated s | extrapolated to 6,300 s |")
 println(io, "|---|---|---|---|---|---|")
 for r in rows
     @printf(io, "| %d | %s | %.3e | %+.1f%% | %.3e | %.3f |\n",
