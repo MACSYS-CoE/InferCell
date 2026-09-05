@@ -101,6 +101,18 @@ way — run the suite through Slurm and stay there.
    a catalytic edge's `param_slot` must name the declaring module's own free
    parameter.
 
+## Orientation note added (2026-09-05)
+
+`dev/notes/2026-09-05-reading-the-coupling-figure.md` reconciles the coupling
+figure against what phases 0–3 delivered, for anyone navigating by the picture
+rather than by the phase list. Three points a future session should not
+rediscover: `fig1r_state_graph_reduced.pdf` is superseded by
+`fig1c_state_graph_corea.pdf` (tRNA charging moved to the ODE block, §12
+amendment 1); the figure's HOOK, REBUILD and GROWTH devices are phases 3, 4 and
+5 while its boxes are phases 6–12, so nothing merged so far builds a box; and
+the inference layer of phases 15–17 has no representation in the figure at all.
+Docs only — no decisions, and the spec wins on any disagreement.
+
 ## Previous: phase 2 — several jump modules compose (2026-09-04)
 
 Spec §11 phase 2, delivered as PR #43 from branch `phase2`. **Two or more
