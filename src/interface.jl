@@ -208,6 +208,54 @@ contributions(u, p, t, ::AbstractSubModel) = SVector{0, Float64}()
 contributions(u, p, t, m::AbstractSubModel, u_inputs) = contributions(u, p, t, m)
 
 """
+    rebuilt_params(m::AbstractSubModel) -> Vector{Symbol}
+
+Names of `m`'s **own free parameters** that the 60 s rebuild recomputes from
+live ODE pools. Defaults to empty.
+
+This is the declaration side of the rate-constant channel — the only
+ODE→stochastic channel in the model, and so the one that decides whether the
+coupling is bidirectional at all (spec §11 phase 4). It is the rate-constant
+twin of [`contributed_states`](@ref): the names say *which* slots the hook
+fills, and [`rate_constants`](@ref) says with what.
+
+The values live in the composed **parameter vector**, not on the sub-model
+struct, so `remake(prob; p = θ)` and [`model_free_params`](@ref) still see
+them; a constant held on the struct would be invisible to both, and so could
+never appear in a posterior, a provenance table or an identifiability Jacobian.
+Each name must therefore be one of this module's own free parameters, and must
+not collide with a free parameter of any other module in the composition —
+parameters deduplicate by name into one slot, so a rebuild into a shared name
+would drive the other module's rate law too. Both are refused at build time,
+by name.
+
+A module that declares names here must also declare at least one inbound
+[`RateConstantEdge`](@ref), and the converse: an inbound rate-constant edge on
+a module that rebuilds nothing is a channel declared and never executed.
+"""
+rebuilt_params(::AbstractSubModel) = Symbol[]
+
+"""
+    rate_constants(p, t, m::AbstractSubModel, pools)
+
+The values the rebuild writes into the slots [`rebuilt_params`](@ref) names, in
+that order, as a static vector of the same length. Defaults to an empty static
+vector, so a module that rebuilds nothing needs no method.
+
+`p` is the module's local parameter slice and `t` the rebuild time. `pools` are
+the concentrations, **in mM**, of the species this module's inbound
+[`RateConstantEdge`](@ref)s name, in declaration order. They arrive as an
+argument rather than through [`inputs`](@ref) because a jump module may not
+name an ODE-block state in `inputs()` — the two blocks hold separate state
+vectors, and `inputs()` is resolved within a block.
+
+Note the slot a rebuild fills is read from `p` on the next call, so a rebuild
+law written as a function of its own previous value compounds. Write it as a
+function of `pools` and of the module's *other* parameters.
+"""
+rate_constants(p, t, ::AbstractSubModel, pools) = SVector{0, Float64}()
+
+"""
     SubModelContext(state_idxs, param_idxs, input_map[, contrib_idxs])
 
 Per-sub-model bookkeeping built by the orchestrator: where this sub-model's
