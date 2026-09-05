@@ -821,7 +821,7 @@ careful about what Step 1a's success licenses.
   cheaper, but this needs measuring before any inference budget can be sized.
   **First measurement, 2026-09-05 (spec phase 3, Slurm job 16212707).** On a
   two-module toy — one jump gene-expression module, one ODE metabolite module,
-  exchanging every simulated second — the 1 s handshake costs 1.50e-06 s of
+  exchanging every simulated second — the 1 s handshake costs 1.50–1.51e-06 s of
   wall-clock per simulated second with the pool frozen — steady across 60, 300
   and 600 s horizons — and 1.57e-06 s with the rate law live at 600 s, rising to
   2.16e-06 s at the shortest horizon. The worst row extrapolates to **0.014 s

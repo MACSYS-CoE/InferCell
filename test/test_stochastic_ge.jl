@@ -59,11 +59,10 @@ using Statistics
         # :mRNA and :protein, one on each side of the boundary. (Phase 2
         # rewrote the bursty model's composition test the same way, and for the
         # same reason.) Note the refusal comes from the hybrid driver's own
-        # cross-block check and not from `_check_state_ownership`, which sees
-        # duplicates only within a block and only on registry species — :mRNA
-        # is neither. `_check_state_ownership` does span both blocks — it
-        # iterates every model regardless of formalism — but skips anything the
-        # registry does not know, which is why :mRNA slipped through.
+        # cross-block check. `_check_state_ownership` does span both blocks —
+        # it iterates every model regardless of formalism — but skips any name
+        # the registry does not know, and :mRNA is one, which is why nothing
+        # caught this before phase 3.
         model_ode = TranscriptionTranslation()
         model_ssa = StochasticGeneExpression()
         @test_throws "owned in both blocks" build_problem([model_ode, model_ssa])

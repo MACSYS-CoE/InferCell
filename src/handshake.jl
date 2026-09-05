@@ -357,12 +357,14 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     # the opposite direction; taking the sign from whichever declaration came
     # first would let composition order decide whether a cost is debited or
     # credited.
+    seen = Set{Tuple{Symbol, Symbol}}()
     for m in models
         id = module_id(m)
         for e in coupling(m)
             e isa DeferredCounterEdge || continue
-            counter_idx = _block_state_index(jump_models, e.counter)
-            counter_idx === nothing && continue      # the peer's mirror; not ours to lower
+            # Not a declaration this module can speak for: it does not own the
+            # counter, so it is either the pool owner's mirror of a channel the
+            # accruing side lowers, or an orphan. The loop below decides which.
             _block_state_index([m], e.counter) === nothing && continue
             is_registered(e.counter) && throw(ArgumentError(
                 "Module $id accrues into :$(e.counter), which is a Core A′ " *
@@ -375,20 +377,56 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
                 ":$(e.species), but no ODE module in this composition " *
                 "integrates that pool. The hook debits a continuous pool; " *
                 "compose the module that owns :$(e.species)"))
-            push!(debits, DeferredDebit(counter_idx, pool_idx, mass_contribution(e),
-                                        e.clip, e.smoothing, 0.0, e.species,
-                                        e.counter, id))
+            # One channel is one debit however many times it is declared.
+            key = (e.counter, e.species)
+            key in seen && continue
+            push!(seen, key)
+            push!(debits, DeferredDebit(_block_state_index(jump_models, e.counter),
+                                        pool_idx, mass_contribution(e), e.clip,
+                                        e.smoothing, 0.0, e.species, e.counter, id))
         end
     end
 
-    # A counter no jump module owns is a declaration that can never fire.
+    # Every declared channel must have been lowered by the side that owns its
+    # counter. Two ways it might not have been, and both are silent without this:
+    # no module owns the counter at all, or the only module that declared the
+    # channel was the pool's owner, whose declaration this driver does not act
+    # on. A cost that is declared and never debited is the failure the deferred
+    # counter exists to prevent, and it leaves a clean census behind it.
     for m in models, e in coupling(m)
         e isa DeferredCounterEdge || continue
-        _block_state_index(jump_models, e.counter) === nothing && throw(ArgumentError(
+        (e.counter, e.species) in seen && continue
+        owner = _block_state_index(jump_models, e.counter) === nothing ? nothing :
+                first(md for md in jump_models
+                      if _block_state_index([md], e.counter) !== nothing)
+        owner === nothing && throw(ArgumentError(
             "Module $(module_id(m)) declares a DeferredCounterEdge accruing " *
             "into :$(e.counter), but no jump module in this composition owns " *
             "that state. The counter is the stochastic block's accrual slot; " *
             "it must be a state of a :jump module"))
+        throw(ArgumentError(
+            "Module $(module_id(m)) declares the deferred channel " *
+            ":$(e.counter) → :$(e.species), but $(module_id(owner)), which owns " *
+            "the counter, declares no matching edge. The channel is lowered " *
+            "from the accruing side, so this one would never fire: the counter " *
+            "would grow without bound, the pool would never be debited, and the " *
+            "clipping census would report nothing wrong. Declare it on " *
+            "$(module_id(owner)) as well"))
+    end
+
+    # The same trap on the catalytic side: an edge declared only by the jump
+    # module that owns the count names no rate law, so nothing is written and
+    # the ODE module silently keeps its nominal enzyme concentration.
+    lowered_catalytic = Set{Symbol}(c.species for c in catalytic)
+    for m in jump_models, e in coupling(m)
+        e isa CatalyticEdge || continue
+        e.species in lowered_catalytic && continue
+        throw(ArgumentError(
+            "Module $(module_id(m)) declares a CatalyticEdge on :$(e.species), " *
+            "which it owns, but no ODE module in this composition declares the " *
+            "matching channel. `param_slot` names a position in the *consuming* " *
+            "module's rate law, so the channel is lowered from the ODE side; " *
+            "declared only from here it would never write anything"))
     end
 
     # Group the debits by counter, so the hook reads and clears each counter
@@ -575,42 +613,52 @@ function handshake_step!(d::HandshakeDriver)
     for g in d.counters
         accrued_now = float(d.jump.u[g.counter_idx])
         d.jump.u[g.counter_idx] = 0
+
+        # Consumers first, and remember what they actually paid. A credit on the
+        # same accrual must match the debit, not the demand: if the drawn pool
+        # clips, only what left it may arrive anywhere else. Crediting the raw
+        # accrual would create matter out of a shortfall — and on the charged-tRNA
+        # transfer this shape exists for, it would do so every time the charged
+        # pool ran dry.
+        paid_total = 0.0
+        consumers = false
         for k in g.debit_idxs
             b = d.debits[k]
+            b.sign < 0 || continue
+            consumers = true
             accrued = accrued_now + b.deficit
-            pool = d.ode.u[b.pool_idx] * d.factor      # the pool, in particles
+            pool = d.ode.u[b.pool_idx] * d.factor     # the pool, in particles
 
-            if b.sign < 0                              # the module draws the pool down
-                if b.clip === :clamped_deficit_carried
-                    paid = min(accrued, max(pool, 0.0))
-                elseif b.clip === :unclamped
-                    paid = accrued
-                else                                   # :smoothed
-                    paid = accrued - _soft_excess(accrued - pool, b.smoothing)
-                end
-                b.deficit = accrued - paid
-                new_pool = pool - paid
-            else                                       # the module produces into it
+            if b.clip === :clamped_deficit_carried
+                paid = min(accrued, max(pool, 0.0))
+            elseif b.clip === :unclamped
                 paid = accrued
-                b.deficit = 0.0
-                new_pool = pool + accrued
+            else                                      # :smoothed
+                paid = accrued - _soft_excess(accrued - pool, b.smoothing)
             end
+            b.deficit = accrued - paid
+            paid_total += paid
 
-            # Whether this handshake clipped, judged against the cost rather than
-            # against zero. Under `:smoothed` the softplus leaves a strictly
-            # positive residue at every step however deep the pool is, so a
-            # `deficit > 0` test would report every handshake as clipping — and
-            # `:smoothed` is exactly the policy adopted to escape the clamped
-            # counter's gradient obstruction, so the census that scores K5 would
-            # be uninformative precisely where it is needed.
+            # Whether this handshake clipped, judged against the cost rather
+            # than against zero. Under `:smoothed` the softplus leaves a
+            # strictly positive residue at every step however deep the pool, so
+            # a `deficit > 0` test would report every handshake as clipping —
+            # and `:smoothed` is exactly the policy adopted to escape the
+            # clamped counter's gradient obstruction, so the census that scores
+            # K5 would be uninformative precisely where it is needed.
             b.deficit > _CLIP_ATOL * max(accrued, 1.0) && (clipped = true)
+            _write_pool!(d, b.pool_idx, pool - paid)
+        end
 
-            # Back to a concentration through whole particles, under the driver's
-            # stated policy. This is the round trip check 0 is about: the pool is
-            # a continuous quantity between hooks and a particle count across
-            # them.
-            n = round_to_counts!(d.rounding, b.pool_idx, new_pool)
-            _set_ode_state!(d.ode, b.pool_idx, counts_to_mM(n, d.factor))
+        # Then the producers, crediting what was taken rather than what was
+        # asked for. With no consumer on this counter there is nothing to match,
+        # and the accrual is a pure production.
+        credit = consumers ? paid_total : accrued_now
+        for k in g.debit_idxs
+            b = d.debits[k]
+            b.sign > 0 || continue
+            b.deficit = 0.0
+            _write_pool!(d, b.pool_idx, d.ode.u[b.pool_idx] * d.factor + credit)
         end
     end
 
@@ -630,9 +678,20 @@ function handshake_step!(d::HandshakeDriver)
     return d
 end
 
-# A fraction of a particle, relative to the cost being paid. Below this a
-# shortfall is the smoothing's own residue, not a pool that ran dry.
-const _CLIP_ATOL = 1e-9
+# A shortfall this far below the cost is the smoothing's own residue rather
+# than a pool that ran dry. Loose enough to stay right at a smoothing width
+# comparable to the pool, tight enough that missing a real one-particle
+# shortfall would need an accrual above a million particles.
+const _CLIP_ATOL = 1e-6
+
+# Back to a concentration through whole particles, under the driver's stated
+# policy. This is the round trip check 0 is about: a pool is a continuous
+# quantity between hooks and a particle count across them.
+function _write_pool!(d::HandshakeDriver, idx::Int, particles)
+    n = round_to_counts!(d.rounding, idx, particles)
+    _set_ode_state!(d.ode, idx, counts_to_mM(n, d.factor))
+    return nothing
+end
 
 # `step!` returns normally when the solve has failed: it breaks out of its loop
 # on a non-success retcode, leaving `t` where it was. Without this the driver

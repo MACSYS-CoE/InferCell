@@ -33,8 +33,9 @@ _exact_mM(n) = n / _F
         # hybrid, but the two shipped models still cannot compose — they both
         # own :mRNA and :protein, one on each side of the boundary. The reason
         # changed; the refusal did not. Note that no existing check caught
-        # this: `_check_state_ownership` only sees duplicates within a block,
-        # and only on registry species, and :mRNA is neither.
+        # this: `_check_state_ownership` does span both blocks — it
+        # iterates every model regardless of formalism — but skips any name the
+        # registry does not know, and :mRNA is one.
         err = caught(() -> build_problem([TranscriptionTranslation(),
                                           StochasticGeneExpression()]))
         @test err !== nothing
@@ -311,6 +312,59 @@ _exact_mM(n) = n / _F
         @test d.ode.u[1] == _exact_mM(5000 - 250)
         @test d.ode.u[2] == _exact_mM(1000 + 250)
         @test d.jump.u[counter] == 0
+    end
+
+    @testset "3.5 a credit on a shared counter matches the debit, not the demand" begin
+        # If the drawn pool clips, only what actually left it may arrive
+        # anywhere else. Crediting the raw accrual would mint the shortfall —
+        # and on the charged-tRNA transfer this shape exists for, it would do so
+        # every time the charged pool ran dry.
+        d = build_problem([ToyPool(kcat = 0.0, atp0 = _exact_mM(100),
+                                   adp0 = _exact_mM(1000)),
+                           ToyExpression(k_tx = 0.0, k_tl = 0.0,
+                               edges = [DeferredCounterEdge(species = :M_atp_c,
+                                            direction = :in, counter = :atp_cost),
+                                        DeferredCounterEdge(species = :M_adp_c,
+                                            direction = :out, counter = :atp_cost)])];
+                          tspan = (0.0, 10.0))
+        d.jump.u[d.counters[1].counter_idx] = 250
+        handshake_step!(d)
+
+        # 100 particles were all ATP had, so 100 is all ADP may receive.
+        @test d.ode.u[1] == 0.0
+        @test d.ode.u[2] == _exact_mM(1000 + 100)
+        # The unpaid 150 is carried on the consumer, not conjured on the producer.
+        consumer = only(b for b in d.debits if b.sign < 0)
+        producer = only(b for b in d.debits if b.sign > 0)
+        @test consumer.deficit == 150.0
+        @test producer.deficit == 0.0
+        @test d.n_clipped == 1
+    end
+
+    @testset "3.5 a channel the counter's owner never declares is refused" begin
+        # Lowering from the accruing side means a declaration by the pool's
+        # owner alone would be skipped. Silently: the counter would grow without
+        # bound, the pool would never be debited, and the census would report
+        # nothing wrong.
+        pool_only = ToyPool(kcat = 0.0,
+                            edges = [DeferredCounterEdge(species = :M_atp_c,
+                                         direction = :out, counter = :atp_cost)])
+        err = caught(() -> build_problem([pool_only,
+                                          ToyExpression(edges = CouplingEdge[])];
+                                         tspan = (0.0, 10.0)))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("atp_cost", msg) && occursin("ToyExpression", msg)
+
+        # And a catalytic edge declared only by the side that owns the count,
+        # which names no rate law and so would write nothing.
+        jump_only = ToyExpression(edges = [CatalyticEdge(species = :M_ptsg_c,
+                                               direction = :out,
+                                               param_slot = :enzyme_conc)])
+        err2 = caught(() -> build_problem([ToyPool(edges = CouplingEdge[]), jump_only];
+                                          tspan = (0.0, 10.0)))
+        @test err2 isa ArgumentError
+        @test occursin("M_ptsg_c", sprint(showerror, err2))
     end
 
     @testset "3.5 the sign of a debit is the counter owner's, not the vector order's" begin

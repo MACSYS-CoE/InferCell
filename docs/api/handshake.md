@@ -16,7 +16,7 @@ record = run_handshake!(driver, 600)
 record.census        # (; handshakes, clipped, fraction, deficits)
 ```
 
-`run_handshake!` returns the handshake times, the ODE state in mM and the jump state in particles at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `handshake_step!` runs one exchange.
+`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and returns the handshake times, the ODE state in mM and the jump state in particles at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `handshake_step!` runs one exchange.
 
 ### Policy keywords
 
@@ -44,9 +44,11 @@ The policy is a field on the driver rather than an argument to the arithmetic, s
 
 ## Deferred debits
 
-A [`DeferredCounterEdge`](corea-interface.md) declares that the stochastic block accrues a cost in a named counter and the hook debits it against a pool one step later. Under the published `:clamped_deficit_carried` policy the pool floors at zero and the shortfall is carried to the next handshake — the interface's `max(0, ·)`, and the reason a clamped counter is reported as a gradient obstruction.
+A [`DeferredCounterEdge`](corea-interface.md) declares that the stochastic block accrues a cost in a named counter and the hook debits it against a pool one step later. Under the published `:clamped_deficit_carried` policy the pool floors at zero and the shortfall is carried to the next handshake — the interface's `max(0, ·)`, and the reason a clamped counter is reported as a gradient obstruction. The two labelled departures also execute: `:unclamped` lets the pool go negative, and `:smoothed` replaces the floor with a softplus of the declared width, which converges to the clamped answer as that width narrows.
 
-`clipping_census(driver)` reports how many handshakes ran and at how many of them any counter carried a deficit. A non-zero count at published parameters means the non-smooth drain is in the operating regime.
+One counter may feed several pools — the published charged-tRNA transfer debits the charged pool and credits the uncharged one from a single accrual. The counter is read and cleared once per handshake, so every pool it feeds sees the same accrued value, and a credit matches what the debited pool actually paid rather than what was asked of it.
+
+`clipping_census(driver)` reports how many handshakes ran and at how many of them a counter carried a shortfall material against its cost. The comparison is relative rather than against zero: under `:smoothed` the softplus leaves a strictly positive residue at every step however deep the pool, so an absolute test would report every handshake as clipping. A non-zero count at published parameters means the non-smooth drain is in the operating regime.
 
 ## What this layer does not yet do
 

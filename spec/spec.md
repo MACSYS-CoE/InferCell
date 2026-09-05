@@ -211,7 +211,11 @@ uniform `:sde` composition, which is why the copy-number table's "chemical
 Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented too.
 
 **G2 — there is no execution layer for coupling.** Six of the seven edge kinds
-are declare-and-validate only. Searching `src/` and `test/` for periodic
+are declare-and-validate only. **(Read as of 2026-09-03. Phase 1 made mass and
+currency execute and phase 3 the catalytic and deferred-counter channels, so
+three of the seven remain declare-only; §11 records which. G1 and G3 are
+likewise closed. §2 is kept as the dated snapshot the phase ordering was
+derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
 returns nothing outside the `affect!` closures inside individual jump
 definitions. `solve` is called in five places, always as a single one-shot call.
@@ -1673,7 +1677,7 @@ here and the architecture is revisited rather than scaled. See K1.
   `coupling`, `states` and `parameters`, and neither toy module knows it is
   being handshaked — and the measured cost is three orders of magnitude inside
   the budget. Neither of the phase's two stated kill conditions fired, and K5
-  did not fire on the toy. **Suite:** job 16191331, 1083/1083 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
+  did not fire on the toy. **Suite:** job 16212263, 1115/1115 (1006 before the phase); the handoff records the mechanism, the separate state vectors, the measured wall-clock and the cross-block ownership rule.
 
 ### Phase 4 — The 60 s rebuild
 
