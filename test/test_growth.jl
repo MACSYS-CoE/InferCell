@@ -339,6 +339,40 @@ using Random
         @info "task 5.5 the ptsG arithmetic" area_831 = at831.area_nm2 area_1662 = at1662.area_nm2 radius_831 = at831.radius_nm radius_1662 = at1662.radius_nm fractional = at1662.fractional
     end
 
+    @testset "5.6 the doubling-time comparison is refused in code" begin
+        d = build_problem([ToyPool(kcat = 0.0), _no_counter()]; tspan = (0.0, 20.0))
+
+        # Retrievable from the composed model, not only from prose.
+        cs = reporting_constraints(d)
+        c = only(filter(x -> x.quantity === :doubling_time, cs))
+        @test c.verdict === :refused
+        @test occursin("92%", c.reason)
+        @test c.instead == [:fractional_growth, :time_to_threshold]
+
+        # And refused when asked for.
+        err = caught(() -> doubling_time(d))
+        @test err isa ErrorException
+        msg = sprint(showerror, err)
+        @test occursin("refused", msg)
+        @test occursin("fractional_growth", msg) && occursin("time_to_threshold", msg)
+
+        # The two admissible reportings.
+        Random.seed!(5005)
+        d.jump.u[2] = 1662
+        rec = run_handshake!(d, 3)
+        g = growth_report(d)
+        @test g.growing
+        @test g.fractional ≈ 1.0702 atol = 1e-3
+        @test !haskey(pairs(g), :doubling_time)
+        @test time_to_threshold(rec, 1.05) == rec.t[1]
+        @test time_to_threshold(rec, 5.0) === nothing
+
+        # A refusal that does not depend on this composition happening to grow.
+        fixed = build_problem([ToyPool(), ToyExpression()]; tspan = (0.0, 10.0))
+        @test !growth_report(fixed).growing
+        @test any(x -> x.quantity === :doubling_time, reporting_constraints(fixed))
+    end
+
     @testset "Done when: the volume channel runs beside the other three" begin
         # The catalytic channel, the deferred debit and growth, all live, on the
         # composition phase 3 built. Only the 60 s rebuild is absent, and phase
@@ -369,7 +403,7 @@ using Random
         @test rec.growth[end].factor ≈ particles_per_mM(last.volume_litres) rtol = 1e-12
         @test rec.growth[end].fractional ≈ last.fractional rtol = 1e-12
 
-        @info "phase 5 done-when" handshakes = d.n_handshakes ptsg = d.jump.u[2] area_nm2 = d.area_nm2 radius_nm = d.radius_nm fractional = rec.growth[end].fractional
+        @info "phase 5 done-when" handshakes = d.n_handshakes ptsg = d.jump.u[2] area_nm2 = d.area_nm2 radius_nm = d.radius_nm fractional = growth_report(d).fractional
     end
 
 end

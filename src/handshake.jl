@@ -498,7 +498,9 @@ from, the total membrane count, the frozen baseline and the footprint, and the
 live area, radius, volume and conversion factor — with `fractional` the volume
 against its initial value and `capped` whether growth has reached the 2× stop.
 
-`fractional` is the reportable growth quantity.
+`fractional` is the reportable growth quantity. There is deliberately no
+doubling time here; see [`reporting_constraints`](@ref) and
+[`doubling_time`](@ref), which refuses to compute one.
 """
 function growth_census(d::HandshakeDriver)
     n = isempty(d.growth) ? 0.0 : sum(_membrane_count(d, g) for g in d.growth)
@@ -1643,5 +1645,119 @@ reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
 reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
     _reduction_report(reduction_declarations(models, d); driver_seen = true)
 
+# ---------------------------------------------------------------------------
+# What growth may be reported as (spec §11 task 5.6)
+# ---------------------------------------------------------------------------
+
+"""
+The verdicts a [`ReportingConstraint`](@ref) can carry. `:refused` means the
+quantity is not computable from this model at all and asking for it throws.
+"""
+const REPORTING_VERDICTS = (:refused,)
+
+"""
+    ReportingConstraint
+
+A quantity this model may not be used to report, why, and what to report
+instead.
+
+Spec §7 makes "no comparison to syn3A's 105-minute doubling time" a non-goal
+and requires that **the code refuse the comparison rather than the prose**. A
+docstring saying so is not retrievable from a composed model; this is. Phase 14
+task 14.9 reports the nominal trajectory's growth against it.
+"""
+struct ReportingConstraint
+    quantity::Symbol
+    verdict::Symbol
+    reason::String
+    instead::Vector{Symbol}
+
+    function ReportingConstraint(quantity, verdict, reason, instead)
+        _check_vocab(:ReportingConstraint, :verdict, verdict, REPORTING_VERDICTS)
+        return new(quantity, verdict, reason, collect(Symbol, instead))
+    end
+end
+
+"""
+    reporting_constraints(driver) -> Vector{ReportingConstraint}
+
+What this composed model's growth may and may not be reported as.
+
+One entry today: the doubling time. Core A′ removes roughly 92% of the cell, so
+it is not built to reproduce the 105-minute figure and any comparison to it
+would be meaningless — a consequence of the reduction rather than a defect in
+it. Growth is reported as fractional growth or time-to-threshold, both of which
+[`growth_report`](@ref) returns.
+
+The constraint does not depend on whether this particular composition grows: it
+is a statement about the reduction, and a composition with a frozen cell is no
+more entitled to a doubling time than one with a live one.
+"""
+reporting_constraints(::HandshakeDriver) = [
+    ReportingConstraint(
+        :doubling_time, :refused,
+        "Core A′ removes roughly 92% of the cell, so it is not built to " *
+        "reproduce syn3A's 105-minute doubling time and no result here is to " *
+        "be compared to it. Non-ptsG membrane growth is exogenous besides, so " *
+        "the growth law here is driven by one protein rather than by a cell " *
+        "(spec §1, §7)",
+        [:fractional_growth, :time_to_threshold])]
+
+"""
+    growth_report(driver) -> NamedTuple
+
+The growth this driver may be reported as: `fractional`, the volume against its
+initial value, with the geometry it came from and whether the 2× cap has been
+reached.
+
+There is deliberately no doubling time and no growth rate here; see
+[`reporting_constraints`](@ref) and [`doubling_time`](@ref).
+"""
+growth_report(d::HandshakeDriver) =
+    (t = d.ode.t,
+     fractional = d.volume_litres / d.initial_volume_litres,
+     volume_litres = d.volume_litres,
+     initial_volume_litres = d.initial_volume_litres,
+     radius_nm = d.radius_nm,
+     area_nm2 = d.area_nm2,
+     capped = d.volume_litres >= d.volume_cap_litres,
+     growing = !isempty(d.growth))
+
+"""
+    time_to_threshold(record, threshold) -> Union{Float64, Nothing}
+
+The first handshake time at which fractional volume reaches `threshold`, from a
+[`run_handshake!`](@ref) record, or `nothing` if it never does.
+
+The second of the two admissible growth reportings. It is read off the recorded
+trajectory rather than extrapolated from a rate, because a rate is one algebraic
+step from the doubling time [`doubling_time`](@ref) refuses.
+"""
+function time_to_threshold(record, threshold)
+    for (i, g) in enumerate(record.growth)
+        g.fractional >= threshold && return record.t[i]
+    end
+    return nothing
+end
+
+"""
+    doubling_time(driver)
+
+Always throws. The one quantity this model refuses to compute.
+
+Spec §7 rules the comparison out by construction, and §11 task 5.6 requires the
+refusal to live in the code rather than in the prose, so that a later analysis
+meets it at the call rather than in a paragraph it may not have read. Use
+[`growth_report`](@ref)'s `fractional` or [`time_to_threshold`](@ref).
+"""
+function doubling_time(d::HandshakeDriver)
+    c = only(filter(c -> c.quantity === :doubling_time, reporting_constraints(d)))
+    error("doubling_time is refused for this model. $(c.reason). Report " *
+          "$(join(("`" * string(q) * "`" for q in c.instead), " or ")) " *
+          "instead — growth_report(driver) and time_to_threshold(record, x) " *
+          "return them")
+end
+
 export handshake_step!, run_handshake!, rate_constant_elasticity,
-       driver_declarations
+       driver_declarations, REPORTING_VERDICTS, ReportingConstraint,
+       reporting_constraints, growth_report, time_to_threshold, doubling_time
