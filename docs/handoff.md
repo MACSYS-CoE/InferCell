@@ -1,9 +1,68 @@
 # Handoff
 
-**Session date:** 2026-09-05
-**Branch:** `phase-5-growth-and-volume`
+**Session date:** 2026-09-07
+**Branch:** `extra-diagram`
 
-## Latest: phase 5 — growth and volume (2026-09-05)
+## Latest: two progress figures, parsed from the spec (2026-09-07)
+
+**No executable change. No Julia, no Slurm run.** Six PRs had merged and it had
+become hard to see what they delivered, for a structural reason: every merged
+phase is framework, and the coupling figure draws the model. Two figures now
+answer "what is built", in
+[`dev/notes/figures/corea-progress/`](../dev/notes/figures/corea-progress/):
+
+| Figure | What it claims |
+|---|---|
+| `fig1d_state_graph_progress` | fig 1c, with every module and device badged by the spec §11 phase that writes it, and the edge-kind key gaining an **executes since** column |
+| `fig2d_phase_roadmap` | all eighteen phases in dependency order, including the five that put nothing on a state graph |
+
+**The one design decision worth carrying.** Fig 1c already spends a red ✗ and a
+grey wash on *removed by the reduction*. Progress is a second, independent axis,
+so it gets its own vocabulary — a green ✔ pill carrying the PR for merged, a
+hollow ☐ pill carrying the phase number for not written — and its own key,
+stating both axes side by side. A crossed-out box says nothing about whether
+code exists, and a hollow badge says nothing about whether the module is in the
+model; conflating the two is the misreading the figures exist to prevent.
+
+**Nothing in either figure states a status.** `progress_spec.phases()` parses
+`spec/spec.md` §11 — the headings, the `**PR:**` line, the `- [x]` ticks — and
+every badge, pill, title count and footer count comes from that parse. Only the
+mapping from a phase to the thing it puts on the state graph is authored. Four
+guards make drift fail the build rather than ship a wrong figure, all four
+exercised in a scratch copy: a renamed `### Phase N —` heading, a merged phase
+with an unticked task, a merged phase with no task list, and an `ELEMENT_PHASE`
+node id fig 1c does not draw.
+
+**Fig 1d changes no model content.** It re-runs fig 1c's builder and overlays
+status on the result, one level further down the chain fig 1c already uses on
+fig 1r. It lands on fig 1c's canvas, **3439 × 2845 pt**, which the build prints,
+so a badge that displaced a node is caught rather than shipped. Badge positions
+are *measured*, not guessed: three boxes are not the size fig 1 drew them, so
+the build renders once through `neato -n -Tdot`, reads back the true geometry
+(realigned against the hook, because `-Tdot` renormalises the origin) and only
+then places the badges. A clean rebuild reproduces both PNGs byte for byte.
+
+**Two staleness items fixed, because the figures read from them.**
+
+1. `spec/spec.md` phase 5 said `**PR:** _open_`; #46 merged as `dc5c288`. Now
+   `#46 (merged 2026-09-05)`. A status field catching up, **not** a §12
+   amendment — nothing the spec said became false.
+2. `dev/notes/2026-09-05-reading-the-coupling-figure.md` listed phase 4 as
+   *next* and said *four* of seven edge kinds execute. Both were true when
+   written. Corrected to six merged phases and **six of seven** edge kinds —
+   only `clamped` is still declare-only, no phase schedules it, and its held
+   value still travels as a fixed parameter. The note now carries a dated
+   update header and points at the two figures, which cannot go stale the way it
+   did.
+
+**What the figures say, in one line each.** Fig 1d: six of seven edge kinds
+execute and not one box in the figure exists in code. Fig 2d: every merged phase
+is framework, that is D0 on purpose, and phases 15–17 put nothing on a state
+graph at all.
+
+**Next.** Phase 6, central glycolysis — the first phase that writes a box.
+
+## Previous: phase 5 — growth and volume (2026-09-05)
 
 Spec §11 phase 5, on branch `phase-5-growth-and-volume`. **Six of the seven
 edge kinds now execute. Only the clamped edge remains declare-and-validate,

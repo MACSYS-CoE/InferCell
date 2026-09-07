@@ -1864,7 +1864,7 @@ and volume, both conversion directions read the live volume, and the published
 initial surface area returns a 200 nm radius ~~exactly~~ *to the four
 significant figures the source states it in — it is 200.03505 nm, and see task
 5.2*.
-**PR:** _open_
+**PR:** #46 (merged 2026-09-05)
 
 - [x] 5.1 Promote a membrane-protein declaration to the protocol with an empty
   default, settling the open question the drafted transport design leaves for
