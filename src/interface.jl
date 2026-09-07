@@ -268,6 +268,106 @@ function of `pools` and of the module's *other* parameters.
 rate_constants(p, t, ::AbstractSubModel, pools) = SVector{0, Float64}()
 
 """
+    membrane_protein_states(m::AbstractSubModel) -> Vector{Symbol}
+
+States of `m` whose **counts** set the cell's membrane surface area, and so its
+radius, its volume, and every count-to-concentration conversion. Defaults to
+empty.
+
+This is the declaration side of the volume channel (spec §11 phase 5), the one
+coupling channel that runs on neither the 1 s nor the 60 s clock. The published
+model computes `CellSA_Prot = 28.0 nm² × Σ(membrane protein counts)` every hook
+and derives radius and volume from it
+(`dev/notes/well-stirred-minimal-cell.md:178-196`); the driver does the same
+over whatever a composition flags here.
+
+The flag is **data on the module** rather than knowledge in the growth code, so
+that a composition is *swept* for its membrane proteins rather than the driver
+knowing which sub-model to ask. Every name must therefore be one of the
+declaring module's own [`states`](@ref), and no two modules may flag the same
+species — it would be counted into the area twice. Both are refused by name.
+
+Either block may declare it. A `:jump` module's state is already a count; an
+`:ode` module's is a concentration, and its count is `u × factor` at the
+conversion factor in force at that hook, which is the published semantics —
+the particle map is master at the hook instant. The count is used as a
+continuous value rather than rounded, so the geometry injects no drift of its
+own into check 0's round trip.
+
+A module that declares names here must also declare an outbound
+[`VolumeEdge`](@ref) on each of them, and the converse: a volume edge with
+nothing flagged is a channel declared and never executed. Both are refused at
+build time.
+
+**The chain runs only under the hybrid handshake driver**, since it converts
+counts to concentrations and back and only a mixed composition has both sides.
+A homogeneous `build_problem` resolves this declaration and executes nothing
+from it — as it already does for the catalytic, deferred-counter and
+rate-constant edges, which are equally cross-block — so a module smoke-tested
+alone is not evidence that its volume channel works.
+"""
+membrane_protein_states(::AbstractSubModel) = Symbol[]
+
+"""
+    membrane_protein_states(models::Vector{<:AbstractSubModel}) -> Vector{Symbol}
+
+Every membrane-protein state in a composition, in composition order, found by
+sweeping the models rather than by knowing which one declares them.
+
+This is the query spec §11 tasks 5.1 and 7.6 are written against: a module that
+did not declare the flag can find every contributing state without naming any
+other module's type. Refuses, by name, a flag on a state the declaring module
+does not own, and the same species flagged twice.
+"""
+function membrane_protein_states(models::Vector{<:AbstractSubModel})
+    flagged = Symbol[]
+    declarers = Dict{Symbol, Symbol}()
+    for m in models
+        id = module_id(m)
+        own = states(m)
+        for s in membrane_protein_states(m)
+            s in own || throw(ArgumentError(
+                "Module $id flags :$s as a membrane protein, but does not own " *
+                "it — states($id) is $own. The flag is data on the module that " *
+                "integrates the state, so that a composition can be swept for " *
+                "its membrane proteins; flag it on the module that owns it"))
+            haskey(declarers, s) && throw(ArgumentError(
+                "Modules $(declarers[s]) and $id both flag :$s as a membrane " *
+                "protein, so its count would enter the surface area twice. One " *
+                "declaration per species"))
+            declarers[s] = id
+            push!(flagged, s)
+        end
+    end
+    return flagged
+end
+
+"""
+    extracellular_states(m::AbstractSubModel) -> Vector{Symbol}
+
+States of `m` whose concentration is referred to a volume other than the
+cell's, so that cell growth does not dilute them. Defaults to empty.
+
+The growth chain rescales every ODE concentration when the volume changes,
+holding the particle count fixed — which is right for everything inside the
+cell and wrong for anything outside it. Core A′ integrates external lactate as
+a dynamic state whose millimolar is a *medium* concentration, scaled by a
+medium-to-cell volume ratio (spec §4 D6); diluting it by the cell's volume
+ratio would destroy lactate that has already left, and carbon balance (check 2)
+is the check that would fail. There is no extracellular marker in the registry
+— external lactate is an ordinary dynamic species there — so the exemption is
+declared by the module that integrates it.
+
+Only an `:ode` module may declare it: a `:jump` module's states are counts, and
+a count is not referred to a volume at all. Every name must be one of the
+declaring module's own [`states`](@ref), and a state may not be both exempt and
+flagged by [`membrane_protein_states`](@ref) — a membrane protein's count is
+read *from* its concentration, so exempting it would make the area depend on
+the volume it sets. All three are refused at build time, by name.
+"""
+extracellular_states(::AbstractSubModel) = Symbol[]
+
+"""
     SubModelContext(state_idxs, param_idxs, input_map[, contrib_idxs])
 
 Per-sub-model bookkeeping built by the orchestrator: where this sub-model's

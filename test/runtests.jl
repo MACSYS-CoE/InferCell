@@ -57,6 +57,8 @@ using Aqua
     include("test_hybrid_handshake.jl")
     # The 60 s rebuild (spec phase 4), on the same doubles file.
     include("test_rebuild.jl")
+    # Growth and volume (spec phase 5), on the same doubles file.
+    include("test_growth.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

@@ -1,6 +1,6 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 4 done (PRs #41, #42, #43, #44, #45)
+**Status:** in progress — phases 0 to 4 done (PRs #41, #42, #43, #44, #45); phase 5 open
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-05
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -212,11 +212,14 @@ Langevin sits naturally here" for the 266–1355-copy enzymes is unimplemented t
 
 **G2 — there is no execution layer for coupling.** Six of the seven edge kinds
 are declare-and-validate only. **(Read as of 2026-09-03. Phase 1 made mass and
-currency execute, phase 3 the catalytic and deferred-counter channels and
-phase 4 the rate-constant one, so two of the seven — volume and clamped —
-remain declare-only. §11 phase 5 schedules the volume chain; **no phase
-schedules the clamped edge**, whose held value still travels as a fixed
-parameter beside the declaration. G1 and G3 are
+currency execute, phase 3 the catalytic and deferred-counter channels,
+phase 4 the rate-constant one and phase 5 the volume chain, so **one of the
+seven — clamped — remains declare-only**, its held value still travelling as
+a fixed parameter beside the declaration, and **no phase schedules it**. The
+*inbound* half of the volume channel — volume re-entering an ODE rate law,
+which task 7.2 wants for the lactate exporter — is not built either, and
+phase 5 refuses such an edge by name rather than letting it resolve and never
+run; see phase 7. G1 and G3 are
 likewise closed. §2 is kept as the dated snapshot the phase ordering was
 derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
@@ -1858,31 +1861,142 @@ elasticity of a rate constant to its upstream pool is reported.
 dilutes the ODE block as the published model's does.
 **Done when:** a volume edge on the toy's membrane-protein state drives radius
 and volume, both conversion directions read the live volume, and the published
-initial surface area returns a 200 nm radius exactly.
-**PR:** _not started_
+initial surface area returns a 200 nm radius ~~exactly~~ *to the four
+significant figures the source states it in — it is 200.03505 nm, and see task
+5.2*.
+**PR:** _open_
 
-- [ ] 5.1 Promote a membrane-protein declaration to the protocol with an empty
+- [x] 5.1 Promote a membrane-protein declaration to the protocol with an empty
   default, settling the open question the drafted transport design leaves for
   this phase — verify by a composition sweep finding the flagged states without
   naming any module type, and by a module declaring none composing unchanged.
-- [ ] 5.2 Implement the surface-area, radius and volume chain — verify by
-  asserting the published initial 502,831 nm² returns exactly 200.0 nm, and by
+  **Done:** `membrane_protein_states(m)`, empty default, promoted exactly as
+  `add-pts-transport/design.md`'s D7 wanted and its Open Questions deferred to
+  "wave 2's call". The flag is data on the module that *owns* the state, and
+  `membrane_protein_states(models)` is the sweep — asserted at three
+  composition orders, with no `isa` on any module type. **Either block may
+  declare it**, because the toy and the real model differ: the phase-3 toy owns
+  `M_ptsg_c` as a jump state and phase 11 task 11.4 makes translocation what
+  increments it, while task 7.6 has `PtsTransport` own both phospho-forms in the
+  ODE block. A jump state's count is read directly; an ODE state's is
+  `u × factor` at the factor in force at that hook, continuous rather than
+  rounded so the geometry adds no quantisation to check 0's round trip. A
+  composition flagging none has an empty chain, a bitwise constant factor over
+  100 handshakes and no growth label. **Fifteen refusals**, each naming what is
+  wrong, and each asserted on its own message. From the sweep (2): a flag on a
+  state its declarer does not own; the same species flagged twice, whose count
+  would enter the area twice. From the lowering (8): an *inbound* edge, which is
+  the half of this channel phase 5 does not build (see task 7.2); a flag with no
+  `VolumeEdge`, which would execute undeclared; an edge with nothing flagged,
+  which would be declared and never executed; an edge on a species the module
+  does not flag; a flagged state with no edge of its own — the trap a module
+  flagging both ptsG phospho-forms and edging one would hit; and the three
+  `extracellular_states` refusals of task 5.3. From the build (5): a growth
+  keyword passed to a composition whose cell does not grow, and `radius_nm`
+  passed to one whose cell does, either of which would state the geometry twice
+  or not at all; a non-positive initial area; a non-positive footprint, which
+  would leave the chain declared, labelled and frozen; and a derived baseline
+  below zero, which would make area a super-linear function of count instead of
+  the published law's affine one.
+- [x] 5.2 Implement the surface-area, radius and volume chain — verify by
+  asserting the published initial 502,831 nm² returns ~~exactly~~ 200.0 nm, and by
   the 28.0 nm² footprint carrying its calibrated-not-measured label, with the
   upstream docstring's contradictory 35 nm² recorded and the code's value taken.
-- [ ] 5.3 Route both conversion directions through live volume — verify by a test
+  **Done, and "exactly" is the one word this task got wrong.**
+  `sqrt(502831/4π) = 200.03505 nm`, not 200.000 — `4π(200 nm)²` is 502,654.8 nm²,
+  so the published area is **176 nm² larger than an exact 200 nm sphere**, and
+  both `dev/notes/well-stirred-minimal-cell.md:194` and the scoping note's "r =
+  200.0 nm exactly" are four-significant-figure statements. The area stays the
+  primitive, because task 5.5's arithmetic closes only with 502,831, and the
+  published figure is asserted at the precision the source states it
+  (`round(r; digits = 1) == 200.0`) with the full-precision value pinned beside
+  it — phase 3's own precedent, where 20,180 particles/mM is asserted as
+  `round(Int, ·) == 20180` against a true 20180.39. Not logged as a §12
+  amendment: the number the spec asks for is reproduced, and it is the word
+  "exactly" that is four significant figures. **The frozen baseline is derived,
+  never typed:** 502,831 − 831 × 28.0 = **479,563 nm²**, asserted directly, because
+  getting that offset wrong is what would make doubling ptsG double the whole
+  cell. `driver_declarations` gains two labels whenever the chain is live —
+  `:calibrated_constant` for the footprint, carrying `getProtSA`'s 35 nm²
+  docstring against the 28.0 its code runs, and `:exogenous_growth` for the
+  frozen non-ptsG baseline, which §6 T2 needs as a row.
+- [x] 5.3 Route both conversion directions through live volume — verify by a test
   that a volume increase dilutes every ODE concentration by exactly the volume
-  ratio with no change in any count.
-- [ ] 5.4 Cap growth at exactly twice initial volume as the published model does —
+  ratio with no change in any count. **Done:** `factor` was "particles per mM,
+  at fixed volume" and is now recomputed at **step 0 of every handshake**, before
+  the catalytic write, so every conversion in an exchange uses one volume. A
+  bigger cell is *more* particles per millimolar, so the factor rises and every
+  concentration at fixed count falls: at 831 → 1662 copies the ratio is
+  **0.93440**, against `(200.035046/204.610919)³ = 0.93440` from the geometry.
+  **Dilution is a fourth operation** — none of the three existing conversion
+  sites implies it — and each state is rewritten as the count it held divided by
+  the new factor, in that order, because going through the volume ratio instead
+  would conserve the ratio and let the counts drift. Exactness is **one ulp, not
+  bitwise**: `(u·f_old)/f_new · f_new` need not return `u·f_old` in binary
+  floating point, so counts are asserted at `rtol = 1e-14` and the statement is
+  made rather than hidden in a tolerance. The carried remainders are in particles
+  and survive untouched, asserted. **Annotated 2026-09-05: "every ODE
+  concentration" gains an exemption.** It is true of the toy and not of the
+  assembled model — task 7.4 integrates external lactate as a dynamic state whose
+  millimolar is a *medium* concentration through D6's 1e5 ratio, and diluting it
+  by the cell's volume ratio would destroy lactate that has already left and open
+  check 2. The registry has no extracellular marker (`M_lac__L_e` is an ordinary
+  dynamic species there), so a second protocol declaration `extracellular_states`
+  carries it, empty by default, with three refusals: a `:jump` module declaring
+  it at all, since its states are counts and a count is referred to no volume; a
+  state the declarer does not own; and a state that is both exempt and
+  membrane-flagged, which would make the area depend on the volume it sets.
+  Recorded here and
+  in the pull request rather than as a §12 amendment, as tasks 2.2 and 3.2
+  recorded theirs: nothing the spec said became false.
+- [x] 5.4 Cap growth at exactly twice initial volume as the published model does —
   verify by a test driving counts past the cap and asserting volume stops rather
-  than growing.
-- [ ] 5.5 Reproduce the scoping note's ptsG arithmetic — verify by a test
+  than growing. **Done:** applied to the **volume**, as `in_out.py:107` applies
+  it, leaving the radius uncapped exactly as upstream leaves it — an equivalent
+  cap on area would carry a factor of 2^(2/3). Driven there artificially, since
+  the cap needs ~11,400 membrane proteins against the 831 Core A′ starts with:
+  at 50,000 copies the volume sits at exactly `2 × V(0)` and stays there at
+  500,000 while the radius keeps rising. The published constant is a hard-coded
+  6.70e-17 L, twice its own *rounded* 3.35e-17; ours is twice the computed
+  3.35279e-17, and the difference is that rounding rather than a different rule.
+- [x] 5.5 Reproduce the scoping note's ptsG arithmetic — verify by a test
   asserting that doubling 831 copies moves surface area from 502,831 to 526,099
-  nm², radius from 200.0 to 204.6 nm, and volume to about 1.07×.
-- [ ] 5.6 Refuse the doubling-time comparison in code — verify by the composed
+  nm², radius from 200.0 to 204.6 nm, and volume to about 1.07×. **Done, all
+  three, read off the growth trace rather than asserted from the counts that
+  produced it:** area **502,831.0 → 526,099.0 nm² exactly**, radius
+  **200.03505 → 204.61092 nm**, volume **1.07021×**. Checked first against a
+  closed form written out longhand in the doubles file — as phase 4 checked its
+  elasticity against `km/(km+pool)` — so the assertion is the published law and
+  not the implementation restated, and only then against the note's three
+  numbers.
+- [x] 5.6 Refuse the doubling-time comparison in code — verify by the composed
   model exposing the reporting constraint that this is fractional growth or
   time-to-threshold, and by a test asserting the constraint is retrievable rather
-  than living only in prose.
-- [ ] 5.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  than living only in prose. **Done, in two halves because the task asks for
+  two.** `reporting_constraints(driver)` returns the constraint as structured
+  data — quantity, verdict, reason, and what to report instead — so a composed
+  model is *asked* rather than read; and `doubling_time(driver)` exists and
+  throws, naming the ~92% reduction. `growth_report` and `time_to_threshold` are
+  the two admissible reportings, the latter read off the recorded trajectory
+  rather than extrapolated from a rate, a rate being one algebraic step from the
+  quantity being refused. The constraint does not depend on whether a given
+  composition grows: it is a statement about the reduction. Phase 14 task 14.9
+  consumes it.
+- [x] 5.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** job 16226536, **1381/1381** (1230 before the phase). Task 3.8's
+  wall-clock artefact was re-run in the same pass, as phase 4 did, because step
+  0 adds work to every handshake. `dev/scripts/bench_handshake.jl` gains a
+  **matched pair** — the same gene at the same 831 initial copies, with and
+  without the flag and the edge — because the pre-existing `live rate law` row
+  starts at zero protein and that count fills the ODE rate law through a
+  catalytic edge, so a gap against *it* would be a different trajectory as much
+  as a volume chain. Each row is now the minimum of five repetitions with the
+  spread reported beside it, because at this scale the scatter and the effect
+  are the same size. Verdict unchanged: worst extrapolation well inside K1's
+  10 s budget. **The chain's own cost is reported against its control and beside
+  that spread, and is not claimed to be resolved above it** — and it is measured
+  on two diluted ODE states against Core A′'s thirty-two, so it bounds the
+  mechanism, as every toy number in phases 3 to 5 does.
 
 ### Phase 6 — Central glycolysis
 
@@ -1963,7 +2077,13 @@ plain function on this module, which settles that design's own open question.
   export law with permeability and radius carried separately — verify by a
   hand-checked derivative at one state vector, and by the export rate equalling
   the permeability law rather than a folded constant, so phase 5's growing radius
-  changes it.
+  changes it. **Note from phase 5:** the radius is live on the driver but does
+  not yet *reach* a rate law. That is the inbound half of the volume channel,
+  and `VolumeEdge` carries no parameter slot to write it into, so phase 5
+  refuses an inbound edge by name rather than letting it resolve and never run.
+  Delivering it is a framework change — an edge kind gains a field — and by R15
+  that is a conversation on `main` and its own phase, not an edit on this
+  module's branch.
 - [ ] 7.3 Set the eight initial conditions from copy number times proteomics
   fraction (D7) — verify by each carrier's forms summing to 353, 314, 290 and 831
   copies exactly, and by both the totals and the split recorded as the published
@@ -1971,7 +2091,12 @@ plain function on this module, which settles that design's own open question.
 - [ ] 7.4 Integrate external lactate with the volume ratio (D6) — verify by
   external lactate after a full cycle staying below one percent of steady
   cytosolic lactate at the default ratio, by a ratio of one visibly saturating
-  export, and by the ratio registered as ours.
+  export, and by the ratio registered as ours. **Declare `M_lac__L_e` in
+  `extracellular_states`** — phase 5's exemption from the dilution growth applies
+  to every other ODE concentration. Its millimolar is a medium concentration, so
+  diluting it by the *cell's* volume ratio would destroy lactate that has already
+  left and open check 2; verify by a growing composition leaving it untouched
+  while its cytosolic neighbours dilute.
 - [ ] 7.5 Declare the boundary, including external glucose clamped at 40 mM with
   published origin — verify by that clamp *not* appearing in the
   what-is-ours enumeration while the chemostatted nucleotide and amino-acid pools

@@ -1,14 +1,16 @@
 """
 The 1 s handshake: executing the coupling the edge kinds declare.
 
-Spec §11 phases 3 and 4. Phase 1 made mass and currency edges execute inside
-the ODE block; phase 3 added the catalytic and deferred-counter channels and
-phase 4 the rate-constant one, so five of the seven [`CouplingEdge`](@ref)
-kinds now run and two — volume and clamped — remain declare-and-validate only. It
-advances a jump block and an ODE block by a split-operator exchange, mirroring
-the published model's `hookSimulation` (`dev/notes/well-stirred-minimal-cell.md`):
-every `delt = 1.0` s, counts become initial conditions, the metabolic block
-integrates one second, and the accrued costs are debited back.
+Spec §11 phases 3, 4 and 5. Phase 1 made mass and currency edges execute inside
+the ODE block; phase 3 added the catalytic and deferred-counter channels, phase
+4 the rate-constant one and phase 5 the volume chain, so six of the seven
+[`CouplingEdge`](@ref) kinds now run and one — clamped — remains
+declare-and-validate only, its held value still travelling as a fixed
+parameter. It advances a jump block and an ODE block by a split-operator
+exchange, mirroring the published model's `hookSimulation`
+(`dev/notes/well-stirred-minimal-cell.md`): every `delt = 1.0` s the cell is
+remeasured from its membrane proteins, counts become initial conditions, the
+metabolic block integrates one second, and the accrued costs are debited back.
 
 **Mechanism, chosen in task 3.1: an outer loop over two stepped integrators.**
 The two rejected alternatives, and why, are recorded in the pull request. The
@@ -38,10 +40,13 @@ const AVOGADRO = 6.02214076e23
 The published initial cell radius, in nm.
 
 `dev/notes/reduced-syn3a-scoping.md` records the derived figure this must
-reproduce: at 200 nm, 1 mM is 20,180 particles. Phase 5 makes the radius grow;
-until then it is the one fixed number the conversion closes over, and it is
-passed as an argument rather than baked in so that phase 5 changes a call site
-and not an equation.
+reproduce: at 200 nm, 1 mM is 20,180 particles.
+
+It is the geometry of a composition whose cell does **not** grow. Phase 5 made
+the radius live, and a growing composition takes
+[`COREA_INITIAL_SURFACE_AREA_NM2`](@ref) as its primitive instead — which is not
+exactly a 200 nm sphere, so its initial factor is 20,190.998 rather than
+20,180.39. That is why the two are refused together.
 """
 const COREA_INITIAL_RADIUS_NM = 200.0
 
@@ -71,6 +76,111 @@ The conversion factor at a given radius. 20,180 particles per mM at 200 nm.
 """
 corea_particles_per_mM(radius_nm = COREA_INITIAL_RADIUS_NM) =
     particles_per_mM(cell_volume_litres(radius_nm))
+
+# ---------------------------------------------------------------------------
+# The growth law (spec §11 phase 5)
+#
+# The published model's, from `in_out.py:107` by way of
+# `dev/notes/well-stirred-minimal-cell.md:178-196`:
+#
+#     CellSA_Lip  = 0.513 × Σ_lipids(count × headgroup area)
+#     CellSA_Prot = 28.0 nm² × Σ(membrane protein counts)
+#     r = sqrt(CellSA / 4π);  V = (4/3) π r³
+#
+# Core A′ keeps only the protein term for its own membrane protein and freezes
+# the rest, because the lipid module is cut and non-ptsG membrane growth is
+# exogenous — ours, not the model's (spec §3). `driver_declarations` labels
+# both that and the footprint.
+# ---------------------------------------------------------------------------
+
+"""
+The per-protein membrane footprint, in nm², that surface area is accumulated at.
+
+**Calibrated, not measured.** The published model chose 28.0 nm² to reproduce
+54% membrane protein coverage for the ~9,600 membrane proteins it carries, so
+it is a fitted constant of that model rather than a measurement of a protein.
+`getProtSA`'s own docstring says 35 nm² while its code uses 28.0; the code is
+what runs, so the code governs and the contradiction is recorded here rather
+than silently resolved. [`driver_declarations`](@ref) labels it, so the caveat
+reaches a report and not only this docstring.
+"""
+const MEMBRANE_PROTEIN_FOOTPRINT_NM2 = 28.0
+
+"""
+The published initial membrane surface area, in nm².
+
+`setICs_two.py:342` sets 231,875 nm² of lipid and 270,956 nm² of protein,
+totalling 502,831 nm². It is the *primitive*: the radius is derived from it,
+not the other way round, which is what makes the scoping note's growth
+arithmetic close — 831 ptsG copies at 28.0 nm² are 23,268 nm² of it, so
+doubling them gives 526,099 nm², 204.61 nm and 1.07× the volume.
+
+Note it is not exactly a 200 nm sphere. 4π(200 nm)² is 502,654.8 nm², so this
+area is 176 nm² larger and [`radius_from_area_nm`](@ref) returns 200.035 nm.
+Both `dev/notes/well-stirred-minimal-cell.md:194` and the scoping note say "r =
+200.0 nm exactly"; that is four significant figures, and the published 200 nm
+is reproduced at the precision the source states it.
+"""
+const COREA_INITIAL_SURFACE_AREA_NM2 = 502831.0
+
+"""
+    surface_area_nm2(baseline_nm2, n_membrane, footprint_nm2) -> Float64
+
+Membrane surface area, in nm²: a frozen baseline plus one footprint per
+membrane protein.
+
+The baseline is everything Core A′ does not integrate — the lipid leaflet and
+the 92 membrane-protein loci outside the reduction. Holding it constant is the
+exogenous-membrane-growth reduction of spec §3, and it is why growth reaches
+only ~1.07× rather than the published 2×.
+"""
+surface_area_nm2(baseline_nm2, n_membrane, footprint_nm2 = MEMBRANE_PROTEIN_FOOTPRINT_NM2) =
+    baseline_nm2 + footprint_nm2 * n_membrane
+
+"""
+    membrane_area_baseline_nm2(total_nm2, n_membrane, footprint_nm2) -> Float64
+
+The frozen part of the surface area, derived so that a composition holding
+`n_membrane` membrane proteins starts at exactly `total_nm2`.
+
+Derived rather than written down: for Core A′ it is
+502,831 − 831 × 28.0 = 479,563 nm², and typing that number instead would be one
+more place for the three it is derived from to drift apart. Getting the offset
+wrong is the failure that makes doubling ptsG double the whole cell, so it is
+asserted directly as well as through the growth arithmetic.
+"""
+membrane_area_baseline_nm2(total_nm2, n_membrane,
+                           footprint_nm2 = MEMBRANE_PROTEIN_FOOTPRINT_NM2) =
+    total_nm2 - footprint_nm2 * n_membrane
+
+"""
+    radius_from_area_nm(area_nm2) -> Float64
+
+The radius, in nm, of the sphere with this surface area — the published
+`cellRadius = sqrt(SurfaceArea / 4π)` of `in_out.py:107`.
+
+At the published initial area it returns 200.035 nm, reproducing the source's
+200 nm to the four significant figures the source states it in; see
+[`COREA_INITIAL_SURFACE_AREA_NM2`](@ref) for the 176 nm² this differs from an
+exact 200 nm sphere by.
+"""
+radius_from_area_nm(area_nm2) = sqrt(area_nm2 / (4 * π))
+
+"""
+    corea_volume_cap_litres(initial_volume_litres) -> Float64
+
+The volume growth stops at: exactly twice the initial volume, as
+`in_out.py:107` does.
+
+The published model hard-codes `6.70e-17` L, which is twice its own *rounded*
+3.35e-17; taking twice the computed initial volume gives 6.7057e-17, and the
+difference is the rounding rather than a different rule. The cap is applied to
+the volume and not to the radius or the area, again as the published code does
+— an equivalent cap on area would carry a factor of 2^(2/3), and mirroring the
+published form keeps the reported radius uncapped exactly as upstream leaves
+it.
+"""
+corea_volume_cap_litres(initial_volume_litres) = 2 * initial_volume_litres
 
 """
     counts_to_mM(n, factor) -> Float64
@@ -164,6 +274,9 @@ end
 export AVOGADRO, COREA_INITIAL_RADIUS_NM, cell_volume_litres, particles_per_mM,
        corea_particles_per_mM, counts_to_mM, ROUNDING_POLICIES, RoundingState,
        round_to_counts!
+export MEMBRANE_PROTEIN_FOOTPRINT_NM2, COREA_INITIAL_SURFACE_AREA_NM2,
+       surface_area_nm2, membrane_area_baseline_nm2, radius_from_area_nm,
+       corea_volume_cap_litres
 
 # ---------------------------------------------------------------------------
 # Lowered exchange records (spec §11 tasks 3.5 and 3.6)
@@ -257,6 +370,31 @@ mutable struct RateConstantRebuild
     n_refreshes::Int
 end
 
+"""
+    GrowthChain
+
+One membrane-protein state made executable: the count whose footprint enters
+the cell's surface area, and so its radius, its volume, and every
+count-to-concentration conversion (spec §11 phase 5).
+
+The record carries which block the state lives in, because the two are read
+differently. A `:jump` state is already a count. An `:ode` state is a
+concentration, and its count is `u * factor` at the factor in force at that
+hook — which is the published semantics, where the particle map is master at
+the hook instant. It is used as a continuous value rather than rounded, so the
+geometry adds no quantisation of its own to check 0's round trip.
+
+This is the one channel on neither clock: it is recomputed at every handshake,
+as `calcCellVolume(pmap)` is called at every hook of the published model, and
+it has no declared interval to be piecewise-constant between.
+"""
+struct GrowthChain
+    idx::Int              # the state's slot in its own block's state vector
+    block::Symbol         # :jump — a count — or :ode — a concentration
+    species::Symbol
+    declared_by::Symbol
+end
+
 # ---------------------------------------------------------------------------
 # The driver
 # ---------------------------------------------------------------------------
@@ -271,8 +409,15 @@ Holds two live integrators and the lowered exchange records between them.
 `drain_interval` how often the deferred counters are debited, which defaults to
 `interval` and is a labelled reduction when it is coarser (spec §4 D10). The
 60 s rate-constant rebuild runs on each [`RateConstantRebuild`](@ref)'s own
-declared schedule. The volume chain (phase 5) hooks into the same loop and is
-deliberately absent here.
+declared schedule. The volume chain runs on neither clock: every handshake, the
+[`GrowthChain`](@ref) counts set `area_nm2`, hence `radius_nm`, hence
+`volume_litres`, hence `factor` — and a change in `factor` dilutes every ODE
+state in `dilute_idxs` at constant particle count, which is what makes growth
+the sixth coupling channel rather than a reported diagnostic.
+
+`factor` is therefore live. A composition that flags no membrane protein leaves
+`growth` and `dilute_idxs` empty, the update is skipped entirely, and `factor`
+is the build-time constant it was before phase 5.
 
 `n_handshakes`, `n_drains` and `n_clipped` are check 7's census: how many
 exchanges ran, how many of them applied a debit, and at how many of *those* any
@@ -286,12 +431,22 @@ mutable struct HandshakeDriver{OI, JI}
     interval::Float64
     drain_interval::Float64               # how often the deferred counters are debited
     steps_per_drain::Int                  # that interval, in handshakes
-    factor::Float64                       # particles per mM, at fixed volume
+    factor::Float64                       # particles per mM, at the *live* volume
     rounding::RoundingState
     catalytic::Vector{CatalyticExchange}
     debits::Vector{DeferredDebit}
     counters::Vector{_CounterRead}        # debits grouped by the counter feeding them
     rebuilds::Vector{RateConstantRebuild} # the 60 s rate-constant channel
+    growth::Vector{GrowthChain}           # the volume channel, on neither clock
+    dilute_idxs::Vector{Int}              # ODE states growth dilutes; empty when it is inert
+    area_baseline_nm2::Float64            # the frozen, exogenous part of the surface area
+    footprint_nm2::Float64                # nm² of surface area per membrane protein
+    volume_cap_litres::Float64            # growth stops here: twice the initial volume
+    area_nm2::Float64                     # live, recomputed at every handshake
+    radius_nm::Float64                    # live, and *uncapped*, as the published code leaves it
+    volume_litres::Float64                # live, and capped
+    initial_area_nm2::Float64             # what the frozen baseline is a fraction of
+    initial_volume_litres::Float64        # what fractional growth is reported against
     t_end::Float64                        # the declared end of both blocks' tspan
     n_handshakes::Int
     n_drains::Int
@@ -341,8 +496,36 @@ rebuild_census(d::HandshakeDriver) =
     [(module_id = r.declared_by, params = copy(r.names), pools = copy(r.species),
       interval = r.interval, refreshes = r.n_refreshes) for r in d.rebuilds]
 
-export CatalyticExchange, DeferredDebit, RateConstantRebuild, HandshakeDriver,
-       clipping_census, rebuild_census
+"""
+    growth_census(driver) -> NamedTuple
+
+Where the volume chain stands: the flagged states and the block each is read
+from, the total membrane count, the frozen baseline and the footprint, and the
+live area, radius, volume and conversion factor — with `fractional` the volume
+against its initial value and `capped` whether growth has reached the 2× stop.
+
+`fractional` is the reportable growth quantity. There is deliberately no
+doubling time here; see [`reporting_constraints`](@ref) and
+[`doubling_time`](@ref), which refuses to compute one.
+"""
+function growth_census(d::HandshakeDriver)
+    n = isempty(d.growth) ? 0.0 : sum(_membrane_count(d, g) for g in d.growth)
+    return (states = [(species = g.species, block = g.block,
+                       declared_by = g.declared_by) for g in d.growth],
+            n_membrane = n,
+            baseline_nm2 = d.area_baseline_nm2,
+            footprint_nm2 = d.footprint_nm2,
+            area_nm2 = d.area_nm2,
+            radius_nm = d.radius_nm,
+            volume_litres = d.volume_litres,
+            factor = d.factor,
+            fractional = d.volume_litres / d.initial_volume_litres,
+            capped = d.volume_litres >= d.volume_cap_litres,
+            diluted_states = length(d.dilute_idxs))
+end
+
+export CatalyticExchange, DeferredDebit, RateConstantRebuild, GrowthChain,
+       HandshakeDriver, clipping_census, rebuild_census, growth_census
 
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
@@ -730,6 +913,135 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
     return rebuilds
 end
 
+# ---------------------------------------------------------------------------
+# Lowering the volume channel (spec §11 phase 5 tasks 5.1 and 5.3)
+# ---------------------------------------------------------------------------
+
+# One membrane protein's count. A jump state is already whole particles; an ODE
+# state is a concentration, and its count is read at the factor in force at this
+# hook — the published semantics, where the particle map is master at the hook
+# instant. Continuous rather than rounded, so the geometry adds no quantisation
+# of its own on top of the rounding policy check 0 is about.
+_membrane_count(d::HandshakeDriver, g::GrowthChain) =
+    g.block === :jump ? float(d.jump.u[g.idx]) : d.ode.u[g.idx] * d.factor
+
+# Bind `membrane_protein_states` to the `VolumeEdge`s that declare the channel,
+# and resolve every flagged state to an index in its own block. The sweep in
+# `membrane_protein_states(models)` has already refused a flag on a state its
+# declarer does not own, and the same species flagged twice; what is left here
+# is the edge pairing, which is the phase-4 rule applied to a new channel — a
+# declaration with no edge is a channel executed undeclared, and an edge with
+# nothing declared is a channel declared and never executed.
+function _lower_growth(models, ode_models, jump_models)
+    flagged = membrane_protein_states(models)
+
+    for m in models
+        id = module_id(m)
+        names = membrane_protein_states(m)
+        edges = [e for e in coupling(m) if e isa VolumeEdge]
+
+        # The inbound direction is the *other* half of this channel: volume
+        # re-entering an ODE rate law, which spec §11 task 7.2 wants for the
+        # lactate exporter's 3P/r. `VolumeEdge` carries no parameter slot to
+        # write into, so nothing here can execute it, and a channel that
+        # resolves and never runs is the failure phase 4 spent a task closing.
+        for e in edges
+            is_producer(e) || throw(ArgumentError(
+                "Module $id declares an *inbound* VolumeEdge on :$(e.species). " *
+                "The direction follows the information: counts leave a module to " *
+                "set the volume, so the module owning the count declares " *
+                "direction = :out. Volume re-entering a rate law is the other " *
+                "half of this channel and is not built — VolumeEdge carries no " *
+                "parameter slot to write it into — so as written this edge would " *
+                "resolve and never execute"))
+        end
+
+        isempty(names) && isempty(edges) && continue
+
+        isempty(edges) && throw(ArgumentError(
+            "Module $id flags $(names) as membrane protein(s) but declares no " *
+            "VolumeEdge. The count would set the cell's surface area with " *
+            "nothing declaring that it does, so the channel would execute " *
+            "undeclared and reach no report; declare an outbound VolumeEdge on " *
+            "each flagged state, or drop the flag"))
+        isempty(names) && throw(ArgumentError(
+            "Module $id declares an outbound VolumeEdge on " *
+            "$(join((string(":", e.species) for e in edges), ", ")) but flags no " *
+            "membrane_protein_states, so the channel would be declared and never " *
+            "executed: the count would enter no surface area and the volume would " *
+            "stay at its initial value for the whole trajectory. Flag the states " *
+            "whose counts set the area, or drop the edge"))
+
+        edged = Set(e.species for e in edges)
+        for e in edges
+            e.species in names || throw(ArgumentError(
+                "Module $id declares an outbound VolumeEdge on :$(e.species) but " *
+                "does not flag it in membrane_protein_states, so that state's " *
+                "count would reach no surface area. Flag it, or move the edge to " *
+                "a state that is flagged"))
+        end
+        for st in names
+            st in edged || throw(ArgumentError(
+                "Module $id flags :$st as a membrane protein but declares no " *
+                "VolumeEdge on it, so its contribution to the surface area would " *
+                "be executed without a declaration. One outbound edge per flagged " *
+                "state"))
+        end
+    end
+
+    growth = GrowthChain[]
+    for m in models
+        block = formalism(m) === :jump ? :jump : :ode
+        peers = block === :jump ? jump_models : ode_models
+        for st in membrane_protein_states(m)
+            idx = _block_state_index(peers, st)
+            idx === nothing && error(
+                "Internal: :$st is flagged by $(module_id(m)) but is not in the " *
+                "$block block's state vector")
+            push!(growth, GrowthChain(idx, block, st, module_id(m)))
+        end
+    end
+
+    # Which ODE states growth dilutes. Everything inside the cell, which is
+    # everything except what a module declares referred to another volume.
+    exempt = Dict{Symbol, Symbol}()
+    membrane = Set(flagged)
+    for m in models
+        id = module_id(m)
+        names = extracellular_states(m)
+        isempty(names) && continue
+        formalism(m) === :ode || throw(ArgumentError(
+            "Module $id is a :$(formalism(m)) module and declares " *
+            "extracellular_states $(names). Its states are counts, not " *
+            "concentrations, and growth dilutes concentrations — there is " *
+            "nothing here to exempt"))
+        own = states(m)
+        for st in names
+            st in own || throw(ArgumentError(
+                "Module $id declares :$st extracellular, but does not own it — " *
+                "states($id) is $own. The exemption is declared by the module " *
+                "that integrates the state"))
+            st in membrane && throw(ArgumentError(
+                "Module $id declares :$st both extracellular and a membrane " *
+                "protein. A membrane protein's count is read from its " *
+                "concentration, so exempting it from dilution would make the " *
+                "surface area depend on the volume it sets. Drop one"))
+            exempt[st] = id
+        end
+    end
+
+    dilute = Int[]
+    if !isempty(growth)
+        i = 0
+        for m in ode_models, st in states(m)
+            i += 1
+            haskey(exempt, st) || push!(dilute, i)
+        end
+    end
+
+    return growth, dilute
+end
+
 """
     _build_hybrid_problem(models; tspan, interval, rounding, radius_nm,
                           ode_solver, abstol, reltol)
@@ -741,16 +1053,25 @@ single problem object that means what the published coupling means.
 
 Keyword arguments beyond `tspan` are the driver's declared policy: the exchange
 `interval` (1 s, the published `delt`), the `rounding` policy (spec check 0),
-the cell `radius_nm` behind the count↔concentration conversion (fixed until
-phase 5), and the ODE solver with its pinned tolerances (spec §3, the tolerance
-principle).
+the cell geometry behind the count↔concentration conversion, and the ODE solver
+with its pinned tolerances (spec §3, the tolerance principle).
+
+The geometry is stated one way or the other, never both. A composition that
+flags no membrane protein has a fixed cell, given by `radius_nm`. One that does
+has a growing cell, and `initial_surface_area_nm2` is the primitive the initial
+radius is derived from — the published 502,831 nm², which is not exactly a
+200 nm sphere (see [`COREA_INITIAL_SURFACE_AREA_NM2`](@ref)). Passing
+`radius_nm` alongside a live growth chain is refused rather than silently
+ignored, because the two would disagree in the fourth significant figure.
 """
 function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                                tspan = (0.0, 100.0),
                                interval = 1.0,
                                drain_interval = nothing,
                                rounding = :fractional_carry,
-                               radius_nm = COREA_INITIAL_RADIUS_NM,
+                               radius_nm = nothing,
+                               initial_surface_area_nm2 = nothing,
+                               footprint_nm2 = nothing,
                                ode_solver = Rodas5P(),
                                abstol = 1e-10, reltol = 1e-8)
     interval > 0 || throw(ArgumentError(
@@ -825,11 +1146,50 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
         end
     end
 
-    factor = corea_particles_per_mM(radius_nm)
     catalytic, debits, counters = _lower_exchanges(models, ode_models, jump_models,
                                                    _build_contexts(ode_models))
     rebuilds = _lower_rebuilds(ode_models, jump_models, _build_contexts(jump_models),
                                Float64(interval))
+    growth, dilute = _lower_growth(models, ode_models, jump_models)
+
+    # With a growing cell the *area* is the primitive and the radius follows
+    # from it; with a fixed one the radius is given and the area is whatever
+    # sphere it is. Stating both would be stating the geometry twice, and the
+    # published area is not exactly a 200 nm sphere, so the two would disagree.
+    if isempty(growth)
+        # A fixed cell. The two growth keywords would be accepted and never
+        # read, which `build_problem`'s own keyword guard calls worse than
+        # refusing them.
+        for (name, value) in ((:initial_surface_area_nm2, initial_surface_area_nm2),
+                              (:footprint_nm2, footprint_nm2))
+            value === nothing || throw(ArgumentError(
+                "$name = $value was passed, but no module in this composition " *
+                "flags a membrane protein, so its cell does not grow and the " *
+                "value would be accepted and never read. Flag the states whose " *
+                "counts set the surface area, or pass radius_nm for a fixed cell"))
+        end
+        radius0 = radius_nm === nothing ? COREA_INITIAL_RADIUS_NM : Float64(radius_nm)
+        area0 = 4 * π * radius0^2
+    else
+        radius_nm === nothing || throw(ArgumentError(
+            "This composition flags membrane proteins, so its cell grows and its " *
+            "geometry comes from initial_surface_area_nm2 — the published " *
+            "502,831 nm², which is 176 nm² larger than a 200 nm sphere. Passing " *
+            "radius_nm = $radius_nm alongside it would state the geometry twice, " *
+            "and the two disagree in the fourth significant figure. Pass one"))
+        area0 = initial_surface_area_nm2 === nothing ?
+                COREA_INITIAL_SURFACE_AREA_NM2 : Float64(initial_surface_area_nm2)
+        area0 > 0 || throw(ArgumentError(
+            "The initial surface area must be positive, got $area0"))
+        radius0 = radius_from_area_nm(area0)
+    end
+    footprint = footprint_nm2 === nothing ? MEMBRANE_PROTEIN_FOOTPRINT_NM2 :
+                Float64(footprint_nm2)
+    footprint > 0 || throw(ArgumentError(
+        "The membrane-protein footprint must be positive, got $footprint. At " *
+        "zero the chain would be declared, labelled and frozen"))
+    volume0 = cell_volume_litres(radius0)
+    factor = particles_per_mM(volume0)
 
     # The contract was resolved above, over the whole composition. The block
     # builders must not resolve it again on their own module subset: from one
@@ -841,11 +1201,41 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                      save_everystep = false)
     jump_integ = init(jump_prob, SSAStepper())
 
-    return HandshakeDriver(ode_integ, jump_integ, Float64(interval), drain,
-                           steps_per_drain, factor,
-                           RoundingState(rounding; nspecies = length(ode_prob.u0)),
-                           catalytic, debits, counters, rebuilds,
-                           Float64(tspan[2]), 0, 0, 0)
+    d = HandshakeDriver(ode_integ, jump_integ, Float64(interval), drain,
+                        steps_per_drain, factor,
+                        RoundingState(rounding; nspecies = length(ode_prob.u0)),
+                        catalytic, debits, counters, rebuilds,
+                        growth, dilute,
+                        0.0, footprint,
+                        corea_volume_cap_litres(volume0),
+                        area0, radius0, volume0, area0, volume0,
+                        Float64(tspan[2]), 0, 0, 0)
+
+    # The baseline is derived, never typed: it is whatever makes this
+    # composition's own initial counts come to the declared initial area. For
+    # Core A′ that is 502,831 − 831 × 28.0 = 479,563 nm², and it is frozen — the
+    # lipid leaflet and the 92 membrane-protein loci outside the reduction do
+    # not grow, which is the exogenous-membrane-growth reduction of spec §3 and
+    # why growth reaches ~1.07× rather than the published 2×.
+    #
+    # It reads the counts back through `_membrane_count`, so build time and every
+    # handshake agree on what a count is by construction rather than by two
+    # implementations staying in step.
+    if !isempty(growth)
+        n0 = sum(_membrane_count(d, g) for g in growth)
+        base = membrane_area_baseline_nm2(area0, n0, d.footprint_nm2)
+        base >= 0 || throw(ArgumentError(
+            "This composition's $(round(n0; digits = 1)) initial membrane " *
+            "protein(s) at $(d.footprint_nm2) nm² come to more than the " *
+            "$area0 nm² initial surface area, so the frozen baseline would be " *
+            "$(round(base; digits = 1)) nm². Area would then be a steeply " *
+            "super-linear function of count rather than the published law's " *
+            "affine one, and a count falling below its initial value would take " *
+            "the radius negative under the square root. Raise " *
+            "initial_surface_area_nm2, or flag fewer states"))
+        d.area_baseline_nm2 = base
+    end
+    return d
 end
 
 # ---------------------------------------------------------------------------
@@ -866,6 +1256,48 @@ function _set_ode_state!(integ, i::Int, v)
     return nothing
 end
 
+# Recompute the cell from its membrane proteins, and dilute the ODE block if it
+# grew (spec §11 phase 5 tasks 5.3 and 5.4).
+#
+# The published model calls `calcCellVolume(pmap)` at every hook and derives
+# every concentration from the particle map, so growth dilutes the ODE block for
+# free. Ours holds the ODE state in mM between hooks, so the dilution has to be
+# applied: the count is the conserved quantity, and each state is rewritten as
+# the count it held divided by the new factor. That order is what makes "no
+# change in any count" true rather than approximately intended — going through
+# the volume ratio instead would conserve the ratio and let the counts drift.
+#
+# Exactness is one ulp, not bitwise: `(u * f_old) / f_new * f_new` need not
+# return `u * f_old` in binary floating point. The tests assert the counts to
+# that, and say so.
+#
+# The cap is applied to the volume, as `in_out.py:107` applies it, and the
+# radius is left uncapped exactly as upstream leaves it. Core A′ reaches ~1.07×,
+# so the cap is never approached outside a test that drives it there.
+function _update_volume!(d::HandshakeDriver)
+    isempty(d.growth) && return nothing
+    n = 0.0
+    for g in d.growth
+        n += _membrane_count(d, g)
+    end
+    area = surface_area_nm2(d.area_baseline_nm2, n, d.footprint_nm2)
+    radius = radius_from_area_nm(area)
+    volume = min(cell_volume_litres(radius), d.volume_cap_litres)
+    d.area_nm2 = area
+    d.radius_nm = radius
+    d.volume_litres = volume
+
+    factor = particles_per_mM(volume)
+    if factor != d.factor
+        old = d.factor
+        for i in d.dilute_idxs
+            _set_ode_state!(d.ode, i, (d.ode.u[i] * old) / factor)
+        end
+        d.factor = factor
+    end
+    return nothing
+end
+
 # max(0, x), smoothed. Used only under `clip = :smoothed`, which is a labelled
 # departure from the published model; `smoothing` is its width and the edge
 # refuses to be constructed without one.
@@ -881,9 +1313,10 @@ end
 """
     handshake_step!(driver) -> driver
 
-One exchange, in the published model's order: counts become rate-law
-parameters, the metabolic block integrates one interval, the accrued costs are
-debited against the pools, and then the stochastic block advances one interval.
+One exchange, in the published model's order: the cell is remeasured from its
+membrane proteins, counts become rate-law parameters, the metabolic block
+integrates one interval, the accrued costs are debited against the pools, and
+then the stochastic block advances one interval.
 
 The debit runs *after* the ODE step and before the jump step, which is what
 makes it deferred: the cost accrued during one stochastic interval is paid at
@@ -891,6 +1324,12 @@ the next hook, exactly as `hookSimulation` does it.
 """
 function handshake_step!(d::HandshakeDriver)
     step = d.n_handshakes + 1
+
+    # 0. Growth. It runs first so that every conversion in this exchange — the
+    # catalytic write below, the debit's mM-to-particles, the write-back — uses
+    # one volume, the one the cell has at this hook. A composition flagging no
+    # membrane protein returns immediately and its factor never moves.
+    _update_volume!(d)
 
     # 1. The enzyme-concentration channel: counts fill rate-law parameter slots.
     for c in d.catalytic
@@ -1052,16 +1491,17 @@ end
 
 Run `n_steps` exchanges, recording the two blocks' states after each.
 
-Returns `(; t, ode, jump, jump_p, census, rebuilds)` — the handshake times, the
-ODE state in mM and the jump state in particles at each of them, the jump
-block's parameter vector at each of them, check 7's census and
-[`rebuild_census`](@ref). The record is per handshake rather than per solver
-step because the handshake is the only instant at which the two blocks agree on
-a state.
+Returns `(; t, ode, jump, jump_p, growth, census, rebuilds)` — the handshake
+times, the ODE state in mM and the jump state in particles at each of them, the
+jump block's parameter vector at each of them, the cell's geometry at each of
+them, check 7's census and [`rebuild_census`](@ref). The record is per handshake
+rather than per solver step because the handshake is the only instant at which
+the two blocks agree on a state.
 
-`jump_p` is what makes the rate-constant channel observable from the outside:
-a refresh count is read off it by counting the handshakes at which a rebuilt
-slot changed, rather than asserted from the schedule that produced it.
+`jump_p` and `growth` are what make the two channels with no state of their own
+observable from the outside: a refresh count is read off `jump_p` by counting
+the handshakes at which a rebuilt slot changed, and the growth law is read off
+`growth` rather than asserted from the counts that produced it.
 """
 function run_handshake!(d::HandshakeDriver, n_steps::Integer)
     (d.n_handshakes + n_steps) % d.steps_per_drain == 0 || error(
@@ -1082,14 +1522,21 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
     ode = Vector{Vector{Float64}}(undef, n_steps)
     jump = Vector{Vector{Int}}(undef, n_steps)
     jump_p = Vector{Vector{Float64}}(undef, n_steps)
+    growth = Vector{@NamedTuple{area_nm2::Float64, radius_nm::Float64,
+                                volume_litres::Float64, factor::Float64,
+                                fractional::Float64, capped::Bool}}(undef, n_steps)
     for i in 1:n_steps
         handshake_step!(d)
         t[i] = d.ode.t
         ode[i] = collect(Float64, d.ode.u)
         jump[i] = collect(Int, d.jump.u)
         jump_p[i] = collect(Float64, d.jump.p)
+        growth[i] = (area_nm2 = d.area_nm2, radius_nm = d.radius_nm,
+                     volume_litres = d.volume_litres, factor = d.factor,
+                     fractional = d.volume_litres / d.initial_volume_litres,
+                     capped = d.volume_litres >= d.volume_cap_litres)
     end
-    return (t = t, ode = ode, jump = jump, jump_p = jump_p,
+    return (t = t, ode = ode, jump = jump, jump_p = jump_p, growth = growth,
             census = clipping_census(d), rebuilds = rebuild_census(d))
 end
 
@@ -1190,6 +1637,27 @@ function driver_declarations(d::HandshakeDriver)
              " — and deterministic rounding is rejected by the spec, its residual " *
              "accumulating linearly in the handshake count" : "")))
     end
+    if !isempty(d.growth)
+        push!(labels, ReductionLabel(
+            :calibrated_constant, :membrane_footprint_nm2,
+            "surface area accumulates at $(d.footprint_nm2) nm² per membrane " *
+            "protein, which is the published model's *calibrated* constant — " *
+            "chosen to reproduce 54% membrane coverage for its ~9,600 membrane " *
+            "proteins — and not a measurement of a protein. `getProtSA`'s own " *
+            "docstring says 35 nm² while its code uses 28.0; the code is what " *
+            "runs, so the code is what is ported, and the contradiction is " *
+            "recorded rather than resolved"))
+        push!(labels, ReductionLabel(
+            :exogenous_growth, :membrane_area_baseline,
+            "$(round(d.area_baseline_nm2; digits = 1)) nm² of the initial " *
+            "$(round(d.initial_area_nm2; digits = 1)) nm² surface area is held " *
+            "frozen: " *
+            "the lipid leaflet and every membrane-protein locus outside this " *
+            "reduction are exogenous, so only the flagged proteins grow the " *
+            "cell. **Ours, not the published model's**, which grows both terms " *
+            "— and it is why growth reaches ~1.07× rather than approaching the " *
+            "2× cap the published model stops at"))
+    end
     return labels
 end
 
@@ -1212,5 +1680,133 @@ reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
 reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
     _reduction_report(reduction_declarations(models, d); driver_seen = true)
 
+# ---------------------------------------------------------------------------
+# What growth may be reported as (spec §11 task 5.6)
+# ---------------------------------------------------------------------------
+
+"""
+The verdicts a [`ReportingConstraint`](@ref) can carry. `:refused` means the
+quantity is not computable from this model at all and asking for it throws.
+"""
+const REPORTING_VERDICTS = (:refused,)
+
+"""
+    ReportingConstraint
+
+A quantity this model may not be used to report, why, and what to report
+instead.
+
+Spec §7 makes "no comparison to syn3A's 105-minute doubling time" a non-goal
+and requires that **the code refuse the comparison rather than the prose**. A
+docstring saying so is not retrievable from a composed model; this is. Phase 14
+task 14.9 reports the nominal trajectory's growth against it.
+"""
+struct ReportingConstraint
+    quantity::Symbol
+    verdict::Symbol
+    reason::String
+    instead::Vector{Symbol}
+
+    function ReportingConstraint(quantity, verdict, reason, instead)
+        _check_vocab(:ReportingConstraint, :verdict, verdict, REPORTING_VERDICTS)
+        return new(quantity, verdict, reason, collect(Symbol, instead))
+    end
+end
+
+"""
+    reporting_constraints(driver) -> Vector{ReportingConstraint}
+
+What this composed model's growth may and may not be reported as.
+
+One entry today: the doubling time. Core A′ removes roughly 92% of the cell, so
+it is not built to reproduce the 105-minute figure and any comparison to it
+would be meaningless — a consequence of the reduction rather than a defect in
+it. Growth is reported as fractional growth or time-to-threshold, both of which
+[`growth_report`](@ref) returns.
+
+The constraint does not depend on whether this particular composition grows: it
+is a statement about the reduction, and a composition with a frozen cell is no
+more entitled to a doubling time than one with a live one.
+"""
+reporting_constraints(::HandshakeDriver) = [
+    ReportingConstraint(
+        :doubling_time, :refused,
+        "Core A′ removes roughly 92% of the cell, so it is not built to " *
+        "reproduce syn3A's 105-minute doubling time and no result here is to " *
+        "be compared to it. Non-ptsG membrane growth is exogenous besides, so " *
+        "the growth law here is driven by one protein rather than by a cell " *
+        "(spec §1, §7)",
+        [:fractional_growth, :time_to_threshold])]
+
+"""
+    growth_report(driver) -> NamedTuple
+
+The growth this driver may be reported as: `fractional`, the volume against its
+initial value, with the geometry it came from and whether the 2× cap has been
+reached.
+
+There is deliberately no doubling time and no growth rate here; see
+[`reporting_constraints`](@ref) and [`doubling_time`](@ref).
+"""
+growth_report(d::HandshakeDriver) =
+    (t = d.ode.t,
+     fractional = d.volume_litres / d.initial_volume_litres,
+     volume_litres = d.volume_litres,
+     initial_volume_litres = d.initial_volume_litres,
+     radius_nm = d.radius_nm,
+     area_nm2 = d.area_nm2,
+     capped = d.volume_litres >= d.volume_cap_litres,
+     growing = !isempty(d.growth))
+
+"""
+    time_to_threshold(record, threshold) -> Union{Float64, Nothing}
+
+The first handshake time at which fractional volume reaches `threshold`, from a
+[`run_handshake!`](@ref) record, or `nothing` if it never does.
+
+The second of the two admissible growth reportings. It is read off the recorded
+trajectory rather than extrapolated from a rate, because a rate is one algebraic
+step from the doubling time [`doubling_time`](@ref) refuses.
+
+**A threshold at or above 2.0 is refused**, for the same reason and by the same
+argument. Growth stops at exactly twice the initial volume, so `fractional`
+saturates there: a query at 2.0 would return the handshake at which growth
+*stopped* rather than the one at which the cell doubled, and would be a doubling
+time wearing another name. The record carries `capped` so a caller can see which
+handshakes are at the stop.
+"""
+function time_to_threshold(record, threshold)
+    threshold < 2.0 || error(
+        "time_to_threshold refuses a threshold of $threshold. Growth stops at " *
+        "exactly twice the initial volume, so fractional volume saturates at " *
+        "2.0 and this query would return the handshake at which growth stopped, " *
+        "not one at which the cell reached $threshold — a doubling time wearing " *
+        "another name, and doubling_time refuses it for the reasons in " *
+        "reporting_constraints. Ask for a threshold below 2.0")
+    for (i, g) in enumerate(record.growth)
+        g.fractional >= threshold && return record.t[i]
+    end
+    return nothing
+end
+
+"""
+    doubling_time(driver)
+
+Always throws. The one quantity this model refuses to compute.
+
+Spec §7 rules the comparison out by construction, and §11 task 5.6 requires the
+refusal to live in the code rather than in the prose, so that a later analysis
+meets it at the call rather than in a paragraph it may not have read. Use
+[`growth_report`](@ref)'s `fractional` or [`time_to_threshold`](@ref).
+"""
+function doubling_time(d::HandshakeDriver)
+    c = only(filter(c -> c.quantity === :doubling_time, reporting_constraints(d)))
+    error("doubling_time is refused for this model. $(c.reason). Report " *
+          "$(join(("`" * string(q) * "`" for q in c.instead), " or ")) " *
+          "instead — growth_report(driver) and time_to_threshold(record, x) " *
+          "return them")
+end
+
 export handshake_step!, run_handshake!, rate_constant_elasticity,
-       driver_declarations
+       driver_declarations, REPORTING_VERDICTS, ReportingConstraint,
+       reporting_constraints, growth_report, time_to_threshold, doubling_time

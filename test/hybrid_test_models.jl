@@ -385,3 +385,165 @@ states(::ToyOdeNameClash) = [:M_gtp_c]
 parameters(m::ToyOdeNameClash) = m.params
 formalism(::ToyOdeNameClash) = :ode
 dynamics(u, p, t, ::ToyOdeNameClash) = SA[-p[1] * u[1]]
+
+# ---------------------------------------------------------------------------
+# Doubles for the volume channel (spec §11 phase 5)
+# ---------------------------------------------------------------------------
+
+import InferCell: membrane_protein_states, extracellular_states
+
+# The conversion factor at the published *initial surface area*, which is the
+# primitive once a composition grows. Written out here rather than imported so
+# that the doubles and their assertions do not both come from the code under
+# test.
+_toy_factor0() = 1e-3 * ((4 / 3) * π * (sqrt(502831.0 / (4 * π)) * 1e-9)^3 * 1e3) *
+                 6.02214076e23
+
+"""
+    toy_growth(n, n0; total = 502831.0, footprint = 28.0)
+
+The published growth law, written out longhand: a baseline frozen so that `n0`
+membrane proteins come to `total` nm², then `n` of them, then radius, volume and
+volume against the initial one.
+
+Independent of `src/handshake.jl` on purpose — it is the closed form the
+diagnostic is checked against, as `toy_rebuilt_k` is for the rebuild channel, so
+that a test asserts the law and not the implementation restated.
+"""
+function toy_growth(n, n0; total = 502831.0, footprint = 28.0)
+    base = total - footprint * n0
+    vol(a) = (4 / 3) * π * (sqrt(a / (4 * π)) * 1e-9)^3 * 1e3
+    area = base + footprint * n
+    return (baseline_nm2 = base,
+            area_nm2 = area,
+            radius_nm = sqrt(area / (4 * π)),
+            volume_litres = vol(area),
+            fractional = vol(area) / vol(total))
+end
+
+"""
+    ToyGrowingExpression(; k_tx = 0.0, gamma_m = 0.5, k_tl = 1.0, cost = 10,
+                           mrna0 = 0, protein0 = 831,
+                           membrane = [:M_ptsg_c], edges = <deferred + volume>)
+
+The stochastic half of the growth toy: `ToyExpression` with its membrane protein
+flagged and an outbound `VolumeEdge` on it, so the protein count drives surface
+area, radius, volume and every conversion.
+
+Its own type rather than a keyword on `ToyExpression`, for the reason
+`ToyRebuiltExpression` is: every phase-3 and phase-4 test keeps running exactly
+the model it was written against.
+
+`k_tx` defaults to **zero**, which is what makes the growth arithmetic testable:
+with no transcription nothing fires, the count stays where a test puts it, and
+the area is a function of that count alone rather than of a random path.
+`membrane`, `extracellular` and `edges` are overridable so a test can build a
+mis-declared variant — a flag with no edge, an edge with nothing flagged, a flag
+on a state this module does not own, a jump module claiming an extracellular
+state — and witness the refusal.
+"""
+struct ToyGrowingExpression <: AbstractSubModel
+    params::Vector{InferParameter}
+    cost::Int
+    edges::Vector{CouplingEdge}
+    membrane::Vector{Symbol}
+    extracellular::Vector{Symbol}
+end
+
+function ToyGrowingExpression(; k_tx = 0.0, gamma_m = 0.5, k_tl = 1.0, cost = 10,
+                              mrna0 = 0, protein0 = 831,
+                              membrane = [:M_ptsg_c],
+                              extracellular = Symbol[],
+                              edges = CouplingEdge[
+                                  DeferredCounterEdge(species = :M_atp_c,
+                                                      direction = :in,
+                                                      counter = :atp_cost),
+                                  VolumeEdge(species = :M_ptsg_c,
+                                             direction = :out)])
+    params = [_rate(k_tx, :k_tx_gr, :ToyGrowingExpression),
+              _rate(gamma_m, :gamma_m_gr, :ToyGrowingExpression),
+              _rate(k_tl, :k_tl_gr, :ToyGrowingExpression),
+              _jic(mrna0, :toy_mrna0, :ToyGrowingExpression),
+              _jic(protein0, :M_ptsg_c0, :ToyGrowingExpression),
+              _jic(0, :atp_cost0, :ToyGrowingExpression)]
+    return ToyGrowingExpression(params, Int(cost), collect(CouplingEdge, edges),
+                                collect(Symbol, membrane),
+                                collect(Symbol, extracellular))
+end
+
+states(::ToyGrowingExpression) = [:toy_mrna, :M_ptsg_c, :atp_cost]
+parameters(m::ToyGrowingExpression) = m.params
+formalism(::ToyGrowingExpression) = :jump
+inference_mode(::ToyGrowingExpression) = :simulation
+coupling(m::ToyGrowingExpression) = m.edges
+membrane_protein_states(m::ToyGrowingExpression) = m.membrane
+# A :jump module may not declare this; the keyword exists only so a test can
+# witness the refusal.
+extracellular_states(m::ToyGrowingExpression) = m.extracellular
+function reactions(m::ToyGrowingExpression)
+    cost = m.cost
+    return [
+        Reaction((u, p, t, _) -> p[1], (u, _) -> (u[1] += 1)),
+        Reaction((u, p, t, _) -> p[2] * u[1], (u, _) -> (u[1] -= 1)),
+        Reaction((u, p, t, _) -> p[3] * u[1], (u, _) -> (u[2] += 1; u[3] += cost)),
+    ]
+end
+
+"""
+    ToyMembranePool(; kcat = 0.0, km = 1.0, enzyme = 1.0, atp0 = 3.6529,
+                      adp0 = 0.2178, ptsi_particles = 353, lac_e0 = 0.5,
+                      membrane = [:M_ptsi_c], extracellular = [:M_lac__L_e],
+                      edges = <catalytic + volume>)
+
+The metabolic half of the growth toy, and the only double that exercises the
+*ODE* side of both new declarations: it owns a membrane protein as a
+concentration, and a state whose millimolar is referred to the medium rather
+than to the cell.
+
+`ptsi_particles` is given in particles and converted at the initial factor, so a
+test can say what the membrane count is rather than what concentration would
+produce it. `kcat` defaults to zero so that a change in an ODE state is the
+dilution and nothing else.
+"""
+struct ToyMembranePool <: AbstractSubModel
+    params::Vector{InferParameter}
+    edges::Vector{CouplingEdge}
+    membrane::Vector{Symbol}
+    extracellular::Vector{Symbol}
+end
+
+function ToyMembranePool(; kcat = 0.0, km = 1.0, enzyme = 1.0,
+                         atp0 = 3.6529, adp0 = 0.2178,
+                         ptsi_particles = 353, lac_e0 = 0.5,
+                         membrane = [:M_ptsi_c],
+                         extracellular = [:M_lac__L_e],
+                         edges = CouplingEdge[
+                             CatalyticEdge(species = :M_ptsg_c,
+                                           direction = :in,
+                                           param_slot = :enzyme_conc),
+                             VolumeEdge(species = :M_ptsi_c,
+                                        direction = :out)])
+    params = [_rate(kcat, :kcat_toy, :ToyMembranePool),
+              _rate(km, :km_toy, :ToyMembranePool),
+              _rate(enzyme, :enzyme_conc, :ToyMembranePool),
+              _toy_ic(atp0, :M_atp_c0),
+              _toy_ic(adp0, :M_adp_c0),
+              _toy_ic(ptsi_particles / _toy_factor0(), :M_ptsi_c0),
+              _toy_ic(lac_e0, :M_lac__L_e0)]
+    return ToyMembranePool(params, collect(CouplingEdge, edges),
+                           collect(Symbol, membrane),
+                           collect(Symbol, extracellular))
+end
+
+states(::ToyMembranePool) = [:M_atp_c, :M_adp_c, :M_ptsi_c, :M_lac__L_e]
+parameters(m::ToyMembranePool) = m.params
+formalism(::ToyMembranePool) = :ode
+coupling(m::ToyMembranePool) = m.edges
+membrane_protein_states(m::ToyMembranePool) = m.membrane
+extracellular_states(m::ToyMembranePool) = m.extracellular
+function dynamics(u, p, t, ::ToyMembranePool)
+    kcat, km, enzyme = p[1], p[2], p[3]
+    atp = u[1]
+    v = kcat * enzyme * atp / (km + atp)
+    return SA[-v, v, 0.0, 0.0]
+end

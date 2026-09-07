@@ -1,4 +1,4 @@
-# Spec §11 task 3.8: measure what the 1 s handshake costs.
+# Spec §11 task 3.8, re-run at task 5.7: measure what the 1 s handshake costs.
 #
 # Runs the phase-3 toy — one jump gene-expression module and one ODE metabolite
 # module, exchanging state every simulated second — and reports seconds of
@@ -17,6 +17,7 @@ using InferCell
 using Random
 using Printf
 using Dates
+using Statistics: median
 
 include(joinpath(@__DIR__, "..", "..", "test", "contribution_test_models.jl"))
 include(joinpath(@__DIR__, "..", "..", "test", "jump_test_models.jl"))
@@ -27,20 +28,51 @@ const BUDGET = 10.0         # s of wall-clock per trajectory, spec §8 K1
 
 # Best of `reps` after one warm-up, matching dev/scripts/bench_rhs_containers.jl:
 # the minimum is the honest estimator for a timing floor on a shared node.
-function time_run(build, n_steps; reps = 3)
+#
+# The *spread* is returned beside it, because without it a reader cannot tell a
+# real per-handshake cost from run-to-run scatter, and at this scale the two are
+# the same size. It is `(median - min) / min` rather than `(max - min) / min`:
+# a single repetition stalled by another job on the node — the first version of
+# this measurement recorded one at 577x the minimum — makes a max-based spread
+# say nothing about the other six. The median is what a second run of this
+# script would be expected to reproduce.
+function time_run(build, n_steps; reps = 7)
     d = build()
     run_handshake!(d, min(n_steps, 10))          # warm-up: compile for these types
-    best = Inf
+    times = Float64[]
     for _ in 1:reps
         d = build()
-        best = min(best, @elapsed run_handshake!(d, n_steps))
+        push!(times, @elapsed run_handshake!(d, n_steps))
     end
-    return best
+    return minimum(times), median(times)
 end
 
 build_toy(; kcat = 0.0) = () -> begin
     Random.seed!(20260904)
     build_problem([ToyPool(kcat = kcat), ToyExpression()]; tspan = (0.0, CYCLE))
+end
+
+# Phase 5's volume chain adds work to every handshake — the membrane counts are
+# summed, the geometry is recomputed, and a change in the factor rescales every
+# ODE state. It is measured rather than assumed to be free, and against the same
+# budget, because a per-handshake cost is exactly what K1 is a threshold on.
+#
+# It is measured against a **matched control**, not against the `live rate law`
+# row above. That row starts at zero protein, and the protein count fills the
+# ODE rate law through a CatalyticEdge, so comparing against it would attribute
+# a different ODE trajectory to the volume chain. The control is the same gene
+# at the same 831 initial copies with no flag and no edge, so the pair differs
+# in the chain and in nothing else.
+build_growing() = () -> begin
+    Random.seed!(20260904)
+    build_problem([ToyPool(kcat = 30.0), ToyGrowingExpression(k_tx = 2.0)];
+                  tspan = (0.0, CYCLE))
+end
+
+build_control() = () -> begin
+    Random.seed!(20260904)
+    build_problem([ToyPool(kcat = 30.0), ToyExpression(protein0 = 831)];
+                  tspan = (0.0, CYCLE))
 end
 
 # Provenance is captured *before* the measurements, not after. Reading
@@ -52,10 +84,15 @@ const DIRTY = !isempty(strip(read(`git status --porcelain -- src test Project.to
 
 rows = NamedTuple[]
 for horizon in (60, 300, 600)
-    for (label, kcat) in (("frozen pool (kcat = 0)", 0.0), ("live rate law", 30.0))
-        secs = time_run(build_toy(kcat = kcat), horizon)
+    configs = (("frozen pool (kcat = 0)", build_toy(kcat = 0.0)),
+               ("live rate law", build_toy(kcat = 30.0)),
+               ("831 copies, no growth (control)", build_control()),
+               ("831 copies, growth live", build_growing()))
+    for (label, build) in configs
+        secs, med = time_run(build, horizon)
         per_sim_s = secs / horizon
         push!(rows, (horizon = horizon, label = label, wall = secs,
+                     spread = (med - secs) / secs,
                      per_sim_s = per_sim_s, cycle = per_sim_s * CYCLE))
     end
 end
@@ -79,13 +116,34 @@ println(io, "Regenerate with `sbatch dev/scripts/bench_handshake.slurm`.")
 println(io)
 println(io, "Toy: `ToyPool` (2 ODE states, stiff `Rodas5P`, abstol 1e-10, reltol 1e-8) ")
 println(io, "composed with `ToyExpression` (3 jump states, 3 reactions), exchanging ")
-println(io, "every 1.0 s under the `:fractional_carry` rounding policy.")
+println(io, "every 1.0 s under the `:fractional_carry` rounding policy. The last ")
+println(io, "two rows are a matched pair: the same gene at the same 831 initial ")
+println(io, "protein copies, with and without the membrane flag and volume edge, so ")
+println(io, "the pair differs in phase 5's volume chain and in nothing else. Each ")
+println(io, "row is the minimum of seven repetitions; `spread` is ")
+println(io, "(median - min) / min over those, which is what says whether a gap ")
+println(io, "between rows means anything. The median rather than the maximum, ")
+println(io, "because one repetition stalled by another job on the node says ")
+println(io, "nothing about the other six.")
 println(io)
-println(io, "| horizon (s) | configuration | wall-clock (s) | s per simulated s | extrapolated to 6,300 s |")
-println(io, "|---|---|---|---|---|")
+println(io, "| horizon (s) | configuration | wall-clock (s) | spread (median vs min, 7 reps) | s per simulated s | extrapolated to 6,300 s |")
+println(io, "|---|---|---|---|---|---|")
 for r in rows
-    @printf(io, "| %d | %s | %.3e | %.3e | %.3f |\n",
-            r.horizon, r.label, r.wall, r.per_sim_s, r.cycle)
+    @printf(io, "| %d | %s | %.3e | %+.1f%% | %.3e | %.3f |\n",
+            r.horizon, r.label, r.wall, 100 * r.spread, r.per_sim_s, r.cycle)
+end
+
+# The chain's own cost, taken only against its matched control, and reported
+# beside the scatter that bounds how much of it is real.
+println(io)
+println(io, "The volume chain against its matched control, per horizon:")
+println(io)
+for horizon in (60, 300, 600)
+    ctrl = only(filter(r -> r.horizon == horizon && r.label == "831 copies, no growth (control)", rows))
+    grow = only(filter(r -> r.horizon == horizon && r.label == "831 copies, growth live", rows))
+    @printf(io, "- %d s: %+.1f%%, against a within-configuration spread of %.1f%% (control) and %.1f%% (growth).\n",
+            horizon, 100 * (grow.per_sim_s - ctrl.per_sim_s) / ctrl.per_sim_s,
+            100 * ctrl.spread, 100 * grow.spread)
 end
 println(io)
 @printf(io, "**Verdict against K1's %.0f s budget: %s** — worst extrapolation %.3f s per 6,300 s trajectory.\n",
@@ -103,8 +161,20 @@ task 13.7, at full scale.
 What the measurement does bound honestly is the per-handshake overhead of the
 exchange itself, which is the quantity the mechanism choice of task 3.1 was
 made on: the frozen-pool row runs the same 1 s loop with a zero derivative, so
-the gap between the two rows is integration and the frozen row is very nearly
-the handshake alone.""")
+the gap between it and the live row is integration and the frozen row is very
+nearly the handshake alone.
+
+**Read the volume chain's cost only against its matched control, and only
+beside the spread.** The control and growth rows are the same gene at the same
+831 initial copies, differing in the flag and the edge alone; the `live rate
+law` row starts at zero protein, and that count fills the ODE rate law through
+a CatalyticEdge, so a gap against *it* would be a different ODE trajectory as
+much as a volume chain. Even against the matched control the gap is small
+enough that the within-configuration spread printed beside it is the thing to
+check first: on a shared node these timings scatter by several percent, and a
+best-of-five minimum does not remove that. The chain is measured on **two**
+diluted ODE states against Core A′'s thirty-two, and its cost scales with that
+count, so this bounds the mechanism rather than estimating the model.""")
 
 s = String(take!(io))
 print(s)

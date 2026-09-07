@@ -45,7 +45,7 @@ The legend of [`fig1r_state_graph_reduced.pdf`](https://github.com/MACSYS-CoE/In
 | `DeferredCounterEdge` | a cost accrued in one block, debited a step later | `counter`, `clip`, `smoothing` |
 | `CatalyticEdge` | counts entering a rate law as parameters; no mass flows | `param_slot` |
 | `RateConstantEdge` | pools re-entering the stochastic block as rate constants | `cadence`, `interval` |
-| `VolumeEdge` | counts set surface area, hence volume, hence every concentration | — |
+| `VolumeEdge` | counts set surface area, hence volume, hence every concentration | — (the flagged states come from `membrane_protein_states`) |
 | `ClampedEdge` | a real dependence replaced by a constant | `held_value`, `origin` |
 
 Every edge names a registry species and a direction — `:in` where the declaring module consumes (or, for the information-carrying kinds, receives), `:out` where it produces or supplies — and optionally a `peer` module. A `peer` of `nothing` resolves against whichever module owns the species, which is what a single module under test should use.
