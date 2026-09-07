@@ -12,7 +12,8 @@ phases that put nothing on a state graph -- has no representation in fig 1c.
 Neither figure states a status. Both read spec/spec.md §11 through
 progress_spec.phases().
 """
-import datetime, os, re, subprocess, sys
+import os, re, subprocess, sys
+from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COREA = os.path.join(HERE, "..", "corea-coupling")
@@ -35,19 +36,6 @@ STEM2 = "fig2d_phase_roadmap"
 
 
 # --- helpers ----------------------------------------------------------------
-def node_id(stmt):
-    m = re.match(r'\s*"([^"]+)" \[', stmt)
-    return m.group(1) if m and "->" not in stmt.split("[")[0] else None
-
-
-def drop(stmts, ids):
-    """Remove whole node statements by id, and assert each was there to remove."""
-    kept = [s for s in stmts if node_id(s) not in ids]
-    gone = {node_id(s) for s in stmts} & ids
-    assert gone == ids, f"nothing to drop for {sorted(ids - gone)}"
-    return kept
-
-
 def measure(path, ref=None):
     """Every node's rendered centre and size at its pinned position.
 
@@ -93,11 +81,115 @@ def render(dot_lines, stem, tag):
     return size
 
 
-# --- fig 1d: the state graph, annotated -------------------------------------
+# --- fig 1d: Core A′ only, annotated with what is built ---------------------
+def live_couplings():
+    """Every coupling fig 1c draws that Core A′ actually keeps.
+
+    Derived, not listed: fig 1c's own edge stage is run, then the removed
+    modules and the dead couplings its spec names are dropped. This is the
+    check that fig 1d cannot quietly lose an arrow -- the authored table in
+    progress_spec is asserted equal to what comes back from here.
+    """
+    src = C.baseline()
+    lines = C.strip_labels(C.M.edges(src)) + S.NEW_EDGES
+    removed = set(S.REMOVED_NODES)
+    dead = {tuple(k) for k in S.DEAD_ENDPOINT} | {tuple(k) for k, _ in S.DEAD_COUPLING}
+    out = Counter()
+    for line in lines:
+        k = C.M.key_of(line)
+        if not k or k[0] in removed or k[1] in removed:
+            continue
+        if any(C.M.match(line, d) for d in dead):
+            continue
+        out[k] += 1
+    return out
+
+
+def check_edges():
+    """Authored table == fig 1c's live set, plus only what is declared added."""
+    live = live_couplings()
+    drawn = Counter((a, b) for a, b, *_ in S.EDGES)
+    expected = live + Counter(S.ADDED_EDGES.keys())
+    missing = {k: v for k, v in (expected - drawn).items()}
+    extra = {k: v for k, v in (drawn - expected).items()}
+    assert not missing, f"fig 1d drops a coupling Core A′ keeps: {sorted(missing)}"
+    assert not extra, ("fig 1d draws a coupling fig 1c does not, and does not "
+                       f"declare it in ADDED_EDGES: {sorted(extra)}")
+    return live
+
+
+def panels():
+    """The two blocks as ground rather than as clusters.
+
+    Declared before every other node so they paint underneath, and sized from
+    the module positions they have to contain rather than by hand -- moving a
+    module in POS resizes its block instead of spilling out of it.
+    """
+    L = []
+    for pid, (padx, padbot, padtop, line, fill, name, gloss) in S.PANELS.items():
+        members = PANEL_OF[pid]
+        xs = [S.POS[n][0] for n in members]
+        ys = [S.POS[n][1] for n in members]
+        x0, x1 = min(xs) - padx, max(xs) + padx
+        y0, y1 = min(ys) - padbot, max(ys) + padtop
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        L.append(f'  "{pid}" [pos="{cx:.1f},{cy:.1f}!", shape=box, style="rounded,filled", '
+                 f'fillcolor="{fill}", color="{line}", penwidth=1.6, label="", '
+                 f'width={(x1 - x0) / 72:.4f}, height={(y1 - y0) / 72:.4f}];')
+        L.append(f'  "LAB_{pid}" [pos="{cx:.1f},{y1 - 34:.1f}!", shape=plaintext, '
+                 f'style="", label=<<font color="{line}" point-size="15"><b>{name}</b>'
+                 f'</font><br/><font color="{line}" point-size="8.5">{gloss}</font>>];')
+    return L
+
+
+PANEL_OF = {"CMEPANEL": ("CME:Transcription", "CME:Translation", "CME:mRNAdecay"),
+            "ODEPANEL": ("Transport", "Central", "Nucleotide", "CME:tRNAcharging",
+                         "CURRENCY")}
+
+
+def _panel_of(n):
+    return next((p for p, ms in PANEL_OF.items() if n in ms), None)
+
+
+def nodes(ps):
+    P = lambda n: 'pos="%.1f,%.1f!"' % S.POS[n]
+    L = []
+    for n, lab in S.NODE_LABEL.items():
+        border = S.CME_C if _panel_of(n) == "CMEPANEL" else S.ODE_C
+        L.append(f'  "{n}" [{P(n)}, shape=box, style="rounded,filled", '
+                 f'fillcolor="{S.CHANGED_FILL}", color="{border}", penwidth=1.6, '
+                 f'label=<{lab}>];')
+    for n, (fill, line, lab) in S.DEVICE_LABEL.items():
+        L.append(f'  "{n}" [{P(n)}, shape=box, style="rounded,filled", '
+                 f'fillcolor="{fill}", color="{line}", penwidth=2.2, label=<{lab}>];')
+    L.append(f'  "Medium" [{P("Medium")}, shape=box, style="rounded,filled,dashed", '
+             f'fillcolor="#fdedec", color="{S.CL_C}", fontcolor="{S.CL_C}", '
+             f'label=<{S.MEDIUM_LABEL}>];')
+    L.append(f'  "CURRENCY" [{P("CURRENCY")}, shape=box, style="rounded,filled,dashed", '
+             f'fillcolor="#eef2f5", color="#95a5a6", fontcolor="#566573", '
+             f'label=<{S.CURRENCY_LABEL}>];')
+    return L
+
+
+def edges():
+    L = []
+    for a, b, colour, style, pw, lab, extra in S.EDGES:
+        bits = [f'color="{colour}"', f'style={style}', f'penwidth={pw}']
+        if lab:
+            bits.append(f'label={S.LBL(colour, lab)}')
+        if extra:
+            bits.append(extra)
+        L.append(f'  "{a}" -> "{b}" [{", ".join(bits)}];')
+    return L
+
+
+# Badges straddle the box's top-right corner, pushed this far out along both
+# axes so they clear the box's own text: the device boxes carry a title that
+# runs their full width, and a badge square on the corner covers it.
+OFF = 9.0
+
+
 def badge(nid, x, y, ph):
-    """A pill on a box's top-right corner. Green and filled once the phase has
-    merged, hollow while it has not. Never drawn on a removed module: those are
-    on nobody's task list, and their ✗ already means something else."""
     fill, line, text = ((S.BUILT_FILL, S.BUILT_LINE, S.BUILT_TEXT) if ph.built
                         else (S.TODO_FILL, S.TODO_LINE, S.TODO_TEXT))
     mark = "&#10004;" if ph.built else "&#9744;"
@@ -110,8 +202,7 @@ def badge(nid, x, y, ph):
 def channel_badge(nid, x, y, ph, what):
     """The two phases that built a *property* of a block rather than a box:
     phase 1's contribution channel and phase 2's jump composition. Neither has
-    a box of its own to sit on, and badging one of the boxes would claim the
-    box exists."""
+    a box of its own, and badging one of the boxes would claim it exists."""
     return (f'  "{nid}" [pos="{x:.1f},{y:.1f}!", shape=plaintext, style="", label=<'
             f'<table border="1" color="{S.BUILT_LINE}" cellpadding="4" cellspacing="0" '
             f'bgcolor="{S.BUILT_FILL}"><tr><td align="left">'
@@ -120,13 +211,25 @@ def channel_badge(nid, x, y, ph, what):
             '</td></tr></table>>];')
 
 
-def key_node(x, y, ps):
-    """Fig 1c's edge-kind key, gaining the column the whole figure turns on.
+def badges(geo, ps):
+    L = []
+    for nid, n in S.ELEMENT_PHASE.items():
+        assert nid in geo, f"fig 1d has no node {nid!r} to badge"
+        x, y, w, h = geo[nid]
+        L.append(badge(f"BADGE_{nid.replace(':', '_')}",
+                       x + w / 2 + OFF, y + h / 2 + OFF, ps[n]))
+    for pid, phase, what in (("CMEPANEL", 2, "three jump modules coexist and compose"),
+                             ("ODEPANEL", 1, "a module contributes to a state it "
+                                             "does not own")):
+        x, y, w, h = geo[pid]
+        L.append(channel_badge(f"BADGE_{pid}", x, y - h / 2 + 22, ps[phase], what))
+    return L
 
-    The seven rows and their descriptions are fig 1c's, word for word
-    (make_corea.py:110-128); only the third column is new."""
+
+def key_node(x, y, ps):
+    """The edge-kind key, gaining the column the whole figure turns on."""
     rows = []
-    for name, colour, glyph, what, ph in S.EDGE_KIND_PHASE:
+    for name, colour, glyph, what, ph in S.EDGE_KIND_PHASE + S.EXTRA_KEY_ROWS:
         if ph is None:
             since = f'<font color="{S.TODO_TEXT}"><b>&#9744;</b> declare-only</font>'
         elif ps[ph].built:
@@ -134,8 +237,10 @@ def key_node(x, y, ps):
         else:
             since = f'<font color="{S.TODO_TEXT}"><b>&#9744; P{ph}</b></font>'
         rows.append(f'<tr><td align="right"><font color="{colour}"><b>{glyph}</b></font></td>'
-                    f'<td align="left"><b>{name}</b> · {what}</td>'
+                    f'<td align="left" balign="left"><b>{name}</b> · {what}</td>'
                     f'<td align="center"><font point-size="9">{since}</font></td></tr>')
+        if name == S.EDGE_KIND_PHASE[-1][0]:      # divider before the extra rows
+            rows.append('<tr><td colspan="3" cellpadding="1" bgcolor="#bdc3c7"></td></tr>')
     live = sum(1 for *_, ph in S.EDGE_KIND_PHASE if ph is not None and ps[ph].built)
     return ('  "KEY" [pos="%.1f,%.1f!", shape=plaintext, style="", label=<'
             '<table border="1" color="#bdc3c7" cellpadding="5" cellspacing="0" bgcolor="white">'
@@ -150,7 +255,6 @@ def key_node(x, y, ps):
 
 
 def progress_key(x, y, ps):
-    """The second axis, stated beside the first so no reader conflates them."""
     built = sum(p.built for p in ps.values())
     done = sum(p.done for p in ps.values())
     total = sum(p.total for p in ps.values())
@@ -159,90 +263,60 @@ def progress_key(x, y, ps):
     todo = min((p for p in ps.values() if not p.built), key=lambda p: p.n)
     row = lambda mark, colour, fill, what: (
         f'<tr><td align="center" bgcolor="{fill}"><font color="{colour}" point-size="10">'
-        f'<b>{mark}</b></font></td><td align="left"><font point-size="9">{what}</font>'
-        '</td></tr>')
+        f'<b>{mark}</b></font></td><td align="left" balign="left">'
+        f'<font point-size="9">{what}</font></td></tr>')
     return (f'  "PROGKEY" [pos="{x:.1f},{y:.1f}!", shape=plaintext, style="", label=<'
             f'<table border="1" color="{S.BUILT_LINE}" cellpadding="5" cellspacing="0" '
             'bgcolor="white">'
-            '<tr><td colspan="2" align="center"><b>what is built</b> — a second axis, '
-            'and not the reduction’s</td></tr>'
+            '<tr><td colspan="2" align="center"><b>what is built</b> — every badge in '
+            'this figure is parsed from spec §11, never typed</td></tr>'
             + row(f"&#10004; {example.tag}", S.BUILT_TEXT, S.BUILT_FILL,
                   "<b>merged</b> · every task in the phase is ticked, and the PR is "
                   "the record of what it cost")
             + row(f"&#9744; P{todo.n}", S.TODO_TEXT, S.TODO_FILL,
                   "<b>not written</b> · the number is the spec §11 phase that writes it")
-            + row("&#10007;", S.CROSS, S.GREY_FILL,
-                  "<b>unchanged from fig 1c</b> · cut from the <i>model</i> by the "
-                  "reduction. Says nothing about code.")
-            + '<tr><td colspan="2" align="left"><font point-size="9">'
+            + row("&#160;&#160;", "#000000", S.CHANGED_FILL,
+                  "<b>amber</b> · the module survives the Core A\u2032 reduction in "
+                  "altered form &#8212; a<br/>different axis, and not a claim about "
+                  "code")
+            + '<tr><td colspan="2" align="left" balign="left"><font point-size="9">'
               f'<b>{built} of {len(ps)} phases have merged, and every one of them is '
-              f'framework.</b> {live} of {len(S.EDGE_KIND_PHASE)} edge kinds execute;'
-              '<br align="left"/><b>not one box in this figure exists in code.</b> '
-              f'<font point-size="8.5">{done} of {total} tasks ticked; every badge here'
-              '<br align="left"/>is parsed from spec §11, never typed.<br align="left"/>'
-              '</font>'
+              f'framework.</b><br/>{live} of {len(S.EDGE_KIND_PHASE)} edge kinds '
+              'execute; <b>not one box in this figure exists in code.</b><br/>'
+              f'<font point-size="8.5">{done} of {total} tasks ticked.</font>'
               '</font></td></tr></table>>];')
 
 
 def title_node(x, y, ps):
     built = [p for p in ps.values() if p.built]
     asof = max(p.merged for p in built)
-    prs = f"#{min(p.pr for p in built)}–#{max(p.pr for p in built)}"
+    prs = f"#{min(p.pr for p in built)}\u2013#{max(p.pr for p in built)}"
     return (f'  "TITLE" [pos="{x:.1f},{y:.1f}!", shape=plaintext, style="", label=<'
-            '<font point-size="21"><b>State coupling in reduced syn3A — Core A′: '
-            'what is built</b></font><br/>'
-            '<font point-size="11">fig 1c, with every module and device badged by the '
-            f'spec §11 phase that writes it · <b>{len(built)} of {len(ps)} phases merged</b> '
-            f'({prs}) · as of {asof}</font>>];')
+            '<font point-size="22"><b>Core A\u2032 \u2014 what is built</b></font><br/>'
+            '<font point-size="11">every module and device badged by the spec \u00a711 '
+            'phase that writes it \u00b7 <b>only what the reduction keeps is drawn</b>, '
+            'so this is not fig 1c\u2019s canvas<br/>'
+            f'<b>{len(built)} of {len(ps)} phases merged</b> ({prs}) \u00b7 as of {asof}'
+            '</font>>];')
 
 
 def fig1d(ps):
-    src = C.baseline()
-    g, bb = C.M.geometry()
-    header = [l.replace("overlap=false", "overlap=true") for l in src[:5]]
+    check_edges()
+    header = ['digraph corea {',
+              '  graph [bgcolor="white", margin=0.4];',
+              '  node [shape=box, style="rounded,filled", fontname="Helvetica", '
+              'fillcolor="white", margin="0.14,0.08"];',
+              '  edge [fontname="Helvetica"];']
+    # Statement order is paint order: the two block panels are ground, the
+    # couplings run over them, and each module box sits on top of its own arrows.
+    body = panels() + edges() + nodes(ps)
+    keys = [key_node(*S.POS["KEY"], ps=ps), progress_key(*S.POS["PROGKEY"], ps=ps),
+            title_node(*S.POS["TITLE"], ps=ps)]
 
-    # Fig 1c's own statements, less the two nodes this figure re-authors and the
-    # note whose slot it needs. MOVENOTE explains why charging sits where it
-    # does -- settled, recorded in spec §12 amendment 1, and noise here.
-    body = (C.strip_labels(C.M.edges(src)) + S.NEW_EDGES
-            + drop(C.nodes(g), {"KEY", "TITLE"})
-            + drop(C.overlays(g, bb), {"MOVENOTE"}))
-
-    # Pass 1: place the keys roughly, then ask neato how big everything is.
-    keys = [key_node(231, 104, ps), progress_key(1180, 373, ps), title_node(807, 1213, ps)]
     pass1 = os.path.join(BUILD, "_fig1d_pass1.dot")
     open(pass1, "w").write("\n".join(header + body + keys + ["}"]))
-    geo = measure(pass1, ref=("HOOK", g["HOOK"][:2]))
-
-    # Pass 2: pin the wide key by its lower-left corner, which is fig 1c's own
-    # anchor for it, so widening it grows the table rather than the canvas.
-    kx, ky, kw, kh = geo["KEY"]
-    keys[0] = key_node(kw / 2, kh / 2, ps)
-
-    dot = header + body + keys + badges(geo, ps) + ["}"]
-    return render(dot, STEM1, "fig 1d")
-
-
-# Badges straddle the box's top-right corner, pushed this far out along both
-# axes so they clear the box's own text: the two device boxes carry a title
-# that runs the full width, and a badge sitting square on the corner covers it.
-OFF = 9.0
-
-
-def badges(geo, ps):
-    L = []
-    for nid, n in S.ELEMENT_PHASE.items():
-        assert nid in geo, f"fig 1c has no node {nid!r} to badge"
-        x, y, w, h = geo[nid]
-        L.append(badge(f"BADGE_{nid.replace(':', '_')}",
-                       x + w / 2 + OFF, y + h / 2 + OFF, ps[n]))
-    lx, ly, lw, lh = geo["LAB_CME"]
-    L.append(channel_badge("BADGE_CMEBLOCK", lx + 46, ly - lh / 2 - 16, ps[2],
-                           "three jump modules coexist and compose"))
-    ox, oy, ow, oh = geo["LAB_ODE"]
-    L.append(channel_badge("BADGE_ODEBLOCK", ox - 12, oy - oh / 2 - 16, ps[1],
-                           "a module contributes to a state it does not own"))
-    return L
+    geo = measure(pass1, ref=("HOOK", S.POS["HOOK"]))
+    return render(header + body + keys + badges(geo, ps) + ["}"], STEM1, "fig 1d")
 
 
 # --- fig 2d: the phase list, in dependency order ----------------------------

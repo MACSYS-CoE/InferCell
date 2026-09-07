@@ -13,8 +13,19 @@ answer "what is built", in
 
 | Figure | What it claims |
 |---|---|
-| `fig1d_state_graph_progress` | fig 1c, with every module and device badged by the spec §11 phase that writes it, and the edge-kind key gaining an **executes since** column |
+| `fig1d_state_graph_progress` | **only what the reduction keeps**, laid out fresh, with every module and device badged by the spec §11 phase that writes it, and the edge-kind key gaining an **executes since** column |
 | `fig2d_phase_roadmap` | all eighteen phases in dependency order, including the five that put nothing on a state graph |
+
+**Fig 1d breaks the chain's one rule, deliberately.** Figs 1r and 1c draw the
+reduction *onto* fig 1's canvas, which is right for "what did the reduction do"
+and wrong for "what is built": half the ink is four deleted modules and thirty
+dead couplings in grey, and the live machine has to be subtracted by eye. A
+first version of fig 1d was that overlay plus badges, and it was unreadable. Fig
+1d now keeps only the survivors — seven modules, three devices, two clamped
+drawing devices, thirty couplings — on a layout chosen for them: two blocks,
+three coupling devices, one cycle. **Fig 1c is not superseded**; it stays the
+record of what the reduction cut, and the only figure that overlays the
+published model.
 
 **The one design decision worth carrying.** Fig 1c already spends a red ✗ and a
 grey wash on *removed by the reduction*. Progress is a second, independent axis,
@@ -24,23 +35,35 @@ stating both axes side by side. A crossed-out box says nothing about whether
 code exists, and a hollow badge says nothing about whether the module is in the
 model; conflating the two is the misreading the figures exist to prevent.
 
-**Nothing in either figure states a status.** `progress_spec.phases()` parses
-`spec/spec.md` §11 — the headings, the `**PR:**` line, the `- [x]` ticks — and
-every badge, pill, title count and footer count comes from that parse. Only the
-mapping from a phase to the thing it puts on the state graph is authored. Four
-guards make drift fail the build rather than ship a wrong figure, all four
-exercised in a scratch copy: a renamed `### Phase N —` heading, a merged phase
-with an unticked task, a merged phase with no task list, and an `ELEMENT_PHASE`
-node id fig 1c does not draw.
+**Two independent derivations, both asserted at build time, so neither figure
+can state something the repo does not.**
 
-**Fig 1d changes no model content.** It re-runs fig 1c's builder and overlays
-status on the result, one level further down the chain fig 1c already uses on
-fig 1r. It lands on fig 1c's canvas, **3439 × 2845 pt**, which the build prints,
-so a badge that displaced a node is caught rather than shipped. Badge positions
-are *measured*, not guessed: three boxes are not the size fig 1 drew them, so
-the build renders once through `neato -n -Tdot`, reads back the true geometry
-(realigned against the hook, because `-Tdot` renormalises the origin) and only
-then places the badges. A clean rebuild reproduces both PNGs byte for byte.
+1. *Status.* `progress_spec.phases()` parses `spec/spec.md` §11 — the headings,
+   the `**PR:**` line, the `- [x]` ticks. Every badge, pill, title count and
+   footer count comes from that parse. Only the phase → figure-element mapping
+   is authored.
+2. *The coupling set.* Laying fig 1d out fresh means authoring its edges, which
+   is exactly how an arrow gets lost. So `live_couplings()` re-runs fig 1c's own
+   edge stage and drops the removed modules and dead couplings its spec names,
+   and `check_edges()` asserts fig 1d's table is **exactly** that set plus only
+   what `ADDED_EDGES` declares with a reason.
+
+Five guards, all exercised in a scratch copy: a coupling dropped from the table,
+a coupling invented and not declared, a renamed `### Phase N —` heading, a
+merged phase with an unticked task, and an `ELEMENT_PHASE` id the figure does
+not draw. Flipping phase 6 to merged in a scratch spec turns its badge green.
+
+**One coupling fig 1d draws that fig 1c does not, and it is the only one.**
+`HOOK → ODE block`, the catalytic channel's ODE half. Fig 1 draws that channel
+once, into Cofactor; Core A′ deletes Cofactor, so fig 1c greys the edge and puts
+the real targets in a footnote. With the deleted modules gone there is no
+footnote to hang it on, so fig 1d draws it where the channel runs — into the
+block, once, which is how fig 1 labels it anyway.
+
+Badge positions are *measured*, not guessed: the build renders once through
+`neato -n -Tdot`, reads back the true box geometry (realigned against the hook,
+because `-Tdot` renormalises the origin) and only then places the badges. A
+clean rebuild reproduces both PNGs byte for byte.
 
 **Two staleness items fixed, because the figures read from them.**
 
@@ -59,6 +82,12 @@ then places the badges. A clean rebuild reproduces both PNGs byte for byte.
 execute and not one box in the figure exists in code. Fig 2d: every merged phase
 is framework, that is D0 on purpose, and phases 15–17 put nothing on a state
 graph at all.
+
+**One thing fig 1d's key now says that no earlier figure did.** The two solid
+intra-CME arrows are not `CouplingEdge`s at all — spec §12 (2026-09-04) settled
+that a jump module's peer writes are gated on `written_states` rather than on an
+edge, and phase 2 is what made them work. The key carries that as an eighth row
+below a divider, deliberately not counted among the seven kinds.
 
 **Next.** Phase 6, central glycolysis — the first phase that writes a box.
 
