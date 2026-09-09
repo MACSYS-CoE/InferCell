@@ -6,6 +6,12 @@ against what phases 0–3 of [`spec/spec.md`](../../spec/spec.md) actually
 delivered. It adds no decisions; it is an orientation note. Where it and the
 spec disagree, the spec wins.
 
+**Updated 2026-09-07.** Phases 4 and 5 have since merged (PRs #45, #46), which
+moved two counts this note turns on: four of eighteen phases became six, and
+four of seven edge kinds became six. Both are corrected below. The lesson is
+the reason `figures/corea-progress/` exists and derives every number it prints
+from spec §11 — a hand-written count of a moving target is wrong within days.
+
 ## First: the figure to navigate by is 1c, not 1r
 
 `fig1r_state_graph_reduced.pdf` is superseded. The live figure is
@@ -47,9 +53,18 @@ the informal version of that; `reduction_declarations` is the checkable one.
 
 ## Where we are: arrows are built, boxes are not
 
+> **Two figures now draw what this section says in prose, and unlike this note
+> they cannot go stale**, because every badge on them is parsed from
+> `spec/spec.md` §11 rather than typed:
+> [`figures/corea-progress/`](figures/corea-progress/) — `fig1d` is the coupling
+> figure with each module and device badged by the phase that writes it, and
+> `fig2d` is all eighteen phases in dependency order, including the five that
+> put nothing on a state graph. **Where they and this section disagree, they are
+> right.**
+
 The single most useful sentence: **not one box in the figure exists in code.**
-`src/organisms/coreA/` holds `registry.jl` and nothing else. Phases 0–3
-(PRs #41–#44) are all Layer 2, exercised on two-module toys.
+`src/organisms/coreA/` holds `registry.jl` and nothing else. Phases 0–5
+(PRs #41–#46) are all Layer 2, exercised on two-module toys.
 
 That is D0 on purpose — framework before modules, kill risk on a toy first —
 because two framework changes alter the contract the modules are written
@@ -60,9 +75,9 @@ against, and the 1 s handshake was the only genuine kill risk in the project.
 | **HOOK** device (the 1 s exchange in the middle) | 3 — *the kill phase* | ✅ merged. Neither kill condition fired |
 | Arrows *within* the ODE grid (mass/currency into pools a module does not own) | 1 | ✅ merged |
 | The CME block being three coexisting boxes at all | 2 | ✅ merged |
-| **REBUILD** device (60 s: the arrows into transcription's and translation's rate constants) | 4 | ⬜ next |
-| **GROWTH** device and the volume arrow that dilutes all four ODE modules | 5 | ⬜ |
-| Box: **Central** (10 rxns) | 6 | ⬜ |
+| **REBUILD** device (60 s: the arrows into transcription's and translation's rate constants) | 4 | ✅ merged |
+| **GROWTH** device and the volume arrow that dilutes all four ODE modules | 5 | ✅ merged |
+| Box: **Central** (10 rxns) | 6 — *next* | ⬜ |
 | Box: **Transport** (6 rxns) | 7 | ⬜ |
 | Box: **Nucleotide** (5 rxns) | 8 | ⬜ |
 | Box: **tRNA charging** (the box that moved) | 9 | ⬜ |
@@ -73,18 +88,20 @@ against, and the 1 s handshake was the only genuine kill risk in the project.
 | Conservation checks over the figure (carbon, redox, adenylate, phosphate, carrier) | 14 | ⬜ |
 | — nothing in the figure — | 15–17 | ⬜ |
 
-Four of eighteen phases, all of them plumbing. The greyed-and-crossed part of
-the figure is settled, but only as a scoping decision frozen in the registry;
-the amber boxes are all still to be written.
+Six of eighteen phases, all of them plumbing, and with them the whole framework
+track. The greyed-and-crossed part of the figure is settled, but only as a
+scoping decision frozen in the registry; every amber box is still to be written,
+and phase 6 is the first that writes one.
 
 ## Layer 2, in one line
 
-**Four of seven edge kinds execute.** Mass and currency from phase 1; catalytic
-and deferred counter from phase 3. Rate constant, volume and clamped are still
-**declare-only** — they validate, resolve and appear in reports, but nothing
-runs them. Phase 4 turns on rate constant (REBUILD), phase 5 turns on volume
-(GROWTH). That is why two framework phases still precede every module: two of
-the figure's devices are, at the moment, drawings.
+**Six of seven edge kinds execute.** Mass and currency from phase 1; catalytic
+and deferred counter from phase 3; rate constant from phase 4 (REBUILD), volume
+from phase 5 (GROWTH). Only **clamped** is still declare-only — it validates,
+resolves and appears in reports, but nothing runs it and no phase schedules it,
+its held value still travelling as a fixed parameter. Every device in the figure
+is now a mechanism rather than a drawing, which is what frees phases 6 onward to
+be modules.
 
 ## Layer 3, and why the figure is load-bearing here
 
@@ -110,9 +127,9 @@ mean something, and none of it is drawable on a state graph.
 
 ## The short version
 
-The figure is a picture of a *model*. What phases 0–3 built is the *machine that
+The figure is a picture of a *model*. What phases 0–5 built is the *machine that
 can run a picture like that*, with the riskiest part of the machine proven on a
-two-module toy before a single line of syn3A biology was written. Phases 4–5
-finish the machine. Phases 6–12 build the seven boxes, fanning out. Phase 13
+two-module toy before a single line of syn3A biology was written. The machine is
+finished. Phases 6–12 build the seven boxes, fanning out. Phase 13
 asserts the figure complete as an object in code. Then a layer of work begins
 that the figure was never able to show.
