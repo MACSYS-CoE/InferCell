@@ -325,32 +325,45 @@ end
         # source is glycolysis, which is phase 6 -- so the double supplies it at
         # the published rate, two lactate per glucose at ~1,106 glucose/s.
         #
-        # Slow, and gated for it: this is the only 6,300 s integration in the
-        # suite. Spec §9 asks whether full-cycle checks belong in the default
-        # suite and says to decide on the measured cost; the measurement is in
-        # the phase 7 handoff note.
-        if get(ENV, "INFERCELL_FULL_CYCLE_TESTS", "false") == "true"
-            production = 2 * 1106 / corea_particles_per_mM()   # mM/s
-            @test production ≈ 0.10961 rtol = 1e-3
-            source = [HeldMetabolites(lac_source = production), m]
-            sol = integrate_pts(source; tspan = (0.0, 6300.0), saveat = 100.0)
-            @test sol.retcode == InferCell.ReturnCode.Success
+        # This is the only 6,300 s integration in the suite. Spec §9 asks
+        # whether full-cycle checks belong in the default suite and says to
+        # decide on the measured cost: it is 19.5 s of a three-minute suite, so
+        # it runs by default rather than behind a flag.
+        production = 2 * 1106 / corea_particles_per_mM()   # mM/s
+        @test production ≈ 0.10961 rtol = 1e-3
+        source = [HeldMetabolites(lac_source = production), m]
+        sol = integrate_pts(source; tspan = (0.0, 6300.0), saveat = 100.0)
+        @test sol.retcode == InferCell.ReturnCode.Success
 
-            i_c = _gidx(source, :M_lac__L_c)
-            i_e = _gidx(source, :M_lac__L_e)
-            steady = sol.u[end][i_c]
-            external = sol.u[end][i_e]
-            @test steady ≈ production / 0.075 rtol = 1e-3     # ~1.46 mM
-            @test external / steady < 0.01                    # D6's criterion
-            @test external ≈ 0.00689 rtol = 0.05              # D6's own figure
+        i_c = _gidx(source, :M_lac__L_c)
+        i_e = _gidx(source, :M_lac__L_e)
+        steady = sol.u[end][i_c]
+        external = sol.u[end][i_e]
 
-            # And the criterion is discriminating: a ratio of 1e4 misses it.
-            missed = [HeldMetabolites(lac_source = production),
-                      PtsTransport(volume_ratio = 1e4)]
-            sol4 = integrate_pts(missed; tspan = (0.0, 6300.0), saveat = 100.0)
-            @test sol4.u[end][_gidx(missed, :M_lac__L_e)] /
-                  sol4.u[end][_gidx(missed, :M_lac__L_c)] > 0.01
-        end
+        # Export is driven by the *difference* between the pools, so cytosolic
+        # lactate settles at production/0.075 **plus** the external pool: the
+        # 0.47% by which it exceeds 1.4615 mM is exactly the lactate that has
+        # already left, which is the coupling working rather than an error.
+        #
+        # And it is quasi-steady rather than steady. External lactate is still
+        # rising, at production/R, and cytosolic lactate tracks it, so the
+        # export flux falls short of production by exactly that -- one part in
+        # 1e5, which is the ratio itself. Asserting the balance without the
+        # drift term is wrong at the 1e-5 level, and this says so.
+        @test 0.075 * (steady - external) + production / 1e5 ≈ production rtol = 1e-6
+        @test steady ≈ production / 0.075 + external rtol = 1e-4
+        @test steady ≈ 1.4615 rtol = 0.01
+
+        @test external / steady < 0.01                    # D6's criterion
+        @test external ≈ 0.00689 rtol = 0.05              # D6's own figure
+
+        # And the criterion is discriminating: a ratio of 1e4 misses it, which
+        # is why the default is 1e5 rather than picked.
+        missed = [HeldMetabolites(lac_source = production),
+                  PtsTransport(volume_ratio = 1e4)]
+        sol4 = integrate_pts(missed; tspan = (0.0, 6300.0), saveat = 100.0)
+        @test sol4.u[end][_gidx(missed, :M_lac__L_e)] /
+              sol4.u[end][_gidx(missed, :M_lac__L_c)] > 0.01
     end
 
     @testset "7.5 the boundary declaration" begin
