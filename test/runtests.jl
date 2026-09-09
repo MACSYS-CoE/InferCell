@@ -69,7 +69,10 @@ using Aqua
     # `_gidx`, both included above.
     include("test_corea_pts_transport.jl")
     # Nucleotide recycling (spec phase 8), which owns the pools the other
-    # three ODE modules route energy through.
+    # three ODE modules route energy through. Its doubles — the charging
+    # drain and the held glycolytic pools — are shared with the full-cycle
+    # driver, so they live in their own file.
+    include("nucleotide_test_models.jl")
     include("test_corea_nucleotide_recycling.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
