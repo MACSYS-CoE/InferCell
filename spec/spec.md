@@ -2035,7 +2035,7 @@ holds this handshake's geometry at every handshake, in a growing cell and in a
 fixed one; the three quantities describe one sphere above the growth cap as
 below it; and the four-way fan-out of phases 6, 7, 8 and 10 can start with no
 module phase needing a framework change.
-**PR:** _open_
+**PR:** #48 (merged 2026-09-09)
 
 **Why this is its own phase.** R15's response is "amend §12 with the change and
 its date, then land it as its own phase before the affected modules continue",
@@ -2910,6 +2910,13 @@ them" and would otherwise fail at phase 13.
 *Sections:* §0 (the phase count), §2's model table and G2, §3's coupling bullet,
 §4 D6, §6 F1 and T2, §11's opening sentence and parallelism paragraph, §11
 phase 5b (new), §11 tasks 5.1, 7.2, 8.4, 8.5, 10.7 and 13.6.
+Written with the phase rather than after it, since the phase exists because of
+this amendment; landed in PR #48. **Nine of the sections above were added by the
+pre-merge review of that PR**, which found the amendment's first draft
+assigning the sampled-slot problem to the wrong task, its *Sections:* list
+incomplete, and §6 T2 and task 13.6 not carrying the label this phase
+registers — the last of which would have failed task 13.6's own count check at
+phase 13.
 
 
 ### 2026-09-05 — three things phase 4 contradicted: the continuous cadence, the granularity comparison, and what the clipping census counts

@@ -431,8 +431,8 @@ GRID = {
 # Which rows open a band, for the labels down the left-hand side.
 ROW_BAND = {
     0: ("the framework", "no syn3A biology at all — D0's order, and every phase "
-        "merged so far except 5b, which is last in the band and is what "
-        "unblocks the fan-out"),
+        "merged so far — 5b last, and it is the one that unblocks the "
+        "fan-out below"),
     1: ("the fan-out — ODE block",
         "6, 7 and 8 are mutually independent; 9 waits on 8"),
     4: ("the fan-out — CME block",

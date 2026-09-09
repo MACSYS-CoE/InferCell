@@ -88,7 +88,7 @@ re-running `make_progress.py` leaves them understating the work by exactly that
 many tasks, silently. It happened once in this session and the review caught it.
 `dev/notes/figures/corea-progress/README.md` now says so.
 
-**Next.** 5b is open as PR #48, not yet merged. Once it lands the fan-out can start: phases 6, 7, 8 and 10 as four
+**Next.** 5b landed as PR #48. The fan-out can start: phases 6, 7, 8 and 10 as four
 parallel PRs. Three of their done-when clauses are still not independent —
 task 8.4 needs phase 6, task 8.5 composes all four ODE modules, task 10.7 checks
 copy numbers against the metabolic modules' — and belong to whichever PR lands
