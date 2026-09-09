@@ -29,6 +29,12 @@ include("loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
 include("handshake.jl")
+# The Core A′ modules. Unlike the files above these must come after
+# interface.jl: a sub-model's `<: AbstractSubModel` is resolved when the
+# struct is defined, not when a method is called. Each exports its own
+# names from its own file, so concurrent module branches append one
+# include here and touch nothing else.
+include("organisms/coreA/central_glycolysis.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
