@@ -2,7 +2,7 @@
 
 **Status:** in progress — phases 0 to 5 done (PRs #41 to #46); phase 5b open, and
 the fan-out of phases 6, 7, 8 and 10 starts when it lands
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-09
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-10
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -385,6 +385,20 @@ Pin `abstol = 1e-10` mM, `reltol = 1e-8`, a stiff solver, and 60 s save points.
 asserts the check fails naming the right quantity. A conservation test that
 cannot fail is not evidence.
 
+**One exception, added 2026-09-10, and it is not a loophole.** An invariant that
+no cross-module flux touches, and whose stoichiometry mirrors *inside a single
+module*, is conserved exactly in floating point whatever the step size: the two
+derivatives are bit-for-bit negatives, so the sum's only error is roundoff in
+the state update. There is no integrator error in it to scale, and demanding
+that it fall fivefold fails a check that is *stronger* than the one the demand
+was written for. Redox in central glycolysis is that case — check 3 above said
+so before it was measured — and phase 6 measured the residual flat at 3 to 60
+ulps across eight decades of tolerance. So: **where an invariant is exact by
+construction the assertion is flatness at the floating-point floor, and where it
+is not the fivefold fall stands.** Which applies is decided by whether the
+moiety crosses a module boundary, is stated per check rather than chosen per
+run, and carries the same mutation test either way. See §12.
+
 ### Check 0, which precedes all six in the note
 
 **The count-to-concentration round-trip policy.** Across ~6,300 handshakes, each
@@ -410,7 +424,7 @@ conservation number is uninterpretable.
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
-| 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing |
+| 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the residual is flat at 3 to 60 ulps across eight decades of solver tolerance, so what this row asserts is flatness at the floating-point floor and not the fivefold fall (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (pyrophosphate unbounded). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
 | 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
@@ -1187,7 +1201,7 @@ is the enabler.
 | **F1** | **Channel gain table.** Six rows, matching §3's coupling bullet: enzyme concentration, the expression-cost drain, the tRNA transfer, nucleotide pools into transcription's rate constants, the charged pool into translation's, and volume. Each with its analytic form and its measured value. Volume's row carries **both** directions after phase 5b: the dilution gain, and the gain of whatever rate law reads the geometry — for the lactate exporter's `3P/r` that is `∂ ln rate / ∂ ln r = −1`, analytic and needing no measurement | C1 | The reverse channels at 0.044–0.051 and the charged-tRNA figure R1 measures; the guanylate forward channel as a ~30 s turnover; the adenylate forward channel as a two-stage gain with the tRNA pool's lag stated separately, per D13. **The most important table in the work, and it appears early** |
 | **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel |
 | F2b | Flux control coefficients, same layout | C1 | Shows them near zero at 3.6% utilisation — the quantitative reason fluxes are ruled out of the likelihood |
-| **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive. Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
+| **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive — except for an invariant that is exact by construction, whose line is flat at the floating-point floor and is labelled as such rather than counted as a failure (amended 2026-09-10; see §12). Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
 | F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
@@ -2199,7 +2213,10 @@ may not edit, and has to stop and wait for this phase anyway.
 eleven glycolytic intermediates and the two redox species.
 **Done when:** the thirteen owned states integrate non-negatively over a full
 cycle from the registry's initial conditions at published parameters, the redox
-pair is conserved to a bound that shrinks with the solver tolerance, and a
+pair's residual ~~is conserved to a bound that shrinks with the solver
+tolerance~~ **sits at the floating-point floor and does not move with the solver
+tolerance, which is what an exactly conserved moiety looks like and what check 3
+predicted** (amended 2026-09-10; see §12), and a
 mutation to the dehydrogenase's stoichiometry makes that check fail.
 **PR:** _not started_
 
@@ -2243,8 +2260,10 @@ keeping the double only for standalone runs.
   concentrations — verify by `reduction_declarations` returning all four as
   sentences naming the affected reactions.
 - [ ] 6.7 Integrate and check redox balance — verify by non-negativity at every
-  save point, by the redox residual satisfying the tolerance principle across two
-  tolerance settings, and by the mutation test failing and naming the conserved
+  save point, by the redox residual ~~satisfying the tolerance principle across two
+  tolerance settings~~ **measured across a ladder of tolerances spanning eight
+  decades and asserted flat at the floating-point floor** (amended 2026-09-10;
+  see §12), and by the mutation test failing and naming the conserved
   pool and the drift.
 
 ### Phase 7 — Phosphotransferase transport and lactate export
@@ -2858,6 +2877,45 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and phase 6's redox check asserts flatness instead
+
+*Trigger:* phase 6's redox check was written as the tolerance principle
+prescribes — solve at `(1e-10, 1e-8)`, solve again at `(1e-11, 1e-9)`, require
+the residual to fall at least fivefold — and it failed on the first Slurm run
+(job 16363584): 1.42e-14 mM against 7.99e-15 mM, a ratio of 1.78. A ladder over
+eight decades of tolerance, from `(1e-4, 1e-2)` to `(1e-12, 1e-10)`, then showed
+the residual **flat**, wandering between 8.9e-16 and 2.7e-14 mM with no trend.
+`eps` at NAD⁺ + NADH ≈ 2.2097 mM is 4.4e-16, so every point on that ladder is 2
+to 60 ulps: the residual is roundoff in the state update and contains no
+integrator error at all.
+
+*Why, and why it was foreseeable:* GAPD and LDH_L are the only reactions that
+touch the pair, both are inside this one module, and their stoichiometry
+mirrors, so the composed right-hand side returns `du[NAD⁺]` and `du[NADH]` as
+bit-for-bit negatives. Their sum is then conserved whatever step the solver
+takes. §3 check 3 already said the invariant is "exactly invariant there"; the
+done-when clause and task 6.7 asked for a residual that shrinks. The two could
+not both hold, and the check that was written to distinguish a structural leak
+from a numerical residual has nothing to measure when the residual is neither.
+
+*Change:* the tolerance principle gains a stated exception — where an invariant
+is exact by construction the assertion is **flatness at the floating-point
+floor**, and where it is not the fivefold fall stands; which applies is decided
+by whether the moiety crosses a module boundary and is stated per check rather
+than chosen per run. Phase 6's done-when and task 6.7 are annotated in place to
+assert the ladder rather than the fall. Check 3's row records the measurement.
+F3's "slopes required positive" gains the slope-zero case, labelled rather than
+counted as a failure. **The mutation test is unchanged and is what keeps this
+from being a weakened check:** a mutated GAPD stoichiometry moves the residual
+by about twelve orders of magnitude, and does not shrink with tolerance either,
+which is the leak the principle exists to catch. Nothing here relaxes a check on
+an invariant that *does* cross a boundary — adenylate, guanylate, phosphate and
+carbon all do, and all keep the fivefold fall.
+
+**Sections touched:** §3 (the tolerance principle, check 3), §6 (F3), §11 (phase
+6 done-when, task 6.7). Approved at implementation time, on the measurement
+above, before the check was rewritten.
 
 ### 2026-09-09 — a known framework gap is pulled ahead of the fan-out as phase 5b
 
