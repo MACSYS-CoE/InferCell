@@ -144,3 +144,104 @@ thirteen. The two cannot both hold, and the count is what spec §11 task 6.1
 carries; `conc_M_g6p_c = 3.7076` (gstd 1.2785) is asserted in its place. Whoever
 vendors the adenylate species — phase 8, which needs the central file's rival
 values in any case (spec §5) — picks up `M_atp_c` there.
+
+---
+
+## `pts_transport.tsv` and `pts_initial_conditions.tsv` (spec phase 7)
+
+```bash
+python3 dev/scripts/extract_pts_transport.py /path/to/Minimal_Cell
+```
+
+The script needs no third-party package. `proteomics.xlsx` is read with
+`zipfile` and `xml.etree.ElementTree` rather than `openpyxl`, which is in no
+environment on this machine; compute nodes have no network, and the reader is
+about twenty lines. Spec phase 10 reuses it — its promoter proxy is the same
+table's copy number over 180.
+
+### Upstream inputs
+
+| File | What it supplies |
+|---|---|
+| `CME_ODE/model_data/transport_NoH2O_Zane-TB-DB.tsv` | The eleven rate constants, from its `Quantity` table |
+| `CME_ODE/model_data/proteomics.xlsx` | The four carrier copy numbers, column V ("Absolute abundance (copy number)") |
+| `CME_ODE/model_data/protein_metabolites_frac.csv` | ptsI, ptsH and Crr's phospho-split |
+| `CME_ODE/model_data/membrane_protein_metabolites.csv` | ptsG's phospho-split |
+| `CME_ODE/program/setICs_two.py` | External lactate's initial 0.0 mM (line 277), and the disabled block used as a cross-check |
+
+### `pts_transport.tsv` — 11 rows, logical name `transport`
+
+Straight from the `Quantity` table, no arithmetic. **The file deliberately
+carries no `GeometricStd` column.** The upstream transport file has four SBtab
+tables — `Compartment`, `Compound`, `Reaction`, `Quantity` — and **no
+`Parameter` table**: no `Mode` column, no geometric standard deviation, nothing
+to inherit. `read_source_table` derives informedness from a table's shape, and a
+row with no uncertainty column at all is `:asserted`. So the absence of the
+column is what makes all eleven load as asserted; no row declares it, and no
+later edit can quietly promote one without adding a column that does not exist
+upstream.
+
+### `pts_initial_conditions.tsv` — 9 rows, logical name `model_ics`
+
+Eight phospho-states derived as **published copy number × published
+`proteomics_fraction`**, at 20180.387 particles per mM (a 200 nm sphere), plus
+`conc_M_lac__L_e = 0.0`. Both inputs are the published model's, so the totals
+and the split are its rather than ours; only the arithmetic is ours, and the
+`Copies` and `ProteomicsFraction` columns carry both inputs so a derived
+concentration traces back to them.
+
+Two files rather than one, because `ParameterSource` records one file per table:
+a single extract would report `transport` as the source of values that came from
+two CSVs and a spreadsheet. The identifier sets are disjoint, so
+`ambiguity_report` over the pair is empty — asserted in the tests, since an empty
+report is a positive result rather than a failure to run.
+
+| Carrier | Gene | AOE id | Copies | Unphos. fraction |
+|---|---|---|---|---|
+| ptsI | `JCVISYN3A_0233` | `AOE93321.1` | 353 | 0.05 |
+| ptsH | `JCVISYN3A_0694` | `AOE93571.1` | 290 | 0.05 |
+| Crr  | `JCVISYN3A_0234` | `AOE93322.1` | 314 | 0.05 |
+| ptsG | `JCVISYN3A_0779` | `AOE93596.1` | 831 | 0.15 |
+
+The four proteomics rows are found by AOE id, which skips the published
+loader's `MMSYN1 → JCVISYN2 → AOE` chain through a second workbook. The script
+asserts each row's NCBI description as well as its rounded copy number, so a
+shifted sheet fails loudly rather than importing another protein's abundance.
+
+**The cross-check.** `setICs_two.py:286-288` is a disabled block stating the
+same four totals as concentrations (0.01750, 0.01438, 0.01557, 0.04121 mM). It
+is not the citation — it is disabled code, and the live CSVs are the better one
+— but it is an independent plain-text statement of a quantity the script
+otherwise derives from a spreadsheet, so the script asserts its own arithmetic
+against it to four decimals. It also asserts that each total round-trips to its
+integer copy number.
+
+### Four recorded discrepancies
+
+1. **The uniform 0.024 mM placeholder.** The transport reconstruction's
+   `Compound` table gives all eight phospho-states 0.024 mM each, which is 969
+   copies behind every carrier — 2.7×, 3.3× and 3.1× the proteomics counts for
+   ptsI, ptsH and Crr. A placeholder, not a measurement, and not what is used.
+2. **External glucose.** The `Compound` table says 42.77 mM; `setICs_two.py:279`
+   overrides it with 40, and what runs governs. 40 mM is also the registry's
+   value, and `ClampedEdge` validates a chemostat's held value against the
+   registry, so declaring 42.77 would throw.
+3. **External lactate.** The `Compound` table says 0.1 mM;
+   `setICs_two.py:277` initialises it to 0.0, which is what this extract carries.
+4. **The membrane footprint.** `getProtSA`'s docstring says 35 nm² while its
+   code uses 28.0 (`in_out.py:37` against `:48`). The code governs.
+
+### One divergence from the archived design
+
+`dev/archive/openspec/changes/add-pts-transport/design.md` D3 tabulates the
+eight concentrations to seven decimals using a rounded **20180** particles per
+mM. This extract uses the factor the code derives from Avogadro,
+**20180.3873819** (`corea_particles_per_mM()`), so four of the eight phospho
+values differ from D3 in the seventh decimal — `conc_M_ptsg_P_c` is
+0.0350018 here against D3's 0.0350025, the largest of the four.
+
+The derived factor is the right one: the initial conditions are converted back
+to copies with that same factor, so building them with a rounded one would put
+the carrier totals at 353.007 rather than 353, and phase 7's "sums to its
+published copy number exactly" would have to be relaxed into a tolerance. The
+values agree with D3 to six decimals throughout.

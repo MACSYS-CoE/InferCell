@@ -1,0 +1,19 @@
+!!SBtab SBtabVersion='1.0' TableType='Quantity' TableName='pts initial conditions' Document='coreA'
+% Derived extract. Each phospho-state is the published per-cell copy
+% number times the published proteomics_fraction, at 20180.3873819 particles
+% per mM (a 200 nm sphere). Copies and ProteomicsFraction carry the two
+% published inputs, so a derived concentration traces back to both.
+%
+% Not the transport reconstruction's uniform 0.024 mM per form, which is
+% 969 copies behind every carrier -- 2.7, 3.3, 3.1 times the proteomics counts for
+% ptsI, ptsH and Crr -- so it is a placeholder, not a measurement.
+!ID	!Mode	!Unit	!Copies	!ProteomicsFraction	!UpstreamRow
+conc_M_ptsi_c	0.0008746115555670624	mM	353	0.05	protein_metabolites_frac.csv:11
+conc_M_ptsi_P_c	0.01661761955577418	mM	353	0.95	protein_metabolites_frac.csv:12
+conc_M_ptsh_c	0.0007185194082562267	mM	290	0.05	protein_metabolites_frac.csv:13
+conc_M_ptsh_P_c	0.013651868756868309	mM	290	0.95	protein_metabolites_frac.csv:14
+conc_M_crr_c	0.0007779830834222593	mM	314	0.05	protein_metabolites_frac.csv:15
+conc_M_crr_P_c	0.014781678585022927	mM	314	0.95	protein_metabolites_frac.csv:16
+conc_M_ptsg_c	0.006176789257871631	mM	831	0.15	membrane_protein_metabolites.csv:2
+conc_M_ptsg_P_c	0.03500180579460591	mM	831	0.85	membrane_protein_metabolites.csv:3
+conc_M_lac__L_e	0.0	mM	-	-	setICs_two.py:277

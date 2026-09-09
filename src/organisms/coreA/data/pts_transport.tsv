@@ -1,0 +1,18 @@
+!!SBtab SBtabVersion='1.0' TableType='Quantity' TableName='pts transport constants' Document='coreA'
+% Derived extract. See src/organisms/coreA/data/README.md for the
+% upstream file, the commit and the regeneration command.
+% There is deliberately no GeometricStd column: the upstream file has
+% no Parameter table and no uncertainty anywhere, so read_source_table
+% derives informedness :asserted for every row from the table's shape.
+!ID	!Mode	!Unit	!UpstreamRow
+KF_0_R_GLCpts0	6600	-	transport_NoH2O_Zane-TB-DB.tsv:183
+KR_0_R_GLCpts0	4000	-	transport_NoH2O_Zane-TB-DB.tsv:184
+KF_1_R_GLCpts1	200000	-	transport_NoH2O_Zane-TB-DB.tsv:185
+KR_1_R_GLCpts1	8000	-	transport_NoH2O_Zane-TB-DB.tsv:186
+KF_2_R_GLCpts2	61000	-	transport_NoH2O_Zane-TB-DB.tsv:187
+KR_2_R_GLCpts2	47000	-	transport_NoH2O_Zane-TB-DB.tsv:188
+KF_3_R_GLCpts3	3900	-	transport_NoH2O_Zane-TB-DB.tsv:189
+KR_3_R_GLCpts3	310	-	transport_NoH2O_Zane-TB-DB.tsv:190
+KF_4_R_GLCpts4	0.88	-	transport_NoH2O_Zane-TB-DB.tsv:191
+KR_4_R_GLCpts4	1.00E-05	-	transport_NoH2O_Zane-TB-DB.tsv:192
+P_R_L_LACt2r	5.00E-09	m/s	transport_NoH2O_Zane-TB-DB.tsv:222
