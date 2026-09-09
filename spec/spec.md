@@ -2348,7 +2348,7 @@ lactate.
 tolerance-derived bounds, each carrier's two forms sum to its published copy
 number exactly, and the export rate matches the permeability law at the
 registry's radius.
-**PR:** _not started_
+**PR:** _open_
 
 Reference detail at
 `dev/archive/openspec/changes/add-pts-transport/tasks.md`. One amendment: the
@@ -3093,7 +3093,6 @@ rather than the fall; check 3's row records the measurement and the
 composition-scope limit; F3's "slopes required positive" gains the
 slope-zero-or-slightly-negative case, labelled rather than counted as a failure.
 
-<<<<<<< HEAD
 **The mutation test is unchanged and is what keeps this from being a weakened
 check:** a mutated GAPD stoichiometry moves the residual to 2.21 mM — the whole
 pool — which is **14.2 orders of magnitude**, and does not shrink with tolerance
