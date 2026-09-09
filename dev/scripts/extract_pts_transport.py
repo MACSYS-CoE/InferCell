@@ -187,6 +187,24 @@ def read_proteomics(path):
     return rows
 
 
+def read_transport_dict(path, species):
+    """One species' initial value in setICs_two.py's live `transport_Dict`.
+
+    Read rather than typed, so the value and its line number cannot drift from
+    upstream the way a hand-copied citation can -- which is exactly how this
+    row's line number was wrong on the first pass.
+    """
+    with open(path) as handle:
+        for lineno, line in enumerate(handle, start=1):
+            if line.lstrip().startswith("#"):
+                continue
+            match = re.search(r'"%s"\s*:\s*([0-9.eE+-]+)' % species, line)
+            if match:
+                return float(match.group(1)), lineno
+    fail("setICs_two.py no longer initialises %s, so its initial condition "
+         "cannot be read from upstream" % species)
+
+
 def read_disabled_totals(path):
     """The four total concentrations in setICs_two.py's disabled block.
 
@@ -219,6 +237,8 @@ def main():
     fractions = read_fractions(root)
     proteomics = read_proteomics(os.path.join(root, PROTEOMICS_XLSX))
     disabled_totals = read_disabled_totals(os.path.join(root, SET_ICS))
+    lactate_ic, lactate_line = read_transport_dict(
+        os.path.join(root, SET_ICS), "M_lac__L_e")
     factor = particles_per_mM()
 
     # --- the eleven rate constants ------------------------------------------
@@ -269,9 +289,13 @@ def main():
                  (carrier["name"], raw, carrier["copies"]))
 
         gene, unphos_frac, frac_file, frac_line = fractions[carrier["key"]]
-        _, phos_frac, _, phos_line = fractions[carrier["key"] + "_P"]
-        if frac_file != carrier["source"]:
-            fail("%s's fractions moved to %s" % (carrier["name"], frac_file))
+        _, phos_frac, phos_file, phos_line = fractions[carrier["key"] + "_P"]
+        for found in (frac_file, phos_file):
+            if found != carrier["source"]:
+                fail("%s's fractions are in %s, not the recorded %s. The two "
+                     "CSVs are merged into one map, so a species gaining a row "
+                     "in the other file would silently take its fraction" %
+                     (carrier["name"], found, carrier["source"]))
         if abs(unphos_frac + phos_frac - 1.0) > 1e-12:
             fail("%s's two proteomics fractions sum to %r, not 1" %
                  (carrier["name"], unphos_frac + phos_frac))
@@ -284,17 +308,23 @@ def main():
         # four decimals -- the block used a rounded 20180 particles per mM.
         total_mM = copies / factor
         published_total = disabled_totals[carrier["key"]]
-        if abs(total_mM - published_total) > 1e-4:
+        if abs(total_mM - published_total) > 5e-5:
             fail("%s derives %.6f mM from %d copies, but setICs_two.py's "
                  "disabled block says %.6f mM -- the two disagree by more "
-                 "than the rounding in its conversion factor" %
+                 "than half a unit in the fourth decimal, which is the "
+                 "precision that block quotes" %
                  (carrier["name"], total_mM, copies, published_total))
-        if round(total_mM * factor) != copies:
-            fail("%s does not round-trip: %.10f mM is %.4f copies" %
-                 (carrier["name"], total_mM, total_mM * factor))
-
         derived[carrier["unphos"]] = copies * unphos_frac / factor
         derived[carrier["phos"]] = copies * phos_frac / factor
+
+        # The property the phase claims, asserted on the values actually
+        # written: the two derived forms sum back to the integer copy number.
+        # Testing `copies / factor * factor` instead would be a single multiply
+        # round-tripping, which cannot fail and would prove nothing.
+        summed = (derived[carrier["unphos"]] + derived[carrier["phos"]]) * factor
+        if round(summed) != copies:
+            fail("%s's two forms sum to %.6f copies, not %d" %
+                 (carrier["name"], summed, copies))
         provenance[carrier["unphos"]] = (copies, unphos_frac,
                                          "%s:%d" % (frac_file, frac_line))
         provenance[carrier["phos"]] = (copies, phos_frac,
@@ -324,7 +354,8 @@ def main():
                         (species, repr(derived[species]), copies,
                          repr(fraction), row))
     ic_lines.append(
-        "conc_M_lac__L_e\t0.0\tmM\t-\t-\t%s:277" % os.path.basename(SET_ICS))
+        "conc_M_lac__L_e\t%s\tmM\t-\t-\t%s:%d" %
+        (repr(lactate_ic), os.path.basename(SET_ICS), lactate_line))
 
     os.makedirs(OUT_DIR, exist_ok=True)
     for name, lines in [("pts_transport.tsv", rate_lines),
@@ -339,7 +370,8 @@ def main():
     print("external glucose upstream: %s mM in the Compound table, superseded "
           "by 40 mM at %s:279" % (glucose_upstream, os.path.basename(SET_ICS)))
     print("external lactate upstream: %s mM in the Compound table, superseded "
-          "by 0.0 at %s:277" % (lactate_upstream, os.path.basename(SET_ICS)))
+          "by %s at %s:%d" % (lactate_upstream, repr(lactate_ic),
+                              os.path.basename(SET_ICS), lactate_line))
 
 
 if __name__ == "__main__":

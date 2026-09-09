@@ -3,6 +3,7 @@ using InferCell
 using Distributions
 using StaticArrays: SVector
 using OrdinaryDiffEq: Rodas5P, solve
+using ForwardDiff
 
 import InferCell: states, parameters, dynamics
 
@@ -124,7 +125,12 @@ function integrate_pts(models; tspan = (0.0, 600.0), abstol = 1e-10,
                  saveat = saveat)
 end
 
-@testset "Phase 7 — phosphotransferase transport and lactate export" begin
+# `verbose = true` so the per-testset timings print on a passing run, not only
+# on a failing one. Spec §9 asks whether full-cycle checks belong in the default
+# suite and says to decide on measured wall-clock; this testset contains the
+# only 6,300 s integration in the suite, so its cost belongs in every log rather
+# than in a one-off measurement that later drifts from the code it timed.
+@testset "Phase 7 — phosphotransferase transport and lactate export" verbose = true begin
 
     m = PtsTransport()
     models = [HeldMetabolites(), m]
@@ -477,7 +483,7 @@ end
                                         abstol = 1e-10, reltol = 1e-8)
             tight_bound = carrier_bound(tight, models, unphos, phos;
                                         abstol = 1e-11, reltol = 1e-9)
-            @test tight_bound <= loose_bound / 5
+            @test tight_bound ≈ loose_bound / 10 rtol = 1e-6
             @test carrier_residual(tight, models, unphos, phos) <= tight_bound
         end
 
@@ -495,6 +501,63 @@ end
                   carrier_bound(bad, mutant, unphos, phos;
                                 abstol = 1e-10, reltol = 1e-8)
         end
+    end
+
+    @testset "7.8 the rate law differentiates, in both parameter element types" begin
+        # Every gradient-based path carries ForwardDiff.Dual in `p`:
+        # `infer` defaults to ForwardDiffSensitivity and
+        # `check_identifiability` differentiates the forward map. Splicing a
+        # Dual into an SVector{N, Float64} throws, so this is the assertion
+        # that keeps PtsTransport inside the AD contract
+        # test_contributions.jl already holds every other composition to.
+        u = SVector(0.0, 0.0011, 0.0161, 0.0009, 0.0131, 0.0012, 0.0141,
+                    0.0062, 0.0349)
+        u_inputs = SVector(0.0409, 1.46, 3.3660, 3.7076)
+        p = [q.value for q in model_free_params(parameters(m))]
+
+        J = ForwardDiff.jacobian(pp -> dynamics(u, pp, 0.0, m, u_inputs), p)
+        @test size(J) == (9, 1)
+        # d(du_lac_e)/d(r_cell_nm): v_export/R is 3P(lac_c-lac_e)/(R·r·1e-9),
+        # so the derivative is -that/r.
+        @test J[1, 1] ≈ -0.075 * (1.46 - 0.0) / 1e5 / 200.0
+
+        # And through the composed right-hand side, where the module's slice is
+        # behind another module's parameters.
+        prob = build_problem(models; tspan = (0.0, 1.0))
+        Jc = ForwardDiff.jacobian(pp -> prob.f.f(prob.u0, pp, 0.0), prob.p)
+        @test size(Jc) == (13, 3)
+        @test all(isfinite, Jc)
+
+        # A freed rate constant differentiates too, and the free path is
+        # otherwise unexercised: nothing else in the suite passes `free`.
+        freed = PtsTransport(free = [:kf_glcpts0, :lac_volume_ratio])
+        pf = [q.value for q in model_free_params(parameters(freed))]
+        @test length(pf) == 3
+        @test dynamics(u, pf, 0.0, freed, u_inputs) ≈ dynamics(u, p, 0.0, m, u_inputs)
+        Jf = ForwardDiff.jacobian(pp -> dynamics(u, pp, 0.0, freed, u_inputs), pf)
+        @test size(Jf) == (9, 3)
+        # d(du_ptsi)/d(kf_glcpts0) = -ptsi·pep, the forward term of GLCpts0.
+        @test Jf[2, 1] ≈ -0.0011 * 0.0409
+
+        # The struct copy and the InferParameter agree, which is what lets the
+        # rate law read a fixed parameter the composed vector cannot carry.
+        for (i, name) in enumerate(PTS_SCALARS)
+            @test m.q[i] == only(filter(q -> q.name === name, parameters(m))).value
+        end
+    end
+
+    @testset "7.9 the constructor refuses a geometry that cannot integrate" begin
+        for bad in (0.0, -1.0)
+            err = caught(() -> PtsTransport(radius_nm = bad))
+            @test err isa ArgumentError
+            @test occursin("radius_nm", sprint(showerror, err))
+            err = caught(() -> PtsTransport(volume_ratio = bad))
+            @test err isa ArgumentError
+            @test occursin("volume_ratio", sprint(showerror, err))
+        end
+        err = caught(() -> PtsTransport(free = [:not_a_scalar]))
+        @test err isa ArgumentError
+        @test occursin("not_a_scalar", sprint(showerror, err))
     end
 
     @testset "7.x the export rationale is queryable, not only documented" begin

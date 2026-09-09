@@ -30,13 +30,13 @@ draws back from.
 
 **One thing about `fixed` that the next module phase will hit.** Every parameter
 is `fixed = true` by default, so nothing is sampled from an invented prior
-without an explicit act — that is design D2 and it is right. But `fixed` in this
+without an explicit act — that is design D7 and D14, and it is right. But `fixed` in this
 codebase means *absent from the composed parameter vector entirely*:
 `model_free_params` filters it out, so `p` never carries it and a rate law
 cannot read it from there. So the fourteen scalars are carried on the struct as
 well, built from the same `load_parameter` call so they cannot drift, and the
-free ones are spliced back into their local slots at every call. Phase 6 has
-sixty-five constants and phase 8 about twenty-two; they need the same thing.
+free ones are spliced back into their local slots at every call. Phase 6's extract is about 65 rows and phase 8's about 35, so both have
+several dozen; they need the same thing.
 
 `:r_cell_nm` is always free, whatever `free` is passed, because a `param_slot`
 must be a free parameter to reach the vector at all. That is the trap 5b.10
@@ -79,17 +79,24 @@ right-hand side conserves it identically and there is no truncation error to
 shrink. §3 had already noticed the same of the redox pair without drawing the
 consequence.
 
-So the principle now names two classes: structurally exact invariants (checks 3
-and 5) assert the residual under a tolerance-derived bound at both settings with
-the *bound* falling tenfold; everything else (checks 2, 4, 4b) keeps the
-fivefold fall. **The mutation test is untouched**, and that is the part that
-matters — `PtsCarrierLeak` writes GLCpts1 as creating phospho-HPr rather than
+So the principle now names two classes: a structurally exact invariant asserts
+the residual under a tolerance-derived bound at both settings with the *bound*
+falling tenfold; everything else (checks 2, 4, 4b) keeps the fivefold fall.
+Check 5 is measured into the first class; check 3 and task 9.6's tRNA pair are
+*expected* there and left for phases 6 and 9 to demonstrate, because the class
+is a property of the right-hand side each phase writes.
+
+**Class one is the weaker bar and §3 now says so.** The bound's tenfold fall is
+arithmetic — `tol_C` is a closed form in the tolerances — so it would fall on a
+leaking model too; the assertion catches only a leak larger than the tightened
+bound. **The mutation test is therefore class one's primary falsifier**, and
+that is the part that matters — `PtsCarrierLeak` writes GLCpts1 as creating phospho-HPr rather than
 transferring it, and the ptsH residual then exceeds its bound while the other
 three stay under theirs.
 
 **The full-cycle question, answered for one case.** §9 asks whether full-cycle
 checks belong in the default suite and says to decide on measured wall-clock.
-Phase 7's 6,300 s lactate-export check costs **19.5 s**, so it runs by default.
+Phase 7's 6,300 s lactate-export check is cheap enough to run by default.
 That settles it for a nine-state standalone ODE module and for nothing else:
 checks 2, 4 and 4b run on the assembled model across a handshake driver, which
 is the expensive case and is still open.
@@ -110,13 +117,13 @@ is still rising at `production/R`, cytosolic tracks it, and the export flux
 falls short of production by exactly one part in `R`. The test now carries the
 drift term, which is a better check than either draft.
 
-**What phase 8 and phase 13 inherit.** The four carrier sums are conserved only
+**What phase 11 and phase 13 inherit.** The four carrier sums are conserved only
 as long as nothing else makes PTS protein. Once phase 11's translation feeds the
 carriers the invariant must be restated as "conserved up to what translation
 adds", by subtraction rather than by widening the bound. The check as written is
 scoped to this sub-model's own dynamics and says so.
 
-**Suite.** `sbatch test/run_tests.slurm` job **16363954**, **1619/1619** in 2m15.6s — 1468 before the phase. The phase-7 testsets are 151 of those, and the 6,300 s one is 19.5 s of the runtime.
+**Suite.** `sbatch test/run_tests.slurm` job **16363954**, **1619/1619** in 2m15.6s — 1468 before the phase. The phase-7 testsets are 151 of those. The testset is marked `verbose = true`, so the per-testset timings — including the only 6,300 s integration in the suite — print on every run rather than only on a failing one.
 
 **Next.** Phases 6, 8 and 10 are the remaining fan-out, all independent of this
 one. Phase 9 waits on phase 8. Three done-when clauses across the fan-out are

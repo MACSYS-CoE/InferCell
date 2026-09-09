@@ -16,4 +16,4 @@ conc_M_crr_c	0.0007779830834222593	mM	314	0.05	protein_metabolites_frac.csv:15
 conc_M_crr_P_c	0.014781678585022927	mM	314	0.95	protein_metabolites_frac.csv:16
 conc_M_ptsg_c	0.006176789257871631	mM	831	0.15	membrane_protein_metabolites.csv:2
 conc_M_ptsg_P_c	0.03500180579460591	mM	831	0.85	membrane_protein_metabolites.csv:3
-conc_M_lac__L_e	0.0	mM	-	-	setICs_two.py:277
+conc_M_lac__L_e	0.0	mM	-	-	setICs_two.py:276

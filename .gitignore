@@ -47,3 +47,9 @@ examples/
 # the PDF variants are not.
 dev/talks/*/figures/*.pdf
 PR_REVIEW_*.md
+
+# Python bytecode. dev/scripts/ is python, and spec phase 10 reuses
+# extract_pts_transport.py's proteomics reader by import rather than by
+# shelling out, at which point __pycache__/ appears beside it.
+__pycache__/
+*.pyc

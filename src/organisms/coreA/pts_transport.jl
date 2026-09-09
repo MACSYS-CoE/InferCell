@@ -41,6 +41,8 @@ const PTS_SCALARS = (:kf_glcpts0, :kr_glcpts0,
 The eleven upstream identifiers, in [`PTS_SCALARS`](@ref) order, as
 `src/organisms/coreA/data/pts_transport.tsv` names them.
 """
+const N_PTS_SCALARS = length(PTS_SCALARS)
+
 const PTS_RATE_IDS = ("KF_0_R_GLCpts0", "KR_0_R_GLCpts0",
                       "KF_1_R_GLCpts1", "KR_1_R_GLCpts1",
                       "KF_2_R_GLCpts2", "KR_2_R_GLCpts2",
@@ -104,14 +106,19 @@ driver fills `:r_cell_nm` at every handshake. Two consequences:
 
 `:r_cell_nm` is therefore always free: `param_slot` must name one of the
 module's own free parameters, because only those reach the composed parameter
-vector. That also means inference samples it and the handshake then overwrites
-it, so its posterior is its prior and must not be read as an identifiability
-result — the trap [`rebuilt_params`](@ref) and [`VolumeEdge`](@ref) both
-document, whose fix belongs to spec phases 15 to 17.
+vector. Inference therefore samples it, and **only under the handshake driver
+does anything overwrite it.** Under a driver its posterior is its prior and
+must not be read as an identifiability result — the trap
+[`rebuilt_params`](@ref) and [`VolumeEdge`](@ref) both document, whose fix
+belongs to spec phases 15 to 17. In a *homogeneous* ODE composition nothing
+overwrites it at all, and since only the ratio `P/r` enters the export law, a
+run that frees `:p_lact2r` samples a flat ridge in the two. Pin `:r_cell_nm`
+before inferring on a homogeneous build; the geometry is not an unknown there
+either.
 """
 struct PtsTransport{N} <: AbstractSubModel
     params::Vector{InferParameter}
-    q::SVector{14, Float64}
+    q::SVector{N_PTS_SCALARS, Float64}
     free_slots::SVector{N, Int}
 end
 
@@ -123,6 +130,14 @@ function PtsTransport(; data_dir::AbstractString = COREA_DATA_DIR,
     asserted_gstd > 1 || throw(ArgumentError(
         "asserted_gstd must exceed 1; got $asserted_gstd. It is a geometric " *
         "standard deviation, so 1 is a point mass and below 1 is not a width"))
+    radius_nm > 0 || throw(ArgumentError(
+        "radius_nm must be positive; got $radius_nm. The export law divides by " *
+        "it, so a non-positive radius gives an infinite or undefined rate at " *
+        "the first right-hand side call rather than a message here"))
+    volume_ratio > 0 || throw(ArgumentError(
+        "volume_ratio must be positive; got $volume_ratio. External lactate " *
+        "accumulates at 1/R, so a non-positive ratio gives an infinite or " *
+        "undefined derivative at the first right-hand side call"))
     unknown = setdiff(Symbol.(free), PTS_SCALARS)
     isempty(unknown) || throw(ArgumentError(
         "PtsTransport cannot free $(join(string.(":", unknown), ", ")): not one " *
@@ -190,7 +205,7 @@ function PtsTransport(; data_dir::AbstractString = COREA_DATA_DIR,
                                      table = "Quantity"))
     end
 
-    q = SVector{14, Float64}(ntuple(14) do i
+    q = SVector{N_PTS_SCALARS, Float64}(ntuple(N_PTS_SCALARS) do i
         name = PTS_SCALARS[i]
         params[findfirst(p -> p.name === name, params)].value
     end)
@@ -230,7 +245,7 @@ extracellular_states(::PtsTransport) = [:M_lac__L_e]
 """
     coupling(m::PtsTransport)
 
-Nine edges. Every `peer` is left unnamed, so the module resolves against
+Ten edges. Every `peer` is left unnamed, so the module resolves against
 whichever composition it is placed in rather than naming a sibling it does not
 depend on.
 
@@ -290,8 +305,8 @@ outside. The ratio reproduces the published unsaturated efflux through a
 genuinely dynamic state.
 """
 reduction_notes(m::PtsTransport) = [
-    "external lactate accumulates at 1/R of the export rate with R = " *
-    "$(_scalar(m, :lac_volume_ratio)), a medium-to-cell volume ratio asserted by " *
+    "external lactate accumulates at 1/R of the export rate with R declared " *
+    "at $(_scalar(m, :lac_volume_ratio)), a medium-to-cell volume ratio asserted by " *
     "this project: it reproduces the published model's constant external pool, " *
     "which clamps M_lac__L_e and so never saturates the exporter, through the " *
     "dynamic state the registry requires. Chosen against a stated criterion — " *
@@ -327,10 +342,19 @@ _scalar(m::PtsTransport, name::Symbol) =
 # The live scalars: the struct's values with every free one replaced by its
 # entry in the composed parameter vector. `Base.setindex` on an `SVector`
 # returns a new `SVector`, so this allocates nothing and stays type-stable.
+#
+# **The element type comes from `p`, not from the struct.** Every
+# gradient-based path carries `ForwardDiff.Dual` in `p` — `infer` defaults to
+# `ForwardDiffSensitivity` and `check_identifiability` differentiates the
+# forward map — and splicing a `Dual` into an `SVector{N, Float64}` would try
+# to convert it to `Float64` and throw a `MethodError`. Promoting first is what
+# keeps this module inside the AD contract `test/test_contributions.jl` asserts
+# for every other composition.
 @inline function _live_scalars(m::PtsTransport, p)
-    q = m.q
+    T = promote_type(Float64, eltype(p))
+    q = SVector{N_PTS_SCALARS, T}(m.q)
     @inbounds for j in eachindex(m.free_slots)
-        q = Base.setindex(q, p[j], m.free_slots[j])
+        q = Base.setindex(q, convert(T, p[j]), m.free_slots[j])
     end
     return q
 end

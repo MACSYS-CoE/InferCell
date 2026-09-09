@@ -167,7 +167,7 @@ table's copy number over 180.
 | `CME_ODE/model_data/proteomics.xlsx` | The four carrier copy numbers, column V ("Absolute abundance (copy number)") |
 | `CME_ODE/model_data/protein_metabolites_frac.csv` | ptsI, ptsH and Crr's phospho-split |
 | `CME_ODE/model_data/membrane_protein_metabolites.csv` | ptsG's phospho-split |
-| `CME_ODE/program/setICs_two.py` | External lactate's initial 0.0 mM (line 277), and the disabled block used as a cross-check |
+| `CME_ODE/program/setICs_two.py` | External lactate's initial 0.0 mM (line 276) and external glucose's 40 mM (line 279), both read from the live `transport_Dict`, plus the disabled block used as a cross-check |
 
 ### `pts_transport.tsv` — 11 rows, logical name `transport`
 
@@ -227,7 +227,10 @@ integer copy number.
    value, and `ClampedEdge` validates a chemostat's held value against the
    registry, so declaring 42.77 would throw.
 3. **External lactate.** The `Compound` table says 0.1 mM;
-   `setICs_two.py:277` initialises it to 0.0, which is what this extract carries.
+   `setICs_two.py:276` initialises it to 0.0, which is what this extract carries.
+   Both the value and the line number are read from upstream rather than typed,
+   so this citation cannot drift the way a hand-copied one can — it was wrong
+   by one line on the first pass, and the round-trip check could not see it.
 4. **The membrane footprint.** `getProtSA`'s docstring says 35 nm² while its
    code uses 28.0 (`in_out.py:37` against `:48`). The code governs.
 
@@ -236,12 +239,16 @@ integer copy number.
 `dev/archive/openspec/changes/add-pts-transport/design.md` D3 tabulates the
 eight concentrations to seven decimals using a rounded **20180** particles per
 mM. This extract uses the factor the code derives from Avogadro,
-**20180.3873819** (`corea_particles_per_mM()`), so four of the eight phospho
-values differ from D3 in the seventh decimal — `conc_M_ptsg_P_c` is
-0.0350018 here against D3's 0.0350025, the largest of the four.
+**20180.3873819** (`corea_particles_per_mM()`), so **five** of the eight
+phospho values differ from D3 in the seventh decimal — the four phosphorylated
+forms and `conc_M_ptsg_c`. The largest gap is `conc_M_ptsg_P_c`, 0.0350018 here
+against D3's 0.0350025; every difference is below 7e-7.
 
 The derived factor is the right one: the initial conditions are converted back
 to copies with that same factor, so building them with a rounded one would put
-the carrier totals at 353.007 rather than 353, and phase 7's "sums to its
-published copy number exactly" would have to be relaxed into a tolerance. The
+the carrier totals at 353.007 rather than 353 — a 2e-5 relative error against
+the 1e-16 the derived factor leaves. The round trip is exact to floating-point,
+not literally exact: ptsI sums to 352.99999999999994 and ptsG to
+830.9999999999999, which is why the test asserts `rtol = 1e-12` rather than
+equality. The
 values agree with D3 to six decimals throughout.
