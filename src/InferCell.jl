@@ -44,6 +44,9 @@ include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
 include("models/light_metabolism.jl")
 include("models/tier_b_metabolism.jl")
+# The Core A′ sub-models. Each exports from its own file, so the four parallel
+# module branches of spec §11 phases 6, 7, 8 and 10 do not all append here.
+include("organisms/coreA/nucleotide_recycling.jl")
 include("summary_statistics.jl")
 include("abc_smc.jl")
 include("inference.jl")
