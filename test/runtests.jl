@@ -64,6 +64,10 @@ using Aqua
     # Central glycolysis (spec phase 6), the first Core A′ module. Its
     # energy double is local to the file, not in the shared doubles.
     include("test_corea_central_glycolysis.jl")
+    # Phosphotransferase transport and lactate export (spec phase 7). Needs
+    # corea_test_models.jl for `caught` and contribution_test_models.jl for
+    # `_gidx`, both included above.
+    include("test_corea_pts_transport.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
