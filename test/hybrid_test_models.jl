@@ -547,3 +547,187 @@ function dynamics(u, p, t, ::ToyMembranePool)
     v = kcat * enzyme * atp / (km + atp)
     return SA[-v, v, 0.0, 0.0]
 end
+
+# ---------------------------------------------------------------------------
+# Phase 5b — the inbound volume channel
+# ---------------------------------------------------------------------------
+
+"""
+    toy_rate_law_geometry(n, n0; total = 502831.0, footprint = 28.0)
+
+What an inbound `VolumeEdge` should deliver, written out longhand: the growth
+law, then the 2× volume cap, then all three quantities derived from the capped
+volume so that they describe one sphere.
+
+Independent of `src/handshake.jl` on purpose, as [`toy_growth`](@ref) is. Note
+that this is deliberately **not** `toy_growth(...).radius_nm`: that one is the
+published uncapped radius, which is what a census reports, and above the cap the
+two differ. A test that compared the written value against `toy_growth`'s radius
+would pass below the cap and be checking the wrong thing.
+
+Below the cap the driver passes the reported geometry through rather than
+reconstructing it, so this form and the driver differ by the ulp the
+radius → volume → radius round trip costs. Compare with `rtol = 1e-12`, which is
+the assertion that the delivered value is the sphere's radius however it was
+arrived at.
+"""
+function toy_rate_law_geometry(n, n0; total = 502831.0, footprint = 28.0)
+    g = toy_growth(n, n0; total = total, footprint = footprint)
+    cap = 2 * ((4 / 3) * π * (sqrt(total / (4 * π)) * 1e-9)^3 * 1e3)
+    v = min(g.volume_litres, cap)
+    r = cbrt(3 * v / (4 * π * 1e3)) * 1e9
+    return (radius_nm = r, volume_litres = v, area_nm2 = 4 * π * r^2)
+end
+
+"""
+    toy_export(radius_nm, perm, lac_c)
+
+The export term of [`ToyExportingPool`](@ref), longhand: `3P/r · lac_c`, the
+shape of spec §11 task 7.2's lactate exporter. Written here so a test asserts
+the law rather than the implementation restated.
+
+It is an *export*: the flux leaves the cytosolic pool and enters the medium, so
+the double subtracts it from `:M_lac__L_c` and adds it to `:M_lac__L_e`. The
+sign matters more than it looks — this is the only worked `3P/r` in the repo and
+phase 7 will read it as the shape to follow. The real exporter divides the
+credit by D6's volume ratio; the toy does not, since one number in one direction
+is all the channel needs to be witnessed.
+"""
+toy_export(radius_nm, perm, lac_c) = 3 * perm / radius_nm * lac_c
+
+"""
+    ToyExportingPool(; kcat = 0.0, km = 1.0, enzyme = 1.0, perm = 0.0,
+                       r_cell = COREA_INITIAL_RADIUS_NM, atp0 = 3.6529,
+                       adp0 = 0.2178, ptsi_particles = 353, lac_e0 = 0.5,
+                       quantity = :radius_nm, param_slot = :r_cell_nm,
+                       membrane = [:M_ptsi_c], extracellular = [:M_lac__L_e],
+                       edges = <catalytic + outbound volume + inbound volume>)
+
+`ToyMembranePool` with a geometry-dependent rate law: lactate leaves the
+cytosol for the medium at `3P/r`, and `r` reaches the rate law through an
+**inbound** `VolumeEdge`.
+
+This is the double the inbound channel exists for, and it is deliberately the
+awkward case: it both **flags** a membrane protein with an outbound edge *and*
+reads the geometry with an inbound one. That combination is what `_lower_growth`
+would refuse if its flag↔edge checks were not filtered to producers — it would
+tell this module that its lactate edge names an unflagged species — so every
+test in `test_volume_inbound.jl` runs against a model that would not build
+without the filter.
+
+`r_cell` defaults to the registry's initial radius rather than to a placeholder,
+which is what makes a standalone (homogeneous) build run the published rate law
+at the published geometry. The driver writes `radius_from_area_nm(502831)`
+= 200.03505 nm over it, so the two paths differ in the fourth significant
+figure — deliberately, and asserted.
+
+`quantity`, `param_slot` and `edges` are overridable so a test can build a
+mis-declared variant — a slot that is not a free parameter, two writers for one
+slot, an inbound edge on a state this module does not own — and witness the
+refusal.
+"""
+struct ToyExportingPool <: AbstractSubModel
+    params::Vector{InferParameter}
+    edges::Vector{CouplingEdge}
+    membrane::Vector{Symbol}
+    extracellular::Vector{Symbol}
+end
+
+function ToyExportingPool(; kcat = 0.0, km = 1.0, enzyme = 1.0,
+                          perm = 0.0, r_cell = COREA_INITIAL_RADIUS_NM,
+                          atp0 = 3.6529, adp0 = 0.2178,
+                          ptsi_particles = 353, lac_c0 = 2.0, lac_e0 = 0.0,
+                          quantity = :radius_nm, param_slot = :r_cell_nm,
+                          membrane = [:M_ptsi_c],
+                          extracellular = [:M_lac__L_e],
+                          edges = nothing)
+    default_edges = CouplingEdge[
+        CatalyticEdge(species = :M_ptsg_c, direction = :in,
+                      param_slot = :enzyme_conc),
+        VolumeEdge(species = :M_ptsi_c, direction = :out),
+        VolumeEdge(species = :M_lac__L_e, direction = :in,
+                   param_slot = param_slot, quantity = quantity)]
+    params = [_rate(kcat, :kcat_toy, :ToyExportingPool),
+              _rate(km, :km_toy, :ToyExportingPool),
+              _rate(enzyme, :enzyme_conc, :ToyExportingPool),
+              _rate(perm, :perm_toy, :ToyExportingPool),
+              _rate(r_cell, :r_cell_nm, :ToyExportingPool),
+              _toy_ic(atp0, :M_atp_c0),
+              _toy_ic(adp0, :M_adp_c0),
+              _toy_ic(ptsi_particles / _toy_factor0(), :M_ptsi_c0),
+              _toy_ic(lac_c0, :M_lac__L_c0),
+              _toy_ic(lac_e0, :M_lac__L_e0)]
+    return ToyExportingPool(params,
+                            collect(CouplingEdge,
+                                    edges === nothing ? default_edges : edges),
+                            collect(Symbol, membrane),
+                            collect(Symbol, extracellular))
+end
+
+states(::ToyExportingPool) = [:M_atp_c, :M_adp_c, :M_ptsi_c,
+                              :M_lac__L_c, :M_lac__L_e]
+parameters(m::ToyExportingPool) = m.params
+formalism(::ToyExportingPool) = :ode
+coupling(m::ToyExportingPool) = m.edges
+membrane_protein_states(m::ToyExportingPool) = m.membrane
+extracellular_states(m::ToyExportingPool) = m.extracellular
+function dynamics(u, p, t, ::ToyExportingPool)
+    kcat, km, enzyme, perm, geom = p[1], p[2], p[3], p[4], p[5]
+    atp, lac_c = u[1], u[4]
+    v = kcat * enzyme * atp / (km + atp)
+    # 3P/r out of the cytosol and into the medium. `geom` is whatever the
+    # inbound edge declared, so a test can drive the same rate law from radius,
+    # volume or area and see three different fluxes from one implementation.
+    e = 3 * perm / geom * lac_c
+    return SA[-v, v, 0.0, -e, e]
+end
+
+"""
+    ToyFixedExporter(; perm = 0.0, r_cell = 1.0, lac_c0 = 2.0, lac_e0 = 0.0, ...)
+
+An exporting pool that flags **no** membrane protein and declares **no**
+outbound edge: a fixed cell that still reads the geometry.
+
+`r_cell` defaults to a deliberately wrong `1.0` rather than to the registry
+radius, so that a test asserting the slot holds the driver's geometry cannot
+pass by the declared value happening to be right. This is the composition that
+would silently never be written if the geometry write lived inside
+`_update_volume!`, which returns early when nothing grows.
+
+It owns **only** the two lactate states — no energy pool — so it can be composed
+*behind* another ODE module. That is the second thing it is for: with `ToyPool`
+ahead of it the geometry slot sits at a non-zero offset in the composed ODE
+parameter vector, which is the only place the `ode_contexts[i].param_idxs[j]`
+mapping is exercised at `i > 1`.
+"""
+struct ToyFixedExporter <: AbstractSubModel
+    params::Vector{InferParameter}
+    edges::Vector{CouplingEdge}
+end
+
+function ToyFixedExporter(; perm = 0.0, r_cell = 1.0,
+                          lac_c0 = 2.0, lac_e0 = 0.0,
+                          quantity = :radius_nm, param_slot = :r_cell_nm,
+                          edges = nothing)
+    default_edges = CouplingEdge[
+        VolumeEdge(species = :M_lac__L_e, direction = :in,
+                   param_slot = param_slot, quantity = quantity)]
+    params = [_rate(perm, :perm_fixed, :ToyFixedExporter),
+              _rate(r_cell, :r_cell_nm, :ToyFixedExporter),
+              _toy_ic(lac_c0, :M_lac__L_c0),
+              _toy_ic(lac_e0, :M_lac__L_e0)]
+    return ToyFixedExporter(params,
+                            collect(CouplingEdge,
+                                    edges === nothing ? default_edges : edges))
+end
+
+states(::ToyFixedExporter) = [:M_lac__L_c, :M_lac__L_e]
+parameters(m::ToyFixedExporter) = m.params
+formalism(::ToyFixedExporter) = :ode
+coupling(m::ToyFixedExporter) = m.edges
+extracellular_states(::ToyFixedExporter) = [:M_lac__L_e]
+function dynamics(u, p, t, ::ToyFixedExporter)
+    perm, geom = p[1], p[2]
+    e = 3 * perm / geom * u[1]
+    return SA[-e, e]
+end

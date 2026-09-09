@@ -29,15 +29,27 @@ BUILT_FILL, BUILT_LINE, BUILT_TEXT = "#d5f0dd", "#1e8449", "#145a32"
 TODO_FILL, TODO_LINE, TODO_TEXT = "#ffffff", "#94a3ab", "#5d6d76"
 
 
+# Every phase §11 must carry, written out. A literal rather than a `range` so a
+# lettered phase is as load-bearing as a numbered one, and so adding one is a
+# visible edit here instead of an off-by-one in an arithmetic expression.
+EXPECTED_PHASES = ["0", "1", "2", "3", "4", "5", "5b",
+                   "6", "7", "8", "9", "10", "11", "12",
+                   "13", "14", "15", "16", "17"]
+
 # --- the parser -------------------------------------------------------------
-PHASE_H = re.compile(r"^### Phase (\d+) — (.*)$")
+PHASE_H = re.compile(r"^### Phase (\d+)([a-z]?) — (.*)$")
 PR_LINE = re.compile(r"^\*\*PR:\*\* (.*)$")
 PR_NUM = re.compile(r"^#(\d+) \(merged ([0-9-]+)")
 
 
 class Phase:
-    def __init__(self, n, title):
-        self.n, self.title = n, title
+    def __init__(self, n, key, title):
+        # `n` is the label as the spec writes it -- "5" or "5b" -- because it is
+        # what every badge prints and what ELEMENT_PHASE, DELIVERS, GRID and
+        # DEPS key on. Ordering goes through `key`, never through `n`: sorting
+        # phase labels as strings would put "10" before "5". `key` is stored
+        # rather than derived, since PHASE_H has already split the two parts.
+        self.n, self.key, self.title = n, key, title
         self.pr, self.merged, self.done, self.total = None, None, 0, 0
 
     @property
@@ -66,8 +78,15 @@ def phases(path=SPEC):
         if not in_tasks:
             continue
         m = PHASE_H.match(line)
+        # A heading the regex cannot read would be skipped in silence and its
+        # phase would simply be absent from both figures -- or, worse, its PR
+        # line would be attributed to the phase above it.
+        assert m or not line.startswith("### Phase "), \
+            f"§11 heading not parsed, so its phase would vanish: {line!r}"
         if m:
-            cur = Phase(int(m.group(1)), _plain(m.group(2)))
+            cur = Phase(m.group(1) + m.group(2),
+                        (int(m.group(1)), m.group(2)),
+                        _plain(m.group(3)))
             out[cur.n] = cur
             continue
         if cur is None:
@@ -86,7 +105,7 @@ def phases(path=SPEC):
             cur.total += 1
             cur.done += line.startswith("- [x]")
 
-    missing = [n for n in range(18) if n not in out]
+    missing = [n for n in EXPECTED_PHASES if n not in out]
     assert not missing, f"spec/spec.md §11 has no heading for phase(s) {missing}"
     # Phase 17 states its own tasks are written once phase 16 has run, so a
     # zero-task phase is legitimate; a wholesale format change is not.
@@ -109,25 +128,27 @@ def _plain(s):
 # Authored. The mapping is fig 1c's own node ids, so a renamed node fails the
 # build rather than silently losing a badge.
 ELEMENT_PHASE = {
-    "HOOK": 3, "REBUILD": 4, "GROWTH": 5,
-    "Central": 6, "Transport": 7, "Nucleotide": 8, CHG: 9,
-    "CME:Transcription": 10, "CME:Translation": 11, "CME:mRNAdecay": 12,
+    "HOOK": "3", "REBUILD": "4", "GROWTH": "5",
+    "Central": "6", "Transport": "7", "Nucleotide": "8", CHG: "9",
+    "CME:Transcription": "10", "CME:Translation": "11", "CME:mRNAdecay": "12",
 }
 
 # Which phase turned each edge kind from a declaration into something that runs.
 # Rows are fig 1c's key rows, in fig 1c's order. None = still declare-only.
 EDGE_KIND_PHASE = [
     ("mass", "#1b4f72", "———",
-     "shared state, continuous; gradients cross inside the ODE block", 1),
-    ("currency", "#95a5a6", "- - -", "routed via the pool node", 1),
+     "shared state, continuous; gradients cross inside the ODE block", "1"),
+    ("currency", "#95a5a6", "- - -", "routed via the pool node", "1"),
     ("deferred counter", "#b9770e", "- - -",
-     "CME accrues a cost, the hook debits it one step later", 3),
+     "CME accrues a cost, the hook debits it one step later", "3"),
     ("catalytic", "#7d3c98", "· · · ·",
-     "counts enter rate laws as parameters, no mass flows", 3),
+     "counts enter rate laws as parameters, no mass flows", "3"),
     ("rate constant", "#1e8449", "- - -",
-     "pools re-enter the CME at the 60 s rebuild, piecewise-constant", 4),
+     "pools re-enter the CME at the 60 s rebuild, piecewise-constant", "4"),
     ("volume", "#935116", "———",
-     "counts set surface area, which sets V, which rescales concentrations", 5),
+     "counts set surface area, which sets V, which rescales concentrations;"
+     "<br/>the inbound half — geometry into an ODE rate law — arrives with 5b",
+     "5"),
     ("clamped", "#c0392b", "- - ⊣", "a real dependence replaced by a constant", None),
 ]
 
@@ -139,45 +160,47 @@ EXTRA_KEY_ROWS = [
     ("intra-block", "#7d3c98", "———",
      "<i>not a CouplingEdge</i> — a jump module reads or writes a declared "
      "peer’s state,<br/>gated on <b>written_states</b>, which spec §12 "
-     "(2026-09-04) settled", 2),
+     "(2026-09-04) settled", "2"),
 ]
 
 # One line per phase, naming what it delivers *on the state graph*. Phases that
 # put nothing there say so; that absence is the point of fig 2d.
 DELIVERS = {
-    0: "— nothing in the figure —",
-    1: "the mass and currency arrows inside the ODE grid",
-    2: "the CME block being three coexisting boxes at all",
-    3: "the HOOK device · catalytic and deferred-counter arrows",
-    4: "the REBUILD device · the rate-constant arrows",
-    5: "the GROWTH device · the volume arrow",
-    6: "box: Central (10 rxns)",
-    7: "box: Transport (6 rxns)",
-    8: "box: Nucleotide (5 rxns)",
-    9: "box: tRNA charging (the box that moved)",
-    10: "box: transcription (17 genes)",
-    11: "box: translation (17, plus ptsG translocation)",
-    12: "box: mRNA decay (17)",
-    13: "the whole figure asserted complete, as an object in code",
-    14: "conservation checks over the figure",
-    15: "— nothing in the figure —",
-    16: "— nothing in the figure —",
-    17: "— nothing in the figure —",
+    "0": "— nothing in the figure —",
+    "1": "the mass and currency arrows inside the ODE grid",
+    "2": "the CME block being three coexisting boxes at all",
+    "3": "the HOOK device · catalytic and deferred-counter arrows",
+    "4": "the REBUILD device · the rate-constant arrows",
+    "5": "the GROWTH device · the volume arrow",
+    "5b": "the volume arrow's inbound half — geometry into a rate law",
+    "6": "box: Central (10 rxns)",
+    "7": "box: Transport (6 rxns)",
+    "8": "box: Nucleotide (5 rxns)",
+    "9": "box: tRNA charging (the box that moved)",
+    "10": "box: transcription (17 genes)",
+    "11": "box: translation (17, plus ptsG translocation)",
+    "12": "box: mRNA decay (17)",
+    "13": "the whole figure asserted complete, as an object in code",
+    "14": "conservation checks over the figure",
+    "15": "— nothing in the figure —",
+    "16": "— nothing in the figure —",
+    "17": "— nothing in the figure —",
 }
 
 # The dependency edges §11's parallelism paragraph states, and only those.
 # (from, to, style, note)
 DEPS = [
-    (0, 1, "solid", ""), (1, 2, "solid", ""), (2, 3, "solid", ""),
-    (3, 4, "solid", ""), (4, 5, "solid", ""),
-    (1, 6, "solid", ""), (1, 7, "solid", ""), (1, 8, "solid", ""),
-    (8, 9, "solid", "charging contributes to the pools recycling owns"),
-    (2, 10, "solid", ""), (10, 11, "solid", ""), (10, 12, "solid", ""),
-    (9, 11, "dashed", "can proceed on a double; R1 records the cost"),
-    (5, 13, "solid", ""), (6, 13, "solid", ""), (7, 13, "solid", ""),
-    (9, 13, "solid", ""), (11, 13, "solid", ""), (12, 13, "solid", ""),
-    (13, 14, "solid", ""), (14, 15, "solid", ""), (15, 16, "solid", ""),
-    (16, 17, "solid", ""),
+    ("0", "1", "solid", ""), ("1", "2", "solid", ""), ("2", "3", "solid", ""),
+    ("3", "4", "solid", ""), ("4", "5", "solid", ""), ("5", "5b", "solid", ""),
+    ("1", "6", "solid", ""), ("1", "7", "solid", ""), ("1", "8", "solid", ""),
+    ("5b", "7", "solid", "the inbound volume channel task 7.2 needs"),
+    ("8", "9", "solid", "charging contributes to the pools recycling owns"),
+    ("2", "10", "solid", ""), ("10", "11", "solid", ""), ("10", "12", "solid", ""),
+    ("9", "11", "dashed", "can proceed on a double; R1 records the cost"),
+    ("5", "13", "solid", ""), ("6", "13", "solid", ""), ("7", "13", "solid", ""),
+    ("9", "13", "solid", ""), ("11", "13", "solid", ""), ("12", "13", "solid", ""),
+    ("13", "14", "solid", ""), ("14", "15", "solid", ""), ("15", "16", "solid", ""),
+    ("16", "17", "solid", ""),
 ]
 
 # ---------------------------------------------------------------------------
@@ -396,18 +419,20 @@ ADDED_EDGES = {
 
 # fig 2d's grid: (column, row). Row 0 is the framework spine, rows 1-5 the
 # module fan-out it enables, row 6 the strictly serial tail. Two short rows
-# rather than one long one, because eighteen chips in a line are unreadable.
+# rather than one long one, because nineteen chips in a line are unreadable.
 GRID = {
-    0: (0, 0), 1: (1, 0), 2: (2, 0), 3: (3, 0), 4: (4, 0), 5: (5, 0),
-    6: (2, 1), 7: (2, 2), 8: (2, 3), 9: (4, 3),
-    10: (3, 4), 11: (4, 4), 12: (4, 5),
-    13: (1, 6), 14: (2, 6), 15: (3, 6), 16: (4, 6), 17: (5, 6),
+    "0": (0, 0), "1": (1, 0), "2": (2, 0), "3": (3, 0), "4": (4, 0),
+    "5": (5, 0), "5b": (6, 0),
+    "6": (2, 1), "7": (2, 2), "8": (2, 3), "9": (4, 3),
+    "10": (3, 4), "11": (4, 4), "12": (4, 5),
+    "13": (1, 6), "14": (2, 6), "15": (3, 6), "16": (4, 6), "17": (5, 6),
 }
 
 # Which rows open a band, for the labels down the left-hand side.
 ROW_BAND = {
     0: ("the framework", "no syn3A biology at all — D0's order, and every phase "
-        "merged so far"),
+        "merged so far — 5b last, and it is the one that unblocks the "
+        "fan-out below"),
     1: ("the fan-out — ODE block",
         "6, 7 and 8 are mutually independent; 9 waits on 8"),
     4: ("the fan-out — CME block",

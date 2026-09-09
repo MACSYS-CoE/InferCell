@@ -59,6 +59,8 @@ using Aqua
     include("test_rebuild.jl")
     # Growth and volume (spec phase 5), on the same doubles file.
     include("test_growth.jl")
+    # The volume channel's inbound half (spec phase 5b), same doubles file.
+    include("test_volume_inbound.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

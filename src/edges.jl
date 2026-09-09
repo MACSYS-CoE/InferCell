@@ -248,25 +248,111 @@ RateConstantEdge(; species=nothing, direction=nothing, peer=nothing,
     RateConstantEdge(species, direction, peer, cadence, interval)
 
 """
-    VolumeEdge(; species, direction, peer=nothing)
+Geometric quantities an inbound [`VolumeEdge`](@ref) may deliver to a rate law.
 
-Counts set surface area, which sets volume, which rescales every concentration.
-The second coupling channel from the stochastic block into the deterministic
-one, and the cheapest.
+The names carry their units, and that is load-bearing rather than a style
+choice: nothing in this codebase records a unit anywhere else — `InferParameter`
+has no unit field and neither does `SpeciesEntry` — so the symbol is the only
+place a nanometre can be told from a centimetre. A rate law written in cm that
+asks for `:radius_nm` is a 1e7 error no structural check would catch, and a
+`μm`-for-`nm` slip is a 1e3 error that inference would quietly absorb into the
+permeability it multiplies.
+
+- `:radius_nm` — the cell radius, in nanometres.
+- `:volume_litres` — the cell volume, in litres.
+- `:area_nm2` — the membrane surface area, in square nanometres.
+"""
+const VOLUME_QUANTITIES = (:radius_nm, :volume_litres, :area_nm2)
+
+"""
+    VolumeEdge(; species, direction, peer=nothing,
+                 param_slot=nothing, quantity=nothing)
+
+The volume channel, which runs in both directions and is two different things
+depending on which.
+
+**Outbound** (`direction = :out`) is the half phase 5 built: counts set surface
+area, which sets volume, which rescales every concentration. `species` is the
+membrane protein whose count enters the area, the declaring module must own it
+and must also flag it in `membrane_protein_states`, and neither `param_slot`
+nor `quantity` applies — nothing is written into a rate law, so carrying one
+would imply a channel this edge does not have.
+
+**Inbound** (`direction = :in`) is the half phase 5b built: the cell's geometry
+re-enters an ODE rate law as a parameter, which spec §11 task 7.2 needs for the
+lactate exporter's `3P/r`. Both `param_slot` and `quantity` are required.
+`param_slot` names the position in the declaring module's *own* rate law that
+the driver fills, exactly as [`CatalyticEdge`](@ref) does; `quantity` says which
+geometric quantity, in which unit, from [`VOLUME_QUANTITIES`](@ref).
+
+`species` means something different on the inbound side, and it has to. The
+geometry is global — it is a sum over every flagged state in the composition —
+so it belongs to no module and names no molecule. But every edge must name a
+registry species, so on an inbound edge `species` names **the declaring module's
+own state whose rate law reads the geometry** — external lactate, for the
+exporter. The declaration then says which of this module's rate laws is
+geometry-dependent, which is true, checkable, and the useful thing to report.
+
+!!! warning "A driver-written slot is also a sampled parameter"
+    `param_slot` must be one of the module's *free* parameters, because only
+    those reach the composed parameter vector — and `build_turing_model` and the
+    ABC path both sample every entry of `model_free_params`, a driver-written
+    slot included. The handshake overwrites the drawn value at the first write,
+    so the posterior for such a slot is its prior and **must not be read as an
+    identifiability result**. This is the same trap `rebuilt_params` carries and
+    documents, and it is sharper here: a geometry slot is not an unknown at all
+    but a deterministic function of the driver's own keywords, and in `3P/r` its
+    Jacobian column is exactly proportional to the permeability's, so a rank
+    deficiency of one is an artefact of the declaration rather than a finding.
+    `driver_written_params(driver)` enumerates them. Excluding them from the
+    sampled set belongs to the inference phases (spec §11 phases 15 to 17), the
+    same place [`rebuilt_params`](@ref) assigns it.
 """
 struct VolumeEdge <: CouplingEdge
     species::Symbol
     direction::Symbol
     peer::Union{Symbol, Nothing}
+    param_slot::Union{Symbol, Nothing}
+    quantity::Union{Symbol, Nothing}
 
-    function VolumeEdge(species, direction, peer)
+    function VolumeEdge(species, direction, peer, param_slot, quantity)
         _check_common(:VolumeEdge, species, direction)
-        return new(species, direction, peer)
+        if direction === :in
+            param_slot === nothing && throw(ArgumentError(
+                "An inbound VolumeEdge requires the field `param_slot` — the " *
+                "position in this module's own rate law that the driver fills " *
+                "with the cell's geometry. Without it there is nothing to write " *
+                "and the edge would resolve and never execute"))
+            quantity === nothing && throw(ArgumentError(
+                "An inbound VolumeEdge requires the field `quantity` — which " *
+                "geometric quantity, in which unit, reaches the rate law. " *
+                "Nothing else in this codebase records a unit, so leaving it to " *
+                "a docstring is how a rate law written in cm silently receives " *
+                "nanometres. One of $VOLUME_QUANTITIES"))
+            _check_vocab(:VolumeEdge, :quantity, quantity, VOLUME_QUANTITIES)
+            return new(species, direction, peer, param_slot, quantity)
+        end
+        param_slot === nothing || throw(ArgumentError(
+            "An outbound VolumeEdge takes no `param_slot`; got :$param_slot. " *
+            "Counts leaving a module to set the surface area fill no rate-law " *
+            "parameter, so carrying a slot would imply a write that never " *
+            "happens. The slot belongs on the inbound edge, declared by the " *
+            "module whose rate law reads the geometry"))
+        quantity === nothing || throw(ArgumentError(
+            "An outbound VolumeEdge takes no `quantity`; got :$quantity. The " *
+            "outbound half *sets* the geometry rather than reading one of its " *
+            "quantities, so naming one would describe a channel this edge does " *
+            "not have"))
+        return new(species, direction, peer, nothing, nothing)
     end
 end
 
-VolumeEdge(; species=nothing, direction=nothing, peer=nothing) =
-    VolumeEdge(species, direction, peer)
+# No direction-dependent default, unlike `RateConstantEdge`'s `interval`: an
+# outbound edge must be able to omit both fields and an inbound one must be
+# refused for omitting them, so `nothing` has to reach the inner constructor.
+VolumeEdge(; species=nothing, direction=nothing, peer=nothing,
+           param_slot=nothing, quantity=nothing) =
+    VolumeEdge(species, direction, peer, param_slot, quantity)
 
 """
     ClampedEdge(; species, direction, origin, peer=nothing, held_value=nothing)
@@ -437,7 +523,7 @@ deviation_category(::RateConstantEdge) = :continuous_rebuild
 deviation_category(::ClampedEdge) = :clamp
 
 export CouplingEdge, MassEdge, CurrencyEdge, DeferredCounterEdge, CatalyticEdge,
-       RateConstantEdge, VolumeEdge, ClampedEdge, EDGE_KINDS,
+       RateConstantEdge, VolumeEdge, ClampedEdge, EDGE_KINDS, VOLUME_QUANTITIES,
        edge_kind, is_consumer, is_producer, carries_mass, mass_contribution,
        obstructs_gradients, deviates_from_published, deviation_reason,
        deviation_category

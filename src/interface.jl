@@ -295,16 +295,24 @@ continuous value rather than rounded, so the geometry injects no drift of its
 own into check 0's round trip.
 
 A module that declares names here must also declare an outbound
-[`VolumeEdge`](@ref) on each of them, and the converse: a volume edge with
-nothing flagged is a channel declared and never executed. Both are refused at
-build time.
+[`VolumeEdge`](@ref) on each of them, and the converse: an *outbound* volume
+edge with nothing flagged is a channel declared and never executed. Both are
+refused at build time. The converse holds for the outbound direction only —
+an inbound edge fills a rate-law slot rather than the surface area, flags
+nothing, and is paired against a `param_slot` instead.
 
 **The chain runs only under the hybrid handshake driver**, since it converts
 counts to concentrations and back and only a mixed composition has both sides.
 A homogeneous `build_problem` resolves this declaration and executes nothing
 from it — as it already does for the catalytic, deferred-counter and
 rate-constant edges, which are equally cross-block — so a module smoke-tested
-alone is not evidence that its volume channel works.
+alone is not evidence that its volume channel works. The same is true of an
+inbound edge: standalone, its slot keeps the module's declared value, which
+should therefore be the registry's initial radius so that a standalone run is
+the published rate law at the published geometry rather than a placeholder.
+Note that the driver writes `radius_from_area_nm(502831) = 200.03505` nm and
+not a round 200.0, so the two agree to the four significant figures the source
+states the radius in and differ beyond them.
 """
 membrane_protein_states(::AbstractSubModel) = Symbol[]
 

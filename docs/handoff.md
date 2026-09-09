@@ -1,9 +1,103 @@
 # Handoff
 
-**Session date:** 2026-09-07
-**Branch:** `extra-diagram`
+**Session date:** 2026-09-09
+**Branch:** `phase-5b-inbound-volume-channel`
 
-## Latest: two progress figures, parsed from the spec (2026-09-07)
+## Latest: phase 5b, the inbound volume channel (2026-09-09)
+
+**Why it exists, which is the part worth carrying.** Phases 6, 7, 8 and 10 are
+mutually independent and were about to be built as four parallel PRs. R15 makes
+framework code off-limits on a module branch — and phase 7 breaks that rule by
+construction. Task 7.2 needs the cell radius to reach the lactate exporter's
+`3P/r`, and phase 5 refuses an inbound `VolumeEdge` by name because the type
+carries no parameter slot. The phase 7 author would meet a live `ArgumentError`
+in a file they may not edit.
+
+R15's escalation path is written for a need that *surfaces* during a phase. This
+one was diagnosed by phase 5 and already in the spec; what was missing was a
+place in the ordering. So it is now **phase 5b**, between 5 and 6, and phase 7
+is a pure module phase. Recorded as a §12 amendment dated 2026-09-09.
+
+**What the channel is.** The catalytic channel with the source removed. An
+inbound `VolumeEdge` carries a `param_slot` naming a position in the declaring
+module's own rate law, exactly as `CatalyticEdge` does, and the driver fills it
+at step 0 of every handshake. The resolved record is `GeometryExchange`, which
+is `CatalyticExchange` minus `count_idx` — and that absence *is* the channel:
+the value comes from a driver field, not from any block's state.
+
+**Four decisions that are not derivable from the goal.**
+
+| Decision | Why |
+|---|---|
+| `quantity` is unit-bearing — `:radius_nm`, `:volume_litres`, `:area_nm2` | Nothing else in the codebase records a unit; neither `InferParameter` nor `SpeciesEntry` has the field. The symbol is the only place a nanometre is told from a centimetre, and a `μm`-for-`nm` slip would be absorbed into the permeability it multiplies rather than caught |
+| `species` names the **declarer's own state** whose rate law reads the geometry | The geometry is a sum over every flagged state, so it belongs to no module — but `src/resolver.jl` requires every edge to name a registry species, so a pseudo-species is not available. Naming the membrane protein instead would silently become a different claim the moment task 7.6 flags a second protein |
+| Written **outside** `_update_volume!` | It returns early on `isempty(d.growth)`, so a write inside it would skip exactly the fixed-cell composition phase 7 needs standalone |
+| Rate laws get the geometry of the **capped** volume | `_update_volume!` caps volume and leaves radius uncapped, as `in_out.py:107` does. Harmless while the radius is only reported; wrong once it drives `3P/r`, whose whole content is that `3/r` is a sphere's surface-to-volume ratio. Labelled `:capped_rate_law_geometry` |
+
+**One refinement the first Slurm run forced.** Deriving the rate-law geometry
+from the capped volume *unconditionally* round-trips radius → volume → radius
+and loses an ulp, so a fixed cell at exactly 200 nm handed its rate law
+200.00000000000003. Below the cap the reported geometry is already one sphere,
+so it is now passed through untouched and only the capped branch reconstructs.
+The below-cap assertion is `==`, not `≈`, which is what says so.
+
+**What 5b deliberately does not fix, and who owns it.** A `param_slot` must be a
+*free* parameter, and free non-observation parameters are exactly what inference
+samples — so a driver-written slot is sampled and then overwritten. Pre-existing:
+`rebuilt_params` documents it at `src/interface.jl`, the catalytic channel has it
+undocumented. It is sharper here, because a geometry slot is not an unknown at
+all and in `3P/r` its Jacobian column is exactly proportional to the
+permeability's, so a rank deficiency of one is an artefact of the declaration
+rather than a finding. 5b adds the warning to `VolumeEdge` and
+`driver_written_params(driver)` to enumerate the slots.
+
+**The fix stays where `rebuilt_params` already put it: the inference phases, 15
+to 17.** An earlier draft of this phase assigned it to task 13.3 — that was
+wrong twice over. 13.3 is hybrid *dispatch*, its text says nothing about the
+sampled set, and its test (a mixed composition dispatching or throwing) cannot
+catch this, because the composition that silently samples a geometry slot is the
+*homogeneous* ODE block. Core A′'s four ODE modules compose without any jump
+module, so `infer` on that block runs today and would sample the radius.
+
+**A refusal considered and rejected.** Refusing an inbound edge in a homogeneous
+`build_problem`. Rejected on two grounds: all four cross-block channels are
+accepted by a homogeneous build today, deliberately and documented; and task
+phase 7's own done-when wants the export rate checked "at the registry's
+radius", which is a homogeneous-path assertion. Instead the module declares its
+geometry slot as the registry radius, and `src/interface.jl` records that the
+driver writes 200.03505 nm over it — the two agree to the four significant
+figures the source states the radius in and differ beyond them, deliberately.
+
+**Also closed, as a side effect.** One writer per ODE parameter slot is now
+enforced across the catalytic and geometry channels both (`_claim_slot!`). Two
+catalytic edges into one slot is a hole the catalytic channel had today: both
+lower, both write, the later wins, and the loser is declared, lowered, reported
+and has no effect.
+
+**Suite.** See the run recorded in spec task 5b.11. Both progress figures were
+rebuilt and all five of their build-time guards re-checked in a scratch copy,
+plus a sixth this phase adds: a `### Phase` heading the regex cannot read now
+raises rather than being skipped. The old regex did not skip the new heading
+quietly — it attributed 5b's `**PR:**` line to phase 5 and tripped the
+pre-existing two-PR-lines assertion — but it would have gone quiet for a phase
+whose heading carried no PR line, and the guard closes that.
+
+**A trap for the next person who ticks a spec box.** The figures are generated
+from §11 and the PNGs are byte-reproducible, so ticking a task without
+re-running `make_progress.py` leaves them understating the work by exactly that
+many tasks, silently. It happened once in this session and the review caught it.
+`dev/notes/figures/corea-progress/README.md` now says so.
+
+**Next.** 5b landed as PR #48. The fan-out can start: phases 6, 7, 8 and 10 as four
+parallel PRs. Three of their done-when clauses are still not independent —
+task 8.4 needs phase 6, task 8.5 composes all four ODE modules, task 10.7 checks
+copy numbers against the metabolic modules' — and belong to whichever PR lands
+last, or to phase 13. §11's parallelism paragraph now says so.
+
+---
+
+## Previous: two progress figures, parsed from the spec (2026-09-07)
+
 
 **No executable change. No Julia, no Slurm run.** Six PRs had merged and it had
 become hard to see what they delivered, for a structural reason: every merged
