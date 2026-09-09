@@ -34,7 +34,11 @@ include("handshake.jl")
 # struct is defined, not when a method is called. Each exports its own
 # names from its own file, so concurrent module branches append one
 # include here and touch nothing else.
+#
+# PtsTransport needs handshake.jl in scope too, not merely interface.jl: it
+# defaults a constructor argument to COREA_INITIAL_RADIUS_NM.
 include("organisms/coreA/central_glycolysis.jl")
+include("organisms/coreA/pts_transport.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
