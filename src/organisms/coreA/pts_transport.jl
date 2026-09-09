@@ -135,13 +135,13 @@ function PtsTransport(; data_dir::AbstractString = COREA_DATA_DIR,
                             file = "model_ics")
     tables = [rates, ics]
 
-    # `governing` is passed on every import even though the identifier sets are
-    # disjoint: a declared governing file that is not the holder is refused, so
-    # this turns a future overlap between the two extracts into a load-time
-    # error rather than a silent choice.
     freed = Set(Symbol.(free))
     push!(freed, :r_cell_nm)   # required: a param_slot must be a free parameter
 
+    # `governing` is passed on every import below even though the two extracts'
+    # identifier sets are disjoint. A declared governing file that is not the
+    # holder is refused, so this turns a future overlap between them into a
+    # load-time error rather than a silent choice.
     params = InferParameter[]
     for (name, id) in zip(PTS_SCALARS, PTS_RATE_IDS)
         push!(params, load_parameter(tables, id;
