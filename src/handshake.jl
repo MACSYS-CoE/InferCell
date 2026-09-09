@@ -311,8 +311,8 @@ end
 One inbound [`VolumeEdge`](@ref) made executable: the cell's geometry fills a
 named rate-law parameter of an ODE module, at every handshake.
 
-Structurally this is [`CatalyticExchange`](@ref) with the source removed. There
-is no `count_idx`, and that absence *is* the channel: the value comes from a
+Structurally this is [`CatalyticExchange`](@ref) with the source removed and a
+`quantity` added. There is no `count_idx`, and that absence *is* the channel: the value comes from a
 driver field rather than from any block's state vector, because the geometry is
 a sum over every flagged state in the composition and belongs to no module.
 `species` therefore records which of the declaring module's own rate laws is
@@ -524,7 +524,10 @@ rebuild_census(d::HandshakeDriver) =
 Where the volume chain stands: the flagged states and the block each is read
 from, the total membrane count, the frozen baseline and the footprint, and the
 live area, radius, volume and conversion factor — with `fractional` the volume
-against its initial value and `capped` whether growth has reached the 2× stop.
+against its initial value and `capped` whether growth has reached the 2× stop, `diluted_states` how many ODE
+states growth rescales, and `consumers` one row per inbound `VolumeEdge` — the
+declaring module, its slot, and the value read back out of the ODE parameter
+vector.
 
 `fractional` is the reportable growth quantity. There is deliberately no
 doubling time here; see [`reporting_constraints`](@ref) and
@@ -547,11 +550,15 @@ function growth_census(d::HandshakeDriver)
             # The inbound half. A channel with no state of its own is otherwise
             # invisible from outside: without this row a census would report a
             # growing cell and say nothing about that growth now steering a rate
-            # law. `value` is what the rate law actually receives, which above
-            # the cap is not `radius_nm` — see `_geometry_value`.
+            # law. `value` is **read back from the parameter vector**, not
+            # recomputed: recomputing would report the right geometry even if
+            # the write never landed, which is the one thing this row exists to
+            # witness. Above the cap it is not `radius_nm` — see
+            # `_geometry_value`. Before the first handshake it is still the
+            # module's declared value.
             consumers = [(species = g.species, quantity = g.quantity,
                           param_slot = g.param_slot, declared_by = g.declared_by,
-                          value = _geometry_value(d, g.quantity))
+                          value = d.ode.p[g.param_idx])
                          for g in d.geometry])
 end
 
@@ -1061,38 +1068,31 @@ radius_from_volume_nm(volume_litres) =
 
 # What a rate law receives, as against what `growth_census` reports.
 #
-# The two differ, and only above the growth cap. `_update_volume!` caps the
-# volume and leaves the radius uncapped, as `in_out.py:107` does, so above the
-# cap `d.radius_nm` and `d.volume_litres` describe different cells. Phase 5
+# The two agree everywhere except above the growth cap. `_update_volume!` caps
+# the volume and leaves the radius uncapped, as `in_out.py:107` does, so above
+# the cap `d.radius_nm` and `d.volume_litres` describe different cells. Phase 5
 # could accept that because the radius was only *reported*. Once it drives a
 # rate law it cannot be: the whole content of the lactate exporter's `3P/r` is
-# that `3/r` is the surface-to-volume ratio of a sphere, and that identity is
-# exactly what the cap breaks.
+# that `3/r` is the surface-to-volume ratio of a sphere, and the cap is exactly
+# what breaks that identity.
 #
-# So the geometry a rate law sees is derived from the capped volume, and all
-# three quantities are derived from the same sphere. Below the cap this is the
-# reported geometry to within floating point; above it, it is smaller, and
-# `driver_declarations` carries the departure. Reachable only under prior draws
-# — the cap needs ~11,400 membrane proteins against Core A′'s 831 — which is
-# exactly the regime in which nobody is reading the geometry trace.
+# So above the cap the radius and area a rate law sees are reconstructed from
+# the capped volume, and the three quantities again describe one sphere.
+# `driver_declarations` carries that departure. The volume itself is the same
+# number either way — it *is* the cap up there — so only the radius and the
+# area ever differ from what the census reports.
+#
+# Below the cap nothing is reconstructed. The reported geometry is already one
+# sphere: `volume_litres` was computed from `radius_nm`, which was computed
+# from `area_nm2`. Deriving anyway would round trip radius → volume → radius
+# and lose an ulp, handing a fixed cell at exactly 200 nm a rate law reading
+# 200.00000000000003 for no reason.
 function _geometry_value(d::HandshakeDriver, q::Symbol)
-    # Below the cap the reported geometry is already one sphere — `volume_litres`
-    # was computed from `radius_nm`, which was computed from `area_nm2` — so it
-    # is passed through untouched. Deriving unconditionally would instead round
-    # trip radius → volume → radius and lose an ulp, handing a fixed cell at
-    # exactly 200 nm a rate law reading 200.00000000000003 for no reason.
-    # Only the capped branch has to reconstruct, and only there do the reported
-    # and delivered geometries differ.
-    if d.volume_litres < d.volume_cap_litres
-        q === :radius_nm && return d.radius_nm
-        q === :volume_litres && return d.volume_litres
-        q === :area_nm2 && return d.area_nm2
-    else
-        r = radius_from_volume_nm(d.volume_litres)
-        q === :radius_nm && return r
-        q === :volume_litres && return d.volume_litres
-        q === :area_nm2 && return 4 * π * r^2
-    end
+    capped = d.volume_litres >= d.volume_cap_litres
+    r = capped ? radius_from_volume_nm(d.volume_litres) : d.radius_nm
+    q === :radius_nm && return r
+    q === :volume_litres && return d.volume_litres
+    q === :area_nm2 && return capped ? 4 * π * r^2 : d.area_nm2
     # Not reachable: the edge constructor checks the vocabulary. Named rather
     # than left to a MethodError so a new quantity added to VOLUME_QUANTITIES
     # and forgotten here fails where the omission is.
@@ -1848,11 +1848,12 @@ function driver_declarations(d::HandshakeDriver)
     if !isempty(d.geometry)
         push!(labels, ReductionLabel(
             :capped_rate_law_geometry, :inbound_volume_channel,
-            "the geometry a rate law receives through an inbound VolumeEdge is " *
-            "derived from the *capped* volume, so all three quantities describe " *
-            "one sphere. The reported `radius_nm` is the published uncapped " *
-            "value, as `in_out.py:107` leaves it, and the two agree to floating " *
-            "point below the cap and diverge above it. **Ours**: the published " *
+            "above the growth cap, the radius and area a rate law receives " *
+            "through an inbound VolumeEdge are reconstructed from the *capped* " *
+            "volume, so the three quantities still describe one sphere. Below " *
+            "the cap nothing is reconstructed and the delivered geometry is the " *
+            "reported one exactly; the delivered *volume* is the reported one " *
+            "everywhere, since above the cap it is the cap. **Ours**: the published " *
             "model caps the volume and reports an uncapped radius, which is " *
             "harmless while the radius is only reported and wrong once it drives " *
             "a rate law, because `3P/r` is the surface-to-volume ratio of a " *

@@ -352,7 +352,8 @@ def chip(ph):
     head = (f'<b>{mark} phase {ph.n}</b>' +
             (f' &#160;·&#160; <b>#{ph.pr}</b>' if ph.built else ''))
     stamp = (f'merged {ph.merged} · {ph.done}/{ph.total} tasks' if ph.built else
-             (f'{ph.total} tasks, none ticked' if ph.total else
+             ((f'{ph.done}/{ph.total} tasks, not merged' if ph.done
+              else f'{ph.total} tasks, none ticked') if ph.total else
               'tasks are written once phase 16 has run'))
     return (f'  "P{ph.n}" [pos="{x:.1f},{y:.1f}!", shape=plaintext, style="", label=<'
             f'<table border="1" color="{line}" cellpadding="0" cellspacing="0" '
@@ -374,11 +375,11 @@ def dep_edges(ps):
         # The six edges converging on phase 13 span the whole grid; drawn
         # lighter so they read as "everything lands here" rather than as six
         # separate claims fighting the chips they pass.
-        colour = S.BUILT_LINE if live else ("#c8d0d4" if b == 13 else "#a9b4ba")
+        colour = S.BUILT_LINE if live else ("#c8d0d4" if b == "13" else "#a9b4ba")
         lab = (f', label=<<font point-size="8" color="{S.TODO_TEXT}"><i>{note}</i></font>>'
                if note else "")
         L.append(f'  "P{a}" -> "P{b}" [color="{colour}", style={style}, '
-                 f'penwidth={1.6 if live else (0.9 if b == 13 else 1.1)}, arrowsize=0.7{lab}];')
+                 f'penwidth={1.6 if live else (0.9 if b == "13" else 1.1)}, arrowsize=0.7{lab}];')
     return L
 
 
@@ -419,7 +420,7 @@ def fig2d(ps):
            '  graph [bgcolor="white", margin=0.4, splines=true, overlap=true];',
            '  node [shape=plaintext, fontname="Helvetica"];',
            '  edge [fontname="Helvetica"];']
-    dot += dep_edges(ps) + [chip(ps[n]) for n in sorted(ps)] + band_labels() + [head, foot]
+    dot += dep_edges(ps) + [chip(ps[n]) for n in sorted(ps, key=lambda n: ps[n].key)] + band_labels() + [head, foot]
     return render(dot + ['}'], STEM2, "fig 2d")
 
 

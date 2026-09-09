@@ -18,7 +18,7 @@ record.rebuilds      # one row per rebuilding module: params, pools, interval, r
 record.growth        # per handshake: area_nm2, radius_nm, volume_litres, factor, fractional, capped
 ```
 
-`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and refuses a run that would not end on a drain, since that would leave accrued cost in the counters that nothing debits and nothing names. It returns `(; t, ode, jump, jump_p, growth, census, rebuilds)`: the handshake times, the ODE state in mM, the jump state in particles, the jump block's parameter vector and the cell's geometry at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `jump_p` and `growth` are what make the two channels with no state of their own observable from outside: a refresh count is read off `jump_p` and the growth law off `growth`, rather than restated from the schedule or the counts that produced them. `handshake_step!` runs one exchange.
+`run_handshake!` refuses to run past the `tspan` the driver was built with — `n_steps * interval` must fit inside it — and refuses a run that would not end on a drain, since that would leave accrued cost in the counters that nothing debits and nothing names. It returns `(; t, ode, ode_p, jump, jump_p, growth, census, rebuilds)`: the handshake times, the ODE state in mM, the jump state in particles, both blocks' parameter vectors and the cell's geometry at each of them — per handshake rather than per solver step, because the handshake is the only instant at which the two blocks agree on a state. `ode_p`, `jump_p` and `growth` are what make the channels with no state of their own observable from outside: a refresh count is read off `jump_p`, the growth law off `growth`, and the catalytic and inbound-volume writes off `ode_p`, rather than restated from the schedule or the counts that produced them. `handshake_step!` runs one exchange.
 
 ### Policy keywords
 
@@ -105,7 +105,7 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 
 ## Driver-level departures
 
-`driver_declarations(driver)` enumerates the departures carried by the driver's *policy* rather than by any module's declarations — a `drain_interval` coarser than the exchange, a rounding policy other than fractional carry, and, where the cell grows, the 28.0 nm² footprint being the published model's *calibrated* constant (its own docstring says 35 nm²; the code governs) and the frozen exogenous membrane baseline. `reduction_declarations(models)` structurally cannot see any of them, so pass the driver as a second argument to `reduction_declarations` or `reduction_report` when reporting beside a result.
+`driver_declarations(driver)` enumerates the departures carried by the driver's *policy* rather than by any module's declarations — a `drain_interval` coarser than the exchange, a rounding policy other than fractional carry, where the cell grows, the 28.0 nm² footprint being the published model's *calibrated* constant (its own docstring says 35 nm²; the code governs) and the frozen exogenous membrane baseline, and, where a module reads the geometry, the rate-law geometry being reconstructed from the capped volume above the growth cap. `reduction_declarations(models)` structurally cannot see any of them, so pass the driver as a second argument to `reduction_declarations` or `reduction_report` when reporting beside a result.
 
 ## What this layer does not yet do
 

@@ -305,7 +305,8 @@ geometry-dependent, which is true, checkable, and the useful thing to report.
     Jacobian column is exactly proportional to the permeability's, so a rank
     deficiency of one is an artefact of the declaration rather than a finding.
     `driver_written_params(driver)` enumerates them. Excluding them from the
-    sampled set is spec §11 task 13.3's, not this edge's.
+    sampled set belongs to the inference phases (spec §11 phases 15 to 17), the
+    same place [`rebuilt_params`](@ref) assigns it.
 """
 struct VolumeEdge <: CouplingEdge
     species::Symbol

@@ -33,11 +33,22 @@ using Random
                                 kw...)
     end
 
-    # Where the geometry lands in the composed ODE parameter vector. Looked up
-    # rather than written down, so adding a parameter to the double does not
-    # silently point every assertion at the wrong slot.
-    _slot(m, name = :r_cell_nm) =
-        findfirst(q -> q.name === name, model_free_params(parameters(m)))
+    # Where the geometry lands in the *composed* ODE parameter vector. Computed
+    # over the whole composition by `_build_p0`'s own rule — first-seen name,
+    # ODE modules in order — rather than looked up on one module, because a
+    # module-local index is only the global one when that module is first. Every
+    # assertion below indexes `d.ode.p` with this, so getting it from a single
+    # module would make the multi-module testset silently assert nothing.
+    function _slot(models, name = :r_cell_nm)
+        seen = Symbol[]
+        for m in models
+            formalism(m) === :ode || continue
+            for q in model_free_params(parameters(m))
+                q.name in seen || push!(seen, q.name)
+            end
+        end
+        return findfirst(==(name), seen)
+    end
 
     @testset "5b.1 the constructor refusals, each naming what is wrong" begin
         # An inbound edge with no slot: there would be nothing to write, which
@@ -181,8 +192,9 @@ using Random
     @testset "5b.5 the slot holds this hook's geometry, at every handshake" begin
         Random.seed!(5101)
         m = _reader(perm = 0.0)
-        d = build_problem([m, _grower()]; tspan = (0.0, 20.0))
-        slot = _slot(m)
+        models = [m, _grower()]
+        d = build_problem(models; tspan = (0.0, 20.0))
+        slot = _slot(models)
 
         # Before any handshake the slot is the module's declared value; after
         # one it is the driver's. Those differ in the fourth significant figure
@@ -212,14 +224,16 @@ using Random
 
         # Read off the recorded trajectory rather than the schedule: every
         # handshake's slot is that handshake's geometry.
-        d2 = build_problem([_reader(perm = 0.0), _grower()]; tspan = (0.0, 20.0))
+        m2 = _reader(perm = 0.0)
+        d2 = build_problem([m2, _grower()]; tspan = (0.0, 20.0))
+        slot2 = _slot([m2, _grower()])
         Random.seed!(5102)
         counts = [900, 1200, 1200, 5000, 831]
         vals = Float64[]
         for n in counts
             d2.jump.u[2] = n
             handshake_step!(d2)
-            push!(vals, d2.ode.p[slot])
+            push!(vals, d2.ode.p[slot2])
         end
         @test all(i -> vals[i] ≈ toy_rate_law_geometry(counts[i], 831).radius_nm,
                   eachindex(counts))
@@ -229,8 +243,9 @@ using Random
         Random.seed!(5103)
         for q in VOLUME_QUANTITIES
             m = _reader(perm = 0.0, quantity = q)
-            d = build_problem([m, _grower()]; tspan = (0.0, 10.0))
-            slot = _slot(m)
+            models = [m, _grower()]
+            d = build_problem(models; tspan = (0.0, 10.0))
+            slot = _slot(models)
             d.jump.u[2] = 1662
             handshake_step!(d)
             expected = getproperty(toy_rate_law_geometry(1662, 831), q)
@@ -255,21 +270,37 @@ using Random
         @test 3 / r_cm ≈ a_cm2 / v_cm3 rtol = 1e-12
     end
 
-    @testset "5b.7 a fixed cell is written too" begin
-        # The composition that would silently never be written if the geometry
-        # write lived inside `_update_volume!`, which returns early when nothing
-        # grows. `ToyFixedExporter` declares r_cell = 1.0, so a skipped write is
-        # a 200x error rather than a subtle one.
+    @testset "5b.7 a fixed cell is written, behind a second ODE module" begin
+        # Two things at once, because they share a composition.
+        #
+        # A fixed cell: nothing flags a membrane protein, so `_update_volume!`
+        # returns early. `ToyFixedExporter` declares `r_cell = 1.0`, so a write
+        # skipped by living inside that early return is a 200x error, not a
+        # subtle one.
+        #
+        # And the geometry slot sits on the *second* ODE module, behind
+        # `ToyPool`'s three free parameters. That is the only place
+        # `ode_contexts[i].param_idxs[j]` is exercised at `i > 1`: a mapping that
+        # confused the module-local index for the global one would write into
+        # `ToyPool`'s rate law instead — in range, type-correct, and silent.
         Random.seed!(5104)
         m = ToyFixedExporter(perm = 0.0)
-        d = build_problem([m, ToyExpression()]; tspan = (0.0, 10.0))
-        slot = _slot(m)
+        models = [ToyPool(kcat = 0.0), m, ToyExpression()]
+        d = build_problem(models; tspan = (0.0, 10.0))
+        slot = _slot(models)
 
         @test isempty(d.growth)          # the cell does not grow
         @test length(d.geometry) == 1    # and still reads the geometry
+        # The offset is real: local index 2 on its own module, global 5 here.
+        @test slot == 5
+        @test _slot([m]) == 2
+
         @test d.ode.p[slot] == 1.0
         handshake_step!(d)
         @test d.ode.p[slot] == COREA_INITIAL_RADIUS_NM
+        # ToyPool's own slots are untouched by the geometry write.
+        @test d.ode.p[1] == 0.0          # kcat_toy, as declared
+        @test d.ode.p[2] == 1.0          # km_toy, as declared
 
         # It stays there, rather than being written once and drifting.
         rec = run_handshake!(d, 5)
@@ -277,22 +308,25 @@ using Random
 
         # A fixed cell given an explicit radius reads that one.
         m2 = ToyFixedExporter(perm = 0.0)
-        d2 = build_problem([m2, ToyExpression()]; tspan = (0.0, 10.0),
-                           radius_nm = 250.0)
+        models2 = [ToyPool(kcat = 0.0), m2, ToyExpression()]
+        d2 = build_problem(models2; tspan = (0.0, 10.0), radius_nm = 250.0)
         handshake_step!(d2)
-        @test d2.ode.p[_slot(m2)] == 250.0
+        @test d2.ode.p[_slot(models2)] == 250.0
     end
 
     @testset "5b.8 above the cap the rate law still sees one sphere" begin
         # `_update_volume!` caps the volume and leaves the radius uncapped, as
         # in_out.py:107 does. That is harmless while the radius is only
         # reported and wrong once it drives 3P/r, whose whole content is that
-        # 3/r is a sphere's surface-to-volume ratio. So what a rate law receives
-        # is derived from the capped volume, and the three quantities agree.
+        # 3/r is a sphere's surface-to-volume ratio. So above the cap the radius
+        # and area a rate law receives are reconstructed from the capped volume
+        # and the three quantities again describe one sphere; below it nothing
+        # is reconstructed.
         Random.seed!(5105)
         m = _reader(perm = 0.0)
-        d = build_problem([m, _grower()]; tspan = (0.0, 20.0))
-        slot = _slot(m)
+        models = [m, _grower()]
+        d = build_problem(models; tspan = (0.0, 20.0))
+        slot = _slot(models)
 
         # Below the cap, the rate law's radius and the reported one agree.
         handshake_step!(d)
@@ -320,7 +354,8 @@ using Random
     @testset "5b.9 the channel is visible from outside" begin
         Random.seed!(5106)
         m = _reader(perm = 0.0)
-        d = build_problem([m, _grower()]; tspan = (0.0, 10.0))
+        models = [m, _grower()]
+        d = build_problem(models; tspan = (0.0, 10.0))
         handshake_step!(d)
 
         c = only(growth_census(d).consumers)
@@ -328,7 +363,13 @@ using Random
         @test c.quantity === :radius_nm
         @test c.param_slot === :r_cell_nm
         @test c.declared_by === :ToyExportingPool
-        @test c.value == d.ode.p[_slot(m)]
+        @test c.value == d.ode.p[_slot(models)]
+
+        # The row is read back out of the parameter vector, not recomputed: a
+        # census that recomputed would report the right geometry even if the
+        # write never landed, which is the one thing it exists to witness.
+        d.ode.p[_slot(models)] = -1.0
+        @test only(growth_census(d).consumers).value == -1.0
 
         # A composition with no consumer says so, rather than omitting the row.
         plain = build_problem([ToyPool(kcat = 0.0), _grower()]; tspan = (0.0, 10.0))
@@ -343,7 +384,14 @@ using Random
         @test (param_slot = :r_cell_nm, channel = :volume,
                declared_by = :ToyExportingPool) in written
         @test any(w -> w.channel === :catalytic, written)
-        @test :r_cell_nm in [q.name for q in model_free_params(parameters(m))]
+
+        # The third channel, on phase 4's own composition. Task 13.3 reads this
+        # to decide what not to sample, so a rebuilt slot silently missing from
+        # it is a posterior that gets read as an identifiability result.
+        reb = build_problem([toy_slow_pool(), ToyRebuiltExpression()];
+                            tspan = (0.0, 120.0))
+        @test (param_slot = :k_tx_rb, channel = :rate_constant,
+               declared_by = :ToyRebuiltExpression) in driver_written_params(reb)
     end
 
     @testset "Done when: an inbound edge resolves, executes, and drives a flux" begin
@@ -352,27 +400,30 @@ using Random
         # cell grows. Without the channel the flux would be constant.
         Random.seed!(5107)
         m = _reader(perm = 1e-4)
-        d = build_problem([m, _grower()]; tspan = (0.0, 60.0))
-        slot = _slot(m)
-        lac = 4                                    # :M_lac__L_e is the 4th state
+        models = [m, _grower()]
+        d = build_problem(models; tspan = (0.0, 60.0))
+        slot = _slot(models)
+        lac_c, lac_e = 4, 5
 
         d.jump.u[2] = 831
         handshake_step!(d)
-        r_small, lac_small = d.ode.p[slot], d.ode.u[lac]
+        r_small, cyto = d.ode.p[slot], d.ode.u[lac_c]
 
         d.jump.u[2] = 30_000
         handshake_step!(d)
         r_big = d.ode.p[slot]
 
-        # The cell grew, so 3P/r fell, so the export slowed.
+        # The cell grew, so 3P/r fell, so the export slowed — compared at one
+        # common cytosolic concentration, so it is the geometry and not the pool.
         @test r_big > r_small
-        @test toy_export(r_big, 1e-4, lac_small) < toy_export(r_small, 1e-4, lac_small)
+        @test toy_export(r_big, 1e-4, cyto) < toy_export(r_small, 1e-4, cyto)
 
-        # Lactate is exempt from dilution, so its fall is the export and nothing
-        # else — the rate law really ran on the written radius.
-        @test d.ode.u[lac] < lac_small
-        @test d.ode.u[lac] > 0
+        # Lactate really moved, and in the export direction: out of the cytosol,
+        # into the medium. The medium pool is exempt from dilution, so its rise
+        # is the export and nothing else.
+        @test d.ode.u[lac_c] < 2.0
+        @test d.ode.u[lac_e] > 0.0
 
-        @info "phase 5b done-when" handshakes = d.n_handshakes r_small = r_small r_big = r_big lactate = d.ode.u[lac] consumers = length(d.geometry)
+        @info "phase 5b done-when" handshakes = d.n_handshakes r_small = r_small r_big = r_big cytosolic = d.ode.u[lac_c] exported = d.ode.u[lac_e] consumers = length(d.geometry)
     end
 end

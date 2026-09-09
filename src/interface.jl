@@ -311,7 +311,8 @@ inbound edge: standalone, its slot keeps the module's declared value, which
 should therefore be the registry's initial radius so that a standalone run is
 the published rate law at the published geometry rather than a placeholder.
 Note that the driver writes `radius_from_area_nm(502831) = 200.03505` nm and
-not a round 200.0, so the two paths differ in the fourth significant figure.
+not a round 200.0, so the two agree to the four significant figures the source
+states the radius in and differ beyond them.
 """
 membrane_protein_states(::AbstractSubModel) = Symbol[]
 

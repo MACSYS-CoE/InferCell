@@ -8,7 +8,7 @@ who knows only fig 1c has no way to tell which of its parts exist.
 | Figure | What it claims |
 |---|---|
 | `fig1d_state_graph_progress.{pdf,png}` | **only what the Core A′ reduction keeps**, laid out fresh, with every module and device badged by the spec §11 phase that writes it, and the edge-kind key gaining an **executes since** column |
-| `fig2d_phase_roadmap.{pdf,png}` | all eighteen phases in dependency order, including the five that put nothing on a state graph at all |
+| `fig2d_phase_roadmap.{pdf,png}` | all nineteen phases in dependency order, including the five that put nothing on a state graph at all |
 
 | File | |
 |---|---|
@@ -92,9 +92,16 @@ directory:
 |---|---|
 | a coupling dropped from `EDGES` | `fig 1d drops a coupling Core A′ keeps: [('Central', 'Transport')]` |
 | a coupling invented and not declared | `fig 1d draws a coupling fig 1c does not, and does not declare it in ADDED_EDGES` |
-| a renamed `### Phase N — …` heading | `spec/spec.md §11 has no heading for phase(s) [9]` |
+| a `### Phase …` heading the regex cannot read | `§11 heading not parsed, so its phase would vanish: '…'` |
+| a deleted or renumbered phase | `spec/spec.md §11 has no heading for phase(s) ['5b']` |
 | a merged phase with an unticked task | `phase 4 is merged as #45 but only 6/7 ticked` |
 | an `ELEMENT_PHASE` id the figure does not draw | `fig 1d has no node 'HOOKX' to badge` |
+
+The first two were one guard until phase 5b. A heading the regex could not read
+used to be skipped, and the phase then went missing — which the completeness
+check caught only because it knew the phase's name. Reading the heading and
+failing on it is the closer guard, and it is what makes a lettered phase safe to
+add.
 
 ## The one coupling fig 1d draws that fig 1c does not
 
@@ -144,7 +151,10 @@ Needs Graphviz (`neato`) and `pdfinfo`. It still builds fig 1c's edge list, so
 it also prints fig 1c's note that the rebuilt fig 1 is not byte-identical to the
 shipped raster — see `../corea-coupling/README.md` for why that is expected on
 the cluster and why it is reported rather than fatal. A clean rebuild reproduces
-both PNGs byte for byte.
+both PNGs byte for byte; the PDFs differ every run, since they embed a creation
+date. So a PNG diff after a rebuild means the spec moved and the committed
+figures did not — **regenerate before committing a spec change that ticks a
+box**, or the figures understate the work by exactly that many tasks.
 
 ## Judgement calls
 

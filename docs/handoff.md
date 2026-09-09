@@ -49,19 +49,24 @@ undocumented. It is sharper here, because a geometry slot is not an unknown at
 all and in `3P/r` its Jacobian column is exactly proportional to the
 permeability's, so a rank deficiency of one is an artefact of the declaration
 rather than a finding. 5b adds the warning to `VolumeEdge` and
-`driver_written_params(driver)` to enumerate the slots. **Task 13.3 owns the
-fix — and note that 13.3's own test does not cover this case**, because the
-composition that silently samples a geometry slot is the *homogeneous* ODE
-block, not a mixed one.
+`driver_written_params(driver)` to enumerate the slots.
+
+**The fix stays where `rebuilt_params` already put it: the inference phases, 15
+to 17.** An earlier draft of this phase assigned it to task 13.3 — that was
+wrong twice over. 13.3 is hybrid *dispatch*, its text says nothing about the
+sampled set, and its test (a mixed composition dispatching or throwing) cannot
+catch this, because the composition that silently samples a geometry slot is the
+*homogeneous* ODE block. Core A′'s four ODE modules compose without any jump
+module, so `infer` on that block runs today and would sample the radius.
 
 **A refusal considered and rejected.** Refusing an inbound edge in a homogeneous
 `build_problem`. Rejected on two grounds: all four cross-block channels are
 accepted by a homogeneous build today, deliberately and documented; and task
-7.2's own verification clause wants the export rate checked "at the registry's
+phase 7's own done-when wants the export rate checked "at the registry's
 radius", which is a homogeneous-path assertion. Instead the module declares its
 geometry slot as the registry radius, and `src/interface.jl` records that the
-driver writes 200.03505 nm over it — the two paths differ in the fourth
-significant figure, deliberately.
+driver writes 200.03505 nm over it — the two agree to the four significant
+figures the source states the radius in and differ beyond them, deliberately.
 
 **Also closed, as a side effect.** One writer per ODE parameter slot is now
 enforced across the catalytic and geometry channels both (`_claim_slot!`). Two
@@ -69,14 +74,21 @@ catalytic edges into one slot is a hole the catalytic channel had today: both
 lower, both write, the later wins, and the loser is declared, lowered, reported
 and has no effect.
 
-**Suite.** Job 16340726, **1463/1463** (1381 before the phase). Both progress
-figures rebuilt, and all four of their guards re-checked in a scratch copy —
-including the new one: a `### Phase` heading the regex cannot read now raises
-rather than being skipped. That guard earns its place independently of 5b, since
-the old regex did not merely skip the new heading, it attributed 5b's `**PR:**`
-line to phase 5.
+**Suite.** See the run recorded in spec task 5b.11. Both progress figures were
+rebuilt and all five of their build-time guards re-checked in a scratch copy,
+plus a sixth this phase adds: a `### Phase` heading the regex cannot read now
+raises rather than being skipped. The old regex did not skip the new heading
+quietly — it attributed 5b's `**PR:**` line to phase 5 and tripped the
+pre-existing two-PR-lines assertion — but it would have gone quiet for a phase
+whose heading carried no PR line, and the guard closes that.
 
-**Next.** With 5b merged the fan-out can start: phases 6, 7, 8 and 10 as four
+**A trap for the next person who ticks a spec box.** The figures are generated
+from §11 and the PNGs are byte-reproducible, so ticking a task without
+re-running `make_progress.py` leaves them understating the work by exactly that
+many tasks, silently. It happened once in this session and the review caught it.
+`dev/notes/figures/corea-progress/README.md` now says so.
+
+**Next.** 5b is open as PR #48, not yet merged. Once it lands the fan-out can start: phases 6, 7, 8 and 10 as four
 parallel PRs. Three of their done-when clauses are still not independent —
 task 8.4 needs phase 6, task 8.5 composes all four ODE modules, task 10.7 checks
 copy numbers against the metabolic modules' — and belong to whichever PR lands

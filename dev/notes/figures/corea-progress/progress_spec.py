@@ -29,31 +29,28 @@ BUILT_FILL, BUILT_LINE, BUILT_TEXT = "#d5f0dd", "#1e8449", "#145a32"
 TODO_FILL, TODO_LINE, TODO_TEXT = "#ffffff", "#94a3ab", "#5d6d76"
 
 
-# Every phase §11 must carry. Explicit rather than `range(18)` so a lettered
-# phase is as load-bearing as a numbered one, and so adding one is a visible
-# edit here rather than an off-by-one.
-EXPECTED_PHASES = ([str(n) for n in range(6)] + ["5b"]
-                   + [str(n) for n in range(6, 18)])
+# Every phase §11 must carry, written out. A literal rather than a `range` so a
+# lettered phase is as load-bearing as a numbered one, and so adding one is a
+# visible edit here instead of an off-by-one in an arithmetic expression.
+EXPECTED_PHASES = ["0", "1", "2", "3", "4", "5", "5b",
+                   "6", "7", "8", "9", "10", "11", "12",
+                   "13", "14", "15", "16", "17"]
 
 # --- the parser -------------------------------------------------------------
-PHASE_H = re.compile(r"^### Phase (\d+[a-z]?) — (.*)$")
+PHASE_H = re.compile(r"^### Phase (\d+)([a-z]?) — (.*)$")
 PR_LINE = re.compile(r"^\*\*PR:\*\* (.*)$")
 PR_NUM = re.compile(r"^#(\d+) \(merged ([0-9-]+)")
 
 
 class Phase:
-    def __init__(self, n, title):
+    def __init__(self, n, key, title):
         # `n` is the label as the spec writes it -- "5" or "5b" -- because it is
         # what every badge prints and what ELEMENT_PHASE, DELIVERS, GRID and
         # DEPS key on. Ordering goes through `key`, never through `n`: sorting
-        # phase labels as strings would put "10" before "5".
-        self.n, self.title = n, title
+        # phase labels as strings would put "10" before "5". `key` is stored
+        # rather than derived, since PHASE_H has already split the two parts.
+        self.n, self.key, self.title = n, key, title
         self.pr, self.merged, self.done, self.total = None, None, 0, 0
-
-    @property
-    def key(self):
-        m = re.match(r"^(\d+)([a-z]?)$", self.n)
-        return (int(m.group(1)), m.group(2))
 
     @property
     def built(self):
@@ -87,7 +84,9 @@ def phases(path=SPEC):
         assert m or not line.startswith("### Phase "), \
             f"§11 heading not parsed, so its phase would vanish: {line!r}"
         if m:
-            cur = Phase(m.group(1), _plain(m.group(2)))
+            cur = Phase(m.group(1) + m.group(2),
+                        (int(m.group(1)), m.group(2)),
+                        _plain(m.group(3)))
             out[cur.n] = cur
             continue
         if cur is None:
@@ -420,7 +419,7 @@ ADDED_EDGES = {
 
 # fig 2d's grid: (column, row). Row 0 is the framework spine, rows 1-5 the
 # module fan-out it enables, row 6 the strictly serial tail. Two short rows
-# rather than one long one, because eighteen chips in a line are unreadable.
+# rather than one long one, because nineteen chips in a line are unreadable.
 GRID = {
     "0": (0, 0), "1": (1, 0), "2": (2, 0), "3": (3, 0), "4": (4, 0),
     "5": (5, 0), "5b": (6, 0),
@@ -432,7 +431,8 @@ GRID = {
 # Which rows open a band, for the labels down the left-hand side.
 ROW_BAND = {
     0: ("the framework", "no syn3A biology at all — D0's order, and every phase "
-        "merged so far — 5b last, and it is what unblocks the fan-out"),
+        "merged so far except 5b, which is last in the band and is what "
+        "unblocks the fan-out"),
     1: ("the fan-out — ODE block",
         "6, 7 and 8 are mutually independent; 9 waits on 8"),
     4: ("the fan-out — CME block",
