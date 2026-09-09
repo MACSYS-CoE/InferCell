@@ -68,6 +68,9 @@ using Aqua
     # corea_test_models.jl for `caught` and contribution_test_models.jl for
     # `_gidx`, both included above.
     include("test_corea_pts_transport.jl")
+    # Nucleotide recycling (spec phase 8), which owns the pools the other
+    # three ODE modules route energy through.
+    include("test_corea_nucleotide_recycling.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

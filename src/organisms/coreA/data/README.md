@@ -262,3 +262,50 @@ not literally exact: ptsI sums to 352.99999999999994 and ptsG to
 830.9999999999999, which is why the test asserts `rtol = 1e-12` rather than
 equality. The
 values agree with D3 to six decimals throughout.
+
+## Nucleotide recycling (spec §11 phase 8)
+
+| File | Logical name | Upstream |
+|---|---|---|
+| `nucleotide_recycling.tsv` | `nucleotide_balanced` | `CME_ODE/model_data/Nucleotide_Kinetic_Parameters.tsv` |
+| `nucleotide_recycling_central.tsv` | `central_balanced` | `CME_ODE/model_data/Central_AA_Zane_Balanced_direction_fixed_nounqATP.tsv` |
+
+Each holds the **same 35 identifiers**: 10 catalytic constants (a forward and a
+reverse for each of PGK3, PYK3, ADK1, GK1 and PPA), 17 Michaelis constants, and
+8 concentrations. All are read from the balanced `Parameter` table — the one
+declaring `TableName='Parameter'`, not the earlier `TableName='Quantity'`
+hand-patch layer.
+
+**Why the second extract exists, and it is not redundancy.** All five reactions
+and all eight initial conditions are parameterised in *both* balanced files.
+Vendoring only the governing file would leave every `load_parameter` call with a
+single holder, and the `governing` declarations would pass without ever being
+exercised. With both loaded, each identifier has two holders: an undeclared
+import fails, and a declared one records what it rejected (spec §4 D2). The
+nucleotide file governs all five reactions; the central file's rival values are
+not a second estimate but an artefact of balancing with no data, and their
+geometric standard deviations of 1e33 to 1e63 against 1.0513 say so
+mechanically. Taking the central file's pyrophosphatase constant would have run
+the enzyme **902× too fast** — an error that hides because it makes a
+phosphate-closure check pass.
+
+`central_balanced` is the same logical name `add-central-glycolysis` uses, so if
+both modules are composed the provenance strings agree and a later change can
+merge the two extracts without renaming anything.
+
+The `conc_<species>` prefix on the eight initial conditions is deliberate: it is
+what fires `_check_registry_agreement`, so each is checked against
+`src/organisms/coreA/registry.jl` on every load. The module additionally asserts
+that its governing choice equals that species' `source_file` field there — the
+loader checks the value, the module checks the file, and between them the
+registry and the extract cannot disagree in either dimension.
+
+### Regenerate
+
+```
+julia dev/scripts/extract_nucleotide_recycling.jl <path to Minimal_Cell checkout>
+```
+
+Writes both nucleotide-recycling extracts. **Re-running it must leave both files
+byte-identical**; a diff means the upstream checkout is not at `db048ac`, or the
+reshape changed.

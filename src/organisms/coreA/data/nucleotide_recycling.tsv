@@ -1,0 +1,41 @@
+!!SBtab TableType='Quantity' TableName='nucleotide_balanced (Core A′ nucleotide-recycling extract)'
+!ID	!Mode	!GeometricStd	!UpstreamRow
+% Derived from Nucleotide_Kinetic_Parameters.tsv at Luthey-Schulten-Lab/Minimal_Cell
+% commit db048ac, balanced Parameter table. Regenerate with the
+% command in src/organisms/coreA/data/README.md. The reshape renames
+% identifiers and reorders rows; it changes no value.
+kcatF_R_PGK3	140.8	1.0513	substrate catalytic rate constant|R_PGK3|
+kcatR_R_PGK3	0.030214276516037	1.0513	product catalytic rate constant|R_PGK3|
+kcatF_R_PYK3	672.84	1.0513	substrate catalytic rate constant|R_PYK3|
+kcatR_R_PYK3	0.0014	20.9517	product catalytic rate constant|R_PYK3|
+kcatF_R_ADK1	319.1556	1.0513	substrate catalytic rate constant|R_ADK1|
+kcatR_R_ADK1	783.2866	1.0513	product catalytic rate constant|R_ADK1|
+kcatF_R_GK1	410.2268	1.0513	substrate catalytic rate constant|R_GK1|
+kcatR_R_GK1	127.921	31.1453	product catalytic rate constant|R_GK1|
+kcatF_R_PPA	646.7271	1.0513	substrate catalytic rate constant|R_PPA|
+kcatR_R_PPA	0.1874	71.539	product catalytic rate constant|R_PPA|
+km_R_PGK3_M_13dpg_c	0.0032	5.2516	Michaelis constant|R_PGK3|M_13dpg_c
+km_R_PGK3_M_gdp_c	0.5357	6.3152	Michaelis constant|R_PGK3|M_gdp_c
+km_R_PGK3_M_3pg_c	0.7944	1.9838	Michaelis constant|R_PGK3|M_3pg_c
+km_R_PGK3_M_gtp_c	0.2033	6.3152	Michaelis constant|R_PGK3|M_gtp_c
+km_R_PYK3_M_gdp_c	0.2814	3.0555	Michaelis constant|R_PYK3|M_gdp_c
+km_R_PYK3_M_pep_c	0.075	3.7093	Michaelis constant|R_PYK3|M_pep_c
+km_R_PYK3_M_gtp_c	0.1376	9.3705	Michaelis constant|R_PYK3|M_gtp_c
+km_R_PYK3_M_pyr_c	0.0589	4.1472	Michaelis constant|R_PYK3|M_pyr_c
+km_R_ADK1_M_amp_c	0.096	3.5126	Michaelis constant|R_ADK1|M_amp_c
+km_R_ADK1_M_atp_c	0.1426	3.2443	Michaelis constant|R_ADK1|M_atp_c
+km_R_ADK1_M_adp_c	0.2669	2.0491	Michaelis constant|R_ADK1|M_adp_c
+km_R_GK1_M_atp_c	0.1501	3.2838	Michaelis constant|R_GK1|M_atp_c
+km_R_GK1_M_gmp_c	0.0259	5.0372	Michaelis constant|R_GK1|M_gmp_c
+km_R_GK1_M_adp_c	0.0676	9.3915	Michaelis constant|R_GK1|M_adp_c
+km_R_GK1_M_gdp_c	0.0236	4.741	Michaelis constant|R_GK1|M_gdp_c
+km_R_PPA_M_ppi_c	0.0024	4.0837	Michaelis constant|R_PPA|M_ppi_c
+km_R_PPA_M_pi_c	0.0976	7.88	Michaelis constant|R_PPA|M_pi_c
+conc_M_atp_c	3.6529	1.2825	concentration||M_atp_c
+conc_M_adp_c	0.2178	2.9035	concentration||M_adp_c
+conc_M_amp_c	0.0832	3.7558	concentration||M_amp_c
+conc_M_pi_c	17.8185	1.0574	concentration||M_pi_c
+conc_M_gtp_c	1.6627	1.5684	concentration||M_gtp_c
+conc_M_gdp_c	0.2981	2.6522	concentration||M_gdp_c
+conc_M_gmp_c	0.0117	5.8223	concentration||M_gmp_c
+conc_M_ppi_c	0.1	10	concentration||M_ppi_c
