@@ -29,7 +29,8 @@ silently dropped from its body, so membership is enforced at construction.
 const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
                               :continuous_rebuild, :coarse_drain, :rounding_policy,
                               :calibrated_constant, :exogenous_growth,
-                              :asserted_prior, :lumping)
+                              :asserted_prior, :lumping,
+                              :capped_rate_law_geometry)
 
 """
     ReductionLabel

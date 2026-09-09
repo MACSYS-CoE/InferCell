@@ -134,7 +134,9 @@ using Random
                                     counter = :atp_cost)])];
             tspan = (0.0, 10.0)))
         @test err isa ArgumentError
-        @test occursin("no VolumeEdge", sprint(showerror, err))
+        # "outbound" since phase 5b: an inbound edge does not discharge a flag's
+        # obligation, so the message has to say which direction is missing.
+        @test occursin("no outbound VolumeEdge", sprint(showerror, err))
 
         # An edge with nothing flagged: declared and never executed, the trap
         # phase 4 spent a task closing on the rate-constant channel.
@@ -145,14 +147,16 @@ using Random
         msg = sprint(showerror, err)
         @test occursin("never", msg) && occursin("VolumeEdge", msg)
 
-        # The direction convention read backwards. Volume re-entering a rate law
-        # is the half of this channel phase 5 does not build.
-        err = caught(() -> build_problem(
-            [ToyPool(), ToyGrowingExpression(edges = CouplingEdge[
-                VolumeEdge(species = :M_ptsg_c, direction = :in)])];
-            tspan = (0.0, 10.0)))
+        # The direction convention read backwards. Phase 5 refused an inbound
+        # edge here, at build time, because there was no half of the channel to
+        # execute it. Phase 5b built that half, so a bare inbound edge is now
+        # refused *earlier* — by the constructor, for carrying no `param_slot`
+        # and no `quantity` — and `test_volume_inbound.jl` asserts it there.
+        # What this file still owns is that a bare inbound edge never reaches
+        # the flag pairing at all.
+        err = caught(() -> VolumeEdge(species = :M_ptsg_c, direction = :in))
         @test err isa ArgumentError
-        @test occursin("inbound", sprint(showerror, err))
+        @test occursin("param_slot", sprint(showerror, err))
 
         # An edge on a species this module does not flag: its count would reach
         # no surface area.

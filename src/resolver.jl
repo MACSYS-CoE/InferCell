@@ -412,6 +412,24 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
                     "route the currency nowhere"))
             end
 
+            # An inbound volume edge reads the cell's geometry, which is a sum
+            # over every flagged state in the composition and so belongs to no
+            # module. Its `species` therefore names the declarer's *own* state
+            # whose rate law reads that geometry. Naming anything else — a peer's
+            # state, or the membrane protein the outbound edge names — would
+            # describe a dependence that does not exist, and would silently
+            # become a different claim the moment a second module flags a second
+            # membrane protein, which spec §11 task 7.6 plans.
+            if e isa VolumeEdge && is_consumer(e) && !(e.species in states(m))
+                throw(ArgumentError(
+                    "Module $name declares an inbound VolumeEdge on :$(e.species), " *
+                    "which it does not own — states($name) is $(states(m)). On " *
+                    "the inbound side the species names this module's own state " *
+                    "whose rate law reads the geometry, so the declaration says " *
+                    "which rate law is geometry-dependent. The geometry itself is " *
+                    "global and names no species"))
+            end
+
             # A clamp on a chemostatted species must hold it at the registry's
             # value: two modules clamping one medium concentration differently
             # would each pass alone and silently disagree at the join.

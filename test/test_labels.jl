@@ -100,15 +100,16 @@ using Distributions
     @testset "A label category outside the vocabulary is rejected" begin
         @test_throws ArgumentError ReductionLabel(:clmap, :M_atp_c, "typo")
         # Pinned, because a category outside this tuple is counted by the
-        # report's header and dropped from its body. Four are the *driver's*
+        # report's header and dropped from its body. Five are the *driver's*
         # policy rather than any module's declaration, and are enumerated by
-        # `driver_declarations` (spec §11 tasks 4.6, 3.3 and 5.2); they share
-        # the vocabulary because they share the report.
+        # `driver_declarations` (spec §11 tasks 4.6, 3.3, 5.2 and 5b.8); they
+        # share the vocabulary because they share the report.
         @test REDUCTION_CATEGORIES == (:clamp, :smoothed_counter,
                                        :unclamped_counter, :continuous_rebuild,
                                        :coarse_drain, :rounding_policy,
                                        :calibrated_constant, :exogenous_growth,
-                                       :asserted_prior, :lumping)
+                                       :asserted_prior, :lumping,
+                                       :capped_rate_law_geometry)
     end
 
     @testset "Asserted-prior labelling does not depend on composition order" begin

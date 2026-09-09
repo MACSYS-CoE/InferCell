@@ -218,9 +218,9 @@ def badges(geo, ps):
         x, y, w, h = geo[nid]
         L.append(badge(f"BADGE_{nid.replace(':', '_')}",
                        x + w / 2 + OFF, y + h / 2 + OFF, ps[n]))
-    for pid, phase, what in (("CMEPANEL", 2, "three jump modules coexist and compose"),
-                             ("ODEPANEL", 1, "a module contributes to a state it "
-                                             "does not own")):
+    for pid, phase, what in (("CMEPANEL", "2", "three jump modules coexist and compose"),
+                             ("ODEPANEL", "1", "a module contributes to a state it "
+                                               "does not own")):
         x, y, w, h = geo[pid]
         L.append(channel_badge(f"BADGE_{pid}", x, y - h / 2 + 22, ps[phase], what))
     return L
@@ -259,8 +259,8 @@ def progress_key(x, y, ps):
     done = sum(p.done for p in ps.values())
     total = sum(p.total for p in ps.values())
     live = sum(1 for *_, ph in S.EDGE_KIND_PHASE if ph is not None and ps[ph].built)
-    example = max((p for p in ps.values() if p.built), key=lambda p: p.n)
-    todo = min((p for p in ps.values() if not p.built), key=lambda p: p.n)
+    example = max((p for p in ps.values() if p.built), key=lambda p: p.key)
+    todo = min((p for p in ps.values() if not p.built), key=lambda p: p.key)
     row = lambda mark, colour, fill, what: (
         f'<tr><td align="center" bgcolor="{fill}"><font color="{colour}" point-size="10">'
         f'<b>{mark}</b></font></td><td align="left" balign="left">'
@@ -399,7 +399,7 @@ def fig2d(ps):
     total = sum(p.total for p in ps.values())
     tx = X0 + 2.5 * COL
     head = (f'  "T2" [pos="{tx:.1f},{Y0 + 1.15 * ROW:.1f}!", shape=plaintext, style="", '
-            'label=<<font point-size="20"><b>Core A′ — the eighteen phases, in the order '
+            'label=<<font point-size="20"><b>Core A′ — the nineteen phases, in the order '
             'spec §11 puts them</b></font><br/>'
             f'<font point-size="11">{len(built)} merged, {len(ps) - len(built)} to go · '
             f'{done} of {total} tasks ticked · as of {max(p.merged for p in built)} · '

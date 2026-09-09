@@ -1,7 +1,8 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 4 done (PRs #41, #42, #43, #44, #45); phase 5 open
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-05
+**Status:** in progress — phases 0 to 5 done (PRs #41 to #46); phase 5b open, and
+the fan-out of phases 6, 7, 8 and 10 starts when it lands
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-09
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -217,9 +218,10 @@ phase 4 the rate-constant one and phase 5 the volume chain, so **one of the
 seven — clamped — remains declare-only**, its held value still travelling as
 a fixed parameter beside the declaration, and **no phase schedules it**. The
 *inbound* half of the volume channel — volume re-entering an ODE rate law,
-which task 7.2 wants for the lactate exporter — is not built either, and
-phase 5 refuses such an edge by name rather than letting it resolve and never
-run; see phase 7. G1 and G3 are
+which task 7.2 wants for the lactate exporter — was not built either, and
+phase 5 refused such an edge by name rather than letting it resolve and never
+run; **phase 5b built it**, so an inbound edge now carries a `param_slot` and a
+`quantity` and executes at every handshake. G1 and G3 are
 likewise closed. §2 is kept as the dated snapshot the phase ordering was
 derived from, not refreshed.)** Searching `src/` and `test/` for periodic
 callbacks, discrete callbacks, callback sets, `tstops` or operator splitting
@@ -681,7 +683,9 @@ a ratio of one visibly saturates so the default's purpose is demonstrated.
 
 **Why the radius is not folded in.** `3P/r` collapses to a single constant at 200
 nm, and folding it would be tempting and wrong, because the growth phase makes
-the radius grow and the export rate constant then changes with it.
+the radius grow and the export rate constant then changes with it. Phase 5b
+builds the channel that carries it: an inbound `VolumeEdge` fills the radius
+slot at every handshake.
 
 ### D7. Phosphotransferase initial conditions come from the model's own proteomics fractions
 
@@ -1445,12 +1449,12 @@ point of D0's reordering.
 
 ## 11. Task list
 
-Seventeen phases plus a phase 0, each one reviewable pull request. Ordering is
+Seventeen phases plus a phase 0 and a phase 5b, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
 **Parallelism.** Phase 1 runs alone. Then a four-way fan-out: the ODE track of
-phases 6 to 9 runs concurrently with the framework track of phases 2 to 5. The
+phases 6 to 9 runs concurrently with the framework track of phases 2 to 5b. The
 ODE track is **not** itself a clean fan-out after D13: phases 6, 7 and 8 are
 mutually independent, but phase 9 depends on phase 8, because charging
 contributes to the pools recycling owns. Then the stochastic track, phase 10
@@ -1458,6 +1462,18 @@ before phases 11 and 12, because both read the transcripts phase 10 owns. Phase
 11 also wants phase 9 landed, since its rate constant reads an ODE state; it can
 proceed on a double, and R1 records that cost. Phases 13 to 17 are strictly
 serial, because each validation check catches errors the next would mask.
+
+**Phase 5b gates the fan-out, and that is the point of it.** Phase 7 needs the
+inbound volume channel and R15 forbids building it on a module branch, so a
+concurrent phase 7 would stall on framework code its author may not touch. 5b is
+small and independent, so it costs one pull request to remove the one known
+framework dependency from the module phases — after which 6, 7, 8 and 10 are
+four genuinely independent branches. Three of their done-when clauses still are
+not: task 8.4 needs phase 6 for the shared-enzyme assertion, task 8.5 composes
+all four ODE modules, and task 10.7 checks copy numbers against the metabolic
+modules'. Those belong to whichever pull request lands last, or to phase 13, and
+carrying them as skipped tests naming the blocking phase is what keeps four
+branches from stubbing each other.
 
 ### Phase 0 — Retire OpenSpec, keep its findings
 
@@ -1886,7 +1902,10 @@ significant figures the source states it in — it is 200.03505 nm, and see task
   wrong, and each asserted on its own message. From the sweep (2): a flag on a
   state its declarer does not own; the same species flagged twice, whose count
   would enter the area twice. From the lowering (8): an *inbound* edge, which is
-  the half of this channel phase 5 does not build (see task 7.2); a flag with no
+  the half of this channel phase 5 does not build (see task 7.2) —
+  **superseded by phase 5b**, which built that half; the refusal is now the
+  constructor's, for an inbound edge carrying no `param_slot` and no
+  `quantity`, and the count here stands as the record of what phase 5 did; a flag with no
   `VolumeEdge`, which would execute undeclared; an edge with nothing flagged,
   which would be declared and never executed; an edge on a species the module
   does not flag; a flagged state with no edge of its own — the trap a module
@@ -1998,6 +2017,140 @@ significant figures the source states it in — it is 200.03505 nm, and see task
   on two diluted ODE states against Core A′'s thirty-two, so it bounds the
   mechanism, as every toy number in phases 3 to 5 does.
 
+### Phase 5b — The inbound volume channel
+
+**Goal:** the other half of the volume channel — the cell's geometry re-entering
+an ODE rate law as a parameter — so that no module phase carries a framework
+dependency into the fan-out.
+**Done when:** an inbound `VolumeEdge` resolves and executes; the slot it names
+holds this handshake's geometry at every handshake, in a growing cell and in a
+fixed one; the three quantities describe one sphere above the growth cap as
+below it; and the four-way fan-out of phases 6, 7, 8 and 10 can start with no
+module phase needing a framework change.
+**PR:** _open_
+
+**Why this is a phase and not an escalation.** R15 says a framework need
+surfacing inside a module phase is a conversation on `main` and its own phase.
+Task 7.2's need does not need surfacing — phase 5 diagnosed it, refused the edge
+by name, and wrote the diagnosis into this spec. What was left was scheduling,
+and scheduling it *before* the fan-out is what makes R15's rule enforceable
+rather than aspirational: phase 7 becomes a pure module phase, and its agent
+never meets a live `ArgumentError` in framework code it is forbidden to touch.
+- [x] 5b.1 Give `VolumeEdge` a `param_slot` and a unit-bearing `quantity`,
+  required inbound and refused outbound — verify by each of the five refusals on
+  its own message; by `:radius`, `:volume` and `:radius_um` being rejected as
+  hard as a nonsense name, since nothing else in the codebase records a unit and
+  the symbol is the only place a nanometre is told from a centimetre; and by
+  every existing outbound call site constructing unchanged.
+  **Done:** five refusals, each on its own message. `VOLUME_QUANTITIES` sits
+  beside `CLIP_POLICIES` and `RATE_CADENCES`; validation is in the inner
+  constructor so positional construction cannot bypass it. Every existing
+  outbound call site compiles unchanged, since neither field takes a
+  direction-dependent default.
+- [x] 5b.2 Require an inbound edge's `species` to be the declaring module's own
+  state — verify by the refusal firing on `resolve_coupling` of the single
+  module, without a composition. The geometry is a sum over every flagged state
+  and so belongs to no module, but every edge must name a registry species
+  (`src/resolver.jl`), so the species names *which of this module's rate laws is
+  geometry-dependent*. Naming the membrane protein instead would be a claim that
+  silently changes meaning once a second module flags a second protein, which
+  task 7.6 plans.
+  **Done:** in `_resolve_edges`, beside the currency-pool check, so it fires
+  on a single module. `src/resolver.jl` requires every edge to name a
+  registry species, which is what rules out a pseudo-species and makes this
+  the only honest reading of the field.
+- [x] 5b.3 Lower it in `_lower_exchanges` rather than `_lower_growth` — verify
+  by the slot resolving to the same index map the catalytic channel uses, since
+  that is the only place with `ode_contexts`; by a slot that is not one of the
+  module's own free parameters being refused; and by the cross-block
+  slot-name-uniqueness rule applying unchanged.
+  **Done:** `GeometryExchange`, which is `CatalyticExchange` minus
+  `count_idx` — the absence is the channel, since the value comes from a
+  driver field rather than a state vector.
+- [x] 5b.4 Filter `_lower_growth`'s flag-to-edge checks to producers — verify by
+  a module that both flags a membrane protein and reads the geometry building
+  cleanly, which is the case an undirected check refuses with a message about
+  the wrong problem; and by an inbound edge still not discharging a flag's
+  obligation.
+  **Done:** one `is_producer` in the comprehension. Without it the
+  `e.species in names` check tells `ToyExportingPool` that its lactate edge
+  names an unflagged species, which is why every test in
+  `test_volume_inbound.jl` runs against a model that both flags and reads.
+  The flag-with-no-edge message gains the word *outbound*.
+- [x] 5b.5 Refuse one slot with two writers, across the catalytic and geometry
+  channels both — verify by the refusal firing, and note that this closes the
+  same hole for two catalytic edges into one slot, which the catalytic channel
+  has today.
+  **Done:** `_claim_slot!`, shared by both channels. The catalytic hole it
+  closes as a side effect was real: `slot_owners` guards two *modules*
+  sharing a name and cannot see one module declaring two edges into one
+  slot.
+- [x] 5b.6 Refuse an inbound volume edge on a jump module — verify by the
+  message naming the remedy that does exist, `RateConstantEdge` with
+  `rebuilt_params`. Its parameters live in the propensity vector; resolved
+  against the ODE block's layout instead, the write would be in range,
+  type-correct and land in an unrelated rate law.
+  **Done:** scanned after the ODE loop, in the shape of the catalytic mirror
+  trap, with `RateConstantEdge` named as the remedy that exists.
+- [x] 5b.7 Write at step 0 of every handshake, outside `_update_volume!` —
+  verify by a fixed cell's slot holding the driver's geometry rather than the
+  module's declared value, which is the case `_update_volume!`'s early return
+  would silently skip; and by the value being this handshake's rather than the
+  last one's, asserted against a count driven hard enough that a one-handshake
+  lag is a whole percent rather than the 1e-5 it is at published parameters.
+  **Done:** step 0b of `handshake_step!`. `ToyFixedExporter` declares
+  `r_cell = 1.0` so a skipped write is a 200× error rather than a subtle
+  one, and the lag test drives the count to 20,000 so a one-handshake lag is
+  a whole percent against the 1e-5 it is at published parameters.
+- [x] 5b.8 **Derive the rate law's geometry from the capped volume**, and label
+  it — verify by all three quantities describing one sphere above the cap, by
+  the reported `radius_nm` still being the published uncapped value, and by
+  `driver_declarations` carrying the departure. The cap is on the volume and the
+  radius is left uncapped, as `in_out.py:107` leaves it; that is harmless while
+  the radius is only reported and wrong once it drives `3P/r`, whose whole
+  content is that `3/r` is a sphere's surface-to-volume ratio. Reachable only
+  under prior draws, which is exactly where nobody reads the geometry trace.
+  **Done, and the first Slurm run corrected it.** Deriving unconditionally
+  round-trips radius → volume → radius and loses an ulp, so a fixed cell at
+  exactly 200 nm handed its rate law 200.00000000000003. Below the cap the
+  reported geometry is already one sphere — volume was computed from radius,
+  radius from area — so it is passed through and only the capped branch
+  reconstructs. The below-cap assertion is `==`, which is what says so.
+- [x] 5b.9 Make the channel observable from outside — verify by
+  `growth_census(driver).consumers` naming the species, quantity, slot, declarer
+  and current value; by `run_handshake!` recording `ode_p` per handshake, so a
+  write can be read off the trajectory rather than inferred from the schedule,
+  which task 13.2's "every declared edge is executed" needs; and by
+  `driver_written_params(driver)` enumerating all three channels' slots.
+  **Done:** `growth_census(driver).consumers`, `run_handshake!`'s `ode_p`,
+  and `driver_written_params(driver)` across all three channels.
+- [x] 5b.10 **Record what this does not fix.** A `param_slot` must be a *free*
+  parameter, and free non-observation parameters are exactly what inference
+  samples, so a driver-written slot is sampled and then overwritten. This is
+  pre-existing — `rebuilt_params` documents it at `src/interface.jl`, and the
+  catalytic channel has it undocumented — but it is sharper here: a geometry
+  slot is not an unknown at all, and in `3P/r` its Jacobian column is exactly
+  proportional to the permeability's, so a rank deficiency of one is an artefact
+  of the declaration rather than a finding. Verify by the warning carried on
+  `VolumeEdge` verbatim from `rebuilt_params`', and by
+  `driver_written_params` making the slots enumerable. **Excluding them from the
+  sampled set is task 13.3's**, and 13.3's own test — a mixed composition
+  dispatching or throwing — does not cover it, because the composition that
+  silently samples a geometry slot is the *homogeneous* ODE block.
+  **Done:** the `rebuilt_params` warning carried verbatim onto `VolumeEdge`,
+  with the two reasons it is sharper here — a geometry slot is not an
+  unknown, and in `3P/r` its Jacobian column is exactly proportional to the
+  permeability's. Recorded in §12 that task 13.3's own test does not cover
+  this, since the composition that silently samples one is the homogeneous
+  ODE block.
+- [x] 5b.11 Suite, figures and handoff — verify by `sbatch test/run_tests.slurm`
+  passing, and by the progress figures rebuilding with phase 5b parsed rather
+  than silently skipped.
+  **Done:** job 16340726, **1463/1463** (1381 before the phase). Both
+  figures rebuilt; the parser now reads a lettered phase and refuses a
+  heading it cannot parse rather than skipping it in silence — a guard worth
+  having independently, since the old regex silently attributed 5b's PR line
+  to phase 5.
 ### Phase 6 — Central glycolysis
 
 **Goal:** the ten reactions from glucose-6-phosphate through lactate, owning the
@@ -2077,13 +2230,16 @@ plain function on this module, which settles that design's own open question.
   export law with permeability and radius carried separately — verify by a
   hand-checked derivative at one state vector, and by the export rate equalling
   the permeability law rather than a folded constant, so phase 5's growing radius
-  changes it. **Note from phase 5:** the radius is live on the driver but does
-  not yet *reach* a rate law. That is the inbound half of the volume channel,
-  and `VolumeEdge` carries no parameter slot to write it into, so phase 5
-  refuses an inbound edge by name rather than letting it resolve and never run.
-  Delivering it is a framework change — an edge kind gains a field — and by R15
-  that is a conversation on `main` and its own phase, not an edit on this
-  module's branch.
+  changes it. **Phase 5b delivers the channel this needs**, so this is ordinary
+  module work: declare an inbound `VolumeEdge` on `M_lac__L_e` with
+  `param_slot` naming the radius in this module's own rate law and
+  `quantity = :radius_nm`, and the driver fills it at every handshake. Two
+  things to know. The geometry a rate law receives is derived from the *capped*
+  volume rather than from the reported uncapped radius, so above the growth cap
+  it is the smaller of the two — a labelled departure, see §12. And a standalone
+  homogeneous build executes no handshake, so the slot keeps this module's
+  declared value; declare it as the registry's initial radius, and note that the
+  driver writes 200.03505 nm rather than a round 200.0.
 - [ ] 7.3 Set the eight initial conditions from copy number times proteomics
   fraction (D7) — verify by each carrier's forms summing to 353, 314, 290 and 831
   copies exactly, and by both the totals and the split recorded as the published
@@ -2652,6 +2808,43 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-09 — a known framework gap is pulled ahead of the fan-out as phase 5b
+
+*Evidence:* phases 6, 7, 8 and 10 are mutually independent and were about to be
+built as four parallel pull requests. R15 makes framework code off-limits on a
+module branch, and phase 7 breaks that rule by construction: task 7.2 needs the
+radius to reach the lactate exporter's rate law, and phase 5 refuses an inbound
+`VolumeEdge` by name in `src/handshake.jl` because the type carries no parameter
+slot. The phase 7 agent would meet a live `ArgumentError` in a file it may not
+edit. R15's escalation path does not fit, because it is written for a need that
+*surfaces* during a phase; this one was already diagnosed and already in the
+spec. What was missing was a place in the ordering.
+
+*Change:* a new phase 5b between phases 5 and 6, delivering the inbound half of
+the volume channel. Lettered rather than numbered because phases 6 to 17 are
+cross-referenced throughout §4, §6, §8, §9, §10, the archived OpenSpec designs
+and both progress figures, and renumbering them buys nothing. Three decisions
+inside it are worth recording here because they are not derivable from the goal:
+the edge carries a **unit-bearing** `quantity` from a fixed vocabulary, since
+nothing else in this codebase records a unit anywhere and a `μm`-for-`nm` slip
+would be absorbed into the permeability it multiplies rather than caught; the
+geometry a rate law receives is derived from the **capped** volume, so the three
+quantities describe one sphere, while the reported radius stays the published
+uncapped value; and the write happens at step 0 of every handshake but *outside*
+`_update_volume!`, which returns early for a fixed cell and would therefore skip
+exactly the composition phase 7 needs standalone.
+
+*What this deliberately does not fix:* a driver-written slot must be a free
+parameter and is therefore also sampled. Pre-existing, documented for
+`rebuilt_params` and undocumented for the catalytic channel; task 13.3 owns it,
+and 5b only makes the slots enumerable and the trap documented. Note for
+whoever takes 13.3: its own test does not cover the case that matters here,
+because the composition that silently samples a geometry slot is the homogeneous
+ODE block, not a mixed one.
+
+*Sections:* §2 G2, §4 D6, §11 phase 5b (new), §11 tasks 5.1 and 7.2.
+
 
 ### 2026-09-05 — three things phase 4 contradicted: the continuous cadence, the granularity comparison, and what the clipping census counts
 

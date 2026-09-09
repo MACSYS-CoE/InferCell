@@ -306,6 +306,27 @@ struct CatalyticExchange
 end
 
 """
+    GeometryExchange
+
+One inbound [`VolumeEdge`](@ref) made executable: the cell's geometry fills a
+named rate-law parameter of an ODE module, at every handshake.
+
+Structurally this is [`CatalyticExchange`](@ref) with the source removed. There
+is no `count_idx`, and that absence *is* the channel: the value comes from a
+driver field rather than from any block's state vector, because the geometry is
+a sum over every flagged state in the composition and belongs to no module.
+`species` therefore records which of the declaring module's own rate laws is
+geometry-dependent, and is never read to produce the value.
+"""
+struct GeometryExchange
+    param_idx::Int        # the slot it fills in the ODE block's parameter vector
+    quantity::Symbol      # which geometric quantity, and so which unit
+    species::Symbol       # the declarer's own state whose rate law reads it
+    param_slot::Symbol
+    declared_by::Symbol
+end
+
+"""
     DeferredDebit
 
 One [`DeferredCounterEdge`](@ref) made executable. The stochastic block accrues
@@ -434,6 +455,7 @@ mutable struct HandshakeDriver{OI, JI}
     factor::Float64                       # particles per mM, at the *live* volume
     rounding::RoundingState
     catalytic::Vector{CatalyticExchange}
+    geometry::Vector{GeometryExchange}  # the volume channel's inbound half
     debits::Vector{DeferredDebit}
     counters::Vector{_CounterRead}        # debits grouped by the counter feeding them
     rebuilds::Vector{RateConstantRebuild} # the 60 s rate-constant channel
@@ -521,11 +543,42 @@ function growth_census(d::HandshakeDriver)
             factor = d.factor,
             fractional = d.volume_litres / d.initial_volume_litres,
             capped = d.volume_litres >= d.volume_cap_litres,
-            diluted_states = length(d.dilute_idxs))
+            diluted_states = length(d.dilute_idxs),
+            # The inbound half. A channel with no state of its own is otherwise
+            # invisible from outside: without this row a census would report a
+            # growing cell and say nothing about that growth now steering a rate
+            # law. `value` is what the rate law actually receives, which above
+            # the cap is not `radius_nm` — see `_geometry_value`.
+            consumers = [(species = g.species, quantity = g.quantity,
+                          param_slot = g.param_slot, declared_by = g.declared_by,
+                          value = _geometry_value(d, g.quantity))
+                         for g in d.geometry])
 end
 
-export CatalyticExchange, DeferredDebit, RateConstantRebuild, GrowthChain,
-       HandshakeDriver, clipping_census, rebuild_census, growth_census
+"""
+    driver_written_params(driver) -> Vector{NamedTuple}
+
+Every parameter slot the driver overwrites during a trajectory: the catalytic
+channel's, the inbound volume channel's, and the 60 s rebuild's.
+
+These are free parameters, so `build_turing_model` and the ABC path both sample
+them — and the driver then overwrites the drawn value. **A posterior for one of
+these slots is its prior and is not an identifiability result.** The warning is
+`rebuilt_params`' (see its docstring) and applies to all three channels;
+enumerating them is the first step to excluding them, which is spec §11 task
+13.3's, not this function's.
+"""
+driver_written_params(d::HandshakeDriver) = vcat(
+    [(param_slot = c.param_slot, channel = :catalytic, declared_by = c.declared_by)
+     for c in d.catalytic],
+    [(param_slot = g.param_slot, channel = :volume, declared_by = g.declared_by)
+     for g in d.geometry],
+    [(param_slot = s, channel = :rate_constant, declared_by = r.declared_by)
+     for r in d.rebuilds for s in r.names])
+
+export CatalyticExchange, GeometryExchange, DeferredDebit, RateConstantRebuild,
+       GrowthChain, HandshakeDriver, clipping_census, rebuild_census,
+       growth_census, driver_written_params, radius_from_volume_nm
 
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
@@ -574,9 +627,32 @@ end
 # record, with every index resolved at build time. An edge whose two ends are in
 # one block is that block's own business — phase 1's contribution channel or
 # phase 2's peer writes — and is deliberately not the driver's.
+# One writer per ODE parameter slot, across every channel that writes one.
+# `slot_owners` guards a different thing — two *modules* declaring a free
+# parameter of the same name — and cannot see one module declaring two edges
+# into one slot. Both would lower, both would write at step 0/1, and the last
+# would win silently: the loser's rate law then runs on a number it never asked
+# for, fully declared, fully lowered and reported by every census. This closes
+# that for the geometry channel and, as a side effect, for two catalytic edges
+# into one slot, which is a hole the catalytic channel has today.
+function _claim_slot!(filled, slot::Symbol, id::Symbol, what::AbstractString)
+    prev = get(filled, slot, nothing)
+    prev === nothing || throw(ArgumentError(
+        "Module $id fills the parameter slot :$slot from $what, but $(prev[1]) " *
+        "already fills it from $(prev[2]). Both write it at every handshake and " *
+        "the later write wins, so one of the two channels would be declared, " *
+        "lowered, reported and have no effect. One writer per slot"))
+    filled[slot] = (id, what)
+    return nothing
+end
+
 function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
     catalytic = CatalyticExchange[]
+    geometry = GeometryExchange[]
     debits = DeferredDebit[]
+
+    # param_slot => (module, what claimed it). See `_claim_slot!`.
+    filled = Dict{Symbol, Tuple{Symbol, String}}()
 
     # A rate-law slot must belong to exactly one ODE module. Two modules
     # declaring a free parameter of the same name share one slot in the composed
@@ -627,9 +703,58 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
                 "of those rate laws; across the boundary they are two slots in " *
                 "two parameter vectors, so the write would land in one and leave " *
                 "the other. Give the slot a name unique to $id"))
+            _claim_slot!(filled, e.param_slot, id, "a catalytic edge")
             push!(catalytic, CatalyticExchange(count_idx, ode_contexts[i].param_idxs[j],
                                                e.species, e.param_slot, id))
         end
+
+        # The volume channel's inbound half. Lowered here rather than in
+        # `_lower_growth` for two reasons: this is the only place with
+        # `ode_contexts`, which is the one thing that maps a slot name to a
+        # position in `d.ode.p`, and `slot_owners` above is needed verbatim.
+        # The outbound half stays in `_lower_growth`, which is the same split
+        # the catalytic channel already uses — lowered from the consuming side,
+        # merely declared from the producing one.
+        for e in coupling(m)
+            e isa VolumeEdge && is_consumer(e) || continue
+            j = findfirst(q -> q.name === e.param_slot, own)
+            j === nothing && throw(ArgumentError(
+                "Module $id declares an inbound VolumeEdge filling the " *
+                "parameter slot :$(e.param_slot), which is not one of its own " *
+                "free parameters. Only free parameters reach the composed " *
+                "parameter vector, so a fixed one is not a slot the driver can " *
+                "write; its free parameters are $([q.name for q in own])"))
+            holders = slot_owners[e.param_slot]
+            length(holders) == 1 || throw(ArgumentError(
+                "Module $id fills the parameter slot :$(e.param_slot) from an " *
+                "inbound VolumeEdge, but $(join(holders, " and ")) each declare " *
+                "a free parameter of that name. Within the metabolic block those " *
+                "are one deduplicated slot, so the geometry would drive every " *
+                "one of those rate laws; across the boundary they are two slots " *
+                "in two parameter vectors, so the write would land in one and " *
+                "leave the other. Give the slot a name unique to $id"))
+            _claim_slot!(filled, e.param_slot, id, "an inbound VolumeEdge")
+            push!(geometry, GeometryExchange(ode_contexts[i].param_idxs[j],
+                                             e.quantity, e.species, e.param_slot, id))
+        end
+    end
+
+    # The mirror trap, in the shape of the catalytic one below. A jump module's
+    # `param_slot` is a position in its own propensity vector; the geometry
+    # write targets `d.ode.p`, so this edge would resolve and never execute —
+    # and if it were resolved against the ODE block's layout instead it would be
+    # an in-range, type-correct write into an unrelated rate law, which is worse.
+    for m in jump_models, e in coupling(m)
+        e isa VolumeEdge && is_consumer(e) || continue
+        throw(ArgumentError(
+            "Module $(module_id(m)) is a jump module and declares an inbound " *
+            "VolumeEdge on :$(e.species). The geometry re-enters the " *
+            "*deterministic* block: the write fills a slot in the ODE parameter " *
+            "vector, and this module's parameters live in the propensity vector, " *
+            "which nothing here writes. A propensity that must track a pool goes " *
+            "through a RateConstantEdge and `rebuilt_params`; there is no " *
+            "geometry-to-propensity channel, and this refuses one rather than " *
+            "resolving and doing nothing"))
     end
 
     # Deferred counters are lowered from the side that owns the counter — the
@@ -738,7 +863,7 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
         g === nothing ? push!(groups, _CounterRead(b.counter_idx, [k])) :
                         push!(groups[g].debit_idxs, k)
     end
-    return catalytic, debits, groups
+    return catalytic, geometry, debits, groups
 end
 
 # Lower the rate-constant channel (spec §11 phase 4). One record per jump module
@@ -925,6 +1050,56 @@ end
 _membrane_count(d::HandshakeDriver, g::GrowthChain) =
     g.block === :jump ? float(d.jump.u[g.idx]) : d.ode.u[g.idx] * d.factor
 
+"""
+    radius_from_volume_nm(volume_litres) -> Float64
+
+The radius, in nm, of the sphere of this volume — the inverse of
+[`cell_volume_litres`](@ref).
+"""
+radius_from_volume_nm(volume_litres) =
+    cbrt(3 * volume_litres / (4 * π * 1e3)) * 1e9
+
+# What a rate law receives, as against what `growth_census` reports.
+#
+# The two differ, and only above the growth cap. `_update_volume!` caps the
+# volume and leaves the radius uncapped, as `in_out.py:107` does, so above the
+# cap `d.radius_nm` and `d.volume_litres` describe different cells. Phase 5
+# could accept that because the radius was only *reported*. Once it drives a
+# rate law it cannot be: the whole content of the lactate exporter's `3P/r` is
+# that `3/r` is the surface-to-volume ratio of a sphere, and that identity is
+# exactly what the cap breaks.
+#
+# So the geometry a rate law sees is derived from the capped volume, and all
+# three quantities are derived from the same sphere. Below the cap this is the
+# reported geometry to within floating point; above it, it is smaller, and
+# `driver_declarations` carries the departure. Reachable only under prior draws
+# — the cap needs ~11,400 membrane proteins against Core A′'s 831 — which is
+# exactly the regime in which nobody is reading the geometry trace.
+function _geometry_value(d::HandshakeDriver, q::Symbol)
+    # Below the cap the reported geometry is already one sphere — `volume_litres`
+    # was computed from `radius_nm`, which was computed from `area_nm2` — so it
+    # is passed through untouched. Deriving unconditionally would instead round
+    # trip radius → volume → radius and lose an ulp, handing a fixed cell at
+    # exactly 200 nm a rate law reading 200.00000000000003 for no reason.
+    # Only the capped branch has to reconstruct, and only there do the reported
+    # and delivered geometries differ.
+    if d.volume_litres < d.volume_cap_litres
+        q === :radius_nm && return d.radius_nm
+        q === :volume_litres && return d.volume_litres
+        q === :area_nm2 && return d.area_nm2
+    else
+        r = radius_from_volume_nm(d.volume_litres)
+        q === :radius_nm && return r
+        q === :volume_litres && return d.volume_litres
+        q === :area_nm2 && return 4 * π * r^2
+    end
+    # Not reachable: the edge constructor checks the vocabulary. Named rather
+    # than left to a MethodError so a new quantity added to VOLUME_QUANTITIES
+    # and forgotten here fails where the omission is.
+    error("Internal: :$q is not one of $VOLUME_QUANTITIES, which the VolumeEdge " *
+          "constructor should have refused")
+end
+
 # Bind `membrane_protein_states` to the `VolumeEdge`s that declare the channel,
 # and resolve every flagged state to an index in its own block. The sweep in
 # `membrane_protein_states(models)` has already refused a flag on a state its
@@ -938,29 +1113,21 @@ function _lower_growth(models, ode_models, jump_models)
     for m in models
         id = module_id(m)
         names = membrane_protein_states(m)
-        edges = [e for e in coupling(m) if e isa VolumeEdge]
-
-        # The inbound direction is the *other* half of this channel: volume
-        # re-entering an ODE rate law, which spec §11 task 7.2 wants for the
-        # lactate exporter's 3P/r. `VolumeEdge` carries no parameter slot to
-        # write into, so nothing here can execute it, and a channel that
-        # resolves and never runs is the failure phase 4 spent a task closing.
-        for e in edges
-            is_producer(e) || throw(ArgumentError(
-                "Module $id declares an *inbound* VolumeEdge on :$(e.species). " *
-                "The direction follows the information: counts leave a module to " *
-                "set the volume, so the module owning the count declares " *
-                "direction = :out. Volume re-entering a rate law is the other " *
-                "half of this channel and is not built — VolumeEdge carries no " *
-                "parameter slot to write it into — so as written this edge would " *
-                "resolve and never execute"))
-        end
+        # Outbound only. The inbound half is a different channel wearing the
+        # same edge type — it fills a rate-law slot rather than the surface
+        # area — and it is lowered in `_lower_exchanges`, which is the only
+        # place with the parameter-index map. Every check below pairs a
+        # membrane-protein *flag* against an edge, so an inbound edge in the
+        # set would misfire on all five: most sharply at the `e.species in
+        # names` check, which would tell an exporter that both flags ptsG and
+        # reads the radius that its lactate edge names an unflagged species.
+        edges = [e for e in coupling(m) if e isa VolumeEdge && is_producer(e)]
 
         isempty(names) && isempty(edges) && continue
 
         isempty(edges) && throw(ArgumentError(
             "Module $id flags $(names) as membrane protein(s) but declares no " *
-            "VolumeEdge. The count would set the cell's surface area with " *
+            "outbound VolumeEdge. The count would set the cell's surface area with " *
             "nothing declaring that it does, so the channel would execute " *
             "undeclared and reach no report; declare an outbound VolumeEdge on " *
             "each flagged state, or drop the flag"))
@@ -1146,8 +1313,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
         end
     end
 
-    catalytic, debits, counters = _lower_exchanges(models, ode_models, jump_models,
-                                                   _build_contexts(ode_models))
+    catalytic, geometry, debits, counters = _lower_exchanges(
+        models, ode_models, jump_models, _build_contexts(ode_models))
     rebuilds = _lower_rebuilds(ode_models, jump_models, _build_contexts(jump_models),
                                Float64(interval))
     growth, dilute = _lower_growth(models, ode_models, jump_models)
@@ -1204,7 +1371,7 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     d = HandshakeDriver(ode_integ, jump_integ, Float64(interval), drain,
                         steps_per_drain, factor,
                         RoundingState(rounding; nspecies = length(ode_prob.u0)),
-                        catalytic, debits, counters, rebuilds,
+                        catalytic, geometry, debits, counters, rebuilds,
                         growth, dilute,
                         0.0, footprint,
                         corea_volume_cap_litres(volume0),
@@ -1330,6 +1497,21 @@ function handshake_step!(d::HandshakeDriver)
     # one volume, the one the cell has at this hook. A composition flagging no
     # membrane protein returns immediately and its factor never moves.
     _update_volume!(d)
+
+    # 0b. The volume channel's inbound half: the cell's geometry re-enters an
+    # ODE rate law as a parameter (spec §11 task 7.2's 3P/r). After the
+    # recompute, so the value is this hook's and not the last one's; before the
+    # ODE step, so the first derivative of the interval already sees it.
+    #
+    # Deliberately *outside* `_update_volume!`, which returns early when nothing
+    # flags a membrane protein. A cell that does not grow still has a real
+    # radius, and writing that constant is what makes a fixed-cell composition
+    # run the same rate law as a growing one — without it the slot would silently
+    # keep whatever the module declared, which for a geometry slot is a
+    # placeholder rather than a nominal.
+    for g in d.geometry
+        d.ode.p[g.param_idx] = _geometry_value(d, g.quantity)
+    end
 
     # 1. The enzyme-concentration channel: counts fill rate-law parameter slots.
     for c in d.catalytic
@@ -1491,17 +1673,19 @@ end
 
 Run `n_steps` exchanges, recording the two blocks' states after each.
 
-Returns `(; t, ode, jump, jump_p, growth, census, rebuilds)` — the handshake
-times, the ODE state in mM and the jump state in particles at each of them, the
-jump block's parameter vector at each of them, the cell's geometry at each of
-them, check 7's census and [`rebuild_census`](@ref). The record is per handshake
-rather than per solver step because the handshake is the only instant at which
-the two blocks agree on a state.
+Returns `(; t, ode, ode_p, jump, jump_p, growth, census, rebuilds)` — the
+handshake times, the ODE state in mM and the jump state in particles at each of
+them, both blocks' parameter vectors at each of them, the cell's geometry at
+each of them, check 7's census and [`rebuild_census`](@ref). The record is per
+handshake rather than per solver step because the handshake is the only instant
+at which the two blocks agree on a state.
 
-`jump_p` and `growth` are what make the two channels with no state of their own
-observable from the outside: a refresh count is read off `jump_p` by counting
-the handshakes at which a rebuilt slot changed, and the growth law is read off
-`growth` rather than asserted from the counts that produced it.
+`ode_p`, `jump_p` and `growth` are what make the channels with no state of their
+own observable from the outside: a refresh count is read off `jump_p` by counting
+the handshakes at which a rebuilt slot changed, the growth law is read off
+`growth` rather than asserted from the counts that produced it, and the catalytic
+and inbound-volume writes are read off `ode_p` — without which nothing shows that
+a write landed in the slot it was declared for.
 """
 function run_handshake!(d::HandshakeDriver, n_steps::Integer)
     (d.n_handshakes + n_steps) % d.steps_per_drain == 0 || error(
@@ -1520,6 +1704,7 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
         "$(d.t_end). Build the driver with a tspan that covers the run")
     t = Vector{Float64}(undef, n_steps)
     ode = Vector{Vector{Float64}}(undef, n_steps)
+    ode_p = Vector{Vector{Float64}}(undef, n_steps)
     jump = Vector{Vector{Int}}(undef, n_steps)
     jump_p = Vector{Vector{Float64}}(undef, n_steps)
     growth = Vector{@NamedTuple{area_nm2::Float64, radius_nm::Float64,
@@ -1529,6 +1714,7 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
         handshake_step!(d)
         t[i] = d.ode.t
         ode[i] = collect(Float64, d.ode.u)
+        ode_p[i] = collect(Float64, d.ode.p)
         jump[i] = collect(Int, d.jump.u)
         jump_p[i] = collect(Float64, d.jump.p)
         growth[i] = (area_nm2 = d.area_nm2, radius_nm = d.radius_nm,
@@ -1536,8 +1722,9 @@ function run_handshake!(d::HandshakeDriver, n_steps::Integer)
                      fractional = d.volume_litres / d.initial_volume_litres,
                      capped = d.volume_litres >= d.volume_cap_litres)
     end
-    return (t = t, ode = ode, jump = jump, jump_p = jump_p, growth = growth,
-            census = clipping_census(d), rebuilds = rebuild_census(d))
+    return (t = t, ode = ode, ode_p = ode_p, jump = jump, jump_p = jump_p,
+            growth = growth, census = clipping_census(d),
+            rebuilds = rebuild_census(d))
 end
 
 # ---------------------------------------------------------------------------
@@ -1657,6 +1844,19 @@ function driver_declarations(d::HandshakeDriver)
             "cell. **Ours, not the published model's**, which grows both terms " *
             "— and it is why growth reaches ~1.07× rather than approaching the " *
             "2× cap the published model stops at"))
+    end
+    if !isempty(d.geometry)
+        push!(labels, ReductionLabel(
+            :capped_rate_law_geometry, :inbound_volume_channel,
+            "the geometry a rate law receives through an inbound VolumeEdge is " *
+            "derived from the *capped* volume, so all three quantities describe " *
+            "one sphere. The reported `radius_nm` is the published uncapped " *
+            "value, as `in_out.py:107` leaves it, and the two agree to floating " *
+            "point below the cap and diverge above it. **Ours**: the published " *
+            "model caps the volume and reports an uncapped radius, which is " *
+            "harmless while the radius is only reported and wrong once it drives " *
+            "a rate law, because `3P/r` is the surface-to-volume ratio of a " *
+            "sphere and the cap is exactly what breaks that identity"))
     end
     return labels
 end
