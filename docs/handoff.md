@@ -132,12 +132,12 @@ carriers the invariant must be restated as "conserved up to what translation
 adds", by subtraction rather than by widening the bound. The check as written is
 scoped to this sub-model's own dynamics and says so.
 
-**Suite.** `sbatch test/run_tests.slurm` job **16364952**, **1654/1654** in
-2m32.1s on the final tree — 1468 before the phase, so 186 of them are phase 7's.
-Full-cycle timing is job **16364852**. The numbers moved twice during the
-pre-merge review: an earlier 1619/1619 was recorded against a *dirty* tree three
-commits back, which is exactly the provenance trap this repo has been bitten by
-before — cite the job that ran the tree you are merging.
+**Suite.** `sbatch test/run_tests.slurm` job **16374055**, **2023/2023** in
+4m58.2s on the rebased tree. Full-cycle timing is job **16364852**. Before the
+rebase, on the 1468-test base, phase 7 alone was 1654/1654 (job 16364952); the
+post-rebase total is against phase 6's tree and the check-5 rewrite changed
+phase 7's own count, so the two deltas are not comparable and no combined one
+is claimed here.
 
 **Next.** Phases 6, 8 and 10 are the remaining fan-out, all independent of this
 one. Phase 9 waits on phase 8. Three done-when clauses across the fan-out are
