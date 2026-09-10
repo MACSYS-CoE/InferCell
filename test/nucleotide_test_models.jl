@@ -96,8 +96,8 @@ nothing more. Two jobs:
    registry values with a zero derivative. Without an owner the composition does
    not build at all, because `inputs` resolves against integrated states.
 
-2. **It rephosphorylates ADP at `k_slp · [ADP]`**, which is the substrate-level
-   phosphorylation phase 6's PGK and PYK will supply. This is not decoration.
+2. **It rephosphorylates ADP as `ADP + Pi -> ATP`**, which is the substrate-level
+   phosphorylation phase 6's GAPD and PGK will supply. This is not decoration.
    Nothing in the recycling module produces ATP — the adenylate kinase converts
    AMP back to ADP *at the cost of an ATP* — so without a source ATP falls to
    zero in about 130 s whatever else is true, and spec task 8.6's "ATP positive"
@@ -106,45 +106,59 @@ nothing more. Two jobs:
    than by adenylate stranding as AMP, which is the mechanism the scoping note's
    144 s actually describes.
 
-   `k_slp` defaults to the value that matches the charging demand at the
-   registry's initial ADP, so the composition sits near a steady state rather
-   than being driven by an arbitrary source term.
+**The phosphate comes from the free pool, and getting that wrong is instructive.**
+A first version drew it from the held 13DPG pool, which is where the published
+PGK reaction takes it from — but 13DPG is held here, so phosphate entered the
+composition and nothing removed it: 345 mM of it over a cycle, free phosphate
+climbing without bound, and pyrophosphate riding up with it to 51 mM because
+PPA's reverse term grows as the square of the phosphate it produces. That is an
+artefact of holding 13DPG, not a property of the module. Glycolysis from G3P is
+`G3P + Pi + ADP -> 3PG + ATP` once GAPD and PGK are composed, so the lumped
+stand-in takes the phosphate from `M_pi_c`. Then the cycle closes exactly: each
+charging turnover frees two phosphates through the pyrophosphatase and the two
+ATP the kinase arithmetic needs consume exactly two.
 
-The phosphate for that turnover comes from the held 13DPG pool, exactly as it
-does in the published PGK reaction, so it is an inbound flux across a mass edge
-and is what the flux-corrected form of the phosphate check subtracts.
+`k_slp` defaults to the value that matches the charging demand at the registry's
+initial ADP. The Michaelis factor in phosphate is there for the same reason as
+the drain's: so a configuration that runs the pool down stops rather than
+integrating through zero.
 """
 struct HeldGlycolytic <: AbstractSubModel
     params::Vector{InferParameter}
     k_slp::Float64
+    k_half::Float64
 end
-function HeldGlycolytic(; k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178)
+function HeldGlycolytic(; k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178, k_half = 1e-3)
     params = [InferParameter(v, Normal(v, 0.1), true, Symbol(s, "0"),
                              :HeldGlycolytic, :initial_condition)
               for (s, v) in zip(HELD_GLYCOLYTIC_STATES, HELD_GLYCOLYTIC_VALUES)]
-    return HeldGlycolytic(params, k_slp)
+    return HeldGlycolytic(params, k_slp, k_half)
 end
 states(::HeldGlycolytic) = HELD_GLYCOLYTIC_STATES
 parameters(m::HeldGlycolytic) = m.params
 module_id(::HeldGlycolytic) = :HeldGlycolytic
-inputs(::HeldGlycolytic) = [:M_adp_c]
-contributed_states(::HeldGlycolytic) = [:M_atp_c, :M_adp_c]
+inputs(::HeldGlycolytic) = [:M_adp_c, :M_pi_c]
+contributed_states(::HeldGlycolytic) = [:M_atp_c, :M_adp_c, :M_pi_c]
 coupling(::HeldGlycolytic) = CouplingEdge[
     CurrencyEdge(species = :M_atp_c, direction = :out),
     CurrencyEdge(species = :M_adp_c, direction = :in),
+    CurrencyEdge(species = :M_pi_c, direction = :in),
 ]
 
 # The four species it owns are held: a clamp in all but name, and the reason
 # every number this composition produces is the recycling module's rather than a
 # stand-in glycolysis's.
+@inline _slp_rate(m::HeldGlycolytic, adp, pin) =
+    m.k_slp * adp * pin / (m.k_half + pin)
+
 dynamics(u, p, t, m::HeldGlycolytic, u_inputs) =
-    SA[0.0, 0.0, 0.0, 0.0, m.k_slp * u_inputs[1]]
+    SA[0.0, 0.0, 0.0, 0.0, _slp_rate(m, u_inputs[1], u_inputs[2])]
 # Declared unconditionally, so `k_slp = 0` is the same composition running at
 # zero rate rather than a different one — which is what lets the phosphate
 # check's exact and flux-corrected forms differ in one number and nothing else.
 function contributions(u, p, t, m::HeldGlycolytic, u_inputs)
-    v = m.k_slp * u_inputs[1]
-    return SA[v, -v]
+    v = _slp_rate(m, u_inputs[1], u_inputs[2])
+    return SA[v, -v, -v]
 end
 
 """

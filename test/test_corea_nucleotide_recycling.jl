@@ -1,6 +1,7 @@
 using Test
 using InferCell
 using Distributions: LogNormal
+using SciMLBase: ReturnCode
 
 # Spec §11 phase 8 — nucleotide recycling: the five reactions that make GTP and
 # close the adenylate, guanylate and phosphate moieties.
@@ -13,6 +14,43 @@ recycling_tables() = [
     read_source_table(joinpath(RECYCLING_DATA, "nucleotide_recycling_central.tsv");
                       file = "central_balanced"),
 ]
+
+# ----------------------------------------------------------------------
+# The composed configurations. Recycling's eight states, then the held
+# glycolytic pools and their cumulative phosphorylation counter, then the
+# drain's counter.
+# ----------------------------------------------------------------------
+const ATP_I, ADP_I, AMP_I, PI_I, GTP_I, GDP_I, GMP_I, PPI_I = 1, 2, 3, 4, 5, 6, 7, 8
+const SLP_CUM_I, DRAIN_CUM_I = 13, 14
+const CYCLE_S = 6300.0
+const ABSTOL_R, RELTOL_R = 1e-10, 1e-8
+
+recycling_models(; reactions = RECYCLING_REACTIONS,
+                 k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178,
+                 mutation = nothing) = AbstractSubModel[
+    mutation === nothing ? NucleotideRecycling(reactions = reactions) :
+        MutatedRecycling(mutation; reactions = reactions),
+    HeldGlycolytic(k_slp = k_slp),
+    ChargingDrain(),
+]
+
+function recycling_solve(ms; horizon = CYCLE_S, abstol = ABSTOL_R, reltol = RELTOL_R,
+                         saveat = 60.0)
+    return solve(build_problem(ms; tspan = (0.0, horizon)), Rodas5P();
+                 abstol = abstol, reltol = reltol, saveat = saveat)
+end
+
+adenylate_of(u) = u[ATP_I] + u[ADP_I] + u[AMP_I]
+guanylate_of(u) = u[GTP_I] + u[GDP_I] + u[GMP_I]
+phosphate_of(u) = u[PI_I] + 3u[ATP_I] + 2u[ADP_I] + u[AMP_I] +
+                  3u[GTP_I] + 2u[GDP_I] + u[GMP_I] + 2u[PPI_I]
+max_drift(sol, f) = maximum(abs(f(u) - f(sol.u[1])) for u in sol.u)
+# Phosphate carried in from the held 13DPG and PEP pools, one per turnover of
+# the GTP branch. GTP is produced by PGK3 and PYK3 and by nothing else here,
+# so its change is that integral exactly.
+corrected_phosphate_drift(sol) =
+    maximum(abs((phosphate_of(u) - (u[GTP_I] - sol.u[1][GTP_I])) - phosphate_of(sol.u[1]))
+            for u in sol.u)
 
 @testset "Core A′ nucleotide recycling" begin
 
@@ -387,6 +425,175 @@ recycling_tables() = [
         # no species and direction is described as both mass and currency across
         # every ODE module — belongs to the last of them to land, or to phase 13.
         @test_skip "no species is both mass and currency across all four ODE modules — needs spec §11 phases 6, 7, 9"
+    end
+
+
+    @testset "8.6 a full cycle against the charging drain" begin
+        sol = recycling_solve(recycling_models())
+        @test sol.retcode == ReturnCode.Success
+        @test sol.t[end] == CYCLE_S
+        u0 = sol.u[1]
+
+        # Both moieties conserved over the full cycle. The residual is at the
+        # round-off floor rather than at the integrator's: adenylate and
+        # guanylate are *linear* invariants, and a Runge-Kutta or Rosenbrock
+        # method preserves a linear invariant exactly, so there is no
+        # integration error in these quantities to scale with the tolerance
+        # (spec §3 as amended 2026-09-10). What shows the check can fail is the
+        # mutation test below, not a tolerance sweep.
+        bound = 3 * max(ABSTOL_R, RELTOL_R * maximum(u[ATP_I] for u in sol.u))
+        @test max_drift(sol, adenylate_of) < 1e-10
+        @test max_drift(sol, guanylate_of) < 1e-10
+        @test max_drift(sol, adenylate_of) < bound / 100
+        @test adenylate_of(u0) ≈ 3.9539 atol = 1e-4
+        @test guanylate_of(u0) ≈ 1.9725 atol = 1e-4
+
+        # Tightening the solver tenfold does not shrink it, and that is the
+        # claim rather than a shortfall: both settings sit on the same floor.
+        tight = recycling_solve(recycling_models(); abstol = ABSTOL_R / 10,
+                                reltol = RELTOL_R / 10)
+        @test max_drift(tight, adenylate_of) < 1e-10
+        @test max_drift(tight, guanylate_of) < 1e-10
+
+        # ATP stays positive, and pyrophosphate settles rather than climbing.
+        # The reverse term is what puts it there: a pyrophosphatase written
+        # irreversibly would not settle at a finite pool.
+        @test minimum(u[ATP_I] for u in sol.u) > 3.4
+        ppi_late = [u[PPI_I] for u in sol.u[(end - 10):end]]
+        @test maximum(ppi_late) - minimum(ppi_late) < 1e-9
+        @test 0.2 < sol.u[end][PPI_I] < 0.6
+
+        # The drain delivers the published demand. Read off the trajectory, not
+        # assumed: the double integrates what it charged.
+        delivered = sol.u[end][DRAIN_CUM_I] / CYCLE_S
+        @test delivered ≈ RECYCLING_DRAIN_MM_PER_S rtol = 5e-3
+
+        # Adenylate kinase removed: the threshold crossing, on a grid fine
+        # enough to tell 120 s from 180 s.
+        no_kinase = recycling_solve(
+            recycling_models(reactions = (:R_PGK3, :R_PYK3, :R_GK1, :R_PPA));
+            horizon = 600.0, saveat = 1.0)
+        target = 0.01 * no_kinase.u[1][ATP_I]
+        i = findfirst(u -> u[ATP_I] < target, no_kinase.u)
+        @test i !== nothing
+        t_cross = no_kinase.t[i]
+        # The scoping note computes (3.9539 - 0.0832) / 0.027408 = 141.2 s for a
+        # constant drain from the same pool. Spec task 8.6 asks for agreement
+        # within an order of magnitude; this lands within 1%.
+        @test 14.1 < t_cross < 1412.0
+        @test t_cross ≈ 141.2 rtol = 0.05
+
+        # A *crossing*, not exhaustion: the drain saturates as ATP falls, so ATP
+        # decays toward zero rather than through it, and phase 9's mass-action
+        # module will do the same for a different reason. Asserted against the
+        # state's own integrator bound, which is spec §3 check 1's rule — a
+        # decaying state may undershoot by the local error the solver is allowed
+        # and a tighter floor would be asserting something about round-off.
+        atp_bound = max(ABSTOL_R, RELTOL_R * no_kinase.u[1][ATP_I])
+        atp_floor = minimum(u[ATP_I] for u in no_kinase.u)
+        @test atp_floor > -atp_bound
+        @test no_kinase.u[end][ATP_I] < 1e-6
+        # The pool is stranded as AMP rather than lost, which is what says the
+        # kinase is the missing return path and not a leak.
+        @test max_drift(no_kinase, adenylate_of) < 1e-10
+        @test no_kinase.u[end][AMP_I] > 0.9 * adenylate_of(no_kinase.u[1])
+
+        # Pyrophosphatase removed. It strands the phosphate moiety rather than
+        # letting the concentration diverge, and it cannot do otherwise: this
+        # composition's phosphate is closed. The scoping note's 173 mM is
+        # open-pool arithmetic that assumes charging runs the whole cycle
+        # (spec §11 task 8.6, annotated 2026-09-10).
+        no_ppa = recycling_solve(
+            recycling_models(reactions = (:R_PGK3, :R_PYK3, :R_ADK1, :R_GK1)))
+        budget = phosphate_of(u0)
+        @test no_ppa.u[end][PPI_I] > 100 * no_ppa.u[1][PPI_I]
+        @test 2 * no_ppa.u[end][PPI_I] > 0.5 * budget
+        @test no_ppa.u[end][ATP_I] < 0.01 * u0[ATP_I]
+        # ... and it flattens, because charging stops once ATP is gone.
+        tail = [u[PPI_I] for u in no_ppa.u[(end - 5):end]]
+        @test maximum(tail) - minimum(tail) < 1e-6
+        # Against the enzyme being present, which is the comparison that says
+        # the reaction is required rather than merely present.
+        @test no_ppa.u[end][PPI_I] > 20 * sol.u[end][PPI_I]
+
+        @info "8.6 full cycle" atp_min = minimum(u[ATP_I] for u in sol.u) atp_floor_no_kinase = atp_floor ppi_settled = sol.u[end][PPI_I] t_cross = t_cross adenylate_drift = max_drift(sol, adenylate_of) guanylate_drift = max_drift(sol, guanylate_of) ppi_no_ppa = no_ppa.u[end][PPI_I] phosphate_budget = budget
+    end
+
+    @testset "8.7 phosphate closure, both forms, and the mutations" begin
+        # Exact: with the GTP branch inactive and no phosphorylation, nothing
+        # carries phosphate across the boundary. The charging drain still runs
+        # and closes internally — three phosphates in ATP become one in AMP and
+        # two in pyrophosphate — so this tests the module rather than the
+        # absence of traffic.
+        exact = recycling_solve(recycling_models(reactions = (:R_ADK1, :R_GK1, :R_PPA),
+                                                 k_slp = 0.0))
+        @test max_drift(exact, phosphate_of) < 1e-10
+
+        # Flux-corrected: all five active, and the inbound flux *subtracted*
+        # rather than the bound relaxed. That the uncorrected drift is nine
+        # orders of magnitude larger is what says the correction does work.
+        full = recycling_solve(recycling_models())
+        uncorrected = max_drift(full, phosphate_of)
+        @test corrected_phosphate_drift(full) < 1e-10
+        @test uncorrected > 1e6 * corrected_phosphate_drift(full)
+        @test uncorrected ≈ full.u[end][GTP_I] - full.u[1][GTP_I] rtol = 1e-6
+
+        # The substrate-level phosphorylation crosses nothing: it takes every
+        # phosphate from the free pool. A first version of the double drew them
+        # from the held 13DPG pool instead, which let 345 mM of phosphate into a
+        # closed moiety and carried pyrophosphate to 51 mM.
+        @test full.u[end][SLP_CUM_I] > 100.0
+
+        # A conservation test that cannot fail is not evidence. Each mutation
+        # breaks exactly one moiety and leaves the other passing, so a failure
+        # localises; the phosphate sum spans both groups and a phosphorylated
+        # species going wrong shows up there too, which is why it is asserted
+        # separately rather than as a third independent moiety.
+        adk1 = recycling_solve(recycling_models(mutation = :adk1_adp_coefficient);
+                               horizon = 600.0)
+        @test max_drift(adk1, adenylate_of) > 1e-3
+        @test max_drift(adk1, guanylate_of) < 1e-10
+
+        gk1 = recycling_solve(recycling_models(mutation = :gk1_gdp_created);
+                              horizon = 600.0)
+        @test max_drift(gk1, guanylate_of) > 1e-3
+        @test max_drift(gk1, adenylate_of) < 1e-10
+
+        ppa = recycling_solve(recycling_models(mutation = :ppa_phosphate_coefficient);
+                              horizon = 600.0)
+        @test corrected_phosphate_drift(ppa) > 1e-3
+        @test max_drift(ppa, adenylate_of) < 1e-10
+        @test max_drift(ppa, guanylate_of) < 1e-10
+
+        @test caught(() -> MutatedRecycling(:not_a_mutation)) isa ArgumentError
+
+        @info "8.7 phosphate closure" exact = max_drift(exact, phosphate_of) corrected = corrected_phosphate_drift(full) uncorrected = uncorrected mutated_adenylate = max_drift(adk1, adenylate_of) mutated_guanylate = max_drift(gk1, guanylate_of) mutated_phosphate = corrected_phosphate_drift(ppa)
+    end
+
+    @testset "8.8 the drain's stoichiometry and rate, recorded for phase 9" begin
+        # 3,484,518 residues over a 6,300 s cycle. Derived, and derived here
+        # rather than typed: phase 9 must *meet* this demand, and a value it may
+        # calibrate against and then re-check would verify arithmetic (§4 D14).
+        @test 3_484_518 / 6300 ≈ RECYCLING_DRAIN_PER_S rtol = 1e-4
+        @test RECYCLING_DRAIN_MM_PER_S == RECYCLING_DRAIN_PER_S / 20180
+
+        # One ATP in, one AMP and one pyrophosphate out: three phosphates become
+        # one plus two, so the transfer closes phosphate internally and needs no
+        # correction in the closure check.
+        drain = ChargingDrain()
+        @test Set(contributed_states(drain)) == Set([:M_atp_c, :M_amp_c, :M_ppi_c])
+        c = contributions([0.0], Float64[], 0.0, drain, [3.6529])
+        @test c[1] < 0 && c[2] > 0 && c[3] > 0
+        @test c[2] ≈ -c[1] && c[3] ≈ -c[1]
+        @test 3 * c[1] + 1 * c[2] + 2 * c[3] ≈ 0.0 atol = 1e-15
+
+        # The anti-circularity guard, made mechanical. The demand lives in the
+        # test double; the production module must not carry it, or phase 9 could
+        # calibrate `k_chg` against a number this module already assumed.
+        src = read(joinpath(@__DIR__, "..", "src", "organisms", "coreA",
+                            "nucleotide_recycling.jl"), String)
+        @test !occursin("553", src)
+        @test !occursin("3484518", src) && !occursin("3_484_518", src)
     end
 
 end
