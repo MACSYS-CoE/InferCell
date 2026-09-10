@@ -141,7 +141,7 @@ attempt, because this module divided copy numbers by a transcribed 20180 where
 Both now derive the factor.
 
 **Suite:** 2265 passed, 0 failed, 1 broken (the one remaining skip), 2266 total
-(job 16410334, HEAD `b53a0c8`, clean tree); **2023 before the phase**, which is
+(job 16410658, HEAD `4d7d8f5`, clean tree); **2023 before the phase**, which is
 phase 7's recorded count on the rebased tree. Earlier phase-8 figures of
 1684/1686 against a 1468 base were measured on the pre-rebase tree — job
 16374108's own header says `HEAD: 57b4e5e (tree dirty)` — and that commit is not
