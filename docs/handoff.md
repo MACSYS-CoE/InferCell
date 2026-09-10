@@ -5,12 +5,11 @@
 
 ## Latest: phase 7, phosphotransferase transport and lactate export (2026-09-10)
 
-**The first real Core A′ sub-model.** Everything merged before this is
-framework: seven PRs of edges, resolver, loader, contribution channel, jump
-composition, handshake, rebuild, growth and the inbound volume channel, with no
-module to run them on. `PtsTransport` is the first, so it also sets the pattern
-phases 6, 8, 9 and 10 will copy for vendoring, provenance and conservation
-checks. It owns the eight carrier phospho-states and external lactate, and it is
+**The second Core A′ module, and the first with a stochastic-block neighbour.**
+Phase 6 (central glycolysis, #50) landed first and this branch was rebased onto
+it. `PtsTransport` owns the eight carrier phospho-states and external lactate,
+and it is what makes carbon balance posable at all — glycolysis makes the
+lactate, this exports it. It owns the eight carrier phospho-states and external lactate, and it is
 what makes carbon balance posable at all.
 
 **Four ways the archived design had gone stale, all of them protocol rather
@@ -79,20 +78,23 @@ right-hand side conserves it identically and there is no truncation error to
 shrink. §3 had already noticed the same of the redox pair without drawing the
 consequence.
 
-So the principle now names two classes: a structurally exact invariant asserts
-the residual under a tolerance-derived bound at both settings with the *bound*
-falling tenfold; everything else (checks 2, 4, 4b) keeps the fivefold fall.
-Check 5 is measured into the first class; check 3 and task 9.6's tRNA pair are
-*expected* there and left for phases 6 and 9 to demonstrate, because the class
-is a property of the right-hand side each phase writes.
+**Phase 6 got there first, with a better rule.** It hit the same wall on the
+redox pair, measured a ladder over eight decades, and landed an *exception* to
+the tolerance principle rather than my two-class split — gated on a mechanical
+criterion a phase must assert rather than argue: the composed right-hand side
+must return the moiety's weighted derivative sum as literally `0.0`, bitwise.
+It also fixed §6 F3, which my draft had left demanding a positive slope it had
+just declared impossible.
 
-**Class one is the weaker bar and §3 now says so.** The bound's tenfold fall is
-arithmetic — `tol_C` is a closed form in the tolerances — so it would fall on a
-leaking model too; the assertion catches only a leak larger than the tightened
-bound. **The mutation test is therefore class one's primary falsifier**, and
-that is the part that matters — `PtsCarrierLeak` writes GLCpts1 as creating phospho-HPr rather than
-transferring it, and the ptsH residual then exceeds its bound while the other
-three stay under theirs.
+So on rebase my §3 amendment was dropped and phase 7's check 5 now asserts
+phase 6's criterion: `du[unphos] + du[phos] === 0.0` at every saved state, then
+a six-rung ladder over ten decades with every rung within 100 ulps and the
+largest within 100× of the smallest. **Phase 7 is the independent second
+instance** — different module, different chemistry, same floor — which is worth
+more as corroboration than a rival amendment would have been.
+
+**The mutation test remains the real falsifier**, and that is the part that
+matters
 
 **The full-cycle question, answered for one case.** §9 asks whether full-cycle
 checks belong in the default suite and says to decide on measured wall-clock.

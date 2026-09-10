@@ -468,18 +468,49 @@ end
             @test residual <= bound
         end
 
-        # The tolerance principle: the bound is derived from the integrator, so
-        # tightening the solver tenfold tightens the check, and the residual
-        # stays under the tightened bound. A fixed threshold could be passed by
-        # loosening it; this cannot.
-        tight = integrate_pts(models; abstol = 1e-11, reltol = 1e-9)
+        # **Spec §3's exact-invariant exception, and the criterion that gates
+        # it.** Each cascade step transfers one phosphate between adjacent
+        # carriers, so the composed right-hand side returns each pair's two
+        # derivative terms as bit-for-bit negatives and their sum as literally
+        # 0.0. That is the mechanical criterion §3 requires a phase to *assert*
+        # rather than argue, and it is asserted over the whole saved trajectory
+        # so it is a property of the right-hand side, not of one state.
+        prob = build_problem(models; tspan = (0.0, 600.0))
+        for u in sol.u
+            du = prob.f(u, prob.p, 0.0)
+            for (unphos, phos, _) in PTS_CARRIERS
+                @test du[_gidx(models, unphos)] + du[_gidx(models, phos)] === 0.0
+            end
+        end
+
+        # With the criterion met, what §3 asks for is the ladder rather than
+        # the fivefold fall: at least six decades of tolerance, every rung
+        # within 100 ulps of the conserved sum and the largest within 100× of
+        # the smallest. Ten decades here, which brackets the pinned pair.
+        ladder = [(1e-4, 1e-2), (1e-6, 1e-4), (1e-8, 1e-6),
+                  (1e-10, 1e-8), (1e-12, 1e-10), (1e-14, 1e-12)]
         for (unphos, phos, _) in PTS_CARRIERS
-            loose_bound = carrier_bound(sol, models, unphos, phos;
-                                        abstol = 1e-10, reltol = 1e-8)
-            tight_bound = carrier_bound(tight, models, unphos, phos;
-                                        abstol = 1e-11, reltol = 1e-9)
-            @test tight_bound ≈ loose_bound / 10 rtol = 1e-6
-            @test carrier_residual(tight, models, unphos, phos) <= tight_bound
+            drifts = Float64[]
+            for (a, r) in ladder
+                l = (a, r) == (1e-10, 1e-8) ? sol :
+                    integrate_pts(models; abstol = a, reltol = r)
+                @test l.retcode == InferCell.ReturnCode.Success
+                push!(drifts, carrier_residual(l, models, unphos, phos))
+            end
+            i, j = _gidx(models, unphos), _gidx(models, phos)
+            total0 = sol.u[1][i] + sol.u[1][j]
+            floor_ulps = drifts ./ eps(total0)
+
+            # The spread is floored at one ulp: the residual is roundoff, and
+            # roundoff cancels sometimes, so a rung can come out at exactly
+            # zero and an unfloored ratio would report Inf and fail on the best
+            # possible result.
+            @test all(<(100), floor_ulps)
+            @test maximum(drifts) <= 100 * max(minimum(drifts), eps(total0))
+            @test carrier_residual(sol, models, unphos, phos) <=
+                  carrier_bound(sol, models, unphos, phos;
+                                abstol = 1e-10, reltol = 1e-8)
+            @info "phase 7 carrier residual, flat at the floating-point floor" carrier=unphos ladder drifts floor_ulps eps_of_sum=eps(total0)
         end
 
         # The check can fail, and fails locally: one step written so a carrier

@@ -2398,7 +2398,8 @@ tolerance principle — see task 7.7 and §12.
   reader.
   **One divergence from the archived design.** Its D3 table used a rounded
   20180 particles per mM; this uses the 20180.3873819 the code derives from
-  Avogadro, so four of the eight phospho values differ in the seventh decimal.
+  Avogadro, so **five** of the eight phospho values differ in the seventh
+  decimal, by at most 7e-7.
   The derived factor is the one the values are read back with, so the carrier
   totals land on 353, 314, 290 and 831 to floating-point rather than on
   353.007 — ptsI sums to 352.99999999999994, which is why the test asserts
@@ -2501,21 +2502,25 @@ tolerance principle — see task 7.7 and §12.
   independent bounds each naming its own carrier, by a mutation to one cascade
   step failing that carrier's check while the other three still pass, and by the
   bounds satisfying the tolerance principle.
-  **Done:** four bounds, each `2·max(abstol, reltol·maxₜ|x|)` for its own
-  carrier — the single-run bound of §3 with `N_restarts = 1`, since a standalone
-  solve has no handshakes. Every residual sits under its bound at
-  `(1e-10, 1e-8)` and under the tenfold tighter bound at `(1e-11, 1e-9)`; all
-  four bounds are `reltol`-dominated, so tightening the solver tightens each
-  check by exactly ten.
-  **This phase amended §3, and the measurement is why.** A carrier sum is a
-  *linear* invariant of a right-hand side whose two terms are exact IEEE
-  negations, so the residual is roundoff and does not scale the way a truncation
-  residual would: measured 3.47e-17, 2.78e-17, 8.67e-18 and 1.32e-16 at
-  `(1e-10, 1e-8)` for ptsI, ptsH, Crr and ptsG, and 9.02e-17, 1.91e-17,
-  1.39e-17 and 2.78e-17 at `(1e-11, 1e-9)` — **two rose, two fell, and none fell
-  by the fivefold the rule demands**; ptsG's 4.75× is the largest fall. §3's
-  fivefold clause is therefore unsatisfiable for this class. The principle now names two classes and this
-  check is in the first; see §12, 2026-09-10.
+  **Done, under §3's exact-invariant exception rather than the fivefold fall.**
+  Each cascade step transfers one phosphate between adjacent carriers, so the
+  composed right-hand side returns each pair's two derivative terms as
+  bit-for-bit negatives. The test asserts §3's mechanical gate —
+  `du[unphos] + du[phos] === 0.0`, bitwise, at every saved state of the
+  trajectory rather than at one point — and then the ladder the exception
+  requires: six rungs spanning ten decades of `(abstol, reltol)`, every rung
+  within 100 ulps of the conserved sum and the largest within 100× of the
+  smallest. Four bounds are still reported, each
+  `2·max(abstol, reltol·maxₜ|x|)` with `N_restarts = 1`, since a standalone
+  solve has no handshakes.
+  **Phase 7 met the exception independently of phase 6, on different
+  chemistry**, which is the useful part: measured 3.47e-17, 2.78e-17, 8.67e-18
+  and 1.32e-16 at `(1e-10, 1e-8)` for ptsI, ptsH, Crr and ptsG against bounds
+  seven orders larger, and at `(1e-11, 1e-9)` two rose and two fell with none
+  falling by the required fivefold. A first draft of this phase proposed its own
+  two-class amendment to §3; phase 6 had already landed the same finding with a
+  stricter, mechanically checkable rule, so that draft was dropped on rebase and
+  this check now asserts phase 6's criterion. See §12, 2026-09-10.
   A structural leak still fails, which is the part that matters:
   `PtsCarrierLeak` writes GLCpts1 as creating phospho-HPr rather than
   transferring it, and the ptsH residual then exceeds its bound while the other
