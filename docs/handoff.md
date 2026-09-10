@@ -141,7 +141,7 @@ attempt, because this module divided copy numbers by a transcribed 20180 where
 Both now derive the factor.
 
 **Suite:** 2265 passed, 0 failed, 1 broken (the one remaining skip), 2266 total
-(job 16410658, HEAD `4d7d8f5`, clean tree); **2023 before the phase**, which is
+(job 16410902, HEAD `68ce588`, clean tree); **2023 before the phase**, which is
 phase 7's recorded count on the rebased tree. Earlier phase-8 figures of
 1684/1686 against a 1468 base were measured on the pre-rebase tree — job
 16374108's own header says `HEAD: 57b4e5e (tree dirty)` — and that commit is not
@@ -149,6 +149,13 @@ an ancestor of this branch. The two full-cycle testsets add tens of seconds,
 almost all of it Rodas5P specialising on two new problem types — the horizon
 itself is free at 3 ms a trajectory, which is why the suite asserts the
 done-when at the horizon the done-when names rather than a shortened one.
+
+**GitHub Actions is blocked on billing, not on this branch.** Every workflow
+job since ~09:10 fails in three seconds with zero steps run and the annotation
+"The job was not started because recent account payments have failed or your
+spending limit needs to be increased." CI passed normally earlier the same day.
+Until that is settled the Slurm suite is the only test signal, so quote the job
+number rather than a green tick.
 
 **A cluster fact that cost half an hour.** Precompilation caches are keyed on
 CPU target and every Slurm job lands on a different node, so a cold node costs
