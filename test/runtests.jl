@@ -61,6 +61,9 @@ using Aqua
     include("test_growth.jl")
     # The volume channel's inbound half (spec phase 5b), same doubles file.
     include("test_volume_inbound.jl")
+    # Central glycolysis (spec phase 6), the first Core A′ module. Its
+    # energy double is local to the file, not in the shared doubles.
+    include("test_corea_central_glycolysis.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
