@@ -24,7 +24,7 @@ D2 records this project hitting three times.
 | | |
 |---|---|
 | Upstream file | `CME_ODE/model_data/Central_AA_Zane_Balanced_direction_fixed_nounqATP.tsv` |
-| Upstream commit | `db048ac` |
+| Upstream commit | `db048aca5fe85438e0129819bbf0314b037dd931` |
 | Upstream table | `TableType='Quantity' TableName='Parameter'` (the balanced table, `Document='MinCell_params_Central_Zane_direction_fixed.tsv'`) |
 | Script | `dev/scripts/extract_central_glycolysis.jl` |
 | Consumed by | `src/organisms/coreA/central_glycolysis.jl` (spec §11 phase 6) |
@@ -35,8 +35,29 @@ D2 records this project hitting three times.
 julia dev/scripts/extract_central_glycolysis.jl <path to Minimal_Cell checkout>
 ```
 
-Base only, no project — it runs on a login node with an empty depot. The output
-path defaults to this directory.
+Base only, no project — it runs on a login node with an empty depot in about two
+seconds. The output path defaults to this directory.
+
+The script **refuses a checkout at the wrong revision** rather than regenerating
+against it: the row-class counts catch a table that changed shape, but nothing
+catches one that changed a value, and a silent regeneration against a different
+upstream would round-trip cleanly against the wrong source. A checkout that is
+not a git repository is warned about rather than refused, since a tarball is a
+legitimate way to have the file.
+
+It prints the SHA-256 of what it wrote. For the committed file that is
+
+```
+c5278483a9d8bc9e6c91bb6da7b5065581f050d9eeea9460c215c02a4a2d9322
+```
+
+**Nothing in the test suite can check the round-trip**, because CI and the
+compute nodes have no `Minimal_Cell` checkout. What the suite does assert is
+that the committed file holds exactly the 65 identifiers the model needs, in the
+right classes, with four cells matching upstream byte for byte, and that all
+thirteen concentrations agree with `registry.jl`. A hand-edit to a *concentration*
+therefore fails the loader's registry-agreement check; a hand-edit to a catalytic
+or Michaelis constant would not, and the hash above is what catches it.
 
 ### The 65 rows, and where each class came from
 
@@ -58,11 +79,45 @@ The 32 Michaelis constants are 2 (PGI) + 4 (PFK) + 3 (FBA) + 2 (TPI) + 5 (GAPD)
 + 4 (PGK) + 2 (PGM) + 2 (ENO) + 4 (PYK) + 4 (LDH_L), which is the
 substrate-plus-product term count of each reaction's rate law.
 
+### The width column keeps its upstream name, and that is not cosmetic
+
+The header reads `!UnconstrainedGeometricStd`, not a bare `!GeometricStd`,
+because **there is no balanced width in the source.** The upstream `Parameter`
+table carries exactly one spread column and it is the unconstrained one, so
+every prior built from this extract pairs a *balanced* median (`Mode`) with an
+*unconstrained* width.
+
+For most rows that costs nothing, and the file says which: **all 13
+concentrations and all 32 Michaelis constants have `Mode` equal to
+`UnconstrainedGeometricMean` exactly**, so the width belongs to the median it is
+given. **Ten of the twenty catalytic constants do not** — those are the rows the
+thermodynamic balancing actually moved — and there the width is inherited from a
+distribution not centred on the prior's median:
+
+| identifier | `Mode` (the prior's median) | `UnconstrainedGeometricMean` | width used |
+|---|---|---|---|
+| `kcatR_R_TPI` | 4 | 65341.6923 | 1.0513 |
+| `kcatR_R_PGK` | 0.128899064884157 | 446.1665 | 1.0513 |
+| `kcatF_R_PGK` | 220 | 1795.6486 | 1.0513 |
+| `kcatF_R_PYK` | 3204 | 386.6434 | 1.0513 |
+| `kcatF_R_PGM` | 434 | 112.5355 | 1.0921 |
+| `kcatR_R_PGM` | 14 | 72.7139 | 1.1457 |
+| `kcatF_R_FBA` | 59.7 | 11.7469 | 1.7466 |
+| `kcatR_R_FBA` | 0.56 | 1.1418 | 8.3563 |
+| `kcatR_R_PGI` | 650 | 1001.2634 | 1.0513 |
+| `kcatF_R_PFK` | 111 | 111.7687 | 1.093 |
+
+Spec §4 D1 carries this as a labelled departure, and §12's 2026-09-10 entry
+records how it was found. Emitting the column as `!GeometricStd` would have
+hidden exactly the mode-versus-mean distinction D1 exists to police, which is
+why the rename was undone.
+
 ### Three columns not read, each for a different reason
 
 - **`!UnconstrainedGeometricMean`** — the unconstrained estimate, not the
   balanced one. Spec §4 D1 records reading the wrong column twice before landing
-  on `Mode`.
+  on `Mode`. It is read here only to *report* the ten divergences above, never
+  to supply a value.
 - **The `Quantity` table**, earlier in the same document — the hand-patch layer
   the published simulator actually runs. Eight of the 32 Michaelis constants
   differ from the balanced column, two of them by 82× and 227×. Taking the

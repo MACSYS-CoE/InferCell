@@ -75,6 +75,17 @@ the upstream file, the commit and the command that regenerates it.
 const CENTRAL_GLYCOLYSIS_TABLE =
     joinpath(@__DIR__, "data", "central_glycolysis.tsv")
 
+"""
+The extract's width column, which keeps its upstream name.
+
+There is no balanced width in the source: the location comes from the balanced
+`Mode` and the spread from the unconstrained fit. For all 13 concentrations and
+all 32 Michaelis constants here the two agree exactly, so the pairing costs
+nothing; for ten of the twenty catalytic constants they do not, and spec §4 D1
+carries the measurement and the label.
+"""
+const CENTRAL_GSTD_COLUMN = "UnconstrainedGeometricStd"
+
 # ---------------------------------------------------------------------------
 # One reaction, compiled
 # ---------------------------------------------------------------------------
@@ -88,7 +99,6 @@ const CENTRAL_GLYCOLYSIS_TABLE =
 # concentration vector (the thirteen owned states, then the three currencies),
 # `skm`/`pkm`/`kf`/`kr` into the module's 65-value parameter table.
 struct GlycolyticRate{NS, NP}
-    id::Symbol
     enzyme::Int
     kf::Int
     kr::Int
@@ -131,7 +141,7 @@ glycolysis draw ATP at PFK and supply it at PGK and PYK.
 
 **Every parameter is fixed by default.** Sixty-five free parameters is not an
 inference problem anyone wants to start with, and spec §4 D11 puts the first
-target set at three to six. `free` names the ones to release, by parameter name
+target set at six. `free` names the ones to release, by parameter name
 (`:kcatF_R_FBA`, `:km_R_PGI_M_g6p_c`, `:M_g6p_c0`). The module exposes the whole
 vector either way, so nothing is hidden — composing it simply does not silently
 produce a 65-dimensional posterior.
@@ -171,7 +181,8 @@ glycolytic_states() = vcat(species_in_group(:glycolytic), species_in_group(:redo
 whatever translation names its proteins; `CentralGlycolysis` takes them as a
 keyword so re-pointing the module costs no edit here.
 """
-default_protein_sources() = [Symbol(:P_, r.locus) for r in GLYCOLYTIC_REACTIONS]
+default_protein_sources(reactions = GLYCOLYTIC_REACTIONS) =
+    [Symbol(:P_, r.locus) for r in reactions]
 
 """
     nominal_enzyme_concentrations() -> SVector{10, Float64}
@@ -190,13 +201,14 @@ handshake performs rather than with a rounded copy of it. These are nominal
 stand-ins for a live count, not imported concentrations, which is why the module
 registers them as a reduction declaration.
 """
-nominal_enzyme_concentrations() =
-    SVector{10, Float64}(r.copies / corea_particles_per_mM() for r in GLYCOLYTIC_REACTIONS)
+nominal_enzyme_concentrations(reactions = GLYCOLYTIC_REACTIONS) =
+    SVector{10, Float64}(r.copies / corea_particles_per_mM() for r in reactions)
 
 function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
-                           enzyme_conc = nothing,
                            reactions = GLYCOLYTIC_REACTIONS,
-                           protein_sources::AbstractVector{Symbol} = default_protein_sources(),
+                           enzyme_conc = nominal_enzyme_concentrations(reactions),
+                           protein_sources::AbstractVector{Symbol} =
+                               default_protein_sources(reactions),
                            table_path::AbstractString = CENTRAL_GLYCOLYSIS_TABLE)
     length(reactions) == 10 ||
         throw(ArgumentError("Central glycolysis has ten reactions; $(length(reactions)) were given"))
@@ -214,14 +226,15 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
     # informedness and does not return. Reading it through the same parser
     # rather than a second ad-hoc one is what keeps the prior's width and the
     # prior's median from ever coming from differently-parsed rows.
-    table = read_source_table(table_path; file = CENTRAL_FILE)
+    table = read_source_table(table_path; file = CENTRAL_FILE,
+                              gstd_column = CENTRAL_GSTD_COLUMN)
     widths = read_source_table(table_path; file = CENTRAL_FILE,
-                               value_column = "GeometricStd").values
+                               value_column = CENTRAL_GSTD_COLUMN,
+                               gstd_column = CENTRAL_GSTD_COLUMN).values
     tables = [table]
 
     params = InferParameter[]
     values = Float64[]
-    index_of = Dict{String, Int}()
 
     function import_value!(identifier::AbstractString; name::Symbol, role::Symbol)
         haskey(widths, identifier) || throw(ArgumentError(
@@ -236,7 +249,6 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
                            role = role, fixed = !(name in free))
         push!(params, p)
         push!(values, p.value)
-        index_of[identifier] = length(values)
         return length(values)
     end
 
@@ -257,6 +269,30 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
         import_value!("conc_$s"; name = Symbol(s, "0"), role = :initial_condition)
     end
 
+    # A `free` name that matches nothing would leave all 65 fixed and produce a
+    # zero-dimensional posterior, which surfaces as a puzzling sampler result
+    # rather than as the typo it is.
+    stray = setdiff(free, [p.name for p in params])
+    isempty(stray) || throw(ArgumentError(
+        "free names $(join(stray, ", ")) are not parameters of CentralGlycolysis. " *
+        "Its names are kcatF_R_<reaction>, kcatR_R_<reaction>, " *
+        "km_R_<reaction>_<species> and <species>0"))
+
+    # And an initial condition may not be freed **yet**, because freeing one
+    # would be silently inert rather than wrong-looking: `_collect_ic_values`
+    # builds `u0` from each parameter's stored `value`, never from the sampled
+    # vector, and no rate law reads a `conc_` slot. A freed initial condition is
+    # therefore sampled, ignored, and returns its prior as its posterior — which
+    # reads as "the data does not constrain it" rather than as a defect.
+    # Wiring `u0` to the sampled vector is framework, so it is not done on a
+    # module branch (spec §10 R15); the refusal is what keeps the gap loud.
+    freed_ics = [p.name for p in params if p.name in free && p.role === :initial_condition]
+    isempty(freed_ics) || throw(ArgumentError(
+        "free names $(join(freed_ics, ", ")) are initial conditions, and the " *
+        "orchestrator builds u0 from each parameter's stored value rather than " *
+        "from the sampled vector, so freeing one would be sampled and then " *
+        "ignored. Free a rate constant instead; see spec §12 (2026-09-10)"))
+
     # Where each free parameter lands in the slice the orchestrator hands
     # `dynamics`. `model_free_params` is the same filter `_build_contexts` uses,
     # so this map and the composed parameter vector cannot disagree.
@@ -274,9 +310,10 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
         "free-parameter slots disagree with model_free_params: $slot against " *
         "$(length(model_free_params(params)))")
 
-    rate_of(r) = GlycolyticRate(
-        r.id,
-        findfirst(x -> x.id === r.id, reactions),
+    # The enzyme index is the reaction's position, since `rates` is built by
+    # walking `reactions` in order and `enzyme_conc` is in that same order.
+    rate_of(k, r) = GlycolyticRate(
+        k,
         kf_of[r.id], kr_of[r.id],
         SVector{length(r.substrates), Int}(cpos[s] for (s, _) in r.substrates),
         SVector{length(r.substrates), Int}(n for (_, n) in r.substrates),
@@ -284,7 +321,7 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
         SVector{length(r.products), Int}(cpos[s] for (s, _) in r.products),
         SVector{length(r.products), Int}(n for (_, n) in r.products),
         SVector{length(r.products), Int}(km_of[(r.id, s)] for (s, _) in r.products))
-    rates = Tuple(rate_of(r) for r in reactions)
+    rates = Tuple(rate_of(k, r) for (k, r) in enumerate(reactions))
 
     # Stoichiometry, split by who integrates the state: `stoich` for the
     # thirteen this module owns, `currency_stoich` for the three it contributes
@@ -300,12 +337,11 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
         end
     end
 
-    ec = enzyme_conc === nothing ? nominal_enzyme_concentrations() :
-         SVector{10, Float64}(enzyme_conc)
-
-    return CentralGlycolysis(params, values, free_slot, ec, rates,
-                             SMatrix{13, 10, Float64}(net[1:13, :]),
-                             SMatrix{3, 10, Float64}(net[14:16, :]),
+    n_owned = length(owned)
+    return CentralGlycolysis(params, values, free_slot,
+                             SVector{10, Float64}(enzyme_conc), rates,
+                             SMatrix{13, 10, Float64}(net[1:n_owned, :]),
+                             SMatrix{3, 10, Float64}(net[(n_owned + 1):end, :]),
                              collect(Symbol, protein_sources),
                              _glycolysis_reduction_notes())
 end
@@ -419,6 +455,17 @@ it.
 """
 function reaction_rates(u, p, t, m::CentralGlycolysis, u_inputs)
     T = promote_type(eltype(u), eltype(u_inputs), eltype(p), Float64)
+    return _typed_rates(u, p, m, u_inputs, T)
+end
+
+# `T` reaches the body as a **type parameter**, not as a local. Computing it with
+# `promote_type` inside the body and then using it defeats specialisation on it:
+# the composed right-hand side allocated 55,520 bytes per call that way, against
+# the zero-allocation contract `_make_rhs` states and `test/test_contributions.jl`
+# asserts at 32 states. Routing it through a `::Type{T}` slot gives bit-identical
+# values and zero allocations, which `test_corea_central_glycolysis.jl` pins.
+@inline function _typed_rates(u, p, m::CentralGlycolysis, u_inputs,
+                              ::Type{T}) where {T}
     c = vcat(SVector{13, T}(u),
              SVector{3, T}(u_inputs[1], u_inputs[2], u_inputs[3]))
     return SVector{10, T}(map(r -> _reaction_rate(r, c, m, p, T), m.rates))
@@ -473,6 +520,24 @@ function _glycolysis_reduction_notes()
         "an inherited prior; eight of the 32 differ, one by 82 times and one " *
         "by 227 times ($km_list, all in mM)",
 
+        "the consequence of that column choice is not confined to eight " *
+        "inputs: at the registry's initial concentrations R_PGI runs " *
+        "backwards on the imported constants, -0.3325 mM/s against +4.5963 " *
+        "mM/s on the constants the published simulator runs, so the sign of " *
+        "the pathway's entry reaction is ours rather than the published " *
+        "model's; R_FBA is slower by 253 times, 0.00901 against 2.27985 " *
+        "mM/s. Both reverse once the pools move, and the module still " *
+        "integrates non-negatively over a full cycle, but no statement about " *
+        "an initial flux here is the published model's",
+
+        "the ten enzyme concentrations are frozen at the registry's initial " *
+        "radius and sit on no coupling channel, so under a growing " *
+        "composition every concentration dilutes while they do not, and the " *
+        "fluxes run high by the volume ratio -- about 7 percent at Core A's " *
+        "1.07x growth. Translation supersedes them through the catalytic " *
+        "channel, which recomputes them from live counts at every handshake, " *
+        "so this is a property of the module before phase 11 and not after",
+
         "M_atp_c, M_adp_c and M_pi_c are read and contributed to but not " *
         "integrated here, so any trajectory produced without the nucleotide " *
         "recycling module composed holds them at whatever the double supplies " *
@@ -486,6 +551,6 @@ function _glycolysis_reduction_notes()
 end
 
 export CentralGlycolysis, GLYCOLYTIC_REACTIONS, GLYCOLYSIS_CURRENCIES,
-       CENTRAL_GLYCOLYSIS_TABLE, KM_COLUMN_DISAGREEMENTS,
-       glycolytic_states, default_protein_sources, nominal_enzyme_concentrations,
+       CENTRAL_GLYCOLYSIS_TABLE, CENTRAL_GSTD_COLUMN, KM_COLUMN_DISAGREEMENTS,
+       glycolytic_states, default_protein_sources,
        reaction_rates, substrate_terms, product_terms

@@ -107,6 +107,20 @@ points. GAPD and LDH_L are the only reactions that touch the pair and their
 stoichiometry mirrors, so the sum is invariant and any drift is the integrator's
 — or a broken stoichiometry's.
 """
+# Allocation probes as top-level functions, matching `_rhs_alloc` in
+# test/test_contributions.jl:14. `@allocated` written inline inside a `@testset`
+# measures the boxing of the testset block's own locals as well as the call, and
+# reports tens of bytes for a call that allocates none.
+_rates_alloc(m, u, p, ui) = @allocated reaction_rates(u, p, 0.0, m, ui)
+_dyn_alloc(m, u, p, ui) = @allocated dynamics(u, p, 0.0, m, ui)
+_con_alloc(m, u, p, ui) = @allocated contributions(u, p, 0.0, m, ui)
+_rhs_alloc(rhs, u, p, t) = @allocated rhs(u, p, t)
+
+# One call shape for the rate law, so the "no free parameters" detail is stated
+# once rather than at six call sites.
+_rates(model, conc, p = SVector{0, Float64}()) =
+    reaction_rates(_u0(conc), p, 0.0, model, _uin(conc))
+
 function redox_drift(sol, nad::Int, nadh::Int)
     total0 = sol.u[1][nad] + sol.u[1][nadh]
     return maximum(abs(u[nad] + u[nadh] - total0) for u in sol.u)
@@ -130,21 +144,23 @@ function assert_redox_conserved(sol, nad::Int, nadh::Int; bound::Float64)
     return drift
 end
 
-# tol_C of spec §3: the single-run bound on a conserved sum, from the
-# integrator's own tolerances. Reported as a secondary number; the assertion is
-# the scaling, not this.
-function conservation_bound(sol, idxs, abstol, reltol)
-    return sum(max(abstol, reltol * maximum(abs(u[i]) for u in sol.u)) for i in idxs)
-end
+# The integrator's own bound on state `i` over a trajectory: one definition, used
+# both for non-negativity and for tol_C, so the two cannot drift apart.
+state_bound(sol, i::Int, abstol, reltol) =
+    max(abstol, reltol * maximum(abs(u[i]) for u in sol.u))
+
+# tol_C of spec §3: the single-run bound on a conserved sum. Reported as a
+# secondary number; the assertion is the scaling, not this.
+conservation_bound(sol, idxs, abstol, reltol) =
+    sum(state_bound(sol, i, abstol, reltol) for i in idxs)
 
 # One reaction's stoichiometry mutated, everything else identical.
 function mutate_stoichiometry(id::Symbol, species::Symbol, coefficient::Int)
+    # `merge` rather than retyping every field: adding one to
+    # GLYCOLYTIC_REACTIONS later cannot silently drop it here.
+    bump(ps) = [s === species ? (s => coefficient) : (s => n) for (s, n) in ps]
     return [r.id === id ?
-            (id = r.id, enzyme = r.enzyme, locus = r.locus, copies = r.copies,
-             substrates = [s === species ? (s => coefficient) : (s => n)
-                           for (s, n) in r.substrates],
-             products = [s === species ? (s => coefficient) : (s => n)
-                         for (s, n) in r.products]) : r
+            merge(r, (substrates = bump(r.substrates), products = bump(r.products))) : r
             for r in GLYCOLYTIC_REACTIONS]
 end
 
@@ -158,7 +174,23 @@ const GLYCOLYSIS_CYCLE = 6300.0
     nad = findfirst(==(:M_nad_c), owned)
     nadh = findfirst(==(:M_nadh_c), owned)
 
+    # One composition and one full-cycle solve at the pinned tolerances, shared
+    # by 6.7 and the done-when block. Solving it twice would be one 6,300 s
+    # stiff integration spent reproducing a trajectory already in hand.
+    models = [m, HeldEnergyPool()]
+    prob = build_problem(models; tspan = (0.0, GLYCOLYSIS_CYCLE))
+    saveat = 0.0:60.0:GLYCOLYSIS_CYCLE
+    sol = solve(prob, Rodas5P(); abstol = GLYCOLYSIS_ABSTOL,
+                reltol = GLYCOLYSIS_RELTOL, saveat = saveat)
+
     @testset "6.1 the vendored extract" begin
+        header = split(first(l for l in readlines(CENTRAL_GLYCOLYSIS_TABLE)
+                              if startswith(l, "!") && !startswith(l, "!!")), '\t')
+        # The width column keeps its upstream name. There is no balanced width
+        # in the source, and emitting a bare `!GeometricStd` would hide the
+        # mode-versus-mean distinction spec §4 D1 exists to police.
+        @test header == ["!ID", "!Mode", "!$(CENTRAL_GSTD_COLUMN)", "!UpstreamRow"]
+
         rows = [split(l, '\t') for l in readlines(CENTRAL_GLYCOLYSIS_TABLE)
                 if !startswith(l, "!") && !startswith(l, "%") && !isempty(strip(l))]
         ids = [String(r[1]) for r in rows]
@@ -205,7 +237,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
         @test sum(sum, terms) == 32
 
         conc = registry_concentrations()
-        v = reaction_rates(_u0(conc), SVector{0, Float64}(), 0.0, m, _uin(conc))
+        v = _rates(m, conc)
         @test v ≈ naive_rates(m, conc) rtol = 1e-12
         @test all(isfinite, v)
 
@@ -216,7 +248,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
         balanced[:M_f6p_c] = conc[:M_g6p_c] * _pv(m, :kcatF_R_PGI) *
                              _pv(m, :km_R_PGI_M_f6p_c) /
                              (_pv(m, :kcatR_R_PGI) * _pv(m, :km_R_PGI_M_g6p_c))
-        vb = reaction_rates(_u0(balanced), SVector{0, Float64}(), 0.0, m, _uin(balanced))
+        vb = _rates(m, balanced)
         forward = _pv(m, :kcatF_R_PGI) * conc[:M_g6p_c] / _pv(m, :km_R_PGI_M_g6p_c)
         @test abs(vb[1]) < 1e-12 * forward * m.enzyme_conc[1]
 
@@ -229,7 +261,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
             for (s, _) in r.products
                 swamped[s] = conc[s] * 1e8
             end
-            vk = reaction_rates(_u0(swamped), SVector{0, Float64}(), 0.0, m, _uin(swamped))
+            vk = _rates(m, swamped)
             @test vk[k] < 0
         end
 
@@ -242,7 +274,42 @@ const GLYCOLYSIS_CYCLE = 6300.0
         @test du[findfirst(==(:M_2pg_c), owned)] ≈ nv[7] - nv[8] rtol = 1e-12   # PGM in, ENO out
         @test du[nad] ≈ nv[10] - nv[5] rtol = 1e-12                             # LDH_L in, GAPD out
         @test du[nadh] ≈ nv[5] - nv[10] rtol = 1e-12
-        @test du[nad] ≈ -du[nadh] rtol = 1e-14
+        # Bitwise, not approximately: this is what makes the redox sum exactly
+        # conserved by the derivative, and it is the criterion spec §3's
+        # exception is fenced with.
+        @test du[nad] === -du[nadh]
+        @test du[nad] + du[nadh] === 0.0
+    end
+
+    @testset "6.2 the right-hand side allocates nothing" begin
+        # `_make_rhs` states the composed function is allocation-free iff every
+        # `dynamics` and `contributions` is, and test_contributions.jl asserts
+        # it at 32 states. This module is the largest right-hand side in the
+        # composition, and it is easy to lose: computing the element type with
+        # `promote_type` as a local inside the body rather than passing it as a
+        # type parameter allocated 55,520 bytes per call while returning
+        # identical values and inferring fine.
+        conc = registry_concentrations()
+        u, ui = _u0(conc), _uin(conc)
+        pfree = SVector{0, Float64}()
+
+        # Static all the way through: a Vector anywhere in the path allocates.
+        @test reaction_rates(u, pfree, 0.0, m, ui) isa SVector{10, Float64}
+        @test dynamics(u, pfree, 0.0, m, ui) isa SVector{13, Float64}
+        @test contributions(u, pfree, 0.0, m, ui) isa SVector{3, Float64}
+
+        _rates_alloc(m, u, pfree, ui)                      # warm-up
+        _dyn_alloc(m, u, pfree, ui)
+        _con_alloc(m, u, pfree, ui)
+        @test _rates_alloc(m, u, pfree, ui) == 0
+        @test _dyn_alloc(m, u, pfree, ui) == 0
+        @test _con_alloc(m, u, pfree, ui) == 0
+
+        p1 = build_problem([m, HeldEnergyPool()]; tspan = (0.0, 1.0))
+        rhs = p1.f.f
+        @test rhs(p1.u0, p1.p, 0.0) isa SVector{26, Float64}
+        _rhs_alloc(rhs, p1.u0, p1.p, 0.0)                  # warm-up
+        @test _rhs_alloc(rhs, p1.u0, p1.p, 0.0) == 0
     end
 
     @testset "6.3 every value arrives through the loader" begin
@@ -267,11 +334,40 @@ const GLYCOLYSIS_CYCLE = 6300.0
         @test only(model_free_params(parameters(free))).name === :kcatF_R_FBA
         # And it reaches the rate law from `p` rather than from the struct.
         conc = registry_concentrations()
-        base = reaction_rates(_u0(conc), SVector{0, Float64}(), 0.0, m, _uin(conc))
-        doubled = reaction_rates(_u0(conc), SA[2 * _pv(m, :kcatF_R_FBA)], 0.0,
-                                 free, _uin(conc))
+        base = _rates(m, conc)
+        doubled = _rates(free, conc, SA[2 * _pv(m, :kcatF_R_FBA)])
         @test doubled[3] > base[3]
         @test doubled[1] ≈ base[1] rtol = 1e-14
+
+        # Two free parameters, so the slot map is exercised on *order* and not
+        # only on count: with one free parameter slot 1 is the only slot, and a
+        # map that walked `params` in a different order than the orchestrator's
+        # `model_free_params` would be invisible. PGI is reaction 1 and PYK
+        # reaction 9, so a swapped map moves the wrong rate.
+        two = CentralGlycolysis(; free = [:kcatF_R_PGI, :kcatF_R_PYK])
+        names = [p.name for p in model_free_params(parameters(two))]
+        @test names == [:kcatF_R_PGI, :kcatF_R_PYK]
+        bumped = _rates(two, conc, SA[3 * _pv(m, :kcatF_R_PGI), _pv(m, :kcatF_R_PYK)])
+        @test bumped[1] > base[1]
+        @test bumped[9] ≈ base[9] rtol = 1e-14
+
+        # A `free` name matching nothing is a typo, and it would otherwise show
+        # up as a zero-dimensional posterior far downstream.
+        err = caught(() -> CentralGlycolysis(; free = [:kcat_R_FBA]))
+        @test err isa ArgumentError
+        @test occursin("kcat_R_FBA", sprint(showerror, err))
+
+        # Freeing an initial condition is refused rather than allowed to be
+        # inert: `_collect_ic_values` builds u0 from each parameter's stored
+        # value and no rate law reads a conc_ slot, so a freed IC would be
+        # sampled, ignored, and hand back its prior as its posterior. That
+        # reads as "the data does not constrain it" rather than as a defect.
+        err = caught(() -> CentralGlycolysis(; free = [:M_g6p_c0]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("M_g6p_c0", msg)
+        @test occursin("initial condition", msg)
+        @test occursin("sampled and then ignored", msg)
 
         # The prior is the balancing distribution's own shape.
         pgi = ps[findfirst(p -> p.name === :kcatF_R_PGI, ps)]
@@ -330,11 +426,11 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
         # Overriding one scales exactly the rates that enzyme catalyses.
         conc = registry_concentrations()
-        base = reaction_rates(_u0(conc), SVector{0, Float64}(), 0.0, m, _uin(conc))
+        base = _rates(m, conc)
         ec = collect(m.enzyme_conc)
         ec[8] *= 3                                     # ENO
         m3 = CentralGlycolysis(; enzyme_conc = ec)
-        scaled = reaction_rates(_u0(conc), SVector{0, Float64}(), 0.0, m3, _uin(conc))
+        scaled = _rates(m3, conc)
         @test scaled[8] ≈ 3 * base[8] rtol = 1e-14
         @test all(scaled[i] ≈ base[i] for i in 1:10 if i != 8)
 
@@ -405,7 +501,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
     @testset "6.6 what is ours" begin
         labels = reduction_declarations([m, HeldEnergyPool()])
         ours = filter(l -> l.subject === :CentralGlycolysis, labels)
-        @test length(ours) == 4
+        @test length(ours) == 6
         text = join((l.description for l in ours), " ")
 
         @test occursin("NOX", text)
@@ -427,18 +523,36 @@ const GLYCOLYSIS_CYCLE = 6300.0
         @test occursin("M_atp_c", text) && occursin("not a closed energy loop", text)
         @test occursin("nominal", text)
 
+        # The column choice reverses the sign of the pathway's entry reaction at
+        # the registry's initial state, which is a consequence no reader learns
+        # from eight input deltas. Both numbers are recomputed here from the
+        # module's own constants, so the note cannot drift from the model.
+        conc = registry_concentrations()
+        v_imported = _rates(m, conc)[1]
+        @test v_imported < 0
+        @test v_imported ≈ -0.3325 atol = 5e-4
+        quantity_km = Dict(id => ran for (id, ran, _) in KM_COLUMN_DISAGREEMENTS)
+        E1 = m.enzyme_conc[1]
+        xs = conc[:M_g6p_c] / quantity_km["km_R_PGI_M_g6p_c"]
+        xp = conc[:M_f6p_c] / quantity_km["km_R_PGI_M_f6p_c"]
+        v_published = E1 * (_pv(m, :kcatF_R_PGI) * xs - _pv(m, :kcatR_R_PGI) * xp) /
+                      ((1 + xs) + (1 + xp) - 1)
+        @test v_published > 0
+        @test v_published ≈ 4.5963 atol = 5e-4
+        @test occursin("runs " * "backwards", text) || occursin("backwards", text)
+        @test occursin("-0.3325", text) && occursin("4.5963", text)
+        @test occursin("253", text)
+
+        # And that the enzyme concentrations sit on no volume channel.
+        @test occursin("frozen at the registry's initial radius", text)
+        @test isempty(filter(e -> e isa VolumeEdge, coupling(m)))
+
         # Each reads as a sentence rather than a slug.
         @test all(l -> length(split(l.description)) > 8, ours)
         @test all(l -> l.category === :lumping, ours)
     end
 
     @testset "6.7 integration and redox balance" begin
-        models = [m, HeldEnergyPool()]
-        prob = build_problem(models; tspan = (0.0, GLYCOLYSIS_CYCLE))
-        saveat = 0.0:60.0:GLYCOLYSIS_CYCLE
-
-        sol = solve(prob, Rodas5P(); abstol = GLYCOLYSIS_ABSTOL,
-                    reltol = GLYCOLYSIS_RELTOL, saveat = saveat)
         @test sol.retcode == ReturnCode.Success
         @test length(sol.u) == length(saveat)
 
@@ -447,8 +561,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # assertion over the whole trajectory, naming the state and time that
         # came closest, rather than 1,378 assertions that would report only
         # that one of them failed.
-        bounds = [max(GLYCOLYSIS_ABSTOL,
-                      GLYCOLYSIS_RELTOL * maximum(abs(u[i]) for u in sol.u)) for i in 1:13]
+        bounds = [state_bound(sol, i, GLYCOLYSIS_ABSTOL, GLYCOLYSIS_RELTOL) for i in 1:13]
         mins = [minimum(u[i] for u in sol.u) for i in 1:13]
         margins = mins .+ bounds
         @test all(>(0), margins)
@@ -476,15 +589,32 @@ const GLYCOLYSIS_CYCLE = 6300.0
             push!(drifts, redox_drift(l, nad, nadh))
         end
 
+        # **The criterion spec §3 requires before the exception may be used at
+        # all**: the composed right-hand side returns the moiety's weighted
+        # derivative sum as literally 0.0, bitwise, not approximately. Asserted
+        # over the whole saved trajectory rather than at one point, so it is a
+        # property of the right-hand side and not of the initial condition.
+        for u in sol.u
+            du = prob.f(u, prob.p, 0.0)
+            @test du[nad] + du[nadh] === 0.0
+        end
+
         drift_loose = drifts[end - 1]                       # at the pinned pair
         total0 = sol.u[1][nad] + sol.u[1][nadh]
         floor_ulps = drifts ./ eps(total0)
         tol_C = conservation_bound(sol, (nad, nadh), GLYCOLYSIS_ABSTOL, GLYCOLYSIS_RELTOL)
 
-        # Every point on the ladder is a few tens of ulps of the conserved sum,
-        # and eight decades of tolerance move it by less than one decade.
+        # Spec §3's two bounds for an exact invariant: every rung within a
+        # hundred ulps of the conserved sum, and the largest rung within 100×
+        # of the smallest — against the ≥5× fall *per decade* the tolerance
+        # principle would otherwise demand.
+        #
+        # The spread is floored at one ulp because a rung can come out at
+        # **exactly** zero: the residual is roundoff, and roundoff cancels
+        # sometimes. An unfloored ratio then reports `Inf` and fails the check
+        # on the best possible result, which is what happened on job 16364476.
         @test all(<(100), floor_ulps)
-        @test maximum(drifts) / minimum(drifts) < 100
+        @test maximum(drifts) <= 100 * max(minimum(drifts), eps(total0))
         @test drift_loose <= tol_C
 
         @info "phase 6 redox residual, flat at the floating-point floor" ladder drifts floor_ulps eps_of_sum=eps(total0) tol_C
@@ -520,10 +650,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
     end
 
     @testset "Done when: thirteen states integrate over a cycle, redox conserved" begin
-        models = [m, HeldEnergyPool()]
-        prob = build_problem(models; tspan = (0.0, GLYCOLYSIS_CYCLE))
-        sol = solve(prob, Rodas5P(); abstol = GLYCOLYSIS_ABSTOL,
-                    reltol = GLYCOLYSIS_RELTOL, saveat = 0.0:60.0:GLYCOLYSIS_CYCLE)
         drift = redox_drift(sol, nad, nadh)
         lac = findfirst(==(:M_lac__L_c), owned)
         g6p = findfirst(==(:M_g6p_c), owned)
