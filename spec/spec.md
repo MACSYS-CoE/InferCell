@@ -2520,6 +2520,11 @@ tolerance principle — see task 7.7 and §12.
   `PtsCarrierLeak` writes GLCpts1 as creating phospho-HPr rather than
   transferring it, and the ptsH residual then exceeds its bound while the other
   three stay under theirs.
+  **Suite:** `sbatch test/run_tests.slurm` job **16364952**, **1654/1654** in
+  2m32.1s on the merged tree, against 1468 before the phase. The full-cycle
+  timing is job 16364852. Two earlier counts recorded during review — 1619 and
+  1651 — were measured against dirty or superseded trees and are not the ones
+  this phase stands on.
 
 ### Phase 8 — Nucleotide recycling
 
