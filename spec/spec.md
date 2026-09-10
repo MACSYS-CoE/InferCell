@@ -369,8 +369,32 @@ from the integrator rather than hand-picking them, and sharpened in one way:
 
 A structural leak does not shrink when the solver is tightened, whatever its
 magnitude; a numerical residual does. A fixed threshold can be passed by
-loosening it, and this cannot. Report the single-run bound as a secondary
-number, derived as
+loosening it, and this cannot.
+
+**Amended 2026-09-10, from phase 8: the five-fold rule binds where the
+trajectory is restarted, and a standalone linear invariant is not such a
+case.** Adenylate, guanylate, redox, the carrier sums and phosphate closure are
+all *linear* invariants, and a Runge-Kutta or Rosenbrock method preserves a
+linear invariant **exactly**: with `nᵀJ = 0` the vector passes through the
+`(I − γhJ)⁻¹` solve unchanged, so every stage increment sums to zero. There is
+no integration error in such a quantity to scale, and what remains is
+floating-point round-off, which grows slightly when the solver is tightened
+because tightening adds steps. Measured on the recycling module over a full
+cycle: adenylate 3.5e-13 → 1.2e-13 mM, guanylate 1.0e-14 → 1.4e-14 mM,
+phosphate 2.5e-13 → 2.6e-13 mM, against a single-run integrator bound of
+4.2e-8 mM.
+
+So the rule applies **where the integrator is restarted** — the assembled
+hybrid model, whose 6,300 handshakes each re-impose rounded counts and so
+inject a fresh perturbation the solver must then integrate. That is exactly
+what the `N_restarts` factor below is about. For a module run standalone with
+no handshake, the assertion is instead that the residual sits at the round-off
+floor, orders of magnitude below `tol_C`, and **the evidence that the check can
+fail is the mutation test**, which is where it always was. Reporting both
+tolerance settings stays required: the pair is what demonstrates
+tolerance-independence rather than asserting it. See §12.
+
+Report the single-run bound as a secondary number, derived as
 
 ```
 tol_C = N_restarts · Σᵢ |nᵢ| · max(abstol, reltol · maxₜ|xᵢ(t)|)
@@ -455,7 +479,7 @@ conservation number is uninterpretable.
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
-| 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (pyrophosphate unbounded). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
+| 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (**amended 2026-09-10:** pyrophosphate strands the phosphate moiety and stalls the pathway; it cannot diverge in a model whose phosphate is closed, which this one is — see §12). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
 | 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
@@ -2539,7 +2563,8 @@ pyrophosphate species — the pools every other module routes energy through.
 **Done when:** over a full 6,300 s cycle against a charging drain, adenylate and
 guanylate are each conserved; removing the adenylate kinase drives ATP below 1%
 of its initial value on the timescale the scoping note computes, and removing the
-pyrophosphatase leaves pyrophosphate unbounded.
+pyrophosphatase ~~leaves pyrophosphate unbounded~~ **strands the phosphate
+moiety and stalls the pathway** (amended 2026-09-10; see §12 and task 8.6).
 **PR:** _not started_
 
 Reference detail at
@@ -2574,7 +2599,18 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   verify by the edge count and kinds matching the restated rule, by a test
   composing **all four** ODE modules' declarations asserting no species is
   described as both mass and currency in one direction, and by the restatement
-  recorded so a reader does not apply the stale rule. **The four-module
+  recorded so a reader does not apply the stale rule. **Annotated 2026-09-10:
+  eleven edges, not the nine of the archived design.** The published PGK3 and
+  PYK3 rate laws are reversible and read `M_3pg_c` and `M_pyr_c` twice over —
+  once in the reverse numerator, once in the denominator's product bracket — so
+  a declaration carrying them outbound only cannot evaluate its own rate law,
+  and an ODE module reaches a foreign state through `inputs()` alone, which
+  `src/resolver.jl` holds to an *inbound* edge. Each product therefore carries a
+  mass edge in both directions, which is phase 1's rule of one edge per
+  (species, direction) that actually occurs and is a true statement about a
+  reversible reaction; `contributed_states` still names each species once and
+  carries the net signed rate. Recorded here rather than in §12, since nothing
+  this spec said became false — the rule above fixes no direction. **The four-module
   composition is not independent of phases 6, 7 and 9.** In a fan-out it belongs
   to the last pull request to land, or to phase 13; carry it here as a skipped
   test naming what it waits on.
@@ -2582,10 +2618,21 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   — verify by the all-reactions run conserving both moieties with ATP positive and
   pyrophosphate settling bounded; by the kinase-removed run driving ATP below 1%
   of initial within an order of magnitude of the scoping note's 144 s; and by the
-  pyrophosphatase-removed run rising without bound. **Assert a threshold
+  pyrophosphatase-removed run ~~rising without bound~~ **stranding the phosphate
+  moiety**. **Assert a threshold
   crossing, not exhaustion**: the note's 144 s assumes a constant drain, and the
   real charging module of phase 9 is mass-action, so ATP decays exponentially and
   never reaches zero. Record both numbers and which model each belongs to.
+  **Annotated 2026-09-10:** pyrophosphate *cannot* rise without bound in a model
+  whose phosphate is closed, which check 4b says Core A′'s is. Removing the
+  enzyme instead sequesters the moiety — measured, a 129-fold rise holding 74%
+  of the phosphate budget — and ATP regeneration then collapses for want of free
+  phosphate, so charging stops and the rise flattens. That is a stalled pathway
+  and it is the stronger demonstration that the reaction is required, as well as
+  the one that survives assembly. The note's 173 mM is open-pool arithmetic:
+  one pyrophosphate per charging event for a whole cycle, which assumes a
+  phosphate supply the closed model does not have. Both are recorded with the
+  model each belongs to. See §12.
 - [ ] 8.7 Check phosphate closure in both forms — verify by exact invariance with
   the GTP-branch reactions inactive, and by the flux-corrected form with them
   active *subtracting* the inbound flux rather than relaxing the bound.
@@ -3082,6 +3129,69 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-10 — the tolerance principle does not bind a standalone linear invariant, and a closed moiety cannot diverge
+
+Two findings from phase 8, both from the same full-cycle run, and both of a
+kind: a stated assertion turned out to describe a system with a boundary where
+this one is closed.
+
+**Amendment A — the five-fold rule applies where the trajectory is restarted.**
+
+*Trigger:* §3 requires every conservation residual to fall at least fivefold
+when `(abstol, reltol)` are tightened tenfold. Measured on the recycling module
+over a full 6,300 s cycle: adenylate 3.5e-13 → 1.2e-13 mM (2.9×), guanylate
+1.0e-14 → 1.4e-14 mM (0.8×), phosphate closure 2.5e-13 → 2.6e-13 mM (1.0×).
+Not one meets the rule, and none should. Every one of these is a **linear**
+invariant, and a Runge-Kutta or Rosenbrock method preserves a linear invariant
+exactly — with `nᵀJ = 0` the vector passes through the `(I − γhJ)⁻¹` solve
+unchanged, so every stage increment sums to zero. There is no integration error
+in the quantity to scale with the tolerance. What the numbers show is
+floating-point round-off, five orders of magnitude below the single-run
+integrator bound of 4.2e-8 mM, and slightly *larger* at the tighter setting
+because tightening adds steps and so adds round-off.
+
+*Change:* §3's tolerance principle now says the five-fold rule binds where the
+integrator is **restarted** — the assembled hybrid model, whose 6,300
+handshakes each re-impose rounded counts and inject a perturbation the solver
+must then integrate, which is precisely what the bound's `N_restarts` factor is
+for. For a module run standalone with no handshake, the assertion is that the
+residual sits at the round-off floor, orders of magnitude below `tol_C`, and
+the evidence that the check can fail is the mutation test — which is where §3
+always put it ("a conservation test that cannot fail is not evidence").
+Reporting both tolerance settings stays required, because the pair is what
+demonstrates tolerance-independence rather than merely asserting it.
+
+*Who else this reaches:* phase 6's redox pair, phase 7's four carrier sums and
+phase 14's checks 2 to 5 are all linear invariants and all inherit this. Phase
+14 runs them on the assembled model, where the restarts make the original rule
+bind again.
+
+**Amendment B — removing the pyrophosphatase strands the phosphate moiety
+rather than letting pyrophosphate diverge.**
+
+*Trigger:* phase 8's done-when and task 8.6 both asked for pyrophosphate
+"rising without bound" with the enzyme removed. In a model whose phosphate is a
+closed moiety — which check 4b asserts Core A′'s is — that cannot happen.
+Measured: pyrophosphate rises 129-fold, from 0.1 to 12.9 mM, and ends holding
+74% of the 35.1 mM phosphate budget; free phosphate is then gone, the
+substrate-level phosphorylation has nothing to work with, ATP falls below 1% of
+its initial value, charging stops for want of ATP, and the rise flattens. The
+scoping note's 173 mM is one pyrophosphate per charging event sustained for a
+whole cycle — open-pool arithmetic, assuming a phosphate supply the closed
+model does not have. An early version of phase 8's glycolytic double did
+reproduce 172.7 mM, and only by leaking 345 mM of phosphate into the
+composition, which also drove pyrophosphate to 51 mM in the configuration that
+*keeps* the enzyme, against the 0.371 mM it settles at once the double takes
+its phosphate from the free pool as glycolysis does.
+
+*Change:* the phase 8 done-when, §3 check 4 and task 8.6 now say the enzyme's
+removal strands the moiety and stalls the pathway. Both numbers are recorded
+with the model each belongs to. This is the stronger demonstration that the
+reaction is required, and the one that survives assembly.
+
+*Sections touched:* §3 (the tolerance principle, check 4), §11 phase 8's
+done-when and task 8.6, §12.
 
 ### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 
