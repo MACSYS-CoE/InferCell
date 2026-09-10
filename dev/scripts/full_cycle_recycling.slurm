@@ -10,4 +10,9 @@
 module load julia/1.10.5
 echo "Nucleotide recycling full-cycle checks at $(date) on $(hostname), HEAD $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain -- src test dev/scripts)" || echo ' (tree dirty)')"
 julia --project dev/scripts/full_cycle_recycling.jl
-echo "Exit code: $?  Finished at $(date)"
+status=$?
+echo "Exit code: $status  Finished at $(date)"
+# Propagate it. `julia ...; echo $?` leaves the job COMPLETED whatever happened,
+# so a driver that died on load looked like a success and left the committed
+# artefact silently stale — which is exactly what it did once.
+exit $status

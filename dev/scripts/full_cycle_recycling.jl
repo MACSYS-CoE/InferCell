@@ -60,7 +60,7 @@ const ATP_THRESHOLD = 0.01      # spec task 8.6: 1% of the initial value
 const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
 const DIRTY = !isempty(strip(read(`git status --porcelain -- src test dev/scripts`, String)))
 
-models(; reactions = RECYCLING_REACTIONS) = recycling_models(reactions = reactions)
+models(; kwargs...) = recycling_models(; kwargs...)
 run_cycle(ms; kwargs...) = recycling_solve(ms; kwargs...)
 
 adenylate, guanylate, phosphate = adenylate_of, guanylate_of, phosphate_of
@@ -73,12 +73,6 @@ const SLP_CUM = SLP_CUM_I
 
 
 """
-Run one configuration at both tolerance settings and report each residual with
-the ratio between them. For a linear invariant the ratio is expected to be about
-one — the number is reported as evidence of tolerance-independence, not as a
-pass criterion.
-"""
-"""
 Each measure read off an already-solved pair, with the ratio between them.
 Separated from `scaling` so a second invariant on the same trajectories costs a
 measurement rather than another solve.
@@ -87,6 +81,12 @@ report(loose, tight, measures) =
     [(name, f(loose), f(tight), f(tight) == 0 ? Inf : f(loose) / f(tight))
      for (name, f) in measures]
 
+"""
+Run one configuration at both tolerance settings and report each residual with
+the ratio between them. For a linear invariant the ratio is expected to be about
+one — the number is reported as evidence of tolerance-independence, not as a
+pass criterion.
+"""
 function scaling(ms, measures)
     loose = run_cycle(ms)
     tight = run_cycle(ms; abstol = ABSTOL_R / TIGHTEN, reltol = RELTOL_R / TIGHTEN)
