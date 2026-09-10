@@ -127,7 +127,7 @@ end
 # 8.6 — the three configurations
 # ---------------------------------------------------------------------------
 
-full_loose, full_tight, full_scaling = scaling(models(), MEASURES)
+full_loose, _, full_scaling = scaling(models(), MEASURES)
 u0 = full_loose.u[1]
 atp0 = u0[ATP]
 
@@ -169,7 +169,6 @@ no_ppa_fine = solve(build_problem(models(reactions = (:R_PGK3, :R_PYK3, :R_ADK1,
                                   tspan = (0.0, 6300.0)),
                     Rodas5P(); abstol = ABSTOL, reltol = RELTOL, saveat = 10.0)
 t_cross_no_ppa = crossing_time(no_ppa_fine, ATP_THRESHOLD)
-slp_total = corr_loose.u[end][SLP_CUM]
 
 # ---------------------------------------------------------------------------
 # 8.7 — phosphate closure, both forms
@@ -180,13 +179,16 @@ slp_total = corr_loose.u[end][SLP_CUM]
 # closes internally — three phosphates in ATP become one in AMP and two in
 # pyrophosphate — so this form tests the module and not the absence of traffic.
 exact_ms = models(reactions = (:R_ADK1, :R_GK1, :R_PPA), k_slp = 0.0)
-exact_loose, exact_tight, exact_scaling =
-    scaling(exact_ms, [("phosphate (exact)", s -> drift(s, phosphate))])
+_, _, exact_scaling = scaling(exact_ms, [("phosphate (exact)", s -> drift(s, phosphate))])
 
 # Flux-corrected: all five active, the phosphorylation running, and the inbound
 # flux subtracted.
-corr_loose, corr_tight, corr_scaling =
+corr_loose, _, corr_scaling =
     scaling(models(), [("phosphate (flux-corrected)", phosphate_drift)])
+
+# What the substrate-level phosphorylation turned over. It takes every phosphate
+# from the free pool, so it crosses no edge and appears in no correction.
+slp_total = corr_loose.u[end][SLP_CUM]
 
 # ---------------------------------------------------------------------------
 # Wall-clock — what the §9 open question needs
