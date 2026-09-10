@@ -1,9 +1,110 @@
 # Handoff
 
-**Session date:** 2026-09-11
-**Branch:** `phase-8-nucleotide-recycling`
+**Session date:** 2026-09-10
+**Branch:** `phase-10-transcription`
 
-## Latest: phase 8, nucleotide recycling (2026-09-11)
+## Latest: phase 10, transcription (2026-09-10)
+
+**What it is.** The first Core A′ module in the stochastic block: seventeen
+genes, one constitutive transcription reaction each, 22 states (17 transcripts,
+5 cost counters), none of them registry species. It owns no registry state,
+declares eleven edges with every peer unnamed, and composes and runs alone. It
+vendors its data extract under `src/organisms/coreA/data/`, the convention
+phases 6, 7 and 8 landed first — the branch was written beside them and rebased
+onto them afterwards.
+
+**The rate law reproduces the spec's numbers exactly, which is the main
+evidence anything is wired right.** The seventeen constants span 1.2579e-3 to
+8.2909e-3 per second against the Done-when's 1.26e-3 to 8.29e-3, and the
+elasticity to all four nucleotide pools spans 0.043742 to 0.050579 against
+0.044 to 0.051. Neither number was tuned; both fall out of the published
+formula at the balanced concentrations once the extract is right.
+
+**Four decisions that are not derivable from the goal.**
+
+| Decision | Why |
+|---|---|
+| The transcript-decay double is an acceptance criterion, not scaffolding | Phase 12 owns decay. With no consumer the counts only accumulate and every gene's time-averaged count is an order of magnitude high, so task 10.8's calibration check would be vacuous rather than weak. Same shape as phase 8.6's charging drain and phase 9.5's translation demand. It uses the published per-gene law, derivable from the extract's own length column, so it introduces no upstream data the phase had not already vendored |
+| Promoter strengths are free parameters; the rate constants are the rebuilt ones | The seventeen promoter strengths are what D9 says transcript counts identify. The rate constants are derived, and the driver overwrites them at every refresh — so `rate_constants` reads the strengths from `p` and never the slots it fills, which would compound their own previous values |
+| The polymerase globals are fixed | D13: the published stochastic block is a star in which ~19 scalars set all 455 rate constants, and this module inherits its hub. A free `rnaPolKcat` is a ridge through all seventeen constants at once, which is exactly the ridge D11 rejects it for |
+| The four nucleotide concentrations are held on the struct *as well as* declared | A fixed parameter does not reach the composed parameter vector, so it cannot be read from `p` inside the rate law. Declaring them keeps the provenance report honest; holding them keeps a standalone run self-consistent with the pool owner before any driver exists |
+
+**Two things the numbers said that the spec did not.** Both are §12 amendments
+dated 2026-09-10.
+
+The first is worth carrying. **Design D9's predicted steady-state band of 0.44
+to 2.87 copies was computed from a constant the published model never uses.**
+`MinCell_CMEODE.py` defines `rnaDegRate = 0.00578/2` at line 295 and it appears
+nowhere else — not in that file, not in `MinCell_restart.py`. The reaction the
+model actually adds is `DegradationRate(rnaMetID, rnasequence)` at line 444,
+which is per-gene: one catalytic constant over transcript length. At the law
+that runs, predicted counts span 0.332 to 2.406 against measured 0.292 to
+2.178, and **sixteen of seventeen** genes agree within a factor of two rather
+than all seventeen. This is the same trap as D2's cross-file ambiguity and D3's
+first-minute setup constants — a number that looks corroborated because it is
+written down, and is not what executes. Worth assuming the next such number is
+the same until checked.
+
+The outlier is **FBA, `JCVISYN3A_0131`, at 3.67×**, and it is not an extract
+error: 775 copies matches the scoping note's own table and 0.3469 matches
+`mRNA_counts.csv` line 110. Abundant protein, rare transcript — a disagreement
+between two measurements, which is what an out-of-sample check is for. The
+Done-when now states §3's bound, Spearman ≥ 0.7 and a factor of two for at
+least fifteen of seventeen, which §3 already said and phase 10 contradicted.
+
+The second: **the extract needs five upstream files, not the three design D8
+names.** Length and base counts come from `syn3A.gb` alone, but that record
+carries no AOE protein ids at all — `grep -c AOE` returns 0 against `syn2.gb`'s
+454 — so the copy number runs locus → `MMSYN1_xxxx` →
+`Syn3A_annotation_compilation.xlsx` → `JCVSYN2_xxxxx` → `syn2.gb`
+`/protein_id` → `proteomics.xlsx`. It also carries a `!First2` column D8 omits,
+because the rate law reads the first two bases' concentrations as `C₁` and `C₂`.
+
+**A trap this phase walked into, recorded so the next one does not.** The
+`!First2` column was added *after* the extract was first committed, and the
+Slurm suite reads the working tree rather than `HEAD` — so the tests passed
+while the committed extract, generator and README disagreed with each other.
+`git status` on the data directory alone hid it, because the generator's change
+was outside that path. The four commits were rebuilt. **Check `git status` with
+no path filter before trusting a green suite**, and remember that a Slurm run
+proves the working tree, not the commit.
+
+**What this leaves for later phases.** Phase 11 reads the seventeen transcripts
+as peer states and needs the same loci and the same extract keying. Phase 12
+writes them through `written_states`, needs the `!Length` column for its own
+decay law, and supersedes this phase's double for composed runs. Phase 8's
+phosphate closure must see transcription's pyrophosphate — four counters' worth
+— which the scoping note's PPA argument attributed to charging alone. Phase 15's
+observable design inherits the proteomics circularity, which `reduction_notes`
+names against all seventeen parameters.
+
+**Channel 4's gain, for wave 3 to size its expectations against.** The
+nucleotide-dependent term is about 4.5% of the rate constant's denominator and
+transcript length is the rest, so the only ODE→stochastic channel in Core A′ is
+live, bidirectional and weak: 0.044 to 0.051 to all four pools together.
+Correcting the base mapping roughly halves the GTP half of it — 0.0079 to
+0.0117 corrected against 0.0156 to 0.0196 published, a per-gene ratio spanning
+1.53 to 2.45 with a median of 1.9, which is D4's factor measured rather than
+argued.
+
+**Also worth knowing.** Task 10.7's cross-check against the metabolic modules'
+copy numbers is a skipped test naming phases 6 and 7 — the first `@test_skip`
+in the repo, so it sets that convention too. And the first full-suite run
+returned one failure in `test_bursty_gene_expression.jl:50`, an unseeded
+500-sample Monte Carlo test whose 0.05 threshold sits at 2.48σ and so fails
+about 1.3% of runs on any branch; the rerun was clean. It is pre-existing and
+untouched, and it will keep doing this until someone seeds it.
+
+**Suite.** Job 16373862, **1708 passed, 0 failed, 1 skipped** in 2m11.9s; 1468
+before the phase. Both progress figures rebuilt, with phase 10 parsed at 8/8.
+
+**Next.** Phases 6, 7 and 8 — the ODE-track fan-out this branch ran beside —
+have since landed (#50, #49, #52), and this branch is rebased onto them; phase 9
+depends on 8; phases 11 and 12 depend on this one.
+
+---
+
+## Previous: phase 8, nucleotide recycling (2026-09-11)
 
 **The third Core A′ module, and the one that closes the energy moieties.** Five
 reactions — PGK3 and PYK3, which make GTP a live product of glycolysis, and

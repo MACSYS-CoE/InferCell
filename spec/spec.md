@@ -2773,7 +2773,7 @@ its assertion that simulating past the declared cadence leaves the constants
 unchanged becomes "phase 4's driver refreshes them, and the module still never
 refreshes itself".
 
-- [ ] 10.1 Vendor the per-gene extract from ~~three~~ **five** upstream sources
+- [x] 10.1 Vendor the per-gene extract from ~~three~~ **five** upstream sources
   (see amendment 2026-09-10) — verify by
   seventeen rows whose four base counts sum to the transcript length, by the
   totals matching A 7236, C 2078, G 3094, U 5868, and by the generator failing
@@ -2781,35 +2781,76 @@ refreshes itself".
   shows up only as a model with sixteen transcripts. The extract also carries
   the transcript's **first two bases**, which the rate law reads as `C₁` and
   `C₂` and which design D8's header omits.
-- [ ] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
+  **Done:** 17 rows; every gene's four base counts sum to its length; totals
+  A 7236, C 2078, G 3094, U 5868. Four spot rows exact: `JCVISYN3A_0445`
+  (1284; A 521, C 125, G 197, U 441; 266; 0.4403), `JCVISYN3A_0607` (1017;
+  1355; 2.1781), `JCVISYN3A_0779` (2238; 831), `JCVISYN3A_0694` (270; 290).
+  All seventeen copy numbers equal the scoping note's table, derived
+  independently through the five-file chain. Two runs produced identical bit
+  patterns. Removing `JCVISYN3A_0694` from `mRNA_counts.csv` aborts with
+  "locus JCVISYN3A_0694 (ptsH) is absent from mRNA_counts.csv" rather than
+  writing sixteen rows.
+- [x] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
   rather than states — verify by the state count being 17 transcripts plus 5
   counters, by none being a registry species, and by a recorded note that adding
   replication later must promote the genes to states.
-- [ ] 10.3 Implement the rate constant with the corrected base mapping as default
+  **Done:** `length(states(m)) == 22`, `!any(is_registered, states(m))`, 17
+  reactions. Firing GAPD's raises its transcript by one and no other, `ATP_trsc`
+  by 1017, and each monomer counter by that gene's base count; the propensity is
+  the rate constant at any state and any time, which is zeroth order made
+  assertable.
+- [x] 10.3 Implement the rate constant with the corrected base mapping as default
   and the published permutation behind a keyword (D4) — verify by the correction
   appearing in `reduction_notes` while the published mapping does not, by the
   turnover cap never binding (the largest is 8.85 against a ceiling of 180), and
   by both mappings computable so the difference is one argument away.
-- [ ] 10.4 Take all four nucleotide concentrations from balanced tables, never the
+  **Done:** the seventeen constants span **1.2579e-3 to 8.2909e-3** per second.
+  Largest promoter-scaled turnover is GAPD's **8.8516** nt/s against the ceiling
+  of 180, reported by `turnover_headroom` rather than assumed. Under
+  `:corrected` one more cytosine costs more than one more guanine, and under
+  `:published` the reverse — the permutation made observable rather than
+  asserted. `reduction_notes` carries the correction; the published mapping
+  does not appear there.
+- [x] 10.4 Take all four nucleotide concentrations from balanced tables, never the
   first-minute setup constants — verify by the four values and their widths
   matching the balanced files, and by a recorded note that the nucleotide file
   repeats two of the setup constants, which makes the wrong choice look
   corroborated.
-- [ ] 10.5 Expose one recomputation entry point and confirm the module never calls
+  **Done:** ATP 3.6529/1.2825 central, GTP 1.6627/1.5684, CTP 0.6874/2.0574,
+  UTP 2.7681/1.3664 nucleotide, each reporting its file and `:balanced`. None
+  equals its setup constant (1.04, 0.34, 0.68, 0.68). ATP and GTP agree with the
+  registry; CTP and UTP have no registry value, which is why this module carries
+  theirs.
+- [x] 10.5 Expose one recomputation entry point and confirm the module never calls
   it — verify by simulating past the declared cadence with the constants
   unchanged, and by phase 4's driver changing them when it is present.
-- [ ] 10.6 Declare the five deferred counters and the two clamped nucleotide pools
+  **Done:** `rate_constants` reproduces the module's own law to 1e-12 at the
+  declared pools and returns 17 values. Scaling all seventeen `k_tx` slots by
+  1000 changes nothing it returns, so the law cannot compound its own previous
+  value; doubling one promoter strength doubles exactly that gene's constant and
+  leaves the other sixteen bitwise unchanged.
+- [x] 10.6 Declare the five deferred counters and the two clamped nucleotide pools
   with origin ours — verify by the counter table matching what each drains into,
   by all five taking the published clamped policy so none is a labelled
   deviation, and by three kinds coexisting on ATP inbound as the contract requires.
-- [ ] 10.7 Register both promoter-proxy declarations (D5) — verify by
+  **Done:** exactly 11 edges — 4 rate-constant at 60 s, 5 deferred counters, 2
+  clamped at `:ours` holding 0.6874 and 2.7681. `inputs(m)` is empty.
+  `resolve_coupling` accepts two counters plus a rate-constant edge on
+  `M_atp_c` inbound, and counter-plus-rate-constant-plus-clamp on CTP and UTP.
+  None of the five counters deviates from published; both clamps do.
+- [x] 10.7 Register both promoter-proxy declarations (D5) — verify by
   `reduction_declarations` returning one entry saying it is a proxy and a second
   naming the circularity and the seventeen parameters affected, and by a test
   asserting this module's copy numbers agree with the metabolic modules', since
   one number has three consumers. **That cross-check is not independent of
   phases 6 and 7.** In a fan-out it belongs to whichever pull request lands
   later; carry it here as a skipped test naming them.
-- [ ] 10.8 Simulate a full cycle **against a transcript-decay double** and report
+  **Done:** two declarations, the proxy and the circularity, the second naming
+  all seventeen `k_tx_*`. Values match to three decimals — PGI 1.478, GAPD
+  7.528, ptsG 4.617, GK1 1.033 — and GAPD/PGI equals 1355/266 exactly. The
+  cross-check against the metabolic modules is carried as a skipped test naming
+  phases 6 and 7, not stubbed.
+- [x] 10.8 Simulate a full cycle **against a transcript-decay double** and report
   the elasticities — verify by
   non-negative integer counts throughout, by the time-averaged counts meeting
   §3's external bound (Spearman ≥ 0.7, and within a factor of two for at least
@@ -2821,7 +2862,16 @@ refreshes itself".
   be vacuous. It uses the published per-gene law, derivable from the extract's
   own length column; phase 12 supersedes it for composed runs and keeps it for
   standalone ones. See amendment 2026-09-10.
-
+  **Done:** eight replicates over a 6,300 s cycle against the decay double.
+  Counts non-negative integers throughout and the five counters monotone, since
+  nothing debits them without a driver. Spearman **0.8701** against the measured
+  means and **16 of 17** within a factor of two — FBA the outlier at 3.67×, for
+  the reason amendment 2026-09-10 B records. Elasticity to all four pools
+  **0.043742 to 0.050579** against 0.044 to 0.051; GTP alone **0.0078915 to
+  0.0117062** corrected against 0.0079 to 0.0117, and **0.015617 to 0.019536**
+  published against 0.0156 to 0.0196. Per-gene ratio of the two spans 1.53 to
+  2.45, median **1.9** — D4's factor, measured. Suite: job 16373862,
+  **1708/1708** with one skipped (1468 before the phase), 2m11.9s.
 ### Phase 11 — Translation
 
 **Goal:** one translation reaction per transcript plus ptsG translocation, with
