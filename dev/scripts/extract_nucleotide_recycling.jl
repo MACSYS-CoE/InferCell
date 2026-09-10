@@ -15,7 +15,16 @@
 # The reshape renames and reorders. It changes no value: `Mode` and
 # `UnconstrainedGeometricStd` are copied as the strings the upstream file holds,
 # so a float round-trip cannot lose a digit, and the `UpstreamRow` column keeps
-# each renamed identifier traceable to the row it came from.
+# each renamed identifier traceable to the row it came from. The width column
+# keeps its upstream name for the reason `src/organisms/coreA/data/README.md`
+# gives: there is no balanced width in the source, so every prior pairs a
+# balanced median with an unconstrained width, and emitting a bare
+# `!GeometricStd` would hide the mode-versus-mean distinction spec §4 D1 exists
+# to police.
+#
+# The checkout is verified against `UPSTREAM_COMMIT`, and the outputs resolve
+# against this file rather than the working directory, so neither half of the
+# round-trip guarantee can pass without having checked anything.
 #
 # No dependencies beyond Base, deliberately: this runs on a login node, where
 # loading the project's package stack would invalidate the compute nodes' caches.
@@ -26,10 +35,28 @@ const UPSTREAM = Dict(
         "CME_ODE/model_data/Central_AA_Zane_Balanced_direction_fixed_nounqATP.tsv",
 )
 
+# Resolved against this script's own location, not the working directory. The
+# round trip is a manual gate — no test or CI job runs this script — so a run
+# from anywhere but the repo root that silently built a shadow tree would leave
+# `git diff` clean having verified nothing, which is the one failure the gate
+# cannot afford.
+const DATA_DIR = joinpath(@__DIR__, "..", "..", "src", "organisms", "coreA", "data")
+
 const OUTPUTS = Dict(
-    "nucleotide_balanced" => "src/organisms/coreA/data/nucleotide_recycling.tsv",
-    "central_balanced" => "src/organisms/coreA/data/nucleotide_recycling_central.tsv",
+    "nucleotide_balanced" => joinpath(DATA_DIR, "nucleotide_recycling.tsv"),
+    "central_balanced" => joinpath(DATA_DIR, "nucleotide_recycling_central.tsv"),
 )
+
+"""
+The upstream revision both extracts are derived from.
+
+Checked rather than recorded. The row-count assertion catches a table that
+changed *shape*; it cannot catch one that changed a *value*, and a regeneration
+against a different revision would then round-trip cleanly against the wrong
+upstream while still stamping this commit into the header. Spec §5's guarantee
+that nothing here is irreplaceable holds only while the reference stays true.
+"""
+const UPSTREAM_COMMIT = "db048aca5fe85438e0129819bbf0314b037dd931"
 
 # Canonical order: the two GTP-regenerating reactions, then the three that close
 # a moiety, which is the order `dev/notes/reduced-syn3a-scoping.md` introduces
@@ -135,9 +162,9 @@ function write_extract(path, logical_name, upstream_file, rows)
     open(path, "w") do io
         println(io, "!!SBtab TableType='Quantity' TableName='$logical_name " *
                     "(Core A′ nucleotide-recycling extract)'")
-        println(io, "!ID\t!Mode\t!GeometricStd\t!UpstreamRow")
+        println(io, "!ID\t!Mode\t!UnconstrainedGeometricStd\t!UpstreamRow")
         println(io, "% Derived from $upstream_file at Luthey-Schulten-Lab/Minimal_Cell")
-        println(io, "% commit db048ac, balanced Parameter table. Regenerate with the")
+        println(io, "% commit $(UPSTREAM_COMMIT[1:7]), balanced Parameter table. Regenerate with the")
         println(io, "% command in src/organisms/coreA/data/README.md. The reshape renames")
         println(io, "% identifiers and reorders rows; it changes no value.")
         for (id, mode, gstd, upstream) in rows
@@ -147,8 +174,32 @@ function write_extract(path, logical_name, upstream_file, rows)
     return path
 end
 
+"""
+    check_commit(checkout)
+
+Refuse a checkout that is not at [`UPSTREAM_COMMIT`].
+
+A checkout that is not a git repository is warned about rather than refused — a
+tarball is a legitimate way to have the source — but it is warned about loudly,
+because the header this script writes asserts the commit either way.
+"""
+function check_commit(checkout::AbstractString)
+    head = try
+        strip(read(`git -C $checkout rev-parse HEAD`, String))
+    catch
+        @warn "Could not read a git revision from $checkout, so the upstream commit is unverified. Expected $UPSTREAM_COMMIT."
+        return nothing
+    end
+    head == UPSTREAM_COMMIT || error(
+        "$checkout is at $head, not the $UPSTREAM_COMMIT these extracts are " *
+        "derived from. Check the revision out, or update UPSTREAM_COMMIT here " *
+        "and in src/organisms/coreA/data/README.md and regenerate deliberately.")
+    return nothing
+end
+
 function main(checkout)
     isdir(checkout) || error("no such Minimal_Cell checkout: $checkout")
+    check_commit(checkout)
     for (logical, rel) in UPSTREAM
         src = joinpath(checkout, rel)
         isfile(src) || error("upstream file missing: $src")

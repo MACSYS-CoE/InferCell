@@ -1,5 +1,5 @@
 !!SBtab TableType='Quantity' TableName='nucleotide_balanced (Core A′ nucleotide-recycling extract)'
-!ID	!Mode	!GeometricStd	!UpstreamRow
+!ID	!Mode	!UnconstrainedGeometricStd	!UpstreamRow
 % Derived from Nucleotide_Kinetic_Parameters.tsv at Luthey-Schulten-Lab/Minimal_Cell
 % commit db048ac, balanced Parameter table. Regenerate with the
 % command in src/organisms/coreA/data/README.md. The reshape renames

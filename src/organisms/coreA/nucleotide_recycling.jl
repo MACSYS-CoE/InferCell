@@ -4,8 +4,11 @@
 # make GTP a live product of glycolysis, and the three that close a conserved
 # moiety. Without the last three the core is a set of dead ends rather than a
 # sustained pathway — the lumped charging step converts ATP to AMP and nothing
-# else in Core A′ touches AMP, so 3,484,518 charging events against an adenylate
-# pool of ~79,800 particles exhausts it in ~144 s of a 6,300 s cycle.
+# else in Core A′ touches AMP, so a full proteome doubling's charging events
+# against an adenylate pool of ~79,800 particles exhaust it in ~144 s of a
+# 6,300 s cycle. The count itself, and the rate it implies, live in the test
+# double and nowhere in this file: phase 9 calibrates `k_chg` and must not be
+# able to read its target off the module it is meant to be checked against.
 #
 #     PGK3   13DPG + GDP <=> 3PG + GTP
 #     PYK3   PEP   + GDP <=> pyruvate + GTP
@@ -18,11 +21,9 @@
 # both moieties trivially. Its acceptance test is a full cycle against an
 # external charging drain (spec task 8.6).
 
-"""
-Directory holding the vendored parameter extracts. See its `README.md` for the
-upstream files, the commit, and the command that regenerates them.
-"""
-const COREA_DATA_DIR = joinpath(@__DIR__, "data")
+# `COREA_DATA_DIR` is defined and exported by `pts_transport.jl`, which is
+# included first. Defining it again here would only work while the two
+# `joinpath` calls happen to produce an egal string.
 
 "The five reactions, in the order the scoping note introduces them."
 const RECYCLING_REACTIONS = (:R_PGK3, :R_PYK3, :R_ADK1, :R_GK1, :R_PPA)
@@ -96,9 +97,6 @@ const RECYCLING_ENZYME_COPIES = (
     :R_PPA => ("JCVISYN3A_0344", 190, false),
 )
 
-"Particles per millimolar at the registry's 200 nm cell radius."
-const RECYCLING_PARTICLES_PER_MM = 20180
-
 """
     NucleotideRecycling(; reactions, free, tables, gstd_tables)
 
@@ -131,20 +129,31 @@ end
 # right shape without a second copy of the number in this file. `src/loader.jl`
 # is frozen against a module branch (spec §10 R15), so widening `SourceTable` is
 # not this phase's to do.
+# The width column keeps its upstream name. There is no balanced width in the
+# source — the location comes from the balanced `Mode` and the spread from the
+# unconstrained fit — so every prior built here pairs the two, which is the
+# departure spec §4 D1 declares and `data/README.md` tabulates. A bare
+# `GeometricStd` would hide exactly that pairing.
+const RECYCLING_GSTD_COLUMN = "UnconstrainedGeometricStd"
+
 _recycling_tables() = [
     read_source_table(joinpath(COREA_DATA_DIR, "nucleotide_recycling.tsv");
-                      file = "nucleotide_balanced"),
+                      file = "nucleotide_balanced",
+                      gstd_column = RECYCLING_GSTD_COLUMN),
     read_source_table(joinpath(COREA_DATA_DIR, "nucleotide_recycling_central.tsv");
-                      file = "central_balanced"),
+                      file = "central_balanced",
+                      gstd_column = RECYCLING_GSTD_COLUMN),
 ]
 
 _recycling_gstds() = Dict(
     "nucleotide_balanced" => read_source_table(
         joinpath(COREA_DATA_DIR, "nucleotide_recycling.tsv");
-        file = "nucleotide_balanced", value_column = "GeometricStd").values,
+        file = "nucleotide_balanced", value_column = RECYCLING_GSTD_COLUMN,
+        gstd_column = RECYCLING_GSTD_COLUMN).values,
     "central_balanced" => read_source_table(
         joinpath(COREA_DATA_DIR, "nucleotide_recycling_central.tsv");
-        file = "central_balanced", value_column = "GeometricStd").values,
+        file = "central_balanced", value_column = RECYCLING_GSTD_COLUMN,
+        gstd_column = RECYCLING_GSTD_COLUMN).values,
 )
 
 """
@@ -209,7 +218,13 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
         push!(held, p.value)
     end
 
-    # Enzyme concentrations: published copy number at the registry's volume.
+    # Enzyme concentrations: published copy number at the registry's volume,
+    # converted by `corea_particles_per_mM()` rather than by a transcribed
+    # 20,180. PGK3 and PGK are one gene at one copy number, so a rounded copy
+    # of the factor would run the same enzyme at two concentrations and put
+    # this module out of step with the conversion the handshake itself performs
+    # (spec §12, 2026-09-10, PR #50). Task 8.4's cross-module assertion is what
+    # holds it there.
     #
     # The *value* is the published model's. The *width* is not: the proteomics
     # table states a count and no uncertainty, so any prior here is this
@@ -223,7 +238,7 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
     # under a friendlier label.
     for r in RECYCLING_REACTIONS
         locus, copies, _ = _enzyme_row(r)
-        value = copies / RECYCLING_PARTICLES_PER_MM
+        value = copies / corea_particles_per_mM()
         name = Symbol("enz_", r)
         push!(params, InferParameter(value, LogNormal(log(value), log(enzyme_gstd)),
                                      !(name in free), name, :NucleotideRecycling,
@@ -281,7 +296,7 @@ not run at two concentrations: PGK3 and PYK3 are catalysed by the same genes as
 PGK and PYK, so two modules carry a nominal for each (spec §11 task 8.4).
 """
 recycling_enzymes() = [(reaction = r, locus = locus, copies = copies,
-                        concentration = copies / RECYCLING_PARTICLES_PER_MM,
+                        concentration = copies / corea_particles_per_mM(),
                         shared_with_glycolysis = shared)
                        for (r, (locus, copies, shared)) in RECYCLING_ENZYME_COPIES]
 
@@ -396,5 +411,5 @@ function contributions(u, p, t, m::NucleotideRecycling, u_inputs)
 end
 
 export NucleotideRecycling, RECYCLING_REACTIONS, RECYCLING_STATES, RECYCLING_INPUTS,
-       RECYCLING_KINETIC_IDS, recycling_enzymes, recycling_fluxes,
-       recycling_governing_file, COREA_DATA_DIR
+       RECYCLING_KINETIC_IDS, RECYCLING_GSTD_COLUMN, recycling_enzymes,
+       recycling_fluxes, recycling_governing_file

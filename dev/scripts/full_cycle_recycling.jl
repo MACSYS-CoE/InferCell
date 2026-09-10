@@ -10,7 +10,8 @@
 #
 #   all five      both moieties conserved, ATP positive, pyrophosphate settling
 #   ADK1 removed  ATP below 1% of initial near the scoping note's ~144 s
-#   PPA removed   pyrophosphate rising without bound
+#   PPA removed   pyrophosphate strands the phosphate moiety and the pathway
+#                 stalls — it cannot diverge in a phosphate-closed model
 #
 # **The threshold is a crossing, not exhaustion.** The note's 144 s assumes a
 # constant drain. This drain saturates below a Michaelis constant three orders
@@ -153,10 +154,18 @@ no_kinase_fine = solve(build_problem(models(reactions = (:R_PGK3, :R_PYK3, :R_GK
                        Rodas5P(); abstol = ABSTOL, reltol = RELTOL, saveat = 1.0)
 t_cross = crossing_time(no_kinase_fine, ATP_THRESHOLD)
 
-# The constant-drain arithmetic the scoping note computes, for comparison. The
-# adenylate available above the AMP already present, at the published demand.
+# Two constant-drain figures, and they are not the same arithmetic.
+#
+# `note_drain_time` is the scoping note's: the FULL adenylate pool at the
+# published demand, ~144 s (dev/notes/reduced-syn3a-scoping.md, "the cell runs
+# out of adenylate after 144 s"). `module_drain_time` subtracts the AMP already
+# present, which is the archived design's ~141 s (design.md: "the module's own
+# arithmetic gives ~141 s because AMP is already at 0.0832 mM"). Reporting the
+# second under the first's name is a misattribution §12's D13 entry already
+# records being fixed once, so both are computed and both are labelled.
 adenylate0 = adenylate(u0)
-const_drain_time = (adenylate0 - u0[AMP]) / RECYCLING_DRAIN_MM_PER_S
+note_drain_time = adenylate0 / RECYCLING_DRAIN_MM_PER_S
+module_drain_time = (adenylate0 - u0[AMP]) / RECYCLING_DRAIN_MM_PER_S
 
 ppi_no_ppa = [u[PPI] for u in no_ppa.u]
 ppi_growth_late = ppi_no_ppa[end] - ppi_no_ppa[end - 1]
@@ -261,12 +270,16 @@ println(io, "### Adenylate kinase removed")
 println(io)
 println(io, @sprintf("ATP falls below 1%% of its initial value (%.6f mM) at **t = %s s**.",
                      ATP_THRESHOLD * atp0, t_cross === nothing ? "never" : string(t_cross)))
-println(io, @sprintf("The scoping note computes **%.1f s** for a *constant* drain from the",
-                     const_drain_time))
-println(io, @sprintf("same pool: (%.4f − %.4f) mM / %.6f mM/s. The two numbers belong to",
-                     adenylate0, u0[AMP], RECYCLING_DRAIN_MM_PER_S))
-println(io, "different models and are both recorded for that reason — this one is a")
-println(io, "**threshold crossing** under a saturating drain, and ATP never reaches zero.")
+println(io, @sprintf("The scoping note computes **%.1f s**, the full %.4f mM pool at the",
+                     note_drain_time, adenylate0))
+println(io, @sprintf("published demand of %.6f mM/s under a *constant* drain. Subtracting the",
+                     RECYCLING_DRAIN_MM_PER_S))
+println(io, @sprintf("AMP already present gives the archived design's **%.1f s**: (%.4f − %.4f) mM",
+                     module_drain_time, adenylate0, u0[AMP]))
+println(io, @sprintf("/ %.6f mM/s. All three numbers belong to",
+                     RECYCLING_DRAIN_MM_PER_S))
+println(io, "**threshold crossing** under a saturating drain: ATP decays toward zero")
+println(io, "rather than through it, and what the run reports at the horizon is round-off.")
 println(io, @sprintf("ATP at the end of the cycle: %.3e mM.", no_kinase.u[end][ATP]))
 println(io, @sprintf("Adenylate is still conserved without the kinase: residual %.3e mM,",
                      drift(no_kinase, adenylate)))
@@ -311,10 +324,18 @@ end
 println(io)
 println(io, @sprintf("Phosphate crossing the two inbound mass edges over the cycle: %.4f mM,",
                      inbound_phosphate(corr_loose.u[end], corr_loose.u[1])))
-println(io, "carried in from the held 13DPG and PEP pools, one per turnover of the GTP")
-println(io, "branch. It is bounded because guanylate is: once GDP has been driven to GTP")
-println(io, "the branch stops. The flux-corrected form subtracts it; widening the bound to")
-println(io, "swallow it instead would have hidden any real error of the same size.")
+println(io, "carried in from the resupplied 13DPG and PEP pools, one per turnover of the")
+println(io, "GTP branch. **It is bounded because guanylate is**: nothing in Core A′ consumes")
+println(io, "GTP until phase 9's translation, so PGK3 and PYK3 run until GDP is spent and")
+println(io, @sprintf("then stop — the crossing equals GDP₀ + GMP₀ = %.4f mM to 0.2%%. That is a",
+                     corr_loose.u[1][GDP] + corr_loose.u[1][GMP]))
+println(io, "structural statement about the composition. It was *not* true of a first")
+println(io, "version of the double, which returned a zero derivative for the four")
+println(io, "glycolytic pools and so did not hold them at all: `contributed_states` folds")
+println(io, "recycling's terms into the owner's `du`, 13DPG fell 99.8% inside half a")
+println(io, "second, and the branch then stopped on substrate rather than on guanylate,")
+println(io, "at 0.0505 mM. The flux-corrected form subtracts the crossing; widening the")
+println(io, "bound to swallow it instead would have hidden any real error of the same size.")
 println(io, @sprintf("The substrate-level phosphorylation crosses nothing — it turned over %.2f mM",
                      slp_total))
 println(io, "of phosphate over the cycle and took every one of them from the free pool,")
@@ -329,26 +350,32 @@ println(io, "## Wall-clock")
 println(io)
 println(io, @sprintf("One 6,300 s trajectory: **%.3f s** at the pinned tolerances, %.3f s at",
                      elapsed, elapsed_tight))
-println(io, "a tenth of each. Thirteen states and five reactions, no handshake — this is")
+println(io, @sprintf("a tenth of each. %d states and seven rate expressions, no handshake — this is",
+                     length(full_loose.u[1])))
 println(io, "not Core A′'s cost and does not decide K1, which spec task 13.7 measures on")
 println(io, "the assembled hybrid model.")
 println(io)
-println(io, "It does answer §9's question of whether the full-cycle checks belong in the")
+println(io, "It adds a third module measurement to §9's question of whether the full-cycle")
+println(io, "checks belong in the")
 println(io, "default suite, and the answer is that the *horizon* is free: at a few")
 println(io, "milliseconds a trajectory, running 6,300 s rather than 600 s costs nothing,")
 println(io, "so `test/test_corea_nucleotide_recycling.jl` asserts the phase's done-when at")
 println(io, "the horizon the done-when names. What is not free is compilation — the two")
-println(io, "full-cycle testsets add about 54 s to the suite, almost all of it Rodas5P")
-println(io, "specialising on two new problem types, and shortening the horizon would not")
-println(io, "recover any of it. This driver is not a duplicate of those tests: it is where")
+println(io, "full-cycle testsets add tens of seconds to the suite, almost all of it")
+println(io, "Rodas5P specialising on new problem types, and shortening the horizon would")
+println(io, "not recover any of it. The figure is not quoted here because it is a property")
+println(io, "of the whole tree — phases 6 and 7 now compile the stiff path first, so the")
+println(io, "marginal cost of this phase is smaller than it was measured to be alone. This driver is not a duplicate of those tests: it is where")
 println(io, "the numbers are *recorded*, with the commit and job that produced them, so a")
 println(io, "reader gets the measurements without running anything.")
 println(io)
 println(io, "## What this does not cover")
 println(io)
-println(io, "Every number here is the module's against *doubles*. `HeldGlycolytic` holds")
-println(io, "four glycolytic pools fixed and rephosphorylates ADP at a rate matched to the")
-println(io, "charging demand; phase 6 replaces it with reactions that do neither exactly.")
+println(io, "Every number here is the module's against *doubles*. `HeldGlycolytic` relaxes")
+println(io, "four glycolytic pools to their registry values and rephosphorylates ADP at a")
+println(io, "rate matched to the charging demand; phase 6's module replaces it with")
+println(io, "reactions that do neither exactly, and in particular its pools are set by")
+println(io, "glycolytic flux rather than held near a setpoint.")
 println(io, "`ChargingDrain` is zeroth order in the tRNA pools where phase 9's module is")
 println(io, "mass-action in both. The conservation and closure results are structural and")
 println(io, "survive that replacement; the settled pyrophosphate concentration and the")

@@ -14,15 +14,18 @@ import InferCell: states, parameters, dynamics, contributions, contributed_state
 # step of phase 9, and central glycolysis of phase 6.
 
 const RECYCLING_DRAIN_PER_S = 553.1        # residues charged per second
-const RECYCLING_PARTICLES_PER_MM_TEST = 20180
 """
 The published charging demand as a concentration flux: 3,484,518 residues over a
-6,300 s cycle is 553.1/s, and 553.1 particles per second at 20,180 particles per
-millimolar is 0.0274 mM/s. Spec §11 task 8.8 records this as the *demand* phase
-9's real module must meet, never as a value phase 9 may calibrate against and
-then re-check.
+6,300 s cycle is 553.1/s, and 553.1 particles per second at the registry's
+20,180.39 particles per millimolar is 0.0274 mM/s. Spec §11 task 8.8 records
+this as the *demand* phase 9's real module must meet, never as a value phase 9
+may calibrate against and then re-check.
+
+The conversion is [`corea_particles_per_mM`](@ref), not a transcribed 20,180,
+for the reason spec §12's 2026-09-10 entry gives: a rounded copy puts a module
+out of step with the conversion the handshake itself performs.
 """
-const RECYCLING_DRAIN_MM_PER_S = RECYCLING_DRAIN_PER_S / RECYCLING_PARTICLES_PER_MM_TEST
+const RECYCLING_DRAIN_MM_PER_S = RECYCLING_DRAIN_PER_S / corea_particles_per_mM()
 
 _drain_ic(name, value) = InferParameter(value, Normal(value, 0.1), true,
                                         Symbol(name, "0"), :ChargingDrain,
@@ -84,7 +87,11 @@ end
 # exact where quadrature over 60 s save points would not be.
 const HELD_GLYCOLYTIC_STATES = [:M_13dpg_c, :M_3pg_c, :M_pep_c, :M_pyr_c,
                                 :slp_phosphorylated_mM]
-const HELD_GLYCOLYTIC_VALUES = [0.0098, 1.1015, 0.0409, 3.3660, 0.0]   # registry.jl
+
+# Read from the registry rather than transcribed, so a setpoint cannot drift
+# from the initial condition it is supposed to be.
+const HELD_GLYCOLYTIC_VALUES =
+    Float64[[species_entry(s).initial_value for s in HELD_GLYCOLYTIC_STATES[1:4]]; 0.0]
 
 """
     HeldGlycolytic(; k_slp)
@@ -92,9 +99,29 @@ const HELD_GLYCOLYTIC_VALUES = [0.0098, 1.1015, 0.0409, 3.3660, 0.0]   # registr
 The part of central glycolysis nucleotide recycling cannot run without, and
 nothing more. Two jobs:
 
-1. **It owns the four glycolytic species PGK3 and PYK3 read**, held at their
-   registry values with a zero derivative. Without an owner the composition does
-   not build at all, because `inputs` resolves against integrated states.
+1. **It owns the four glycolytic species PGK3 and PYK3 read**, and holds them
+   near their registry values by resupplying what recycling draws down and
+   consuming what it makes. Without an owner the composition does not build at
+   all, because `inputs` resolves against integrated states.
+
+   **A zero derivative does not hold them, and a first version assumed it did.**
+   `NucleotideRecycling` names all four in `contributed_states`, and
+   `_accumulate` folds a contribution into the *owner's* derivative — so with
+   `dynamics` returning zeros the pools moved at exactly ±v_PGK3 and ±v_PYK3.
+   13DPG fell below 1% of its initial value at **t = 0.5 s** and PEP at
+   **t = 18.5 s**, and the GTP branch then died of substrate starvation inside
+   the first save interval, in a run whose stated purpose is to show that PGK3
+   and PYK3 make GTP a live product of glycolysis. Each pool now relaxes to its
+   setpoint at `k_gly`, which is the four lumped reactions phase 6 supplies:
+   GAPD resupplies 13DPG, PGM and ENO carry 3PG to PEP, and LDH drains
+   pyruvate. None of the four is in the tracked phosphate sum, so the resupply
+   adds nothing to the closed moiety; the only tracked crossing is still the
+   one phosphate per GTP that check 4b's correction subtracts.
+
+   **What now bounds the branch is guanylate, which is the honest limit.**
+   Nothing in Core A′ consumes GTP until phase 9's translation, so PGK3 and
+   PYK3 run until GDP is spent and then stop. That is a structural statement
+   about the composition rather than an artefact of the double.
 
 2. **It rephosphorylates ADP as `ADP + Pi -> ATP`**, which is the substrate-level
    phosphorylation phase 6's GAPD and PGK will supply. This is not decoration.
@@ -121,18 +148,22 @@ ATP the kinase arithmetic needs consume exactly two.
 `k_slp` defaults to the value that matches the charging demand at the registry's
 initial ADP. The Michaelis factor in phosphate is there for the same reason as
 the drain's: so a configuration that runs the pool down stops rather than
-integrating through zero.
+integrating through zero. `k_gly` is fast against the GTP branch, so the pools
+sit near their setpoints rather than tracking them exactly; the suite asserts
+how near.
 """
 struct HeldGlycolytic <: AbstractSubModel
     params::Vector{InferParameter}
     k_slp::Float64
     k_half::Float64
+    k_gly::Float64
 end
-function HeldGlycolytic(; k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178, k_half = 1e-3)
+function HeldGlycolytic(; k_slp = RECYCLING_DRAIN_MM_PER_S / species_entry(:M_adp_c).initial_value,
+                        k_half = 1e-3, k_gly = 1.0)
     params = [InferParameter(v, Normal(v, 0.1), true, Symbol(s, "0"),
                              :HeldGlycolytic, :initial_condition)
               for (s, v) in zip(HELD_GLYCOLYTIC_STATES, HELD_GLYCOLYTIC_VALUES)]
-    return HeldGlycolytic(params, k_slp, k_half)
+    return HeldGlycolytic(params, k_slp, k_half, k_gly)
 end
 states(::HeldGlycolytic) = HELD_GLYCOLYTIC_STATES
 parameters(m::HeldGlycolytic) = m.params
@@ -145,14 +176,18 @@ coupling(::HeldGlycolytic) = CouplingEdge[
     CurrencyEdge(species = :M_pi_c, direction = :in),
 ]
 
-# The four species it owns are held: a clamp in all but name, and the reason
-# every number this composition produces is the recycling module's rather than a
-# stand-in glycolysis's.
 @inline _slp_rate(m::HeldGlycolytic, adp, pin) =
     m.k_slp * adp * pin / (m.k_half + pin)
 
-dynamics(u, p, t, m::HeldGlycolytic, u_inputs) =
-    SA[0.0, 0.0, 0.0, 0.0, _slp_rate(m, u_inputs[1], u_inputs[2])]
+# Relaxation to the registry setpoint, one lumped reaction per pool. This has to
+# be a derivative term and not a clamp, because the term it is cancelling is
+# `NucleotideRecycling`'s contribution, which arrives in this module's `du`.
+function dynamics(u, p, t, m::HeldGlycolytic, u_inputs)
+    k, sp = m.k_gly, HELD_GLYCOLYTIC_VALUES
+    return SA[k * (sp[1] - u[1]), k * (sp[2] - u[2]),
+              k * (sp[3] - u[3]), k * (sp[4] - u[4]),
+              _slp_rate(m, u_inputs[1], u_inputs[2])]
+end
 # Declared unconditionally, so `k_slp = 0` is the same composition running at
 # zero rate rather than a different one — which is what lets the phosphate
 # check's exact and flux-corrected forms differ in one number and nothing else.
@@ -166,15 +201,21 @@ end
 
 The real module with one stoichiometric coefficient wrong, and nothing else
 changed: states, parameters, edges, inputs and contributions all delegate. A
-conservation test that cannot fail is not evidence (spec §3), so each of the
-three mutations breaks exactly one check and leaves the others passing, which is
-what says a failure localises.
+conservation test that cannot fail is not evidence (spec §3), so each mutation
+names a moiety and drives that moiety's residual to pool scale.
 
-| `mutation` | What it does | Which check should fail |
-|---|---|---|
-| `:adk1_adp_coefficient` | the kinase returns one ADP where the reaction makes two | adenylate |
-| `:gk1_gdp_created` | guanylate kinase creates a GDP rather than transferring | guanylate |
-| `:ppa_phosphate_coefficient` | pyrophosphate hydrolyses to one phosphate, not two | phosphate closure |
+**Two of the three also break phosphate closure, and that is arithmetic rather
+than a leaky test.** The phosphate sum spans both nucleotide groups, so a
+coefficient wrong on a phosphorylated species shows up there too: returning one
+ADP where two are made loses two phosphates per turnover, and creating a GDP
+creates two. Only the named moiety is claimed to localise; the third column
+records what actually moves, measured over 600 s.
+
+| `mutation` | What it does | Named moiety | Also breaks |
+|---|---|---|---|
+| `:adk1_adp_coefficient` | the kinase returns one ADP where the reaction makes two | adenylate, 3.70 mM | phosphate, 7.40 mM |
+| `:gk1_gdp_created` | guanylate kinase creates a GDP rather than transferring | guanylate, 9.89e-3 mM | phosphate, 1.98e-2 mM |
+| `:ppa_phosphate_coefficient` | pyrophosphate hydrolyses to one phosphate, not two | phosphate, 16.5 mM | — |
 """
 struct MutatedRecycling <: AbstractSubModel
     inner::NucleotideRecycling

@@ -10,9 +10,11 @@ const RECYCLING_DATA = joinpath(@__DIR__, "..", "src", "organisms", "coreA", "da
 
 recycling_tables() = [
     read_source_table(joinpath(RECYCLING_DATA, "nucleotide_recycling.tsv");
-                      file = "nucleotide_balanced"),
+                      file = "nucleotide_balanced",
+                      gstd_column = RECYCLING_GSTD_COLUMN),
     read_source_table(joinpath(RECYCLING_DATA, "nucleotide_recycling_central.tsv");
-                      file = "central_balanced"),
+                      file = "central_balanced",
+                      gstd_column = RECYCLING_GSTD_COLUMN),
 ]
 
 # ----------------------------------------------------------------------
@@ -21,6 +23,7 @@ recycling_tables() = [
 # drain's counter.
 # ----------------------------------------------------------------------
 const ATP_I, ADP_I, AMP_I, PI_I, GTP_I, GDP_I, GMP_I, PPI_I = 1, 2, 3, 4, 5, 6, 7, 8
+const DPG_I, PG3_I, PEP_I, PYR_I = 9, 10, 11, 12
 const SLP_CUM_I, DRAIN_CUM_I = 13, 14
 const CYCLE_S = 6300.0
 const ABSTOL_R, RELTOL_R = 1e-10, 1e-8
@@ -256,7 +259,7 @@ corrected_phosphate_drift(sol) =
         #     -v / (E·kcatR) = (r/(1+r))^2   for a doubled product,
         # while a reaction with two distinct products gives the plain product of
         # two such ratios. That distinguishes "squared" from "twice" exactly.
-        E_adk1 = 213 / 20180
+        E_adk1 = 213 / corea_particles_per_mM()
         kcatR_adk1, km_adp = 783.2866, 0.2669
         for adp in (0.05, 0.2669, 1.7)
             u = [0.0, adp, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -265,7 +268,7 @@ corrected_phosphate_drift(sol) =
             @test -v / (E_adk1 * kcatR_adk1) ≈ (r / (1 + r))^2 rtol = 1e-12
         end
 
-        E_ppa = 190 / 20180
+        E_ppa = 190 / corea_particles_per_mM()
         kcatR_ppa, km_pi = 0.1874, 0.0976
         for pin in (0.01, 0.0976, 17.8185)
             u = [0.0, 0.0, 0.0, pin, 0.0, 0.0, 0.0, 0.0]
@@ -277,7 +280,7 @@ corrected_phosphate_drift(sol) =
         # GK1 has two *distinct* products, so its reverse term is a product of
         # two ratios and not a square — the control that says the test above is
         # measuring the stoichiometry and not the algebra.
-        E_gk1, kcatR_gk1 = 186 / 20180, 127.921
+        E_gk1, kcatR_gk1 = 186 / corea_particles_per_mM(), 127.921
         km_gk1_adp, km_gk1_gdp = 0.0676, 0.0236
         u = [0.0, 0.3, 0.0, 0.0, 0.0, 0.11, 0.0, 0.0]
         v = recycling_fluxes(u, p, 0.0, m, zero_in)[4]
@@ -321,11 +324,15 @@ corrected_phosphate_drift(sol) =
     @testset "8.4 enzyme concentrations, and the two shared with glycolysis" begin
         enz = recycling_enzymes()
         @test length(enz) == 5
+        # Six decimals, against `corea_particles_per_mM()` = 20,180.39. PGK3 is
+        # 0.020366 and not the 0.020367 a rounded 20,180 gives — the sixth
+        # decimal is exactly where the two factors part, and it is the decimal
+        # the cross-module equality below is decided on.
         expected = Dict(:R_ADK1 => 0.010555, :R_PPA => 0.009415, :R_GK1 => 0.009217,
-                        :R_PGK3 => 0.020367, :R_PYK3 => 0.027304)
+                        :R_PGK3 => 0.020366, :R_PYK3 => 0.027304)
         for e in enz
             @test round(e.concentration, digits = 6) == expected[e.reaction]
-            @test e.concentration == e.copies / 20180
+            @test e.concentration == e.copies / corea_particles_per_mM()
         end
 
         loci = Dict(e.reaction => e.locus for e in enz)
@@ -347,11 +354,22 @@ corrected_phosphate_drift(sol) =
             @test by_name[Symbol("enz_", e.reaction)].fixed
         end
 
-        # Not independent of phase 6. Composing central glycolysis and asserting
-        # that neither PGK/PGK3 nor PYK/PYK3 is run at two different
-        # concentrations belongs to whichever pull request lands second;
-        # stubbing glycolysis to make it pass here would assert nothing.
-        @test_skip "one enzyme, one concentration across modules — needs spec §11 phase 6"
+        # One enzyme, one concentration, across modules. Spec task 8.4 assigns
+        # this to whichever pull request lands second; phase 6 landed first as
+        # PR #50, so it is this one's, and both halves are in the tree. It is
+        # an equality rather than a tolerance on purpose: a transcribed 20,180
+        # against the handshake's derived 20,180.39 fails it at 1.9e-5, which
+        # is the whole reason the factor is derived in both modules.
+        glycolytic = Dict(String(r.locus) => r for r in GLYCOLYTIC_REACTIONS)
+        shared_checked = 0
+        for e in enz
+            e.shared_with_glycolysis || continue
+            g = glycolytic[e.locus]
+            @test g.copies == e.copies
+            @test g.copies / corea_particles_per_mM() == e.concentration
+            shared_checked += 1
+        end
+        @test shared_checked == 2
     end
 
     @testset "8.5 the boundary" begin
@@ -434,19 +452,31 @@ corrected_phosphate_drift(sol) =
         @test sol.t[end] == CYCLE_S
         u0 = sol.u[1]
 
-        # Both moieties conserved over the full cycle. The residual is at the
-        # round-off floor rather than at the integrator's: adenylate and
-        # guanylate are *linear* invariants, and a Runge-Kutta or Rosenbrock
-        # method preserves a linear invariant exactly, so there is no
-        # integration error in these quantities to scale with the tolerance
-        # (spec §3 as amended 2026-09-10). What shows the check can fail is the
-        # mutation test below, not a tolerance sweep.
+        # Both moieties conserved over the full cycle. These assert the SECOND
+        # gate of §3's exact-conservation exception, not the fivefold fall —
+        # see spec §12, 2026-09-11, and testset "the second gate" below for the
+        # per-evaluation assertion and the ladder that license it.
         bound = 3 * max(ABSTOL_R, RELTOL_R * maximum(u[ATP_I] for u in sol.u))
         @test max_drift(sol, adenylate_of) < 1e-10
         @test max_drift(sol, guanylate_of) < 1e-10
         @test max_drift(sol, adenylate_of) < bound / 100
         @test adenylate_of(u0) ≈ 3.9539 atol = 1e-4
         @test guanylate_of(u0) ≈ 1.9725 atol = 1e-4
+
+        # The glycolytic double holds its four pools. Asserted, because it did
+        # not: with a zero derivative the pools took `NucleotideRecycling`'s
+        # contributions straight into their own `du` and 13DPG was 99.8% gone
+        # by t = 0.5 s, which killed the GTP branch inside the first save
+        # interval while every docstring said the pools were clamped.
+        for (i, sp) in zip((DPG_I, PG3_I, PEP_I, PYR_I), HELD_GLYCOLYTIC_VALUES[1:4])
+            @test maximum(abs(u[i] - sp) for u in sol.u) / sp < 0.01
+        end
+
+        # And with the pools held, what stops the GTP branch is guanylate,
+        # which is the structural limit: nothing in Core A′ consumes GTP until
+        # phase 9's translation, so PGK3 and PYK3 run until GDP is spent.
+        @test sol.u[end][GTP_I] > 0.99 * guanylate_of(u0)
+        @test sol.u[end][GDP_I] < 0.01 * u0[GDP_I]
 
         # Tightening the solver tenfold does not shrink it, and that is the
         # claim rather than a shortfall: both settings sit on the same floor.
@@ -477,11 +507,19 @@ corrected_phosphate_drift(sol) =
         i = findfirst(u -> u[ATP_I] < target, no_kinase.u)
         @test i !== nothing
         t_cross = no_kinase.t[i]
-        # The scoping note computes (3.9539 - 0.0832) / 0.027408 = 141.2 s for a
-        # constant drain from the same pool. Spec task 8.6 asks for agreement
-        # within an order of magnitude; this lands within 1%.
-        @test 14.1 < t_cross < 1412.0
-        @test t_cross ≈ 141.2 rtol = 0.05
+        # Two constant-drain figures, and the difference matters because the
+        # spec quotes one of them. The scoping note computes the FULL pool at
+        # the published demand, 3.9539 / 0.027408 = 144.3 s. The archived
+        # design subtracts the AMP already present, (3.9539 − 0.0832) /
+        # 0.027408 = 141.2 s, and labels that "the module's own arithmetic".
+        # Spec §3 check 4 and task 8.6 both ask for agreement with the note's
+        # 144 s within an order of magnitude, which is what is asserted; the
+        # closer agreement with 141.2 s is recorded, not required, because it
+        # is a property of this composition's saturating drain and phase 9's
+        # mass-action module will not reproduce it.
+        @test 14.4 < t_cross < 1443.0
+        @test t_cross ≈ 144.3 rtol = 0.05      # the scoping note's figure
+        @test t_cross ≈ 141.2 rtol = 0.05      # the archived design's
 
         # A *crossing*, not exhaustion: the drain saturates as ATP falls, so ATP
         # decays toward zero rather than through it, and phase 9's mass-action
@@ -519,6 +557,67 @@ corrected_phosphate_drift(sol) =
         @info "8.6 full cycle" atp_min = minimum(u[ATP_I] for u in sol.u) atp_floor_no_kinase = atp_floor ppi_settled = sol.u[end][PPI_I] t_cross = t_cross adenylate_drift = max_drift(sol, adenylate_of) guanylate_drift = max_drift(sol, guanylate_of) ppi_no_ppa = no_ppa.u[end][PPI_I] phosphate_budget = budget
     end
 
+    # ------------------------------------------------------------------
+    # Spec §3's exact-conservation exception, second gate (§12, 2026-09-11).
+    # This is what licenses tasks 8.6 and 8.7 to assert a floor rather than
+    # the fivefold fall, so it is asserted rather than argued.
+    # ------------------------------------------------------------------
+    @testset "8.6b the second gate: one ulp per evaluation, and the ladder" begin
+        prob = build_problem(recycling_models(); tspan = (0.0, CYCLE_S))
+        rhs(u) = prob.f(u, prob.p, 0.0)
+
+        # The three moiety vectors, as weights on the composed state.
+        aden_w(du) = du[ATP_I] + du[ADP_I] + du[AMP_I]
+        guan_w(du) = du[GTP_I] + du[GDP_I] + du[GMP_I]
+        # Flux-corrected phosphate. Standalone the inbound flux is exactly the
+        # GTP gain, so the correction is a state difference and the corrected
+        # closure stays a linear functional with GTP weighted 3 − 1 = 2.
+        phos_w(du) = du[PI_I] + 3du[ATP_I] + 2du[ADP_I] + du[AMP_I] +
+                     2du[GTP_I] + 2du[GDP_I] + du[GMP_I] + 2du[PPI_I]
+
+        sol = recycling_solve(recycling_models())
+        u0 = sol.u[1]
+        sums = (adenylate_of(u0), guanylate_of(u0), phosphate_of(u0))
+
+        # One ulp of the conserved sum, at every state on the trajectory. Not
+        # an `≈`: one ulp is the tightest non-zero bound there is.
+        for (w, total, name) in zip((aden_w, guan_w, phos_w), sums,
+                                    ("adenylate", "guanylate", "phosphate"))
+            worst = maximum(abs(w(rhs(u))) for u in sol.u)
+            @test worst <= eps(total)
+            @info "second gate, $name" worst ulps = worst / eps(total)
+        end
+
+        # It is a real gate: a mutated stoichiometry misses it by orders of
+        # magnitude, not by a factor.
+        mprob = build_problem(recycling_models(mutation = :adk1_adp_coefficient);
+                              tspan = (0.0, CYCLE_S))
+        mworst = maximum(abs(aden_w(mprob.f(u, mprob.p, 0.0))) for u in sol.u)
+        @test mworst > 1e6 * eps(sums[1])
+
+        # And the ladder, over six decades. The bound is each rung's own
+        # `tol_C`, not a flat ulp count: the residual neither falls nor
+        # accumulates — over nine decades it wanders between 128 and 1,119
+        # ulps of the sum while the evaluation count grows 36-fold — so a flat
+        # ulp bound would be a number fitted to this one composition, whereas
+        # `tol_C` tightens with the solver and cannot be passed by loosening.
+        rungs = [(1e-6, 1e-4), (1e-7, 1e-5), (1e-8, 1e-6),
+                 (1e-9, 1e-7), (1e-10, 1e-8), (1e-11, 1e-9)]
+        residuals = Float64[]
+        for (a, r) in rungs
+            l = recycling_solve(recycling_models(); abstol = a, reltol = r)
+            push!(residuals, max_drift(l, adenylate_of))
+            tol_C = 3 * max(a, r * maximum(u[ATP_I] for u in l.u))
+            @test residuals[end] < tol_C / 1e3
+        end
+        @test length(residuals) == 6
+        @test maximum(residuals) < 100 * minimum(residuals)
+        # The point of the ladder: it does not fall. If it ever starts to, the
+        # exception no longer applies and the fivefold fall is the right rule.
+        @test maximum(residuals) / minimum(residuals) > 2
+        @info "second gate ladder, adenylate" residuals
+    end
+
     @testset "8.7 phosphate closure, both forms, and the mutations" begin
         # Exact: with the GTP branch inactive and no phosphorylation, nothing
         # carries phosphate across the boundary. The charging drain still runs
@@ -530,13 +629,17 @@ corrected_phosphate_drift(sol) =
         @test max_drift(exact, phosphate_of) < 1e-10
 
         # Flux-corrected: all five active, and the inbound flux *subtracted*
-        # rather than the bound relaxed. That the uncorrected drift is nine
+        # rather than the bound relaxed. That the uncorrected drift is twelve
         # orders of magnitude larger is what says the correction does work.
+        # The inbound flux is now bounded by *guanylate* — GDP is driven to GTP
+        # and the branch stops — so it is ~0.309 mM, the whole GDP + GMP pool,
+        # rather than the 0.0505 mM a draining 13DPG pool used to cut it off at.
         full = recycling_solve(recycling_models())
         uncorrected = max_drift(full, phosphate_of)
         @test corrected_phosphate_drift(full) < 1e-10
         @test uncorrected > 1e6 * corrected_phosphate_drift(full)
         @test uncorrected ≈ full.u[end][GTP_I] - full.u[1][GTP_I] rtol = 1e-6
+        @test uncorrected ≈ full.u[1][GDP_I] + full.u[1][GMP_I] rtol = 0.02
 
         # The substrate-level phosphorylation crosses nothing: it takes every
         # phosphate from the free pool. A first version of the double drew them
@@ -575,7 +678,7 @@ corrected_phosphate_drift(sol) =
         # rather than typed: phase 9 must *meet* this demand, and a value it may
         # calibrate against and then re-check would verify arithmetic (§4 D14).
         @test 3_484_518 / 6300 ≈ RECYCLING_DRAIN_PER_S rtol = 1e-4
-        @test RECYCLING_DRAIN_MM_PER_S == RECYCLING_DRAIN_PER_S / 20180
+        @test RECYCLING_DRAIN_MM_PER_S == RECYCLING_DRAIN_PER_S / corea_particles_per_mM()
 
         # One ATP in, one AMP and one pyrophosphate out: three phosphates become
         # one plus two, so the transfer closes phosphate internally and needs no
@@ -590,10 +693,16 @@ corrected_phosphate_drift(sol) =
         # The anti-circularity guard, made mechanical. The demand lives in the
         # test double; the production module must not carry it, or phase 9 could
         # calibrate `k_chg` against a number this module already assumed.
+        #
+        # Digit separators are stripped before the search. A guard that tested
+        # the bare spellings alone passed while the module header carried
+        # "3,484,518" — a test that cannot fail is not evidence (spec §3), and
+        # this one could not.
         src = read(joinpath(@__DIR__, "..", "src", "organisms", "coreA",
                             "nucleotide_recycling.jl"), String)
-        @test !occursin("553", src)
-        @test !occursin("3484518", src) && !occursin("3_484_518", src)
+        digits_only = replace(src, "," => "", "_" => "")
+        @test !occursin("553", digits_only)
+        @test !occursin("3484518", digits_only)
     end
 
 end
