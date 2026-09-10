@@ -42,6 +42,10 @@ include("organisms/coreA/pts_transport.jl")
 # NucleotideRecycling reads COREA_DATA_DIR, which pts_transport.jl defines, so
 # it is included after it rather than beside the models below.
 include("organisms/coreA/nucleotide_recycling.jl")
+# Transcription reads its own extract via `@__DIR__`, so it has no ordering
+# constraint against the three above; it needs handshake.jl in scope because
+# its rate law converts a polymerase copy number at the registry's volume.
+include("organisms/coreA/transcription.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
