@@ -1,7 +1,7 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48); the fan-out
-of phases 6, 7, 8 and 10 is under way
+**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48) and phase 6
+with them (#50); phases 7, 8 and 10 are the rest of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-10
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -2280,7 +2280,7 @@ tolerance~~ **sits at the floating-point floor and does not move with the solver
 tolerance, which is what an exactly conserved moiety looks like and what check 3
 predicted** (amended 2026-09-10; see §12), and a
 mutation to the dehydrogenase's stoichiometry makes that check fail.
-**PR:** _not started_
+**PR:** #50 (merged 2026-09-10)
 
 The drafted task list at
 `dev/archive/openspec/changes/add-central-glycolysis/tasks.md` holds the
@@ -2291,22 +2291,22 @@ the "declared but unexecuted" clause from its handoff note; and use the real
 recycling module in place of its held-energy double wherever phase 8 has landed,
 keeping the double only for standalone runs.
 
-- [ ] 6.1 Vendor the derived extract of ~65 rows and its regeneration script —
+- [x] 6.1 Vendor the derived extract of ~65 rows and its regeneration script —
   verify by the row classes and counts matching (10 forward and 10 reverse
   catalytic constants, 32 Michaelis constants, 13 concentrations), by four spot
   values matching upstream byte for byte, and by the README's command
   round-tripping to an unchanged file.
-- [ ] 6.2 Implement the sub-model, its thirteen states and the modular rate law
+- [x] 6.2 Implement the sub-model, its thirteen states and the modular rate law
   generic over substrate and product counts — verify by the state set equalling
   the registry's glycolytic and redox groups with strictly increasing indices, and
   by unit tests that equal forward and reverse terms give zero net rate and that
   the per-reaction term counts sum to 32.
-- [ ] 6.3 Import every value through the loader with log-normal priors from mode
+- [x] 6.3 Import every value through the loader with log-normal priors from mode
   and geometric standard deviation, fixed by default — verify by every parameter
   reporting the central file as its source, by the two prior-default species
   keeping their width, and by the registry-agreement check firing when a
   concentration row is mutated in a temporary copy.
-- [ ] 6.4 Set the ten enzyme concentrations from copy number at the registry's
+- [x] 6.4 Set the ten enzyme concentrations from copy number at the registry's
   volume, marked nominal and overridable, and declare the ten protein counts as
   inputs so translation later supersedes them — verify by each value equalling
   copies over ~~20,180 to six decimals~~ **`corea_particles_per_mM()`, which is
@@ -2315,16 +2315,16 @@ keeping the double only for standalone runs.
   2026-09-10; see §12), by none being the published no-rule default
   of 0.001 mM, and by overriding one scaling exactly the rates that enzyme
   catalyses.
-- [ ] 6.5 Declare the boundary: currency edges on the energy species and mass
+- [x] 6.5 Declare the boundary: currency edges on the energy species and mass
   edges on the shared intermediates, every peer unnamed — verify by the edge
   count, kinds and directions matching, by no edge naming a redox species, and by
   standalone resolution succeeding while listing the energy species as unowned.
-- [ ] 6.6 Register the reduction notes: the dropped oxidase with its three
+- [x] 6.6 Register the reduction notes: the dropped oxidase with its three
   reasons, the Michaelis-constant column choice naming all eight differing
   constants with both values, the held currencies, and the nominal enzyme
   concentrations — verify by `reduction_declarations` returning all four as
   sentences naming the affected reactions.
-- [ ] 6.7 Integrate and check redox balance — verify by non-negativity at every
+- [x] 6.7 Integrate and check redox balance — verify by non-negativity at every
   save point, by the redox residual ~~satisfying the tolerance principle across two
   tolerance settings~~ **measured across a ladder of tolerances spanning eight
   decades and asserted flat at the floating-point floor** (amended 2026-09-10;
