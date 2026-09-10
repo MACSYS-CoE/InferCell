@@ -1,9 +1,153 @@
 # Handoff
 
 **Session date:** 2026-09-10
-**Branch:** `phase-6-central-glycolysis`
+**Branch:** `phase-7-pts-transport`
 
-## Latest: phase 6, central glycolysis (2026-09-10)
+## Latest: phase 7, phosphotransferase transport and lactate export (2026-09-10)
+
+**The second Core A′ module, and the first with a stochastic-block neighbour.**
+Phase 6 (central glycolysis, #50) landed first and this branch was rebased onto
+it. `PtsTransport` owns the eight carrier phospho-states and external lactate,
+and it is what makes carbon balance posable at all — glycolysis makes the
+lactate, this exports it. It owns the eight carrier phospho-states and external lactate, and it is
+what makes carbon balance posable at all.
+
+**Four ways the archived design had gone stale, all of them protocol rather
+than chemistry.** `dev/archive/openspec/changes/add-pts-transport/` was written
+against the wave-0 interface, and four things moved under it:
+
+| The design said | What the protocol now does |
+|---|---|
+| `M_g6p_c` and `M_pyr_c` production is "declared and left unexecuted" | Phase 1 made contributions execute, and the resolver holds `contributed_states` to the mass edges in both directions, so all four foreign pools carry a signed term |
+| Five edges: pep in, lac_c in, pyr out, g6p out, the clamp | **Ten.** Both reversible steps *read* the pool their forward term fills, and `inputs` — the only channel wiring a foreign state into `dynamics` — is held to the inbound edges. So pyruvate and glucose-6-phosphate each carry an edge in both directions |
+| `membrane_protein_states` as a plain function on `PtsTransport` | The protocol function phase 5 promoted |
+| (silent — it did not exist) | `extracellular_states`, which task 7.4 needs so growth does not dilute lactate that has already left the cell |
+
+Only the second is a judgement call, and it is forced: one outbound edge alone
+would declare the production and leave the rate law unable to see the pool it
+draws back from.
+
+**One thing about `fixed` that the next module phase will hit.** Every parameter
+is `fixed = true` by default, so nothing is sampled from an invented prior
+without an explicit act — that is design D7 and D14, and it is right. But `fixed` in this
+codebase means *absent from the composed parameter vector entirely*:
+`model_free_params` filters it out, so `p` never carries it and a rate law
+cannot read it from there. So the fourteen scalars are carried on the struct as
+well, built from the same `load_parameter` call so they cannot drift, and the
+free ones are spliced back into their local slots at every call. Phase 6's extract is about 65 rows and phase 8's about 35, so both have
+several dozen; they need the same thing.
+
+`:r_cell_nm` is always free, whatever `free` is passed, because a `param_slot`
+must be a free parameter to reach the vector at all. That is the trap 5b.10
+documents: inference samples it and the handshake overwrites it.
+
+**Reading `proteomics.xlsx` without `openpyxl`.** The four carrier copy numbers
+— 353, 314, 290, 831 — exist upstream only in that workbook, behind the
+published loader's `MMSYN1 → JCVISYN2 → AOE` chain through a *second* workbook.
+No environment on this machine has `openpyxl`, and compute nodes have no
+network. `zipfile` plus `ElementTree` reads it in about twenty lines: one sheet,
+header on row 2, column **V** is "Absolute abundance (copy number)", which is
+what the published loaders reach positionally as `iloc[:, 21]`. The four rows
+are keyed by AOE id (`AOE93321.1`, `AOE93571.1`, `AOE93322.1`, `AOE93596.1`), so
+the annotation workbook is not needed, and the script asserts each row's NCBI
+description as well as its rounded count — a shifted sheet then fails loudly
+rather than importing another protein's abundance. **Phase 10 should reuse it:
+the promoter proxy is the same table's copy number over 180.**
+
+The cross-check is `setICs_two.py:286-288`, a disabled block stating the same
+four totals as concentrations. Disabled code, so not the citation — but an
+independent plain-text statement of a quantity otherwise derived from a
+spreadsheet, and the script asserts its own arithmetic against it to four
+decimals.
+
+**A conversion-factor divergence worth knowing about.** The archived design's
+seven-decimal table used a rounded **20180** particles per mM; the code derives
+**20180.3873819** from Avogadro. Four of the eight phospho values therefore
+differ from D3 in the seventh decimal. The derived factor is the right one,
+because the initial conditions are read back with it — building them with the
+rounded one would put the carrier totals at 353.007 rather than 353, and "sums
+to its published copy number exactly" would have to become a tolerance.
+
+**The phase amended §3.** The tolerance principle asked every conservation
+residual to fall at least fivefold when tolerances tighten tenfold. Measured, the
+four carrier sums do not: 3.47e-17, 2.78e-17, 8.67e-18 and 1.32e-16 at
+`(1e-10, 1e-8)`, eight orders under their bounds, and unchanged at
+`(1e-11, 1e-9)` — the ptsI residual *rose*, to 9.02e-17. A carrier sum is a
+linear invariant whose two derivative terms are exact IEEE negations, so the
+right-hand side conserves it identically and there is no truncation error to
+shrink. §3 had already noticed the same of the redox pair without drawing the
+consequence.
+
+**Phase 6 got there first, with a better rule.** It hit the same wall on the
+redox pair, measured a ladder over eight decades, and landed an *exception* to
+the tolerance principle rather than my two-class split — gated on a mechanical
+criterion a phase must assert rather than argue: the composed right-hand side
+must return the moiety's weighted derivative sum as literally `0.0`, bitwise.
+It also fixed §6 F3, which my draft had left demanding a positive slope it had
+just declared impossible.
+
+So on rebase my §3 amendment was dropped and phase 7's check 5 now asserts
+phase 6's criterion: `du[unphos] + du[phos] === 0.0` at every saved state, then
+a six-rung ladder over ten decades with every rung within 100 ulps and the
+largest within 100× of the smallest. **Phase 7 is the independent second
+instance** — different module, different chemistry, same floor — which is worth
+more as corroboration than a rival amendment would have been.
+
+**The mutation test remains the real falsifier**, and that is the part that
+matters
+
+**The full-cycle question, answered for one case.** §9 asks whether full-cycle
+checks belong in the default suite and says to decide on measured wall-clock.
+Phase 7's 6,300 s lactate-export **integration costs 4.56 ms**; the **19.67 s**
+around it is compiling the stiff-solver path, which the suite pays once for its
+first stiff solve whatever the horizon (job 16364852). It therefore runs by
+default. My first draft quoted ~19.5 s as the cost *of the full cycle* — right
+magnitude, wrong meaning, and sourced from a failing run of a test version that
+no longer existed. Phases 8 and 14 should expect the same shape: horizon is
+nearly free on a small ODE module, and it is the handshake driver, not the
+length of the integration, that will make the assembled-model checks expensive.
+That settles it for a nine-state standalone ODE module and for nothing else:
+checks 2, 4 and 4b run on the assembled model across a handshake driver, which
+is the expensive case and is still open.
+
+Posing that check at all needed a lactate source, because steady cytosolic
+lactate is glycolysis's and glycolysis is phase 6 — so the `HeldMetabolites`
+double supplies it at the published two-per-glucose rate. D6's figures come
+back: 1.46836 mM cytosolic, 0.006877 mM external after a cycle, **0.468%**
+against D6's stated 0.47%, and a ratio of 1e4 missing the criterion as its 4.7%
+row says.
+
+**Two failures on the way, both real and both instructive.** The first draft
+asserted `steady == production/0.075`, which is wrong by exactly the external
+pool — export is driven by the *difference*, so the 0.47% excess is the lactate
+that has left. The second asserted the corrected form to 1e-6 and failed at
+1e-5, because the system is *quasi*-steady rather than steady: external lactate
+is still rising at `production/R`, cytosolic tracks it, and the export flux
+falls short of production by exactly one part in `R`. The test now carries the
+drift term, which is a better check than either draft.
+
+**What phase 11 and phase 13 inherit.** The four carrier sums are conserved only
+as long as nothing else makes PTS protein. Once phase 11's translation feeds the
+carriers the invariant must be restated as "conserved up to what translation
+adds", by subtraction rather than by widening the bound. The check as written is
+scoped to this sub-model's own dynamics and says so.
+
+**Suite.** `sbatch test/run_tests.slurm` job **16374055**, **2023/2023** in
+4m58.2s on the rebased tree. Full-cycle timing is job **16364852**. Before the
+rebase, on the 1468-test base, phase 7 alone was 1654/1654 (job 16364952); the
+post-rebase total is against phase 6's tree and the check-5 rewrite changed
+phase 7's own count, so the two deltas are not comparable and no combined one
+is claimed here.
+
+**Next.** Phases 6, 8 and 10 are the remaining fan-out, all independent of this
+one. Phase 9 waits on phase 8. Three done-when clauses across the fan-out are
+still not independent — task 8.4 needs phase 6, task 8.5 composes all four ODE
+modules, task 10.7 checks copy numbers against the metabolic modules' — and
+belong to whichever PR lands last, or to phase 13.
+
+---
+
+## Previous: phase 6, central glycolysis (2026-09-10)
 
 **The first phase that writes a box on the state graph.** Every merged phase
 before this one is framework — that is D0 on purpose — so `src/organisms/coreA/`
