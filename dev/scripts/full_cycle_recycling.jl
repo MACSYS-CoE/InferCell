@@ -20,15 +20,17 @@
 # reaches zero. Both numbers are recorded below with the model each belongs to.
 #
 # **Conservation is asserted against the round-off floor, and the reason is
-# structural** (spec §3, the tolerance principle, as amended 2026-09-10).
-# Adenylate, guanylate and phosphate closure are all *linear* invariants, and a
-# Runge-Kutta or Rosenbrock method preserves a linear invariant exactly: with
-# `nᵀJ = 0` the vector survives the `(I − γhJ)⁻¹` solve unchanged, so every
-# stage increment sums to zero and there is no integration error to scale with
-# the tolerance. What is left is floating-point round-off, which *grows* slightly
-# when the solver is tightened because tightening adds steps. Both settings are
-# still run and both residuals reported — that is the evidence for the claim
-# rather than an assertion that fails — and what is asserted is that the residual
+# structural** (spec §3's exact-conservation exception, second gate, §12
+# 2026-09-11). Adenylate, guanylate and flux-corrected phosphate all satisfy
+# `nᵀf ≡ 0` exactly — every reaction's contribution cancels term by term — so
+# there is no local truncation error in them to scale with the tolerance. They
+# are *not* bitwise zero on the composed right-hand side, because the terms
+# arrive from three modules and are summed in an order that does not cancel;
+# that is why the second gate exists and the first does not apply. What the gate
+# asserts is the per-evaluation residual, one ulp of the conserved sum, and the
+# suite asserts it. Both tolerance settings are still run and both residuals
+# reported — that is the evidence for the claim rather than an assertion that
+# fails — and what is asserted is that the residual
 # sits orders of magnitude below the single-run integrator bound. The evidence
 # that these checks can fail at all is the mutation test in the suite, which is
 # the point §3 makes with "a conservation test that cannot fail is not
@@ -254,17 +256,22 @@ for ((name, lo, hi, ratio), bound) in zip(full_scaling, (adenylate_bound, guanyl
 end
 println(io)
 println(io, "**Tightening the solver does not shrink these residuals, and it should not.**")
-println(io, "Both moieties are linear invariants, and a Runge-Kutta or Rosenbrock method")
-println(io, "preserves a linear invariant exactly — with `nᵀJ = 0` the vector passes")
-println(io, "through the `(I − γhJ)⁻¹` solve unchanged, so every stage increment sums to")
-println(io, "zero. There is no integration error in this quantity to scale. What the")
-println(io, "table shows is round-off: five orders of magnitude below the integrator")
-println(io, "bound in the last column, and slightly *larger* at the tighter setting")
-println(io, "because tightening adds steps. Spec §3's five-fold rule binds where the")
-println(io, "trajectory is restarted — the assembled model's 6,300 handshakes, which is")
-println(io, "what the bound's `N_restarts` factor is for — and not here (§12, amended")
-println(io, "2026-09-10). The evidence that these checks can fail is the mutation test in")
-println(io, "`test/test_corea_nucleotide_recycling.jl`, not this table.")
+println(io, "Both moieties satisfy `nᵀf ≡ 0` exactly — every reaction's contribution")
+println(io, "cancels term by term — so there is no local truncation error in them to")
+println(io, "scale with the tolerance, and what the table shows is round-off, five orders")
+println(io, "below the integrator bound in the last column. The two-rung ratios are not")
+println(io, "the evidence and should not be read as one: over nine rungs the adenylate")
+println(io, "residual wanders between 128 and 1,119 ulps of its sum with no trend, while")
+println(io, "the evaluation count grows 36-fold, so any single pair of rungs gives an")
+println(io, "arbitrary ratio between 0.2x and 1.8x.")
+println(io)
+println(io, "This is the **second gate** of spec §3's exact-conservation exception (§12,")
+println(io, "2026-09-11), not the first: these sums are not bitwise zero on the composed")
+println(io, "right-hand side, because the terms arrive from three modules. The gate that")
+println(io, "licenses the floor is the per-evaluation residual — one ulp of the conserved")
+println(io, "sum — and `test/test_corea_nucleotide_recycling.jl` asserts it, together")
+println(io, "with a six-rung ladder bounded by each rung's own `tol_C`. The evidence that")
+println(io, "these checks can fail is that assertion and the mutation test, not this table.")
 println(io)
 println(io, "### Adenylate kinase removed")
 println(io)
