@@ -6,54 +6,17 @@ using SciMLBase: ReturnCode
 # Spec §11 phase 8 — nucleotide recycling: the five reactions that make GTP and
 # close the adenylate, guanylate and phosphate moieties.
 
-const RECYCLING_DATA = joinpath(@__DIR__, "..", "src", "organisms", "coreA", "data")
+# The composition, its state indices, the three moiety sums and the drift
+# helpers all live in `nucleotide_test_models.jl`, which `test/runtests.jl`
+# includes first and which `dev/scripts/full_cycle_recycling.jl` also includes.
+# One text for one measurement: the artefact records what this file asserts.
 
-recycling_tables() = [
-    read_source_table(joinpath(RECYCLING_DATA, "nucleotide_recycling.tsv");
-                      file = "nucleotide_balanced",
-                      gstd_column = RECYCLING_GSTD_COLUMN),
-    read_source_table(joinpath(RECYCLING_DATA, "nucleotide_recycling_central.tsv");
-                      file = "central_balanced",
-                      gstd_column = RECYCLING_GSTD_COLUMN),
-]
-
-# ----------------------------------------------------------------------
-# The composed configurations. Recycling's eight states, then the held
-# glycolytic pools and their cumulative phosphorylation counter, then the
-# drain's counter.
-# ----------------------------------------------------------------------
-const ATP_I, ADP_I, AMP_I, PI_I, GTP_I, GDP_I, GMP_I, PPI_I = 1, 2, 3, 4, 5, 6, 7, 8
-const DPG_I, PG3_I, PEP_I, PYR_I = 9, 10, 11, 12
-const SLP_CUM_I, DRAIN_CUM_I = 13, 14
-const CYCLE_S = 6300.0
-const ABSTOL_R, RELTOL_R = 1e-10, 1e-8
-
-recycling_models(; reactions = RECYCLING_REACTIONS,
-                 k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178,
-                 mutation = nothing) = AbstractSubModel[
-    mutation === nothing ? NucleotideRecycling(reactions = reactions) :
-        MutatedRecycling(mutation; reactions = reactions),
-    HeldGlycolytic(k_slp = k_slp),
-    ChargingDrain(),
-]
-
-function recycling_solve(ms; horizon = CYCLE_S, abstol = ABSTOL_R, reltol = RELTOL_R,
-                         saveat = 60.0)
-    return solve(build_problem(ms; tspan = (0.0, horizon)), Rodas5P();
-                 abstol = abstol, reltol = reltol, saveat = saveat)
-end
-
-adenylate_of(u) = u[ATP_I] + u[ADP_I] + u[AMP_I]
-guanylate_of(u) = u[GTP_I] + u[GDP_I] + u[GMP_I]
-phosphate_of(u) = u[PI_I] + 3u[ATP_I] + 2u[ADP_I] + u[AMP_I] +
-                  3u[GTP_I] + 2u[GDP_I] + u[GMP_I] + 2u[PPI_I]
-max_drift(sol, f) = maximum(abs(f(u) - f(sol.u[1])) for u in sol.u)
-# Phosphate carried in from the held 13DPG and PEP pools, one per turnover of
-# the GTP branch. GTP is produced by PGK3 and PYK3 and by nothing else here,
-# so its change is that integral exactly.
-corrected_phosphate_drift(sol) =
-    maximum(abs((phosphate_of(u) - (u[GTP_I] - sol.u[1][GTP_I])) - phosphate_of(sol.u[1]))
-            for u in sol.u)
+# The all-five 6,300 s trajectory, solved once. Testsets 8.6, 8.6b and 8.7 all
+# read it, and the ladder's fifth rung is this pair, so binding it here removes
+# four bitwise-identical solves.
+const FULL_SOL = recycling_solve(recycling_models())
+const TIGHT_SOL = recycling_solve(recycling_models();
+                                  abstol = ABSTOL_R / 10, reltol = RELTOL_R / 10)
 
 @testset "Core A′ nucleotide recycling" begin
 
@@ -442,12 +405,12 @@ corrected_phosphate_drift(sol) =
         # Not independent of phases 6, 7 and 9. The four-module assertion — that
         # no species and direction is described as both mass and currency across
         # every ODE module — belongs to the last of them to land, or to phase 13.
-        @test_skip "no species is both mass and currency across all four ODE modules — needs spec §11 phases 6, 7, 9"
+        @test_skip "no species is both mass and currency across all four ODE modules — needs spec §11 phase 9"
     end
 
 
     @testset "8.6 a full cycle against the charging drain" begin
-        sol = recycling_solve(recycling_models())
+        sol = FULL_SOL
         @test sol.retcode == ReturnCode.Success
         @test sol.t[end] == CYCLE_S
         u0 = sol.u[1]
@@ -456,7 +419,7 @@ corrected_phosphate_drift(sol) =
         # gate of §3's exact-conservation exception, not the fivefold fall —
         # see spec §12, 2026-09-11, and testset "the second gate" below for the
         # per-evaluation assertion and the ladder that license it.
-        bound = 3 * max(ABSTOL_R, RELTOL_R * maximum(u[ATP_I] for u in sol.u))
+        bound = tolerance_bound(sol, ADENYLATE_COEFFS)
         @test max_drift(sol, adenylate_of) < 1e-10
         @test max_drift(sol, guanylate_of) < 1e-10
         @test max_drift(sol, adenylate_of) < bound / 100
@@ -480,8 +443,7 @@ corrected_phosphate_drift(sol) =
 
         # Tightening the solver tenfold does not shrink it, and that is the
         # claim rather than a shortfall: both settings sit on the same floor.
-        tight = recycling_solve(recycling_models(); abstol = ABSTOL_R / 10,
-                                reltol = RELTOL_R / 10)
+        tight = TIGHT_SOL
         @test max_drift(tight, adenylate_of) < 1e-10
         @test max_drift(tight, guanylate_of) < 1e-10
 
@@ -500,13 +462,10 @@ corrected_phosphate_drift(sol) =
 
         # Adenylate kinase removed: the threshold crossing, on a grid fine
         # enough to tell 120 s from 180 s.
-        no_kinase = recycling_solve(
-            recycling_models(reactions = (:R_PGK3, :R_PYK3, :R_GK1, :R_PPA));
-            horizon = 600.0, saveat = 1.0)
-        target = 0.01 * no_kinase.u[1][ATP_I]
-        i = findfirst(u -> u[ATP_I] < target, no_kinase.u)
-        @test i !== nothing
-        t_cross = no_kinase.t[i]
+        no_kinase = recycling_solve(recycling_models(reactions = without(:R_ADK1));
+                                    horizon = 600.0, saveat = 1.0)
+        t_cross = crossing_time(no_kinase, 0.01)
+        @test t_cross !== nothing
         # Two constant-drain figures, and the difference matters because the
         # spec quotes one of them. The scoping note computes the FULL pool at
         # the published demand, 3.9539 / 0.027408 = 144.3 s. The archived
@@ -575,7 +534,7 @@ corrected_phosphate_drift(sol) =
         phos_w(du) = du[PI_I] + 3du[ATP_I] + 2du[ADP_I] + du[AMP_I] +
                      2du[GTP_I] + 2du[GDP_I] + du[GMP_I] + 2du[PPI_I]
 
-        sol = recycling_solve(recycling_models())
+        sol = FULL_SOL
         u0 = sol.u[1]
         sums = (adenylate_of(u0), guanylate_of(u0), phosphate_of(u0))
 
@@ -601,14 +560,18 @@ corrected_phosphate_drift(sol) =
         # ulps of the sum while the evaluation count grows 36-fold — so a flat
         # ulp bound would be a number fitted to this one composition, whereas
         # `tol_C` tightens with the solver and cannot be passed by loosening.
-        rungs = [(1e-6, 1e-4), (1e-7, 1e-5), (1e-8, 1e-6),
-                 (1e-9, 1e-7), (1e-10, 1e-8), (1e-11, 1e-9)]
+        rungs = [(1e-6, 1e-4), (1e-7, 1e-5), (1e-8, 1e-6), (1e-9, 1e-7)]
+        ladder = [recycling_solve(recycling_models(); abstol = a, reltol = r)
+                  for (a, r) in rungs]
+        # The last two rungs are the pair 8.6 already solved.
+        push!(rungs, (ABSTOL_R, RELTOL_R));         push!(ladder, FULL_SOL)
+        push!(rungs, (ABSTOL_R / 10, RELTOL_R / 10)); push!(ladder, TIGHT_SOL)
+
         residuals = Float64[]
-        for (a, r) in rungs
-            l = recycling_solve(recycling_models(); abstol = a, reltol = r)
+        for ((a, r), l) in zip(rungs, ladder)
             push!(residuals, max_drift(l, adenylate_of))
-            tol_C = 3 * max(a, r * maximum(u[ATP_I] for u in l.u))
-            @test residuals[end] < tol_C / 1e3
+            @test residuals[end] <
+                  tolerance_bound(l, ADENYLATE_COEFFS; abstol = a, reltol = r) / 1e3
         end
         @test length(residuals) == 6
         @test maximum(residuals) < 100 * minimum(residuals)
@@ -634,7 +597,7 @@ corrected_phosphate_drift(sol) =
         # The inbound flux is now bounded by *guanylate* — GDP is driven to GTP
         # and the branch stops — so it is ~0.309 mM, the whole GDP + GMP pool,
         # rather than the 0.0505 mM a draining 13DPG pool used to cut it off at.
-        full = recycling_solve(recycling_models())
+        full = FULL_SOL
         uncorrected = max_drift(full, phosphate_of)
         @test corrected_phosphate_drift(full) < 1e-10
         @test uncorrected > 1e6 * corrected_phosphate_drift(full)
@@ -652,18 +615,22 @@ corrected_phosphate_drift(sol) =
         # localises; the phosphate sum spans both groups and a phosphorylated
         # species going wrong shows up there too, which is why it is asserted
         # separately rather than as a third independent moiety.
+        # `Tsit5` here, not `Rodas5P`: these three assert gross violations at
+        # 600 s, and specialising the stiff solver a second time on the
+        # mutant's type costs about fifteen seconds of suite compilation for
+        # values that agree to ten significant figures.
         adk1 = recycling_solve(recycling_models(mutation = :adk1_adp_coefficient);
-                               horizon = 600.0)
+                               horizon = 600.0, alg = Tsit5())
         @test max_drift(adk1, adenylate_of) > 1e-3
         @test max_drift(adk1, guanylate_of) < 1e-10
 
         gk1 = recycling_solve(recycling_models(mutation = :gk1_gdp_created);
-                              horizon = 600.0)
+                              horizon = 600.0, alg = Tsit5())
         @test max_drift(gk1, guanylate_of) > 1e-3
         @test max_drift(gk1, adenylate_of) < 1e-10
 
         ppa = recycling_solve(recycling_models(mutation = :ppa_phosphate_coefficient);
-                              horizon = 600.0)
+                              horizon = 600.0, alg = Tsit5())
         @test corrected_phosphate_drift(ppa) > 1e-3
         @test max_drift(ppa, adenylate_of) < 1e-10
         @test max_drift(ppa, guanylate_of) < 1e-10

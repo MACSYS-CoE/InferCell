@@ -46,10 +46,11 @@ using Dates
 
 include(joinpath(@__DIR__, "..", "..", "test", "nucleotide_test_models.jl"))
 
-const CYCLE = 6300.0            # s — one published cell cycle
-const SAVE_EVERY = 60.0         # s — the rebuild interval, spec §3
-const ABSTOL = 1e-10            # mM, pinned in spec §3
-const RELTOL = 1e-8
+# The composition, its state indices, the three moiety sums, the drift helpers,
+# the horizon, the tolerances and the crossing-time reader all come from
+# `nucleotide_test_models.jl`, included above. They are shared deliberately:
+# this driver *records* the numbers the suite *asserts*, and defining them twice
+# made them two texts for one measurement.
 const TIGHTEN = 10              # the tolerance principle's factor
 const ATP_THRESHOLD = 0.01      # spec task 8.6: 1% of the initial value
 
@@ -59,46 +60,17 @@ const ATP_THRESHOLD = 0.01      # spec task 8.6: 1% of the initial value
 const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
 const DIRTY = !isempty(strip(read(`git status --porcelain -- src test dev/scripts`, String)))
 
-# Composed state layout: recycling's eight, then the held glycolytic pools and
-# their cumulative phosphorylation counter, then the drain's counter.
-const ATP, ADP, AMP, PI, GTP, GDP, GMP, PPI = 1, 2, 3, 4, 5, 6, 7, 8
-const SLP_CUM = 13
-const DRAIN_CUM = 14
+models(; reactions = RECYCLING_REACTIONS) = recycling_models(reactions = reactions)
+run_cycle(ms; kwargs...) = recycling_solve(ms; kwargs...)
 
-models(; reactions = RECYCLING_REACTIONS, k_slp = RECYCLING_DRAIN_MM_PER_S / 0.2178,
-       drain = RECYCLING_DRAIN_MM_PER_S) = AbstractSubModel[
-    NucleotideRecycling(reactions = reactions),
-    HeldGlycolytic(k_slp = k_slp),
-    ChargingDrain(rate_mm_per_s = drain),
-]
+adenylate, guanylate, phosphate = adenylate_of, guanylate_of, phosphate_of
+drift = max_drift
+phosphate_drift = corrected_phosphate_drift
 
-function run_cycle(ms; tspan = (0.0, CYCLE), abstol = ABSTOL, reltol = RELTOL)
-    prob = build_problem(ms; tspan = tspan)
-    return solve(prob, Rodas5P(); abstol = abstol, reltol = reltol,
-                 saveat = SAVE_EVERY)
-end
+const ATP, ADP, AMP, PI, GTP, GDP, GMP, PPI =
+    ATP_I, ADP_I, AMP_I, PI_I, GTP_I, GDP_I, GMP_I, PPI_I
+const SLP_CUM = SLP_CUM_I
 
-adenylate(u) = u[ATP] + u[ADP] + u[AMP]
-guanylate(u) = u[GTP] + u[GDP] + u[GMP]
-
-# Free phosphate plus every phosphorylated species, pyrophosphate counted twice.
-phosphate(u) = u[PI] + 3u[ATP] + 2u[ADP] + u[AMP] + 3u[GTP] + 2u[GDP] + u[GMP] + 2u[PPI]
-
-# What crosses the two inbound mass edges, read off the trajectory rather than
-# quadratured. GTP is produced by PGK3 and PYK3 and by nothing else in this
-# composition, so its change *is* the integral of the GTP branch's flux, and
-# each turnover carries one phosphate in from the held 13DPG or PEP pool. The
-# substrate-level phosphorylation the glycolytic double supplies takes its
-# phosphate from the free pool instead, so it crosses nothing and appears here
-# not at all. Subtract the flux; do not relax the bound.
-inbound_phosphate(u, u0) = u[GTP] - u0[GTP]
-
-drift(sol, f) = maximum(abs(f(u) - f(sol.u[1])) for u in sol.u)
-function phosphate_drift(sol)
-    u0 = sol.u[1]
-    return maximum(abs((phosphate(u) - inbound_phosphate(u, u0)) - phosphate(u0))
-                   for u in sol.u)
-end
 
 """
 Run one configuration at both tolerance settings and report each residual with
@@ -106,31 +78,33 @@ the ratio between them. For a linear invariant the ratio is expected to be about
 one — the number is reported as evidence of tolerance-independence, not as a
 pass criterion.
 """
-function scaling(ms, measures; tspan = (0.0, CYCLE))
-    loose = run_cycle(ms; tspan = tspan)
-    tight = run_cycle(ms; tspan = tspan, abstol = ABSTOL / TIGHTEN,
-                      reltol = RELTOL / TIGHTEN)
-    return loose, tight,
-           [(name, f(loose), f(tight),
-             f(tight) == 0 ? Inf : f(loose) / f(tight)) for (name, f) in measures]
+"""
+Each measure read off an already-solved pair, with the ratio between them.
+Separated from `scaling` so a second invariant on the same trajectories costs a
+measurement rather than another solve.
+"""
+report(loose, tight, measures) =
+    [(name, f(loose), f(tight), f(tight) == 0 ? Inf : f(loose) / f(tight))
+     for (name, f) in measures]
+
+function scaling(ms, measures)
+    loose = run_cycle(ms)
+    tight = run_cycle(ms; abstol = ABSTOL_R / TIGHTEN, reltol = RELTOL_R / TIGHTEN)
+    return loose, tight, report(loose, tight, measures)
 end
 
 const MEASURES = [("adenylate", s -> drift(s, adenylate)),
                   ("guanylate", s -> drift(s, guanylate))]
 
-# The single-run bound the tolerance principle reports as a secondary number:
-#     tol_C = N_restarts · Σ|nᵢ| · max(abstol, reltol · maxₜ|xᵢ(t)|)
-# with one restart, since a pure ODE composition runs no handshake.
-function tolerance_bound(sol, coeffs; abstol = ABSTOL, reltol = RELTOL)
-    return sum(abs(n) * max(abstol, reltol * maximum(abs(u[i]) for u in sol.u))
-               for (i, n) in coeffs)
-end
+# `tolerance_bound` — the single-run bound the tolerance principle reports as a
+# secondary number — comes from `nucleotide_test_models.jl`, so the artefact and
+# the suite quote the same formula.
 
 # ---------------------------------------------------------------------------
 # 8.6 — the three configurations
 # ---------------------------------------------------------------------------
 
-full_loose, _, full_scaling = scaling(models(), MEASURES)
+full_loose, full_tight, full_scaling = scaling(models(), MEASURES)
 u0 = full_loose.u[1]
 atp0 = u0[ATP]
 
@@ -139,21 +113,12 @@ ppi_final = full_loose.u[end][PPI]
 ppi_max = maximum(u[PPI] for u in full_loose.u)
 ppi_late = [u[PPI] for u in full_loose.u[(end - 10):end]]
 
-no_kinase = run_cycle(models(reactions = (:R_PGK3, :R_PYK3, :R_GK1, :R_PPA)))
-no_ppa = run_cycle(models(reactions = (:R_PGK3, :R_PYK3, :R_ADK1, :R_GK1)))
-
-"First save point at which ATP has fallen below `frac` of its initial value."
-function crossing_time(sol, frac)
-    target = frac * sol.u[1][ATP]
-    i = findfirst(u -> u[ATP] < target, sol.u)
-    return i === nothing ? nothing : sol.t[i]
-end
+no_kinase = run_cycle(models(reactions = without(:R_ADK1)))
 
 # A finer grid than the 60 s save points, for the crossing only: the note quotes
 # 144 s and a 60 s grid could not distinguish 120 from 180.
-no_kinase_fine = solve(build_problem(models(reactions = (:R_PGK3, :R_PYK3, :R_GK1, :R_PPA));
-                                     tspan = (0.0, 600.0)),
-                       Rodas5P(); abstol = ABSTOL, reltol = RELTOL, saveat = 1.0)
+no_kinase_fine = run_cycle(models(reactions = without(:R_ADK1));
+                           horizon = 600.0, saveat = 1.0)
 t_cross = crossing_time(no_kinase_fine, ATP_THRESHOLD)
 
 # Two constant-drain figures, and they are not the same arithmetic.
@@ -169,16 +134,15 @@ adenylate0 = adenylate(u0)
 note_drain_time = adenylate0 / RECYCLING_DRAIN_MM_PER_S
 module_drain_time = (adenylate0 - u0[AMP]) / RECYCLING_DRAIN_MM_PER_S
 
-ppi_no_ppa = [u[PPI] for u in no_ppa.u]
-ppi_growth_late = ppi_no_ppa[end] - ppi_no_ppa[end - 1]
-# What removing the enzyme actually does in a phosphate-closed model: it strands
-# the moiety rather than letting the concentration diverge.
+# One solve on a 10 s grid; the 60 s view the report quotes is every sixth
+# point of it. `saveat` interpolates and does not move the step controller, so
+# the coarse view is bit-identical to solving again at `saveat = 60`.
+no_ppa_fine = run_cycle(models(reactions = without(:R_PPA)); saveat = 10.0)
+ppi_no_ppa = [u[PPI] for u in no_ppa_fine.u[1:6:end]]
+ppi_growth_late = ppi_no_ppa[end] - ppi_no_ppa[end - 1]   # the last 60 s
 phosphate_budget = phosphate(u0)
 ppi_share = 2 * ppi_no_ppa[end] / phosphate_budget
-atp_no_ppa_final = no_ppa.u[end][ATP]
-no_ppa_fine = solve(build_problem(models(reactions = (:R_PGK3, :R_PYK3, :R_ADK1, :R_GK1));
-                                  tspan = (0.0, 6300.0)),
-                    Rodas5P(); abstol = ABSTOL, reltol = RELTOL, saveat = 10.0)
+atp_no_ppa_final = no_ppa_fine.u[end][ATP]
 t_cross_no_ppa = crossing_time(no_ppa_fine, ATP_THRESHOLD)
 
 # ---------------------------------------------------------------------------
@@ -193,9 +157,12 @@ exact_ms = models(reactions = (:R_ADK1, :R_GK1, :R_PPA), k_slp = 0.0)
 _, _, exact_scaling = scaling(exact_ms, [("phosphate (exact)", s -> drift(s, phosphate))])
 
 # Flux-corrected: all five active, the phosphorylation running, and the inbound
-# flux subtracted.
-corr_loose, _, corr_scaling =
-    scaling(models(), [("phosphate (flux-corrected)", phosphate_drift)])
+# flux subtracted. This is the *same pair of trajectories* as the moiety table
+# above — same composition, same tolerances, same horizon — read for a
+# different invariant, so it is measured rather than re-solved.
+corr_loose = full_loose
+corr_scaling = report(full_loose, full_tight,
+                      [("phosphate (flux-corrected)", phosphate_drift)])
 
 # What the substrate-level phosphorylation turned over. It takes every phosphate
 # from the free pool, so it crosses no edge and appears in no correction.
@@ -205,10 +172,9 @@ slp_total = corr_loose.u[end][SLP_CUM]
 # Wall-clock — what the §9 open question needs
 # ---------------------------------------------------------------------------
 
-run_cycle(models())                                   # warm
 elapsed = @elapsed run_cycle(models())
-elapsed_tight = @elapsed run_cycle(models(); abstol = ABSTOL / TIGHTEN,
-                                  reltol = RELTOL / TIGHTEN)
+elapsed_tight = @elapsed run_cycle(models(); abstol = ABSTOL_R / TIGHTEN,
+                                  reltol = RELTOL_R / TIGHTEN)
 
 # ---------------------------------------------------------------------------
 # Report
@@ -226,7 +192,7 @@ println(io, "Regenerate with `sbatch dev/scripts/full_cycle_recycling.slurm`.")
 println(io)
 println(io, "Composition: `NucleotideRecycling` + `HeldGlycolytic` + `ChargingDrain`,")
 println(io, @sprintf("6,300 s, Rodas5P, abstol %.0e, reltol %.0e, save points every %d s.",
-                     ABSTOL, RELTOL, Int(SAVE_EVERY)))
+                     ABSTOL_R, RELTOL_R, Int(SAVE_EVERY)))
 println(io)
 
 println(io, "## 8.6 — the three configurations")

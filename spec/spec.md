@@ -2617,6 +2617,13 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   two shared genes. **Not independent of phase 6.** In a fan-out this assertion
   belongs to whichever pull request lands second; carry it here as a skipped
   test naming phase 6 rather than stubbing glycolysis to make it pass.
+  **Annotated 2026-09-11: phase 6 landed first as PR #50, so phase 8 is the
+  second and the assertion is written, not skipped.** It was worth writing —
+  it failed on the first run, because this module divided copy numbers by a
+  transcribed 20,180 where `central_glycolysis.jl` uses
+  `corea_particles_per_mM()` = 20,180.39, putting `JCVISYN3A_0606` at 0.020367
+  mM in one module and 0.020366 in the other. It is asserted as an equality
+  rather than a tolerance for that reason.
 - [ ] 8.5 Declare the boundary: mass edges for species not owned, currency edges
   where this module is the **principal** producer or consumer of a pool it owns.
   The original rule said *sole*, and D13 broke it: charging also produces AMP and
@@ -2638,7 +2645,9 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   this spec said became false — the rule above fixes no direction. **The four-module
   composition is not independent of phases 6, 7 and 9.** In a fan-out it belongs
   to the last pull request to land, or to phase 13; carry it here as a skipped
-  test naming what it waits on.
+  test naming what it waits on. **Annotated 2026-09-11:** phases 6 and 7 have
+  landed, so only phase 9 is outstanding and the skip names it alone; the
+  three-module version of the assertion passes today.
 - [ ] 8.6 Build the charging drain double and run three full-cycle configurations
   — verify by the all-reactions run conserving both moieties with ATP positive and
   pyrophosphate settling bounded; by the kinase-removed run driving ATP below 1%
@@ -3227,6 +3236,33 @@ ulps, which is strictly stronger, and inherits nothing from this entry. Phase
 14's checks 2 to 5 keep what phase 6 assigned them: restated in particles with
 the `N_restarts` factor, which is the assembled-model statement and is not this
 gate. Phase 9's task 9.6 must still assert a gate or keep the fall.
+
+**Two things recorded rather than fixed here, both framework.**
+
+*A `fixed` parameter has no channel into the composed vector, and three modules
+now work around it separately.* `model_free_params` (`src/parameters.jl`)
+filters `fixed` out and `src/orchestrator.jl` builds `p` from that alone, so a
+module cannot read its own held constants from the parameter vector at all.
+Phase 6 carries `values` + `free_slot`, phase 7 `q` + `free_slots`, phase 8
+`held` + `pidx` — one workaround in three spellings, and freeing a parameter
+shifts every later index. The root fix is in the framework: resolve all of a
+module's parameters and hand `dynamics` an accessor that reads free ones from
+`p` and fixed ones from a composition-owned constant vector, which deletes the
+extra field, the slot map and the `_k`-style helper from every module. §10 R15
+freezes framework files against a module branch, so it is not phase 8's to do —
+but it is now duplicated three times rather than once, which is the threshold
+at which it stops being a convention and starts being a defect. **Phase 13 or
+14 owns it.**
+
+*The anti-circularity guard enforces a weaker proposition than the one that
+matters.* Task 8.8 requires that phase 9 not calibrate `k_chg` against the
+demand this module already assumed, and phase 8 implements that by grepping its
+own source for the number. That keeps phase 8's file clean, which is worth
+something, but phase 9 can still read `RECYCLING_DRAIN_MM_PER_S` straight out
+of `test/nucleotide_test_models.jl`, which no guard covers. **The obligation
+belongs in phase 9's own suite**: assert that phase 9's calibration target is
+derived there from 3,484,518 residues over 6,300 s, not imported from a phase 8
+constant. Recorded against task 9.6.
 
 **Amendment B — removing the pyrophosphatase strands the phosphate moiety
 rather than letting pyrophosphate diverge.**

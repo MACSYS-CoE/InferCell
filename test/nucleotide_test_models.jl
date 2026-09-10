@@ -1,9 +1,10 @@
 using InferCell
 using StaticArrays: SA, SVector
 using Distributions: LogNormal, Normal
+using OrdinaryDiffEq: solve, Rodas5P, Tsit5
 
 import InferCell: states, parameters, dynamics, contributions, contributed_states,
-                  coupling, inputs, module_id
+                  coupling, inputs, module_id, _recycling_ddt, RECYCLING_INPUTS
 
 # Executable doubles for spec §11 phase 8.
 #
@@ -85,7 +86,10 @@ end
 # The counter is not decoration: the phosphate closure check needs the *integral*
 # of the phosphorylation flux, and integrating it as a state makes that number
 # exact where quadrature over 60 s save points would not be.
-const HELD_GLYCOLYTIC_STATES = [:M_13dpg_c, :M_3pg_c, :M_pep_c, :M_pyr_c,
+# The four species recycling reads, in the order `states` requires (increasing
+# `species_index`), plus the counter. Derived from the module's own input list
+# so the two cannot drift.
+const HELD_GLYCOLYTIC_STATES = [sort(RECYCLING_INPUTS, by = species_index);
                                 :slp_phosphorylated_mM]
 
 # Read from the registry rather than transcribed, so a setpoint cannot drift
@@ -237,20 +241,107 @@ module_id(::MutatedRecycling) = :NucleotideRecycling
 contributions(u, p, t, m::MutatedRecycling, u_inputs) =
     contributions(u, p, t, m.inner, u_inputs)
 
-function dynamics(u, p, t, m::MutatedRecycling, u_inputs)
-    v = recycling_fluxes(u, p, 0.0, m.inner, u_inputs)
-    pgk3, pyk3, adk1, gk1, ppa = v
-    adp_per_kinase = m.mutation === :adk1_adp_coefficient ? 1 : 2
-    gdp_from_gk1 = m.mutation === :gk1_gdp_created ? 2 : 1
-    pi_per_ppa = m.mutation === :ppa_phosphate_coefficient ? 1 : 2
-    return SA[
-        -adk1 - gk1,
-        adp_per_kinase * adk1 + gk1,
-        -adk1,
-        pi_per_ppa * ppa,
-        pgk3 + pyk3,
-        -pgk3 - pyk3 + gdp_from_gk1 * gk1,
-        -gk1,
-        -ppa,
+dynamics(u, p, t, m::MutatedRecycling, u_inputs) = _recycling_ddt(
+    recycling_fluxes(u, p, t, m.inner, u_inputs);
+    adp_per_adk1 = m.mutation === :adk1_adp_coefficient ? 1 : 2,
+    gdp_from_gk1 = m.mutation === :gk1_gdp_created ? 2 : 1,
+    pi_per_ppa   = m.mutation === :ppa_phosphate_coefficient ? 1 : 2)
+
+
+# ----------------------------------------------------------------------
+# The composition, and the quantities read off it.
+#
+# These live here rather than in either caller because BOTH callers read them:
+# `test/test_corea_nucleotide_recycling.jl` asserts them and
+# `dev/scripts/full_cycle_recycling.jl` records them in the results artefact.
+# Written twice they were two texts for one measurement, and a moiety weight or
+# a state index drifting between them would have made the recorded number and
+# the asserted number different quantities while both still passed.
+# ----------------------------------------------------------------------
+
+const CYCLE_S = 6300.0
+const SAVE_EVERY = 60.0
+const ABSTOL_R, RELTOL_R = 1e-10, 1e-8
+
+"""
+    recycling_models(; reactions, mutation) -> Vector{AbstractSubModel}
+
+The three-module composition every full-cycle check runs: the recycling module
+(or its mutant), the glycolytic double, and the charging drain.
+"""
+# `k_slp === nothing` means "whatever `HeldGlycolytic` derives", so the default
+# is stated in exactly one place. Task 8.7's exact form passes 0.0 to switch the
+# substrate-level phosphorylation off.
+recycling_models(; reactions = RECYCLING_REACTIONS, mutation = nothing,
+                 k_slp = nothing) =
+    AbstractSubModel[
+        mutation === nothing ? NucleotideRecycling(reactions = reactions) :
+            MutatedRecycling(mutation; reactions = reactions),
+        k_slp === nothing ? HeldGlycolytic() : HeldGlycolytic(k_slp = k_slp),
+        ChargingDrain(),
     ]
+
+"""
+    recycling_solve(ms; horizon, abstol, reltol, saveat, alg)
+
+`alg` is a keyword because the mutation runs do not need a stiff solver, and
+letting them use `Tsit5` avoids a second `Rodas5P` specialisation that costs
+about fifteen seconds of suite compilation for values that agree to ten
+significant figures.
+"""
+recycling_solve(ms; horizon = CYCLE_S, abstol = ABSTOL_R, reltol = RELTOL_R,
+                saveat = SAVE_EVERY, alg = Rodas5P()) =
+    solve(build_problem(ms; tspan = (0.0, horizon)), alg;
+          abstol = abstol, reltol = reltol, saveat = saveat)
+
+# Composed state indices, resolved by name off the composition itself rather
+# than written as integers in two files that must agree.
+const RECYCLING_LAYOUT = reduce(vcat, states.(recycling_models()))
+_ridx(sp) = findfirst(==(sp), RECYCLING_LAYOUT)
+
+const ATP_I, ADP_I, AMP_I, PI_I, GTP_I, GDP_I, GMP_I, PPI_I =
+    _ridx.((:M_atp_c, :M_adp_c, :M_amp_c, :M_pi_c,
+            :M_gtp_c, :M_gdp_c, :M_gmp_c, :M_ppi_c))
+const DPG_I, PG3_I, PEP_I, PYR_I =
+    _ridx.((:M_13dpg_c, :M_3pg_c, :M_pep_c, :M_pyr_c))
+const SLP_CUM_I = _ridx(:slp_phosphorylated_mM)
+const DRAIN_CUM_I = _ridx(:chg_charged_mM)
+
+adenylate_of(u) = u[ATP_I] + u[ADP_I] + u[AMP_I]
+guanylate_of(u) = u[GTP_I] + u[GDP_I] + u[GMP_I]
+phosphate_of(u) = u[PI_I] + 3u[ATP_I] + 2u[ADP_I] + u[AMP_I] +
+                  3u[GTP_I] + 2u[GDP_I] + u[GMP_I] + 2u[PPI_I]
+
+max_drift(sol, f) = maximum(abs(f(u) - f(sol.u[1])) for u in sol.u)
+
+"""
+Phosphate crossing the two inbound mass edges. Standalone nothing consumes GTP,
+so the crossing is exactly the GTP gain — a state difference, not a quadrature,
+which is what keeps the corrected closure a linear functional of the state.
+"""
+inbound_phosphate(u, u0) = u[GTP_I] - u0[GTP_I]
+
+corrected_phosphate_drift(sol) =
+    maximum(abs((phosphate_of(u) - inbound_phosphate(u, sol.u[1])) - phosphate_of(sol.u[1]))
+            for u in sol.u)
+
+"""
+    tolerance_bound(sol, coeffs; abstol, reltol)
+
+`tol_C` for one invariant: `Σ|nᵢ| · max(abstol, reltol · maxₜ|xᵢ|)`, spec §3.
+"""
+tolerance_bound(sol, coeffs; abstol = ABSTOL_R, reltol = RELTOL_R) =
+    sum(abs(n) * max(abstol, reltol * maximum(abs(u[i]) for u in sol.u))
+        for (i, n) in coeffs)
+
+const ADENYLATE_COEFFS = ((ATP_I, 1), (ADP_I, 1), (AMP_I, 1))
+
+"First save point at which ATP has fallen below `frac` of its initial value."
+function crossing_time(sol, frac)
+    target = frac * sol.u[1][ATP_I]
+    i = findfirst(u -> u[ATP_I] < target, sol.u)
+    return i === nothing ? nothing : sol.t[i]
 end
+
+"The five reactions with `r` removed, for the two knock-out configurations."
+without(r) = Tuple(x for x in RECYCLING_REACTIONS if x !== r)

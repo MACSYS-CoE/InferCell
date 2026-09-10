@@ -21,21 +21,22 @@
 # both moieties trivially. Its acceptance test is a full cycle against an
 # external charging drain (spec task 8.6).
 
-# `COREA_DATA_DIR` is defined and exported by `pts_transport.jl`, which is
-# included first. Defining it again here would only work while the two
-# `joinpath` calls happen to produce an egal string.
-
 "The five reactions, in the order the scoping note introduces them."
 const RECYCLING_REACTIONS = (:R_PGK3, :R_PYK3, :R_ADK1, :R_GK1, :R_PPA)
 
 """
-The eight states this module integrates: four adenylate, three guanylate and
-pyrophosphate. `M_pi_c` is in the registry's `:adenylate` group and `M_ppi_c` in
-its `:other` group alongside phase 7's external lactate, so this set is listed
-rather than derived from `species_in_group`.
+The eight states this module integrates: the whole adenylate group (which is
+where the registry puts `M_pi_c`), the whole guanylate group, and pyrophosphate.
+
+Derived rather than listed, so the registry owns both membership and order —
+`states` must increase in `species_index`, and doing that by eye is how a ninth
+species or a reordered group would slip through. `M_ppi_c` is named on its own
+because it sits in the registry's `:other` group alongside phase 7's external
+lactate, which this module does not own.
 """
-const RECYCLING_STATES = [:M_atp_c, :M_adp_c, :M_amp_c, :M_pi_c,
-                          :M_gtp_c, :M_gdp_c, :M_gmp_c, :M_ppi_c]
+const RECYCLING_STATES = [species_in_group(:adenylate);
+                          species_in_group(:guanylate);
+                          :M_ppi_c]
 
 """
 The four glycolytic species this module reads and writes but does not own.
@@ -70,18 +71,28 @@ const RECYCLING_KM_SPECIES = (
     :R_PPA => (:M_ppi_c, :M_pi_c),
 )
 
-const RECYCLING_KINETIC_IDS = let ids = Symbol[]
+# The ten catalytic and seventeen Michaelis constants, which come from the
+# vendored extracts, and the five enzyme concentrations, which do not. Named
+# separately rather than sliced out of one list positionally: the import loop
+# needs the first group alone, and `IDS[1:(N - 5)]` silently depended on the
+# enzyme names being appended last and on there being exactly five of them.
+const RECYCLING_CONSTANT_IDS = let ids = Symbol[]
     for r in RECYCLING_REACTIONS
         push!(ids, Symbol("kcatF_", r), Symbol("kcatR_", r))
     end
     for (r, species) in RECYCLING_KM_SPECIES, s in species
         push!(ids, Symbol("km_", r, "_", s))
     end
-    for r in RECYCLING_REACTIONS
-        push!(ids, Symbol("enz_", r))
-    end
     Tuple(ids)
 end
+
+const RECYCLING_ENZYME_IDS = Tuple(Symbol("enz_", r) for r in RECYCLING_REACTIONS)
+
+# The width on an enzyme concentration is this project's, not the source's —
+# see the constructor's note on `:asserted` informedness.
+const RECYCLING_ENZYME_GSTD = 1.2
+
+const RECYCLING_KINETIC_IDS = (RECYCLING_CONSTANT_IDS..., RECYCLING_ENZYME_IDS...)
 
 const N_RECYCLING_KINETIC = length(RECYCLING_KINETIC_IDS)   # 32
 
@@ -98,7 +109,7 @@ const RECYCLING_ENZYME_COPIES = (
 )
 
 """
-    NucleotideRecycling(; reactions, free, tables, gstd_tables)
+    NucleotideRecycling(; reactions, free)
 
 The five-reaction nucleotide-recycling module (spec §11 phase 8).
 
@@ -136,25 +147,31 @@ end
 # `GeometricStd` would hide exactly that pairing.
 const RECYCLING_GSTD_COLUMN = "UnconstrainedGeometricStd"
 
-_recycling_tables() = [
-    read_source_table(joinpath(COREA_DATA_DIR, "nucleotide_recycling.tsv");
-                      file = "nucleotide_balanced",
-                      gstd_column = RECYCLING_GSTD_COLUMN),
-    read_source_table(joinpath(COREA_DATA_DIR, "nucleotide_recycling_central.tsv");
-                      file = "central_balanced",
-                      gstd_column = RECYCLING_GSTD_COLUMN),
-]
+# Filename and logical name, once each. Spelling them per-call put each
+# filename in the file twice and each logical name four times, so renaming an
+# extract meant four edits and the suite could load a different pair from the
+# one the module imports.
+const RECYCLING_SOURCES = ("nucleotide_recycling.tsv" => "nucleotide_balanced",
+                           "nucleotide_recycling_central.tsv" => "central_balanced")
 
-_recycling_gstds() = Dict(
-    "nucleotide_balanced" => read_source_table(
-        joinpath(COREA_DATA_DIR, "nucleotide_recycling.tsv");
-        file = "nucleotide_balanced", value_column = RECYCLING_GSTD_COLUMN,
-        gstd_column = RECYCLING_GSTD_COLUMN).values,
-    "central_balanced" => read_source_table(
-        joinpath(COREA_DATA_DIR, "nucleotide_recycling_central.tsv");
-        file = "central_balanced", value_column = RECYCLING_GSTD_COLUMN,
-        gstd_column = RECYCLING_GSTD_COLUMN).values,
-)
+_recycling_path(f) = joinpath(@__DIR__, "data", f)
+
+"""
+    recycling_tables() -> Vector{SourceTable}
+
+The two vendored extracts, as the module imports them. Exported so the suite
+asserts against the same pair rather than re-stating the mapping.
+"""
+recycling_tables() =
+    [read_source_table(_recycling_path(f); file = name,
+                       gstd_column = RECYCLING_GSTD_COLUMN)
+     for (f, name) in RECYCLING_SOURCES]
+
+_recycling_gstds() =
+    Dict(name => read_source_table(_recycling_path(f); file = name,
+                                   value_column = RECYCLING_GSTD_COLUMN,
+                                   gstd_column = RECYCLING_GSTD_COLUMN).values
+         for (f, name) in RECYCLING_SOURCES)
 
 """
     recycling_governing_file(identifier) -> String
@@ -183,10 +200,7 @@ function recycling_governing_file(identifier::AbstractString)
 end
 
 function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
-                             free::AbstractVector{Symbol} = Symbol[],
-                             tables = _recycling_tables(),
-                             gstds = _recycling_gstds(),
-                             enzyme_gstd = 1.2)
+                             free::AbstractVector{Symbol} = Symbol[])
     for r in reactions
         r in RECYCLING_REACTIONS || throw(ArgumentError(
             "NucleotideRecycling knows no reaction :$r; it carries " *
@@ -199,23 +213,32 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
             "held by the registry and are not freed here"))
     end
 
+    tables = recycling_tables()
+    gstds = _recycling_gstds()
+    modes = Dict(t.file => t.values for t in tables)
+
     params = InferParameter[]
     held = Float64[]
 
-    # Kinetics: the ten catalytic and seventeen Michaelis constants, imported
-    # against both extracts so every one names the file it rejected.
-    for id in RECYCLING_KINETIC_IDS[1:(N_RECYCLING_KINETIC - 5)]
-        identifier = String(id)
+    # One import, used for both the kinetics and the initial conditions: the
+    # two loops differed only in `name` and `role`, and `central_glycolysis.jl`
+    # already factors the same body this way.
+    function import_value!(identifier::AbstractString; name::Symbol, role::Symbol)
         governing = recycling_governing_file(identifier)
-        gstd = gstds[governing][identifier]
         p = load_parameter(tables, identifier;
-                           name = id, module_id = :NucleotideRecycling,
-                           prior = LogNormal(log(_table_value(tables, governing, identifier)),
-                                             log(gstd)),
-                           role = :rate, fixed = !(id in free),
+                           name = name, module_id = :NucleotideRecycling,
+                           prior = LogNormal(log(modes[governing][identifier]),
+                                             log(gstds[governing][identifier])),
+                           role = role, fixed = !(name in free),
                            governing = governing)
         push!(params, p)
-        push!(held, p.value)
+        return p
+    end
+
+    # Kinetics: the ten catalytic and seventeen Michaelis constants, imported
+    # against both extracts so every one names the file it rejected.
+    for id in RECYCLING_CONSTANT_IDS
+        push!(held, import_value!(String(id); name = id, role = :rate).value)
     end
 
     # Enzyme concentrations: published copy number at the registry's volume,
@@ -236,32 +259,26 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
     # enzyme concentration from a copy number adds more, so spec §11 task 13.6's
     # count is owed a reconciliation at assembly. Reported rather than filed
     # under a friendlier label.
-    for r in RECYCLING_REACTIONS
-        locus, copies, _ = _enzyme_row(r)
-        value = copies / corea_particles_per_mM()
-        name = Symbol("enz_", r)
-        push!(params, InferParameter(value, LogNormal(log(value), log(enzyme_gstd)),
-                                     !(name in free), name, :NucleotideRecycling,
-                                     :rate,
-                                     ParameterSource("published_proteomics";
-                                                     table = "proteomics count",
-                                                     identifier = locus,
-                                                     informedness = :asserted)))
-        push!(held, value)
+    # Read from `recycling_enzymes()` rather than recomputed, so the value the
+    # module runs at and the value the accessor reports are one expression.
+    # Task 8.4's cross-module assertion then checks the number actually used.
+    for (id, e) in zip(RECYCLING_ENZYME_IDS, recycling_enzymes())
+        push!(params,
+              InferParameter(e.concentration,
+                             LogNormal(log(e.concentration), log(RECYCLING_ENZYME_GSTD)),
+                             !(id in free), id, :NucleotideRecycling, :rate,
+                             ParameterSource("published_proteomics";
+                                             table = "proteomics count",
+                                             identifier = e.locus,
+                                             informedness = :asserted)))
+        push!(held, e.concentration)
     end
 
     # Initial conditions, each from the file the registry names as its source.
-    for s in RECYCLING_STATES
-        identifier = "conc_$s"
-        governing = recycling_governing_file(identifier)
-        gstd = gstds[governing][identifier]
-        push!(params,
-              load_parameter(tables, identifier;
-                             name = Symbol(s, "0"), module_id = :NucleotideRecycling,
-                             prior = LogNormal(log(_table_value(tables, governing, identifier)),
-                                               log(gstd)),
-                             role = :initial_condition, fixed = true,
-                             governing = governing))
+    # `free` cannot name one — the guard above refuses any name that is not a
+    # kinetic id — so these are always fixed.
+    for sp in RECYCLING_STATES
+        import_value!("conc_$sp"; name = Symbol(sp, "0"), role = :initial_condition)
     end
 
     # Free kinetic parameters, in `model_free_params` order, are what the
@@ -273,19 +290,10 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
     return NucleotideRecycling(params,
                                Tuple(held), pidx,
                                Tuple(r in reactions for r in RECYCLING_REACTIONS),
-                               _recycling_edges(), copy(RECYCLING_INPUTS),
+                               RECYCLING_EDGES, copy(RECYCLING_INPUTS),
                                copy(RECYCLING_INPUTS))
 end
 
-function _table_value(tables, file, identifier)
-    i = findfirst(t -> t.file == file, tables)
-    i === nothing && throw(ArgumentError(
-        "No source table named \"$file\" among $(join((t.file for t in tables), ", "))"))
-    return tables[i].values[identifier]
-end
-
-_enzyme_row(r::Symbol) = last(RECYCLING_ENZYME_COPIES[findfirst(p -> first(p) === r,
-                                                               RECYCLING_ENZYME_COPIES)])
 
 """
     recycling_enzymes() -> Vector{NamedTuple}
@@ -300,6 +308,7 @@ recycling_enzymes() = [(reaction = r, locus = locus, copies = copies,
                         shared_with_glycolysis = shared)
                        for (r, (locus, copies, shared)) in RECYCLING_ENZYME_COPIES]
 
+
 # The boundary. Mass edges for the four species this module does not own, in
 # every direction mass actually crosses; currency edges where this module is the
 # *principal* producer or consumer of a pool it does own. The original rule said
@@ -310,21 +319,19 @@ recycling_enzymes() = [(reaction = r, locus = locus, copies = copies,
 # ATP and ADP deliberately carry no edge. This module is neither their principal
 # producer nor their principal consumer — glycolysis and the charging step are —
 # so claiming the crossing here would put two principals on one pool.
-function _recycling_edges()
-    return CouplingEdge[
-        MassEdge(species = :M_13dpg_c, direction = :in),
-        MassEdge(species = :M_pep_c, direction = :in),
-        MassEdge(species = :M_3pg_c, direction = :out),
-        MassEdge(species = :M_3pg_c, direction = :in),
-        MassEdge(species = :M_pyr_c, direction = :out),
-        MassEdge(species = :M_pyr_c, direction = :in),
-        CurrencyEdge(species = :M_amp_c, direction = :in),
-        CurrencyEdge(species = :M_gmp_c, direction = :in),
-        CurrencyEdge(species = :M_ppi_c, direction = :in),
-        CurrencyEdge(species = :M_pi_c, direction = :out),
-        CurrencyEdge(species = :M_gtp_c, direction = :out),
-    ]
-end
+const RECYCLING_EDGES = CouplingEdge[
+    MassEdge(species = :M_13dpg_c, direction = :in),
+    MassEdge(species = :M_pep_c, direction = :in),
+    MassEdge(species = :M_3pg_c, direction = :out),
+    MassEdge(species = :M_3pg_c, direction = :in),
+    MassEdge(species = :M_pyr_c, direction = :out),
+    MassEdge(species = :M_pyr_c, direction = :in),
+    CurrencyEdge(species = :M_amp_c, direction = :in),
+    CurrencyEdge(species = :M_gmp_c, direction = :in),
+    CurrencyEdge(species = :M_ppi_c, direction = :in),
+    CurrencyEdge(species = :M_pi_c, direction = :out),
+    CurrencyEdge(species = :M_gtp_c, direction = :out),
+]
 
 states(::NucleotideRecycling) = RECYCLING_STATES
 parameters(m::NucleotideRecycling) = m.params
@@ -386,20 +393,33 @@ configuration has the same shape and the same rate laws.
     ]
 end
 
-function dynamics(u, p, t, m::NucleotideRecycling, u_inputs)
-    v = recycling_fluxes(u, p, t, m, u_inputs)
+"""
+    _recycling_ddt(v; adp_per_adk1, gdp_from_gk1, pi_per_ppa)
+
+The eight derivative rows, written once. The three keywords are exactly the
+coefficients `MutatedRecycling` in `test/nucleotide_test_models.jl` varies;
+every other entry is structural.
+
+The mutation double used to transcribe this table, which meant a correction
+here would leave the mutation tests passing against the old stoichiometry —
+and those tests are the only evidence the conservation checks can fail at all.
+"""
+@inline function _recycling_ddt(v; adp_per_adk1 = 2, gdp_from_gk1 = 1, pi_per_ppa = 2)
     pgk3, pyk3, adk1, gk1, ppa = v
     return SA[
-        -adk1 - gk1,                 # ATP   consumed by ADK1 and GK1
-        2adk1 + gk1,                 # ADP   two per kinase turnover, one per GK1
-        -adk1,                       # AMP   the only route AMP has back
-        2ppa,                        # Pi    two per pyrophosphate hydrolysed
-        pgk3 + pyk3,                 # GTP   the only source of GTP in Core A′
-        -pgk3 - pyk3 + gk1,          # GDP
-        -gk1,                        # GMP   the only route GMP has back
-        -ppa,                        # PPi
+        -adk1 - gk1,                        # ATP   consumed by ADK1 and GK1
+        adp_per_adk1 * adk1 + gk1,          # ADP   two per kinase turnover, one per GK1
+        -adk1,                              # AMP   the only route AMP has back
+        pi_per_ppa * ppa,                   # Pi    two per pyrophosphate hydrolysed
+        pgk3 + pyk3,                        # GTP   the only source of GTP in Core A′
+        -pgk3 - pyk3 + gdp_from_gk1 * gk1,  # GDP
+        -gk1,                               # GMP   the only route GMP has back
+        -ppa,                               # PPi
     ]
 end
+
+dynamics(u, p, t, m::NucleotideRecycling, u_inputs) =
+    _recycling_ddt(recycling_fluxes(u, p, t, m, u_inputs))
 
 # One signed net term per entry of `contributed_states`, in that order. The two
 # substrates are drawn down and the two products supplied; under the reversible
@@ -410,6 +430,7 @@ function contributions(u, p, t, m::NucleotideRecycling, u_inputs)
     return SA[-v[1], -v[2], v[1], v[2]]
 end
 
-export NucleotideRecycling, RECYCLING_REACTIONS, RECYCLING_STATES, RECYCLING_INPUTS,
-       RECYCLING_KINETIC_IDS, RECYCLING_GSTD_COLUMN, recycling_enzymes,
-       recycling_fluxes, recycling_governing_file
+export NucleotideRecycling, RECYCLING_REACTIONS, RECYCLING_STATES,
+       RECYCLING_KINETIC_IDS, RECYCLING_CONSTANT_IDS, RECYCLING_ENZYME_IDS,
+       recycling_enzymes, recycling_fluxes, recycling_governing_file,
+       recycling_tables, _recycling_ddt
