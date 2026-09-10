@@ -1,7 +1,8 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48) and phase 6
-with them (#50); phases 7, 8 and 10 are the rest of the fan-out
+**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
+phase 6 (#50), phase 7 (#49) and phase 8 (#52); phase 10 is the rest of the
+fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-10
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -2759,9 +2760,11 @@ but it depends on phase 8, so the track is not a clean fan-out.
 corrected base mapping, the five cost counters, and rate constants that are
 recomputable but never self-recomputed.
 **Done when:** seventeen transcripts simulate over a full cycle as non-negative
-integers, each gene's time-averaged count is within a factor of two of its
-measured mean, the seventeen rate constants fall in 1.26e-3 to 8.29e-3 per second,
-and the GTP elasticity reproduces 0.0079 to 0.0117 under the corrected mapping.
+integers, the time-averaged counts reproduce the measured means to §3's external
+bound — Spearman at least 0.7 across the seventeen and within a factor of two for
+at least fifteen of them — the seventeen rate constants fall in 1.26e-3 to
+8.29e-3 per second, and the GTP elasticity reproduces 0.0079 to 0.0117 under the
+corrected mapping.
 **PR:** _not started_
 
 Reference detail at
@@ -2770,11 +2773,14 @@ its assertion that simulating past the declared cadence leaves the constants
 unchanged becomes "phase 4's driver refreshes them, and the module still never
 refreshes itself".
 
-- [ ] 10.1 Vendor the per-gene extract from three upstream sources — verify by
+- [ ] 10.1 Vendor the per-gene extract from ~~three~~ **five** upstream sources
+  (see amendment 2026-09-10) — verify by
   seventeen rows whose four base counts sum to the transcript length, by the
   totals matching A 7236, C 2078, G 3094, U 5868, and by the generator failing
   loudly on a missing locus rather than defaulting, since a silently absent gene
-  shows up only as a model with sixteen transcripts.
+  shows up only as a model with sixteen transcripts. The extract also carries
+  the transcript's **first two bases**, which the rate law reads as `C₁` and
+  `C₂` and which design D8's header omits.
 - [ ] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
   rather than states — verify by the state count being 17 transcripts plus 5
   counters, by none being a registry species, and by a recorded note that adding
@@ -2803,11 +2809,18 @@ refreshes itself".
   one number has three consumers. **That cross-check is not independent of
   phases 6 and 7.** In a fan-out it belongs to whichever pull request lands
   later; carry it here as a skipped test naming them.
-- [ ] 10.8 Simulate a full cycle and report the elasticities — verify by
-  non-negative integer counts throughout, by each gene's mean within a factor of
-  two of measured, by the elasticity to all four pools falling in 0.044 to 0.051,
-  and by the GTP-alone elasticity being reported under both mappings so the 1.9×
-  effect is measured rather than argued.
+- [ ] 10.8 Simulate a full cycle **against a transcript-decay double** and report
+  the elasticities — verify by
+  non-negative integer counts throughout, by the time-averaged counts meeting
+  §3's external bound (Spearman ≥ 0.7, and within a factor of two for at least
+  fifteen of seventeen), by the elasticity to all four pools falling in 0.044 to
+  0.051, and by the GTP-alone elasticity being reported under both mappings so
+  the 1.9× effect is measured rather than argued. **The double is the acceptance
+  criterion, not scaffolding** — without a consumer the transcripts only
+  accumulate and every average is an order of magnitude high, so the check would
+  be vacuous. It uses the published per-gene law, derivable from the extract's
+  own length column; phase 12 supersedes it for composed runs and keeps it for
+  standalone ones. See amendment 2026-09-10.
 
 ### Phase 11 — Translation
 
@@ -3294,6 +3307,77 @@ residual is no longer by itself a warning), §11 phase 8's done-when and tasks
 8.6 and 8.7, §12. Tasks 6.7, 7.7 and 14.4 are deliberately **not** touched.
 Approved at implementation time, on the ladder and the per-evaluation
 measurement above, before the checks were rewritten. Implemented in PR #52.
+
+### 2026-09-10 — what phase 10 needed that the spec did not name: a decay double, two more upstream files, and a predicted band computed from a constant the model never uses
+
+**Trigger:** implementing phase 10. Three of its clauses could not be executed
+as written, and one of design D9's numbers turned out to rest on dead code.
+
+**Change:**
+
+**A — task 10.8 gains a transcript-decay double, and it is an acceptance
+criterion.** Phase 10 owns transcription; phase 12 owns decay. With no consumer
+the transcript counts only accumulate, so each gene's time-averaged count over a
+6,300 s cycle lands about an order of magnitude above its measured mean and the
+calibration check is vacuous rather than weak. The double runs the published
+per-gene law, `(18/452)·88 / n_g` (`MinCell_CMEODE.py:444-460`), which is
+derivable from the extract's own length column and introduces no upstream data
+the phase did not already vendor. This is the shape phases 8 and 9 already use —
+8.6's charging drain double and 9.5's translation-demand double are both
+acceptance criteria and say so. Phase 12 supersedes it for composed runs and
+keeps it for standalone ones. It also exercises the 2026-09-04 amendment from
+the consumer's side: a transcript is not a registry species, so the write is
+gated by `written_states` alone.
+
+**B — the Done-when's "each gene" becomes §3's "at least fifteen of
+seventeen", because D9's predicted band came from a constant that never
+runs.** Design D9 states predicted steady states of 0.44 to 2.87 copies.
+Those are `k_g / rnaDegRate` at `rnaDegRate = 0.00578/2`, which
+`MinCell_CMEODE.py` defines at line 295 **and never uses** — it appears on its
+own definition line and nowhere else, in that file or in `MinCell_restart.py`.
+The reaction the model actually adds is `DegradationRate(rnaMetID,
+rnasequence)` (line 444, added at line 729), which is per-gene: one catalytic
+constant over transcript length. At the law that runs, predicted counts span
+**0.332 to 2.406** against measured **0.292 to 2.178**, and **sixteen of
+seventeen** genes agree within a factor of two.
+
+The outlier is **FBA, `JCVISYN3A_0131`, at 3.67×**. It is not an extract error:
+its 775 copies match the scoping note's own table and its measured 0.3469
+matches `mRNA_counts.csv` line 110. FBA is abundant protein with a rare
+transcript, which is a property of the two measurements and exactly the kind of
+disagreement an out-of-sample check exists to expose. §3's external-validation
+row already states the right bound — Spearman ≥ 0.7 and a factor of two for at
+least fifteen of seventeen — so the phase Done-when is brought into line with it
+rather than the other way round. Measured: Spearman **0.8701** over eight
+replicates, **16/17** within a factor of two.
+
+This is the same class of trap as D2's cross-file ambiguity and D3's
+first-minute setup constants: a number that looks corroborated because it is
+written down, and is not what executes.
+
+**C — the extract takes five upstream files and carries a column D8 omits.**
+Design D8 names three sources. Transcript length and the four base counts do
+come from `syn3A.gb` alone, but the protein copy number does not: that record
+carries **no AOE protein ids at all** (`grep -c AOE` returns 0, against
+`syn2.gb`'s 454). The copy number runs
+`JCVISYN3A_xxxx` → `MMSYN1_xxxx` → `FBA/Syn3A_annotation_compilation.xlsx` →
+`JCVSYN2_xxxxx` → `syn2.gb` `/protein_id` → `proteomics.xlsx`, which is the
+chain `MinCell_CMEODE.py:57-110` and `:146-170` use. The extract also gains a
+`!First2` column: the rate law reads the NTP concentrations of the transcript's
+first two bases as `C₁` and `C₂` (`:370-372`), so those bases are per-gene data.
+
+**D — a `dev/scripts/Project.toml`.** Reading two `.xlsx` files needs
+`XLSX.jl`. It lives in a dev-scripts environment rather than the package's own
+`Project.toml`, so Aqua's stale-dependency check stays green and the generator
+stays Julia. Build tooling, not framework code, so R15 does not bind.
+
+**Also recorded, not an amendment:** design D4's `recompute_rate_constants!(m;
+atp, ctp, gtp, utp)` with mutable constants on the struct is superseded by
+phase 4's task 4.1 — the constants live in the composed parameter vector and
+the protocol is `rebuilt_params(m)` plus `rate_constants(p, t, m, pools)`. §11
+phase 10's preamble already records the consequence for task 10.5.
+
+**Sections touched:** §11 (phase 10's Done-when, tasks 10.1 and 10.8), §12
 
 ### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 
