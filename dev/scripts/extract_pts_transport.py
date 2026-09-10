@@ -23,6 +23,7 @@ failure this script exists to prevent.
 """
 import csv
 import math
+import subprocess
 import os
 import re
 import sys
@@ -99,12 +100,36 @@ TRANSPORT_TSV = os.path.join("CME_ODE", "model_data",
                              "transport_NoH2O_Zane-TB-DB.tsv")
 PROTEOMICS_XLSX = os.path.join("CME_ODE", "model_data", "proteomics.xlsx")
 SET_ICS = os.path.join("CME_ODE", "program", "setICs_two.py")
+
+# The commit the vendored values were derived from (spec §5). Checked rather
+# than asserted in prose: only four of the eleven rate constants carry a spot
+# check, so a checkout at a different commit would silently rewrite the other
+# seven and surface only as an unexplained `git diff`.
+UPSTREAM_COMMIT = "db048ac"
 FRAC_CSVS = {
     "protein_metabolites_frac.csv":
         os.path.join("CME_ODE", "model_data", "protein_metabolites_frac.csv"),
     "membrane_protein_metabolites.csv":
         os.path.join("CME_ODE", "model_data", "membrane_protein_metabolites.csv"),
 }
+
+
+def check_upstream_commit(root):
+    """Refuse a checkout that is not at the commit the extracts came from."""
+    try:
+        head = subprocess.check_output(
+            ["git", "-C", root, "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL).decode().strip()
+    except (OSError, subprocess.CalledProcessError):
+        fail("%s is not a git checkout, so its commit cannot be verified. The "
+             "extracts are derived from Luthey-Schulten-Lab/Minimal_Cell at %s; "
+             "clone it and pass that checkout" % (root, UPSTREAM_COMMIT))
+    if not head.startswith(UPSTREAM_COMMIT):
+        fail("%s is at %s, but the extracts are derived from %s. Regenerating "
+             "from another commit would rewrite values that carry no spot check "
+             "and surface only as an unexplained diff. Check out %s, or update "
+             "UPSTREAM_COMMIT here and in the data README together" %
+             (root, head[:10], UPSTREAM_COMMIT, UPSTREAM_COMMIT))
 
 
 def fail(message):
@@ -227,6 +252,7 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit(__doc__)
     root = os.path.abspath(sys.argv[1])
+    check_upstream_commit(root)
     for relative in [TRANSPORT_TSV, PROTEOMICS_XLSX, SET_ICS] + list(FRAC_CSVS.values()):
         if not os.path.isfile(os.path.join(root, relative)):
             fail("upstream input has moved: %s is not under %s" % (relative, root))

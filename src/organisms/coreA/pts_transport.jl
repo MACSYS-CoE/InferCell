@@ -37,12 +37,13 @@ const PTS_SCALARS = (:kf_glcpts0, :kr_glcpts0,
                      :p_lact2r,
                      :r_cell_nm, :lac_volume_ratio, :glc_e_mM)
 
-"""
-The eleven upstream identifiers, in [`PTS_SCALARS`](@ref) order, as
-`src/organisms/coreA/data/pts_transport.tsv` names them.
-"""
 const N_PTS_SCALARS = length(PTS_SCALARS)
 
+"""
+The eleven upstream identifiers, in [`PTS_SCALARS`](@ref) order, as
+`src/organisms/coreA/data/pts_transport.tsv` names them. Shorter than
+[`PTS_SCALARS`](@ref): the last three scalars have no upstream row of their own.
+"""
 const PTS_RATE_IDS = ("KF_0_R_GLCpts0", "KR_0_R_GLCpts0",
                       "KF_1_R_GLCpts1", "KR_1_R_GLCpts1",
                       "KF_2_R_GLCpts2", "KR_2_R_GLCpts2",
@@ -143,6 +144,16 @@ function PtsTransport(; data_dir::AbstractString = COREA_DATA_DIR,
         "PtsTransport cannot free $(join(string.(":", unknown), ", ")): not one " *
         "of $(PTS_SCALARS). The nine initial conditions are held fixed and are " *
         "not freeable here"))
+    # `:glc_e_mM` is in PTS_SCALARS because the rate law reads it, but it is
+    # the published model's clamp, not an unknown: `ClampedEdge` validates it
+    # against the registry and its prior is a point mass. Freeing it would
+    # sample a degenerate distribution and be overwritten by neither driver nor
+    # likelihood, so refuse rather than accept it and do nothing.
+    :glc_e_mM in Symbol.(free) && throw(ArgumentError(
+        "PtsTransport cannot free :glc_e_mM. It is the external-glucose clamp " *
+        "at the registry's $(held_value(:M_glc__D_e)) mM, with `origin = " *
+        ":published` and a point-mass prior — not an unknown this module can " *
+        "infer. Declaring it free would silently leave it fixed"))
 
     rates = read_source_table(joinpath(data_dir, "pts_transport.tsv");
                               file = "transport")

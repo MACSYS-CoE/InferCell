@@ -2460,10 +2460,15 @@ tolerance principle — see task 7.7 and §12.
   0.47% by which it exceeds 1.4615 mM is exactly the lactate that has left,
   which is the coupling working rather than an error in it. A first draft
   asserted that difference away and failed, correctly.
-  **The 6,300 s testset's cost is recorded with the suite run below**, and it
-  runs in the default suite rather than behind a flag — which answers §9's open
-  question, "whether the full-cycle checks belong in the default test suite",
-  on a measured number for this check and for nothing else.
+  **The 6,300 s integration costs 4.56 ms** (job 16364852: best of five, 286
+  accepted steps and 3 rejected over 64 save points). It runs in the default
+  suite rather than behind a flag. What the suite actually pays is **19.67 s of
+  compilation** on the first call, and that is the stiff-solver path being
+  compiled once, not the horizon — a 600 s integration pays the same. An earlier
+  draft of this note quoted ~19.5 s as the cost *of the full cycle*, which had
+  the magnitude right and the meaning wrong; the pre-merge review caught that
+  the figure came from a failing run of a superseded test, and separating the
+  two is what answers §9 rather than restating it.
   At a ratio of one, total lactate is conserved across the two pools and export
   collapses to zero once they equalise. `M_lac__L_e` is declared in
   `extracellular_states`, and the ratio is registered in `reduction_notes`.

@@ -125,12 +125,7 @@ function integrate_pts(models; tspan = (0.0, 600.0), abstol = 1e-10,
                  saveat = saveat)
 end
 
-# `verbose = true` so the per-testset timings print on a passing run, not only
-# on a failing one. Spec §9 asks whether full-cycle checks belong in the default
-# suite and says to decide on measured wall-clock; this testset contains the
-# only 6,300 s integration in the suite, so its cost belongs in every log rather
-# than in a one-off measurement that later drifts from the code it timed.
-@testset "Phase 7 — phosphotransferase transport and lactate export" verbose = true begin
+@testset "Phase 7 — phosphotransferase transport and lactate export" begin
 
     m = PtsTransport()
     models = [HeldMetabolites(), m]
@@ -558,6 +553,15 @@ end
         err = caught(() -> PtsTransport(free = [:not_a_scalar]))
         @test err isa ArgumentError
         @test occursin("not_a_scalar", sprint(showerror, err))
+
+        # :glc_e_mM is in PTS_SCALARS because the rate law reads it, so the
+        # membership check alone would accept it and then leave it fixed —
+        # a sensitivity run on external glucose would return its prior and
+        # read as a strong identifiability result.
+        err = caught(() -> PtsTransport(free = [:glc_e_mM]))
+        @test err isa ArgumentError
+        @test occursin("glc_e_mM", sprint(showerror, err))
+        @test occursin("silently leave it fixed", sprint(showerror, err))
     end
 
     @testset "7.x the export rationale is queryable, not only documented" begin

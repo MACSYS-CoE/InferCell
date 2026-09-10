@@ -150,13 +150,23 @@ values in any case (spec §5) — picks up `M_atp_c` there.
 ## `pts_transport.tsv` and `pts_initial_conditions.tsv` (spec phase 7)
 
 ```bash
-python3 dev/scripts/extract_pts_transport.py /path/to/Minimal_Cell
+git clone https://github.com/Luthey-Schulten-Lab/Minimal_Cell
+git -C Minimal_Cell checkout db048ac
+python3 dev/scripts/extract_pts_transport.py ./Minimal_Cell
 ```
 
-The script needs no third-party package. `proteomics.xlsx` is read with
-`zipfile` and `xml.etree.ElementTree` rather than `openpyxl`, which is in no
-environment on this machine; compute nodes have no network, and the reader is
-about twenty lines. Spec phase 10 reuses it — its promoter proxy is the same
+The script **verifies the checkout is at `db048ac`** and refuses otherwise.
+That check earns its place: only four of the eleven rate constants carry a spot
+value, so regenerating from a different commit would silently rewrite the other
+seven and surface only as an unexplained `git diff`. The round trip is a manual
+gate — no test or CI job runs this script — so the check is what makes running
+it against the wrong tree an error rather than a diff.
+
+The script needs no third-party package at all: `proteomics.xlsx` is read with
+`zipfile` and `xml.etree.ElementTree` rather than `openpyxl`. That keeps the
+regeneration runnable from a bare Python install, which is the point for anyone
+reproducing this — and it is also what makes it runnable on the cluster's
+compute nodes, which have no network and no `openpyxl` in any environment. Spec phase 10 reuses it — its promoter proxy is the same
 table's copy number over 180.
 
 ### Upstream inputs

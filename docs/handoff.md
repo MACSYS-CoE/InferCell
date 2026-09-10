@@ -96,7 +96,14 @@ three stay under theirs.
 
 **The full-cycle question, answered for one case.** §9 asks whether full-cycle
 checks belong in the default suite and says to decide on measured wall-clock.
-Phase 7's 6,300 s lactate-export check is cheap enough to run by default.
+Phase 7's 6,300 s lactate-export **integration costs 4.56 ms**; the **19.67 s**
+around it is compiling the stiff-solver path, which the suite pays once for its
+first stiff solve whatever the horizon (job 16364852). It therefore runs by
+default. My first draft quoted ~19.5 s as the cost *of the full cycle* — right
+magnitude, wrong meaning, and sourced from a failing run of a test version that
+no longer existed. Phases 8 and 14 should expect the same shape: horizon is
+nearly free on a small ODE module, and it is the handshake driver, not the
+length of the integration, that will make the assembled-model checks expensive.
 That settles it for a nine-state standalone ODE module and for nothing else:
 checks 2, 4 and 4b run on the assembled model across a handshake driver, which
 is the expensive case and is still open.
@@ -123,7 +130,12 @@ carriers the invariant must be restated as "conserved up to what translation
 adds", by subtraction rather than by widening the bound. The check as written is
 scoped to this sub-model's own dynamics and says so.
 
-**Suite.** `sbatch test/run_tests.slurm` job **16363954**, **1619/1619** in 2m15.6s — 1468 before the phase. The phase-7 testsets are 151 of those. The testset is marked `verbose = true`, so the per-testset timings — including the only 6,300 s integration in the suite — print on every run rather than only on a failing one.
+**Suite.** `sbatch test/run_tests.slurm` job **16364582**, **1651/1651** in
+2m24.2s on the final tree — 1468 before the phase, so 183 of them are phase 7's.
+Full-cycle timing is job **16364852**. The numbers moved twice during the
+pre-merge review: an earlier 1619/1619 was recorded against a *dirty* tree three
+commits back, which is exactly the provenance trap this repo has been bitten by
+before — cite the job that ran the tree you are merging.
 
 **Next.** Phases 6, 8 and 10 are the remaining fan-out, all independent of this
 one. Phase 9 waits on phase 8. Three done-when clauses across the fan-out are
