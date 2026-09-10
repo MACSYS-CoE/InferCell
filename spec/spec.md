@@ -1,7 +1,7 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 5 done (PRs #41 to #46); phase 5b open, and
-the fan-out of phases 6, 7, 8 and 10 starts when it lands
+**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48); the fan-out
+of phases 6, 7, 8 and 10 is under way
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-10
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -385,19 +385,49 @@ Pin `abstol = 1e-10` mM, `reltol = 1e-8`, a stiff solver, and 60 s save points.
 asserts the check fails naming the right quantity. A conservation test that
 cannot fail is not evidence.
 
-**One exception, added 2026-09-10, and it is not a loophole.** An invariant that
-no cross-module flux touches, and whose stoichiometry mirrors *inside a single
-module*, is conserved exactly in floating point whatever the step size: the two
-derivatives are bit-for-bit negatives, so the sum's only error is roundoff in
-the state update. There is no integrator error in it to scale, and demanding
-that it fall fivefold fails a check that is *stronger* than the one the demand
-was written for. Redox in central glycolysis is that case — check 3 above said
-so before it was measured — and phase 6 measured the residual flat at 3 to 60
-ulps across eight decades of tolerance. So: **where an invariant is exact by
-construction the assertion is flatness at the floating-point floor, and where it
-is not the fivefold fall stands.** Which applies is decided by whether the
-moiety crosses a module boundary, is stated per check rather than chosen per
-run, and carries the same mutation test either way. See §12.
+**One exception, added 2026-09-10, and it is fenced so it cannot become a
+loophole.** Some invariants are preserved by the *derivative* exactly, in
+floating point, before any integration happens: the composed right-hand side
+returns their weighted sum of derivative terms as literally `0.0`. Such a
+residual contains no local truncation error, so it cannot fall when the solver
+is tightened, and demanding that it fall fails a check that is *stronger* than
+the demand was written for.
+
+**The criterion is mechanical, and the phase must assert it rather than argue
+it.** A check may use the exception only where a test evaluates the composed
+right-hand side at sampled states and asserts `sum(nᵢ · duᵢ) === 0.0` — bitwise,
+not `≈`. That is one assertion, it is specific to a *composition* rather than to
+a moiety, and it cannot be talked into by a phase that would prefer an easier
+check. **Crossing a module boundary is not the criterion.** It is the usual
+*reason* the criterion fails, and it is neither necessary nor sufficient: a
+moiety wholly inside one module fails it as soon as any reaction touches it with
+unmirrored stoichiometry, and mirrored contributions *across* a currency edge
+can satisfy it. Where the assertion does not hold, the fivefold fall stands.
+
+**What the exception then asserts, with numbers, so it is as checkable as the
+fall it replaces.** Run the ladder over at least six decades of `(abstol,
+reltol)`. Require every rung's residual within **100 ulps** of the conserved
+sum, and the largest rung within **100×** of the smallest. Report the ladder,
+not a single pair.
+
+**And it is not literally flat, which matters.** The integrated residual is
+linear-algebra roundoff in the implicit solver's stage solves, accumulated over
+the step count, so it *rises* mildly as tolerances tighten and the solver takes
+more steps. Phase 6 measured 2 ulps at `(1e-5, 1e-3)` and 60 at `(1e-12,
+1e-10)`, wandering non-monotonically in between — a 30× spread over eight
+decades, against the ≥5× *fall per decade* the principle demands. The claim is
+"bounded at the floor and not falling", never "constant".
+
+**Scope: one continuous solve.** The exception is about the right-hand side, and
+a handshake is not the right-hand side. At composition scope the driver rewrites
+every diluting ODE concentration at each of ~6,300 handshakes, so a concentration
+sum is not conserved at all once the cell grows, and even the particle sum
+accumulates per-handshake rounding. **A check inheriting a module-local flatness
+bound into the assembled model must restate it in particles and carry the
+`N_restarts` factor above.** Task 14.4 is the one this binds.
+
+Either way the check carries **the same mutation test**, and which rule applies
+is stated per check rather than chosen per run. See §12.
 
 ### Check 0, which precedes all six in the note
 
@@ -424,7 +454,7 @@ conservation number is uninterpretable.
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
-| 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the residual is flat at 3 to 60 ulps across eight decades of solver tolerance, so what this row asserts is flatness at the floating-point floor and not the fivefold fall (amended 2026-09-10; see §12) |
+| 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (pyrophosphate unbounded). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
 | 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
@@ -523,8 +553,23 @@ concern.
 ### D1. `Mode` is the column that runs
 
 **Decision.** Every imported kinetic constant and initial concentration comes
-from the balanced table's `Mode` column, with its geometric standard deviation,
-and the source file recorded.
+from the balanced table's `Mode` column, with ~~its~~ **the only** geometric
+standard deviation ~~,~~ **the table offers,** and the source file recorded
+(amended 2026-09-10; see §12).
+
+**What "its" cannot mean, measured in phase 6.** The balanced `Parameter` table
+has exactly one width column and it is `UnconstrainedGeometricStd` — there is no
+balanced width to pair with the balanced mode. For most rows that costs nothing,
+because balancing did not move the value: across phase 6's extract **all 13
+concentrations and all 32 Michaelis constants have `Mode` equal to
+`UnconstrainedGeometricMean` exactly**, so the width belongs to the median it is
+given. **Ten of the twenty catalytic constants do not**, which is expected —
+they are what the thermodynamic balancing constrains — and there the prior's
+width is inherited from a distribution not centred on the prior's median. The
+worst is `R_TPI`'s reverse constant, mode 4 against an unconstrained geometric
+mean of 65,341.7 carrying a 1.05 width. **This is ours, labelled, and it is the
+population inference targets are drawn from**, so any recovery claim on a
+catalytic constant states it.
 
 **Why.** The published simulator reads `Mode`. The alternatives are wrong by
 large factors: the unconstrained geometric mean and, worse, the "catalytic rate
@@ -607,6 +652,18 @@ would target — would become asserted priors. Or `Quantity` values with balance
 widths, which runs what runs and keeps the widths but leaves eight priors whose
 median is not their point value, a subtler thing to explain in every downstream
 result than a column choice.
+
+**What eight input deltas do not tell you, measured in phase 6.** The
+declaration as first written enumerated the eight constants and their factors,
+which understates it. At the registry's initial concentrations the imported
+constants **reverse the sign of the pathway's entry reaction**: R_PGI runs at
+**−0.3325 mM/s** on the balanced column against **+4.5963 mM/s** on the
+`Quantity` column the published simulator runs, and R_FBA is slower by **253×**
+(0.00901 against 2.27985 mM/s). Both recover once the pools move — the module
+integrates non-negatively over a full cycle and drains its carbon to lactate
+either way — but **no statement about an initial flux in this module is the
+published model's**, and `reduction_declarations` now says so with these
+numbers rather than only with the input deltas. See §12 (2026-09-10).
 
 **A pleasant asymmetry worth recording.** All 17 Michaelis constants in the
 nucleotide file agree between the two tables. So the two ODE modules end up with
@@ -919,8 +976,8 @@ Everything else fixed at published values, then freed selectively.
 | `S_PGI` | 1.478 | Near-weakest, ~7.9 events per cycle, ~36% per cell. Deliberately the hard case, so the set spans the achievable-precision range |
 | `S_ptsG` | 4.617 | **The headline parameter.** ptsG is Core A′'s only membrane protein, so it is the only promoter whose uncertainty crosses the boundary by *two* independent routes: the expression drain and volume-mediated dilution of every concentration |
 | `krnadeg` | 3.5044 /s | Identified by the transcript autocorrelation, orthogonally to promoter amplitude |
-| `kcat_ENO` | 62.18 | **Positive control.** Tightest prior in the core and the capacity-tightest enzyme, so its concentration control coefficients are the largest available. Must recover tightly |
-| `kcat_FBA` | 59.7 | **Stress control.** Loosest prior in the core (gstd 1.747). The diagnostic is shrinkage: its posterior must be visibly wider than ENO's |
+| `kcat_ENO` | 62.18 | **Positive control.** ~~Tightest prior in the core~~ **Tight prior (gstd 1.170)** and the capacity-tightest enzyme, so its concentration control coefficients are the largest available. Must recover tightly. *Amended 2026-09-10:* phase 6's extract shows it is not the tightest — eight forward constants are, `kcatF_R_LDH_L` at 1.0512 tightest of all. The pairing still works, because what the control needs is a tight prior on the capacity-tightest enzyme, and only ENO is both |
+| `kcat_FBA` | 59.7 | **Stress control.** ~~Loosest prior in the core (gstd 1.747)~~ **Loosest *forward* prior in the core (gstd 1.747)**. The diagnostic is shrinkage: its posterior must be visibly wider than ENO's. *Amended 2026-09-10:* three **reverse** constants are looser still — `kcatR_R_PFK` at 33.03, `kcatR_R_PYK` at 11.34, `kcatR_R_FBA` at 8.36 — and two of them exceed the prior-default width, so they enumerate as uninformed. The 1.747-against-1.170 contrast the diagnostic rests on is unaffected |
 
 **One deviation from the scoping note, with the reason.** The note recommends a
 shared gene-expression global, naming the polymerase turnover constant. That
@@ -1201,7 +1258,7 @@ is the enabler.
 | **F1** | **Channel gain table.** Six rows, matching §3's coupling bullet: enzyme concentration, the expression-cost drain, the tRNA transfer, nucleotide pools into transcription's rate constants, the charged pool into translation's, and volume. Each with its analytic form and its measured value. Volume's row carries **both** directions after phase 5b: the dilution gain, and the gain of whatever rate law reads the geometry — for the lactate exporter's `3P/r` that is `∂ ln rate / ∂ ln r = −1`, analytic and needing no measurement | C1 | The reverse channels at 0.044–0.051 and the charged-tRNA figure R1 measures; the guanylate forward channel as a ~30 s turnover; the adenylate forward channel as a two-stage gain with the tRNA pool's lag stated separately, per D13. **The most important table in the work, and it appears early** |
 | **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel |
 | F2b | Flux control coefficients, same layout | C1 | Shows them near zero at 3.6% utilisation — the quantitative reason fluxes are ruled out of the likelihood |
-| **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive — except for an invariant that is exact by construction, whose line is flat at the floating-point floor and is labelled as such rather than counted as a failure (amended 2026-09-10; see §12). Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
+| **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive — except for an invariant whose derivative sum is exactly zero, whose line is bounded near the floating-point floor with a slope of zero or slightly negative, drawn with the ulp band marked and labelled as such rather than counted as a failure (amended 2026-09-10; see §12). Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
 | F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
@@ -1431,10 +1488,15 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   counter clips, and the lag on the dominant forward channel. One number, three
   consequences, and all three are ours. Check 1b bounds it from below and check 7
   from above; whether a value satisfies both is not yet known.
-- **Whether the full-cycle checks belong in the default test suite.** They are
+- ~~**Whether the full-cycle checks belong in the default test suite.** They are
   the strongest evidence and the slowest thing added. Deciding needs the measured
-  wall-clock. **Shortening the interval is not an option** — it is precisely the
-  error of record.
+  wall-clock.~~ — **partly resolved 2026-09-10 by phase 6's measurement, and left
+  open for the assembled model.** One module's full-cycle checks cost six
+  6,300 s stiff solves and about 1m40 to 2m10 of a 4m56 suite, which is
+  affordable, so phase 6's stay in the default suite. That is a 13-state ODE
+  block with the currencies held; the assembled model is a hybrid running ~6,300
+  handshakes, and task 13.7's wall-clock is what decides for it. **Shortening the
+  interval is not an option** — it is precisely the error of record.
 
 ---
 
@@ -2247,7 +2309,10 @@ keeping the double only for standalone runs.
 - [ ] 6.4 Set the ten enzyme concentrations from copy number at the registry's
   volume, marked nominal and overridable, and declare the ten protein counts as
   inputs so translation later supersedes them — verify by each value equalling
-  copies over 20,180 to six decimals, by none being the published no-rule default
+  copies over ~~20,180 to six decimals~~ **`corea_particles_per_mM()`, which is
+  20,180.39 and not the scoping note's rounded 20,180 — the two agree to five
+  decimals and differ in the sixth for PFK, GAPD, PGK, ENO and LDH_L** (amended
+  2026-09-10; see §12), by none being the published no-rule default
   of 0.001 mM, and by overriding one scaling exactly the rates that enzyme
   catalyses.
 - [ ] 6.5 Declare the boundary: currency edges on the energy species and mass
@@ -2878,17 +2943,20 @@ fabricated task list.
 
 ## 12. Amendment log
 
-### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and phase 6's redox check asserts flatness instead
+### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 
 *Trigger:* phase 6's redox check was written as the tolerance principle
 prescribes — solve at `(1e-10, 1e-8)`, solve again at `(1e-11, 1e-9)`, require
 the residual to fall at least fivefold — and it failed on the first Slurm run
 (job 16363584): 1.42e-14 mM against 7.99e-15 mM, a ratio of 1.78. A ladder over
 eight decades of tolerance, from `(1e-4, 1e-2)` to `(1e-12, 1e-10)`, then showed
-the residual **flat**, wandering between 8.9e-16 and 2.7e-14 mM with no trend.
-`eps` at NAD⁺ + NADH ≈ 2.2097 mM is 4.4e-16, so every point on that ladder is 2
-to 60 ulps: the residual is roundoff in the state update and contains no
-integrator error at all.
+the residual **bounded at the floating-point floor and not falling**, wandering
+between 8.9e-16 and 2.7e-14 mM — a 30× spread with no downward trend, and if
+anything a mild *rise* over the last four decades (3 → 32 → 60 ulps) as the
+solver takes more steps. `eps` at NAD⁺ + NADH ≈ 2.2097 mM is 4.4e-16, so every
+point on that ladder is 2 to 60 ulps. The residual is linear-algebra roundoff in
+the implicit stage solves, accumulated over the step count; it contains no local
+truncation error, which is the quantity a tolerance is a knob on.
 
 *Why, and why it was foreseeable:* GAPD and LDH_L are the only reactions that
 touch the pair, both are inside this one module, and their stoichiometry
@@ -2899,23 +2967,127 @@ done-when clause and task 6.7 asked for a residual that shrinks. The two could
 not both hold, and the check that was written to distinguish a structural leak
 from a numerical residual has nothing to measure when the residual is neither.
 
-*Change:* the tolerance principle gains a stated exception — where an invariant
-is exact by construction the assertion is **flatness at the floating-point
-floor**, and where it is not the fivefold fall stands; which applies is decided
-by whether the moiety crosses a module boundary and is stated per check rather
-than chosen per run. Phase 6's done-when and task 6.7 are annotated in place to
-assert the ladder rather than the fall. Check 3's row records the measurement.
-F3's "slopes required positive" gains the slope-zero case, labelled rather than
-counted as a failure. **The mutation test is unchanged and is what keeps this
-from being a weakened check:** a mutated GAPD stoichiometry moves the residual
-by about twelve orders of magnitude, and does not shrink with tolerance either,
-which is the leak the principle exists to catch. Nothing here relaxes a check on
-an invariant that *does* cross a boundary — adenylate, guanylate, phosphate and
-carbon all do, and all keep the fivefold fall.
+*Change:* the tolerance principle gains a stated exception, fenced three ways so
+it cannot become a loophole. **(i) The criterion is mechanical and must be
+asserted, not argued:** a check may use the exception only where a test
+evaluates the composed right-hand side at sampled states and asserts
+`sum(nᵢ · duᵢ) === 0.0` bitwise. Crossing a module boundary is *not* the
+criterion — it is the usual reason the criterion fails, and it is neither
+necessary nor sufficient, so a phase whose moiety happens to sit inside one
+module standalone gains nothing by saying so. **(ii) The assertion carries
+numbers:** a ladder over at least six decades, every rung within 100 ulps of the
+conserved sum and the largest within 100× of the smallest — as checkable as the
+fivefold fall it replaces. **(iii) It is scoped to one continuous solve**,
+because a handshake is not the right-hand side: at composition scope growth
+dilution rewrites every concentration ~6,300 times, so an assembled restatement
+is in particles and carries the `N_restarts` factor. Task 14.4 inherits that
+sentence, not a bare module-local bound.
+
+Phase 6's done-when and task 6.7 are annotated in place to assert the ladder
+rather than the fall; check 3's row records the measurement and the
+composition-scope limit; F3's "slopes required positive" gains the
+slope-zero-or-slightly-negative case, labelled rather than counted as a failure.
+
+**The mutation test is unchanged and is what keeps this from being a weakened
+check:** a mutated GAPD stoichiometry moves the residual to 2.21 mM — the whole
+pool — which is **14.2 orders of magnitude**, and does not shrink with tolerance
+either. The test enforces a margin of six orders, well inside what was measured.
+
+Nothing here relaxes a check on an invariant that fails the bitwise criterion,
+which is every moiety with a real flux across it: adenylate, guanylate,
+phosphate and carbon all keep the fivefold fall. Tasks 7.7, 8.7 and 9.6 are
+**not** pre-granted the exception by this entry; each must assert the criterion
+in its own composition or keep the fall.
 
 **Sections touched:** §3 (the tolerance principle, check 3), §6 (F3), §11 (phase
 6 done-when, task 6.7). Approved at implementation time, on the measurement
-above, before the check was rewritten.
+above, before the check was rewritten. Landed in PR #50.
+
+### 2026-09-10 — a freed initial condition is sampled and then ignored, so phase 6 refuses to free one
+
+*Trigger:* phase 6 is the first module to expose initial concentrations as
+inferable parameters — 13 of its 65 — and its own docstring named `:M_g6p_c0` as
+a valid `free` argument. Pre-merge review measured what that does: the freed
+parameter appears in the sampled vector, and **nothing reads it.**
+`_collect_ic_values` (`src/orchestrator.jl`) builds `u0` from each parameter's
+stored `value`, never from the sampled vector, and no rate law indexes a `conc_`
+slot. Changing a freed initial condition from 3.7076 to 99.0 left the
+right-hand side and a 100 s trajectory bit-identical.
+
+*Why it matters more than it looks:* the failure is silent and it looks like a
+result. The likelihood is exactly flat in the parameter, so the posterior
+marginal equals the prior, and that reads as "the data does not constrain the
+initial pool" — a finding — rather than as a channel that was never wired.
+§4 D11's target set is six parameters and the spec does not forbid an initial
+concentration among them.
+
+*Change:* **phase 6 refuses `free` on a parameter whose role is
+`:initial_condition`**, naming the reason. That converts a wrong posterior into
+a build-time error. Wiring `u0` to the sampled vector is framework and is not
+done on a module branch (§10 R15), so this is recorded as a known gap rather
+than fixed here: **the inference phases 15 to 17 own it**, alongside the
+`rebuilt_params` and driver-written-slot problem §12's 2026-09-09 entry assigns
+to the same phases — it is the same defect in a different channel, a parameter
+that is sampled and then overwritten or ignored. Phases 7, 8, 9 and 10 vendor
+initial conditions the same way and inherit the refusal.
+
+**Sections touched:** none — the spec said nothing that is now false, so this
+entry records a discovered framework gap and the module-level refusal that keeps
+it loud. Landed in PR #50.
+
+### 2026-09-10 — what phase 6's vendored extract falsified: the prior-width column, D11's two controls, and a rounded conversion factor
+
+*Trigger:* vendoring the central balanced table put 65 real numbers in the repo
+for the first time, and four statements the spec made about them turned out not
+to survive contact. None was caught by a failing test; all four were caught by
+checking the prose against the file.
+
+*Change, one per statement.*
+
+**D1's "with its geometric standard deviation" names a column that does not
+exist.** The balanced `Parameter` table carries exactly one width,
+`UnconstrainedGeometricStd`, so every prior in the project pairs a *balanced*
+median with an *unconstrained* width. Measured across phase 6's extract, that is
+free for all 13 concentrations and all 32 Michaelis constants — their `Mode`
+equals `UnconstrainedGeometricMean` exactly — and not free for **ten of the
+twenty catalytic constants**, worst `R_TPI` reverse at mode 4 against an
+unconstrained geometric mean of 65,341.7 with a 1.05 width. D1 now says so, and
+labels it. **This is the fourth instance of the column trap D2 and D3 record**,
+and the first that is not about *which* column but about a column that was
+assumed to be there. Phases 7, 8 and 9 vendor from the same tables and inherit
+it.
+
+**D11's positive control is not the tightest prior in the core.** `kcat_ENO`'s
+gstd is 1.170; eight forward constants are tighter, `kcatF_R_LDH_L` at 1.0512
+tightest. And `kcat_FBA` at 1.747 is the loosest *forward* constant only —
+`kcatR_R_PFK` (33.03), `kcatR_R_PYK` (11.34) and `kcatR_R_FBA` (8.36) are
+looser, and the first two exceed the prior-default width and so enumerate as
+uninformed. Both rows are annotated in place. **The target set does not change**:
+what the controls need is a tight prior on the capacity-tightest enzyme against a
+loose one, and 1.170 against 1.747 delivers that.
+
+**Task 6.4's "copies over 20,180 to six decimals" cannot be satisfied.** The
+conversion factor is derived rather than transcribed —
+`corea_particles_per_mM()` is 20,180.39 — and the rounded figure disagrees in
+the sixth decimal for PFK, GAPD, PGK, ENO and LDH_L. A transcribed constant
+would also put this module and the handshake's own conversion into disagreement
+the moment translation supersedes these concentrations, so the derived factor
+governs and the clause is annotated.
+
+**§9's question about full-cycle checks in the default suite is half answered.**
+Phase 6's six full-cycle solves cost about 1m40 to 2m10 of a 4m56 suite, which
+is affordable for a 13-state ODE block, so they stay. The assembled hybrid is a
+different question and task 13.7 decides it. The question is struck through with
+that resolution rather than deleted.
+
+*One thing deliberately not changed.* The archived reference for this phase names
+`conc_M_atp_c` among four spot values while fixing the concentration count at
+thirteen; ATP is not an owned state, so the two cannot both hold. The count is
+what task 6.1 carries, `conc_M_g6p_c` is asserted instead, and
+`src/organisms/coreA/data/README.md` records it. That is a correction of record
+against an archived document, not an amendment to this spec.
+
+**Sections touched:** §4 (D1, D3, D11), §9, §11 (task 6.4). Landed in PR #50.
 
 ### 2026-09-09 — a known framework gap is pulled ahead of the fan-out as phase 5b
 
