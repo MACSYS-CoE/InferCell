@@ -74,6 +74,9 @@ using Aqua
     # driver, so they live in their own file.
     include("nucleotide_test_models.jl")
     include("test_corea_nucleotide_recycling.jl")
+    # Transcription (spec phase 10): the decay double first, then the tests.
+    include("corea_transcription_doubles.jl")
+    include("test_corea_transcription.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
