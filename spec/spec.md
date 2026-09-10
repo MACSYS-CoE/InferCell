@@ -2357,7 +2357,7 @@ lactate.
 tolerance-derived bounds, each carrier's two forms sum to its published copy
 number exactly, and the export rate matches the permeability law at the
 registry's radius.
-**PR:** _open_
+**PR:** #49 (merged 2026-09-10)
 
 Reference detail at
 `dev/archive/openspec/changes/add-pts-transport/tasks.md`. One amendment: the
