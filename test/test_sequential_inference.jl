@@ -77,6 +77,12 @@ using Statistics: quantile, var
         # `cond_var < uncond_var * 5.0` passed when conditioning made the
         # posterior five times *wider*, so it could not fail for the reason
         # the testset exists.
+        #
+        # NOT VERIFIED. This testset has never executed to completion — not in
+        # the 48 GitHub runs, and not on Slurm, where job 16617632 timed out at
+        # six hours. The assertion states the claim the protocol is supposed to
+        # make; whether the claim holds is unknown. Do not read a green suite
+        # here as evidence until it has actually run.
         for j in 1:4
             @test weighted_var(result.ssa_posterior, j) < weighted_var(uncond, j)
         end
