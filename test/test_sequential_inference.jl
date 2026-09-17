@@ -57,24 +57,28 @@ using Statistics: quantile, var
     end
 
     @testset "conditioned posteriors tighter than unconditioned" begin
-        # Run ABC-SMC without conditioning (uninformed priors)
+        # The control run differs from the conditioned one only in its priors,
+        # so seed immediately before it: the comparison is then reproducible
+        # rather than a single draw from two uncoupled RNG streams.
+        Random.seed!(789)
         uncond = infer(sge, ssa_data;
                        n_samples=200, n_populations=6,
                        n_replicates=50, tspan=ssa_tspan)
 
-        # Compare weighted variance for each shared parameter
+        # Weighted variance of row `j` of an ABC posterior.
+        function weighted_var(post, j)
+            mean = sum(post.weights .* post.particles[j, :])
+            return sum(post.weights .* (post.particles[j, :] .- mean).^2)
+        end
+
+        # This is the whole claim of the boundary protocol: conditioning the
+        # SSA block on the ODE block's posterior narrows the shared
+        # parameters. Assert the direction, with no slack. The previous
+        # `cond_var < uncond_var * 5.0` passed when conditioning made the
+        # posterior five times *wider*, so it could not fail for the reason
+        # the testset exists.
         for j in 1:4
-            # Conditioned weighted variance
-            cond_mean = sum(result.ssa_posterior.weights .* result.ssa_posterior.particles[j, :])
-            cond_var = sum(result.ssa_posterior.weights .* (result.ssa_posterior.particles[j, :] .- cond_mean).^2)
-
-            # Unconditioned weighted variance
-            uncond_mean = sum(uncond.weights .* uncond.particles[j, :])
-            uncond_var = sum(uncond.weights .* (uncond.particles[j, :] .- uncond_mean).^2)
-
-            # Conditioned variance should be smaller (or at most equal)
-            # Use generous factor — ABC-SMC is stochastic
-            @test cond_var < uncond_var * 5.0
+            @test weighted_var(result.ssa_posterior, j) < weighted_var(uncond, j)
         end
     end
 end

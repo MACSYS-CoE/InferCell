@@ -79,23 +79,25 @@ artifact) but is **not** gated — there is no minimum coverage threshold.
 ### What runs *off* the PR path
 
 The expensive Bayesian integration tests (NUTS / ABC-SMC, gated by
-`INFERCELL_INTEGRATION_TESTS=true`) live in a separate `Integration`
-workflow that runs:
-
-- On every push to `main` (catches regressions within minutes of merge).
-- On a weekly cron (Mondays 04:00 UTC) to catch upstream drift.
-- On demand via the GitHub UI (`workflow_dispatch`).
-
-These are CPU-bound and run too slowly on free GitHub-hosted runners
-to belong in the PR loop. They still gate releases — they just don't
-gate code review.
-
-You should still run them locally before opening a PR that touches
-inference code:
+`INFERCELL_INTEGRATION_TESTS=true`) **run on Slurm, not on GitHub**:
 
 ```bash
-INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
+sbatch test/run_integration.slurm
 ```
+
+They are serial and CPU-bound — ABC-SMC alone is on the order of 10^5 SSA
+solves — so on a 2-core hosted runner they never finished: between 2026-05
+and 2026-09 every one of the 48 `Integration` runs was killed by the
+90-minute timeout or failed, and none completed. Slurm has the cores and
+the walltime; GitHub does not.
+
+What is left of the `Integration` workflow is a weekly cron (Mondays 04:00
+UTC) to catch upstream package drift, plus on-demand `workflow_dispatch`.
+Neither is on the merge path.
+
+Run the Slurm job before opening a PR that touches inference or boundary
+code, and quote the job id in the PR description — that id is the evidence
+of record that the suite passed.
 
 ## Repo-level settings (admin checklist)
 

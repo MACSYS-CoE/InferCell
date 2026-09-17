@@ -1,18 +1,26 @@
 name: Integration
 
 # Bayesian integration tests (NUTS, ABC-SMC) gated by
-# INFERCELL_INTEGRATION_TESTS=true. These are CPU-bound and slow on
-# GitHub-hosted runners — too slow to gate every PR — so they run:
-#   - on every push to main (catches regressions within minutes of merge)
-#   - on a weekly cron (catches upstream package drift)
-#   - on-demand via workflow_dispatch
+# INFERCELL_INTEGRATION_TESTS=true.
+#
+# These do not run on push to `main`. Every such run between 2026-05 and
+# 2026-09 hit the 90-minute ceiling and was killed — 44 cancelled, 4 failed,
+# 0 completed — because the suite is serial and CPU-bound: ABC-SMC alone is
+# O(10^5) SSA solves (`_infer_abc` runs `n_replicates` trajectories per
+# particle evaluation in a plain comprehension, and `abc_smc` is unthreaded).
+# That cost no longer buys a signal on a 2-core hosted runner, so the real
+# home for this suite is Slurm, where the cores and the walltime exist:
+#
+#     sbatch test/run_integration.slurm
+#
+# What remains here is the weekly cron — which catches upstream package
+# drift, is off the merge path, and is cheap at one run a week — plus
+# on-demand dispatch.
 
 on:
-  push:
-    branches: [main]
   schedule:
     # Mondays 04:00 UTC. Lines up with the start of the working week
-    # in Australia/Europe; misses get re-run by the next push to main.
+    # in Australia/Europe.
     - cron: "0 4 * * 1"
   workflow_dispatch:
 

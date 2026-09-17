@@ -1,6 +1,13 @@
 using Statistics
+using Random
 
 @testset "Stochastic Inference (Integration)" begin
+    # Seed explicitly. Without this the file inherits whatever RNG state the
+    # preceding test file happened to leave behind, so editing an unrelated
+    # test upstream silently changes the trajectories drawn here and, with
+    # them, whether the recovery bounds below hold.
+    Random.seed!(2718)
+
     @testset "ABC-SMC parameter recovery on StochasticGeneExpression" begin
         # True parameters
         true_params = (k_tx=1.0, k_tl=2.0, gamma_mRNA=0.5, gamma_protein=0.1)
