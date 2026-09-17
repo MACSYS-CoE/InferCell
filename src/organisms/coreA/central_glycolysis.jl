@@ -121,6 +121,7 @@ vendored extract check each other.
 """
 substrate_terms(r::GlycolyticRate) = sum(r.scoef)
 product_terms(r::GlycolyticRate) = sum(r.pcoef)
+@doc (@doc substrate_terms) product_terms
 
 # ---------------------------------------------------------------------------
 # The sub-model
@@ -487,9 +488,14 @@ contributions(u, p, t, m::CentralGlycolysis, u_inputs) =
 # What is ours
 # ---------------------------------------------------------------------------
 
-# The eight Michaelis constants where the balanced `Parameter` table and the
-# `Quantity` table the simulator reads disagree: identifier, what runs, what is
-# imported here. Two of them move by 82× and 227×.
+"""
+    KM_COLUMN_DISAGREEMENTS
+
+The eight Michaelis constants where the balanced `Parameter` table and the
+`Quantity` table the simulator reads disagree, as `(identifier, what runs, what
+is imported here)`. Two of them move by 82× and 227×, which is why the column a
+value is read from is recorded rather than assumed.
+"""
 const KM_COLUMN_DISAGREEMENTS = [
     ("km_R_PGI_M_g6p_c", 0.28, 22.9419),
     ("km_R_PGI_M_f6p_c", 0.15, 3.3488),

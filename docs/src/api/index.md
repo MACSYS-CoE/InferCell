@@ -1,6 +1,6 @@
 # API reference
 
-InferCell exports its public API across twenty source files. The pages in this section are organised by source module; most pages list the public API with the same docstring text returned by `?<symbol>` in the Julia REPL, while the Core A′ page documents its contract as prose.
+The pages in this section are organised by source module. Each splices the live docstrings in beside the prose that explains why the design is what it is; the Core A′ page is mostly the latter, because a contract is not a signature.
 
 | Module | Page | Highlights |
 |---|---|---|
@@ -13,12 +13,7 @@ InferCell exports its public API across twenty source files. The pages in this s
 | `src/boundary.jl` | [Boundary](boundary.md) | `sequential_infer`, `iterative_infer`, `KDEPrior` |
 | `src/models/*.jl` | [Models](models.md) | `TranscriptionTranslation`, `BurstyGeneExpression`, `LightMetabolism`, … |
 
-For the canonical signatures, query the live module:
-
-```julia
-using InferCell
-?TranscriptionTranslation     # struct docstring
-?infer                        # function docstring
-```
-
-This site mirrors the docstrings as of the most recent release; the REPL is authoritative.
+Every signature and field list on these pages is generated from the docstring
+attached to the symbol itself, so `?infer` in the REPL and the [Inference](inference.md)
+page cannot disagree. The build fails if an exported symbol has no docstring, or if a
+cross-reference names a symbol that no longer exists.

@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+InferCell = "5faa9da3-97a3-4d64-9dfe-c21d6c3f57eb"
+
+[compat]
+Documenter = "1"

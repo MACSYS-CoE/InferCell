@@ -71,11 +71,15 @@ const RECYCLING_KM_SPECIES = (
     :R_PPA => (:M_ppi_c, :M_pi_c),
 )
 
-# The ten catalytic and seventeen Michaelis constants, which come from the
-# vendored extracts, and the five enzyme concentrations, which do not. Named
-# separately rather than sliced out of one list positionally: the import loop
-# needs the first group alone, and `IDS[1:(N - 5)]` silently depended on the
-# enzyme names being appended last and on there being exactly five of them.
+"""
+    RECYCLING_CONSTANT_IDS
+
+The ten catalytic and seventeen Michaelis constant identifiers, which come from
+the vendored extracts. Named separately from [`RECYCLING_ENZYME_IDS`](@ref)
+rather than sliced out of one list positionally: the import loop needs this
+group alone, and `IDS[1:(N - 5)]` silently depended on the enzyme names being
+appended last and on there being exactly five of them.
+"""
 const RECYCLING_CONSTANT_IDS = let ids = Symbol[]
     for r in RECYCLING_REACTIONS
         push!(ids, Symbol("kcatF_", r), Symbol("kcatR_", r))
@@ -86,12 +90,25 @@ const RECYCLING_CONSTANT_IDS = let ids = Symbol[]
     Tuple(ids)
 end
 
+"""
+    RECYCLING_ENZYME_IDS
+
+The five enzyme-concentration identifiers. Unlike
+[`RECYCLING_CONSTANT_IDS`](@ref) these do not come from the vendored extracts,
+which is why the width on each is this project's and is labelled `:asserted`.
+"""
 const RECYCLING_ENZYME_IDS = Tuple(Symbol("enz_", r) for r in RECYCLING_REACTIONS)
 
 # The width on an enzyme concentration is this project's, not the source's —
 # see the constructor's note on `:asserted` informedness.
 const RECYCLING_ENZYME_GSTD = 1.2
 
+"""
+    RECYCLING_KINETIC_IDS
+
+Every kinetic identifier this module declares: [`RECYCLING_CONSTANT_IDS`](@ref)
+followed by [`RECYCLING_ENZYME_IDS`](@ref).
+"""
 const RECYCLING_KINETIC_IDS = (RECYCLING_CONSTANT_IDS..., RECYCLING_ENZYME_IDS...)
 
 const N_RECYCLING_KINETIC = length(RECYCLING_KINETIC_IDS)   # 32

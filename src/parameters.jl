@@ -20,10 +20,14 @@ function _check_vocab(context, field::Symbol, value, allowed)
     return value
 end
 
-# The prior width that marks a value as uninformed: a geometric standard
-# deviation at or above this is the balancing prior's default, and a row
-# sitting there was informed by nothing. Shared by the species registry and
-# the loader so the rule lives once.
+"""
+    PRIOR_DEFAULT_GSTD
+
+The prior width that marks a value as uninformed: a geometric standard
+deviation at or above this is the balancing prior's default, and a row sitting
+there was informed by nothing. Shared by the species registry and the loader so
+the rule lives once.
+"""
 const PRIOR_DEFAULT_GSTD = 10.0
 
 """

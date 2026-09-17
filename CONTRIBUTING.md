@@ -71,7 +71,7 @@ re-enable after an audit.
 | ---------------------- | --------- | --------------------------------------------------------- |
 | `Test`                 | Yes       | Unit tests + Aqua quality checks + coverage summary.      |
 | `Format`               | No (yet)  | JuliaFormatter diff; advisory until Stage 2.              |
-| `Documentation/build`  | Yes       | mkdocs strict build of the `docs/` site.                  |
+| `Documentation`        | Yes       | Documenter build of `docs/src/`; fails on an undocumented export or a dead `@ref`. |
 
 Coverage is reported on every CI run (job summary line and `lcov.info`
 artifact) but is **not** gated — there is no minimum coverage threshold.

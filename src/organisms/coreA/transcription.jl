@@ -148,6 +148,13 @@ const TRANSCRIPTION_LOCI = (
     (:JCVISYN3A_0344, :PPA), (:JCVISYN3A_0203, :GK1),
 )
 
+"""
+    TRANSCRIPTION_EXTRACT
+
+Path to this module's vendored gene extract. Regenerated, never fetched at run
+time — compute nodes have no network. See
+`src/organisms/coreA/data/README.md`.
+"""
 const TRANSCRIPTION_EXTRACT =
     joinpath(@__DIR__, "data", "transcription_genes.tsv")
 
@@ -245,6 +252,7 @@ inference target, and the rate constant, which the 60 s rebuild fills.
 """
 promoter_param(locus::Symbol) = Symbol("S_", locus)
 rate_param(locus::Symbol) = Symbol("k_tx_", locus)
+@doc (@doc promoter_param) rate_param
 
 """
     CoreATranscription(; base_mapping = :corrected, seed = nothing, ...)
@@ -270,10 +278,15 @@ struct CoreATranscription <: AbstractSubModel
     rnap_conc::Float64
 end
 
-# The four balanced concentrations of §4 D3, each with its geometric standard
-# deviation and the file that governs it. ATP is the central file's; the other
-# three are the nucleotide file's, which governs every nucleotide-module
-# species (§4 D2).
+"""
+    TRANSCRIPTION_NTP_SOURCES
+
+The four balanced nucleotide concentrations of spec §4 D3, each with its
+geometric standard deviation and the file that governs it. ATP is the central
+file's; the other three are the nucleotide file's, which governs every
+nucleotide-module species (§4 D2). Reading the wrong file understates the
+guanylate pool by an order of magnitude.
+"""
 const TRANSCRIPTION_NTP_SOURCES = (
     (species = :M_atp_c, value = 3.6529, gstd = 1.2825, file = "central_balanced"),
     (species = :M_ctp_c, value = 0.6874, gstd = 2.0574, file = "nucleotide_balanced"),

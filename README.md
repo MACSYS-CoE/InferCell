@@ -58,7 +58,7 @@ Instead of orchestrating isolated black-box simulators, InferCell compiles hybri
 
 ## Capabilities
 
-Inference is the design discipline; the following fall out as named framework outputs, not separate features that need building. See [`docs/positioning.md`](docs/positioning.md) for the longer argument.
+Inference is the design discipline; the following fall out as named framework outputs, not separate features that need building. The research notes under `dev/notes/` carry the longer argument.
 
 - **Parameter inference.** Bayesian posteriors over rates, pool sizes, and initial conditions from time-series data. `infer()` dispatches to NUTS for differentiable models and ABC-SMC for stochastic ones behind one call. Posteriors propagate across heterogeneous block boundaries via explicit boundary protocols.
 - **Sensitivity analysis.** Local and global parameter sensitivities. The AD machinery powering NUTS gradients powers forward and adjoint sensitivities for free — useful for asking which parameters matter for which observables before committing to data collection.
