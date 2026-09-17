@@ -46,6 +46,15 @@
 
 using XLSX
 using Printf
+using SHA: sha256
+
+# The revision this extract is derived from. The sibling extractors pin the
+# same constant and refuse a mismatch, and for the same reason: regenerating
+# against another revision would rewrite all seventeen genes' numbers, round-
+# trip cleanly against the wrong source, and surface only as an unexplained
+# `git diff`. The `.slurm` determinism check cannot catch it either, since it
+# runs both passes against the same checkout.
+const UPSTREAM_COMMIT = "db048aca5fe85438e0129819bbf0314b037dd931"
 
 # Core A′'s seventeen genes: ten glycolytic, four phosphotransferase, three
 # nucleotide-recycling (`dev/notes/reduced-syn3a-scoping.md`). The reaction
@@ -183,7 +192,15 @@ function annotation_map(path::AbstractString)
         mm = d[i, 6]
         j2 = d[i, 14]
         (mm isa AbstractString && j2 isa AbstractString) || continue
-        out[strip(mm)] = strip(j2)
+        k = strip(mm)
+        # `iloc[0]` in the published loader: the FIRST row for a key wins. A
+        # Dict assignment would keep the last, so a duplicated key would hand
+        # us a different value from the model we reproduce. Refuse instead.
+        haskey(out, k) && out[k] != strip(j2) && error(
+            "$(basename(path)): two rows for $k give $(out[k]) and " *
+            "$(strip(j2)). The published loader takes the first; resolve the " *
+            "duplicate rather than letting row order decide.")
+        haskey(out, k) || (out[k] = strip(j2))
     end
     return out
 end
@@ -202,7 +219,13 @@ function proteomics_map(path::AbstractString)
         p = d[i, 1]
         v = d[i, 22]
         (p isa AbstractString && v isa Real) || continue
-        out[strip(p)] = float(v)
+        k = strip(p)
+        # Same first-wins rule as above; replicate measurements for one protein
+        # are the obvious way this could bite.
+        haskey(out, k) && out[k] != float(v) && error(
+            "$(basename(path)): two rows for $k give $(out[k]) and $(float(v)). " *
+            "The published loader takes the first; resolve the duplicate.")
+        haskey(out, k) || (out[k] = float(v))
     end
     return out
 end
@@ -224,7 +247,13 @@ function mrna_map(path::AbstractString)
         isempty(strip(line)) && continue
         f = split(strip(line), ',')
         length(f) < max(tag_col, cnt_col) && continue
-        out[strip(f[tag_col])] = parse(Float64, f[cnt_col])
+        k = strip(f[tag_col])
+        v = parse(Float64, f[cnt_col])
+        # Same first-wins rule as above.
+        haskey(out, k) && out[k] != v && error(
+            "$(basename(path)): two rows for $k give $(out[k]) and $v. The " *
+            "published loader takes the first; resolve the duplicate.")
+        haskey(out, k) || (out[k] = v)
     end
     return out
 end
@@ -236,15 +265,27 @@ function main()
     md = joinpath(checkout, "CME_ODE", "model_data")
     isdir(md) || error("no CME_ODE/model_data under '$checkout'")
 
-    # A checkout that is not a git repository still generates, recording the
-    # commit as unknown; the README's provenance line is then the only record,
-    # which the round-trip check cannot catch.
-    commit = try
-        strip(read(pipeline(`git -C $checkout rev-parse --short HEAD`,
+    # A checkout that is not a git repository is warned about rather than
+    # refused, since a tarball is a legitimate way to have the files; a
+    # checkout at the wrong revision is refused outright.
+    # The full hash, not `--short`: an abbreviation's length is a git config
+    # setting, so `core.abbrev = 12` would otherwise produce a different file
+    # from the same checkout and break the byte-for-byte round trip.
+    head = try
+        strip(read(pipeline(`git -C $checkout rev-parse HEAD`,
                             stderr = devnull), String))
     catch
-        "unknown"
+        nothing
     end
+    if head === nothing
+        @warn "Could not read a git revision from $checkout, so the upstream " *
+              "commit is unverified. Expected $UPSTREAM_COMMIT."
+    elseif head != UPSTREAM_COMMIT
+        error("$checkout is at $head, not the $UPSTREAM_COMMIT this extract " *
+              "is derived from. Check the revision out, or update " *
+              "UPSTREAM_COMMIT here and in src/organisms/coreA/data/README.md.")
+    end
+    commit = UPSTREAM_COMMIT
 
     syn3a, genome3a = read_genbank(joinpath(md, "syn3A.gb"))
     syn2, _ = read_genbank(joinpath(md, "syn2.gb"))
@@ -316,6 +357,9 @@ function main()
     println("wrote $outpath: $(length(rows)) rows")
     println("base totals: A $(totals['A']), C $(totals['C']), " *
             "G $(totals['G']), U $(totals['U'])")
+    # Printed so the README can record it: a hand-edit to a value no test
+    # asserts is invisible otherwise.
+    println("sha256: ", bytes2hex(sha256(read(outpath))))
 end
 
 main()

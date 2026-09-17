@@ -19,11 +19,14 @@ module load julia/1.10.5
 
 CHECKOUT=${1:-/fred/oz022/tkimpson/Minimal_Cell}
 OUT=src/organisms/coreA/data/transcription_genes.tsv
-TMP=$(mktemp -p dev/scripts tx_genes_check_XXXX.tsv)
+# Not under dev/scripts: a hard kill (Slurm's SIGKILL after the grace
+# period, an OOM, a node failure) skips the trap, and a leftover file
+# there is byte-identical to the real extract sitting next to it.
+TMP=$(mktemp -t tx_genes_check_XXXX.tsv)
 trap 'rm -f "$TMP"' EXIT INT TERM
 
 echo "Regenerating $OUT from $CHECKOUT at $(date)"
-echo "Upstream HEAD: $(git -C "$CHECKOUT" rev-parse --short HEAD)"
+echo "Upstream HEAD: $(git -C "$CHECKOUT" rev-parse HEAD)"
 echo ""
 
 julia --project=dev/scripts dev/scripts/extract_transcription_genes.jl "$CHECKOUT" "$OUT" || exit 1
