@@ -188,9 +188,13 @@ end
               maximum(RNAPOL_KCAT * g.ptn_count / PROMOTER_DIVISOR for g in genes)
         @info "10.3 rate constants" k_min=minimum(ks) k_max=maximum(ks) turnover_max=maximum(last.(head)) ceiling=TURNOVER_CEILING
 
-        # The correction is labelled; the published mapping is not.
+        # The correction is labelled; the published mapping is not. The note
+        # states the GTP sensitivity as the per-gene U-to-G ratio with its
+        # median and span, not as one factor — asserting the span's ends keeps
+        # it from drifting back to a single number.
         notes = reduction_notes(m)
-        @test any(n -> occursin(":corrected", n) && occursin("1.9", n), notes)
+        @test any(n -> occursin(":corrected", n) && occursin("1.85", n) &&
+                      occursin("1.53", n) && occursin("2.45", n), notes)
         @test count(n -> occursin("base", n) && occursin("mapping", n), notes) == 1
 
         err = caught(() -> CoreATranscription(base_mapping = :permuted))

@@ -96,8 +96,10 @@ polymerised from. `:published` reproduces `MinCell_CMEODE.py:377-383`, where
 the UTP term takes the cytosine count, the CTP term the guanine count and the
 GTP term the uracil count. The permutation moves each rate constant by about
 one percent, but it weights the GTP term by the uracil count rather than the
-guanine count, which makes every constant 1.9× more sensitive to the live GTP
-pool than it should be — and that is the only reverse channel into this module.
+guanine count, which makes each constant more sensitive to the live GTP pool
+than it should be — by that gene's U-to-G count ratio, a median 1.85× over the
+seventeen and spanning 1.53 to 2.45. GTP is one of the four reverse channels
+into this module; ATP, CTP and UTP enter the same rate law.
 """
 const BASE_MAPPINGS = (
     corrected = (A = :A, C = :C, G = :G, U = :U),
@@ -149,6 +151,12 @@ const TRANSCRIPTION_LOCI = (
 const TRANSCRIPTION_EXTRACT =
     joinpath(@__DIR__, "data", "transcription_genes.tsv")
 
+# The extract's nine read columns, in the order `read_transcription_genes`
+# indexes them. Asserted against the file's own header so a reorder fails
+# loudly instead of loading one base count as another.
+const TRANSCRIPTION_COLUMNS = ("ID", "Length", "A", "C", "G", "U", "First2",
+                               "PtnCount", "MeanMRNA")
+
 """
     read_transcription_genes([path]) -> Vector{TranscriptionGene}
 
@@ -174,6 +182,17 @@ function read_transcription_genes(path::AbstractString = TRANSCRIPTION_EXTRACT)
         f = split(s, '\t')
         if startswith(s, "!")
             header = [strip(c, '!') for c in f]
+            # The columns are read positionally below, so a reordered extract
+            # would load silently wrong data: swapping !A and !C leaves the
+            # base-count sum invariant intact and shifts every rate constant.
+            # Checking the names is what makes the positions safe.
+            header[1:length(TRANSCRIPTION_COLUMNS)] == collect(TRANSCRIPTION_COLUMNS) ||
+                throw(ArgumentError(
+                    "$path: the first $(length(TRANSCRIPTION_COLUMNS)) columns " *
+                    "are $(header[1:min(end, length(TRANSCRIPTION_COLUMNS))]), " *
+                    "not $(collect(TRANSCRIPTION_COLUMNS)). The reader takes " *
+                    "them by position, so a reorder would load one base count " *
+                    "as another"))
             continue
         end
         header === nothing && throw(ArgumentError(
@@ -514,9 +533,12 @@ function reduction_notes(m::CoreATranscription)
         "than against the permutation of MinCell_CMEODE.py:377-383 " *
         "(:published), where the UTP term takes the cytosine count, the CTP " *
         "term the guanine count and the GTP term the uracil count. The rate " *
-        "constants move about one percent; the sensitivity of every constant " *
-        "to the live GTP pool moves by 1.9×, and that pool is the only " *
-        "reverse channel into this module. Both mappings are computable.",
+        "constants move about one percent; the sensitivity to the live GTP " *
+        "pool moves by a median 1.85× across the seventeen, spanning 1.53 to " *
+        "2.45 — it is the per-gene U-to-G count ratio, not one factor. GTP is " *
+        "one of four reverse channels, not the only one: ATP, CTP and UTP " *
+        "enter the same rate law, and the measured ATP elasticity matches " *
+        "GTP's. Both mappings are computable.",
 
         "CTP and UTP are held constant at 0.6874 and 2.7681 mM. This " *
         "reduction chemostats them, not the published model: the reactions " *
