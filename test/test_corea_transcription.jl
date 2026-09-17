@@ -314,6 +314,43 @@ end
         @test count(x -> :M_ppi_c in x.produces, drains) == 4
     end
 
+    # The edges resolve standalone and cannot resolve composed, which is a
+    # framework gap rather than a declaration this module can correct. Pinned
+    # here so phase 13 meets a recorded failure instead of a surprise; see §12's
+    # 2026-09-10 phase 10 entry, amendment E.
+    @testset "10.6 the CTP/UTP declarations are unsatisfiable composed" begin
+        # Standalone the clamp stands in for the absent owner and the whole
+        # declaration resolves — this is what the 10.6 block above asserts.
+        @test resolve_coupling([CoreATranscription()]) !== nothing
+
+        # Composed with any ODE module, the deferred counters on CTP and UTP
+        # ask for an owner of pools nothing integrates.
+        err = caught(() -> build_problem([CoreATranscription(),
+                                          NucleotideRecycling()];
+                                         tspan = (0.0, 60.0)))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("DeferredCounterEdge", msg)
+        @test occursin("M_ctp_c", msg) || occursin("M_utp_c", msg)
+
+        # And the reason no composition can satisfy it: the pool is un-ownable.
+        # The registry holds CTP at a fixed concentration, so the module that
+        # would satisfy the debit is itself refused. The debit therefore asks
+        # for something that cannot exist, rather than for a module phase 12
+        # will supply.
+        owner = caught(() -> resolve_coupling(
+            [m, CoreAStub(:CtpOwner; st = [:M_ctp_c], form = :ode)]))
+        @test owner isa ArgumentError
+        @test occursin("fixed concentration", sprint(showerror, owner))
+
+        # The clamps themselves are right — a clamp is what a chemostatted pool
+        # takes — and the module does not clamp ATP or GTP, which recycling owns.
+        @test any(e -> e.species === :M_ctp_c && edge_kind(e) === :clamped,
+                  coupling(m))
+        @test !any(e -> e.species in (:M_atp_c, :M_gtp_c) &&
+                       edge_kind(e) === :clamped, coupling(m))
+    end
+
     @testset "10.7 both promoter-proxy declarations" begin
         labels = reduction_declarations([m])
         texts = [l.description for l in labels]
