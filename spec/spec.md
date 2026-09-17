@@ -526,8 +526,12 @@ every other check.
 phenotype.**
 
 1. **Predicted transcript steady states against measured counts.** Predicted
-   0.44–2.87 copies against measured means 0.29–2.18, landing within about 1.5×.
-   This is genuinely out of sample: the parameters come from proteomics, the
+   0.332–2.406 copies against measured means 0.292–2.178, with sixteen of the
+   seventeen within a factor of two and FBA (`JCVISYN3A_0131`) the one outlier.
+   *An earlier draft of this row read 0.44–2.87 "within about 1.5×"; that band
+   was computed from `rnaDegRate`, which the published model defines and never
+   executes — see §12's 2026-09-10 phase 10 entry, amendment B.* This is
+   genuinely out of sample: the parameters come from proteomics, the
    comparison data from transcriptomics. Assert Spearman correlation at least
    0.7 across the 17 genes, and agreement within a factor of two for at least 15
    of 17.
@@ -1250,7 +1254,7 @@ commit `db048ac`. Nothing is fetched at run time.
 | Recycling kinetics and initial conditions | nucleotide balanced SBtab, **and** the central file's rival values for the same identifiers | Two extracts, so the ambiguity is real rather than described |
 | Cascade constants and permeability | transport TSV | Vendored extract with no uncertainty column, so every row loads as asserted |
 | Carrier initial conditions | proteomics counts × proteomics fractions | Vendored, with the derivation recorded |
-| Per-gene sequence data | genome record, proteomics table, measured transcript counts | One extract, three upstream sources, one column each, so no cross-file ambiguity |
+| Per-gene sequence data | genome record, annotation compilation, second genome record, proteomics table, measured transcript counts | One extract, five upstream sources, one column each, so no cross-file ambiguity. Three is the count for the sequence columns alone; the protein copy number needs two more, because the reduced genome record carries no protein ids (§12, 2026-09-10 phase 10, amendment C) |
 | Charging rate constant and tRNA pool size | nothing — **asserted by us** | No upstream value exists. `k_chg` is derived from published residue demand and the asserted pool size (D14); both are recorded as asserted, not vendored |
 
 Extracts live under `src/organisms/coreA/data/` with a `README.md` recording the
@@ -2838,6 +2842,11 @@ refreshes itself".
   `resolve_coupling` accepts two counters plus a rate-constant edge on
   `M_atp_c` inbound, and counter-plus-rate-constant-plus-clamp on CTP and UTP.
   None of the five counters deviates from published; both clamps do.
+  **Standalone only.** That resolution is `resolve_coupling([m])`; the CTP and
+  UTP declarations cannot be satisfied by any *composition*, which amendment E
+  records and a test pins. Note also that ATP inbound carries three edges of
+  **two** kinds (two counters, one rate constant) — three *kinds* coexist on CTP
+  and UTP, not on ATP, and the clause above says so loosely.
 - [x] 10.7 Register both promoter-proxy declarations (D5) — verify by
   `reduction_declarations` returning one entry saying it is a proxy and a second
   naming the circularity and the seventeen parameters affected, and by a test
@@ -3421,13 +3430,65 @@ first two bases as `C₁` and `C₂` (`:370-372`), so those bases are per-gene d
 `Project.toml`, so Aqua's stale-dependency check stays green and the generator
 stays Julia. Build tooling, not framework code, so R15 does not bind.
 
+**E — the deferred counters on CTP and UTP debit pools the registry forbids
+anything from owning, so they can never be satisfied. Phase 13 owns it.**
+
+*What happens:* `build_problem([CoreATranscription(), NucleotideRecycling()])`
+throws `ArgumentError: Module CoreATranscription declares a
+DeferredCounterEdge debiting :M_ctp_c, but no ODE module in this composition
+integrates that pool`. The hook's debit path requires an ODE module that
+integrates the pool it debits.
+
+*Why no composition fixes it:* the obvious repair — compose the module that
+owns CTP — cannot exist. `registry.jl` records `M_ctp_c` and `M_utp_c` as
+`:chemostat`, and the resolver refuses any module that integrates a
+chemostatted species: *"Module CtpOwner declares dynamics for :M_ctp_c, which
+the Core A′ registry holds at a fixed concentration"* (measured, with a stub
+owner). So the pool is un-ownable by construction, and a debit that demands an
+owner is unsatisfiable by construction. **The two clamps are right** — a clamp
+is the correct declaration for a chemostatted pool, and the module is careful
+not to clamp ATP or GTP, which recycling really does own. It is the two
+*counters* on CTP and UTP that ask for something the registry rules out.
+
+*Why it went unseen:* task 10.6 verifies through `resolve_coupling([m])`, which
+is the standalone case and passes, and task 10.8 composes two *jump* modules,
+so no hybrid problem is built for this module anywhere in the suite. The phase
+is green on its own acceptance criteria and still cannot be assembled.
+
+*Why it is not fixed here:* the repair belongs in the hook's debit check, which
+must let a chemostatted pool absorb a debit with no owner — a chemostat is
+exactly the thing that can — and §10 R15 freezes framework files against a
+module branch. The module-local alternative is to declare no counter on CTP and
+UTP, but task 10.6 asks for five counters by name and the cost accounting wants
+all four monomers, so that is a change to what the phase delivers rather than a
+fix. **Phase 13 owns it**: it composes all seven modules and asserts every
+declared edge is executed, so it is where this has to be resolved either way.
+Recorded in the shape §12's 2026-09-10 and 2026-09-11 entries use for a
+discovered framework gap — a freed initial condition that is sampled and
+ignored, a `fixed` parameter with no channel into the composed vector — both
+left loud rather than fixed on a module branch.
+
+*Pinned, not merely described:* `test/test_corea_transcription.jl` asserts both
+throws and their messages, so the day the framework learns about chemostatted
+debits, the test fails and points here.
+
+**A second, smaller thing this surfaced.** The five counters name their products
+(`M_adp_c`, `M_pi_c`, `M_ppi_c`) but every edge is declared `direction = :in`.
+The driver credits a pool only through an outbound `DeferredCounterEdge`, so a
+driven run would debit ATP and return no ADP and no phosphate. `counter_drains`
+reports the products, but reporting is not wiring. Same owner, same reason.
+
 **Also recorded, not an amendment:** design D4's `recompute_rate_constants!(m;
 atp, ctp, gtp, utp)` with mutable constants on the struct is superseded by
 phase 4's task 4.1 — the constants live in the composed parameter vector and
 the protocol is `rebuilt_params(m)` plus `rate_constants(p, t, m, pools)`. §11
 phase 10's preamble already records the consequence for task 10.5.
 
-**Sections touched:** §11 (phase 10's Done-when, tasks 10.1 and 10.8), §12
+**Sections touched:** §3 (external comparison 1, whose predicted band amendment B
+falsifies), §5 (the per-gene row's source count, which amendment C raises from
+three to five), §11 (the document Status line, phase 10's Done-when, and tasks
+10.1 to 10.8 — 10.1 and 10.8 in substance, the rest ticked with their evidence),
+§12.
 
 ### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 
