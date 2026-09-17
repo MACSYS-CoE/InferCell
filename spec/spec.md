@@ -2590,28 +2590,28 @@ guanylate are each conserved; removing the adenylate kinase drives ATP below 1%
 of its initial value on the timescale the scoping note computes, and removing the
 pyrophosphatase ~~leaves pyrophosphate unbounded~~ **strands the phosphate
 moiety and stalls the pathway** (amended 2026-09-10; see §12 and task 8.6).
-**PR:** _not started_
+**PR:** _open_
 
 Reference detail at
 `dev/archive/openspec/changes/add-nucleotide-recycling/tasks.md`. Its charging
 drain double is the acceptance criterion and not scaffolding; it gains one task,
 recording its stoichiometry so phase 9 can assert the real module reproduces it.
 
-- [ ] 8.1 Vendor two extracts — the governing nucleotide file and the central
+- [x] 8.1 Vendor two extracts — the governing nucleotide file and the central
   file's rival values for the same identifiers — verify by every one of the 35
   identifiers being held by both, so a truncated rival file fails loudly rather
   than quietly disarming the ambiguity check.
-- [ ] 8.2 Declare a governing file for all five reactions and all eight initial
+- [x] 8.2 Declare a governing file for all five reactions and all eight initial
   conditions (D2) — verify by loading failing when a governing declaration is
   removed, by `governing_choices` returning each value with the file chosen and
   the file rejected, and by the pyrophosphatase constant being the nucleotide
   file's 646.73 and not the central file's 583,611.
-- [ ] 8.3 Implement the five reactions with repeated stoichiometry expanded as the
+- [x] 8.3 Implement the five reactions with repeated stoichiometry expanded as the
   published builder does — verify by the two reactions with a doubled product
   each naming that species twice in the rate law, giving 17 Michaelis constants
   across five reactions rather than 19, and by the pyrophosphatase carried
   reversibly.
-- [ ] 8.4 Set the three new enzyme concentrations, and assert the two shared with
+- [x] 8.4 Set the three new enzyme concentrations, and assert the two shared with
   glycolysis agree — verify by a cross-module test asserting one enzyme is not
   run at two concentrations, since two modules carry a nominal for each of the
   two shared genes. **Not independent of phase 6.** In a fan-out this assertion
@@ -2624,7 +2624,7 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   `corea_particles_per_mM()` = 20,180.39, putting `JCVISYN3A_0606` at 0.020367
   mM in one module and 0.020366 in the other. It is asserted as an equality
   rather than a tolerance for that reason.
-- [ ] 8.5 Declare the boundary: mass edges for species not owned, currency edges
+- [x] 8.5 Declare the boundary: mass edges for species not owned, currency edges
   where this module is the **principal** producer or consumer of a pool it owns.
   The original rule said *sole*, and D13 broke it: charging also produces AMP and
   pyrophosphate, so recycling is no longer the only holder of those crossings —
@@ -2648,7 +2648,7 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   test naming what it waits on. **Annotated 2026-09-11:** phases 6 and 7 have
   landed, so only phase 9 is outstanding and the skip names it alone; the
   three-module version of the assertion passes today.
-- [ ] 8.6 Build the charging drain double and run three full-cycle configurations
+- [x] 8.6 Build the charging drain double and run three full-cycle configurations
   — verify by the all-reactions run conserving both moieties with ATP positive and
   pyrophosphate settling bounded; by the kinase-removed run driving ATP below 1%
   of initial within an order of magnitude of the scoping note's 144 s; and by the
@@ -2659,7 +2659,7 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   never reaches zero. Record both numbers and which model each belongs to.
   **Annotated 2026-09-10:** pyrophosphate *cannot* rise without bound in a model
   whose phosphate is closed, which check 4b says Core A′'s is. Removing the
-  enzyme instead sequesters the moiety — measured, a 129-fold rise holding 74%
+  enzyme instead sequesters the moiety — measured, a 128-fold rise holding 72.9%
   of the phosphate budget — and ATP regeneration then collapses for want of free
   phosphate, so charging stops and the rise flattens. That is a stalled pathway
   and it is the stronger demonstration that the reaction is required, as well as
@@ -2667,7 +2667,7 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   one pyrophosphate per charging event for a whole cycle, which assumes a
   phosphate supply the closed model does not have. Both are recorded with the
   model each belongs to. See §12.
-- [ ] 8.7 Check phosphate closure in both forms — verify by exact invariance with
+- [x] 8.7 Check phosphate closure in both forms — verify by exact invariance with
   the GTP-branch reactions inactive, and by the flux-corrected form with them
   active *subtracting* the inbound flux rather than relaxing the bound.
   **Annotated 2026-09-11:** this task, and task 8.6's two moiety checks, assert
@@ -2683,7 +2683,7 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
   at assembly**, where translation consumes GTP and the proxy fails, so check
   4b's assembled restatement needs a real flux accumulator — task 14.4's, not
   this one's. See §12, 2026-09-11.
-- [ ] 8.8 Record the drain's stoichiometry and rate for phase 9 — verify by the
+- [x] 8.8 Record the drain's stoichiometry and rate for phase 9 — verify by the
   recorded rate being 553.1 per second, derived from 3,484,518 residues over
   6,300 s, and by it being recorded as the *demand* the real module must meet
   rather than as a value phase 9 may calibrate against and then re-check, which
@@ -3270,8 +3270,8 @@ rather than letting pyrophosphate diverge.**
 *Trigger:* phase 8's done-when and task 8.6 both asked for pyrophosphate
 "rising without bound" with the enzyme removed. In a model whose phosphate is a
 closed moiety — which check 4b asserts Core A′'s is — that cannot happen.
-Measured: pyrophosphate rises 129-fold, from 0.1 to 12.9 mM, and ends holding
-74% of the 35.1 mM phosphate budget; free phosphate is then gone, the
+Measured: pyrophosphate rises 128-fold, from 0.1 to 12.7902 mM, and ends holding
+72.9% of the 35.0920 mM phosphate budget; free phosphate is then gone, the
 substrate-level phosphorylation has nothing to work with, ATP falls below 1% of
 its initial value, charging stops for want of ATP, and the rise flattens. The
 scoping note's 173 mM is one pyrophosphate per charging event sustained for a
@@ -3293,7 +3293,7 @@ check 4b), §6 F3 (the slope-zero case now covers the second gate too), §10 R3
 residual is no longer by itself a warning), §11 phase 8's done-when and tasks
 8.6 and 8.7, §12. Tasks 6.7, 7.7 and 14.4 are deliberately **not** touched.
 Approved at implementation time, on the ladder and the per-evaluation
-measurement above, before the checks were rewritten. Landed in PR #52.
+measurement above, before the checks were rewritten. Implemented in PR #52.
 
 ### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 

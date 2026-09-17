@@ -16,17 +16,17 @@ composed, `resolve_coupling` closes every species but `M_trna_c` and
 `M_trna_chg_c` — which is phase 9.
 
 **Measured, not asserted** (`dev/scripts/full_cycle_recycling_result.md`, Slurm
-job 16374741, commit 4b32d96):
+job 16410838, commit f6ad54f):
 
 | What | Measured |
 |---|---|
-| all five reactions, full cycle | adenylate residual **3.49e-13 mM**, guanylate **1.04e-14 mM**, against a single-run integrator bound of 4.17e-8 mM |
-| ATP | never below **3.4916 mM** (initial 3.6529) |
-| pyrophosphate | settles at **0.3706 mM**, moving 4.2e-15 mM over the last ten save points |
+| all five reactions, full cycle | adenylate residual **5.68e-14 mM**, guanylate **7.26e-14 mM**, against single-run integrator bounds of 4.17e-8 and 2.28e-8 mM |
+| ATP | never below **3.491551 mM** (initial 3.6529) |
+| pyrophosphate | settles at **0.369718 mM**, moving 1.72e-15 mM over the last ten save points |
 | adenylate kinase removed | ATP crosses 1% of initial at **t = 141.0 s**, against the **141.2 s** the scoping note's constant-drain arithmetic gives for the same pool |
-| pyrophosphatase removed | pyrophosphate **129-fold** to 12.91 mM, holding **73.6%** of the 35.09 mM phosphate budget; ATP below 1% at t = 460 s |
-| phosphate closure | exact **2.49e-13 mM**; flux-corrected **7.89e-13 mM** against an uncorrected drift of 0.0505 mM |
-| wall-clock | **0.003 s** per 6,300 s trajectory |
+| pyrophosphatase removed | pyrophosphate **128-fold** to 12.7902 mM, holding **72.9%** of the 35.0920 mM phosphate budget; ATP below 1% at t = 460 s |
+| phosphate closure | exact **6.39e-14 mM**; flux-corrected **3.34e-13 mM** against an uncorrected drift of 0.3092 mM |
+| wall-clock | **0.005 s** per 6,300 s trajectory |
 
 **Two amendments, both in spec §12 dated 2026-09-11.**
 
@@ -164,7 +164,11 @@ precompile concurrently and both stall. Submit one at a time.
 
 ### Next steps
 
-1. Phase 8 is **not merged**. The PR awaits `/check-PR` and the user's go-ahead.
+1. Phase 8 is **not merged**. PR #52 has completed `/check-PR`; its eight
+   blocking findings are corrected. The GitHub-hosted checks did not start
+   because the organization exhausted its Actions allowance, while Slurm job
+   16410902 passed 2,265 tests with no failures and one intentional phase-9
+   skip. Merge awaits the recorded CI waiver and the user's explicit go-ahead.
 2. Phase 10 is the remaining independent module phase. Phase 9 depends on this
    one.
 3. **Owed to phase 9:** the charging demand is recorded as 553.1 residues/s,
