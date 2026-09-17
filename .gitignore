@@ -48,8 +48,7 @@ examples/
 dev/talks/*/figures/*.pdf
 PR_REVIEW_*.md
 
-# Python bytecode. dev/scripts/ is python, and spec phase 10 reuses
-# extract_pts_transport.py's proteomics reader by import rather than by
-# shelling out, at which point __pycache__/ appears beside it.
+# Python bytecode. dev/scripts/ and the figure builders under dev/notes/ are
+# python, and an imported module leaves __pycache__/ beside its source.
 __pycache__/
 *.pyc

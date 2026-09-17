@@ -166,8 +166,10 @@ The script needs no third-party package at all: `proteomics.xlsx` is read with
 `zipfile` and `xml.etree.ElementTree` rather than `openpyxl`. That keeps the
 regeneration runnable from a bare Python install, which is the point for anyone
 reproducing this — and it is also what makes it runnable on the cluster's
-compute nodes, which have no network and no `openpyxl` in any environment. Spec phase 10 reuses it — its promoter proxy is the same
-table's copy number over 180.
+compute nodes, which have no network and no `openpyxl` in any environment.
+Spec phase 10 reuses this *table* — its promoter proxy is the same copy number
+over 180 — but not this script: `extract_transcription_genes.jl` is Julia and
+reads the workbook with `XLSX.jl`.
 
 ### Upstream inputs
 
@@ -309,3 +311,108 @@ julia dev/scripts/extract_nucleotide_recycling.jl <path to Minimal_Cell checkout
 Writes both nucleotide-recycling extracts. **Re-running it must leave both files
 byte-identical**; a diff means the upstream checkout is not at `db048ac`, or the
 reshape changed.
+
+---
+
+## `transcription_genes.tsv`
+
+The seventeen genes of spec §11 phase 10: transcript length, the four base
+counts, protein copy number and the measured mean transcript count.
+
+| | |
+|---|---|
+| Upstream files | five — see "Five upstream sources, not three" below |
+| Upstream commit | `db048aca5fe85438e0129819bbf0314b037dd931` |
+| Script | `dev/scripts/extract_transcription_genes.jl` |
+| Consumed by | `src/organisms/coreA/transcription.jl` (spec §11 phase 10) |
+
+This generator runs in the dev-scripts environment (`dev/scripts/Project.toml`),
+which carries `XLSX.jl` so the package's own `Project.toml` does not have to.
+Instantiate it from the login node — compute nodes have no network:
+
+```bash
+julia --project=dev/scripts -e 'using Pkg; Pkg.instantiate()'
+```
+
+**Regenerate:**
+
+```bash
+julia --project=dev/scripts dev/scripts/extract_transcription_genes.jl \
+    <Minimal_Cell checkout> src/organisms/coreA/data/transcription_genes.tsv
+```
+
+or `sbatch dev/scripts/extract_transcription_genes.slurm <checkout>`, which
+also runs the round-trip check.
+
+The script **refuses a checkout at the wrong revision** rather than generating
+against it, as `extract_central_glycolysis.jl` and `extract_pts_transport.py`
+do and for the same reason: only a handful of the values are asserted per-row
+by the suite, so a silent regeneration against another commit would rewrite the
+rest and round-trip cleanly against the wrong source. A checkout that is not a
+git repository is warned about rather than refused, since a tarball is a
+legitimate way to have the files.
+
+It prints the SHA-256 of what it wrote. For the committed file that is
+
+```
+b5957a73f330b393254ec9387eced1e973ce109229894498d49e25d37f7d186e
+```
+
+That hash is what catches a hand-edit the suite cannot see. The tests pin the
+four base-count totals and the per-row sum invariant, which together guard
+every `!Length` and base-count cell, but only five `!PtnCount` values, two
+`!MeanMRNA` values and no `!First2` value are asserted individually — so a
+changed copy number or transcript count elsewhere in the file would otherwise
+show up as nothing but a `git diff`.
+
+**Read directly, not through `load_parameter`.** Each column has exactly one
+upstream source, so there is no cross-file ambiguity for the governing
+machinery to arbitrate (design D8).
+
+### Five upstream sources, not three
+
+`dev/archive/openspec/changes/add-corea-transcription/design.md` D8 names three.
+It is three only for the sequence columns. The protein copy number needs two
+more, because `syn3A.gb` carries no AOE protein ids at all — `grep -c AOE`
+returns 0 against `syn2.gb`'s 454. Recorded as a §12 amendment dated
+2026-09-10.
+
+| Column | Source file | Where it comes from |
+|---|---|---|
+| `!ID` | — | the seventeen loci Core A′ carries (`dev/notes/reduced-syn3a-scoping.md`) |
+| `!Length`, `!A`, `!C`, `!G`, `!U`, `!First2` | `CME_ODE/model_data/syn3A.gb` | the locus's CDS feature, reverse-complemented on the complement strand, transcribed T→U, counted |
+| `!PtnCount` | `FBA/Syn3A_annotation_compilation.xlsx`, `syn2.gb`, `proteomics.xlsx` | the four-step chain below |
+| `!MeanMRNA` | `CME_ODE/model_data/mRNA_counts.csv` | the `Count` column, keyed on `LocusTag` |
+
+The protein-count chain reproduces `MinCell_CMEODE.py:57-110` and `:146-170`:
+
+```
+JCVISYN3A_xxxx  --shared numeric suffix-->        MMSYN1_xxxx
+                --annotation col 6 -> col 14-->   JCVSYN2_xxxxx
+                --syn2.gb CDS /protein_id-->      AOE_xxxxx.x
+                --proteomics "Protein" -> col 22--> copies
+```
+
+then `ptnCount = max(10, round(copies))`, the published floor at
+`MinCell_CMEODE.py:85`. Keying the annotation sheet on the MMSYN1 code is what
+the published model does. Column 22 of the proteomics sheet is `pandas`'
+`iloc[0,21]` under `skiprows=[0]`.
+
+**`!First2` is a column design D8's header omits.** The rate law reads the NTP
+concentrations of the transcript's first two bases as `C₁` and `C₂`
+(`MinCell_CMEODE.py:370-372`, `CMono1`/`CMono2`), so those two bases are
+per-gene data like the counts. Same source as the counts, so it adds no file.
+
+**Complement-strand handling.** 256 of `syn3A.gb`'s 458 CDS features are
+`complement(a..b)` and 202 are `a..b`; no compound (`join`) locations occur, and
+the generator raises rather than mis-extracting if one ever appears.
+
+### What the generator asserts before it writes
+
+- all seventeen loci present in every one of the five sources — a missing one
+  aborts naming the locus and its reaction, since a silently absent gene would
+  surface only as a model with sixteen transcripts;
+- each gene's four base counts sum to its transcript length.
+
+Cross-checks that belong to the test suite rather than the generator are in
+`test/test_corea_transcription.jl` under task 10.1.

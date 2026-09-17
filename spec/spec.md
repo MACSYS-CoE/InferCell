@@ -1,8 +1,9 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
-**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48) and phase 6
-with them (#50); phases 7, 8 and 10 are the rest of the fan-out
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-10
+**Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
+phase 6 (#50), phase 7 (#49), phase 8 (#52) and phase 10 (#51); phase 9 and the
+CME-block phases 11 and 12 are the rest of the fan-out
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-17
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -525,8 +526,12 @@ every other check.
 phenotype.**
 
 1. **Predicted transcript steady states against measured counts.** Predicted
-   0.44–2.87 copies against measured means 0.29–2.18, landing within about 1.5×.
-   This is genuinely out of sample: the parameters come from proteomics, the
+   0.332–2.406 copies against measured means 0.292–2.178, with sixteen of the
+   seventeen within a factor of two and FBA (`JCVISYN3A_0131`) the one outlier.
+   *An earlier draft of this row read 0.44–2.87 "within about 1.5×"; that band
+   was computed from `rnaDegRate`, which the published model defines and never
+   executes — see §12's 2026-09-10 phase 10 entry, amendment B.* This is
+   genuinely out of sample: the parameters come from proteomics, the
    comparison data from transcriptomics. Assert Spearman correlation at least
    0.7 across the 17 genes, and agreement within a factor of two for at least 15
    of 17.
@@ -1249,7 +1254,7 @@ commit `db048ac`. Nothing is fetched at run time.
 | Recycling kinetics and initial conditions | nucleotide balanced SBtab, **and** the central file's rival values for the same identifiers | Two extracts, so the ambiguity is real rather than described |
 | Cascade constants and permeability | transport TSV | Vendored extract with no uncertainty column, so every row loads as asserted |
 | Carrier initial conditions | proteomics counts × proteomics fractions | Vendored, with the derivation recorded |
-| Per-gene sequence data | genome record, proteomics table, measured transcript counts | One extract, three upstream sources, one column each, so no cross-file ambiguity |
+| Per-gene sequence data | genome record, annotation compilation, second genome record, proteomics table, measured transcript counts | One extract, five upstream sources, one column each, so no cross-file ambiguity. Three is the count for the sequence columns alone; the protein copy number needs two more, because the reduced genome record carries no protein ids (§12, 2026-09-10 phase 10, amendment C) |
 | Charging rate constant and tRNA pool size | nothing — **asserted by us** | No upstream value exists. `k_chg` is derived from published residue demand and the asserted pool size (D14); both are recorded as asserted, not vendored |
 
 Extracts live under `src/organisms/coreA/data/` with a `README.md` recording the
@@ -2590,7 +2595,7 @@ guanylate are each conserved; removing the adenylate kinase drives ATP below 1%
 of its initial value on the timescale the scoping note computes, and removing the
 pyrophosphatase ~~leaves pyrophosphate unbounded~~ **strands the phosphate
 moiety and stalls the pathway** (amended 2026-09-10; see §12 and task 8.6).
-**PR:** _open_
+**PR:** #52 (merged 2026-09-17)
 
 Reference detail at
 `dev/archive/openspec/changes/add-nucleotide-recycling/tasks.md`. Its charging
@@ -2759,10 +2764,12 @@ but it depends on phase 8, so the track is not a clean fan-out.
 corrected base mapping, the five cost counters, and rate constants that are
 recomputable but never self-recomputed.
 **Done when:** seventeen transcripts simulate over a full cycle as non-negative
-integers, each gene's time-averaged count is within a factor of two of its
-measured mean, the seventeen rate constants fall in 1.26e-3 to 8.29e-3 per second,
-and the GTP elasticity reproduces 0.0079 to 0.0117 under the corrected mapping.
-**PR:** _not started_
+integers, the time-averaged counts reproduce the measured means to §3's external
+bound — Spearman at least 0.7 across the seventeen and within a factor of two for
+at least fifteen of them — the seventeen rate constants fall in 1.26e-3 to
+8.29e-3 per second, and the GTP elasticity reproduces 0.0079 to 0.0117 under the
+corrected mapping.
+**PR:** #51 (merged 2026-09-17)
 
 Reference detail at
 `dev/archive/openspec/changes/add-corea-transcription/tasks.md`. One amendment:
@@ -2770,44 +2777,118 @@ its assertion that simulating past the declared cadence leaves the constants
 unchanged becomes "phase 4's driver refreshes them, and the module still never
 refreshes itself".
 
-- [ ] 10.1 Vendor the per-gene extract from three upstream sources — verify by
+- [x] 10.1 Vendor the per-gene extract from ~~three~~ **five** upstream sources
+  (see amendment 2026-09-10) — verify by
   seventeen rows whose four base counts sum to the transcript length, by the
   totals matching A 7236, C 2078, G 3094, U 5868, and by the generator failing
   loudly on a missing locus rather than defaulting, since a silently absent gene
-  shows up only as a model with sixteen transcripts.
-- [ ] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
+  shows up only as a model with sixteen transcripts. The extract also carries
+  the transcript's **first two bases**, which the rate law reads as `C₁` and
+  `C₂`, and which the archived `add-corea-transcription` design's D8
+  header omits (that archive's D8, not §4's).
+  **Done:** 17 rows; every gene's four base counts sum to its length; totals
+  A 7236, C 2078, G 3094, U 5868. Four spot rows exact: `JCVISYN3A_0445`
+  (1284; A 521, C 125, G 197, U 441; 266; 0.4403), `JCVISYN3A_0607` (1017;
+  1355; 2.1781), `JCVISYN3A_0779` (2238; 831), `JCVISYN3A_0694` (270; 290).
+  All seventeen copy numbers equal the scoping note's table, derived
+  independently through the five-file chain. Two runs produced identical bit
+  patterns. Removing `JCVISYN3A_0694` from `mRNA_counts.csv` aborts with
+  "locus JCVISYN3A_0694 (ptsH) is absent from mRNA_counts.csv" rather than
+  writing sixteen rows.
+- [x] 10.2 Implement the seventeen reactions, genes carried as fixed quantities
   rather than states — verify by the state count being 17 transcripts plus 5
   counters, by none being a registry species, and by a recorded note that adding
   replication later must promote the genes to states.
-- [ ] 10.3 Implement the rate constant with the corrected base mapping as default
+  **Done:** `length(states(m)) == 22`, `!any(is_registered, states(m))`, 17
+  reactions. Firing GAPD's raises its transcript by one and no other, `ATP_trsc`
+  by 1017, and each monomer counter by that gene's base count; the propensity is
+  the rate constant at any state and any time, which is zeroth order made
+  assertable.
+- [x] 10.3 Implement the rate constant with the corrected base mapping as default
   and the published permutation behind a keyword (D4) — verify by the correction
   appearing in `reduction_notes` while the published mapping does not, by the
   turnover cap never binding (the largest is 8.85 against a ceiling of 180), and
   by both mappings computable so the difference is one argument away.
-- [ ] 10.4 Take all four nucleotide concentrations from balanced tables, never the
+  **Done:** the seventeen constants span **1.2579e-3 to 8.2909e-3** per second.
+  Largest promoter-scaled turnover is GAPD's **8.8516** nt/s against the ceiling
+  of 180, reported by `turnover_headroom` rather than assumed. Under
+  `:corrected` one more cytosine costs more than one more guanine, and under
+  `:published` the reverse — the permutation made observable rather than
+  asserted. `reduction_notes` carries the correction; the published mapping
+  does not appear there.
+- [x] 10.4 Take all four nucleotide concentrations from balanced tables, never the
   first-minute setup constants — verify by the four values and their widths
   matching the balanced files, and by a recorded note that the nucleotide file
   repeats two of the setup constants, which makes the wrong choice look
   corroborated.
-- [ ] 10.5 Expose one recomputation entry point and confirm the module never calls
+  **Done:** ATP 3.6529/1.2825 central, GTP 1.6627/1.5684, CTP 0.6874/2.0574,
+  UTP 2.7681/1.3664 nucleotide, each reporting its file and `:balanced`. None
+  equals its setup constant (1.04, 0.34, 0.68, 0.68). ATP and GTP agree with the
+  registry; CTP and UTP have no registry value, which is why this module carries
+  theirs.
+- [x] 10.5 Expose one recomputation entry point and confirm the module never calls
   it — verify by simulating past the declared cadence with the constants
   unchanged, and by phase 4's driver changing them when it is present.
-- [ ] 10.6 Declare the five deferred counters and the two clamped nucleotide pools
+  **Done:** `rate_constants` reproduces the module's own law to 1e-12 at the
+  declared pools and returns 17 values. Scaling all seventeen `k_tx` slots by
+  1000 changes nothing it returns, so the law cannot compound its own previous
+  value; doubling one promoter strength doubles exactly that gene's constant and
+  leaves the other sixteen bitwise unchanged.
+- [x] 10.6 Declare the five deferred counters and the two clamped nucleotide pools
   with origin ours — verify by the counter table matching what each drains into,
   by all five taking the published clamped policy so none is a labelled
-  deviation, and by three kinds coexisting on ATP inbound as the contract requires.
-- [ ] 10.7 Register both promoter-proxy declarations (D5) — verify by
+  deviation, and by three kinds coexisting on ~~ATP~~ **CTP and UTP** inbound as
+  the contract requires (ATP carries three edges of two kinds; see the
+  2026-09-10 amendment).
+  **Done:** exactly 11 edges — 4 rate-constant at 60 s, 5 deferred counters, 2
+  clamped at `:ours` holding 0.6874 and 2.7681. `inputs(m)` is empty.
+  `resolve_coupling` accepts two counters plus a rate-constant edge on
+  `M_atp_c` inbound, and counter-plus-rate-constant-plus-clamp on CTP and UTP.
+  None of the five counters deviates from published; both clamps do.
+  **Standalone only.** That resolution is `resolve_coupling([m])`; the CTP and
+  UTP declarations cannot be satisfied by any *composition*, which amendment E
+  records and a test pins.
+- [x] 10.7 Register both promoter-proxy declarations (D5) — verify by
   `reduction_declarations` returning one entry saying it is a proxy and a second
   naming the circularity and the seventeen parameters affected, and by a test
   asserting this module's copy numbers agree with the metabolic modules', since
   one number has three consumers. **That cross-check is not independent of
   phases 6 and 7.** In a fan-out it belongs to whichever pull request lands
   later; carry it here as a skipped test naming them.
-- [ ] 10.8 Simulate a full cycle and report the elasticities — verify by
-  non-negative integer counts throughout, by each gene's mean within a factor of
-  two of measured, by the elasticity to all four pools falling in 0.044 to 0.051,
-  and by the GTP-alone elasticity being reported under both mappings so the 1.9×
-  effect is measured rather than argued.
+  **Done:** two declarations, the proxy and the circularity, the second naming
+  all seventeen `k_tx_*`. Values match to three decimals — PGI 1.478, GAPD
+  7.528, ptsG 4.617, GK1 1.033 — and GAPD/PGI equals 1355/266 exactly. The
+  cross-check against the metabolic modules is carried as a skipped test naming
+  phases 6 and 7, not stubbed.
+- [x] 10.8 Simulate a full cycle **against a transcript-decay double** and report
+  the elasticities — verify by
+  non-negative integer counts throughout, by the time-averaged counts meeting
+  §3's external bound (Spearman ≥ 0.7, and within a factor of two for at least
+  fifteen of seventeen), by the elasticity to all four pools falling in 0.044 to
+  0.051, and by the GTP-alone elasticity being reported under both mappings so
+  the 1.9× effect is measured rather than argued. **The double is the acceptance
+  criterion, not scaffolding** — without a consumer the transcripts only
+  accumulate and every average is an order of magnitude high, so the check would
+  be vacuous. It uses the published per-gene law, derivable from the extract's
+  own length column; phase 12 supersedes it for composed runs and keeps it for
+  standalone ones. See amendment 2026-09-10.
+  **Done:** eight replicates over a 6,300 s cycle against the decay double.
+  Counts non-negative integers throughout and the five counters monotone, since
+  nothing debits them without a driver. Spearman **0.8701** against the measured
+  means and **16 of 17** within a factor of two — FBA the outlier at **3.67×** on
+  the simulated time averages (the deterministic `k_g / k_deg` band below puts
+  it at 3.96×; both are reported, neither is the other), for the reason
+  amendment 2026-09-10 B records. Elasticity to all four pools
+  **0.043742 to 0.050579** against 0.044 to 0.051; GTP alone **0.0078915 to
+  0.0117062** corrected against 0.0079 to 0.0117, and **0.015617 to 0.019536**
+  published against 0.0156 to 0.0196. Per-gene ratio of the two spans 1.53 to
+  2.45, median **1.85** — D4 states the effect as a flat 1.9×, where it is in
+  fact the per-gene U-to-G count ratio and 1.85 is its median. Suite: job
+  16614893 on the rebased tree, **2513 passed, 0 failed, 2 broken**, 4m40.4s
+  (2265 before the phase, which is phase 8's recorded count on this tree; the two
+  broken are the repo's only two `@test_skip`s — phase 8's and task 10.7's).
+  The pre-rebase figure of 1708/1708 against a 1468 base belongs to job
+  16373862 and to a tree without phases 6, 7 and 8.
 
 ### Phase 11 — Translation
 
@@ -3294,6 +3375,133 @@ residual is no longer by itself a warning), §11 phase 8's done-when and tasks
 8.6 and 8.7, §12. Tasks 6.7, 7.7 and 14.4 are deliberately **not** touched.
 Approved at implementation time, on the ladder and the per-evaluation
 measurement above, before the checks were rewritten. Implemented in PR #52.
+
+### 2026-09-10 — what phase 10 needed that the spec did not name: a decay double, two more upstream files, and a predicted band computed from a constant the model never uses
+
+**Trigger:** implementing phase 10. Three of its clauses could not be executed
+as written, and one of design D9's numbers turned out to rest on dead code.
+
+**Change:**
+
+**A — task 10.8 gains a transcript-decay double, and it is an acceptance
+criterion.** Phase 10 owns transcription; phase 12 owns decay. With no consumer
+the transcript counts only accumulate, so each gene's time-averaged count over a
+6,300 s cycle lands about an order of magnitude above its measured mean and the
+calibration check is vacuous rather than weak. The double runs the published
+per-gene law, `(18/452)·88 / n_g` (`MinCell_CMEODE.py:444-460`), which is
+derivable from the extract's own length column and introduces no upstream data
+the phase did not already vendor. This is the shape phases 8 and 9 already use —
+8.6's charging drain double and 9.5's translation-demand double are both
+acceptance criteria and say so. Phase 12 supersedes it for composed runs and
+keeps it for standalone ones. It also exercises the 2026-09-04 amendment from
+the consumer's side: a transcript is not a registry species, so the write is
+gated by `written_states` alone.
+
+**B — the Done-when's "each gene" becomes §3's "at least fifteen of
+seventeen", because D9's predicted band came from a constant that never
+runs.** The archived `add-corea-transcription` design's D9 — the archive's, not §4's — states
+predicted steady states of 0.44 to 2.87 copies.
+Those are `k_g / rnaDegRate` at `rnaDegRate = 0.00578/2`, which
+`MinCell_CMEODE.py` defines at line 295 **and never uses** — it appears on its
+own definition line and nowhere else, in that file or in `MinCell_restart.py`.
+The reaction the model actually adds is `DegradationRate(rnaMetID,
+rnasequence)` (line 444, added at line 729), which is per-gene: one catalytic
+constant over transcript length. At the law that runs, predicted counts span
+**0.332 to 2.406** against measured **0.292 to 2.178**, and **sixteen of
+seventeen** genes agree within a factor of two.
+
+The outlier is **FBA, `JCVISYN3A_0131`** — 3.96× on that deterministic band,
+and 3.67× on the simulated eight-replicate time averages the suite reports.
+The two are different estimators of the same disagreement, not one number. It is not an extract error:
+its 775 copies match the scoping note's own table and its measured 0.3469
+matches `mRNA_counts.csv` line 110. FBA is abundant protein with a rare
+transcript, which is a property of the two measurements and exactly the kind of
+disagreement an out-of-sample check exists to expose. §3's external-validation
+row already states the right bound — Spearman ≥ 0.7 and a factor of two for at
+least fifteen of seventeen — so the phase Done-when is brought into line with it
+rather than the other way round. Measured: Spearman **0.8701** over eight
+replicates, **16/17** within a factor of two.
+
+This is the same class of trap as D2's cross-file ambiguity and D3's
+first-minute setup constants: a number that looks corroborated because it is
+written down, and is not what executes.
+
+**C — the extract takes five upstream files and carries a column D8 omits.**
+The archived `add-corea-transcription` design's D8 names three sources. Transcript length and the four base counts do
+come from `syn3A.gb` alone, but the protein copy number does not: that record
+carries **no AOE protein ids at all** (`grep -c AOE` returns 0, against
+`syn2.gb`'s 454). The copy number runs
+`JCVISYN3A_xxxx` → `MMSYN1_xxxx` → `FBA/Syn3A_annotation_compilation.xlsx` →
+`JCVSYN2_xxxxx` → `syn2.gb` `/protein_id` → `proteomics.xlsx`, which is the
+chain `MinCell_CMEODE.py:57-110` and `:146-170` use. The extract also gains a
+`!First2` column: the rate law reads the NTP concentrations of the transcript's
+first two bases as `C₁` and `C₂` (`:370-372`), so those bases are per-gene data.
+
+**D — a `dev/scripts/Project.toml`.** Reading two `.xlsx` files needs
+`XLSX.jl`. It lives in a dev-scripts environment rather than the package's own
+`Project.toml`, so Aqua's stale-dependency check stays green and the generator
+stays Julia. Build tooling, not framework code, so R15 does not bind.
+
+**E — the deferred counters on CTP and UTP debit pools the registry forbids
+anything from owning, so they can never be satisfied. Phase 13 owns it.**
+
+*What happens:* `build_problem([CoreATranscription(), NucleotideRecycling()])`
+throws `ArgumentError: Module CoreATranscription declares a
+DeferredCounterEdge debiting :M_ctp_c, but no ODE module in this composition
+integrates that pool`. The hook's debit path requires an ODE module that
+integrates the pool it debits.
+
+*Why no composition fixes it:* the obvious repair — compose the module that
+owns CTP — cannot exist. `registry.jl` records `M_ctp_c` and `M_utp_c` as
+`:chemostat`, and the resolver refuses any module that integrates a
+chemostatted species: *"Module CtpOwner declares dynamics for :M_ctp_c, which
+the Core A′ registry holds at a fixed concentration"* (measured, with a stub
+owner). So the pool is un-ownable by construction, and a debit that demands an
+owner is unsatisfiable by construction. **The two clamps are right** — a clamp
+is the correct declaration for a chemostatted pool, and the module is careful
+not to clamp ATP or GTP, which recycling really does own. It is the two
+*counters* on CTP and UTP that ask for something the registry rules out.
+
+*Why it went unseen:* task 10.6 verifies through `resolve_coupling([m])`, which
+is the standalone case and passes, and task 10.8 composes two *jump* modules,
+so no hybrid problem is built for this module anywhere in the suite. The phase
+is green on its own acceptance criteria and still cannot be assembled.
+
+*Why it is not fixed here:* the repair belongs in the hook's debit check, which
+must let a chemostatted pool absorb a debit with no owner — a chemostat is
+exactly the thing that can — and §10 R15 freezes framework files against a
+module branch. The module-local alternative is to declare no counter on CTP and
+UTP, but task 10.6 asks for five counters by name and the cost accounting wants
+all four monomers, so that is a change to what the phase delivers rather than a
+fix. **Phase 13 owns it**: it composes all seven modules and asserts every
+declared edge is executed, so it is where this has to be resolved either way.
+Recorded in the shape §12's 2026-09-10 and 2026-09-11 entries use for a
+discovered framework gap — a freed initial condition that is sampled and
+ignored, a `fixed` parameter with no channel into the composed vector — both
+left loud rather than fixed on a module branch.
+
+*Pinned, not merely described:* `test/test_corea_transcription.jl` asserts both
+throws and their messages, so the day the framework learns about chemostatted
+debits, the test fails and points here.
+
+**A second, smaller thing this surfaced.** The five counters name their products
+(`M_adp_c`, `M_pi_c`, `M_ppi_c`) but every edge is declared `direction = :in`.
+The driver credits a pool only through an outbound `DeferredCounterEdge`, so a
+driven run would debit ATP and return no ADP and no phosphate. `counter_drains`
+reports the products, but reporting is not wiring. Same owner, same reason.
+
+**Also recorded, not an amendment:** the archived `add-corea-transcription` design's D4 — again the archive's, since
+§4's D4 is the base mapping — `recompute_rate_constants!(m;
+atp, ctp, gtp, utp)` with mutable constants on the struct is superseded by
+phase 4's task 4.1 — the constants live in the composed parameter vector and
+the protocol is `rebuilt_params(m)` plus `rate_constants(p, t, m, pools)`. §11
+phase 10's preamble already records the consequence for task 10.5.
+
+**Sections touched:** §3 (external comparison 1, whose predicted band amendment B
+falsifies), §5 (the per-gene row's source count, which amendment C raises from
+three to five), §11 (the document Status line, phase 10's Done-when, and tasks
+10.1 to 10.8 — 10.1 and 10.8 in substance, the rest ticked with their evidence),
+§12.
 
 ### 2026-09-10 — an exactly conserved moiety cannot satisfy the tolerance principle, and the exception is fenced by a bitwise criterion
 
