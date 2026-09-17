@@ -1,8 +1,8 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
-phase 6 (#50), phase 7 (#49) and phase 8 (#52); phase 10 is open as #51 and is
-the rest of the fan-out
+phase 6 (#50), phase 7 (#49), phase 8 (#52) and phase 10 (#51); phase 9 and the
+CME-block phases 11 and 12 are the rest of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-17
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -2769,7 +2769,7 @@ bound — Spearman at least 0.7 across the seventeen and within a factor of two 
 at least fifteen of them — the seventeen rate constants fall in 1.26e-3 to
 8.29e-3 per second, and the GTP elasticity reproduces 0.0079 to 0.0117 under the
 corrected mapping.
-**PR:** _open_
+**PR:** #51 (merged 2026-09-17)
 
 Reference detail at
 `dev/archive/openspec/changes/add-corea-transcription/tasks.md`. One amendment:
