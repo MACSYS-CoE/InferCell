@@ -9,17 +9,22 @@ using Aqua
         # SciML / Turing types produces many false positives. Re-enable
         # after an audit (tracked as a follow-up to issue #14).
         #
-        # `persistent_tasks` builds a fresh package depending on InferCell and
-        # resolves it from Project.toml alone, which needs the registry. Cluster
-        # compute nodes have no network, so it cannot run there — set
-        # INFERCELL_OFFLINE_TESTS=true to skip it. It stays on by default, so CI
-        # still runs it.
-        offline = get(ENV, "INFERCELL_OFFLINE_TESTS", "false") == "true"
+        # `persistent_tasks` is off, and not because it fails — it *throws*
+        # before it can run. Aqua walks the manifest to locate each dependency's
+        # directory and errors with `Unable to locate MathOptInterface, a
+        # dependency of Optim`, because MathOptInterface is a weak dependency
+        # behind an Optim extension and is not installed unless its trigger
+        # loads. That is a limitation of Aqua's manifest walker (seen on 0.8.17),
+        # not a property of InferCell: the check never gets far enough to look
+        # for a task. It went unnoticed while the exhausted Actions quota kept CI
+        # from running at all, and surfaced on 2026-09-18 when the repo went
+        # public. Worth retrying on a newer Aqua — a green suite should mean the
+        # suite passed, not that one check errors every time.
         Aqua.test_all(
             InferCell;
             ambiguities = false,
             piracies = false,
-            persistent_tasks = !offline,
+            persistent_tasks = false,
         )
     end
 
