@@ -1,6 +1,7 @@
 # Handoff
 
-**Session date:** 2026-09-10
+**Session date:** 2026-09-17 (phase 10 written 2026-09-10, rebased and
+reviewed 2026-09-17)
 **Branch:** `phase-10-transcription`
 
 ## Latest: phase 10, transcription (2026-09-10)
@@ -88,15 +89,18 @@ Correcting the base mapping roughly halves the GTP half of it — 0.0079 to
 argued.
 
 **Also worth knowing.** Task 10.7's cross-check against the metabolic modules'
-copy numbers is a skipped test naming phases 6 and 7 — the first `@test_skip`
-in the repo, so it sets that convention too. And the first full-suite run
+copy numbers is a skipped test naming phases 6 and 7 — the second `@test_skip`
+in the repo, after phase 8's in `test_corea_nucleotide_recycling.jl`. And the first full-suite run
 returned one failure in `test_bursty_gene_expression.jl:50`, an unseeded
 500-sample Monte Carlo test whose 0.05 threshold sits at 2.48σ and so fails
 about 1.3% of runs on any branch; the rerun was clean. It is pre-existing and
 untouched, and it will keep doing this until someone seeds it.
 
-**Suite.** Job 16373862, **1708 passed, 0 failed, 1 skipped** in 2m11.9s; 1468
-before the phase. Both progress figures rebuilt, with phase 10 parsed at 8/8.
+**Suite.** Job 16614893 on the rebased tree, **2513 passed, 0 failed, 2
+broken** in 4m40.4s, against 2265 before the phase. The pre-rebase run — job
+16373862, 1708/1708 against a 1468 base — was measured on a tree without
+phases 6, 7 and 8 and does not describe what merges. Both progress figures
+rebuilt, with phase 10 parsed at 8/8 and phase 8 now reading as merged.
 
 **Next.** Phases 6, 7 and 8 — the ODE-track fan-out this branch ran beside —
 have since landed (#50, #49, #52), and this branch is rebased onto them; phase 9
