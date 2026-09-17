@@ -1,9 +1,191 @@
 # Handoff
 
-**Session date:** 2026-09-10
-**Branch:** `phase-7-pts-transport`
+**Session date:** 2026-09-11
+**Branch:** `phase-8-nucleotide-recycling`
 
-## Latest: phase 7, phosphotransferase transport and lactate export (2026-09-10)
+## Latest: phase 8, nucleotide recycling (2026-09-11)
+
+**The third Core A′ module, and the one that closes the energy moieties.** Five
+reactions — PGK3 and PYK3, which make GTP a live product of glycolysis, and
+ADK1, PPA and GK1, which close a moiety — owning the eight pools every other
+module routes energy through. Phases 6 (#50) and 7 (#49) landed while this was
+in flight and it was rebased onto them, so it inherits the vendored-extract
+layout under `src/organisms/coreA/data/`, the conservation-check conventions and
+the mutation-test pattern rather than creating them. With phases 6, 7 and 8
+composed, `resolve_coupling` closes every species but `M_trna_c` and
+`M_trna_chg_c` — which is phase 9.
+
+**Measured, not asserted** (`dev/scripts/full_cycle_recycling_result.md`, Slurm
+job 16410838, commit f6ad54f):
+
+| What | Measured |
+|---|---|
+| all five reactions, full cycle | adenylate residual **5.68e-14 mM**, guanylate **7.26e-14 mM**, against single-run integrator bounds of 4.17e-8 and 2.28e-8 mM |
+| ATP | never below **3.491551 mM** (initial 3.6529) |
+| pyrophosphate | settles at **0.369718 mM**, moving 1.72e-15 mM over the last ten save points |
+| adenylate kinase removed | ATP crosses 1% of initial at **t = 141.0 s**, against the **141.2 s** the scoping note's constant-drain arithmetic gives for the same pool |
+| pyrophosphatase removed | pyrophosphate **128-fold** to 12.7902 mM, holding **72.9%** of the 35.0920 mM phosphate budget; ATP below 1% at t = 460 s |
+| phosphate closure | exact **6.39e-14 mM**; flux-corrected **3.34e-13 mM** against an uncorrected drift of 0.3092 mM |
+| wall-clock | **0.005 s** per 6,300 s trajectory |
+
+**Two amendments, both in spec §12 dated 2026-09-11.**
+
+1. **§3's exact-conservation exception gains a second gate.** §3 asked every
+   conservation residual to fall fivefold when tolerances tighten tenfold. Over
+   a nine-rung ladder spanning nine decades, adenylate wanders between 128 and
+   1,119 ulps of its sum with no trend while the evaluation count grows 36-fold.
+   It neither falls nor accumulates. But phase 6's exception, landed the day
+   before, is gated on the composed right-hand side returning `sum(nᵢ·duᵢ) ===
+   0.0` **bitwise**, and this composition does not — adenylate is bitwise zero
+   at only 68–80 of 200 sampled states, because the terms arrive from three
+   modules and do not cancel bitwise even though `nᵀf ≡ 0` exactly. So the
+   exception gets a *second* gate rather than an override: `|Σ nᵢ·duᵢ| ≤ 1 ulp
+   of the conserved sum` per evaluation — measured 1.000, 0.125 and 0.115
+   against a mutated 1.7e16 — then the ≥6-decade ladder, bounded by each rung's
+   own `tol_C` rather than a flat ulp count. **Nothing inherits it
+   retroactively**: phases 6 and 7 already assert the first gate, and phase 14
+   keeps the particle restatement phase 6 assigned it.
+
+   *A first draft of this amendment was wrong and is worth remembering.* It
+   claimed the fivefold rule binds only where the trajectory is restarted, and
+   exempted all three moieties by argument. That reinstated a carve-out phase 7
+   had already withdrawn on rebase, and the conclusion did not follow from the
+   premise: if the solver preserves a linear invariant exactly, it does so after
+   a restart too, so the assembled residual is set by integer rounding — half a
+   particle is ~2.5e-5 mM, eight orders above the round-off floor — and does not
+   scale with tolerance either. It would have handed task 14.4 an unpassable
+   rule.
+2. **Removing the pyrophosphatase strands the phosphate moiety; it does not make
+   pyrophosphate diverge, and in a closed model it cannot.** The scoping note's
+   173 mM is one pyrophosphate per charging event for a whole cycle — open-pool
+   arithmetic assuming a phosphate supply Core A′ does not have, since check 4b
+   says its phosphate is closed.
+
+**Eleven edges, not the archived design's nine, and the reason is the rate law.**
+The published PGK3 and PYK3 laws are reversible and read `M_3pg_c` and
+`M_pyr_c` twice over — once in the reverse numerator, once in the denominator's
+product bracket. An ODE module reaches a foreign state only through `inputs()`,
+and `src/resolver.jl:224` holds every registry input to an *inbound* edge, with
+the `written_states` escape reserved for jump modules. So a declaration carrying
+those two outbound only cannot evaluate its own rate law. Each product now
+carries a mass edge in both directions — phase 1's rule of one edge per
+(species, direction) that actually occurs, and a true statement about a
+reversible reaction — while `contributed_states` still names each once and
+returns the net signed rate. Annotated in place on task 8.5, **not** a §12
+amendment: the spec's own rule fixes no direction.
+
+**A trap worth carrying: the framework omits fixed parameters from the parameter
+vector entirely.** `_build_p0` and `SubModelContext.param_idxs` both come from
+`model_free_params`, so a `fixed = true` constant is not in `p` and cannot be
+read from it, and freeing one shifts every index after it. The archived design's
+"fixed by default with a `free` keyword" is therefore not implementable as a
+plain positional read. This module holds every kinetic constant on the struct
+and carries a `pidx` mapping each to its slot in its *own* free list, zero where
+it is held; `free = [...]` flips both together. **Phase 6 hit the same wall and
+solved it the same way** — `central_glycolysis.jl` carries the identical
+`pidx`-into-its-own-free-list pattern — so this is a shared convention rather
+than a finding ahead of that phase.
+
+**The five enzyme concentrations are the module's only asserted priors**, and
+calling them anything else would be a friendlier label than the source supports:
+the proteomics table states a copy number and no width, so the value is the
+published model's and the prior is ours. §4 D7 counts thirteen asserted priors
+across Core A′ — eleven transport constants plus `k_chg` and the tRNA pool —
+and enzyme concentrations are not among them. **Every metabolic module that sets
+a concentration from a copy number adds more, so spec task 13.6's count is owed
+a reconciliation at assembly.**
+
+**The double did not hold its pools, and that changed what the run showed.**
+`dynamics` returned a zero derivative for the four glycolytic species, which is
+not the same as holding them: `NucleotideRecycling` names all four in
+`contributed_states`, and `_accumulate` folds a contribution into the *owner's*
+`du`. So the pools moved at exactly ±v_PGK3 and ±v_PYK3 — 13DPG below 1% of
+initial at **t = 0.5 s**, PEP at **t = 18.5 s** — and the GTP branch died of
+substrate starvation inside the first save interval of the run whose stated
+purpose is to show that PGK3 and PYK3 make GTP a live product of glycolysis.
+The result file's explanation of its own inbound-flux number was wrong in the
+same way: it said the 0.0505 mM crossing "is bounded because guanylate is",
+while GDP ended at 79% of its initial value.
+
+Each pool now relaxes to its registry setpoint at `k_gly` — the four lumped
+reactions phase 6 supplies: GAPD makes 13DPG, PGM and ENO carry 3PG to PEP, LDH
+drains pyruvate. None is in the tracked phosphate sum, so nothing enters the
+closed moiety. **What bounds the branch is now guanylate, which is the honest
+limit**: nothing in Core A′ consumes GTP until phase 9's translation, so PGK3
+and PYK3 run until GDP is spent and the crossing is GDP₀ + GMP₀ = 0.3098 mM.
+The suite asserts the pools stay within 1% of setpoint, which nothing did
+before.
+
+**What the doubles do, and one thing a first version got wrong.**
+`HeldGlycolytic` owns the four glycolytic species the GTP branch reads and
+rephosphorylates ADP as `ADP + Pi -> ATP`. The phosphorylation is not
+decoration: nothing in this module produces ATP — the adenylate kinase returns
+AMP *at the cost of an ATP* — so without a source ATP falls to zero in about
+130 s in every configuration, and the kinase-removed crossing would then be
+dominated by ATP draining into ADP rather than by adenylate stranding as AMP,
+which is the mechanism the note's 144 s describes. An earlier version took the
+phosphate from the 13DPG pool, as the published PGK does; but 13DPG does not
+come from glycolysis here, so 345 mM of phosphate entered a closed moiety,
+free phosphate climbed without bound, and pyrophosphate rode up to 51 mM instead
+of settling at 0.371 mM. Glycolysis from G3P is `G3P + Pi + ADP -> 3PG + ATP`
+once GAPD and PGK are composed, so the stand-in takes it from the free pool.
+
+**One skipped test, naming what it waits on**: the four-module
+mass-versus-currency agreement needs phase 9, which has not started. The other
+skip is gone — one enzyme at one concentration across modules waited on phase 6,
+phase 6 landed first, and the spec's fan-out rule makes the assertion this pull
+request's. It is written, and it was worth writing: it failed on the first
+attempt, because this module divided copy numbers by a transcribed 20180 where
+`central_glycolysis.jl` divides by `corea_particles_per_mM()` = 20,180.39, so
+`JCVISYN3A_0606` ran at 0.020367 mM in one module and 0.020366 in the other.
+Both now derive the factor.
+
+**Suite:** 2265 passed, 0 failed, 1 broken (the one remaining skip), 2266 total
+(job 16410902, HEAD `68ce588`, clean tree); **2023 before the phase**, which is
+phase 7's recorded count on the rebased tree. Earlier phase-8 figures of
+1684/1686 against a 1468 base were measured on the pre-rebase tree — job
+16374108's own header says `HEAD: 57b4e5e (tree dirty)` — and that commit is not
+an ancestor of this branch. The two full-cycle testsets add tens of seconds,
+almost all of it Rodas5P specialising on two new problem types — the horizon
+itself is free at 3 ms a trajectory, which is why the suite asserts the
+done-when at the horizon the done-when names rather than a shortened one.
+
+**GitHub Actions is blocked on billing, not on this branch.** Every workflow
+job since ~09:10 fails in three seconds with zero steps run and the annotation
+"The job was not started because recent account payments have failed or your
+spending limit needs to be increased." CI passed normally earlier the same day.
+Until that is settled the Slurm suite is the only test signal, so quote the job
+number rather than a green tick.
+
+**A cluster fact that cost half an hour.** Precompilation caches are keyed on
+CPU target and every Slurm job lands on a different node, so a cold node costs
+15 to 25 minutes before a single line runs. Two jobs submitted together
+precompile concurrently and both stall. Submit one at a time.
+
+### Next steps
+
+1. Phase 8 is **not merged**. PR #52 has completed `/check-PR`; its eight
+   blocking findings are corrected. The GitHub-hosted checks did not start
+   because the organization exhausted its Actions allowance, while Slurm job
+   16410902 passed 2,265 tests with no failures and one intentional phase-9
+   skip. Merge awaits the recorded CI waiver and the user's explicit go-ahead.
+2. Phase 10 is the remaining independent module phase. Phase 9 depends on this
+   one.
+3. **Owed to phase 9:** the charging demand is recorded as 553.1 residues/s,
+   derived from 3,484,518 residues over 6,300 s, as the *demand* the real module
+   must meet — never a value to calibrate `k_chg` against and then re-check,
+   which would verify arithmetic (§4 D14). A test asserts the production module
+   contains no such constant, so the anti-circularity guard is mechanical rather
+   than a note. Phase 8's drain double is superseded for composed runs once
+   phase 9 lands and kept only for standalone ones.
+4. When writing any Core A′ module: everything in phases 3, 4 and 5's lists
+   still holds, plus — a fixed parameter is not in the parameter vector, so hold
+   it on the struct; declare an edge per (species, direction) that actually
+   occurs, which for a reversible reaction on a foreign pool is both; and a
+   standalone linear invariant is preserved exactly, so its evidence is the
+   mutation test rather than a tolerance sweep.
+
+## Previous: phase 7, phosphotransferase transport and lactate export (2026-09-10)
 
 **The second Core A′ module, and the first with a stochastic-block neighbour.**
 Phase 6 (central glycolysis, #50) landed first and this branch was rebased onto

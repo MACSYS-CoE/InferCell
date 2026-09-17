@@ -39,6 +39,9 @@ include("handshake.jl")
 # defaults a constructor argument to COREA_INITIAL_RADIUS_NM.
 include("organisms/coreA/central_glycolysis.jl")
 include("organisms/coreA/pts_transport.jl")
+# NucleotideRecycling reads COREA_DATA_DIR, which pts_transport.jl defines, so
+# it is included after it rather than beside the models below.
+include("organisms/coreA/nucleotide_recycling.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
