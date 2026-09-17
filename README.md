@@ -69,6 +69,22 @@ Inference is the design discipline; the following fall out as named framework ou
 
 A working hybrid continuous-discrete model of a minimal biological subsystem that runs forward simulations and does Bayesian parameter inference end-to-end in pure Julia. Gradients flow where components are smooth, likelihoods where available, simulation-based methods everywhere else. Validated by calibration against synthetic or experimental data.
 
+## Licence
+
+InferCell's own source, tests and documentation are released under the MIT
+licence — see [`LICENSE`](LICENSE).
+
+**That covers this project's code, not the parameter values it imports.** The
+extracts under `src/organisms/coreA/data/` are derived from
+[`Luthey-Schulten-Lab/Minimal_Cell`](https://github.com/Luthey-Schulten-Lab/Minimal_Cell),
+which is public but carries no licence of its own and therefore grants no
+redistribution rights. They are reshaped tables of published scientific
+parameter values, retained here so the model is reproducible without network
+access; `src/organisms/coreA/data/README.md` records the upstream file, commit
+and regeneration command for each. If you intend to redistribute them, or to
+build on them commercially, take that up with the upstream authors rather than
+relying on the licence above.
+
 ## References
 
 ### Whole-cell modelling

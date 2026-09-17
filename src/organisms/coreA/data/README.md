@@ -13,6 +13,13 @@ the triple `(QuantityType, Reaction id, Compound id)`; `src/loader.jl` is
 framework and is not amended on a module branch (spec §10 R15). So the reshape
 happens here, before the loader sees the file.
 
+**Licensing.** These are derived from an upstream repository that carries no
+licence, so it grants no redistribution rights. They are kept here because the
+model must be reproducible on compute nodes with no network, and each one
+records exactly where it came from. InferCell's MIT licence covers this
+project's code, not these values. Redistribution or commercial use is a
+question for the upstream authors.
+
 **Every extract must round-trip.** Re-running the command below over an
 unchanged checkout reproduces the file byte for byte. That is what keeps the
 regeneration script honest: if it did not, the vendored file and the script
