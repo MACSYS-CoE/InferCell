@@ -76,26 +76,37 @@ re-enable after an audit.
 Coverage is reported on every CI run (job summary line and `lcov.info`
 artifact) but is **not** gated — there is no minimum coverage threshold.
 
-### What runs *off* the PR path
+### The integration suite is parked
 
-The expensive Bayesian integration tests (NUTS / ABC-SMC, gated by
-`INFERCELL_INTEGRATION_TESTS=true`) live in a separate `Integration`
-workflow that runs:
+The Bayesian integration tests (NUTS / ABC-SMC, gated by
+`INFERCELL_INTEGRATION_TESTS=true`) do not run in CI at all. There is no
+`Integration` workflow. They remain in `test/runtests.jl` behind the gate,
+off by default, and `test/run_integration.slurm` still runs them on request.
 
-- On every push to `main` (catches regressions within minutes of merge).
-- On a weekly cron (Mondays 04:00 UTC) to catch upstream drift.
-- On demand via the GitHub UI (`workflow_dispatch`).
+**They are parked because they do not finish.** The evidence, not a guess:
 
-These are CPU-bound and run too slowly on free GitHub-hosted runners
-to belong in the PR loop. They still gate releases — they just don't
-gate code review.
+- On GitHub, 48 runs between 2026-05 and 2026-09 — 44 cancelled at the
+  90-minute ceiling, 4 failed, **0 completed**. They cost 1192 of
+  September's 2048 billed Actions minutes, which is what exhausted the
+  org's monthly quota.
+- On Slurm, job `16617632` ran the suite on a dedicated core with a 6-hour
+  walltime and hit the wall (`TIMEOUT` at 06:00:01) with no test output.
 
-You should still run them locally before opening a PR that touches
-inference code:
+So this is not a hosted-runner problem. The suite is serial and CPU-bound:
+`_infer_abc` runs `n_replicates` SSA solves per particle evaluation in a
+plain comprehension, `abc_smc` is unthreaded, and at 200 particles × 6
+populations × 50 replicates that is on the order of 10^5 trajectory solves
+per ABC run — which `test_sequential_inference.jl` then does twice.
 
-```bash
-INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
-```
+**Nothing in this suite has ever been verified**, including the
+`conditioned posteriors tighter than unconditioned` testset, whose
+assertion carried enough slack to pass even when conditioning widened the
+posterior. Treat any claim resting on these tests as unchecked.
+
+Reviving it is a real piece of work, not a re-enable: the ABC-SMC
+configuration has to come down far enough to run in minutes, and the claim
+each testset makes has to be decided before the numbers are picked. Until
+then, inference changes are gated by the author, on Slurm, by hand.
 
 ## Repo-level settings (admin checklist)
 
