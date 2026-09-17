@@ -15,8 +15,13 @@ harmless, because the pools cap themselves, and it is why the four conservation
 sums rather than a flux ceiling are the invariant this module leans on.
 """
 
-# Where this module's vendored extracts live. `src/organisms/coreA/data/README.md`
-# records the upstream files, the commit and the command that regenerates them.
+"""
+    COREA_DATA_DIR
+
+Where the Core A′ vendored parameter extracts live.
+`src/organisms/coreA/data/README.md` records the upstream files, the commit they
+were taken at, and the command that regenerates each one byte for byte.
+"""
 const COREA_DATA_DIR = joinpath(@__DIR__, "data")
 
 """

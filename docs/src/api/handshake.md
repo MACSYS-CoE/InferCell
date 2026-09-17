@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = InferCell
+```
+
 # The 1 s handshake and the 60 s rebuild
 
 Source: [`src/handshake.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/handshake.jl).
@@ -31,9 +35,10 @@ record.growth        # per handshake: area_nm2, radius_nm, volume_litres, factor
 | `initial_surface_area_nm2` | `COREA_INITIAL_SURFACE_AREA_NM2` (502831.0) | the published initial membrane area, the primitive for a **growing** cell; refused on a fixed one |
 | `footprint_nm2` | `MEMBRANE_PROTEIN_FOOTPRINT_NM2` (28.0) | nm² of surface area per membrane protein; refused on a fixed cell |
 
-The three geometry keywords all default to `nothing` in the signature and resolve to the constants above, so that a value passed to the composition it does not apply to can be refused rather than accepted and never read.
 | `ode_solver` | `Rodas5P()` | the stiff integrator for the metabolic block |
 | `abstol`, `reltol` | `1e-10`, `1e-8` | pinned tolerances |
+
+The three geometry keywords all default to `nothing` in the signature and resolve to the constants above, so that a value passed to the composition it does not apply to can be refused rather than accepted and never read.
 
 ## Counts and concentrations
 
@@ -110,3 +115,10 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 ## What this layer does not yet do
 
 The clamped edge's held value still travels as a fixed parameter rather than being executed. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set is spec §11 task 13.3's.
+
+## Reference
+
+```@autodocs
+Modules = [InferCell]
+Pages = ["handshake.jl"]
+```

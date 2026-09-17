@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = InferCell
+```
+
 # Boundary protocol
 
 !!! note "Stub page"
@@ -7,8 +11,8 @@ NUTS-ODE and ABC-SMC-SSA cannot be jointly composed in a single sampler. InferCe
 
 ## Levels
 
-- **Level 1 — sequential conditioning** ([`sequential_infer`](../api/boundary.md)). One forward pass: NUTS on the ODE block → fit KDE priors on the shared parameters → ABC-SMC on the SSA block with the conditioned priors. Cheap, robust, sufficient when shared parameters are well-identified by the ODE data.
-- **Level 2 — iterative message-passing** ([`iterative_infer`](../api/boundary.md)). Iterates ODE ↔ SSA until the ODE posterior stops changing (summed KL divergence across shared parameters drops below `kl_tol`, or `max_iters` is reached). Tightens shared-parameter posteriors but can slightly over-propagate confidence.
+- **Level 1 — sequential conditioning** ([`sequential_infer`](@ref)). One forward pass: NUTS on the ODE block → fit KDE priors on the shared parameters → ABC-SMC on the SSA block with the conditioned priors. Cheap, robust, sufficient when shared parameters are well-identified by the ODE data.
+- **Level 2 — iterative message-passing** ([`iterative_infer`](@ref)). Iterates ODE ↔ SSA until the ODE posterior stops changing (summed KL divergence across shared parameters drops below `kl_tol`, or `max_iters` is reached). Tightens shared-parameter posteriors but can slightly over-propagate confidence.
 
 ## Minimal example
 

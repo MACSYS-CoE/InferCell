@@ -39,9 +39,24 @@ const SPECIES_REGIMES = (:mrna, :protein, :metabolite)
 
 One row of the Core A′ species registry.
 
-`initial_value` is in mM and `gstd` is the geometric standard deviation of the
-balancing distribution it came from; both are `nothing` where nothing has been
-imported. `source_file` records which file the value was read from — the
+# Fields
+
+- `name::Symbol` — the canonical identifier, a published BiGG-style name.
+- `group::Symbol` — one of `SPECIES_GROUPS`: `:glycolytic`, `:adenylate`,
+  `:guanylate`, `:redox`, `:other`, `:trna`, `:pts`, `:chemostat`. This is the
+  conserved moiety a dead-end report names.
+- `treatment::Symbol` — `:dynamic` or `:chemostatted`. A module that declares
+  dynamics for a chemostat is rejected at composition.
+- `regime::Symbol` — `:mrna`, `:protein` or `:metabolite`. Core A′ spans nearly
+  five orders of magnitude of copy number, which is why it needs several
+  formalisms at once.
+- `initial_value`, `gstd` — the imported value in mM and the geometric standard
+  deviation of the balancing distribution it came from; both are `nothing`
+  where nothing has been imported.
+- `source_file`, `informedness` — where the value came from and how well it is
+  known (`:balanced`, `:prior_default`, `:asserted`, `:not_imported`).
+
+`source_file` records which file the value was read from — the
 central-versus-nucleotide distinction that has already produced two errors of
 record, so it is carried per entry rather than resolved once by hand.
 """
@@ -278,6 +293,7 @@ The registry's dynamic states and its chemostats, in canonical order.
 """
 dynamic_species() = [e.name for e in COREA_SPECIES if e.treatment === :dynamic]
 chemostat_species() = [e.name for e in COREA_SPECIES if e.treatment === :chemostatted]
+@doc (@doc dynamic_species) chemostat_species
 
 """
     species_in_group(group::Symbol) -> Vector{Symbol}
@@ -332,6 +348,7 @@ the suite rather than accumulating.
 """
 n_dynamic_states() = count(e -> e.treatment === :dynamic, COREA_SPECIES)
 n_chemostats() = count(e -> e.treatment === :chemostatted, COREA_SPECIES)
+@doc (@doc n_dynamic_states) n_chemostats
 
 export SpeciesEntry, COREA_SPECIES,
        species_index, species_entry, is_registered, species_group,

@@ -27,8 +27,8 @@ core.*
 # examples/ for now — a clean demo will be re-added later
 examples/
 
-# MkDocs build output
-/site/
+# Documenter build output
+/docs/build/
 
 # Non-published dev content kept out of the repo deliberately:
 /dev/local-scratch-notes/
@@ -52,3 +52,6 @@ PR_REVIEW_*.md
 # python, and an imported module leaves __pycache__/ beside its source.
 __pycache__/
 *.pyc
+
+# Documenter resolves the docs environment fresh on every build.
+docs/Manifest.toml

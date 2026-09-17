@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = InferCell
+```
+
 # SSA inference (ABC-SMC)
 
 !!! note "Stub page"
@@ -21,10 +25,10 @@ result = infer(model, data;
                tspan=(0.0, 50.0))
 ```
 
-`result` is an [`ABCPosterior`](../api/inference.md) — a weighted-particle posterior.
+`result` is an [`ABCPosterior`](@ref) — a weighted-particle posterior.
 
 ## What to look at next
 
-- [`abc_smc`](../api/inference.md) — the underlying sampler if you want to bypass `infer()`.
-- [`compute_summary_stats`](../api/inference.md) — the default summary used for distance computation.
+- [`abc_smc`](@ref) — the underlying sampler if you want to bypass `infer()`.
+- [`compute_summary_stats`](@ref) — the default summary used for distance computation.
 - [Boundary protocol](boundary-protocol.md) — how to condition this block on an ODE posterior.

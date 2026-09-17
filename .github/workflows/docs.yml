@@ -1,49 +1,54 @@
 name: Documentation
 
+# Documenter build. On a pull request this is a build-only check: `deploydocs`
+# is a no-op unless the run is a push to `devbranch` or a tag, so the gate the
+# old MkDocs workflow needed (the `DOCS_DEPLOY_ENABLED` repo variable, which
+# existed only because GitHub Pages will not serve a private repo on the free
+# plan) is gone. Pages source for this repo is the `gh-pages` branch, which
+# `deploydocs` writes.
+
 on:
   push:
     branches: [main]
+    tags: ["*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: write
+  pull-requests: read
+  statuses: write
 
 jobs:
-  build:
+  docs:
+    name: Build and deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: docs/requirements.txt
-      - run: pip install -r docs/requirements.txt
-      - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
 
-  deploy:
-    # Gated on the repo variable DOCS_DEPLOY_ENABLED so the job stays dormant
-    # while the repo is private and GitHub Pages can't be enabled. Flip the
-    # switch in Settings → Variables → Actions (set DOCS_DEPLOY_ENABLED=true)
-    # once Pages is available on the repo, and remember to also enable Pages
-    # itself under Settings → Pages → Source: GitHub Actions.
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DOCS_DEPLOY_ENABLED == 'true'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.10"
+
+      - uses: julia-actions/cache@v3
+
+      - name: Resolve the docs environment
+        run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.instantiate()'
+
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Not required while the repo and its Pages site are public; set it
+          # if deployment ever needs to happen over SSH instead.
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs docs/make.jl

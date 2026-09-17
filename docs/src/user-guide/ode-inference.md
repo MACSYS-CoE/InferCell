@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = InferCell
+```
+
 # ODE inference (NUTS)
 
 !!! note "Stub page"
@@ -26,6 +30,6 @@ chain = infer(model, data; n_samples=1000)
 
 ## What to look at next
 
-- [`build_problem`](../api/orchestrator.md) — composing multiple sub-models.
-- [`build_turing_model`](../api/inference.md) — when you need to override priors directly.
-- [`check_identifiability`](../api/inference.md) — Jacobian-rank diagnostic before sampling.
+- [`build_problem`](@ref) — composing multiple sub-models.
+- [`build_turing_model`](@ref) — when you need to override priors directly.
+- [`check_identifiability`](@ref) — Jacobian-rank diagnostic before sampling.

@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = InferCell
+```
+
 # Core A′ interface contract
 
 Source: [`src/organisms/coreA/registry.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/organisms/coreA/registry.jl), [`src/edges.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/edges.jl), [`src/resolver.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/resolver.jl), [`src/loader.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/loader.jl), [`src/labels.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/labels.jl).
@@ -20,14 +24,6 @@ held_value(:M_glc__D_e)    # 40.0 mM
 ```
 
 Names are the published model's BiGG-style identifiers (`M_g6p_c`, `M_13dpg_c`). They map one-to-one onto the source model, and unlike the display names of the scoping note's tables (`13DPG`, `3PG`) every one is a valid Julia identifier.
-
-`SpeciesEntry` fields:
-
-- `name::Symbol` — the canonical identifier.
-- `group::Symbol` — `:glycolytic`, `:adenylate`, `:guanylate`, `:redox`, `:other`, `:trna`, `:pts`, `:chemostat`. This is the conserved moiety a dead-end report names.
-- `treatment::Symbol` — `:dynamic` or `:chemostatted`. A module that declares dynamics for a chemostat is rejected at composition.
-- `regime::Symbol` — `:mrna`, `:protein` or `:metabolite`. Core A′ spans nearly five orders of magnitude of copy number, which is why it needs several formalisms at once.
-- `initial_value`, `gstd`, `source_file`, `informedness` — the imported value and where it came from.
 
 !!! warning "Read initial conditions from the file that owns the species"
     GTP, GDP, AMP and GMP are nucleotide-module species. The central balanced file shows them at the 0.1 mM prior default because they are out of *its* module's scope; the nucleotide file has real balanced values (GTP at 1.6627 mM). Reading the wrong file understates the guanylate pool by an order of magnitude. The registry records the source file per entry for exactly this reason.
@@ -152,3 +148,10 @@ reduction_report(models)         # the same, written for a human
 ```
 
 It collects reduction-introduced clamps, smoothed and unclamped deferred counters, continuous rate-constant edges, parameters whose prior this project asserted, and any lumping a module registers through `reduction_notes`. A composition that follows the published model throughout reports that nothing departs from it.
+
+## Reference
+
+```@autodocs
+Modules = [InferCell]
+Pages = ["edges.jl", "resolver.jl", "loader.jl", "labels.jl", "organisms/coreA/registry.jl"]
+```

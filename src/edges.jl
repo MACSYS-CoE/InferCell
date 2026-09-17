@@ -417,6 +417,7 @@ dead-end check; see [`carries_mass`](@ref).
 """
 is_consumer(e::CouplingEdge) = e.direction === :in
 is_producer(e::CouplingEdge) = e.direction === :out
+@doc (@doc is_consumer) is_producer
 
 """
     carries_mass(e::CouplingEdge) -> Bool
