@@ -1,5 +1,120 @@
 # Handoff
 
+**Session date:** 2026-09-18
+**Branches:** `ci-retire-integration-from-pr-path`, `docs-migrate-to-documenter`
+
+## Latest: a hygiene pass, not a phase (2026-09-18)
+
+No spec phase moved. Phase 10 is merged (#51), phase 8 is merged (#52), and
+**phase 9 — lumped tRNA charging — is still `_not started_`**, which the next
+session should confirm is deliberate: spec §11 says phase 11 wants phase 9
+landed and can otherwise only proceed on a double.
+
+### Why CI stopped running
+
+The org's free Actions quota (2000 min/month, shared across MACSYS-CoE, of
+which InferCell is the only active repo) was exhausted on 2026-09-17.
+Measured from per-job wall clock: August 1320 min, September 2048 min.
+September's split — **Integration 1192 min**, Test 432, Format 357,
+Documentation 67.
+
+The Integration workflow was the whole problem, and it had never once
+worked: across its entire life, **44 runs cancelled at the 90-minute
+ceiling, 4 failed, 0 completed**. It triggered on every push to `main`, so
+each merge spent ~90 minutes to produce nothing.
+
+It is now **parked** — no workflow at all. Not because GitHub was too small:
+Slurm job `16617632` ran the suite on a dedicated core with a 6-hour
+walltime and hit the wall (`TIMEOUT` at 06:00:01, no test output). The suite
+is serial and CPU-bound — order 10^5 SSA solves per ABC run, and
+`test_sequential_inference.jl` does two. The tests stay gated off in
+`runtests.jl`; `test/run_integration.slurm` stays so the work is
+recoverable. Both say plainly that they do not finish.
+
+**Nothing in that suite has ever been verified.** Its
+`conditioned posteriors tighter than unconditioned` testset — the boundary
+protocol's headline claim — asserted `cond_var < uncond_var * 5.0`, which
+passes when conditioning makes the posterior five times *wider*. It now
+asserts the real direction, and carries a NOT VERIFIED note. Treat any claim
+resting on these tests as unchecked.
+
+Quota note: the reset is monthly, so CI stays red until **2026-10-01**
+regardless. Making the repo public removes the constraint permanently
+(Actions is free for public repos) and unblocks Pages.
+
+### Docs moved to Documenter.jl
+
+`docs-migrate-to-documenter` (`457912a`). The docstrings were already
+Documenter-flavoured — `@ref` appears 148 times across 20 of 24 source files
+— and MkDocs rendered none of it, because the API pages were hand-written
+and drifted. Content now lives under `docs/src/`; pages keep their prose and
+splice live docstrings via `@autodocs` scoped per source file, so new
+exports appear automatically. `checkdocs = :exports` fails the build on an
+undocumented export.
+
+`docs/handoff.md` sits outside `docs/src/` and is therefore excluded from
+the build for free — CLAUDE.md's pointer at it still works.
+
+Turning the 148 `@ref`s on found 13 undocumented exports. Five were the
+Julia gotcha where one docstring covers a pair and attaches only to the
+first binding (`is_producer`, `product_terms`, `rate_param`,
+`chemostat_species`, `n_chemostats`), now fixed with
+`@doc (@doc first) second`. Seven were constants with `#` comments.
+`SpeciesEntry`'s field list moved from the page into its docstring.
+
+Verified: `julia --project=docs docs/make.jl` exits 0, 15 pages, one warning
+(Documenter declining to deploy locally). Unit suite green on `457912a` —
+Slurm `16617643`, **2513 pass / 2 broken / 4m36.8s**.
+
+`docs/Manifest.toml` is untracked on purpose; CI resolves fresh.
+
+### Local gotcha worth knowing
+
+The cluster module is Julia **1.10.5** only, and its loader fails on the
+newer package versions a fresh `docs/` resolve picks up — a weak-dependency
+extension trigger on `SparseArrays`. The local docs env is pinned to the
+committed root manifest's versions to get a build. CI uses `setup-julia` at
+`1.10` (a current 1.10.x) and should not hit it, but that is **unverified**,
+and cannot be verified until the quota resets.
+
+### Process note
+
+A Slurm run was invalidated mid-flight by switching branches in the working
+tree — `Pkg.test()` `include`s test files as it goes, so the job silently
+read the other branch's versions. **Use a worktree when a Slurm job is
+reading the repo.** `.worktrees/ci-verify` was added for exactly this and
+can be removed once these branches land.
+
+### Next steps
+
+1. Open and merge `ci-retire-integration-from-pr-path` and
+   `docs-migrate-to-documenter`. Expect three instantly-red checks on each
+   until 2026-10-01; they carry no information about the diffs.
+2. Decide on repo visibility. Public fixes the quota permanently and
+   unblocks Pages. **Two blockers first:** the repo has no `LICENSE` file,
+   and `src/organisms/coreA/data/` vendors derived extracts from
+   `Luthey-Schulten-Lab/Minimal_Cell`, which is public but unlicensed and so
+   grants no redistribution rights. Worth an email upstream.
+3. Then phase 9, or confirm skipping it is deliberate.
+
+### Parked, deliberately
+
+- Reviving the integration suite. It is a piece of work, not a re-enable:
+  the ABC-SMC configuration has to come down far enough to run in minutes,
+  and what each testset claims has to be settled before numbers are picked.
+- A simplification pass. `src/handshake.jl` is 2013 lines carrying five
+  responsibilities (constants, exchange types, three large lowering
+  functions, stepping, reporting) and is the one file that has clearly
+  outgrown itself. Everything else is proportionate.
+- Julia performance work. There is not a single benchmark in the repo, so
+  any optimisation would be guesswork. The cheap prerequisite is one
+  benchmark on `handshake_step!` and the 60 s rebuild, before phases 11–17
+  land and before phase 16's sampling makes speed bite.
+
+---
+
+## Earlier: phase 10, transcription
+
 **Session date:** 2026-09-17 (phase 10 written 2026-09-10, rebased and
 reviewed 2026-09-17)
 **Branch:** `phase-10-transcription`
