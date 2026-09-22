@@ -3,7 +3,7 @@
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52) and phase 10 (#51); phase 9 and the
 CME-block phases 11 and 12 are the rest of the fan-out
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-17
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -351,7 +351,7 @@ comparison is predictive rather than evidence-based here.
 | Enzyme counts enter the ODE deterministically | 266–1355 copies gives 3–6% relative Poisson noise | Core A′ therefore supports a claim about *parameter* uncertainty crossing the boundary, and honestly cannot support one about *stochasticity* crossing it. That is Step 1b's claim. D13 strengthens this caveat: the single most-fired process in the published stochastic block is now deterministic **by our choice** |
 | One lumped charged-tRNA pool replaces 20 per-amino-acid chains | Untested. **Ours, not the model's** | The pool size is a quantity we chose. It sets the strength of the reverse channel into translation **and**, after D13, the low-pass filter on the dominant forward channel. See R8, which this upgrades |
 | The lumped step is integrated deterministically in the ODE block | The registry marks both tRNA species metabolite-scale, and the step fires ~553/s. The scoping note already placed it here | The *formalism* is ours even though the placement is the note's. See D13 |
-| `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
+| `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal. **Amended 2026-09-23:** "nominal pools" is a total of 0.25 mM at 80% charged, both asserted by us, with ATP at the registry's 3.6529 mM | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
 | CTP, UTP and the amino-acid pool are chemostatted | Their sources are in modules Core A′ cuts. **Ours, not the model's** | Stops being defensible the moment Step 1b makes the pools live |
 | Non-ptsG membrane growth is exogenous | ptsG is Core A′'s only membrane protein. **Ours, not the model's** | Growth reaches only ~1.07×, so the published 2× cap is never tested |
 | The 60 s rebuild is piecewise-constant | It is what the published model does | A continuous variant is a different and arguably better model. Declarable, defaults to published. ~~The deviation is measured rather than argued.~~ **Amended 2026-09-05:** phase 4 refuses to *execute* a continuous cadence — the outer-loop mechanism of task 3.1 cannot represent it — so the deviation that is measured is a shorter piecewise-constant interval, which is what R11 varies. A genuinely continuous cadence remains declarable and labelled, and unmeasured. See R11 and §12 |
@@ -1215,6 +1215,10 @@ in order to run at all, is written up in
 **Decision.** Fix `k_chg` so the charging flux reproduces the published residue
 demand at nominal pools, mark it `:asserted`, hold it fixed by default, and
 report the total tRNA pool size as a separate asserted quantity.
+**Amended 2026-09-23:** and the nominal charged fraction too, which the
+derivation cannot do without — `k_chg = demand / ([M_trna_c]·[M_atp_c])` needs
+the uncharged pool, not the total. Defaults 0.25 mM total and 0.8 charged, both
+`:asserted`; see §12.
 
 **Why a rate constant rather than a fixed flux.** A fixed flux would make
 charging a constant drain, which is what the published demand figure of 553.1 per
@@ -2719,6 +2723,8 @@ but it depends on phase 8, so the track is not a clean fan-out.
   composed model's asserted-prior enumeration; by `k_chg` being computed from the
   published residue demand and the pool size rather than typed in; and by the
   derivation recorded so the pool size can be changed and `k_chg` follow.
+  **Annotated 2026-09-23:** the derivation also needs the nominal charged
+  fraction, a third asserted quantity; defaults 0.25 mM and 0.8. See §12.
 - [ ] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
   recycling owns — verify by the kinds and directions matching, by composing with
   phase 8 asserting no species is described as both mass and currency in one
@@ -2744,6 +2750,10 @@ but it depends on phase 8, so the track is not a clean fan-out.
   independently, from 3,484,518 residues over 6,300 s, with `k_chg` reported as
   the derived quantity; and by a test asserting the check is not circular, since
   calibrating `k_chg` to 553.1 and then checking 553.1 verifies arithmetic (D14).
+  **Amended 2026-09-23:** the first clause is circular under any demand double,
+  so it is restated. Report the composed steady flux and the ATP it settles at
+  against the independently derived 553.1 as a **self-consistency drift**, not
+  as validation. The non-circularity test stays. See §12.
 - [ ] 9.8 Report the pool size's three consequences — verify by a diagnostic
   giving, for a range of pool sizes, the charging flux, the buffer against
   check 7's charged-tRNA counter, and the lag on the adenylate forward channel;
@@ -3310,6 +3320,43 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-23 — the charging derivation needs a charged fraction, and its flux check is a drift
+
+**Trigger:** writing task 9.2. D14 derives `k_chg` from the residue demand and
+the asserted pool size, but the rate law is `k_chg·[M_trna_c]·[M_atp_c]`, and
+`[M_trna_c]` is the *uncharged* pool. The total does not fix it. The spec named
+neither a value for the pool nor a split, and the registry records no initial
+value for either species.
+
+Working that through also showed that task 9.7's first clause cannot be a check.
+Against a demand double, the steady charging flux equals what the double
+consumes, by mass balance. `k_chg` is calibrated so that happens at the nominal
+pools. So "the steady flux reproduces 553.1" holds by construction wherever the
+composition settles at nominal ATP, and away from nominal ATP the gap measures
+the calibration drifting, not the module being right. D14 already made
+conservation the acceptance test. This makes 9.7 say what it measures.
+
+**Change:**
+
+- **A third asserted quantity: the nominal charged fraction.** Defaults: a total
+  pool of **0.25 mM** (5,045 particles at 20,180.39 per mM) at **0.8 charged**,
+  i.e. 1,009 uncharged and 4,036 charged particles. Both are `:asserted`. The
+  total is the order of bacterial tRNA concentrations, a few hundred µM, scaled
+  to Syn3A's volume. It is **not** from the published model, and the source is
+  still to be cited. The split is a typical bacterial charged fraction. At these
+  values the charged pool buffers **7.30 s** of the 553.10/s demand, the
+  uncharged pool clears check 1b's 500-particle floor, and `k_chg =
+  0.027408 / (0.05 · 3.6529) = 0.15006 /(mM·s)`. Task 9.8 scans both.
+- **Task 9.7's first clause is restated as a drift.** It now reports the composed
+  steady flux, and the ATP it settles at, against 553.10/s derived in phase 9's
+  own suite from 3,484,518 residues over 6,300 s. The gap is labelled
+  self-consistency and not validation. The non-circularity test is unchanged.
+
+Approved at implementation time, before task 9.2 was written.
+
+**Sections touched:** §3 (assumptions table), §4 D14, §11 tasks 9.2 and 9.7,
+§12.
 
 ### 2026-09-23 — what the 2026-09-22 correctness review found that §12 did not already hold
 
