@@ -239,4 +239,48 @@ using StaticArrays: SA, setindex
         @info "9.6 mutation" per_eval = md[mU] + md[mC] drift_600s = max_drift(msol, mtr)
     end
 
+    # 9.7, restated by the 2026-09-23 amendment: the composed steady flux
+    # against an independently derived 553.10/s is a self-consistency drift,
+    # not a validation — k_chg was calibrated to that figure at nominal pools.
+    @testset "9.7 the flux drift, and that the target is not imported" begin
+        ms = charging_models()
+        sol = recycling_solve(ms)
+        n = corea_particles_per_mM()
+        CNT = layout_index(ms, :chg_residues_mM)
+        ATP = layout_index(ms, :M_atp_c)
+        # The last 600 s of the cycle, read off the exact cumulative counter.
+        i0 = findfirst(t -> t >= CYCLE_S - 600, sol.t)
+        flux = (sol.u[end][CNT] - sol.u[i0][CNT]) / (sol.t[end] - sol.t[i0]) * n
+        target = 3_484_518 / 6300                 # derived here, in this file
+        drift = flux / target - 1
+        atp_end = sol.u[end][ATP]
+        atp_nom = species_entry(:M_atp_c).initial_value
+        @info "9.7 flux drift" flux target drift atp_end atp_nom k_chg = charging_derivation(TrnaCharging()).k_chg
+        # Steady: the last two 300 s windows agree to 0.1%.
+        i1 = findfirst(t -> t >= CYCLE_S - 300, sol.t)
+        f1 = (sol.u[i1][CNT] - sol.u[i0][CNT]) / (sol.t[i1] - sol.t[i0]) * n
+        f2 = (sol.u[end][CNT] - sol.u[i1][CNT]) / (sol.t[end] - sol.t[i1]) * n
+        @test abs(f2 / f1 - 1) < 1e-3
+        # The drift is small and has the sign the settled ATP predicts: ATP sits
+        # below its registry value, so charging runs below the calibrated flux.
+        @test abs(drift) < 0.05
+        @test sign(drift) == sign(atp_end - atp_nom)
+
+        # Not circular: neither the module nor its doubles reference phase 8's
+        # drain constants. Checked on the parsed code, so a comment naming them
+        # (the module's does, to say why) is not a false positive.
+        banned = (:RECYCLING_DRAIN_PER_S, :RECYCLING_DRAIN_MM_PER_S)
+        symbols_in(ex) = ex isa Symbol ? [ex] :
+                         ex isa Expr ? reduce(vcat, symbols_in.(ex.args); init = Symbol[]) :
+                         Symbol[]
+        for f in (joinpath(pkgdir(InferCell), "src", "organisms", "coreA", "trna_charging.jl"),
+                  joinpath(@__DIR__, "trna_test_models.jl"))
+            used = Set(symbols_in(Meta.parseall(read(f, String))))
+            @test isempty(intersect(used, banned))
+        end
+        # And the check can fail: the same scan finds them in phase 8's double.
+        used8 = Set(symbols_in(Meta.parseall(read(joinpath(@__DIR__, "nucleotide_test_models.jl"), String))))
+        @test :RECYCLING_DRAIN_MM_PER_S in used8
+    end
+
 end
