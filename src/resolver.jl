@@ -380,8 +380,16 @@ function _check_written_states(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
+# A named peer is the edge's counterpart when it owns the species or declares
+# the other direction of the same crossing: a consumer's peer is the producer
+# or owner, a producer's peer is the consumer.
+_is_counterpart(peer::AbstractSubModel, e::CouplingEdge) =
+    e.species in states(peer) ||
+    any(c -> c.species === e.species && c.direction !== e.direction, coupling(peer))
+
 function _resolve_edges(models::Vector{<:AbstractSubModel})
     present = Set(module_id(m) for m in models)
+    by_id = Dict(module_id(m) => m for m in models)
     resolved = ResolvedEdge[]
 
     for m in models
@@ -402,6 +410,29 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
                     "unnamed peer resolves against whichever module owns the " *
                     "species, which is what a single-module composition under " *
                     "test should use"))
+            end
+
+            # Presence is not enough: an edge naming a bystander would resolve,
+            # carry the wrong peer in its metadata, and execute against the
+            # real owner, so the declared topology would disagree with what
+            # runs. The named peer must be the counterpart — it integrates the
+            # species, or it declares the opposite side of the crossing.
+            if e.peer !== nothing && !_is_counterpart(by_id[e.peer], e)
+                owners = [module_id(p) for p in models if e.species in states(p)]
+                sides = [module_id(p) for p in models if module_id(p) !== name &&
+                         any(c -> c.species === e.species &&
+                                  c.direction !== e.direction, coupling(p))]
+                throw(ArgumentError(
+                    "Module $name declares a $kind edge on :$(e.species) to peer " *
+                    "$(e.peer), which neither integrates :$(e.species) nor declares " *
+                    "an edge on it in the opposite direction. " *
+                    (isempty(owners) ? "No module in this composition integrates " *
+                        ":$(e.species)" :
+                        ":$(e.species) is integrated by $(join(owners, ", "))") *
+                    (isempty(sides) ? "" :
+                        ", and the opposite side is declared by $(join(sides, ", "))") *
+                    ". Name the counterpart, or leave the peer unnamed so it " *
+                    "resolves against the owner"))
             end
 
             if e isa CurrencyEdge && !is_registered(e.pool)
