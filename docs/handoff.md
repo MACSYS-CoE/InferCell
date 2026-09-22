@@ -6,8 +6,10 @@
 ## Latest: phase 10b, the 2026-09-22 review fixes (2026-09-23)
 
 Phase 10b fixes the review findings that §12's 2026-09-23 entry assigned to
-it, one commit per task. Suite: Slurm job **17019818** at `f611345`,
-**2577 passed, 0 failed, 1 broken**, 4m40.1s (up from 2513 and 2 broken).
+it, one commit per task, plus three commits of `/check-PR` fixes. Suite:
+Slurm job **17021441** at `b04d467`, **2580 passed, 0 failed, 1 broken**,
+4m56.0s (up from 2513 and 2 broken; 17019818 at `f611345`, before the
+review fixes, gave 2577).
 The one broken test left is phase 8's `@test_skip`, which waits on phase 9.
 
 - **10b.1 (E).** `abc_smc` now returns the tolerance its final population
@@ -26,6 +28,11 @@ The one broken test left is phase 8's `@test_skip`, which waits on phase 9.
   `reduction_notes` follows `base_mapping`.
 - **10b.6 (H).** The 10.7 skip is now an executed check against phases 6,
   7 and 8. All seventeen loci agree.
+- **Review fixes.** Prior comparison is now plain `isequal`, because a
+  `nameof`/`params` fallback let `truncated(Normal)` and
+  `truncated(LogNormal)` agree. A transcription counter charged against the
+  wrong pool is refused. The peer rule is recorded in the edge and
+  resolver docstrings.
 
 Still open from the review: A and B (tasks 13.9 and 13.10) and G (15.9).
 The integration suite stays parked, so the ABC and boundary changes are
