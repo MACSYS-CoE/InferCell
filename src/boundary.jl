@@ -266,6 +266,17 @@ function iterative_infer(ode_models::Vector{<:AbstractSubModel}, ode_data::Obser
         ssa_set = Set(p.name for p in ssa_free)
         Symbol[p.name for p in ode_free if p.name in ssa_set]
     end
+    # With nothing shared, `chain_kl` sums over an empty set, returns 0.0, and
+    # the loop reports convergence at iteration 2 having exchanged nothing.
+    # That is a composition this protocol cannot do anything with, so it is
+    # refused before any sampling rather than returned as a success.
+    isempty(shared_names) && throw(ArgumentError(
+        "iterative_infer needs at least one free parameter shared by the ODE " *
+        "and SSA blocks, and these share none. The loop's convergence test is a " *
+        "KL divergence summed over the shared parameters, so an empty boundary " *
+        "would report convergence at iteration 2 with nothing exchanged. A " *
+        "composition whose blocks couple through state alone (Core A′, spec §4 " *
+        "D13) uses the conditional scheme of D10, not this loop"))
     verbose && println("Shared parameters across blocks: $shared_names")
 
     ssa_posterior = nothing

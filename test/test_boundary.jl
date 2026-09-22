@@ -157,6 +157,23 @@ using MCMCChains: Chains
         @test kl_divergence(s1, s_shift) > kl_divergence(s1, s1)
     end
 
+    @testset "iterative_infer refuses an empty boundary" begin
+        # Per-gene names on the ODE side, default names on the SSA side: no
+        # free parameter in common. The call must throw before any sampling,
+        # not report convergence at iteration 2 on a KL summed over nothing.
+        ode = [TranscriptionTranslation([:g1])]
+        ssa = [StochasticGeneExpression()]
+        data = ObservedData([0.0, 1.0], zeros(1, 2), [:g1_mRNA])
+        err = try
+            iterative_infer(ode, data, ssa, data; max_iters=2)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("share none", err.msg)
+    end
+
     @testset "chain_kl over named parameters" begin
         Random.seed!(42)
         n = 200

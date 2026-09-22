@@ -66,7 +66,8 @@ that rather than assuming it, via [`turnover_headroom`](@ref).
 const TURNOVER_CEILING = 2 * 90
 
 """
-The five deferred cost counters, and the registry pool each debits.
+The five deferred cost counters, and the registry pool each debits. The default
+for `CoreATranscription(; counters)`; a module may configure a subset.
 
 `ATP_trsc` is the polymerisation energy, one per nucleotide; the four monomer
 counters are the incorporated bases. **ATP is therefore debited twice per
@@ -80,6 +81,18 @@ const TRANSCRIPTION_COUNTERS = (
     (counter = :GTP_mRNA, species = :M_gtp_c, produces = (:M_ppi_c,)),
     (counter = :CTP_mRNA, species = :M_ctp_c, produces = (:M_ppi_c,)),
     (counter = :UTP_mRNA, species = :M_utp_c, produces = (:M_ppi_c,)),
+)
+
+# What one transcription event of gene `g` adds to each counter: the transcript
+# length as polymerisation energy, and each base count as incorporated monomer.
+# A module may configure any subset of the five, in any order; `states` and
+# `reactions` follow the configured set.
+const COUNTER_INCREMENTS = (
+    ATP_trsc = g -> g.length,
+    ATP_mRNA = g -> g.counts.A,
+    GTP_mRNA = g -> g.counts.G,
+    CTP_mRNA = g -> g.counts.C,
+    UTP_mRNA = g -> g.counts.U,
 )
 
 """
@@ -276,6 +289,7 @@ struct CoreATranscription <: AbstractSubModel
     base_mapping::Symbol
     conc::NamedTuple{(:M_atp_c, :M_ctp_c, :M_gtp_c, :M_utp_c), NTuple{4, Float64}}
     rnap_conc::Float64
+    counters::Tuple   # the configured cost counters, in state order
 end
 
 """
@@ -308,6 +322,20 @@ function CoreATranscription(; genes = read_transcription_genes(),
         "base_mapping must be :corrected or :published, got :$base_mapping. " *
         ":corrected charges each base against the nucleotide it is polymerised " *
         "from; :published reproduces the permutation of MinCell_CMEODE.py:377-383"))
+
+    counters = Tuple(counters)
+    for c in counters
+        haskey(COUNTER_INCREMENTS, c.counter) || throw(ArgumentError(
+            "Counter :$(c.counter) is not one transcription can charge. Each " *
+            "event adds a fixed per-gene amount to each counter, and those " *
+            "amounts are defined for $(join(string.(":", keys(COUNTER_INCREMENTS)), ", ")) only"))
+        # The increment is fixed by the counter's name, so the pool it debits
+        # is too: :GTP_mRNA charged against ATP would debit the wrong pool.
+        expected = only(d.species for d in TRANSCRIPTION_COUNTERS if d.counter === c.counter)
+        c.species === expected || throw(ArgumentError(
+            "Counter :$(c.counter) debits :$expected, not :$(c.species). Its per-event " *
+            "increment is that nucleotide's cost, so it cannot be charged elsewhere"))
+    end
 
     genes = collect(TranscriptionGene, genes)
     conc = NamedTuple{(:M_atp_c, :M_ctp_c, :M_gtp_c, :M_utp_c)}(
@@ -410,7 +438,7 @@ function CoreATranscription(; genes = read_transcription_genes(),
         collect(CouplingEdge, edges === nothing ? default : edges),
         collect(Symbol, rebuilt === nothing ?
                 [rate_param(g.locus) for g in genes] : rebuilt),
-        base_mapping, conc, rnap_conc)
+        base_mapping, conc, rnap_conc, counters)
 end
 
 """
@@ -461,7 +489,7 @@ _ntp_of(base::Symbol) = base === :A ? :M_atp_c :
 
 states(m::CoreATranscription) =
     vcat([transcript_state(g.locus) for g in m.genes],
-         [c.counter for c in TRANSCRIPTION_COUNTERS])
+         [c.counter for c in m.counters])
 
 parameters(m::CoreATranscription) = m.params
 formalism(::CoreATranscription) = :jump
@@ -519,20 +547,19 @@ what makes the stochastic block's conditional likelihood closed form (§3).
 """
 function reactions(m::CoreATranscription)
     n = length(m.genes)
-    # The five counters sit immediately after the seventeen transcripts.
-    trsc, a_i, g_i, c_i, u_i = n + 1, n + 2, n + 3, n + 4, n + 5
+    # The configured counters sit immediately after the transcripts, in the
+    # order `states` lists them.
+    nc = length(m.counters)
     rxns = Reaction[]
     for (i, g) in enumerate(m.genes)
-        len, na, nc, ng, nu = g.length, g.counts.A, g.counts.C, g.counts.G, g.counts.U
+        incs = ntuple(k -> COUNTER_INCREMENTS[m.counters[k].counter](g), nc)
         push!(rxns, Reaction(
             (u, p, t, _) -> p[n + i],
             (u, _) -> begin
                 u[i] += 1
-                u[trsc] += len
-                u[a_i] += na
-                u[g_i] += ng
-                u[c_i] += nc
-                u[u_i] += nu
+                for k in 1:nc
+                    u[n + k] += incs[k]
+                end
             end))
     end
     return rxns
@@ -540,7 +567,7 @@ end
 
 function reduction_notes(m::CoreATranscription)
     loci = join(string.(rate_param(g.locus) for g in m.genes), ", ")
-    return [
+    mapping = m.base_mapping === :corrected ?
         "The base-to-nucleotide mapping is corrected: each base is charged " *
         "against the nucleotide it is polymerised from (:corrected), rather " *
         "than against the permutation of MinCell_CMEODE.py:377-383 " *
@@ -551,7 +578,24 @@ function reduction_notes(m::CoreATranscription)
         "2.45 — it is the per-gene U-to-G count ratio, not one factor. GTP is " *
         "one of four reverse channels, not the only one: ATP, CTP and UTP " *
         "enter the same rate law, and the measured ATP elasticity matches " *
-        "GTP's. Both mappings are computable.",
+        "GTP's. Both mappings are computable." :
+        "The base-to-nucleotide mapping is the published permutation of " *
+        "MinCell_CMEODE.py:377-383 (:published), reproduced deliberately: the " *
+        "UTP term takes the cytosine count, the CTP term the guanine count and " *
+        "the GTP term the uracil count, so bases are not charged against the " *
+        "nucleotides they are polymerised from. Relative to the corrected " *
+        "mapping (:corrected, spec §4 D4) the rate constants differ by about " *
+        "one percent, and the sensitivity to the live GTP pool is inflated by " *
+        "the per-gene U-to-G count ratio, a median 1.85× spanning 1.53 to 2.45. " *
+        "Both mappings are computable."
+    counter_names = Set(c.counter for c in m.counters)
+    double_debit = (:ATP_trsc in counter_names && :ATP_mRNA in counter_names) ?
+        ["ATP is debited twice per transcript — once as polymerisation energy " *
+         "at one per nucleotide (ATP_trsc), once as an incorporated monomer " *
+         "(ATP_mRNA). This is the published model's accounting, not an error, " *
+         "and it is recorded so that it is not \"fixed\"."] : String[]
+    return [
+        mapping,
 
         "CTP and UTP are held constant at 0.6874 and 2.7681 mM. This " *
         "reduction chemostats them, not the published model: the reactions " *
@@ -568,10 +612,7 @@ function reduction_notes(m::CoreATranscription)
         "enzyme concentration in the metabolic modules, so a protein-level " *
         "observable closes a loop through them. Affected: $loci.",
 
-        "ATP is debited twice per transcript — once as polymerisation energy " *
-        "at one per nucleotide (ATP_trsc), once as an incorporated monomer " *
-        "(ATP_mRNA). This is the published model's accounting, not an error, " *
-        "and it is recorded so that it is not \"fixed\".",
+        double_debit...,
 
         "Genes are carried as a fixed quantity rather than as states, because " *
         "Core A′ cuts replication and nothing can change them. The published " *
@@ -631,12 +672,13 @@ turnover_headroom(m::CoreATranscription) =
 """
     counter_drains(m) -> Vector{NamedTuple}
 
-Each cost counter, the registry species it debits, and what that drain
-produces. `ATP_trsc` yields ADP and phosphate; the four monomer counters yield
-pyrophosphate — a source the project's earlier accounting attributed to
-amino-acid charging alone, and one phase 8's phosphate closure must see.
+Each configured cost counter, the registry species it debits, and what that
+drain produces. By default all five: `ATP_trsc` yields ADP and phosphate; the
+four monomer counters yield pyrophosphate — a source the project's earlier
+accounting attributed to amino-acid charging alone, and one phase 8's phosphate
+closure must see.
 """
-counter_drains(::CoreATranscription) = collect(TRANSCRIPTION_COUNTERS)
+counter_drains(m::CoreATranscription) = collect(m.counters)
 
 """
     transcript_decay_constant(g) -> Float64

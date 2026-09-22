@@ -202,6 +202,46 @@ end
         @test occursin(":permuted", sprint(showerror, err))
     end
 
+    @testset "10b.5 states, reactions and notes follow the configuration" begin
+        # A custom counter set used to get the default five states, and the
+        # reactions wrote five fixed positions past the transcripts whatever
+        # had been declared.
+        three = Tuple(c for c in TRANSCRIPTION_COUNTERS
+                      if c.counter in (:ATP_trsc, :GTP_mRNA, :UTP_mRNA))
+        m3 = CoreATranscription(counters = three)
+        @test length(states(m3)) == 20
+        @test states(m3)[18:20] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
+        @test [c.counter for c in counter_drains(m3)] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
+        @test count(e -> e isa DeferredCounterEdge, coupling(m3)) == 3
+
+        g = genes[5]
+        u = zeros(Int, 20)
+        reactions(m3)[5].affect!(u, Int[])
+        @test u[5] == 1 && sum(u[1:17]) == 1
+        @test u[18:20] == [g.length, g.counts.G, g.counts.U]
+
+        # Without ATP_mRNA there is no double debit to warn about.
+        @test !any(n -> occursin("debited twice", n), reduction_notes(m3))
+        @test any(n -> occursin("debited twice", n), reduction_notes(m))
+
+        err = caught(() -> CoreATranscription(
+            counters = ((counter = :ATP_bogus, species = :M_atp_c, produces = ()),)))
+        @test err isa ArgumentError
+        @test occursin(":ATP_bogus", err.msg)
+        err = caught(() -> CoreATranscription(
+            counters = ((counter = :GTP_mRNA, species = :M_atp_c, produces = (:M_ppi_c,)),)))
+        @test err isa ArgumentError
+        @test occursin(":M_gtp_c", err.msg)
+
+        # Under the published permutation the notes describe that permutation
+        # and do not claim the correction.
+        pub = reduction_notes(CoreATranscription(base_mapping = :published))
+        mapping_notes = filter(n -> occursin("base-to-nucleotide", n), pub)
+        @test length(mapping_notes) == 1
+        @test occursin("is the published permutation", only(mapping_notes))
+        @test !any(n -> occursin("mapping is corrected", n), pub)
+    end
+
     @testset "10.4 NTP concentrations from the balanced tables" begin
         ps = parameters(m)
         byname = Dict(p.name => p for p in ps)
@@ -381,13 +421,46 @@ end
         # The clamps are labelled deviations; the counters are not.
         @test count(l -> l.category === :clamp, labels) == 2
 
-        # One number, three consumers. The cross-check against the metabolic
-        # modules' enzyme concentrations needs phases 6 and 7, neither of which
-        # has landed on this branch.
-        @test_skip "10.7 copy numbers agree with the metabolic modules' — " *
-                   "blocked on phase 6 (central glycolysis) and phase 7 " *
-                   "(phosphotransferase transport), which declare the loci to " *
-                   "compare against"
+        # One number, three consumers: the promoter proxy here, and the enzyme
+        # concentrations of the metabolic modules. Each module's own declaration
+        # is compared wherever a locus appears in both (phase 10b.6, which
+        # replaces the skip phase 10 carried while phases 6 and 7 were open).
+        ours = protein_copy_numbers(m)
+        reaction_of = Dict(TRANSCRIPTION_LOCI)
+        compared = Symbol[]
+
+        # Phase 6 declares a copy number per glycolytic reaction, by locus.
+        for r in GLYCOLYTIC_REACTIONS
+            haskey(ours, r.locus) || continue
+            @test ours[r.locus] == r.copies
+            @test reaction_of[r.locus] === r.enzyme
+            push!(compared, r.locus)
+        end
+
+        # Phase 7 declares each carrier as two phospho-state concentrations,
+        # copies times the proteomics fraction, so the pair sums back to copies.
+        ppm = InferCell.corea_particles_per_mM()
+        ics = Dict(p.name => p.value for p in parameters(PtsTransport())
+                   if p.role === :initial_condition)
+        for (locus, carrier) in ((:JCVISYN3A_0233, :ptsi), (:JCVISYN3A_0234, :crr),
+                                 (:JCVISYN3A_0694, :ptsh), (:JCVISYN3A_0779, :ptsg))
+            @test lowercase(string(reaction_of[locus])) == string(carrier)
+            total = ics[Symbol(:M_, carrier, :_c0)] + ics[Symbol(:M_, carrier, :_P_c0)]
+            @test total * ppm ≈ ours[locus] rtol = 1e-9
+            push!(compared, locus)
+        end
+
+        # Phase 8 declares its enzymes by locus as well, and PGK and PYK are the
+        # glycolytic genes a second time.
+        for e in recycling_enzymes()
+            locus = Symbol(e.locus)
+            haskey(ours, locus) || continue
+            @test ours[locus] == e.copies
+            push!(compared, locus)
+        end
+
+        # Every one of the seventeen is checked against at least one module.
+        @test Set(compared) == Set(g.locus for g in genes)
     end
 
     @testset "10.8 a full cycle, calibration and the elasticities" begin

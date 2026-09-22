@@ -84,8 +84,15 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
         for p in model_free_params(parameters(m))
             if haskey(seen, p.name)
                 existing = seen[p.name]
-                if p.value != existing.value || typeof(p.prior) != typeof(existing.prior) || p.fixed != existing.fixed
-                    error("Shared parameter :$(p.name) has inconsistent definitions across modules :$(existing.module_id) and :$(p.module_id)")
+                # Priors by value: comparing types alone let `LogNormal(0, 0.1)` and
+                # `LogNormal(5, 2)` pass as one prior, and module order decided which
+                # was kept. Distributions' `isequal` compares family and fields, so
+                # `LogNormal(0, 1)` and `LogNormal(0.0, 1.0)` still agree.
+                if p.value != existing.value || !isequal(p.prior, existing.prior) || p.fixed != existing.fixed
+                    error("Shared parameter :$(p.name) has inconsistent definitions across " *
+                          "modules :$(existing.module_id) (value $(existing.value), prior " *
+                          "$(existing.prior), fixed $(existing.fixed)) and :$(p.module_id) " *
+                          "(value $(p.value), prior $(p.prior), fixed $(p.fixed))")
                 end
             else
                 seen[p.name] = p

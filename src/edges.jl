@@ -63,7 +63,10 @@ species, a direction (`:in` where the declaring module reads or consumes,
 
 A `peer` of `nothing` means "whichever module owns this species", which is the
 usual case inside the ODE block; naming a peer explicitly is what lets the
-resolver report a counterpart that is missing from the composition.
+resolver report a counterpart that is missing from the composition. A named
+peer must be the counterpart: it integrates the species, or declares the
+opposite direction of the same crossing. A clamp or an inbound volume edge has
+no such counterpart, so leave its peer unnamed.
 """
 abstract type CouplingEdge end
 
