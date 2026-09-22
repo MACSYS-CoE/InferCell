@@ -1,9 +1,31 @@
 # Handoff
 
-**Session date:** 2026-09-18
-**Branches:** `ci-retire-integration-from-pr-path`, `docs-migrate-to-documenter`
+**Session date:** 2026-09-23
+**Branch:** `phase-9-trna-charging`
 
-## Latest: a hygiene pass, not a phase (2026-09-18)
+## Latest: phase 9, lumped tRNA charging (2026-09-23)
+
+`TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
+module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at
+`k_chg·[trna]·[ATP]`, owns the tRNA pair, and contributes to ATP, AMP and PPi
+through three currency edges. Full suite: Slurm job **17023812**, 2,598 pass,
+and the one "broken" is task 10.7's skip, which phase 10b owns.
+
+- **Phase 8's `ChargingDrain` is superseded for composed runs** by
+  `TrnaCharging` plus `TranslationDemand` (`test/trna_test_models.jl`). It is
+  kept only for phase 8's standalone checks, whose recorded numbers belong to it.
+- **Two amendments, both in §12 under 2026-09-23.** First, D14's derivation
+  needed a nominal charged fraction, so the defaults are 0.25 mM at 0.8 charged,
+  `k_chg = 0.15006`, and 9.7's flux check is restated as a drift (−0.89%,
+  measured). Second, a small moiety that is bitwise zero per evaluation may
+  assert the `tol_C` ladder rather than the flat 100-ulp bound.
+- **Open for phase 11:** task 11.7's clipping census decides whether 0.25 mM
+  buffers enough. It holds 7.23 s of demand (`dev/scripts/trna_charging_diagnostics_result.md`).
+  Check 1b needs at least 0.125 mM.
+- The spec's merge dates for #51 and #52 were given as 2026-09-17; both merged
+  on 2026-09-10 (UTC). They are corrected in the closing spec commit.
+
+## Earlier: a hygiene pass, not a phase (2026-09-18)
 
 No spec phase moved. Phase 10 is merged (#51), phase 8 is merged (#52), and
 **phase 9 — lumped tRNA charging — is still `_not started_`**, which the next
