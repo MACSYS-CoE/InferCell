@@ -417,13 +417,46 @@ end
         # The clamps are labelled deviations; the counters are not.
         @test count(l -> l.category === :clamp, labels) == 2
 
-        # One number, three consumers. The cross-check against the metabolic
-        # modules' enzyme concentrations needs phases 6 and 7, neither of which
-        # has landed on this branch.
-        @test_skip "10.7 copy numbers agree with the metabolic modules' — " *
-                   "blocked on phase 6 (central glycolysis) and phase 7 " *
-                   "(phosphotransferase transport), which declare the loci to " *
-                   "compare against"
+        # One number, three consumers: the promoter proxy here, and the enzyme
+        # concentrations of the metabolic modules. Each module's own declaration
+        # is compared wherever a locus appears in both (phase 10b.6, which
+        # replaces the skip phase 10 carried while phases 6 and 7 were open).
+        ours = protein_copy_numbers(m)
+        reaction_of = Dict(TRANSCRIPTION_LOCI)
+        compared = Symbol[]
+
+        # Phase 6 declares a copy number per glycolytic reaction, by locus.
+        for r in GLYCOLYTIC_REACTIONS
+            haskey(ours, r.locus) || continue
+            @test ours[r.locus] == r.copies
+            @test reaction_of[r.locus] === r.enzyme
+            push!(compared, r.locus)
+        end
+
+        # Phase 7 declares each carrier as two phospho-state concentrations,
+        # copies times the proteomics fraction, so the pair sums back to copies.
+        ppm = InferCell.corea_particles_per_mM()
+        ics = Dict(p.name => p.value for p in parameters(PtsTransport())
+                   if p.role === :initial_condition)
+        for (locus, carrier) in ((:JCVISYN3A_0233, :ptsi), (:JCVISYN3A_0234, :crr),
+                                 (:JCVISYN3A_0694, :ptsh), (:JCVISYN3A_0779, :ptsg))
+            @test lowercase(string(reaction_of[locus])) == string(carrier)
+            total = ics[Symbol(:M_, carrier, :_c0)] + ics[Symbol(:M_, carrier, :_P_c0)]
+            @test total * ppm ≈ ours[locus] rtol = 1e-9
+            push!(compared, locus)
+        end
+
+        # Phase 8 declares its enzymes by locus as well, and PGK and PYK are the
+        # glycolytic genes a second time.
+        for e in recycling_enzymes()
+            locus = Symbol(e.locus)
+            haskey(ours, locus) || continue
+            @test ours[locus] == e.copies
+            push!(compared, locus)
+        end
+
+        # Every one of the seventeen is checked against at least one module.
+        @test Set(compared) == Set(g.locus for g in genes)
     end
 
     @testset "10.8 a full cycle, calibration and the elasticities" begin
