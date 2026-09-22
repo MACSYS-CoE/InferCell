@@ -142,3 +142,58 @@ end
 "The tRNA pair's sum in the composition `ms`, as a function of the state."
 trna_total(ms) = (U = layout_index(ms, :M_trna_c); C = layout_index(ms, :M_trna_chg_c);
                   u -> u[U] + u[C])
+
+"""
+    TwoAtpCharging(; pool_mM, charged_fraction)
+
+The alternative lumping the scoping note rejected, built for the one comparison
+task 9.9 asks for:
+
+    M_trna_c + 2 ATP  ->  M_trna_chg_c + 2 ADP + 2 Pi
+    v = k2 · [M_trna_c] · [M_atp_c]²
+
+Mass action in each unit of stoichiometry, so ATP appears squared. It spends
+the same two high-energy phosphates per residue as the published form, but it
+closes adenylate and phosphate without AMP or pyrophosphate ever appearing. So
+it sends no traffic through the adenylate kinase or the pyrophosphatase, which
+is the difference 9.9 measures.
+
+**Matched on flux, not on event count** (spec §4 D14): `k2` is derived from the
+same demand and nominal pools as `k_chg`, so both forms deliver 553.10
+residues/s at nominal ATP, and what differs between them is only how each rate
+law responds away from nominal. The demand is computed here, not read from
+`TrnaCharging`.
+"""
+struct TwoAtpCharging <: AbstractSubModel
+    params::Vector{InferParameter}
+    k2::Float64
+end
+function TwoAtpCharging(; pool_mM = CHARGING_POOL_DEFAULTS.pool_mM,
+                        charged_fraction = CHARGING_POOL_DEFAULTS.charged_fraction)
+    atp = species_entry(:M_atp_c).initial_value
+    k2 = TL_DEMAND_MM_PER_S / ((1 - charged_fraction) * pool_mM * atp^2)
+    ics = [InferParameter(v, Normal(v, 0.1), true, Symbol(s, "0"), :TrnaCharging,
+                          :initial_condition)
+           for (s, v) in zip(CHARGING_STATES, ((1 - charged_fraction) * pool_mM,
+                                               charged_fraction * pool_mM))]
+    return TwoAtpCharging(ics, k2)
+end
+states(::TwoAtpCharging) = CHARGING_STATES
+parameters(m::TwoAtpCharging) = m.params
+module_id(::TwoAtpCharging) = :TrnaCharging
+inputs(::TwoAtpCharging) = [:M_atp_c]
+contributed_states(::TwoAtpCharging) = [:M_atp_c, :M_adp_c, :M_pi_c]
+coupling(::TwoAtpCharging) = CouplingEdge[
+    CurrencyEdge(species = :M_atp_c, direction = :in),
+    CurrencyEdge(species = :M_adp_c, direction = :out),
+    CurrencyEdge(species = :M_pi_c, direction = :out),
+]
+@inline _two_atp_rate(m::TwoAtpCharging, trna, atp) = m.k2 * trna * atp^2
+function dynamics(u, p, t, m::TwoAtpCharging, u_inputs)
+    v = _two_atp_rate(m, u[1], u_inputs[1])
+    return SA[-v, v]
+end
+function contributions(u, p, t, m::TwoAtpCharging, u_inputs)
+    v = _two_atp_rate(m, u[1], u_inputs[1])
+    return SA[-2v, 2v, 2v]
+end
