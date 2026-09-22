@@ -19,6 +19,7 @@ Pages = [
     "organisms/coreA/central_glycolysis.jl",
     "organisms/coreA/pts_transport.jl",
     "organisms/coreA/nucleotide_recycling.jl",
+    "organisms/coreA/trna_charging.jl",
     "organisms/coreA/transcription.jl",
 ]
 ```
