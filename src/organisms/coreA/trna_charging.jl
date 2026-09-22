@@ -167,7 +167,19 @@ function charging_derivation(m::TrnaCharging)
             k_chg = m.k_held)
 end
 
+# The boundary: three currency edges on pools nucleotide recycling owns. The
+# charging step is the principal consumer of ATP's turnover (~81%, spec §4 D13)
+# and a principal producer of AMP and pyrophosphate, so it declares all three.
+# As a jump module it could not have executed these against ODE states (D13);
+# in the ODE block they run through phase 1's contribution channel.
+const CHARGING_EDGES = CouplingEdge[
+    CurrencyEdge(species = :M_atp_c, direction = :in),
+    CurrencyEdge(species = :M_amp_c, direction = :out),
+    CurrencyEdge(species = :M_ppi_c, direction = :out),
+]
+
 states(::TrnaCharging) = CHARGING_STATES
+coupling(::TrnaCharging) = CHARGING_EDGES
 parameters(m::TrnaCharging) = m.params
 inputs(::TrnaCharging) = [:M_atp_c]
 contributed_states(::TrnaCharging) = [:M_atp_c, :M_amp_c, :M_ppi_c]
@@ -201,6 +213,6 @@ function contributions(u, p, t, m::TrnaCharging, u_inputs)
     return SA[-v, v, v]
 end
 
-export TrnaCharging, CHARGING_STATES, CHARGING_RESIDUES_PER_CYCLE, CHARGING_CYCLE_S,
+export TrnaCharging, CHARGING_STATES, CHARGING_EDGES, CHARGING_RESIDUES_PER_CYCLE, CHARGING_CYCLE_S,
        CHARGING_POOL_DEFAULTS, charging_flux, charging_demand_per_s,
        charging_demand_mM_per_s, derive_k_chg, charging_derivation

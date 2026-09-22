@@ -1,6 +1,6 @@
 using Test
 using InferCell
-using StaticArrays: SA
+using StaticArrays: SA, setindex
 
 # Spec §11 phase 9 — the lumped tRNA charging step, in the ODE block.
 
@@ -45,6 +45,9 @@ using StaticArrays: SA
         for n in (:k_chg, :trna_pool_mM, :trna_charged_fraction)
             @test informedness(byname[n]) === :asserted
         end
+        asserted = Set(l.subject for l in reduction_declarations([m])
+                       if l.category === :asserted_prior)
+        @test asserted == Set([:k_chg, :trna_pool_mM, :trna_charged_fraction])
         @test Set(p.name for p in asserted_prior_params(parameters(m))) ==
               Set([:k_chg, :trna_pool_mM, :trna_charged_fraction])
 
@@ -81,6 +84,59 @@ using StaticArrays: SA
         @test isempty(free_params(parameters(m)))
         @test_throws ArgumentError TrnaCharging(charged_fraction = 1.0)
         @test_throws ArgumentError TrnaCharging(pool_mM = 0.0)
+    end
+
+    @testset "9.3 three currency edges, and they execute" begin
+        m = TrnaCharging()
+        edges = coupling(m)
+        @test Set((edge_kind(e), e.species, e.direction) for e in edges) == Set([
+            (:currency, :M_atp_c, :in),
+            (:currency, :M_amp_c, :out),
+            (:currency, :M_ppi_c, :out),
+        ])
+        @test length(edges) == 3
+        @test all(e -> e isa CurrencyEdge, edges)
+        # No tRNA edge: this module owns the pair, and no other module writes it
+        # continuously (phase 11's debit is a deferred counter, task 11.5).
+        @test !any(e -> e.species in CHARGING_STATES, edges)
+        @test Set(contributed_states(m)) == Set(e.species for e in edges)
+
+        # With phase 8: resolves, so no species and direction is both mass and
+        # currency. The resolver throws on exactly that (`_check_kind_agreement`).
+        @test resolve_coupling(AbstractSubModel[NucleotideRecycling(), m]) isa CouplingGraph
+
+        # The four ODE modules together: task 8.5's deferred assertion, which
+        # phase 9 is the last of phases 6 to 9 to be able to write.
+        four = AbstractSubModel[CentralGlycolysis(), PtsTransport(),
+                                NucleotideRecycling(), m]
+        g = resolve_coupling(four)
+        @test g isa CouplingGraph
+        @test count(r -> r.declared_by === :TrnaCharging, g.edges) == 3
+
+        # The contributions EXECUTE. Evaluate the composed right-hand side at the
+        # initial state, and again with the uncharged pool zeroed so charging's
+        # flux is zero and nothing else changes: nothing else in the composition
+        # reads M_trna_c. The difference in each touched slot is the charging
+        # term, and it is the flux, not zero.
+        ms = AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(), m]
+        prob = build_problem(ms; tspan = (0.0, 1.0))
+        layout = reduce(vcat, states.(ms))
+        ix(s) = findfirst(==(s), layout)
+        u0 = prob.u0
+        uz = setindex(u0, 0.0, ix(:M_trna_c))
+        d = prob.f(u0, prob.p, 0.0) - prob.f(uz, prob.p, 0.0)
+        v = charging_flux(SA[u0[ix(:M_trna_c)], u0[ix(:M_trna_chg_c)]],
+                          Float64[], 0.0, m, SA[u0[ix(:M_atp_c)]])
+        @test v ≈ charging_demand_mM_per_s() rtol = 1e-12
+        @test d[ix(:M_atp_c)] ≈ -v rtol = 1e-9
+        @test d[ix(:M_amp_c)] ≈ v rtol = 1e-9
+        @test d[ix(:M_ppi_c)] ≈ v rtol = 1e-9
+        @test d[ix(:M_trna_c)] ≈ -v rtol = 1e-12
+        @test d[ix(:M_trna_chg_c)] ≈ v rtol = 1e-12
+        # And nothing it does not declare: ADP, Pi and the guanylates unmoved.
+        for s in (:M_adp_c, :M_pi_c, :M_gtp_c, :M_gdp_c, :M_gmp_c)
+            @test d[ix(s)] == 0.0
+        end
     end
 
 end

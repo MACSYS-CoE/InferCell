@@ -404,8 +404,11 @@ const TIGHT_SOL = recycling_solve(recycling_models();
 
         # Not independent of phases 6, 7 and 9. The four-module assertion — that
         # no species and direction is described as both mass and currency across
-        # every ODE module — belongs to the last of them to land, or to phase 13.
-        @test_skip "no species is both mass and currency across all four ODE modules — needs spec §11 phase 9"
+        # every ODE module — belongs to the last of them to land, which is phase
+        # 9. The resolver throws on exactly that conflict (`_check_kind_agreement`),
+        # so resolving the four is the assertion.
+        @test resolve_coupling(AbstractSubModel[CentralGlycolysis(), PtsTransport(),
+                                                NucleotideRecycling(), TrnaCharging()]) isa CouplingGraph
     end
 
 
