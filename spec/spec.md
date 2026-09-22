@@ -458,7 +458,14 @@ the gate its composition actually passes, or it keeps the fall.
 fall it replaces.** Run the ladder over at least six decades of `(abstol,
 reltol)`. Require every rung's residual within **100 ulps** of the conserved
 sum, and the largest rung within **100×** of the smallest. Report the ladder,
-not a single pair.
+not a single pair. **Amended 2026-09-23:** a composition that passes the first
+gate's bitwise test may instead assert the second gate's `tol_C`-relative
+ladder: every rung at least three orders below its own `tol_C`, the largest
+within 100× of the smallest. The flat 100-ulp bound is measured in ulps of the
+conserved sum, but the residual is roundoff set by the composition's *largest*
+states. A small moiety beside large pools therefore fails the flat bound without
+leaking anything. Phase 9's 0.25 mM tRNA pair sits at 60 to 3,097 ulps beside
+~35 mM of phosphate, bitwise zero at every evaluation. See §12.
 
 **And it is not literally flat, which matters.** The integrated residual is
 linear-algebra roundoff in the implicit solver's stage solves, accumulated over
@@ -2745,6 +2752,9 @@ but it depends on phase 8, so the track is not a clean fan-out.
   equals its initial value at every save point over a full cycle against the
   double — verify by the check satisfying the tolerance principle, and by a
   mutation that creates tRNA rather than transferring it making it fail.
+  **Annotated 2026-09-23:** asserts §3's first gate (bitwise `0.0` at all 106
+  save points) with the `tol_C` ladder the same day's amendment allows, over
+  six decades from (1e-4, 1e-2) to (1e-10, 1e-8). See §12.
 - [ ] 9.7 Show the flux is right without assuming it — verify by the steady
   charging flux reproducing 553.1 per second where that figure is computed
   independently, from 3,484,518 residues over 6,300 s, with `k_chg` reported as
@@ -3320,6 +3330,39 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-23 — a small moiety fails the first gate's flat ulp bound without leaking
+
+**Trigger:** task 9.6. Measured on the four-module composition (charging,
+recycling, the glycolytic double and the translation-demand double) over a full
+cycle, the tRNA pair's summed derivative is bitwise `0.0` at **106 of 106** save
+points, which is the first gate's criterion. Across nine rungs from (1e-4,
+1e-2) to (1e-12, 1e-10), its integrated drift is 3,097, 503, 1,366, 631, 335,
+873, 60, 286 and 1,191 ulps of the 0.25 mM sum. That is flat, with a 51× spread,
+so the fivefold fall fails as it should. It also fails the first gate's
+every-rung-within-100-ulps bound at eight of nine rungs. In absolute terms the
+drift is ~1e-13 mM, which is implicit-solver roundoff at the scale of the
+composition's large states (phosphate ~35 mM, ATP ~3.6 mM). It only looks large
+in ulps of a sum 140 times smaller. §3 already made this argument for the
+second gate: a flat ulp count is fitted to one composition.
+
+**Change:** a composition passing the first gate's bitwise test may assert the
+second gate's `tol_C` ladder in place of the flat 100-ulp bound. Task 9.6 does,
+over six decades, (1e-4, 1e-2) to (1e-10, 1e-8), at **10.2 down to 5.7 orders**
+below each rung's `tol_C`. **Recorded rather than asserted:** the two tighter
+rungs sit at 4.2 orders (1e-11) and **2.58** (1e-12), where `tol_C` has fallen to
+the roundoff floor itself. That is below the three-order bar, and it is why the
+asserted ladder stops at 1e-10. The mutation that creates tRNA moves the
+per-evaluation sum by 0.0274 mM (bitwise 0 unmutated) and the sum by 15.9 mM in
+600 s.
+
+*Who else this reaches:* nobody retroactively. Phase 6's redox pair and phase
+7's carriers pass the flat bound and keep it.
+
+Approved at implementation time, on the ladder above, before 9.6 was written.
+
+**Sections touched:** §3 (the exception's first-gate ladder bound), §11 task
+9.6, §12.
 
 ### 2026-09-23 — the charging derivation needs a charged fraction, and its flux check is a drift
 
