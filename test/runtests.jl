@@ -79,6 +79,9 @@ using Aqua
     # driver, so they live in their own file.
     include("nucleotide_test_models.jl")
     include("test_corea_nucleotide_recycling.jl")
+    # tRNA charging (spec phase 9). Its doubles compose with phase 8's, so
+    # they are included after them.
+    include("trna_test_models.jl")
     include("test_corea_trna_charging.jl")
     # Transcription (spec phase 10): the decay double first, then the tests.
     include("corea_transcription_doubles.jl")

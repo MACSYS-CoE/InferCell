@@ -156,4 +156,31 @@ using StaticArrays: SA, setindex
         @test !occursin("deterministic", lump.description)
     end
 
+    @testset "9.5 the translation-demand double" begin
+        d = TranslationDemand()
+        # At the nominal charged pool it consumes the published demand, derived
+        # in the double from the residue count and not read off the module.
+        chg0 = CHARGING_POOL_DEFAULTS.charged_fraction * CHARGING_POOL_DEFAULTS.pool_mM
+        @test dynamics(SA[0.0], Float64[], 0.0, d, SA[chg0])[1] ≈ TL_DEMAND_MM_PER_S rtol = 1e-14
+        @test TL_DEMAND_PER_S ≈ 553.098 rtol = 1e-6
+        # One charged consumed, one uncharged returned.
+        c = contributions(SA[0.0], Float64[], 0.0, d, SA[chg0])
+        @test contributed_states(d) == [:M_trna_c, :M_trna_chg_c]
+        @test c[1] == -c[2] && c[1] > 0
+
+        # Without a consumer the pool saturates and the flux collapses, which is
+        # why the double is an acceptance criterion and not scaffolding.
+        ms = charging_models(demand = nothing)
+        sol = recycling_solve(ms; horizon = 600.0)
+        chg, unc = layout_index(ms, :M_trna_chg_c), layout_index(ms, :M_trna_c)
+        frac_end = sol.u[end][chg] / (sol.u[end][chg] + sol.u[end][unc])
+        @test frac_end > 0.999
+        # With it, the split stays near nominal.
+        ms2 = charging_models()
+        sol2 = recycling_solve(ms2; horizon = 600.0)
+        frac2 = sol2.u[end][chg] / (sol2.u[end][chg] + sol2.u[end][unc])
+        @test 0.5 < frac2 < 0.95
+        @info "9.5" frac_end_no_consumer = frac_end frac_end_with_double = frac2
+    end
+
 end
