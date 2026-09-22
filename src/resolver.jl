@@ -86,8 +86,9 @@ end
 Resolve and validate the declared coupling of a composition.
 
 Throws when the boundary is inconsistent: an edge naming an unregistered
-species or pool, an edge whose named peer is absent, one species-and-direction
-crossing described as both mass and currency — two spellings of one continuous
+species or pool, an edge whose named peer is absent or is not its counterpart
+(neither integrating the species nor declaring its opposite direction), one
+species-and-direction crossing described as both mass and currency — two spellings of one continuous
 transport (the other kinds are distinct mechanisms and coexist: the published
 model routes ATP through a currency pool, a deferred-counter debit and a
 rate-constant rebuild at once), a module integrating a chemostat, a state

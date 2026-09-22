@@ -78,8 +78,8 @@ using Distributions
         @test occursin("Bystander", err.msg)
         @test occursin("integrated by Central", err.msg)
 
-        # Naming the owner resolves, and so does naming the consumer from the
-        # producer's side, which owns nothing but declares the other direction.
+        # Naming the owner resolves, and so does a producer naming its consumer,
+        # which owns nothing but declares the other direction.
         graph = resolve_coupling([owner, consumer(:Central), bystander])
         @test any(r -> r.declared_by == :Expression && r.peer == :Central, graph.edges)
         producer = CoreAStub(:Central;
