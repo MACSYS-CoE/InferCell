@@ -2,7 +2,7 @@ using InferCell
 using Test
 using OrdinaryDiffEq: Tsit5, solve
 using SciMLBase: ReturnCode, ODEProblem
-using Distributions: LogNormal
+using Distributions: LogNormal, Normal, truncated
 
 @testset "TX/TL + Metabolism Composition" begin
     txl = TranscriptionTranslation()
@@ -43,9 +43,13 @@ using Distributions: LogNormal
         @test occursin(":txl", err.msg) && occursin(":metab", err.msg)
         @test occursin("LogNormal", err.msg) && occursin("σ=0.1", err.msg)
 
-        # Identical priors, including an integer-versus-float spelling, still compose.
+        # Identical priors still compose, including an integer-versus-float spelling.
         c = with_prior(LightMetabolism(), :k_tx, LogNormal(0.0, 0.1))
         @test build_problem([a, c]) isa ODEProblem
+        # Same wrapper, different underlying family: still two priors.
+        d = with_prior(TranscriptionTranslation(), :k_tx, truncated(Normal(0, 1); lower = 0.0))
+        e = with_prior(LightMetabolism(), :k_tx, truncated(LogNormal(0, 1); lower = 0.0))
+        @test_throws ErrorException build_problem([d, e])
         @test build_problem([txl, metab]) isa ODEProblem
     end
 
