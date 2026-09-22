@@ -1599,7 +1599,7 @@ point of D0's reordering.
 
 ## 11. Task list
 
-Seventeen phases plus a phase 0 and a phase 5b, each one reviewable pull request. Ordering is
+Seventeen phases plus a phase 0, a phase 5b and a phase 10b, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
@@ -2890,6 +2890,43 @@ refreshes itself".
   The pre-rebase figure of 1708/1708 against a 1468 base belongs to job
   16373862 and to a tree without phases 6, 7 and 8.
 
+### Phase 10b — Framework and phase 10 fixes from the 2026-09-22 review
+
+**Goal:** fix the review findings that are small, independent and outside any
+module phase's remit (§12, 2026-09-23 C to F and H), so that phase 13 meets
+none of them.
+**Done when:** every returned ABC particle lies within the reported tolerance,
+shared priors are compared by value, a named peer must supply the quantity, an
+empty boundary is refused, and transcription's states and provenance follow its
+own configuration.
+**PR:** _not started_
+
+Independent of phases 11 and 12, so it can land at any point before phase 13.
+
+- [ ] 10b.1 Report the tolerance the returned population was accepted under —
+  verify by a seeded run in which every returned particle's distance is at or
+  below the reported tolerance, including at `n_populations = 1`, where
+  population 1 must itself be filtered or the call refused.
+- [ ] 10b.2 Compare shared priors by value, not by type — verify by
+  `LogNormal(0, 0.1)` against `LogNormal(5, 2)` under one name throwing and
+  naming both modules, and by identical priors still composing.
+- [ ] 10b.3 Require a named peer to own or supply the edge's quantity — verify by
+  an owner, a consumer and a bystander, with the edge naming the bystander,
+  throwing and naming the actual owner; and by every existing module's edges
+  still resolving.
+- [ ] 10b.4 Refuse an empty boundary in `iterative_infer` — verify by two blocks
+  with no shared free parameter throwing before any sampling, instead of
+  returning `n_iters = 2` with a zero KL.
+- [ ] 10b.5 Make transcription's states and reduction notes follow its
+  configuration — verify by a three-counter construction exposing exactly three
+  counter states, and by `reduction_notes` under `base_mapping = :published`
+  describing the published permutation, not the corrected mapping.
+- [ ] 10b.6 Replace the 10.7 `@test_skip` with the executed check — verify by the
+  seventeen transcription loci's copy numbers agreeing with those phases 6 and 7
+  declare wherever a locus appears in both, and by the suite's broken count
+  falling from 2 to 1.
+- [ ] 10b.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+
 ### Phase 11 — Translation
 
 **Goal:** one translation reaction per transcript plus ptsG translocation, with
@@ -3055,6 +3092,17 @@ per-trajectory wall-clock is recorded.
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
   record.
+- [ ] 13.9 Give a chemostatted pool both an ownerless debit path and a rebuild
+  that reads its held value (§12, 2026-09-10 E, widened by 2026-09-23 A) —
+  verify by `build_problem([CoreATranscription(), NucleotideRecycling()])`
+  building, by the transcription rebuild reading 0.6874 and 2.7681 mM for CTP
+  and UTP, and by the two pinned throws in `test/test_corea_transcription.jl`
+  being replaced by these assertions.
+- [ ] 13.10 Give a deferred counter per-product stoichiometry and wire the five
+  transcription counters' products (§12, 2026-09-23 B) — verify by `ATP_trsc`
+  crediting ADP and phosphate one each per ATP actually paid, by the adenylate
+  and phosphate moieties balancing across a handshake on which ATP clips, and by
+  task 13.2 seeing every product edge executed.
 
 ### Phase 14 — The validation checks, in the scoping note's order
 
@@ -3147,6 +3195,11 @@ observable that closes the proxy loop is rejected by a check.
   `check_identifiability` reporting full rank and a condition number below 1e6
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
+- [ ] 15.9 Map observations to states by species name, and keep ensemble spread
+  in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
+  species leaving the log-density unchanged, by a subset of states building and
+  scoring, by an unknown species name throwing, and by the time-series summary
+  carrying a per-time spread as well as the mean.
 
 ### Phase 16 — Recovery, coverage, and the reference
 
@@ -3257,6 +3310,106 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-23 — what the 2026-09-22 correctness review found that §12 did not already hold
+
+*Trigger:* a whole-project correctness review
+(`docs/reviews/full-project-correctness-review-2026-09-22.md`) raised eight
+findings and three smaller ones. Each was checked against the source on
+`main` at `fb2d37b`. All are real, but about half were already recorded here
+with an owner, and the review cites neither this log nor the phases that own
+them. This entry separates the two groups and assigns each new item a task.
+The review's links point to `src/framework/` and `src/inference/`, which do not
+exist (the files are flat under `src/`), and its "through Phase 10" scope skips
+the fact that phase 9 has not started.
+
+**Already recorded, not re-assigned.** CTP and UTP counters that need an owner
+the registry forbids (2026-09-10 E, phase 13). Transcription products declared
+but never credited (the same entry). Inference dispatch on `models[1]` (task
+13.3). A freed initial condition sampled and ignored (2026-09-10, phases 15 to
+17). A driver-written slot that must be free and is therefore sampled, which is
+`:r_cell_nm` in phase 7 (2026-09-09, phases 15 to 17). A single scalar noise
+term and a replicate-mean transcript observer (tasks 15.3 and 15.4).
+
+**A — entry E is wider than it says: the rebuild needs an owner too.** Entry E
+names the two deferred counters on CTP and UTP. Transcription also declares an
+inbound `RateConstantEdge` on each, and the rebuild lowering throws in exactly
+the same way when no ODE module integrates the pool (`src/handshake.jl:1013`).
+So E's module-local alternative, declaring no counter on CTP and UTP, would
+not make the composition build. The framework has to give a chemostatted pool
+two paths: a debit with no owner behind it, and a rebuild that reads the
+registry's held value. **Task 13.9.**
+
+**B — one accrual cannot credit two products, and splitting the counter does
+not fix it.** `ATP_trsc` turns ATP into ADP and phosphate, one of each per
+event. `src/handshake.jl:853-863` refuses a counter with more than one producer,
+on the grounds that each would receive the whole accrual and create matter. For
+this reaction, crediting both pools in full is the correct stoichiometry: the
+check counts molecules as if they were mass. The workaround the error message
+suggests, a second counter that only produces phosphate, has no consumer to
+match. It is therefore credited `accrued_now` instead of what ATP actually paid,
+so it creates phosphate on every handshake where ATP clips. The deferred-counter
+contract needs a per-product stoichiometry, with credits scaled from what the
+consumer paid. **Task 13.10**, which also wires the five counters' products,
+the second half of entry E.
+
+**C — the resolver accepts a named peer that does not supply the quantity.**
+`src/resolver.jl:397` checks only that the named peer is present in the
+composition. An edge naming a bystander resolves, keeps the wrong peer in its
+metadata, and executes against the real owner. The declared topology then
+disagrees with what runs, and task 13.2 cross-checks against that declared
+topology. **Task 10b.3.**
+
+**D — shared-parameter validation compares prior types, not priors.**
+`src/orchestrator.jl:87` compares `typeof(p.prior)`, so `LogNormal(0, 0.1)` and
+`LogNormal(5, 2)` pass as the same prior, and module order decides which one is
+kept. D13 means Core A′ has no shared parameters today, so nothing currently
+depends on this. It is still a silent wrong answer. **Task 10b.2.**
+
+**E — ABC-SMC returns a tolerance it never applied.** `src/abc_smc.jl:94` sets
+the next threshold from the accepted distances and returns it with the
+population that was accepted under the previous threshold. At `alpha = 0.5`
+about half the returned particles exceed the reported tolerance (the review
+measured 50 of 100). The population itself is sound; the label is wrong, and
+that label is the number a paper would quote. Population 1 is never filtered,
+so `n_populations = 1` returns the prior. **Task 10b.1.**
+
+**F — `iterative_infer` converges on nothing.** With no shared parameters,
+`chain_kl` sums over an empty set and returns `0.0`, and the loop reports
+convergence at iteration 2 (`src/boundary.jl:263`, `:219`). D13 makes that set
+empty for Core A′ by design, and D10's conditional scheme, not this loop, is the
+production path. But an empty boundary should be an error, not a success.
+**Task 10b.4.**
+
+**G — observations are matched to states by row position, and the ABC path
+throws away variance.** The NUTS likelihood compares `data_obs[:, i]` with
+`sol[:, i]` and never reads `data.species`. Permuting the observed species
+silently compares data against the wrong states, and observing a subset fails
+on dimension. Separately, the ABC path calls `compute_summary_stats(...; times =
+data.times)` (`src/inference.jl:137`), whose time-series branch keeps means only.
+Its final-state branch does keep variance and Fano factors, so the review's
+"means only" is half right. Tasks 15.3 and 15.4 cover the noise model and the
+observer, but neither covers species-to-state mapping. **Task 15.9.**
+
+**H — three phase 10 defects.** `states(m::CoreATranscription)`
+(`transcription.jl:464`) takes its counters from `TRANSCRIPTION_COUNTERS`
+rather than from the constructor's `counters`, so a custom counter set gets the
+default states. `reduction_notes` (`:541`) says the mapping is corrected even
+under `base_mapping = :published`. And the 10.7 `@test_skip` still says it is
+blocked on phases 6 and 7, both of which merged on 2026-09-10. §11's preamble
+gives that check to whichever pull request lands last, and phase 10 did. The
+review describes it as a cross-module integration test; it is a copy-number
+consistency check. **Tasks 10b.5 and 10b.6.**
+
+*Why a phase 10b:* C to F and H are small, independent of each other and of
+phases 11 and 12, and C to F sit in framework files that §10 R15 freezes against
+a module branch. Phase 5b is the precedent for landing a framework fix as its
+own pull request rather than waiting for a module phase to trip over it. A
+and B stay in phase 13, because only the assembled composition exercises them
+and task 13.2 is the check that would catch them.
+
+**Sections touched:** §11 (preamble phase count; new phase 10b; tasks 13.9,
+13.10 and 15.9), §12.
 
 ### 2026-09-11 — the exact-conservation exception gains a second gate, and a closed moiety cannot diverge
 
