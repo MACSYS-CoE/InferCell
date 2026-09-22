@@ -202,6 +202,42 @@ end
         @test occursin(":permuted", sprint(showerror, err))
     end
 
+    @testset "10b.5 states, reactions and notes follow the configuration" begin
+        # A custom counter set used to get the default five states, and the
+        # reactions wrote five fixed positions past the transcripts whatever
+        # had been declared.
+        three = Tuple(c for c in TRANSCRIPTION_COUNTERS
+                      if c.counter in (:ATP_trsc, :GTP_mRNA, :UTP_mRNA))
+        m3 = CoreATranscription(counters = three)
+        @test length(states(m3)) == 20
+        @test states(m3)[18:20] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
+        @test [c.counter for c in counter_drains(m3)] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
+        @test count(e -> e isa DeferredCounterEdge, coupling(m3)) == 3
+
+        g = genes[5]
+        u = zeros(Int, 20)
+        reactions(m3)[5].affect!(u, Int[])
+        @test u[5] == 1 && sum(u[1:17]) == 1
+        @test u[18:20] == [g.length, g.counts.G, g.counts.U]
+
+        # Without ATP_mRNA there is no double debit to warn about.
+        @test !any(n -> occursin("debited twice", n), reduction_notes(m3))
+        @test any(n -> occursin("debited twice", n), reduction_notes(m))
+
+        err = caught(() -> CoreATranscription(
+            counters = ((counter = :ATP_bogus, species = :M_atp_c, produces = ()),)))
+        @test err isa ArgumentError
+        @test occursin(":ATP_bogus", err.msg)
+
+        # Under the published permutation the notes describe that permutation
+        # and do not claim the correction.
+        pub = reduction_notes(CoreATranscription(base_mapping = :published))
+        mapping_notes = filter(n -> occursin("base-to-nucleotide", n), pub)
+        @test length(mapping_notes) == 1
+        @test occursin("is the published permutation", only(mapping_notes))
+        @test !any(n -> occursin("mapping is corrected", n), pub)
+    end
+
     @testset "10.4 NTP concentrations from the balanced tables" begin
         ps = parameters(m)
         byname = Dict(p.name => p for p in ps)
