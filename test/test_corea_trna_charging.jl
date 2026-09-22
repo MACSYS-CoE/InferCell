@@ -183,4 +183,60 @@ using StaticArrays: SA, setindex
         @info "9.5" frac_end_no_consumer = frac_end frac_end_with_double = frac2
     end
 
+    # ------------------------------------------------------------------
+    # 9.6 — this module's own check. Spec §3's exception, gate 1 with the
+    # tol_C ladder (amended 2026-09-23, §12): asserted, not argued.
+    # ------------------------------------------------------------------
+    @testset "9.6 tRNA conservation over a full cycle" begin
+        ms = charging_models()
+        tr = trna_total(ms)
+        U, C = layout_index(ms, :M_trna_c), layout_index(ms, :M_trna_chg_c)
+        sol = recycling_solve(ms)
+        @test sol.t[end] == CYCLE_S
+        total = tr(sol.u[1])
+        @test total ≈ CHARGING_POOL_DEFAULTS.pool_mM rtol = 1e-15
+
+        # The flux is live, so the check is not passed by a pool at rest: over
+        # the cycle the pair turns over ~ 3.5 million residues' worth.
+        CNT = layout_index(ms, :chg_residues_mM)
+        @test sol.u[end][CNT] * corea_particles_per_mM() > 3.0e6
+
+        # Gate 1's criterion: the composed right-hand side returns the pair's
+        # summed derivative as bitwise 0.0 at every save point. Not `≈`.
+        prob = build_problem(ms; tspan = (0.0, CYCLE_S))
+        wsum(u) = (d = prob.f(u, prob.p, 0.0); d[U] + d[C])
+        @test all(u -> wsum(u) === 0.0, sol.u)
+
+        # The ladder, six decades, each rung at least three orders below its
+        # own tol_C and the largest within 100x of the smallest. Measured
+        # 2026-09-23: 10.2 down to 5.7 orders, spread 51x. The flat 100-ulp
+        # bound is not used: the residual is ~1e-13 mM of solver roundoff set by
+        # the composition's larger states, 60 to 3,097 ulps of this small sum.
+        rungs = [(1e-4, 1e-2), (1e-5, 1e-3), (1e-6, 1e-4), (1e-7, 1e-5),
+                 (1e-8, 1e-6), (1e-9, 1e-7), (1e-10, 1e-8)]
+        residuals = Float64[]
+        for (a, r) in rungs
+            l = (a, r) == (ABSTOL_R, RELTOL_R) ? sol :
+                recycling_solve(ms; abstol = a, reltol = r)
+            push!(residuals, max_drift(l, tr))
+            @test residuals[end] <
+                  tolerance_bound(l, ((U, 1), (C, 1)); abstol = a, reltol = r) / 1e3
+        end
+        @test log10(rungs[1][1] / rungs[end][1]) >= 6
+        @test maximum(residuals) < 100 * minimum(residuals)
+        @info "9.6 tRNA ladder" residuals ulps = residuals ./ eps(total)
+
+        # The mutation: charging that creates tRNA rather than transferring it
+        # fails both halves, by orders of magnitude rather than by a factor.
+        mms = charging_models(charging = MutatedCharging(TrnaCharging()), counter = false)
+        mtr = trna_total(mms)
+        mprob = build_problem(mms; tspan = (0.0, CYCLE_S))
+        mU, mC = layout_index(mms, :M_trna_c), layout_index(mms, :M_trna_chg_c)
+        md = mprob.f(mprob.u0, mprob.p, 0.0)
+        @test abs(md[mU] + md[mC]) > 1e6 * eps(total)
+        msol = recycling_solve(mms; horizon = 600.0)
+        @test max_drift(msol, mtr) > 1e6 * maximum(residuals)
+        @info "9.6 mutation" per_eval = md[mU] + md[mC] drift_600s = max_drift(msol, mtr)
+    end
+
 end

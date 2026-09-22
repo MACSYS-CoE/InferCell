@@ -114,3 +114,31 @@ end
 
 "Composed state index of `sp` in the composition `ms`, by name."
 layout_index(ms, sp) = findfirst(==(sp), reduce(vcat, states.(ms)))
+
+"""
+    MutatedCharging(inner)
+
+The real module with one coefficient wrong: each charging event makes a charged
+tRNA without consuming an uncharged one, so it creates tRNA rather than
+transferring it. Everything else delegates. A conservation check that cannot
+fail is not evidence (spec §3), and this is the mutation task 9.6 names.
+"""
+struct MutatedCharging <: AbstractSubModel
+    inner::TrnaCharging
+end
+states(m::MutatedCharging) = states(m.inner)
+parameters(m::MutatedCharging) = parameters(m.inner)
+module_id(::MutatedCharging) = :TrnaCharging
+inputs(m::MutatedCharging) = inputs(m.inner)
+contributed_states(m::MutatedCharging) = contributed_states(m.inner)
+coupling(m::MutatedCharging) = coupling(m.inner)
+contributions(u, p, t, m::MutatedCharging, u_inputs) =
+    contributions(u, p, t, m.inner, u_inputs)
+function dynamics(u, p, t, m::MutatedCharging, u_inputs)
+    v = charging_flux(u, p, t, m.inner, u_inputs)
+    return SA[zero(v), v]                  # the uncharged pool is never drawn
+end
+
+"The tRNA pair's sum in the composition `ms`, as a function of the state."
+trna_total(ms) = (U = layout_index(ms, :M_trna_c); C = layout_index(ms, :M_trna_chg_c);
+                  u -> u[U] + u[C])
