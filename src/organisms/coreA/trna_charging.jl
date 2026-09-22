@@ -185,6 +185,38 @@ inputs(::TrnaCharging) = [:M_atp_c]
 contributed_states(::TrnaCharging) = [:M_atp_c, :M_amp_c, :M_ppi_c]
 formalism(::TrnaCharging) = :ode
 
+"""
+    reduction_notes(m::TrnaCharging)
+
+Two declarations, not one, because two separate things here are ours (spec task
+9.4):
+
+1. **The lumping.** One reaction replaces the published model's twenty
+   per-amino-acid chains of five reactions each. It keeps the published product
+   stoichiometry, AMP plus pyrophosphate, over a `trna + 2 ATP -> trna_chg +
+   2 ADP + 2 Pi` form. The latter closes the same moieties by fiat and adds two
+   more entries to the list of what is ours, and it would put no traffic through
+   the adenylate kinase that the published form sends ~553/s through.
+2. **The formalism.** Integrating the step deterministically is ours, even
+   though its placement in the ODE block is the scoping note's (§4 D13). The
+   published model fires it as ~3.49 million stochastic events per cycle.
+
+Both land under `:lumping`, the only category `reduction_notes` feeds. A
+separate `:formalism` category would be a change to `src/labels.jl`, which
+§10 R15 freezes against a module branch.
+"""
+reduction_notes(::TrnaCharging) = [
+    "tRNA charging lumped: one reaction M_trna_c + ATP -> M_trna_chg_c + AMP + " *
+    "PPi replaces the published 20 per-amino-acid chains of 5 reactions each (100 " *
+    "reactions), with one effective tRNA pool whose size and charged fraction are " *
+    "asserted by this project. The published AMP + PPi product stoichiometry is " *
+    "kept in preference to a 2 ATP -> 2 ADP + 2 Pi form, which would close the " *
+    "same moieties by fiat and route no traffic through the adenylate kinase",
+    "tRNA charging integrated deterministically in the ODE block: the placement " *
+    "is the scoping note's, but the formalism is this project's; the published " *
+    "model fires charging as ~3.49 million stochastic events per cycle (spec §4 D13)",
+]
+
 # From the parameter vector where free, from the struct where fixed, converted
 # to the vector's element type so the right-hand side stays inferable under
 # ForwardDiff. The same accessor pattern as `NucleotideRecycling`'s `_k`.

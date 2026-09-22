@@ -139,4 +139,21 @@ using StaticArrays: SA, setindex
         end
     end
 
+    @testset "9.4 two declarations: the lumping and the formalism" begin
+        labels = [l for l in reduction_declarations([TrnaCharging()])
+                  if l.category === :lumping]
+        @test length(labels) == 2
+        @test all(l -> l.subject === :TrnaCharging, labels)
+        lump, form = labels
+        # The lumping names what it replaces and why the published products won.
+        @test occursin("20 per-amino-acid chains of 5 reactions", lump.description)
+        @test occursin("AMP + PPi", lump.description)
+        @test occursin("2 ATP -> 2 ADP + 2 Pi", lump.description)
+        @test occursin("by fiat", lump.description)
+        # The formalism is a separate declaration, not a clause of the lumping.
+        @test occursin("deterministically", form.description)
+        @test occursin("scoping note", form.description)
+        @test !occursin("deterministic", lump.description)
+    end
+
 end
