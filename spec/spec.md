@@ -1555,13 +1555,31 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
 - **Is the promoter proxy inherited verbatim at Step 2?** Barely matters for
   synthetic recovery, where it only sets the truth we recover. Leaning toward
   inheriting it as the baseline the surrogate is measured against.
-- **[NEEDS CLARIFICATION: how large is the tRNA pool, and can the charged
+- ~~**[NEEDS CLARIFICATION: how large is the tRNA pool, and can the charged
   counter be made unable to clip?]** New with D14. The registry records no value
   for either tRNA species, and the pool size sets three separate things: the
   charging flux at fixed `k_chg`, the buffer that decides whether check 7's
   counter clips, and the lag on the dominant forward channel. One number, three
   consequences, and all three are ours. Check 1b bounds it from below and check 7
-  from above; whether a value satisfies both is not yet known.
+  from above; whether a value satisfies both is not yet known.~~ — **partly
+  resolved 2026-09-23 by task 9.8** (`dev/scripts/trna_charging_diagnostics_result.md`,
+  job 17023622). The default is **0.25 mM at 0.8 charged**. At that fraction,
+  check 1b's floor needs **≥ 0.125 mM**: the uncharged minimum is 505 particles
+  there and 404 at 0.1 mM. 0.25 mM clears it with 1,009 uncharged and 4,000
+  charged particles. Check 7 cannot be decided before phase 11. The charged pool
+  buffers **7.23 s** of demand at 0.25 mM, or 5.4 of the longest protein's worth
+  of residues, and task 11.7's census decides whether that is enough. Neither
+  check gives an upper bound. What grows with the pool is the lag on the
+  adenylate forward channel: τ ≈ 6.05 s per mM, measured at **1.43 s** at 0.25
+  mM, against the 1 s handshake. At fixed `k_chg` the pool sets the flux almost
+  linearly, from 56 /s at 0.025 mM to 1,873 /s at 1.0 mM.
+- **Stoichiometry, answered by task 9.9 (2026-09-23).** At matched flux (548.2
+  against 543.5 /s), the published AMP + PPi form sends **548 /s** through the
+  adenylate kinase and the two-ATP form sends **0**. But the ATP/ADP ratio the
+  rebuild reads moves by only **1.02%** (8.097 against 8.180), and pyrophosphate
+  settles at 0.367 against 0.024 mM. This is measured against phase 8's
+  glycolytic double, not live glycolysis. Whether 1% moves a posterior mean by
+  half a standard deviation is R8's signal, and only inference can measure it.
 - ~~**Whether the full-cycle checks belong in the default test suite.** They are
   the strongest evidence and the slowest thing added. Deciding needs the measured
   wall-clock.~~ — **partly resolved 2026-09-10 by phase 6's measurement, and left
