@@ -66,7 +66,8 @@ that rather than assuming it, via [`turnover_headroom`](@ref).
 const TURNOVER_CEILING = 2 * 90
 
 """
-The five deferred cost counters, and the registry pool each debits.
+The five deferred cost counters, and the registry pool each debits. The default
+for `CoreATranscription(; counters)`; a module may configure a subset.
 
 `ATP_trsc` is the polymerisation energy, one per nucleotide; the four monomer
 counters are the incorporated bases. **ATP is therefore debited twice per
@@ -80,6 +81,18 @@ const TRANSCRIPTION_COUNTERS = (
     (counter = :GTP_mRNA, species = :M_gtp_c, produces = (:M_ppi_c,)),
     (counter = :CTP_mRNA, species = :M_ctp_c, produces = (:M_ppi_c,)),
     (counter = :UTP_mRNA, species = :M_utp_c, produces = (:M_ppi_c,)),
+)
+
+# What one transcription event of gene `g` adds to each counter: the transcript
+# length as polymerisation energy, and each base count as incorporated monomer.
+# A module may configure any subset of the five, in any order; `states` and
+# `reactions` follow the configured set.
+const COUNTER_INCREMENTS = (
+    ATP_trsc = g -> g.length,
+    ATP_mRNA = g -> g.counts.A,
+    GTP_mRNA = g -> g.counts.G,
+    CTP_mRNA = g -> g.counts.C,
+    UTP_mRNA = g -> g.counts.U,
 )
 
 """
@@ -316,6 +329,12 @@ function CoreATranscription(; genes = read_transcription_genes(),
             "Counter :$(c.counter) is not one transcription can charge. Each " *
             "event adds a fixed per-gene amount to each counter, and those " *
             "amounts are defined for $(join(string.(":", keys(COUNTER_INCREMENTS)), ", ")) only"))
+        # The increment is fixed by the counter's name, so the pool it debits
+        # is too: :GTP_mRNA charged against ATP would debit the wrong pool.
+        expected = only(d.species for d in TRANSCRIPTION_COUNTERS if d.counter === c.counter)
+        c.species === expected || throw(ArgumentError(
+            "Counter :$(c.counter) debits :$expected, not :$(c.species). Its per-event " *
+            "increment is that nucleotide's cost, so it cannot be charged elsewhere"))
     end
 
     genes = collect(TranscriptionGene, genes)
@@ -421,16 +440,6 @@ function CoreATranscription(; genes = read_transcription_genes(),
                 [rate_param(g.locus) for g in genes] : rebuilt),
         base_mapping, conc, rnap_conc, counters)
 end
-
-# What one transcription event of gene `g` adds to each counter: the transcript
-# length as polymerisation energy, and each base count as incorporated monomer.
-const COUNTER_INCREMENTS = Dict{Symbol, Function}(
-    :ATP_trsc => g -> g.length,
-    :ATP_mRNA => g -> g.counts.A,
-    :GTP_mRNA => g -> g.counts.G,
-    :CTP_mRNA => g -> g.counts.C,
-    :UTP_mRNA => g -> g.counts.U,
-)
 
 """
     transcription_rate_constant(g, conc; base_mapping, rnap_conc) -> Float64
@@ -663,10 +672,11 @@ turnover_headroom(m::CoreATranscription) =
 """
     counter_drains(m) -> Vector{NamedTuple}
 
-Each cost counter, the registry species it debits, and what that drain
-produces. `ATP_trsc` yields ADP and phosphate; the four monomer counters yield
-pyrophosphate — a source the project's earlier accounting attributed to
-amino-acid charging alone, and one phase 8's phosphate closure must see.
+Each configured cost counter, the registry species it debits, and what that
+drain produces. By default all five: `ATP_trsc` yields ADP and phosphate; the
+four monomer counters yield pyrophosphate — a source the project's earlier
+accounting attributed to amino-acid charging alone, and one phase 8's phosphate
+closure must see.
 """
 counter_drains(m::CoreATranscription) = collect(m.counters)
 

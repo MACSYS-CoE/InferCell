@@ -228,6 +228,10 @@ end
             counters = ((counter = :ATP_bogus, species = :M_atp_c, produces = ()),)))
         @test err isa ArgumentError
         @test occursin(":ATP_bogus", err.msg)
+        err = caught(() -> CoreATranscription(
+            counters = ((counter = :GTP_mRNA, species = :M_atp_c, produces = (:M_ppi_c,)),)))
+        @test err isa ArgumentError
+        @test occursin(":M_gtp_c", err.msg)
 
         # Under the published permutation the notes describe that permutation
         # and do not claim the correction.
