@@ -1,7 +1,8 @@
 using InferCell
 using Test
 using OrdinaryDiffEq: Tsit5, solve
-using SciMLBase: ReturnCode
+using SciMLBase: ReturnCode, ODEProblem
+using Distributions: LogNormal
 
 @testset "TX/TL + Metabolism Composition" begin
     txl = TranscriptionTranslation()
@@ -26,6 +27,26 @@ using SciMLBase: ReturnCode
         @test prob.p[5] == 1.0   # k_atp
         @test prob.p[6] == 0.2   # k_ntp
         @test prob.p[7] == 0.4   # k_aa
+    end
+
+    @testset "Shared priors are compared by value, not by type" begin
+        # Same name, same value, same family, different parameters: a type
+        # comparison let this through and kept whichever module came first.
+        with_prior(m, name, prior) = (i = findfirst(p -> p.name == name, m.params);
+            p = m.params[i];
+            m.params[i] = InferParameter(p.value, prior, p.fixed, p.name, p.module_id, p.role);
+            m)
+        a = with_prior(TranscriptionTranslation(), :k_tx, LogNormal(0, 0.1))
+        b = with_prior(LightMetabolism(), :k_tx, LogNormal(5, 2))
+        err = try build_problem([a, b]); nothing catch e; e end
+        @test err isa ErrorException
+        @test occursin(":txl", err.msg) && occursin(":metab", err.msg)
+        @test occursin("LogNormal", err.msg) && occursin("σ=0.1", err.msg)
+
+        # Identical priors, including an integer-versus-float spelling, still compose.
+        c = with_prior(LightMetabolism(), :k_tx, LogNormal(0.0, 0.1))
+        @test build_problem([a, c]) isa ODEProblem
+        @test build_problem([txl, metab]) isa ODEProblem
     end
 
     @testset "Forward simulation" begin

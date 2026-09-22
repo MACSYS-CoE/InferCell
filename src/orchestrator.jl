@@ -78,14 +78,24 @@ function _build_ode_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.
     return ODEProblem{false}(rhs, u0, tspan, p0)
 end
 
+# Two priors agree when they are the same family with the same parameters.
+# Comparing types alone let `LogNormal(0, 0.1)` and `LogNormal(5, 2)` pass as
+# one prior, and module order then decided which was kept. `params` rather than
+# `==` so that `LogNormal(0, 1)` and `LogNormal(0.0, 1.0)` still agree.
+_same_prior(a::Distribution, b::Distribution) =
+    isequal(a, b) || (nameof(typeof(a)) == nameof(typeof(b)) && isequal(params(a), params(b)))
+
 function _validate_shared_params(models::Vector{<:AbstractSubModel})
     seen = Dict{Symbol, InferParameter}()
     for m in models
         for p in model_free_params(parameters(m))
             if haskey(seen, p.name)
                 existing = seen[p.name]
-                if p.value != existing.value || typeof(p.prior) != typeof(existing.prior) || p.fixed != existing.fixed
-                    error("Shared parameter :$(p.name) has inconsistent definitions across modules :$(existing.module_id) and :$(p.module_id)")
+                if p.value != existing.value || !_same_prior(p.prior, existing.prior) || p.fixed != existing.fixed
+                    error("Shared parameter :$(p.name) has inconsistent definitions across " *
+                          "modules :$(existing.module_id) (value $(existing.value), prior " *
+                          "$(existing.prior), fixed $(existing.fixed)) and :$(p.module_id) " *
+                          "(value $(p.value), prior $(p.prior), fixed $(p.fixed))")
                 end
             else
                 seen[p.name] = p
