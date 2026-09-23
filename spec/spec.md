@@ -1,8 +1,8 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
-phase 6 (#50), phase 7 (#49), phase 8 (#52) and phase 10 (#51); phase 9 and the
-CME-block phases 11 and 12 are the rest of the fan-out
+phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59) and phase 10 (#51);
+phase 10b and the CME-block phases 11 and 12 are the rest of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -2753,41 +2753,41 @@ demand from independently derived inputs~~ **the charging flux's drift from the
 independently derived residue demand is measured and reported as
 self-consistency, not validation** (amended 2026-09-23, with task 9.7), and
 `reduction_declarations` reports both the lumping and the formalism.
-**PR:** _not started_
+**PR:** #59 (merged 2026-09-23)
 
 This is an ODE module, per D13. It was specced as a stochastic one, which
 contradicted both the frozen registry and the scoping note; §12 amendment 1
 records the correction. It is the fourth ODE module and it runs in the ODE track,
 but it depends on phase 8, so the track is not a clean fan-out.
 
-- [ ] 9.1 Implement the single reaction as an ODE sub-model owning both tRNA
+- [x] 9.1 Implement the single reaction as an ODE sub-model owning both tRNA
   states, with the mass-action rate law of §3 — verify by the state set equalling
   the registry's tRNA group with strictly increasing indices, by `formalism`
   reporting `:ode`, and by a hand-checked derivative at one state vector.
-- [ ] 9.2 Assert the total tRNA pool size and derive `k_chg` from it (D14) —
+- [x] 9.2 Assert the total tRNA pool size and derive `k_chg` from it (D14) —
   verify by both loading with informedness `asserted` and appearing in the
   composed model's asserted-prior enumeration; by `k_chg` being computed from the
   published residue demand and the pool size rather than typed in; and by the
   derivation recorded so the pool size can be changed and `k_chg` follow.
   **Annotated 2026-09-23:** the derivation also needs the nominal charged
   fraction, a third asserted quantity; defaults 0.25 mM and 0.8. See §12.
-- [ ] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
+- [x] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
   recycling owns — verify by the kinds and directions matching, by composing with
   phase 8 asserting no species is described as both mass and currency in one
   direction, and by the contributions actually **executing** through phase 1's
   mechanism rather than resolving and doing nothing, which is what they would
   have done in the stochastic block.
-- [ ] 9.4 Register two declarations, not one — verify by `reduction_declarations`
+- [x] 9.4 Register two declarations, not one — verify by `reduction_declarations`
   returning the lumping under `lumping`, naming what it replaces (twenty chains
   of five reactions) and why the published product stoichiometry was preferred
   over a two-ATP form that closes the same moieties by fiat; **and** returning
   the deterministic formalism separately, since the placement is the scoping
   note's but integrating it deterministically is ours.
-- [ ] 9.5 Add a translation-demand double to this phase's tests — verify by it
+- [x] 9.5 Add a translation-demand double to this phase's tests — verify by it
   consuming charged tRNA at the published residue rate and returning the
   uncharged form, since without a consumer the pool saturates, the flux goes to
   zero and every check below passes trivially.
-- [ ] 9.6 **This module's own check: tRNA conservation.** Assert the pair's sum
+- [x] 9.6 **This module's own check: tRNA conservation.** Assert the pair's sum
   equals its initial value at every save point over a full cycle against the
   double — verify by the check satisfying the tolerance principle, and by a
   mutation that creates tRNA rather than transferring it making it fail.
@@ -2795,7 +2795,7 @@ but it depends on phase 8, so the track is not a clean fan-out.
   save points) with the `tol_C` ladder the same day's amendment allows, over
   six decades from (1e-4, 1e-2) to the pinned (1e-10, 1e-8): 12.2 to 4.75 orders
   below `tol_C`, 70× spread (job 17044321, all nine rungs reported). See §12.
-- [ ] 9.7 Show the flux is right without assuming it — verify by the steady
+- [x] 9.7 Show the flux is right without assuming it — verify by the steady
   charging flux reproducing 553.1 per second where that figure is computed
   independently, from 3,484,518 residues over 6,300 s, with `k_chg` reported as
   the derived quantity; and by a test asserting the check is not circular, since
@@ -2804,7 +2804,7 @@ but it depends on phase 8, so the track is not a clean fan-out.
   so it is restated. Report the composed steady flux and the ATP it settles at
   against the independently derived 553.1 as a **self-consistency drift**, not
   as validation. The non-circularity test stays. See §12.
-- [ ] 9.8 Report the pool size's three consequences — verify by a diagnostic
+- [x] 9.8 Report the pool size's three consequences — verify by a diagnostic
   giving, for a range of pool sizes, the charging flux, the buffer against
   check 7's charged-tRNA counter, and the lag on the adenylate forward channel;
   and by the §9 open question on the pool size being replaced with a value that
@@ -2813,12 +2813,12 @@ but it depends on phase 8, so the track is not a clean fan-out.
   already feeds its census back here. Check 7 counts clips of translation's
   charged-tRNA debit, and there is no translation until phase 11. This phase
   delivers the scan, check 1b's floor and the analytic buffer. See §12.
-- [ ] 9.9 Answer the stoichiometry question at matched steady flux — verify by a
+- [x] 9.9 Answer the stoichiometry question at matched steady flux — verify by a
   comparison run under both lumpings, matched on flux rather than event count
   (D14), recording the kinase traffic and the resulting ATP-to-ADP ratio the
   rebuild reads, and by the scoping note's open-questions entry being replaced
   with the measured answer.
-- [ ] 9.10 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
+- [x] 9.10 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   and by the handoff recording that phase 8's drain double is now superseded for
   composed runs and kept only for standalone ones.
 
