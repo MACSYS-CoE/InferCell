@@ -1,6 +1,8 @@
 using Test
 using InferCell
 using StaticArrays: SA, SVector
+using Random
+using SciMLBase: ODEProblem
 
 import InferCell: states, parameters, reactions, formalism, inference_mode,
                   coupling
@@ -8,8 +10,8 @@ import InferCell: states, parameters, reactions, formalism, inference_mode,
 # Spec §11 phase 11a: a catalytic edge may name a protein count the jump block
 # owns, the two metabolic modules whose enzymes translation makes expose those
 # enzymes as slots, and a producer counter can raise a PTS carrier. Uses the
-# phase 3 and phase 5 doubles (`ToyMembranePool`, `caught`, `_jic`, `_rate`),
-# so it is included after them.
+# phase 3 and phase 5 doubles (`ToyMembranePool`, `CoreAStub`, `caught`,
+# `_jic`), so it is included after them.
 
 """
     ToyProteome(counts; k = 0.0, counter = nothing, credits = nothing)
@@ -63,6 +65,7 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
 @testset "Phase 11a: catalytic edges on jump-owned protein counts" begin
 
     @testset "11a.1 a catalytic edge may name a non-registry count" begin
+        Random.seed!(1101)
         @test !is_registered(:P_toy)
 
         # No membrane flag: this testset is about the catalytic channel alone, and
@@ -175,6 +178,15 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
               [Symbol(:P_, e.locus) for e in recycling_enzymes()]
         @test caught(() -> NucleotideRecycling(enzymes = :live)) isa ArgumentError
 
+        # A disabled reaction's enzyme is neither freed nor wired: nothing reads it.
+        no_adk = NucleotideRecycling(reactions = filter(!=(:R_ADK1), RECYCLING_REACTIONS),
+                                     enzymes = :translated)
+        @test [q.name for q in model_free_params(parameters(no_adk))] ==
+              [:enz_R_PGK3, :enz_R_PYK3, :enz_R_GK1, :enz_R_PPA]
+        @test [e.param_slot for e in coupling(no_adk) if e isa CatalyticEdge] ==
+              [:enz_R_PGK3, :enz_R_PYK3, :enz_R_GK1, :enz_R_PPA]
+        @test coupling(nominal) == coupling(NucleotideRecycling(enzymes = :translated))[1:11]
+
         # PGK3 and PYK3 read the counts glycolysis's PGK and PYK read.
         glyc = Dict(e.param_slot => e.species
                     for e in coupling(CentralGlycolysis(enzymes = :translated))
@@ -205,7 +217,28 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
         @test slot(:enz_R_ADK1) ≈ recycling_enzymes()[3].concentration rtol = 1e-12
     end
 
+    @testset "11a.1 a build with no jump block refuses a catalytic edge" begin
+        # Without this, the two translated modules composed alone built an
+        # ODEProblem whose fifteen enzyme slots were sampled and never filled
+        # (the /check-PR review of #62). The nominal pair is refused as before,
+        # through its protein-count inputs.
+        err = caught(() -> build_problem([CentralGlycolysis(enzymes = :translated),
+                                          NucleotideRecycling(enzymes = :translated)]))
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("no jump block", msg) && occursin("enz_R_", msg)
+        @test occursin("CentralGlycolysis", msg)
+        @test caught(() -> build_problem([CentralGlycolysis(), NucleotideRecycling()])) !== nothing
+        pool = ToyPool(edges = CouplingEdge[
+            CatalyticEdge(species = :P_toy, direction = :in, param_slot = :enzyme_conc)])
+        err2 = caught(() -> build_problem([pool]))
+        @test err2 isa ArgumentError && occursin("P_toy", err2.msg)
+        # The same module without the edge builds, so the refusal is the edge's.
+        @test build_problem([ToyPool(edges = CouplingEdge[])]) isa ODEProblem
+    end
+
     @testset "11a.4 a producer counter raises a PTS carrier, and the cell sees it" begin
+        Random.seed!(1104)
         pool = ToyMembranePool(edges = CouplingEdge[
             CatalyticEdge(species = :P_toy, direction = :in, param_slot = :enzyme_conc),
             VolumeEdge(species = :M_ptsi_c, direction = :out)])
