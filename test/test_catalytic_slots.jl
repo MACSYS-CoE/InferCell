@@ -9,9 +9,10 @@ import InferCell: states, parameters, reactions, formalism, inference_mode,
 
 # Spec §11 phase 11a: a catalytic edge may name a protein count the jump block
 # owns, the two metabolic modules whose enzymes translation makes expose those
-# enzymes as slots, and a producer counter can raise a PTS carrier. Uses the
-# phase 3 and phase 5 doubles (`ToyMembranePool`, `CoreAStub`, `caught`,
-# `_jic`), so it is included after them.
+# enzymes as slots, and a producer counter can raise a PTS carrier. Uses doubles
+# from earlier files: `CoreAStub` and `caught` (corea_test_models.jl), `_jic`
+# (jump_test_models.jl), and `ToyPool` and `ToyMembranePool`
+# (hybrid_test_models.jl), so it is included after them.
 
 """
     ToyProteome(counts; k = 0.0, counter = nothing, credits = nothing)
@@ -228,7 +229,10 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
         msg = sprint(showerror, err)
         @test occursin("no jump block", msg) && occursin("enz_R_", msg)
         @test occursin("CentralGlycolysis", msg)
-        @test caught(() -> build_problem([CentralGlycolysis(), NucleotideRecycling()])) !== nothing
+        nominal_err = caught(() -> build_problem([CentralGlycolysis(), NucleotideRecycling()]))
+        @test nominal_err !== nothing
+        @test occursin("P_JCVISYN3A_0445", sprint(showerror, nominal_err))
+        @test !occursin("no jump block", sprint(showerror, nominal_err))
         pool = ToyPool(edges = CouplingEdge[
             CatalyticEdge(species = :P_toy, direction = :in, param_slot = :enzyme_conc)])
         err2 = caught(() -> build_problem([pool]))

@@ -304,12 +304,15 @@ nothing, and is paired against a `param_slot` instead.
 **The chain runs only under the hybrid handshake driver**, since it converts
 counts to concentrations and back and only a mixed composition has both sides.
 A homogeneous `build_problem` resolves this declaration and executes nothing
-from it — as it already does for the catalytic, deferred-counter and
-rate-constant edges, which are equally cross-block — so a module smoke-tested
+from it — as it does for the deferred-counter and rate-constant edges, which
+are equally cross-block — so a module smoke-tested
 alone is not evidence that its volume channel works. The same is true of an
 inbound edge: standalone, its slot keeps the module's declared value, which
 should therefore be the registry's initial radius so that a standalone run is
 the published rate law at the published geometry rather than a placeholder.
+A catalytic edge is the exception: a build with no jump block refuses it,
+because its slot must be free and would be sampled with nothing filling it
+(spec §11 phase 11a).
 Note that the driver writes `radius_from_area_nm(502831) = 200.03505` nm and
 not a round 200.0, so the two agree to the four significant figures the source
 states the radius in and differ beyond them.
