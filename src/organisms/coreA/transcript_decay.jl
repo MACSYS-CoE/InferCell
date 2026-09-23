@@ -34,9 +34,10 @@ The published decay constant's numerator, `(18/452)·88` nt/s
 (`MinCell_CMEODE.py:457`). The upstream line carries the comment `# INSTEAD OF
 18 or 20`, which records hand-tuning rather than a measurement.
 
-**Naming trap.** The upstream file also defines a variable called `krnadeg`, as
-`0.00578/2` at line 295, and never uses it. Spec §4 D11's `krnadeg` target
-means *this* constant, the one that runs. The dead one is what the archived
+**Naming trap.** The upstream file also defines a variable called `krnadeg`,
+as `0.00578/2` at line 272, and never uses it. Spec §4 D11's `krnadeg` target
+means *this* constant, the one that runs. An equally dead `rnaDegRate` of the
+same value sits at line 295, and that is the constant the archived
 transcription design's predicted band was computed from (§12, 2026-09-10 B).
 """
 const RNADEG_KCAT = (18 / 452) * 88
@@ -76,8 +77,13 @@ Seventeen decay jumps, `mRNA_g → n_g·ATP_mRNAdeg + #A·AMP + #G·GMP + #C·CM
 #U·UMP`, at propensity `krnadeg / n_g · mRNA_g`.
 
 `genes` defaults to the phase 10 extract, so the two modules cannot disagree on
-a base count. `edges` and `written` are overridable so a test can remove a
-declaration and watch the refusal it guards.
+a base count. `written` is overridable so a test can remove the declaration and
+watch the refusal it guards; `edges` and `clip` mirror transcription's
+constructor.
+
+`counters` may be any subset of [`DECAY_COUNTERS`](@ref), and each entry must
+match it exactly: a counter's increment is fixed by its name, so the pool it
+touches and the direction are too.
 """
 struct CoreATranscriptDecay <: AbstractSubModel
     genes::Vector{TranscriptionGene}
@@ -94,6 +100,21 @@ function CoreATranscriptDecay(; genes = read_transcription_genes(),
                               written = nothing)
     genes = collect(TranscriptionGene, genes)
     counters = collect(NamedTuple, counters)
+    # Mirrors transcription's check (§12, 2026-09-23 B review): a GMP counter
+    # aimed at AMP would otherwise credit guanine into the adenylate pool.
+    allunique(c.counter for c in counters) || throw(ArgumentError(
+        "Decay counters must be named once each, got " *
+        join((string(":", c.counter) for c in counters), ", ")))
+    for c in counters
+        i = findfirst(d -> d.counter === c.counter, DECAY_COUNTERS)
+        i === nothing && throw(ArgumentError(
+            "Counter :$(c.counter) is not one decay accrues. The per-event " *
+            "amounts are defined for " *
+            join((string(":", d.counter) for d in DECAY_COUNTERS), ", ") * " only"))
+        c == DECAY_COUNTERS[i] || throw(ArgumentError(
+            "Counter :$(c.counter) must be declared as $(DECAY_COUNTERS[i]), got " *
+            "$c. Its increment is fixed by its name, so its pool and direction are too"))
+    end
 
     # The one rate parameter, and free: it is a §4 D11 target, identified by
     # the transcript autocorrelation independently of promoter amplitude. The
@@ -218,6 +239,11 @@ gives exactly zero.
 `genes` is the extract, the transcription side's view of each transcript.
 `polymerised` and `returned` are `(A, C, G, U)` named tuples of totals, read
 from transcription's monomer counters and decay's NMP counters.
+
+**Jump-only runs.** Those counters are run totals only when nothing clears
+them. In a hybrid composition the hook clears every counter at each drain, so
+their end values are one interval's accrual and the residual here is
+meaningless.
 """
 function monomer_closure(genes, n0, n_end, polymerised, returned)
     stock(n, b) = sum(n[i] * genes[i].counts[b] for i in eachindex(genes))

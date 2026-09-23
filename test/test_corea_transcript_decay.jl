@@ -75,7 +75,7 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         sol = solve(prob, SSAStepper(); saveat = 100.0)
         u = reduce(hcat, sol.u)
         @test all(>=(0), u[1:17, :])
-        @test all(==(0), u[1:17, end])          # ~20 half-lives of the longest
+        @test all(==(0), u[1:17, end])          # ~45 half-lives of the longest (443 s)
 
         # Remove the declaration and the write throws at its first firing,
         # naming the module and the state.
@@ -115,9 +115,26 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
                (:UMP_mRNAdeg, :M_utp_c, :out)]
         @test all(e -> e.clip === :clamped_deficit_carried, edges)
 
-        r = resolve_coupling(AbstractSubModel[tx, dec])
+        # Decay alone: transcription's own CTP/UTP counters would put both
+        # in the exemptions whatever decay declared.
+        @test isempty(filter(s -> s in (:M_ctp_c, :M_utp_c),
+                             resolve_coupling(AbstractSubModel[TranscriptSource(genes)]).chemostat_exemptions))
+        r = resolve_coupling(AbstractSubModel[TranscriptSource(genes), dec])
         @test :M_ctp_c in r.chemostat_exemptions
         @test :M_utp_c in r.chemostat_exemptions
+        credited = [x.species for x in r.edges
+                    if x.declared_by === :CoreATranscriptDecay && x.edge.direction === :out]
+        @test sort(credited) == sort([:M_amp_c, :M_gmp_c, :M_ctp_c, :M_utp_c])
+
+        # A counter aimed at the wrong pool, a duplicate, or an unknown name is
+        # refused at construction rather than silently crediting elsewhere.
+        wrong = (DECAY_COUNTERS[1], merge(DECAY_COUNTERS[3], (species = :M_amp_c,)))
+        err = caught(() -> CoreATranscriptDecay(counters = wrong))
+        @test err isa ArgumentError && occursin("GMP_mRNAdeg", sprint(showerror, err))
+        @test caught(() -> CoreATranscriptDecay(
+            counters = (DECAY_COUNTERS[2], DECAY_COUNTERS[2]))) isa ArgumentError
+        @test caught(() -> CoreATranscriptDecay(
+            counters = (merge(DECAY_COUNTERS[2], (counter = :TMP_mRNAdeg,)),))) isa ArgumentError
 
         # The chemostat credit is ours and registered as such.
         notes = reduction_notes(dec)
