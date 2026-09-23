@@ -89,6 +89,9 @@ using Aqua
     # Transcript decay (spec phase 12): its transcript-source double, then the tests.
     include("corea_decay_doubles.jl")
     include("test_corea_transcript_decay.jl")
+    # Catalytic edges on jump-owned protein counts (spec phase 11a). Uses the
+    # hybrid doubles and `CoreAStub`, and phase 7's file is not needed.
+    include("test_catalytic_slots.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
