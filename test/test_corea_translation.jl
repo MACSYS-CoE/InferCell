@@ -3,6 +3,9 @@ using InferCell
 using Random
 using Statistics: mean, median
 
+import InferCell: states, parameters, reactions, inputs, written_states,
+                  coupling, rebuilt_params, reduction_notes
+
 # Spec §11 phase 11 — translation: one reaction per transcript plus ptsG
 # translocation, with the rate constant read from the lumped charged-tRNA pool.
 #
@@ -71,5 +74,55 @@ using Statistics: mean, median
         k0 = translation_rate_constant(g.length, res[g.locus], 0.0)
         @test k0 ≈ translation_rate_constant(g.length, res[g.locus], 20 / ppm) rtol = 1e-14
         @test 0 < k0 < translation_rate_constant(g.length, res[g.locus], 0.2)
+    end
+
+    tl = CoreATranslation()
+    res = last.(residue_counts(tl))
+    n_state = length(states(tl))
+    cyto = 18
+    ix(s) = findfirst(==(s), states(tl))
+
+    @testset "11.2 seventeen jumps, catalytic in the transcript" begin
+        @test length(reactions(tl)) == 18                # 17 + translocation
+        @test states(tl)[1:17] == [protein_state(g.locus) for g in genes]
+        @test states(tl)[cyto] === TL_PTSG_CYTO
+        @test !any(is_registered, states(tl))
+        # Transcripts are read, as a peer's state, and never written.
+        @test inputs(tl) == [transcript_state(g.locus) for g in genes]
+        @test isempty(written_states(tl))
+
+        free = filter(p -> !p.fixed, parameters(tl))
+        @test [q.name for q in free] == [translation_rate_param(g.locus) for g in genes]
+        @test rebuilt_params(tl) == [q.name for q in free]
+        ks = [q.value for q in free]
+
+        gtp, trna = ix(:GTP_translat), ix(:tRNA_translat)
+        iptsg = findfirst(g -> g.locus === TL_PTSG, genes)
+        for i in 1:17
+            u = zeros(Int, n_state); w = fill(4, 17)
+            r = reactions(tl)[i]
+            # First order in the transcript: the propensity is k·mRNA, and
+            # zero at zero copies.
+            @test r.rate(u, ks, 0.0, w) == ks[i] * 4
+            @test r.rate(u, ks, 0.0, [j == i ? 0 : 4 for j in 1:17]) == 0.0
+            r.affect!(u, w)
+            @test w == fill(4, 17)                        # the transcript is unchanged
+            target = i == iptsg ? cyto : i
+            @test u[target] == 1
+            @test all(u[j] == 0 for j in 1:cyto if j != target)
+            @test u[gtp] == 2 * res[i]                    # two GTP per residue
+            @test u[trna] == res[i]                       # one charged tRNA per residue
+        end
+
+        # It composes with the transcripts' real owner, reading them as a
+        # phase-2 peer state, and makes protein only where there is mRNA.
+        Random.seed!(1102)
+        tx = CoreATranscription()
+        ms = AbstractSubModel[tx, tl]
+        sol = solve(build_problem(ms; tspan = (0.0, 600.0)), SSAStepper(); saveat = 600.0)
+        off = length(states(tx))
+        p0, p1 = sol.u[1][off .+ (1:17)], sol.u[end][off .+ (1:17)]
+        @test all(p1 .>= p0)
+        @test sum(p1 .- p0) + sol.u[end][off + cyto] > 0
     end
 end

@@ -171,6 +171,363 @@ function translation_elasticity(n::Integer, residues::Integer, chg_mM::Real;
     return (2a + b) / (a + b + residues)
 end
 
+# ---------------------------------------------------------------------------
+# The module.
+# ---------------------------------------------------------------------------
+
+"ptsG, the one membrane protein, and so the one gene with a translocation step."
+const TL_PTSG = :JCVISYN3A_0779
+
+"""
+The upstream constant of `TranslocRate`, `50 / ptnLen` per second
+(`MinCell_CMEODE.py:574`), a typical secY translocation rate. `ptnLen` is
+`len(aasequence)`, which counts the stop codon.
+"""
+const TRANSLOC_KCAT = 50.0
+
+"""
+The seven deferred cost counters translation accrues, what each touches, and
+what fills it.
+
+- `GTP_translat` is the elongation energy, two GTP per residue
+  (`MinCell_CMEODE.py:1008-1010`; upstream names it `ATP_translat`, and its
+  hook drains GTP, `in_out.py:199-218`). Its GDP and phosphate are recorded in
+  `produces` and not yet credited: one accrual cannot credit two products until
+  task 13.10 (spec §12, 2026-09-23). Two per residue, and residues exclude the
+  stop, so this is two GTP per protein fewer than upstream's
+  `2·len(aasequence)`. That is ours.
+- `tRNA_translat` is the charged tRNA consumed, one per residue. It **debits
+  the charged pool and credits the uncharged one**, one counter with two
+  edges. The hook credits what the debit actually paid, so a clipped debit
+  cannot create tRNA (spec §11 task 11.6).
+- `ATP_transloc` is translocation's energy, `int(len(aasequence)/10)` ATP per
+  ptsG inserted (`MinCell_CMEODE.py:1012-1013`), debited from ATP, products
+  pending 13.10 like GTP's.
+- The four carrier counters credit one new carrier each to the
+  unphosphorylated state `PtsTransport` owns (spec §12, 2026-09-23 C). The
+  three cytosolic carriers are credited as they are translated; ptsG as it is
+  translocated, since only a membrane ptsG is a carrier.
+
+`per` says what one event adds: `:twice_residues`, `:residues`, `:transloc_atp`
+or `:one`. `event` says which event: `:translation`, or `:translocation`.
+"""
+const TRANSLATION_COUNTERS = (
+    (counter = :GTP_translat, debits = :M_gtp_c, credits = nothing,
+     produces = (:M_gdp_c, :M_pi_c), event = :translation, locus = nothing,
+     per = :twice_residues),
+    (counter = :tRNA_translat, debits = :M_trna_chg_c, credits = :M_trna_c,
+     produces = (), event = :translation, locus = nothing, per = :residues),
+    (counter = :ATP_transloc, debits = :M_atp_c, credits = nothing,
+     produces = (:M_adp_c, :M_pi_c), event = :translocation, locus = TL_PTSG,
+     per = :transloc_atp),
+    (counter = :ptsI_translat, debits = nothing, credits = :M_ptsi_c,
+     produces = (), event = :translation, locus = :JCVISYN3A_0233, per = :one),
+    (counter = :ptsH_translat, debits = nothing, credits = :M_ptsh_c,
+     produces = (), event = :translation, locus = :JCVISYN3A_0694, per = :one),
+    (counter = :Crr_translat, debits = nothing, credits = :M_crr_c,
+     produces = (), event = :translation, locus = :JCVISYN3A_0234, per = :one),
+    (counter = :ptsG_transloc, debits = nothing, credits = :M_ptsg_c,
+     produces = (), event = :translocation, locus = TL_PTSG, per = :one),
+)
+
+"""
+    protein_state(locus) -> Symbol
+
+The state carrying one gene's protein count, `P_<locus>`: the name phase 11a's
+catalytic edges read (`default_protein_sources`, `recycling_enzymes`). For ptsG
+it is the *membrane* count, the one translocation increments.
+"""
+protein_state(locus::Symbol) = Symbol("P_", locus)
+
+"The cytosolic ptsG count, made by translation and consumed by translocation."
+const TL_PTSG_CYTO = Symbol("Pcyto_", TL_PTSG)
+
+"""
+    translation_rate_param(locus) -> Symbol
+
+The name of a gene's translation rate constant, which the 60 s rebuild fills.
+"""
+translation_rate_param(locus::Symbol) = Symbol("k_tl_", locus)
+
+"""
+    CoreATranslation(; genes, residues, counters, clip, interval, chg_mM, edges, rebuilt)
+
+Seventeen translation reactions and one translocation.
+
+```
+mRNA_g → mRNA_g + P_g + 2r_g·GTP_translat + r_g·tRNA_translat [+ carrier credit]
+Pcyto_ptsG → P_ptsG + int((r+1)/10)·ATP_transloc + ptsG_transloc
+```
+
+Translation is first order in the transcript, which it reads and leaves
+unchanged: transcripts are [`CoreATranscription`](@ref)'s states, read through
+`inputs`. Translocation is first order in the cytosolic ptsG count.
+
+`residues` defaults to the extract's `!Residues` column and is overridable so
+task 11.8's mutation can halve one gene's. `counters` may be any subset of
+[`TRANSLATION_COUNTERS`](@ref), each entry matching it exactly, and the states
+and edges follow the subset. `chg_mM` is the charged pool the constants start
+at, the nominal 0.2 mM that `TrnaCharging` initialises; a composed run
+overwrites them at every rebuild. `edges` and `rebuilt` are overridable so a
+test can build a mis-declared variant and watch the refusal.
+"""
+struct CoreATranslation <: AbstractSubModel
+    genes::Vector{TranscriptionGene}
+    residues::Vector{Int}
+    params::Vector{InferParameter}
+    counters::Vector{NamedTuple}
+    edges::Vector{CouplingEdge}
+    rebuilt::Vector{Symbol}
+    ribo_conc::Float64
+    transloc_k::Float64
+end
+
+function CoreATranslation(; genes = read_transcription_genes(),
+                          residues = nothing,
+                          counters = TRANSLATION_COUNTERS,
+                          clip = :clamped_deficit_carried,
+                          interval = 60.0,
+                          chg_mM = CHARGING_POOL_DEFAULTS.charged_fraction *
+                                   CHARGING_POOL_DEFAULTS.pool_mM,
+                          edges = nothing,
+                          rebuilt = nothing)
+    genes = collect(TranscriptionGene, genes)
+    res = residues === nothing ?
+          (r = read_translation_residues(); [r[g.locus] for g in genes]) :
+          collect(Int, residues)
+    length(res) == length(genes) || throw(ArgumentError(
+        "$(length(res)) residue counts for $(length(genes)) genes"))
+    counters = collect(NamedTuple, counters)
+    allunique(c.counter for c in counters) || throw(ArgumentError(
+        "Translation counters must be named once each, got " *
+        join((string(":", c.counter) for c in counters), ", ")))
+    for c in counters
+        i = findfirst(d -> d.counter === c.counter, TRANSLATION_COUNTERS)
+        i === nothing && throw(ArgumentError(
+            "Counter :$(c.counter) is not one translation accrues. The per-event " *
+            "amounts are defined for " *
+            join((string(":", d.counter) for d in TRANSLATION_COUNTERS), ", ") * " only"))
+        c == TRANSLATION_COUNTERS[i] || throw(ArgumentError(
+            "Counter :$(c.counter) must be declared as $(TRANSLATION_COUNTERS[i]), " *
+            "got $c. Its increment is fixed by its name, so what it debits and " *
+            "credits is too"))
+    end
+    iptsg = findfirst(g -> g.locus === TL_PTSG, genes)
+    iptsg === nothing && throw(ArgumentError(
+        "Translation needs ptsG ($TL_PTSG) among its genes: it is the gene the " *
+        "translocation reaction belongs to"))
+
+    ribo_conc = RIBOSOME_COPIES / corea_particles_per_mM()
+    transloc_k = TRANSLOC_KCAT / (res[iptsg] + 1)
+
+    params = InferParameter[]
+    # The seventeen rate constants, free because the rebuild fills them, at
+    # the nominal charged pool. Not inference targets (§4 D11): a rebuilt slot
+    # is overwritten at every refresh, and its prior is ours.
+    for (g, r) in zip(genes, res)
+        k = translation_rate_constant(g.length, r, chg_mM; ribo_conc = ribo_conc)
+        push!(params, InferParameter(
+            k, LogNormal(log(k), log(2.0)), false,
+            translation_rate_param(g.locus), :CoreATranslation, :rate))
+    end
+
+    # The ribosome globals. Fixed, for D13's reason: they are the hub of the
+    # published star, and a free one would be a ridge through all seventeen
+    # constants. The ribosome concentration is computed once at the initial
+    # volume, as upstream computes it, and is one of the genuinely frozen
+    # quantities; K₀ and K_d are dissociation constants in mM, so volume does
+    # not enter them. They are held on the struct and in constants, and listed
+    # here so they are enumerable with their provenance.
+    src(id) = ParameterSource("translation_rate_restart.py"; identifier = id,
+                              informedness = :asserted)
+    for (nm, v, id) in ((:tl_ribo_kcat, RIBO_KCAT, "riboKcat"),
+                        (:tl_ribo_k0, RIBO_K0, "riboK0"),
+                        (:tl_ribo_kd, RIBO_KD, "riboKd"),
+                        (:tl_ribo_conc, ribo_conc, "ribosomeConc"))
+        push!(params, InferParameter(v, LogNormal(log(v), log(2.0)), true,
+                                     nm, :CoreATranslation, :rate, src(id)))
+    end
+    push!(params, InferParameter(
+        transloc_k, LogNormal(log(transloc_k), log(2.0)), true,
+        :tl_transloc_k, :CoreATranslation, :rate,
+        ParameterSource("MinCell_CMEODE.py"; identifier = "TranslocRate",
+                        informedness = :asserted)))
+
+    # Initial conditions, fixed: the proteomics counts (§4 D8 holds protein
+    # initial conditions fixed), no cytosolic ptsG, and empty counters.
+    for g in genes
+        push!(params, InferParameter(
+            float(g.ptn_count), Poisson(g.ptn_count), true,
+            Symbol(protein_state(g.locus), "0"), :CoreATranslation,
+            :initial_condition))
+    end
+    push!(params, InferParameter(0.0, Poisson(1.0), true, Symbol(TL_PTSG_CYTO, "0"),
+                                 :CoreATranslation, :initial_condition))
+    for c in counters
+        push!(params, InferParameter(0.0, Poisson(1.0), true, Symbol(c.counter, "0"),
+                                     :CoreATranslation, :initial_condition))
+    end
+
+    default = CouplingEdge[
+        RateConstantEdge(species = :M_trna_chg_c, direction = :in,
+                         cadence = :piecewise_constant, interval = interval)]
+    for c in counters
+        c.debits === nothing ||
+            push!(default, DeferredCounterEdge(species = c.debits, direction = :in,
+                                               counter = c.counter, clip = clip))
+        c.credits === nothing ||
+            push!(default, DeferredCounterEdge(species = c.credits, direction = :out,
+                                               counter = c.counter, clip = clip))
+    end
+
+    return CoreATranslation(
+        genes, res, params, counters,
+        collect(CouplingEdge, edges === nothing ? default : edges),
+        collect(Symbol, rebuilt === nothing ?
+                [translation_rate_param(g.locus) for g in genes] : rebuilt),
+        ribo_conc, transloc_k)
+end
+
+# --- the protocol -----------------------------------------------------------
+
+states(m::CoreATranslation) =
+    vcat([protein_state(g.locus) for g in m.genes], [TL_PTSG_CYTO],
+         [c.counter for c in m.counters])
+parameters(m::CoreATranslation) = m.params
+formalism(::CoreATranslation) = :jump
+inference_mode(::CoreATranslation) = :simulation
+coupling(m::CoreATranslation) = m.edges
+inputs(m::CoreATranslation) = [transcript_state(g.locus) for g in m.genes]
+rebuilt_params(m::CoreATranslation) = m.rebuilt
+
+"""
+    rate_constants(p, t, m::CoreATranslation, pools) -> SVector{17}
+
+The seventeen constants the 60 s rebuild writes, from the live charged pool,
+`pools[1]` in mM. Reads nothing from `p`, so it cannot compound its own
+previous value. **This module never calls this**; only the driver does.
+"""
+function rate_constants(p, t, m::CoreATranslation, pools)
+    chg = pools[1]
+    n = length(m.genes)
+    return SVector{n, Float64}(ntuple(n) do i
+        translation_rate_constant(m.genes[i].length, m.residues[i], chg;
+                                  ribo_conc = m.ribo_conc)
+    end)
+end
+
+# What one event adds to counter `c`: gene `i`'s translation, or ptsG's
+# translocation (`i = 0`).
+function _tl_increment(c, m::CoreATranslation, event::Symbol, i::Int)
+    c.event === event || return 0
+    if event === :translation
+        c.locus === nothing || c.locus === m.genes[i].locus || return 0
+        r = m.residues[i]
+        return c.per === :twice_residues ? 2r : c.per === :residues ? r : 1
+    else
+        r = m.residues[findfirst(g -> g.locus === TL_PTSG, m.genes)]
+        return c.per === :transloc_atp ? (r + 1) ÷ 10 : 1
+    end
+end
+
+"""
+    reactions(m::CoreATranslation) -> Vector{Reaction}
+
+Seventeen translation jumps at `k_g · mRNA_g`, reading the transcript through
+`inputs` and leaving it unchanged, then one translocation jump at
+`tl_transloc_k · Pcyto_ptsG`. Translating ptsG adds to the cytosolic count;
+every other gene adds to its own `P_<locus>`.
+"""
+function reactions(m::CoreATranslation)
+    n = length(m.genes)
+    cyto = n + 1
+    nc = length(m.counters)
+    iptsg = findfirst(g -> g.locus === TL_PTSG, m.genes)
+    rxns = Reaction[]
+    for i in 1:n
+        target = i == iptsg ? cyto : i
+        incs = [(cyto + k, _tl_increment(m.counters[k], m, :translation, i)) for k in 1:nc]
+        incs = filter(x -> x[2] != 0, incs)
+        push!(rxns, Reaction(
+            (u, p, t, w) -> p[i] * w[i],
+            (u, w) -> begin
+                u[target] += 1
+                for (k, a) in incs
+                    u[k] += a
+                end
+            end))
+    end
+    kt = m.transloc_k
+    tincs = filter(x -> x[2] != 0,
+                   [(cyto + k, _tl_increment(m.counters[k], m, :translocation, 0)) for k in 1:nc])
+    push!(rxns, Reaction(
+        (u, p, t, w) -> kt * u[cyto],
+        (u, w) -> begin
+            u[cyto] -= 1
+            u[iptsg] += 1
+            for (k, a) in tincs
+                u[k] += a
+            end
+        end))
+    return rxns
+end
+
+function reduction_notes(::CoreATranslation)
+    return [
+        "Translation's rate law reads the lumped charged-tRNA pool through its " *
+        "per-amino-acid share, [M_trna_chg_c]/$TL_AA_TYPES, in each of the " *
+        "twenty-one concentrations the published law reads per amino acid " *
+        "(translation_rate_restart.py). This keeps the law's structure: 0.01 mM " *
+        "at the nominal pool against upstream's 150 copies, 0.0074 mM. Reading " *
+        "the whole pool instead would cut the charged-tRNA elasticity about " *
+        "twenty-fold. The lumping itself is TrnaCharging's declaration, not this one.",
+
+        "Translation runs the published restart law (riboKd 1e-3, kcat_mod " *
+        "(0.25n + 0.2)·riboKcat) from the start of the cycle. The published " *
+        "model runs the start law (riboKd 1e-4, +0.25) for its first minute only.",
+
+        "A residue excludes the stop codon, the convention k_chg was calibrated " *
+        "on. Upstream charges GTP on len(aasequence), which counts the stop, so " *
+        "this module charges two GTP per protein fewer than the published model.",
+    ]
+end
+
+# --- queries ----------------------------------------------------------------
+
+"The genes this module carries, in canonical order."
+translation_genes(m::CoreATranslation) = m.genes
+
+"""
+    residue_counts(m) -> Vector{Pair{Symbol,Int}}
+
+Each gene's residue count, keyed by locus: what one translation event charges
+for.
+"""
+residue_counts(m::CoreATranslation) = [g.locus => r for (g, r) in zip(m.genes, m.residues)]
+
+"""
+    translation_rate_constants(m[, chg_mM]) -> Vector{Pair{Symbol,Float64}}
+
+The seventeen rate constants keyed by locus, at the nominal charged pool or at
+any supplied.
+"""
+translation_rate_constants(m::CoreATranslation,
+                           chg_mM = CHARGING_POOL_DEFAULTS.charged_fraction *
+                                    CHARGING_POOL_DEFAULTS.pool_mM) =
+    [g.locus => translation_rate_constant(g.length, r, chg_mM; ribo_conc = m.ribo_conc)
+     for (g, r) in zip(m.genes, m.residues)]
+
+"""
+    counter_drains(m::CoreATranslation) -> Vector{NamedTuple}
+
+Each configured counter, the pool it debits and the pool it credits (either
+may be `nothing`), and what a debit produces but does not yet credit.
+"""
+counter_drains(m::CoreATranslation) = copy(m.counters)
+
+export CoreATranslation, TRANSLATION_COUNTERS, TL_PTSG, TL_PTSG_CYTO, TRANSLOC_KCAT
+export protein_state, translation_rate_param, translation_genes, residue_counts,
+       translation_rate_constants
 export read_translation_residues, ribosomes_per_transcript, translation_kcat,
        translation_rate_constant, translation_elasticity
 export RIBO_KCAT, RIBO_K0, RIBO_KD, RIBOSOME_COPIES, TL_AA_TYPES, POLYSOME_CAP
