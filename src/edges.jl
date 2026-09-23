@@ -186,8 +186,9 @@ fills.
 `species` may be a non-registry state: the protein counts translation publishes
 are jump-block state, like transcripts, and only the eight PTS carrier forms are
 registry species. It is the one kind allowed to, because it carries no mass
-(spec §11 task 11a.1). The driver then requires a jump module in the
-composition to own the count.
+(spec §11 task 11a.1). A hybrid build requires a jump module in the
+composition to own the count, and a build with no jump block refuses any
+catalytic edge, since nothing there would execute it.
 """
 struct CatalyticEdge <: CouplingEdge
     species::Symbol

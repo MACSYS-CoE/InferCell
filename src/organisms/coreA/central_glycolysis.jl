@@ -164,7 +164,9 @@ its proteins.
   every step. The counts leave `inputs`, since a hybrid build refuses a
   cross-block input and the edge is now the declaration. The declared value
   matters only before the first handshake, and a sampler that draws one of these
-  slots has its draw overwritten; see [`driver_written_params`](@ref).
+  slots has its draw overwritten; see [`driver_written_params`](@ref). The mode
+  is for a hybrid build: composed with no jump block, `build_problem` refuses
+  it, because nothing would fill the slots.
 """
 struct CentralGlycolysis{R <: Tuple} <: AbstractSubModel
     params::Vector{InferParameter}
@@ -568,7 +570,7 @@ const KM_COLUMN_DISAGREEMENTS = [
     ("km_R_PGM_M_2pg_c", 1.47, 0.0278),
 ]
 
-function _glycolysis_reduction_notes(enzymes::Symbol = :nominal)
+function _glycolysis_reduction_notes(enzymes::Symbol)
     km_list = join(("$id runs at $ran and is imported at $imported"
                     for (id, ran, imported) in KM_COLUMN_DISAGREEMENTS), "; ")
     return [
