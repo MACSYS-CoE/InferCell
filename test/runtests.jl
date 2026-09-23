@@ -92,6 +92,9 @@ using Aqua
     # Catalytic edges on jump-owned protein counts (spec phase 11a). Uses the
     # hybrid doubles and `CoreAStub`, and phase 7's file is not needed.
     include("test_catalytic_slots.jl")
+    # Phase 11 reuses phase 12's `TranscriptSource`, phase 9's charging doubles
+    # and phase 11a's `ToyProteome`, so it comes after all three.
+    include("test_corea_translation.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

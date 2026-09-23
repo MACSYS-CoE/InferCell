@@ -323,15 +323,16 @@ reshape changed.
 
 ## `transcription_genes.tsv`
 
-The seventeen genes of spec §11 phase 10: transcript length, the four base
-counts, protein copy number and the measured mean transcript count.
+The seventeen genes of spec §11 phases 10 and 11: transcript length, the four
+base counts, protein copy number, the measured mean transcript count and, since
+phase 11, the residue count translation charges for.
 
 | | |
 |---|---|
 | Upstream files | five — see "Five upstream sources, not three" below |
 | Upstream commit | `db048aca5fe85438e0129819bbf0314b037dd931` |
 | Script | `dev/scripts/extract_transcription_genes.jl` |
-| Consumed by | `src/organisms/coreA/transcription.jl` (spec §11 phase 10) |
+| Consumed by | `src/organisms/coreA/transcription.jl` (spec §11 phase 10), `src/organisms/coreA/translation.jl` (phase 11) |
 
 This generator runs in the dev-scripts environment (`dev/scripts/Project.toml`),
 which carries `XLSX.jl` so the package's own `Project.toml` does not have to.
@@ -362,7 +363,7 @@ legitimate way to have the files.
 It prints the SHA-256 of what it wrote. For the committed file that is
 
 ```
-b5957a73f330b393254ec9387eced1e973ce109229894498d49e25d37f7d186e
+2682c2001c08faba0550797833e11845b4fb83e179d2df64046afea337a55ab4
 ```
 
 That hash is what catches a hand-edit the suite cannot see. The tests pin the
@@ -390,6 +391,7 @@ returns 0 against `syn2.gb`'s 454. Recorded as a §12 amendment dated
 | `!Length`, `!A`, `!C`, `!G`, `!U`, `!First2` | `CME_ODE/model_data/syn3A.gb` | the locus's CDS feature, reverse-complemented on the complement strand, transcribed T→U, counted |
 | `!PtnCount` | `FBA/Syn3A_annotation_compilation.xlsx`, `syn2.gb`, `proteomics.xlsx` | the four-step chain below |
 | `!MeanMRNA` | `CME_ODE/model_data/mRNA_counts.csv` | the `Count` column, keyed on `LocusTag` |
+| `!Residues` | `CME_ODE/model_data/syn3A.gb` | the same transcript translated under NCBI table 4, as `MinCell_CMEODE.py:121` builds `aasequence`, less its one stop codon |
 
 The protein-count chain reproduces `MinCell_CMEODE.py:57-110` and `:146-170`:
 
@@ -419,7 +421,13 @@ the generator raises rather than mis-extracting if one ever appears.
 - all seventeen loci present in every one of the five sources — a missing one
   aborts naming the locus and its reaction, since a silently absent gene would
   surface only as a model with sixteen transcripts;
-- each gene's four base counts sum to its transcript length.
+- each gene's four base counts sum to its transcript length;
+- each transcript is a whole number of codons, and its table-4 translation has
+  exactly one stop, at the end, so `!Residues` equals `!Length / 3 - 1`
+  (spec §11 task 11.1; §12, 2026-09-23 D). Residues exclude the stop, which is
+  the convention `k_chg` was calibrated on: Σ `!PtnCount` × `!Residues` is
+  3,484,518. Upstream charges translation's GTP on `len(aasequence)`, which
+  counts the `*`, so it charges two more GTP per protein.
 
 Cross-checks that belong to the test suite rather than the generator are in
 `test/test_corea_transcription.jl` under task 10.1.
