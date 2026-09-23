@@ -135,7 +135,9 @@ function TrnaCharging(; pool_mM::Real = CHARGING_POOL_DEFAULTS.pool_mM,
         InferParameter(pool_mM, LogNormal(log(pool_mM), log(2.0)), true,
                        :trna_pool_mM, :TrnaCharging, :rate,
                        _charging_source("total tRNA pool")),
-        InferParameter(charged_fraction, Normal(charged_fraction, 0.1), true,
+        # Truncated to [0, 1]: a fraction outside it is not a fraction, and at 1
+        # the derivation has no uncharged pool to charge.
+        InferParameter(charged_fraction, truncated(Normal(charged_fraction, 0.1), 0, 1), true,
                        :trna_charged_fraction, :TrnaCharging, :rate,
                        _charging_source("nominal charged fraction")),
         InferParameter(trna0, Normal(trna0, 0.1), true,

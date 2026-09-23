@@ -852,7 +852,9 @@ Two more join that set after D13 and D14, making thirteen: the charging rate
 constant `k_chg`, and the total tRNA pool size, for which the registry records no
 value at all. They come from a different module, so the enumeration is no longer
 transport-only. **Amended 2026-09-23: fourteen.** D14's derivation also needs
-the nominal charged fraction, a third asserted charging quantity (§12).
+the nominal charged fraction, a third asserted charging quantity (§12). The
+pool size and the fraction are fixed at construction: varying them means
+rebuilding `TrnaCharging`, not freeing a parameter.
 
 **Thirteen counts the asserted *rate* constants, and phase 7 reports a larger
 number for a different set.** `asserted_prior_params` selects on informedness,
@@ -1551,7 +1553,9 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   and so whether the kinase belongs in the target set. One cheap comparison run,
   in the charging phase. **After D14 it must be run at matched steady flux**
   rather than matched event count, because both forms are now mass-action rate
-  laws with different self-limiting behaviour.
+  laws with different self-limiting behaviour. **Partly answered 2026-09-23 by
+  task 9.9; the ATP/ADP half is carried to phase 14 (task 14.9).** See the
+  entry below.
 - **Does the 60 s rebuild stay piecewise-constant?** Declarable, defaults to
   published. ~~The deviation is measured rather than argued (R11).~~
   **Amended 2026-09-05:** what is measured is the *cadence*, at a shorter
@@ -1580,15 +1584,21 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   a 10% demand step measures **1.43 s**, against the 1 s handshake. At fixed
   `k_chg` the pool sets the flux sublinearly, from 56 /s at 0.025 mM to 1,873 /s
   at 1.0 mM, 33× for a 40× pool, because ATP falls as the flux rises.
-- **Stoichiometry, answered by task 9.9 (2026-09-23, job 17044321).** At
-  steady fluxes matched to 1.5e-9 (548.17 /s each; the two-ATP `k2` rescaled by
-  1.044), the published AMP + PPi form sends **548 /s** through the adenylate
-  kinase and the two-ATP form sends **0**. But the ATP/ADP ratio the rebuild
-  reads differs by only **0.035%** (8.0969 against 8.0998), and pyrophosphate
-  settles at 0.367 against 0.024 mM. A first version compared the forms at
-  fluxes 0.86% apart and reported 1.02%, which was almost all flux mismatch.
-  This is measured against phase 8's glycolytic double, not live glycolysis,
-  and only inference can measure R8's posterior-shift signal.
+- **Stoichiometry, partly answered by task 9.9 (2026-09-23, job 17044321).**
+  At steady fluxes matched to 1.5e-9 (548.17 /s each; the two-ATP `k2`
+  rescaled by 1.044), the published AMP + PPi form sends **548 /s** through the
+  adenylate kinase and the two-ATP form sends **0**, and pyrophosphate settles at
+  0.367 against 0.024 mM. Those are answered. **The ATP/ADP half is not.** Phase
+  8's glycolytic double rephosphorylates ADP at a rate effectively first order
+  in ADP alone (its phosphate factor is saturated), and both forms return two
+  ADP-equivalents per event. So steady ADP is pinned by the double: 0.4317 mM
+  in both runs. The measured 0.035% ATP/ADP difference is AMP moving within a
+  fixed adenylate total, not the ratio responding. Nothing here says how far
+  the kinase's equilibrium constant can move ATP/ADP under live glycolysis,
+  whose PGK and PYK laws are reversible and read ATP. **Carried to phase 14
+  (task 14.9):** rerun the comparison on the assembled model. (A first version
+  also compared the forms at fluxes 0.86% apart and reported 1.02%, which was
+  flux mismatch.)
 - ~~**Whether the full-cycle checks belong in the default test suite.** They are
   the strongest evidence and the slowest thing added. Deciding needs the measured
   wall-clock.~~ — **partly resolved 2026-09-10 by phase 6's measurement, and left
@@ -3205,6 +3215,10 @@ mutation test showing it can fail.
 - [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
+  **Annotated 2026-09-23 (from phase 9):** also rerun task 9.9's stoichiometry
+  comparison on the assembled model, matched on steady flux, and record the
+  ATP/ADP ratio under both lumpings. Phase 9 could not answer this, because its
+  glycolytic double pins ADP (§9, §12 2026-09-23).
 - [ ] 14.10 Show each check can fail — verify by one mutation test per check, each
   failing the intended check and naming the intended quantity, collected into the
   mutation table of output F3.
@@ -3383,10 +3397,21 @@ place.
 ATP. ATP settles below nominal, and that law is second order in ATP, so the
 two ran at fluxes 0.86% apart. The 1.02% ATP/ADP difference it reported was
 almost all that mismatch. Rescaling `k2` by 1.044 matches the steady fluxes to
-1.5e-9, and the difference is **0.035%** (job 17044321). §9 and the scoping
-note carry the corrected figure.
+1.5e-9, and the difference is then 0.035% (job 17044321). **But that figure
+does not answer the ATP/ADP question either,** as the second review round
+found. The glycolytic double pins steady ADP (0.4317 mM in both runs), so the
+ratio cannot respond. 9.9 answers the kinase traffic and the pyrophosphate
+level. The ATP/ADP half moves to task 14.9, on the assembled model.
 
-**Sections touched:** §9, §10 R8, §11 task 9.8, §12.
+**The pool size and charged fraction are fixed at construction.** They set the
+initial conditions and `k_chg` once, when `TrnaCharging` is built. Varying
+either, in R8's sensitivity or in any scan, means rebuilding the module, not
+freeing a parameter. D7's "fourteen an inference phase might free" includes
+two that can only be varied that way. The charged-fraction prior is truncated
+to [0, 1], so a draw from the asserted priors cannot reach the value where
+the derivation throws.
+
+**Sections touched:** §4 D7, §9, §10 R8, §11 tasks 9.8 and 14.9, §12.
 
 ### 2026-09-23 — a small moiety fails the first gate's flat ulp bound without leaking
 
