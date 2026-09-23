@@ -140,9 +140,9 @@ in `free` makes it an entry of `model_free_params`, and the module then reads it
 from the parameter vector instead, so a sampler moves it and a fixed one costs
 no posterior dimension. Nothing is inferred through a prior nobody chose.
 
-`enzymes = :translated` frees the five enzyme concentrations and declares a
-[`CatalyticEdge`](@ref) from each gene's protein count `P_<locus>` to its
-`enz_<reaction>` slot, so the handshake fills them from live counts (spec §11
+`enzymes = :translated` frees the enzyme concentration of each active reaction
+and declares a [`CatalyticEdge`](@ref) from its gene's protein count `P_<locus>`
+to its `enz_<reaction>` slot, so the handshake fills them from live counts (spec §11
 task 11a.3). PGK3 and PYK3 name the same counts as glycolysis's PGK and PYK,
 which is what makes one gene one concentration in a composition. The default,
 `:nominal`, is phase 8's module unchanged.
@@ -240,9 +240,14 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
             "held by the registry and are not freed here"))
     end
 
-    # A catalytic edge fills a free slot, so the translated mode frees all five.
+    # A catalytic edge fills a free slot, so the translated mode frees the enzyme
+    # of every *active* reaction. A disabled one reads nothing, so freeing it would
+    # sample a parameter no rate law uses, and its edge would demand a count for a
+    # reaction that never runs.
     translated = enzymes === :translated
-    translated && (free = unique(vcat(free, collect(RECYCLING_ENZYME_IDS))))
+    wired = [id for (id, r) in zip(RECYCLING_ENZYME_IDS, RECYCLING_REACTIONS)
+             if translated && r in reactions]
+    free = unique(vcat(free, wired))
 
     tables = recycling_tables()
     gstds = _recycling_gstds()
@@ -321,8 +326,9 @@ function NucleotideRecycling(; reactions = RECYCLING_REACTIONS,
     return NucleotideRecycling(params,
                                Tuple(held), pidx,
                                Tuple(r in reactions for r in RECYCLING_REACTIONS),
-                               translated ? vcat(RECYCLING_EDGES, recycling_catalytic_edges()) :
-                                            RECYCLING_EDGES,
+                               vcat(RECYCLING_EDGES,
+                                    [e for e in _recycling_catalytic_edges()
+                                     if e.param_slot in wired]),
                                copy(RECYCLING_INPUTS),
                                copy(RECYCLING_INPUTS))
 end
@@ -341,13 +347,10 @@ recycling_enzymes() = [(reaction = r, locus = locus, copies = copies,
                         shared_with_glycolysis = shared)
                        for (r, (locus, copies, shared)) in RECYCLING_ENZYME_COPIES]
 
-"""
-    recycling_catalytic_edges() -> Vector{CouplingEdge}
-
-The five edges `enzymes = :translated` declares, from `P_<locus>` to
-`enz_<reaction>`, in [`RECYCLING_REACTIONS`](@ref) order.
-"""
-recycling_catalytic_edges() = CouplingEdge[
+# The five edges `enzymes = :translated` can declare, from `P_<locus>` to
+# `enz_<reaction>`, in `RECYCLING_REACTIONS` order. The constructor keeps those of
+# the active reactions.
+_recycling_catalytic_edges() = CouplingEdge[
     CatalyticEdge(species = Symbol(:P_, e.locus), direction = :in, param_slot = id)
     for (id, e) in zip(RECYCLING_ENZYME_IDS, recycling_enzymes())]
 
@@ -475,5 +478,5 @@ end
 
 export NucleotideRecycling, RECYCLING_REACTIONS, RECYCLING_STATES,
        RECYCLING_KINETIC_IDS, RECYCLING_CONSTANT_IDS, RECYCLING_ENZYME_IDS,
-       recycling_enzymes, recycling_catalytic_edges, recycling_fluxes, recycling_governing_file,
+       recycling_enzymes, recycling_fluxes, recycling_governing_file,
        recycling_tables, _recycling_ddt
