@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-23
-**Branches:** `phase-12-transcript-decay`
+**Branches:** `phase-12-transcript-decay` (merged after `phase-9-trna-charging`)
 
 ## Latest: phase 12, transcript decay (2026-09-23)
 
@@ -34,8 +34,39 @@ added tests are all this phase's.
   as the 2026-09-10 amendment said. Its constant is pinned equal to this
   module's.
 
-Next: phase 9 (charging) or phase 11 (translation). Phase 11 can proceed on
-a double; phase 9 is still `_not started_`.
+Next: phase 11 (translation). Phase 9 (#59) landed alongside this one, so
+translation's rate constant can read the live charged pool rather than a
+double.
+
+## Earlier: phase 9, lumped tRNA charging (2026-09-23)
+
+`TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
+module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at
+`k_chg·[trna]·[ATP]`, owns the tRNA pair, and contributes to ATP, AMP and PPi
+through three currency edges. Full suite after merging phase 10b: Slurm job
+**17047990** at `d42d74f`, **2,675 pass, 0 broken**. No skips are left: phase 9
+executes 8.5's four-module check, and 10b executes 10.7. The diagnostics artefact
+is from job **17044321**.
+
+- **Phase 8's `ChargingDrain` is superseded for composed runs** by
+  `TrnaCharging` plus `TranslationDemand` (`test/trna_test_models.jl`). It is
+  kept only for phase 8's standalone checks, whose recorded numbers belong to it.
+- **Amendments, all in §12 under 2026-09-23.**
+  - D14 gains a nominal charged fraction. The defaults are 0.25 mM at 0.8
+    charged, recalled rather than cited, and each **still needs a source**.
+    9.7's flux check becomes a drift (−0.89%).
+  - A small moiety that is bitwise zero per evaluation may assert the `tol_C`
+    ladder, provided the ladder ends at the pinned tolerances and every rung
+    run is reported from Slurm.
+  - 9.8's check 7 half is deferred to 11.7.
+  - 9.9 was rematched on flux. It answers the kinase traffic (548/s vs 0)
+    but **not** the ATP/ADP question, because phase 8's glycolytic double pins
+    ADP. That half is carried to task 14.9.
+- **Roundoff ladders depend on the machine.** Quote them from Slurm, not the
+  login node, which is how the first draft of the §12 entry went wrong.
+- **Open for phase 11:** task 11.7's clipping census decides whether 0.25 mM
+  buffers enough; it holds 7.23 s of demand. Check 1b needs at least
+  ≈ 0.124 mM.
 
 ## Earlier: phase 10b, the 2026-09-22 review fixes (2026-09-23)
 
@@ -44,7 +75,8 @@ it, one commit per task, plus three commits of `/check-PR` fixes. Suite:
 Slurm job **17021441** at `b04d467`, **2580 passed, 0 failed, 1 broken**,
 4m56.0s (up from 2513 and 2 broken; 17019818 at `f611345`, before the
 review fixes, gave 2577).
-The one broken test left is phase 8's `@test_skip`, which waits on phase 9.
+The one broken test left was phase 8's `@test_skip`, which waited on phase 9;
+phase 9 (#59) executes it.
 
 - **10b.1 (E).** `abc_smc` now returns the tolerance its final population
   was accepted under, not the next one. `n_populations = 1` is refused:

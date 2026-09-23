@@ -1,9 +1,9 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
-phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 10 (#51) and phase 10b
-(#57) and phase 12 (#60); phase 9 and the CME-block phase 11 are the rest
-of the fan-out
+phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
+phase 10b (#57) and phase 12 (#60); the CME-block phase 11 is the rest of the
+fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -352,7 +352,7 @@ comparison is predictive rather than evidence-based here.
 | Enzyme counts enter the ODE deterministically | 266–1355 copies gives 3–6% relative Poisson noise | Core A′ therefore supports a claim about *parameter* uncertainty crossing the boundary, and honestly cannot support one about *stochasticity* crossing it. That is Step 1b's claim. D13 strengthens this caveat: the single most-fired process in the published stochastic block is now deterministic **by our choice** |
 | One lumped charged-tRNA pool replaces 20 per-amino-acid chains | Untested. **Ours, not the model's** | The pool size is a quantity we chose. It sets the strength of the reverse channel into translation **and**, after D13, the low-pass filter on the dominant forward channel. See R8, which this upgrades |
 | The lumped step is integrated deterministically in the ODE block | The registry marks both tRNA species metabolite-scale, and the step fires ~553/s. The scoping note already placed it here | The *formalism* is ours even though the placement is the note's. See D13 |
-| `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
+| `k_chg` is calibrated so the steady flux reproduces 553.1/s at nominal pools | Holds at nominal. **Amended 2026-09-23:** "nominal pools" is a total of 0.25 mM at 80% charged, both asserted by us, with ATP at the registry's 3.6529 mM | Off-nominal the flux is state-dependent rather than fixed, so the published demand figure becomes an emergent quantity rather than an input. See D14 |
 | CTP, UTP and the amino-acid pool are chemostatted | Their sources are in modules Core A′ cuts. **Ours, not the model's** | Stops being defensible the moment Step 1b makes the pools live |
 | Non-ptsG membrane growth is exogenous | ptsG is Core A′'s only membrane protein. **Ours, not the model's** | Growth reaches only ~1.07×, so the published 2× cap is never tested |
 | The 60 s rebuild is piecewise-constant | It is what the published model does | A continuous variant is a different and arguably better model. Declarable, defaults to published. ~~The deviation is measured rather than argued.~~ **Amended 2026-09-05:** phase 4 refuses to *execute* a continuous cadence — the outer-loop mechanism of task 3.1 cannot represent it — so the deviation that is measured is a shorter piecewise-constant interval, which is what R11 varies. A genuinely continuous cadence remains declarable and labelled, and unmeasured. See R11 and §12 |
@@ -459,7 +459,18 @@ the gate its composition actually passes, or it keeps the fall.
 fall it replaces.** Run the ladder over at least six decades of `(abstol,
 reltol)`. Require every rung's residual within **100 ulps** of the conserved
 sum, and the largest rung within **100×** of the smallest. Report the ladder,
-not a single pair.
+not a single pair. **Amended 2026-09-23:** a composition that passes the first
+gate's bitwise test may instead assert the second gate's `tol_C`-relative
+ladder: every rung at least three orders below its own `tol_C`, the largest
+within 100× of the smallest. Two conditions keep that from becoming a way to
+pass by choosing rungs. The asserted ladder must **end at the pinned
+tolerances**, and **every rung run must be reported**, asserted or not, from a
+Slurm run of record, since the residual is roundoff and differs between
+machines. The flat 100-ulp bound is measured in ulps of the conserved sum, but
+the residual is roundoff set by the composition's *largest* states. A small
+moiety beside large pools therefore fails the flat bound without leaking
+anything. Phase 9's 0.25 mM tRNA pair is bitwise zero at every evaluation and
+drifts 29 to 2,043 ulps of its sum (job 17044321). See §12.
 
 **And it is not literally flat, which matters.** The integrated residual is
 linear-algebra roundoff in the implicit solver's stage solves, accumulated over
@@ -841,7 +852,10 @@ default so nothing is inferred through an invented prior without a decision.
 Two more join that set after D13 and D14, making thirteen: the charging rate
 constant `k_chg`, and the total tRNA pool size, for which the registry records no
 value at all. They come from a different module, so the enumeration is no longer
-transport-only.
+transport-only. **Amended 2026-09-23: fourteen.** D14's derivation also needs
+the nominal charged fraction, a third asserted charging quantity (§12). The
+pool size and the fraction are fixed at construction: varying them means
+rebuilding `TrnaCharging`, not freeing a parameter.
 
 **Thirteen counts the asserted *rate* constants, and phase 7 reports a larger
 number for a different set.** `asserted_prior_params` selects on informedness,
@@ -1216,6 +1230,10 @@ in order to run at all, is written up in
 **Decision.** Fix `k_chg` so the charging flux reproduces the published residue
 demand at nominal pools, mark it `:asserted`, hold it fixed by default, and
 report the total tRNA pool size as a separate asserted quantity.
+**Amended 2026-09-23:** and the nominal charged fraction too, which the
+derivation cannot do without — `k_chg = demand / ([M_trna_c]·[M_atp_c])` needs
+the uncharged pool, not the total. Defaults 0.25 mM total and 0.8 charged, both
+`:asserted`; see §12.
 
 **Why a rate constant rather than a fixed flux.** A fixed flux would make
 charging a constant drain, which is what the published demand figure of 553.1 per
@@ -1256,7 +1274,7 @@ commit `db048ac`. Nothing is fetched at run time.
 | Cascade constants and permeability | transport TSV | Vendored extract with no uncertainty column, so every row loads as asserted |
 | Carrier initial conditions | proteomics counts × proteomics fractions | Vendored, with the derivation recorded |
 | Per-gene sequence data | genome record, annotation compilation, second genome record, proteomics table, measured transcript counts | One extract, five upstream sources, one column each, so no cross-file ambiguity. Three is the count for the sequence columns alone; the protein copy number needs two more, because the reduced genome record carries no protein ids (§12, 2026-09-10 phase 10, amendment C) |
-| Charging rate constant and tRNA pool size | nothing — **asserted by us** | No upstream value exists. `k_chg` is derived from published residue demand and the asserted pool size (D14); both are recorded as asserted, not vendored |
+| Charging rate constant, tRNA pool size and charged fraction | nothing — **asserted by us** | No upstream value exists. `k_chg` is derived from published residue demand, the asserted pool size and the asserted nominal charged fraction (D14, amended 2026-09-23); all three are recorded as asserted, not vendored |
 
 Extracts live under `src/organisms/coreA/data/` with a `README.md` recording the
 upstream filename, the commit, which table each row class came from, that the
@@ -1335,7 +1353,7 @@ is the enabler.
 | F13 | Jacobian singular-value spectrum for the target set, with and without the polymerase constant freed | C3 | The multiplicative ridge as a singular value dropping by orders. Uses the existing `check_identifiability` |
 | F14 | Wall-clock per trajectory against horizon and gene count, the budget per rung, and the achieved replication count | K1, reproducibility | The scoping note's binding practical number |
 | **T1** | **Provenance table**, generated by the loader and `reduction_declarations` — every parameter with its value, prior, width, informedness, source file and rejected alternatives | Honesty, C2 | Machine-generated, never typed. The audit trail for the cross-file errors of record |
-| **T2** | **Reduction declarations with measured costs** — the lumped charging step and its now-deterministic formalism, `k_chg` and the tRNA pool size, the chemostatted pools, exogenous membrane growth, the corrected mapping, the rounding policy, the drain granularity, the lactate volume ratio, the capped rate-law geometry, any smoothed counter | Scope honesty | Each row carries the *measured* cost where measured. This table is what stops a result depending on our choice unremarked |
+| **T2** | **Reduction declarations with measured costs** — the lumped charging step and its now-deterministic formalism, `k_chg`, the tRNA pool size and its charged fraction, the chemostatted pools, exogenous membrane growth, the corrected mapping, the rounding policy, the drain granularity, the lactate volume ratio, the capped rate-law geometry, any smoothed counter | Scope honesty | Each row carries the *measured* cost where measured. This table is what stops a result depending on our choice unremarked |
 | **T3** | **Kill-criteria scoreboard** — each criterion, its threshold, its measured value, pass or fail | Falsifiability | **Published whether or not everything passed.** A scoreboard with a fail on it is more credible than one without |
 | T4 | Target-set summary: truth, posterior mean, 90% interval, coverage, shrinkage | C3, C4 | The conventional recovery table |
 
@@ -1536,7 +1554,9 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   and so whether the kinase belongs in the target set. One cheap comparison run,
   in the charging phase. **After D14 it must be run at matched steady flux**
   rather than matched event count, because both forms are now mass-action rate
-  laws with different self-limiting behaviour.
+  laws with different self-limiting behaviour. **Partly answered 2026-09-23 by
+  task 9.9; the ATP/ADP half is carried to phase 14 (task 14.9).** See the
+  entry below.
 - **Does the 60 s rebuild stay piecewise-constant?** Declarable, defaults to
   published. ~~The deviation is measured rather than argued (R11).~~
   **Amended 2026-09-05:** what is measured is the *cadence*, at a shorter
@@ -1545,13 +1565,41 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
 - **Is the promoter proxy inherited verbatim at Step 2?** Barely matters for
   synthetic recovery, where it only sets the truth we recover. Leaning toward
   inheriting it as the baseline the surrogate is measured against.
-- **[NEEDS CLARIFICATION: how large is the tRNA pool, and can the charged
+- ~~**[NEEDS CLARIFICATION: how large is the tRNA pool, and can the charged
   counter be made unable to clip?]** New with D14. The registry records no value
   for either tRNA species, and the pool size sets three separate things: the
   charging flux at fixed `k_chg`, the buffer that decides whether check 7's
   counter clips, and the lag on the dominant forward channel. One number, three
   consequences, and all three are ours. Check 1b bounds it from below and check 7
-  from above; whether a value satisfies both is not yet known.
+  from above; whether a value satisfies both is not yet known.~~ — **partly
+  resolved 2026-09-23 by task 9.8** (`dev/scripts/trna_charging_diagnostics_result.md`,
+  job 17044321). The default is **0.25 mM at 0.8 charged**. At that fraction,
+  check 1b's floor is ≈ 0.124 mM analytically (500 / (0.2 · 20,180.39)); the
+  scan's uncharged minimum is 404 particles at 0.1 mM and 505 at 0.125 mM.
+  0.25 mM clears it with 1,009 uncharged and 4,000 charged particles (cycle-end
+  minima). **Check 7 cannot be decided before phase 11** (task 9.8's check 7
+  half is deferred to 11.7). At cycle end the charged pool buffers **7.23 s** of
+  demand at 0.25 mM, or 5.4 of the longest protein's worth of residues. Neither
+  check gives an upper bound. What grows with the pool is the lag on the
+  adenylate forward channel. Linearised, it is ≈ 6.0 s per mM (1.51 s at 0.25 mM);
+  a 10% demand step measures **1.43 s**, against the 1 s handshake. At fixed
+  `k_chg` the pool sets the flux sublinearly, from 56 /s at 0.025 mM to 1,873 /s
+  at 1.0 mM, 33× for a 40× pool, because ATP falls as the flux rises.
+- **Stoichiometry, partly answered by task 9.9 (2026-09-23, job 17044321).**
+  At steady fluxes matched to 1.5e-9 (548.17 /s each; the two-ATP `k2`
+  rescaled by 1.044), the published AMP + PPi form sends **548 /s** through the
+  adenylate kinase and the two-ATP form sends **0**, and pyrophosphate settles at
+  0.367 against 0.024 mM. Those are answered. **The ATP/ADP half is not.** Phase
+  8's glycolytic double rephosphorylates ADP at a rate effectively first order
+  in ADP alone (its phosphate factor is saturated), and both forms return two
+  ADP-equivalents per event. So steady ADP is pinned by the double: 0.4317 mM
+  in both runs. The measured 0.035% ATP/ADP difference is AMP moving within a
+  fixed adenylate total, not the ratio responding. Nothing here says how far
+  the kinase's equilibrium constant can move ATP/ADP under live glycolysis,
+  whose PGK and PYK laws are reversible and read ATP. **Carried to phase 14
+  (task 14.9):** rerun the comparison on the assembled model. (A first version
+  also compared the forms at fluxes 0.86% apart and reported 1.02%, which was
+  flux mismatch.)
 - ~~**Whether the full-cycle checks belong in the default test suite.** They are
   the strongest evidence and the slowest thing added. Deciding needs the measured
   wall-clock.~~ — **partly resolved 2026-09-10 by phase 6's measurement, and left
@@ -1587,7 +1635,7 @@ point of D0's reordering.
 | R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
 | R6 | The six targets are not identifiable as a set | **A rank below six or a condition number above 1e6, computed before any sampling.** Costs one Jacobian | Reparameterise to the product plus an anchor. K6 |
 | R7 | Calibration is unaffordable, so the claim cannot be made | **The phase 13 wall-clock exceeding 10 s per trajectory** | K1's ladder, pre-committed so it is not negotiated under pressure |
-| R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound and check 7 as its upper |
+| R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound ~~and check 7 as its upper~~ — **amended 2026-09-23:** check 7 bounds it from below too, since a larger pool buffers the counter; no check bounds it from above, and what grows with it is the forward-channel lag (task 9.8) |
 | R9 | Core A′ is better-conditioned than the same subnetwork inside the full model, so success over-claims | **Measurable now, without waiting:** the posterior width on the pyruvate-kinase constant with the seven dropped sibling reactions stubbed in as a competing sink | Quote the factor alongside every recovery claim. K7 |
 | R10 | Everything rests on synthetic data, so misspecification is untested by construction | **No internal early warning exists, and that is why this is a stated scope limit rather than a mitigated risk.** The nearest signal is F5: if either external check fails, the model is already misspecified against the data that does exist | State the limit in the abstract. Do not claim robustness that was not tested |
 | R11 | The 60 s rebuild is an implementation artefact the posterior depends on | **Nominal trajectory at 60 s against 6 s rebuild cadence; any observed pool differing by more than one percent.** With the GTP pool turning over in half the interval, expect this to fire. **Amended 2026-09-05:** read "nominal trajectory" as D10 now reads it — a paired ensemble at aligned instants — because a rebuild also triggers the aggregation rebuild and so changes randomness consumption | A labelled decision in T2 with the posterior sensitivity reported. Turns an open question into a measurement |
@@ -2701,61 +2749,77 @@ recording its stoichiometry so phase 9 can assert the real module reproduces it.
 integrated deterministically, owning the charged and uncharged tRNA pools and
 contributing to the energy pools nucleotide recycling owns.
 **Done when:** the tRNA pair is conserved over a full cycle against a
-translation-demand double, the charging flux reproduces the published residue
-demand from independently derived inputs, and `reduction_declarations` reports
-both the lumping and the formalism.
-**PR:** _not started_
+translation-demand double, ~~the charging flux reproduces the published residue
+demand from independently derived inputs~~ **the charging flux's drift from the
+independently derived residue demand is measured and reported as
+self-consistency, not validation** (amended 2026-09-23, with task 9.7), and
+`reduction_declarations` reports both the lumping and the formalism.
+**PR:** #59 (merged 2026-09-23)
 
 This is an ODE module, per D13. It was specced as a stochastic one, which
 contradicted both the frozen registry and the scoping note; §12 amendment 1
 records the correction. It is the fourth ODE module and it runs in the ODE track,
 but it depends on phase 8, so the track is not a clean fan-out.
 
-- [ ] 9.1 Implement the single reaction as an ODE sub-model owning both tRNA
+- [x] 9.1 Implement the single reaction as an ODE sub-model owning both tRNA
   states, with the mass-action rate law of §3 — verify by the state set equalling
   the registry's tRNA group with strictly increasing indices, by `formalism`
   reporting `:ode`, and by a hand-checked derivative at one state vector.
-- [ ] 9.2 Assert the total tRNA pool size and derive `k_chg` from it (D14) —
+- [x] 9.2 Assert the total tRNA pool size and derive `k_chg` from it (D14) —
   verify by both loading with informedness `asserted` and appearing in the
   composed model's asserted-prior enumeration; by `k_chg` being computed from the
   published residue demand and the pool size rather than typed in; and by the
   derivation recorded so the pool size can be changed and `k_chg` follow.
-- [ ] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
+  **Annotated 2026-09-23:** the derivation also needs the nominal charged
+  fraction, a third asserted quantity; defaults 0.25 mM and 0.8. See §12.
+- [x] 9.3 Declare the three currency edges on ATP, AMP and pyrophosphate, which
   recycling owns — verify by the kinds and directions matching, by composing with
   phase 8 asserting no species is described as both mass and currency in one
   direction, and by the contributions actually **executing** through phase 1's
   mechanism rather than resolving and doing nothing, which is what they would
   have done in the stochastic block.
-- [ ] 9.4 Register two declarations, not one — verify by `reduction_declarations`
+- [x] 9.4 Register two declarations, not one — verify by `reduction_declarations`
   returning the lumping under `lumping`, naming what it replaces (twenty chains
   of five reactions) and why the published product stoichiometry was preferred
   over a two-ATP form that closes the same moieties by fiat; **and** returning
   the deterministic formalism separately, since the placement is the scoping
   note's but integrating it deterministically is ours.
-- [ ] 9.5 Add a translation-demand double to this phase's tests — verify by it
+- [x] 9.5 Add a translation-demand double to this phase's tests — verify by it
   consuming charged tRNA at the published residue rate and returning the
   uncharged form, since without a consumer the pool saturates, the flux goes to
   zero and every check below passes trivially.
-- [ ] 9.6 **This module's own check: tRNA conservation.** Assert the pair's sum
+- [x] 9.6 **This module's own check: tRNA conservation.** Assert the pair's sum
   equals its initial value at every save point over a full cycle against the
   double — verify by the check satisfying the tolerance principle, and by a
   mutation that creates tRNA rather than transferring it making it fail.
-- [ ] 9.7 Show the flux is right without assuming it — verify by the steady
+  **Annotated 2026-09-23:** asserts §3's first gate (bitwise `0.0` at all 106
+  save points) with the `tol_C` ladder the same day's amendment allows, over
+  six decades from (1e-4, 1e-2) to the pinned (1e-10, 1e-8): 12.2 to 4.75 orders
+  below `tol_C`, 70× spread (job 17044321, all nine rungs reported). See §12.
+- [x] 9.7 Show the flux is right without assuming it — verify by the steady
   charging flux reproducing 553.1 per second where that figure is computed
   independently, from 3,484,518 residues over 6,300 s, with `k_chg` reported as
   the derived quantity; and by a test asserting the check is not circular, since
   calibrating `k_chg` to 553.1 and then checking 553.1 verifies arithmetic (D14).
-- [ ] 9.8 Report the pool size's three consequences — verify by a diagnostic
+  **Amended 2026-09-23:** the first clause is circular under any demand double,
+  so it is restated. Report the composed steady flux and the ATP it settles at
+  against the independently derived 553.1 as a **self-consistency drift**, not
+  as validation. The non-circularity test stays. See §12.
+- [x] 9.8 Report the pool size's three consequences — verify by a diagnostic
   giving, for a range of pool sizes, the charging flux, the buffer against
   check 7's charged-tRNA counter, and the lag on the adenylate forward channel;
   and by the §9 open question on the pool size being replaced with a value that
   satisfies both check 1b and check 7, or by a statement that none does.
-- [ ] 9.9 Answer the stoichiometry question at matched steady flux — verify by a
+  **Annotated 2026-09-23: the check 7 half is deferred to task 11.7**, which
+  already feeds its census back here. Check 7 counts clips of translation's
+  charged-tRNA debit, and there is no translation until phase 11. This phase
+  delivers the scan, check 1b's floor and the analytic buffer. See §12.
+- [x] 9.9 Answer the stoichiometry question at matched steady flux — verify by a
   comparison run under both lumpings, matched on flux rather than event count
   (D14), recording the kinase traffic and the resulting ATP-to-ADP ratio the
   rebuild reads, and by the scoping note's open-questions entry being replaced
   with the measured answer.
-- [ ] 9.10 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
+- [x] 9.10 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   and by the handoff recording that phase 8's drain double is now superseded for
   composed runs and kept only for standalone ones.
 
@@ -3171,9 +3235,10 @@ per-trajectory wall-clock is recorded.
   a test file.
 - [ ] 13.6 Enumerate what is ours across the whole composition — verify by
   `reduction_report` returning the lumped charging step **and its deterministic
-  formalism as two separate declarations**, `k_chg` and the tRNA pool size, the
+  formalism as two separate declarations**, `k_chg`, the tRNA pool size and its
+  charged fraction, the
   chemostatted nucleotide and amino-acid pools, the corrected base mapping, the
-  thirteen asserted priors, the Michaelis-constant column choice, the lactate
+  ~~thirteen~~ fourteen asserted priors (amended 2026-09-23), the Michaelis-constant column choice, the lactate
   volume ratio, the rounding policy, the drain granularity, the capped rate-law
   geometry and exogenous membrane
   growth; by the count matching the phases that registered them; and by the
@@ -3249,6 +3314,10 @@ mutation test showing it can fail.
 - [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
+  **Annotated 2026-09-23 (from phase 9):** also rerun task 9.9's stoichiometry
+  comparison on the assembled model, matched on steady flux, and record the
+  ATP/ADP ratio under both lumpings. Phase 9 could not answer this, because its
+  glycolytic double pins ADP (§9, §12 2026-09-23).
 - [ ] 14.10 Show each check can fail — verify by one mutation test per check, each
   failing the intended check and naming the intended quantity, collected into the
   mutation table of output F3.
@@ -3460,6 +3529,130 @@ test asserts exactly that loss.
 12.7, annotated in place; tasks 13.9 and 13.10 widened), §12; and
 `dev/notes/reduced-syn3a-scoping.md` (a correction-of-record row and the GK1
 paragraph).
+
+### 2026-09-23 — task 9.8's check 7 half waits for phase 11, and 9.9 is rematched
+
+**Trigger:** the /check-PR review of #59.
+
+**9.8.** Its verify clause asks for a pool size satisfying checks 1b and 7, or a
+statement that none does. Check 7 counts clips of translation's charged-tRNA
+debit, and there is no translation until phase 11. So this phase delivers the
+scan, check 1b's floor (≈ 0.124 mM at 0.8 charged) and the analytic buffer.
+The check 7 half is **deferred to task 11.7**, which already feeds its census
+back to this diagnostic. R8's "check 7 as its upper" bound was wrong: a larger
+pool buffers the counter, so check 7 bounds from below. R8 is corrected in
+place.
+
+**9.9.** The first comparison derived the two-ATP form's constant at nominal
+ATP. ATP settles below nominal, and that law is second order in ATP, so the
+two ran at fluxes 0.86% apart. The 1.02% ATP/ADP difference it reported was
+almost all that mismatch. Rescaling `k2` by 1.044 matches the steady fluxes to
+1.5e-9, and the difference is then 0.035% (job 17044321). **But that figure
+does not answer the ATP/ADP question either,** as the second review round
+found. The glycolytic double pins steady ADP (0.4317 mM in both runs), so the
+ratio cannot respond. 9.9 answers the kinase traffic and the pyrophosphate
+level. The ATP/ADP half moves to task 14.9, on the assembled model.
+
+**The pool size and charged fraction are fixed at construction.** They set the
+initial conditions and `k_chg` once, when `TrnaCharging` is built. Varying
+either, in R8's sensitivity or in any scan, means rebuilding the module, not
+freeing a parameter. D7's "fourteen an inference phase might free" includes
+two that can only be varied that way. The charged-fraction prior is truncated
+to [0, 1], so a draw from the asserted priors cannot reach the value where
+the derivation throws.
+
+**Sections touched:** §4 D7, §9, §10 R8, §11 tasks 9.8 and 14.9, §12.
+
+### 2026-09-23 — a small moiety fails the first gate's flat ulp bound without leaking
+
+**Trigger:** task 9.6. Measured on the four-module composition (charging,
+recycling, the glycolytic double and the translation-demand double) over a full
+cycle, the tRNA pair's summed derivative is bitwise `0.0` at **106 of 106** save
+points, which is the first gate's criterion. Over nine rungs from (1e-4, 1e-2)
+to (1e-12, 1e-10), Slurm job 17044321 (dave29) measures an integrated drift of
+29, 613, 1,061, 2,043, 1,077, 383, 805, 391 and 217 ulps of the 0.25 mM sum
+(`dev/scripts/trna_charging_diagnostics_result.md`). That is flat, so the
+fivefold fall fails, as it should. It also fails the first gate's
+every-rung-within-100-ulps bound at eight of nine rungs. In absolute terms the
+drift is 1.6e-15 to 1.1e-13 mM, which is implicit-solver roundoff at the scale
+of the composition's large states: a ~35 mM phosphate moiety, ~18 mM free
+phosphate, ~3.6 mM ATP. It only looks large in ulps of a much smaller sum. §3
+already made this argument for the second gate: a flat ulp count is fitted to
+one composition.
+
+**The residual depends on the machine, and a first draft of this entry quoted
+the wrong run.** It gave a login-node ladder (3,097 down to 60 ulps, and two
+tight rungs at 4.2 and 2.58 orders below `tol_C`) as the measurement. The
+suite on a compute node logged different values, and the /check-PR review of
+#59 caught the mismatch. The numbers above come from the driver under Slurm,
+and the suite, run on the same node, logs the same seven asserted rungs. The
+conclusion did not change, but the tight-rung reason the draft gave for
+stopping the asserted ladder at 1e-10 did not survive: on dave29 all nine
+rungs clear three orders.
+
+**Change:** a composition passing the first gate's bitwise test may assert the
+second gate's `tol_C` ladder in place of the flat 100-ulp bound. The asserted
+ladder ends at the pinned tolerances, and every rung run is reported from a
+Slurm run (§3). Task 9.6 asserts six decades, (1e-4, 1e-2) to (1e-10, 1e-8), at
+**12.2 down to 4.75 orders** below each rung's `tol_C`, with a **70× spread**
+(bound 100×). The margin on the spread is thin, and machine-dependent: the
+login node gave 51×. If a future node breaks 100×, that is roundoff moving, not
+a leak, and the per-evaluation bitwise check is the guard that tells the two
+apart. Reported, not asserted: 4.06 orders at 1e-11 and 3.32 at 1e-12. The
+mutation that creates tRNA moves the per-evaluation sum by 0.0274 mM (bitwise 0
+unmutated) and the sum by 15.9 mM in 600 s.
+
+*Who else this reaches:* nobody retroactively. Phase 6's redox pair and phase
+7's carriers pass the flat bound and keep it.
+
+Approved at implementation time, before 9.6 was written; the two conditions and
+the corrected figures were added on review.
+
+**Sections touched:** §3 (the exception's first-gate ladder bound), §11 task
+9.6, §12.
+
+### 2026-09-23 — the charging derivation needs a charged fraction, and its flux check is a drift
+
+**Trigger:** writing task 9.2. D14 derives `k_chg` from the residue demand and
+the asserted pool size, but the rate law is `k_chg·[M_trna_c]·[M_atp_c]`, and
+`[M_trna_c]` is the *uncharged* pool. The total does not fix it. The spec named
+neither a value for the pool nor a split, and the registry records no initial
+value for either species.
+
+Working that through also showed that task 9.7's first clause cannot be a check.
+Against a demand double, the steady charging flux equals what the double
+consumes, by mass balance. `k_chg` is calibrated so that happens at the nominal
+pools. So "the steady flux reproduces 553.1" holds by construction wherever the
+composition settles at nominal ATP, and away from nominal ATP the gap measures
+the calibration drifting, not the module being right. D14 already made
+conservation the acceptance test. This makes 9.7 say what it measures.
+
+**Change:**
+
+- **A third asserted quantity: the nominal charged fraction.** Defaults: a total
+  pool of **0.25 mM** (5,045 particles at 20,180.39 per mM) at **0.8 charged**,
+  i.e. 1,009 uncharged and 4,036 charged particles. Both are `:asserted`, and
+  **both are recalled rather than cited**: the total as the order of bacterial
+  total-tRNA concentrations (a few hundred µM, taken as a concentration and
+  applied at Syn3A's volume only to count particles), the split as a typical
+  bacterial charged fraction. Neither is from the published model, and **each
+  still needs a source** before a result depends on it. At these nominal
+  values the charged pool buffers **7.30 s** of the 553.10/s demand (at cycle
+  end, where it has settled to 4,000 particles, 7.23 s), the
+  uncharged pool clears check 1b's 500-particle floor, and `k_chg =
+  0.027408 / (0.05 · 3.6529) = 0.15006 /(mM·s)`. Task 9.8 scans both.
+- **Task 9.7's first clause is restated as a drift.** It now reports the composed
+  steady flux, and the ATP it settles at, against 553.10/s derived in phase 9's
+  own suite from 3,484,518 residues over 6,300 s. Where ATP settles also
+  reflects phase 8's glycolytic double, whose rephosphorylation is calibrated to
+  the same demand, so the drift is the composition's and not the module's
+  alone. The gap is labelled
+  self-consistency and not validation. The non-circularity test is unchanged.
+
+Approved at implementation time, before task 9.2 was written.
+
+**Sections touched:** §3 (assumptions table), §4 D14, §11 tasks 9.2 and 9.7,
+§12.
 
 ### 2026-09-23 — what the 2026-09-22 correctness review found that §12 did not already hold
 

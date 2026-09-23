@@ -51,6 +51,10 @@ asserts — ATP below 1% of its initial value — is crossed at 0.0365 mM, where
 factor is still 0.97, so the assertion is made where the drain is effectively
 the published constant one. Phase 9's real module is mass-action in both
 reactants and needs no such device.
+
+**Superseded for composed runs by phase 9's `TrnaCharging`** (with
+`TranslationDemand` in `trna_test_models.jl`), and kept for phase 8's
+standalone checks, whose recorded numbers belong to this drain.
 """
 struct ChargingDrain <: AbstractSubModel
     params::Vector{InferParameter}

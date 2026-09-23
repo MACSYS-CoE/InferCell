@@ -862,6 +862,13 @@ careful about what Step 1a's success licenses.
   equilibrium constant can influence the ATP/ADP ratio that the 60 s CME rebuild
   reads. Worth one comparison run, since it is cheap and the answer determines
   whether ADK1 belongs in the inference target set.
+  **Partly measured 2026-09-23** (spec task 9.9, Slurm job 17044321,
+  `dev/scripts/trna_charging_diagnostics_result.md`). At matched steady flux
+  (548.17/s), ADK1 carries 548/s under AMP + PPi and 0 under 2 ATP, and
+  pyrophosphate settles at 0.367 against 0.024 mM. **The ATP/ADP part is still
+  open.** That run used phase 8's glycolytic double, which pins steady ADP, so
+  the ratio could not respond. It is carried to the assembled model (spec task
+  14.9).
 - **Which observable is most informative about the boundary-crossing
   parameters?** Answer by simulation before committing to a data model: simulate
   Core A', then measure how much each candidate observable moves each target

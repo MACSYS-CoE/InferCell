@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Core A′ modules
 
-The five sub-models that make up the reduced syn3A organism. Each declares its
+The six sub-models that make up the reduced syn3A organism. Each declares its
 own coupling edges against the [Core A′ interface contract](corea-interface.md)
 and vendors the parameter extract it imports from, so a module can be read,
 tested and composed on its own.
@@ -19,6 +19,7 @@ Pages = [
     "organisms/coreA/central_glycolysis.jl",
     "organisms/coreA/pts_transport.jl",
     "organisms/coreA/nucleotide_recycling.jl",
+    "organisms/coreA/trna_charging.jl",
     "organisms/coreA/transcription.jl",
     "organisms/coreA/transcript_decay.jl",
 ]
