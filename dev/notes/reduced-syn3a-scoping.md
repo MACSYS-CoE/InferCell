@@ -59,6 +59,14 @@ transcription rate constant by ~3%. That satisfies design criterion 2 and it
 bounds how much information can cross. `spec/spec.md` §8 K2 turns this into a
 kill criterion on the posterior rather than on the gain.
 
+A fourth, from implementing transcript decay (spec phase 12, 2026-09-23; spec
+§12 of that date). The second-review row on mRNA decay above stands as written,
+with its figure corrected here:
+
+| Was | Actually |
+|---|---|
+| ~24,000 GMP over a cycle against a ~39,800-particle guanylate pool — 60% | The steady return is the transcription flux's guanine, `Σ_g k_g · 6,300 · G_g` = **61,531** at the rate constants Core A′ runs (61,219 simulated), **about 1.5×** the pool. The 24,000's derivation is not recorded and no route reproduces it. The conclusion strengthens: without GK1 one cycle strands more guanylate than the pool holds |
+
 
 ## What Step 1 is for
 
@@ -328,7 +336,9 @@ Why each is required, with the magnitude that makes it required:
   stranded. Roughly 24,000 GMP over a cycle against a ~39,800-particle guanylate
   pool — about **60%**, not fatal within one cycle but enough to bias the
   transcription rate constants that channel 4 rebuilds from live NTP pools, which
-  is precisely the coupling Core A' exists to exercise. The same argument applies
+  is precisely the coupling Core A' exists to exercise. *(Corrected of record
+  2026-09-23: the return is ~61,500, about 150% of the pool, so without GK1 the
+  pool is stranded within a cycle. See the fourth correction table above.)* The same argument applies
   to transcription's AMP return, which ADK1 already handles.
 
 The general rule this encodes, and the one the earlier spec violated twice:

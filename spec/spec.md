@@ -2,8 +2,8 @@
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 10 (#51) and phase 10b
-(#57) and phase 12; phase 9 and the CME-block phase 11 are the rest of the
-fan-out
+(#57) and phase 12 (#60); phase 9 and the CME-block phase 11 are the rest
+of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3057,7 +3057,7 @@ chemostatted monomers are exempt with the exemption recorded, and the guanylate
 return over a cycle ~~matches the scoping note's ~24,000 particles~~ **matches
 the analytic `Σ_g k_g·T·G_g` — 61,531 particles, about 1.5× the guanylate pool —
 within Monte Carlo error** (amended 2026-09-23; see §12).
-**PR:** _open_
+**PR:** #60
 
 - [x] 12.1 Implement seventeen decay jumps with the published single global
   constant over transcript length — verify by exactly one rate parameter across
@@ -3067,7 +3067,8 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
   `(18/452)·88` = **3.5044** nt/s, across 17 reactions; `k_g·n_g` equals it for
   every gene, and the half-lives sort exactly by length. `RNADEG_KCAT`'s
   docstring carries the upstream `# INSTEAD OF 18 or 20` and records that
-  upstream's variable *named* `krnadeg` is the dead `0.00578/2`. Phase 10's
+  upstream's variable *named* `krnadeg` is the dead `0.00578/2` at line 272,
+  beside the equally dead `rnaDegRate` at line 295. Phase 10's
   `transcript_decay_constant` is pinned equal to it.
 - [x] 12.2 Decrement the transcript this module does not own, through phase 2's
   declared peer write — verify by firing decay lowering only that transcript, by
@@ -3094,8 +3095,12 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
   `reduction_notes` says so. No hybrid can build with those two counters until
   task 13.9 (§12).
   **Done:** five `DeferredCounterEdge`s — `ATP_mRNAdeg` `:in` on ATP; AMP, GMP,
-  CTP, UTP `:out`. `resolve_coupling([transcription, decay])` lists `M_ctp_c`
-  and `M_utp_c` among its chemostat exemptions; the hybrid throw is pinned.
+  CTP, UTP `:out`. Resolved beside a transcript-source double — not beside
+  transcription, whose own CTP/UTP counters would supply the exemptions
+  whatever decay declared — decay alone puts `M_ctp_c` and `M_utp_c` among the
+  chemostat exemptions, and its four credits resolve on AMP, GMP, CTP and UTP;
+  the hybrid throw is pinned. A counter aimed at the wrong pool, a duplicate
+  or an unknown name is refused at construction.
   **Executed, not only declared:** with the ATP, AMP and GMP counters, decay
   composes with `NucleotideRecycling`, the phase 8 glycolytic double and a
   transcript-source double; over 600 handshakes 75 decays returned 13,162 G and
@@ -3129,7 +3134,9 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
 - [x] 12.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
   **Done:** job 17023839 at `a6b7abd`, **2703 passed, 0 failed, 1 broken**,
   5m20 (2580 before the phase, 10b's recorded count; the 123 added are this
-  phase's; the one broken is the repo's remaining `@test_skip`).
+  phase's; the one broken is the repo's remaining `@test_skip`). The
+  `/check-PR` fixes added five assertions (128 in the phase file), run on the
+  login node and in the PR's CI, not in a further Slurm job.
 
 ### Phase 13 — Assemble Core A′ and assert structural completeness
 
@@ -3423,8 +3430,10 @@ means under the published per-gene law give 53,110, and under the dead
 one cycle strands more guanylate than the whole pool, which removes the
 guanylate pool rather than biasing it. The done-when now asserts the analytic
 figure within Monte Carlo error, and 12.7 reads "about 150%".
-`dev/notes/reduced-syn3a-scoping.md` is not edited here. Its GK1 row and
-paragraph carry the stale figure, and this entry is the correction of record.
+Because §0 lets the note win on model content, the note is corrected too, in
+its own convention: a Was/Actually row of record beside its second-review
+table, and an inline correction to the GK1 paragraph. Neither deletes the
+original figure.
 
 **B — CMP and UMP credit the CTP and UTP chemostats.** Task 12.4 said to "take
 the chemostat exemption on the other two". Core A′ has no CMP or UMP species at
@@ -3448,7 +3457,9 @@ moiety loses one ATP per decayed nucleotide, and the phase's executed-credit
 test asserts exactly that loss.
 
 **Sections touched:** §11 (Status line; phase 12's done-when and tasks 12.4 and
-12.7, annotated in place; tasks 13.9 and 13.10 widened), §12.
+12.7, annotated in place; tasks 13.9 and 13.10 widened), §12; and
+`dev/notes/reduced-syn3a-scoping.md` (a correction-of-record row and the GK1
+paragraph).
 
 ### 2026-09-23 — what the 2026-09-22 correctness review found that §12 did not already hold
 
