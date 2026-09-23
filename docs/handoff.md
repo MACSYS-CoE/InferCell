@@ -8,9 +8,10 @@
 `TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
 module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at
 `k_chg·[trna]·[ATP]`, owns the tRNA pair, and contributes to ATP, AMP and PPi
-through three currency edges. Full suite: Slurm job **17045628** at `3b32be5`, 2,608 pass,
-and the one "broken" is task 10.7's skip, which phase 10b owns. The
-diagnostics artefact is from job **17044321**.
+through three currency edges. Full suite after merging phase 10b: Slurm job
+**17047990** at `d42d74f`, **2,675 pass, 0 broken**. No skips are left: phase 9
+executes 8.5's four-module check, and 10b executes 10.7. The diagnostics artefact
+is from job **17044321**.
 
 - **Phase 8's `ChargingDrain` is superseded for composed runs** by
   `TrnaCharging` plus `TranslationDemand` (`test/trna_test_models.jl`). It is
