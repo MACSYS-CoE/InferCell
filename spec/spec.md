@@ -3121,7 +3121,7 @@ chemostatted monomers are exempt with the exemption recorded, and the guanylate
 return over a cycle ~~matches the scoping note's ~24,000 particles~~ **matches
 the analytic `Σ_g k_g·T·G_g` — 61,531 particles, about 1.5× the guanylate pool —
 within Monte Carlo error** (amended 2026-09-23; see §12).
-**PR:** #60
+**PR:** #60 (merged 2026-09-23)
 
 - [x] 12.1 Implement seventeen decay jumps with the published single global
   constant over transcript length — verify by exactly one rate parameter across
@@ -3200,7 +3200,8 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
   5m20 (2580 before the phase, 10b's recorded count; the 123 added are this
   phase's; the one broken is the repo's remaining `@test_skip`). The
   `/check-PR` fixes added five assertions (128 in the phase file), run on the
-  login node and in the PR's CI, not in a further Slurm job.
+  login node and in the PR's CI, not in a further Slurm job. CI on the tree merged
+  with phase 9 (run 35814484827): **2803 passed, 0 broken**.
 
 ### Phase 13 — Assemble Core A′ and assert structural completeness
 
