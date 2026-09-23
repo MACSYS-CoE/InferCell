@@ -2,8 +2,8 @@
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
-phase 10b (#57) and phase 12 (#60); the CME-block phase 11 is the rest of the
-fan-out, and the framework phase 11a lands first (amended 2026-09-23)
+phase 10b (#57), phase 11a (#62) and phase 12 (#60); the CME-block phase 11
+is the rest of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3048,7 +3048,7 @@ executes, every other edge kind still refuses a non-registry species,
 enzyme concentrations are filled by catalytic edges from `P_<locus>` counts,
 their default mode is unchanged, and a jump module's producer counter is shown
 to raise a PTS carrier and, through it, the cell's surface area.
-**PR:** #62 (open)
+**PR:** #62 (merged 2026-09-24)
 
 Added 2026-09-23 because phase 11 could not be built as written (§12, same
 date). Framework and two module files, so §10 R15 puts it in its own pull
