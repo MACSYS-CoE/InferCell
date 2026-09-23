@@ -7,8 +7,9 @@
 
 Phase 11 could not be built as the spec described it, so this phase lands the
 framework half first, per R15 (§12, 2026-09-23, "phase 11 cannot be built as
-written"). Suite: Slurm job **17057406** at `336e504`, **2976 passed, 0 failed,
-0 broken**.
+written"). Suite after the `/check-PR` fixes: Slurm job **17127107** at
+`5e25125`, **2985 passed, 0 failed, 0 broken** (17057406 at `336e504` gave 2976
+before them).
 
 - **A `CatalyticEdge` may now name a non-registry protein count**
   (`src/resolver.jl`). Every other kind still needs a registry species, and
@@ -29,10 +30,17 @@ written"). Suite: Slurm job **17057406** at `336e504`, **2976 passed, 0 failed,
   - `riboKcat` is 12 in the files that run and 10 elsewhere. Record which one is
     used.
   - The GTP counter's GDP and Pi products wait on task 13.10.
-- **Driver-written slots are still sampled.** The new `enz_*` slots are free
-  parameters that the driver overwrites, so a sampler's draw is discarded.
-  That is the existing `driver_written_params` caveat, owned by tasks 13.3 and
-  15.
+- **Driver-written slots are still sampled in a hybrid build.** The new
+  `enz_*` slots are free parameters the driver overwrites, so a sampler's draw
+  is discarded. That is the existing `driver_written_params` caveat, which the
+  spec assigns to the inference phases 15 to 17 and explicitly not to task
+  13.3.
+- **A build with no jump block now refuses any `CatalyticEdge`**
+  (`_refuse_inert_catalytic`, `src/orchestrator.jl`). Without it the two
+  translated modules built alone as a plain ODEProblem, and their 15 slots were
+  sampled and never filled. The `/check-PR` review of #62 caught it.
+- **CI runs again.** The repo went public on 2026-09-18, and PR #60 and #62
+  both ran checks. Slurm job ids stay the evidence for quoted numbers.
 
 Next: phase 11, translation proper. It owns 13 `P_<locus>` counts plus ptsG,
 ptsI, ptsH and Crr. The four carriers are credited through producer counters.

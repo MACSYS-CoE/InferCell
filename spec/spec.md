@@ -1519,7 +1519,8 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   spec's highest-value open question.** The obstruction was the lumped charging
   step's two reactants. With that step in the ODE block, every remaining reaction
   in the stochastic block — transcription, translation, decay, translocation and
-  protein degradation if phase 11 keeps it — is zeroth or first order conditional
+  ~~protein degradation if phase 11 keeps it~~ (**amended 2026-09-23:** there
+  is none; task 11.9, §12) — is zeroth or first order conditional
   on the 60 s rate constants, so the transition kernel is closed form and factorises over genes,
   and the promoter conditional is conjugate with the polymerase constant fixed
   (D10, D11). **Two residual caveats, neither a tractability problem.** The cost
@@ -3044,7 +3045,7 @@ executes, every other edge kind still refuses a non-registry species,
 enzyme concentrations are filled by catalytic edges from `P_<locus>` counts,
 their default mode is unchanged, and a jump module's producer counter is shown
 to raise a PTS carrier and, through it, the cell's surface area.
-**PR:** _not started_
+**PR:** #62 (open)
 
 Added 2026-09-23 because phase 11 could not be built as written (§12, same
 date). Framework and two module files, so §10 R15 puts it in its own pull
@@ -3062,6 +3063,11 @@ request, as 5b and 10b were.
   CatalyticEdge". `:P_missing` with no owner throws at `build_problem`, naming
   it. Composed with a `ToyProteome` making `:P_toy` at 2/s, the slot equals
   `counts_to_mM` of the count read at that handshake.
+  **Added on review (/check-PR of #62):** before this, the two translated
+  modules composed with no jump block built as a plain `ODEProblem` with 15
+  free enzyme slots that nothing ever filled. A build with no jump block now
+  refuses any `CatalyticEdge`, naming the slot and the count. The nominal pair
+  is still refused through its inputs, and `ToyPool` without the edge builds.
 - [x] 11a.2 Give `CentralGlycolysis` a translated-enzyme mode — verify by its ten
   enzyme concentrations becoming free slots `enz_R_<reaction>` at the nominal
   values, by ten catalytic edges from `P_<locus>` to those slots, by the protein
@@ -3085,7 +3091,9 @@ request, as 5b and 10b were.
   name. Built with both translated modules and a 13-count `ToyProteome`, the
   driver lowers **15** catalytic exchanges. After one handshake every slot
   equals its count's `counts_to_mM`, PGK3 equals PGK, PYK3 equals PYK, and
-  ADK1 equals its nominal concentration to rtol 1e-12.
+  ADK1 equals its nominal concentration to rtol 1e-12. **Added on review:**
+  a reaction disabled through `reactions` is neither freed nor wired. Without
+  ADK1 the mode frees and wires exactly PGK3, PYK3, GK1 and PPA.
 - [x] 11a.4 Pin the carrier path translation will use — verify by a jump module's
   producer `DeferredCounterEdge` raising a PTS carrier state by exactly its
   accrual per drain, and by the volume chain reading the larger surface area
@@ -3098,10 +3106,12 @@ request, as 5b and 10b were.
   and the area grows. No framework change was needed for this path.
 - [x] 11a.5 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
   **Done:** job 17057406 at `336e504`, **2976 passed, 0 failed, 0 broken**,
-  6m37.6s. CI on the main tree gave 2803 for phase 12 (run 35814484827). The
+  6m37.6s. CI on PR #60's branch gave 2803 for phase 12 (run 35814484827). The
   first run, job 17057084 at `0121176`, errored once in 11a.1. The toy kept its
   membrane flag after its volume edge was overridden away, and the driver
-  correctly refused that. The fix was in the test (`336e504`).
+  correctly refused that. The fix was in the test (`336e504`). After the
+  review fixes: job **17127107** at `5e25125`, **2985 passed, 0 failed, 0
+  broken**, 7m55.2s.
 
 ### Phase 11 — Translation
 
@@ -3367,7 +3377,9 @@ per-trajectory wall-clock is recorded.
   and phosphate moieties balancing across a handshake on which ATP clips, and by
   task 13.2 seeing every product edge executed. **Widened 2026-09-23 by phase
   12:** decay's `ATP_mRNAdeg` has the same two products and the same gap, and
-  its credits are wired here too.
+  its credits are wired here too. **Widened 2026-09-23 by phase 11a:**
+  translation's GTP counter is GTP → GDP + Pi upstream, two per residue, the
+  same shape again, and its credits are wired here too.
 
 ### Phase 14 — The validation checks, in the scoping note's order
 
@@ -3588,7 +3600,7 @@ things the phase assumes are false, each checked in code or upstream.
 **Change:**
 
 **A — a catalytic edge cannot name a protein count.** The resolver refuses any
-edge on a non-registry species (`src/resolver.jl:400`). The registry's only
+edge on a non-registry species (`src/resolver.jl:401`). The registry's only
 proteins are the eight PTS carrier forms, so thirteen of the enzyme counts
 translation publishes have no species to name. The count is not a registry
 species and should not become one: it is jump-block state, like a transcript.
@@ -3639,14 +3651,16 @@ files that run but 10 in `MinCell_CMEODE.py:332`, while `riboKd` differs between
 the start and restart files. Task 11.10 records which is used before quoting a
 number.
 
-**Not changed:** the GTP counter still cannot credit both GDP and Pi, because of
-the one-producer rule (`handshake.jl:852`). Task 13.10 already owns that, and
-task 11.5 records it.
+**Not changed here:** the GTP counter still cannot credit both GDP and Pi,
+because of the one-producer rule (`handshake.jl:852`). Task 13.10 owns the
+per-product mechanism, and **is widened** to wire translation's counter too, as
+phase 12 widened it for decay's. Task 11.5 records it.
 
 Approved 2026-09-23, before phase 11a was started.
 
-**Sections touched:** header Status; §2 (the stochastic-block row); §11 (new
-phase 11a; tasks 11.1, 11.4, 11.5, 11.9 and 11.10 annotated in place); §12.
+**Sections touched:** header Status; §2 (the stochastic-block row); §9 (the
+D13 entry's reaction list); §11 (new phase 11a; tasks 11.1, 11.4, 11.5, 11.9
+and 11.10 annotated in place; task 13.10 widened); §12.
 
 ### 2026-09-23 — phase 12: the guanylate leak is 1.5× the pool, not 60%, and decay's CMP and UMP credit the chemostats
 
