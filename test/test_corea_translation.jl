@@ -4,7 +4,7 @@ using Random
 using Statistics: mean, median
 
 import InferCell: states, parameters, reactions, inputs, written_states,
-                  coupling, rebuilt_params, reduction_notes
+                  coupling, rebuilt_params, reduction_notes, formalism
 
 # Spec §11 phase 11 — translation: one reaction per transcript plus ptsG
 # translocation, with the rate constant read from the lumped charged-tRNA pool.
@@ -12,6 +12,26 @@ import InferCell: states, parameters, reactions, inputs, written_states,
 # `TranscriptSource` is in `corea_decay_doubles.jl`; `HeldGlycolytic` in
 # `nucleotide_test_models.jl`; `caught` in `corea_test_models.jl`. All are
 # included first by `runtests.jl`.
+
+# Transcripts that are born and die with no coupling: transcription and decay
+# with every counter and edge stripped, so a hybrid build can carry live
+# transcripts before task 13.9 lets transcription's CTP and UTP clamps compose.
+birth_death() = AbstractSubModel[
+    CoreATranscription(counters = (), edges = CouplingEdge[], rebuilt = Symbol[]),
+    CoreATranscriptDecay(counters = ())]
+
+# Every module translation feeds: glycolysis and recycling in translated mode,
+# so their fifteen enzyme slots read translation's counts, PTS for the carrier
+# credits and the volume channel, charging for the tRNA transfer, and live
+# transcripts. One composed type, built once per test and reused, because its
+# first build compiles for minutes.
+full_models(tl = CoreATranslation()) = AbstractSubModel[
+    CentralGlycolysis(enzymes = :translated), PtsTransport(),
+    NucleotideRecycling(enzymes = :translated), TrnaCharging(),
+    birth_death()..., tl]
+
+# Composed index of state `s` among the ODE or jump modules of `ms`, in order.
+_block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if formalism(m) === f]))
 
 @testset "Phase 11 — translation" begin
     genes = read_transcription_genes()
@@ -124,5 +144,67 @@ import InferCell: states, parameters, reactions, inputs, written_states,
         p0, p1 = sol.u[1][off .+ (1:17)], sol.u[end][off .+ (1:17)]
         @test all(p1 .>= p0)
         @test sum(p1 .- p0) + sol.u[end][off + cyto] > 0
+    end
+
+    @testset "11.4 ptsG translocation, credited to the carrier PTS owns" begin
+        iptsg = findfirst(g -> g.locus === TL_PTSG, genes)
+        tr = reactions(tl)[18]
+        # Only ptsG has it: the one translocation reads the cytosolic count.
+        u = zeros(Int, n_state); u[cyto] = 3
+        @test tr.rate(u, Float64[], 0.0, fill(0, 17)) ≈ 3 * 50 / 746 rtol = 1e-14
+        @test TRANSLOC_KCAT / (res[iptsg] + 1) == only(q.value for q in parameters(tl)
+                                                       if q.name === :tl_transloc_k)
+        before = copy(u)
+        tr.affect!(u, fill(0, 17))
+        changed = findall(u .!= before)
+        @test Set(changed) == Set([cyto, iptsg, ix(:ATP_transloc), ix(:ptsG_transloc)])
+        @test u[cyto] == 2 && u[iptsg] == 1
+        @test u[ix(:ATP_transloc)] == 74                  # int(746/10)
+        @test u[ix(:ptsG_transloc)] == 1
+        # No cytosolic protein has it: no other reaction ever lowers a count.
+        for i in 1:17
+            v = zeros(Int, n_state); reactions(tl)[i].affect!(v, fill(1, 17))
+            @test all(>=(0), v)
+        end
+        # The three cytosolic carriers are credited on translation, ptsG only
+        # on translocation, and the enzymes never.
+        credit = Dict(c.counter => c.locus for c in TRANSLATION_COUNTERS if c.debits === nothing)
+        for i in 1:17
+            v = zeros(Int, n_state); reactions(tl)[i].affect!(v, fill(1, 17))
+            for (c, locus) in credit
+                @test v[ix(c)] == (c !== :ptsG_transloc && genes[i].locus === locus ? 1 : 0)
+            end
+        end
+
+        # Composed: translocation is what raises the carrier PTS owns, and the
+        # volume chain sees it through PTS's membrane flag.
+        ms = full_models()
+        d = build_problem(ms; tspan = (0.0, 600.0))
+        ig = _block_idx(ms, :M_ptsg_c, :ode)
+        igp = _block_idx(ms, :M_ptsg_P_c, :ode)
+        jc = _block_idx(ms, :ptsG_transloc, :jump)
+        a0 = growth_census(d).area_nm2
+        # The hook writes each pool back in whole particles and carries the
+        # remainder (check 0), so a pair's particles move by up to half a
+        # particle on a handshake with no credit. Pool plus carried remainder is
+        # the ledger that closes exactly.
+        rem = d.rounding.remainders
+        carriers(u) = (u[ig] + u[igp]) * d.factor + rem[ig] + rem[igp]
+        Random.seed!(1104)
+        credited = 0
+        for _ in 1:120
+            c0 = carriers(d.ode.u)
+            pending = d.jump.u[jc]
+            handshake_step!(d)
+            # The PTS cascade conserves each carrier pair exactly, so the
+            # ledger moves by the credit and by nothing else.
+            @test carriers(d.ode.u) ≈ c0 + pending rtol = 1e-9
+            credited += pending
+        end
+        @info "11.4 ptsG translocated and credited over 120 s" credited
+        @test credited > 0
+        g = growth_census(d)
+        @test Set(s.species for s in g.states) == Set([:M_ptsg_c, :M_ptsg_P_c])
+        @test g.area_nm2 > a0
     end
 end
