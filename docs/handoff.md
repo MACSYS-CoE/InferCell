@@ -1,9 +1,44 @@
 # Handoff
 
 **Session date:** 2026-09-23
-**Branches:** `phase-12-transcript-decay` (merged after `phase-9-trna-charging`)
+**Branches:** `phase-11a-catalytic-slots`
 
-## Latest: phase 12, transcript decay (2026-09-23)
+## Latest: phase 11a, catalytic edges on jump-owned protein counts (2026-09-23)
+
+Phase 11 could not be built as the spec described it, so this phase lands the
+framework half first, per R15 (§12, 2026-09-23, "phase 11 cannot be built as
+written"). Suite: Slurm job **17057406** at `336e504`, **2976 passed, 0 failed,
+0 broken**.
+
+- **A `CatalyticEdge` may now name a non-registry protein count**
+  (`src/resolver.jl`). Every other kind still needs a registry species, and
+  the driver still requires a jump module to own the count.
+- **`CentralGlycolysis(enzymes = :translated)`** and
+  **`NucleotideRecycling(enzymes = :translated)`** turn their enzyme
+  concentrations into free `enz_R_*` slots, filled from `P_<locus>` counts by
+  catalytic edges. There are 13 counts behind 15 slots, because PGK/PGK3 and
+  PYK/PYK3 share genes. The default `:nominal` mode is phases 6 and 8 unchanged,
+  bitwise.
+- **The PTS carriers take new protein by producer counter,** not by catalytic
+  edge. Their volume edge stays with `PtsTransport`. The path already worked,
+  and is now pinned by a test.
+- **Decisions phase 11 inherits** (§12, same entry):
+  - Residues exclude the stop codon, so the spot lengths are 745/573/154/89.
+  - There is no protein degradation, because `ptnDegRate` is dead upstream.
+  - `ATP_transloc` must be declared or recorded as omitted.
+  - `riboKcat` is 12 in the files that run and 10 elsewhere. Record which one is
+    used.
+  - The GTP counter's GDP and Pi products wait on task 13.10.
+- **Driver-written slots are still sampled.** The new `enz_*` slots are free
+  parameters that the driver overwrites, so a sampler's draw is discarded.
+  That is the existing `driver_written_params` caveat, owned by tasks 13.3 and
+  15.
+
+Next: phase 11, translation proper. It owns 13 `P_<locus>` counts plus ptsG,
+ptsI, ptsH and Crr. The four carriers are credited through producer counters.
+Compose it with the two metabolic modules in `:translated` mode.
+
+## Earlier: phase 12, transcript decay (2026-09-23)
 
 `CoreATranscriptDecay` (`src/organisms/coreA/transcript_decay.jl`): seventeen
 first-order jumps at `krnadeg / n_g`, with one free parameter, `krnadeg` =

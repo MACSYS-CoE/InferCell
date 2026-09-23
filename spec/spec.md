@@ -3050,27 +3050,58 @@ Added 2026-09-23 because phase 11 could not be built as written (§12, same
 date). Framework and two module files, so §10 R15 puts it in its own pull
 request, as 5b and 10b were.
 
-- [ ] 11a.1 Let the resolver accept a `CatalyticEdge` on a non-registry species —
+- [x] 11a.1 Let the resolver accept a `CatalyticEdge` on a non-registry species —
   verify by a toy hybrid in which a catalytic edge on a jump-owned `:P_toy`
   resolves, lowers and fills its slot at every handshake; by a mass, currency,
   deferred-counter, rate-constant, volume or clamped edge on the same name still
   throwing; and by a catalytic edge on a count no jump module owns throwing at
   build time and naming it.
-- [ ] 11a.2 Give `CentralGlycolysis` a translated-enzyme mode — verify by its ten
+  **Done:** `ToyMembranePool`'s edge on `:P_toy` resolves with `state_index`
+  0 and no dead end. Mass, currency, deferred-counter, rate-constant, volume
+  and clamped edges on `:P_toy` each throw, naming it and "Only a
+  CatalyticEdge". `:P_missing` with no owner throws at `build_problem`, naming
+  it. Composed with a `ToyProteome` making `:P_toy` at 2/s, the slot equals
+  `counts_to_mM` of the count read at that handshake.
+- [x] 11a.2 Give `CentralGlycolysis` a translated-enzyme mode — verify by its ten
   enzyme concentrations becoming free slots `enz_R_<reaction>` at the nominal
   values, by ten catalytic edges from `P_<locus>` to those slots, by the protein
   counts leaving `inputs()` in that mode only, by the derivative at the registry
   state being bitwise equal to the default mode's, and by the default mode's
   parameters, edges and inputs being unchanged.
-- [ ] 11a.3 Give `NucleotideRecycling` the same mode — verify by its five
+  **Done:** `enzymes = :translated` gives exactly ten free parameters,
+  `enz_R_PGI` to `enz_R_LDH_L`, equal to `enzyme_conc` and `:asserted`. Ten
+  `CatalyticEdge`s run from `default_protein_sources()`, the nine boundary edges
+  are unchanged, and `inputs` is the three currencies. `dynamics` and
+  `contributions` at the registry state are `===` the default mode's. Doubling
+  `enz_R_GAPD` doubles R_GAPD and leaves the other nine bitwise unchanged. The
+  default mode has no free parameter and no catalytic edge, and keeps the ten
+  counts in `inputs`. An unknown mode is refused.
+- [x] 11a.3 Give `NucleotideRecycling` the same mode — verify by its five
   `enz_R_*` slots freed and filled by catalytic edges, by PGK3 and PYK3 reading
   the same `P_<locus>` counts as glycolysis's PGK and PYK, and by one count
   filling both modules' slots in a hybrid build.
-- [ ] 11a.4 Pin the carrier path translation will use — verify by a jump module's
+  **Done:** five free `enz_R_*` slots, each with a catalytic edge from
+  `P_<locus>`. The PGK3 and PYK3 counts are the ones glycolysis's PGK and PYK
+  name. Built with both translated modules and a 13-count `ToyProteome`, the
+  driver lowers **15** catalytic exchanges. After one handshake every slot
+  equals its count's `counts_to_mM`, PGK3 equals PGK, PYK3 equals PYK, and
+  ADK1 equals its nominal concentration to rtol 1e-12.
+- [x] 11a.4 Pin the carrier path translation will use — verify by a jump module's
   producer `DeferredCounterEdge` raising a PTS carrier state by exactly its
   accrual per drain, and by the volume chain reading the larger surface area
   through the carrier owner's existing membrane flag.
-- [ ] 11a.5 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** a `ToyProteome` making `:P_toy` at 5/s credits `M_ptsi_c` in
+  `ToyMembranePool` through a producer counter. Over 100 handshakes, each drain
+  raises the carrier by exactly the pending accrual, in particles, to rtol
+  1e-12, and carriers plus pending equal the initial carriers plus proteins
+  made. `growth_census` counts the credited carriers through the owner's flag,
+  and the area grows. No framework change was needed for this path.
+- [x] 11a.5 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** job 17057406 at `336e504`, **2976 passed, 0 failed, 0 broken**,
+  6m37.6s. CI on the main tree gave 2803 for phase 12 (run 35814484827). The
+  first run, job 17057084 at `0121176`, errored once in 11a.1. The toy kept its
+  membrane flag after its volume edge was overridden away, and the driver
+  correctly refused that. The fix was in the test (`336e504`).
 
 ### Phase 11 — Translation
 
