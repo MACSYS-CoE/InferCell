@@ -97,7 +97,7 @@ contributions(u, p, t, m::ChargingCounter, u_inputs) =
     contributions(SA[u[1], u[2]], p, t, m.inner, u_inputs)
 
 """
-    charging_models(; charging, demand, reactions, counter = true)
+    charging_models(; charging, demand, counter = true)
 
 The four-module composition every phase 9 full-cycle check runs: phase 8's
 recycling and glycolytic double, the charging module (wrapped in a counter by
@@ -105,8 +105,8 @@ default), and the translation-demand double. `demand = nothing` drops the
 consumer, which is the saturating configuration task 9.5 shows is vacuous.
 """
 function charging_models(; charging = TrnaCharging(), demand = TranslationDemand(),
-                         reactions = RECYCLING_REACTIONS, counter = true)
-    ms = AbstractSubModel[NucleotideRecycling(reactions = reactions), HeldGlycolytic(),
+                         counter = true)
+    ms = AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(),
                           counter ? ChargingCounter(charging) : charging]
     demand === nothing || push!(ms, demand)
     return ms
@@ -114,6 +114,18 @@ end
 
 "Composed state index of `sp` in the composition `ms`, by name."
 layout_index(ms, sp) = findfirst(==(sp), reduce(vcat, states.(ms)))
+
+"""
+    window_flux(ms, sol, t0, t1 = sol.t[end]) -> Float64
+
+The charging flux delivered between save points `t0` and `t1`, in residues per
+second, read off `ChargingCounter`'s exact cumulative counter.
+"""
+function window_flux(ms, sol, t0, t1 = sol.t[end])
+    c = layout_index(ms, :chg_residues_mM)
+    i, j = findfirst(>=(t0), sol.t), findfirst(>=(t1), sol.t)
+    return (sol.u[j][c] - sol.u[i][c]) / (sol.t[j] - sol.t[i]) * corea_particles_per_mM()
+end
 
 """
     MutatedCharging(inner)
@@ -144,7 +156,7 @@ trna_total(ms) = (U = layout_index(ms, :M_trna_c); C = layout_index(ms, :M_trna_
                   u -> u[U] + u[C])
 
 """
-    TwoAtpCharging(; pool_mM, charged_fraction)
+    TwoAtpCharging(; k2_scale = 1.0)
 
 The alternative lumping the scoping note rejected, built for the one comparison
 task 9.9 asks for:
@@ -158,25 +170,24 @@ closes adenylate and phosphate without AMP or pyrophosphate ever appearing. So
 it sends no traffic through the adenylate kinase or the pyrophosphatase, which
 is the difference 9.9 measures.
 
-**Matched on flux, not on event count** (spec §4 D14): `k2` is derived from the
+**Matched on flux, not on event count** (spec §4 D14). `k2` is derived from the
 same demand and nominal pools as `k_chg`, so both forms deliver 553.10
-residues/s at nominal ATP, and what differs between them is only how each rate
-law responds away from nominal. The demand is computed here, not read from
-`TrnaCharging`.
+residues/s at *nominal* ATP. ATP settles below nominal in composition, and this
+law is second order in ATP where the published one is first, so at that
+derivation the steady fluxes differ (by 0.86%, 2026-09-23). `k2_scale`
+multiplies `k2` so a comparison can match them at the *steady* state, which is
+what task 9.9 asks for. The demand is computed here, not read from
+`TrnaCharging`; the initial pools are `TrnaCharging`'s own.
 """
 struct TwoAtpCharging <: AbstractSubModel
     params::Vector{InferParameter}
     k2::Float64
 end
-function TwoAtpCharging(; pool_mM = CHARGING_POOL_DEFAULTS.pool_mM,
-                        charged_fraction = CHARGING_POOL_DEFAULTS.charged_fraction)
+function TwoAtpCharging(; k2_scale = 1.0)
+    (; pool_mM, charged_fraction) = CHARGING_POOL_DEFAULTS
     atp = species_entry(:M_atp_c).initial_value
     k2 = TL_DEMAND_MM_PER_S / ((1 - charged_fraction) * pool_mM * atp^2)
-    ics = [InferParameter(v, Normal(v, 0.1), true, Symbol(s, "0"), :TrnaCharging,
-                          :initial_condition)
-           for (s, v) in zip(CHARGING_STATES, ((1 - charged_fraction) * pool_mM,
-                                               charged_fraction * pool_mM))]
-    return TwoAtpCharging(ics, k2)
+    return TwoAtpCharging(ic_params(parameters(TrnaCharging())), k2_scale * k2)
 end
 states(::TwoAtpCharging) = CHARGING_STATES
 parameters(m::TwoAtpCharging) = m.params

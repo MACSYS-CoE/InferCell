@@ -34,18 +34,14 @@ const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
 const DIRTY = !isempty(strip(read(`git status --porcelain -- src test dev/scripts`, String)))
 
 const N = corea_particles_per_mM()
-const DEMAND = 3_484_518 / 6300                    # residues/s, derived here
+const DEMAND = TL_DEMAND_PER_S                      # residues/s, from the doubles
 const F0 = CHARGING_POOL_DEFAULTS.charged_fraction
 const POOLS = [0.025, 0.05, 0.1, 0.125, 0.25, 0.5, 1.0]
 const FLOOR = 500                                  # check 1b, particles
 const LONGEST_PROTEIN = 746                        # residues; spec task 11.1
 
 "Steady charging flux over the last 600 s, in residues per second."
-function steady_flux(ms, sol)
-    c = layout_index(ms, :chg_residues_mM)
-    i0 = findfirst(t -> t >= CYCLE_S - 600, sol.t)
-    return (sol.u[end][c] - sol.u[i0][c]) / (sol.t[end] - sol.t[i0]) * N
-end
+steady_flux(ms, sol) = window_flux(ms, sol, CYCLE_S - 600)
 
 # The default demand double's constant, which the fixed-constant scan holds.
 const K_TL0 = TranslationDemand().k_tl
@@ -63,9 +59,9 @@ for pool in POOLS
     sa = recycling_solve(msa)
     # (b) Re-derived: k_chg by D14, and k_tl so the double takes the demand
     #     at this pool's nominal charged pool.
+    k_tl = TL_DEMAND_MM_PER_S / (F0 * pool)
     mb = TrnaCharging(pool_mM = pool)
-    msb = charging_models(charging = mb,
-                          demand = TranslationDemand(k_tl = TL_DEMAND_MM_PER_S / (F0 * pool)))
+    msb = charging_models(charging = mb, demand = TranslationDemand(k_tl = k_tl))
     sb = recycling_solve(msb)
     U, C = layout_index(msb, :M_trna_c), layout_index(msb, :M_trna_chg_c)
     ATP = layout_index(msb, :M_atp_c)
@@ -73,13 +69,12 @@ for pool in POOLS
     chg_min = minimum(u[C] for u in sb.u) * N
     atp = sb.u[end][ATP]
     k = charging_derivation(mb).k_chg
-    k_tl = TL_DEMAND_MM_PER_S / (F0 * pool)
     # The low-pass filter the pool puts on the adenylate forward channel:
     # linearised, the charged pool relaxes at k_chg·[ATP] + k_tl.
     tau = 1 / (k * atp + k_tl)
     push!(rows, (pool = pool, particles = pool * N,
                  flux_fixed = steady_flux(msa, sa),
-                 atp_fixed = sa.u[end][layout_index(msa, :M_atp_c)],
+                 atp_fixed = sa.u[end][ATP],
                  flux_derived = steady_flux(msb, sb), atp_derived = atp,
                  k_chg = k, unc_min = unc_min, chg_min = chg_min,
                  buffer_s = sb.u[end][C] * N / DEMAND,
@@ -105,6 +100,32 @@ tau_measured = step_sol.t[i63]
 tau_linear = only(r.tau for r in rows if r.pool == CHARGING_POOL_DEFAULTS.pool_mM)
 
 # ---------------------------------------------------------------------------
+# 9.6 — the tRNA ladder, every rung that was run
+# ---------------------------------------------------------------------------
+#
+# The suite asserts six decades ending at the pinned tolerances. The residual
+# is roundoff and differs between machines, so the numbers of record are these,
+# from a Slurm run, over all nine rungs including the two beyond the asserted
+# window. Reporting every rung run is what §3's amendment requires.
+
+const LADDER = [(1e-4, 1e-2), (1e-5, 1e-3), (1e-6, 1e-4), (1e-7, 1e-5), (1e-8, 1e-6),
+                (1e-9, 1e-7), (1e-10, 1e-8), (1e-11, 1e-9), (1e-12, 1e-10)]
+lms = charging_models()
+LU, LC = layout_index(lms, :M_trna_c), layout_index(lms, :M_trna_chg_c)
+ltr(u) = u[LU] + u[LC]
+ladder = map(LADDER) do (a, r)
+    l = recycling_solve(lms; abstol = a, reltol = r)
+    d = max_drift(l, ltr)
+    (a = a, r = r, drift = d, ulps = d / eps(ltr(l.u[1])),
+     orders = log10(tolerance_bound(l, ((LU, 1), (LC, 1)); abstol = a, reltol = r) / d))
+end
+lprob = build_problem(lms; tspan = (0.0, CYCLE_S))
+lsol = recycling_solve(lms)
+bitwise = count(u -> (d = lprob.f(u, lprob.p, 0.0); d[LU] + d[LC] === 0.0), lsol.u)
+asserted = ladder[1:7]
+spread_asserted = maximum(x.drift for x in asserted) / minimum(x.drift for x in asserted)
+
+# ---------------------------------------------------------------------------
 # 9.9 — the stoichiometry comparison, matched on steady flux
 # ---------------------------------------------------------------------------
 
@@ -126,7 +147,25 @@ function lumping_run(charging)
             ppi = u[ix(:M_ppi_c)], ratio = u[ix(:M_atp_c)] / u[ix(:M_adp_c)])
 end
 pub = lumping_run(TrnaCharging())
-two = lumping_run(TwoAtpCharging())
+two_nominal = lumping_run(TwoAtpCharging())
+
+# Matched at the steady state, not at nominal ATP: rescale k2 by secant until the
+# two-ATP form's steady flux equals the published form's. k2 derived at nominal
+# ATP undershoots, because ATP settles below nominal and this law is second
+# order in it (spec §12, 2026-09-23 review correction).
+function match_k2(target; tol = 1e-6)
+    s0, s1 = 1.0, 1.02
+    f0 = lumping_run(TwoAtpCharging(k2_scale = s0)).flux - target
+    f1 = lumping_run(TwoAtpCharging(k2_scale = s1)).flux - target
+    for _ in 1:20
+        abs(f1) < tol * target && break
+        s0, s1, f0 = s1, s1 - f1 * (s1 - s0) / (f1 - f0), f1
+        f1 = lumping_run(TwoAtpCharging(k2_scale = s1)).flux - target
+    end
+    return s1
+end
+k2_scale = match_k2(pub.flux)
+two = lumping_run(TwoAtpCharging(k2_scale = k2_scale))
 
 # ---------------------------------------------------------------------------
 # Report
@@ -171,21 +210,42 @@ println(io, @sprintf("Against the 1 s handshake that is %.2fx, and against the 6
                      tau_measured, tau_measured / 60))
 println(io, "scales linearly with the pool in the table's derived column.")
 println(io)
+println(io, "## 9.6 — the tRNA ladder, every rung run")
+println(io)
+println(io, @sprintf("The summed tRNA derivative is bitwise 0.0 at %d of %d save points (first gate).",
+                     bitwise, length(lsol.u)))
+println(io, "Drift is roundoff and machine-dependent; these are this job's values. The suite")
+println(io, "asserts the first seven rungs (six decades, ending at the pinned tolerances).")
+println(io)
+println(io, "| abstol | reltol | drift (mM) | ulps of the sum | orders below tol_C | asserted |")
+println(io, "|---|---|---|---|---|---|")
+for (i, x) in enumerate(ladder)
+    println(io, @sprintf("| %.0e | %.0e | %.3e | %.0f | %.2f | %s |", x.a, x.r, x.drift,
+                         x.ulps, x.orders, i <= 7 ? "yes" : "reported only"))
+end
+println(io)
+println(io, @sprintf("Spread over the asserted rungs: %.1fx (bound 100x).", spread_asserted))
+println(io)
 println(io, "## 9.9 — AMP + PPi against 2 ATP -> 2 ADP + 2 Pi, matched on flux")
 println(io)
-println(io, "Both forms are derived to deliver the demand at nominal ATP. Values over the")
-println(io, "last 600 s of the cycle, and the state at its end.")
+println(io, "Both forms are derived to deliver the demand at nominal ATP. ATP settles below")
+println(io, "nominal, and the two-ATP law is second order in it, so at that derivation its")
+println(io, @sprintf("steady flux undershoots; k2 is then rescaled by %.5f so the steady fluxes match.", k2_scale))
+println(io, "Values over the last 600 s of the cycle, and the state at its end. The")
+println(io, "composition uses phase 8's glycolytic double, not live glycolysis.")
 println(io)
 println(io, "| lumping | charging flux (/s) | ADK1 net (/s) | ATP (mM) | ADP (mM) | AMP (mM) | PPi (mM) | ATP/ADP |")
 println(io, "|---|---|---|---|---|---|---|---|")
-for (name, r) in (("AMP + PPi (published)", pub), ("2 ATP -> 2 ADP + 2 Pi", two))
+for (name, r) in (("AMP + PPi (published)", pub),
+                  ("2 ATP, k2 at nominal ATP (not matched)", two_nominal),
+                  ("2 ATP, k2 matched at steady state", two))
     println(io, @sprintf("| %s | %.2f | %.2f | %.4f | %.4f | %.4f | %.4f | %.4f |",
                          name, r.flux, r.adk1, r.atp, r.adp, r.amp, r.ppi, r.ratio))
 end
 println(io)
-println(io, @sprintf("The flux match holds to %.2f%%. The ATP/ADP ratio differs by %.2f%% between the",
-                     100 * abs(two.flux / pub.flux - 1), 100 * (two.ratio / pub.ratio - 1)))
-println(io, "forms.")
+println(io, @sprintf("Matched, the fluxes agree to %.1e and the ATP/ADP ratio differs by %.3f%%",
+                     abs(two.flux / pub.flux - 1), 100 * (two.ratio / pub.ratio - 1)))
+println(io, @sprintf("between the forms (%.2f%% unmatched).", 100 * (two_nominal.ratio / pub.ratio - 1)))
 
 out = joinpath(@__DIR__, "trna_charging_diagnostics_result.md")
 write(out, String(take!(io)))

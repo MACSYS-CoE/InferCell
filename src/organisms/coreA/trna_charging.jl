@@ -25,9 +25,6 @@ group so membership and order are the registry's (`states` must increase in
 """
 const CHARGING_STATES = species_in_group(:trna)
 
-"The rate constant's parameter name. Its only kinetic parameter."
-const CHARGING_K_ID = :k_chg
-
 # ----------------------------------------------------------------------
 # The demand, and the derivation of k_chg from it (spec §4 D14).
 #
@@ -89,7 +86,7 @@ function derive_k_chg(; pool_mM::Real = CHARGING_POOL_DEFAULTS.pool_mM,
     return charging_demand_mM_per_s() / ((1 - charged_fraction) * pool_mM * atp_mM)
 end
 
-_asserted(identifier) = ParameterSource("asserted: spec §4 D14";
+_charging_source(identifier) = ParameterSource("asserted: spec §4 D14";
                                               table = "tRNA charging",
                                               identifier = identifier,
                                               informedness = :asserted)
@@ -108,9 +105,11 @@ and the override is recorded in the parameter's provenance rather than hidden.
 The pool size, the charged fraction and `k_chg` are all `:asserted` parameters,
 so they reach [`reduction_declarations`](@ref)'s asserted-prior enumeration.
 Only `k_chg` can be freed, through `free_k_chg = true`, which moves it from the
-struct into the parameter vector. The pool quantities set only the initial
-conditions, and a freed initial condition is sampled and then ignored (spec
-§12, 2026-09-10), so they are always fixed.
+struct into the parameter vector. The pool quantities set the initial
+conditions and, through the derivation, `k_chg`, both once at construction;
+freeing them in the vector would re-derive neither, and a freed initial
+condition is sampled and then ignored (spec §12, 2026-09-10), so they are
+always fixed.
 """
 struct TrnaCharging <: AbstractSubModel
     params::Vector{InferParameter}
@@ -131,14 +130,14 @@ function TrnaCharging(; pool_mM::Real = CHARGING_POOL_DEFAULTS.pool_mM,
     trna_chg0 = charged_fraction * pool_mM
     params = InferParameter[
         InferParameter(k, LogNormal(log(k), log(2.0)), !free_k_chg,
-                       CHARGING_K_ID, :TrnaCharging, :rate,
-                       _asserted("k_chg: " * k_note)),
+                       :k_chg, :TrnaCharging, :rate,
+                       _charging_source("k_chg: " * k_note)),
         InferParameter(pool_mM, LogNormal(log(pool_mM), log(2.0)), true,
                        :trna_pool_mM, :TrnaCharging, :rate,
-                       _asserted("total tRNA pool")),
+                       _charging_source("total tRNA pool")),
         InferParameter(charged_fraction, Normal(charged_fraction, 0.1), true,
                        :trna_charged_fraction, :TrnaCharging, :rate,
-                       _asserted("nominal charged fraction")),
+                       _charging_source("nominal charged fraction")),
         InferParameter(trna0, Normal(trna0, 0.1), true,
                        Symbol(CHARGING_STATES[1], "0"), :TrnaCharging,
                        :initial_condition),
@@ -156,15 +155,19 @@ end
 
 What `k_chg` was derived from, so a report can show the chain rather than the
 number: demand, pool, split, the ATP it was calibrated at, and the result.
+`derived_k_chg` is what that chain gives; `k_chg` is what the module runs, and
+the two differ exactly when `overridden` is true.
 """
 function charging_derivation(m::TrnaCharging)
     val(n) = only(p.value for p in m.params if p.name === n)
+    pool, f = val(:trna_pool_mM), val(:trna_charged_fraction)
+    derived = derive_k_chg(pool_mM = pool, charged_fraction = f)
     return (demand_per_s = charging_demand_per_s(),
             demand_mM_per_s = charging_demand_mM_per_s(),
-            pool_mM = val(:trna_pool_mM),
-            charged_fraction = val(:trna_charged_fraction),
+            pool_mM = pool, charged_fraction = f,
             atp_mM = species_entry(:M_atp_c).initial_value,
-            k_chg = m.k_held)
+            derived_k_chg = derived, k_chg = m.k_held,
+            overridden = m.k_held != derived)
 end
 
 """
@@ -247,6 +250,6 @@ function contributions(u, p, t, m::TrnaCharging, u_inputs)
     return SA[-v, v, v]
 end
 
-export TrnaCharging, CHARGING_STATES, CHARGING_EDGES, CHARGING_RESIDUES_PER_CYCLE, CHARGING_CYCLE_S,
-       CHARGING_POOL_DEFAULTS, charging_flux, charging_demand_per_s,
+export TrnaCharging, CHARGING_STATES,
+       CHARGING_POOL_DEFAULTS, charging_flux,
        charging_demand_mM_per_s, derive_k_chg, charging_derivation

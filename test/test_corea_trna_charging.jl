@@ -74,8 +74,12 @@ using StaticArrays: SA, setindex
         atp = species_entry(:M_atp_c).initial_value
         @test charging_flux(SA[u0...], Float64[], 0.0, m, SA[atp]) ≈ demand_mM rtol = 1e-14
 
-        # An override is recorded in provenance, not hidden.
+        # An override is recorded in provenance, not hidden, and the reported
+        # derivation says so rather than showing a chain that does not hold.
         o = TrnaCharging(k_chg = 0.5)
+        @test charging_derivation(o).overridden
+        @test !charging_derivation(m).overridden
+        @test charging_derivation(o).derived_k_chg == m.k_held
         @test occursin("override",
                        only(p for p in parameters(o) if p.name === :k_chg).provenance.identifier)
 
@@ -120,8 +124,7 @@ using StaticArrays: SA, setindex
         # term, and it is the flux, not zero.
         ms = AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(), m]
         prob = build_problem(ms; tspan = (0.0, 1.0))
-        layout = reduce(vcat, states.(ms))
-        ix(s) = findfirst(==(s), layout)
+        ix(s) = layout_index(ms, s)
         u0 = prob.u0
         uz = setindex(u0, 0.0, ix(:M_trna_c))
         d = prob.f(u0, prob.p, 0.0) - prob.f(uz, prob.p, 0.0)
@@ -207,11 +210,14 @@ using StaticArrays: SA, setindex
         wsum(u) = (d = prob.f(u, prob.p, 0.0); d[U] + d[C])
         @test all(u -> wsum(u) === 0.0, sol.u)
 
-        # The ladder, six decades, each rung at least three orders below its
-        # own tol_C and the largest within 100x of the smallest. Measured
-        # 2026-09-23: 10.2 down to 5.7 orders, spread 51x. The flat 100-ulp
-        # bound is not used: the residual is ~1e-13 mM of solver roundoff set by
-        # the composition's larger states, 60 to 3,097 ulps of this small sum.
+        # The ladder, six decades ending at the pinned tolerances, each rung at
+        # least three orders below its own tol_C and the largest within 100x of
+        # the smallest (spec §3, as amended 2026-09-23). The flat 100-ulp bound
+        # is not used: the residual is solver roundoff at the scale of the
+        # composition's larger states, which is many ulps of this small sum.
+        # The values are roundoff and differ between machines, so the numbers
+        # of record are the Slurm artefact's nine-rung ladder
+        # (dev/scripts/trna_charging_diagnostics_result.md), not a comment here.
         rungs = [(1e-4, 1e-2), (1e-5, 1e-3), (1e-6, 1e-4), (1e-7, 1e-5),
                  (1e-8, 1e-6), (1e-9, 1e-7), (1e-10, 1e-8)]
         residuals = Float64[]
@@ -224,7 +230,7 @@ using StaticArrays: SA, setindex
         end
         @test log10(rungs[1][1] / rungs[end][1]) >= 6
         @test maximum(residuals) < 100 * minimum(residuals)
-        @info "9.6 tRNA ladder" residuals ulps = residuals ./ eps(total)
+        @info "9.6 tRNA ladder" ulps = string(round.(Int, residuals ./ eps(total)))
 
         # The mutation: charging that creates tRNA rather than transferring it
         # fails both halves, by orders of magnitude rather than by a factor.
@@ -245,21 +251,20 @@ using StaticArrays: SA, setindex
     @testset "9.7 the flux drift, and that the target is not imported" begin
         ms = charging_models()
         sol = recycling_solve(ms)
-        n = corea_particles_per_mM()
-        CNT = layout_index(ms, :chg_residues_mM)
         ATP = layout_index(ms, :M_atp_c)
         # The last 600 s of the cycle, read off the exact cumulative counter.
-        i0 = findfirst(t -> t >= CYCLE_S - 600, sol.t)
-        flux = (sol.u[end][CNT] - sol.u[i0][CNT]) / (sol.t[end] - sol.t[i0]) * n
+        # Where ATP settles, and so the drift, also reflects phase 8's
+        # glycolytic double, whose k_slp is calibrated to the same demand: the
+        # drift is the composition's, not the charging module's alone.
+        flux = window_flux(ms, sol, CYCLE_S - 600)
         target = 3_484_518 / 6300                 # derived here, in this file
         drift = flux / target - 1
         atp_end = sol.u[end][ATP]
         atp_nom = species_entry(:M_atp_c).initial_value
         @info "9.7 flux drift" flux target drift atp_end atp_nom k_chg = charging_derivation(TrnaCharging()).k_chg
         # Steady: the last two 300 s windows agree to 0.1%.
-        i1 = findfirst(t -> t >= CYCLE_S - 300, sol.t)
-        f1 = (sol.u[i1][CNT] - sol.u[i0][CNT]) / (sol.t[i1] - sol.t[i0]) * n
-        f2 = (sol.u[end][CNT] - sol.u[i1][CNT]) / (sol.t[end] - sol.t[i1]) * n
+        f1 = window_flux(ms, sol, CYCLE_S - 600, CYCLE_S - 300)
+        f2 = window_flux(ms, sol, CYCLE_S - 300)
         @test abs(f2 / f1 - 1) < 1e-3
         # The drift is small and has the sign the settled ATP predicts: ATP sits
         # below its registry value, so charging runs below the calibrated flux.
@@ -270,9 +275,12 @@ using StaticArrays: SA, setindex
         # drain constants. Checked on the parsed code, so a comment naming them
         # (the module's does, to say why) is not a false positive.
         banned = (:RECYCLING_DRAIN_PER_S, :RECYCLING_DRAIN_MM_PER_S)
+        # QuoteNode too, so `Main.RECYCLING_DRAIN_MM_PER_S` is seen.
         symbols_in(ex) = ex isa Symbol ? [ex] :
+                         ex isa QuoteNode ? symbols_in(ex.value) :
                          ex isa Expr ? reduce(vcat, symbols_in.(ex.args); init = Symbol[]) :
                          Symbol[]
+        @test :RECYCLING_DRAIN_MM_PER_S in symbols_in(Meta.parse("x = Main.RECYCLING_DRAIN_MM_PER_S"))
         for f in (joinpath(pkgdir(InferCell), "src", "organisms", "coreA", "trna_charging.jl"),
                   joinpath(@__DIR__, "trna_test_models.jl"))
             used = Set(symbols_in(Meta.parseall(read(f, String))))
@@ -281,6 +289,24 @@ using StaticArrays: SA, setindex
         # And the check can fail: the same scan finds them in phase 8's double.
         used8 = Set(symbols_in(Meta.parseall(read(joinpath(@__DIR__, "nucleotide_test_models.jl"), String))))
         @test :RECYCLING_DRAIN_MM_PER_S in used8
+    end
+
+    @testset "9.9 the two-ATP double closes by fiat and meets the demand" begin
+        m = TwoAtpCharging()
+        atp = species_entry(:M_atp_c).initial_value
+        u0 = SA[[p.value for p in ic_params(parameters(m))]...]
+        @test u0 == SA[[p.value for p in ic_params(parameters(TrnaCharging()))]...]
+        # At nominal pools and ATP it delivers the demand, derived in the double.
+        v = dynamics(u0, Float64[], 0.0, m, SA[atp])[2]
+        @test v ≈ TL_DEMAND_MM_PER_S rtol = 1e-14
+        # Two ATP to two ADP and two Pi per residue: adenylate and phosphate
+        # close without AMP or pyrophosphate (ATP 3 P out, 2 ADP·2 + 2 Pi in).
+        c = contributions(u0, Float64[], 0.0, m, SA[atp])
+        @test c == SA[-2v, 2v, 2v]
+        n = (-2, 2, 2)                             # ATP, ADP, Pi per residue
+        @test n[1] + n[2] == 0                     # adenylate closes
+        @test 3n[1] + 2n[2] + n[3] == 0            # phosphate closes
+        @test TwoAtpCharging(k2_scale = 2.0).k2 == 2 * m.k2
     end
 
 end
