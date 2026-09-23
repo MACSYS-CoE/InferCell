@@ -1,9 +1,44 @@
 # Handoff
 
 **Session date:** 2026-09-23
-**Branches:** `phase-9-trna-charging` (merged after `phase-10b-review-fixes`)
+**Branches:** `phase-12-transcript-decay` (merged after `phase-9-trna-charging`)
 
-## Latest: phase 9, lumped tRNA charging (2026-09-23)
+## Latest: phase 12, transcript decay (2026-09-23)
+
+`CoreATranscriptDecay` (`src/organisms/coreA/transcript_decay.jl`): seventeen
+first-order jumps at `krnadeg / n_g`, with one free parameter, `krnadeg` =
+3.5044, which is a D11 target. Each firing decrements a transcript it does not
+own, through `written_states`. It returns its four monomers to NMP counters and
+accrues one `ATP_mRNAdeg` per nucleotide. Suite: Slurm job **17023839** at
+`a6b7abd`, **2703 passed, 0 failed, 1 broken**, 5m20 (up from 2580). The 123
+added tests are all this phase's.
+
+- **The acceptance number was wrong, and the spec now says so** (§12,
+  2026-09-23 A). Decay returns **61,219** GMP per cycle (analytic 61,531)
+  against a 39,806-particle guanylate pool, a ratio of **1.54**, not the
+  scoping note's ~24,000 (60%). Nothing reproduces the note's figure. The
+  larger leak makes the case for GK1 stronger.
+- **CMP and UMP credit the CTP and UTP chemostats** (§12, 2026-09-23 B),
+  because the registry has no CMP or UMP species. This is labelled ours.
+  Task 13.9 is widened: its ownerless path must take decay's credits too, and
+  a pinned throw in `test/test_corea_transcript_decay.jl` waits for it.
+- **`ATP_mRNAdeg`'s ADP and Pi are not credited yet.** Task 13.10 is widened
+  to cover them. Until then adenylate loses one ATP per decayed nucleotide,
+  and the executed-credit test asserts that loss.
+- **The AMP and GMP credits are shown executing** in a hybrid with
+  recycling, through a `TranscriptSource` double that stands in for
+  transcription while its CTP/UTP counters cannot build.
+- **Monomer closure is exact.** Polymerised plus initial stock equals
+  returned plus final stock, to zero, per moiety.
+- `ToyTranscriptDecay` is kept for phase 10's standalone calibration check,
+  as the 2026-09-10 amendment said. Its constant is pinned equal to this
+  module's.
+
+Next: phase 11 (translation). Phase 9 (#59) landed alongside this one, so
+translation's rate constant can read the live charged pool rather than a
+double.
+
+## Earlier: phase 9, lumped tRNA charging (2026-09-23)
 
 `TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
 module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at

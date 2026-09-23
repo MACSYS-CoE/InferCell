@@ -86,6 +86,9 @@ using Aqua
     # Transcription (spec phase 10): the decay double first, then the tests.
     include("corea_transcription_doubles.jl")
     include("test_corea_transcription.jl")
+    # Transcript decay (spec phase 12): its transcript-source double, then the tests.
+    include("corea_decay_doubles.jl")
+    include("test_corea_transcript_decay.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

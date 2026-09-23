@@ -1,8 +1,9 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
-phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51) and
-phase 10b (#57); the CME-block phases 11 and 12 are the rest of the fan-out
+phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
+phase 10b (#57) and phase 12 (#60); the CME-block phase 11 is the rest of the
+fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3117,36 +3118,89 @@ global rate, returning the four monomers to the pools that can accept them.
 **Done when:** each decay returns exactly its own base counts, the two
 recyclable monomers reach the pools the recycling module closes, the two
 chemostatted monomers are exempt with the exemption recorded, and the guanylate
-return over a cycle matches the scoping note's ~24,000 particles.
-**PR:** _not started_
+return over a cycle ~~matches the scoping note's ~24,000 particles~~ **matches
+the analytic `Σ_g k_g·T·G_g` — 61,531 particles, about 1.5× the guanylate pool —
+within Monte Carlo error** (amended 2026-09-23; see §12).
+**PR:** #60
 
-- [ ] 12.1 Implement seventeen decay jumps with the published single global
+- [x] 12.1 Implement seventeen decay jumps with the published single global
   constant over transcript length — verify by exactly one rate parameter across
   all seventeen genes, by each half-life being a function of length alone, and by
   the upstream hand-tuning comment recorded rather than silently inherited.
-- [ ] 12.2 Decrement the transcript this module does not own, through phase 2's
+  **Done:** `CoreATranscriptDecay` has one free parameter, `:krnadeg` =
+  `(18/452)·88` = **3.5044** nt/s, across 17 reactions; `k_g·n_g` equals it for
+  every gene, and the half-lives sort exactly by length. `RNADEG_KCAT`'s
+  docstring carries the upstream `# INSTEAD OF 18 or 20` and records that
+  upstream's variable *named* `krnadeg` is the dead `0.00578/2` at line 272,
+  beside the equally dead `rnaDegRate` at line 295. Phase 10's
+  `transcript_decay_constant` is pinned equal to it.
+- [x] 12.2 Decrement the transcript this module does not own, through phase 2's
   declared peer write — verify by firing decay lowering only that transcript, by
   it being unable to fire at zero copies, and by the write throwing once the
   ~~outbound edge~~ **`written_states` declaration** is removed (amended
   2026-09-04; see §12 — a transcript is not a registry species, so no edge can
   name it).
-- [ ] 12.3 Return the four monomers per firing — verify by the returned counts
+  **Done:** firing genes 1, 5 and 17 lowers that transcript alone; every
+  propensity is exactly `0.0` at zero copies, and a 20,000 s run from one copy
+  each ends at zero with no count ever negative. With `written = Symbol[]` the
+  first firing throws, naming `CoreATranscriptDecay`, the transcript and
+  `written_states`.
+- [x] 12.3 Return the four monomers per firing — verify by the returned counts
   equalling that gene's four base counts exactly, cross-checked against phase 10's
   extract so the two modules cannot disagree on a base count.
-- [ ] 12.4 Declare outbound counters on the two recyclable monomers and take the
+  **Done:** for all seventeen genes one firing writes exactly `[n_g, A, G, C,
+  U]` to the five counters, read from `transcription_genes(CoreATranscription())`
+  — the module's genes default to that extract, so there is one source.
+- [x] 12.4 Declare outbound counters on the two recyclable monomers and take the
   chemostat exemption on the other two — verify by `resolve_coupling` reporting
   the exempt pair among its chemostat exemptions with the exemption recorded.
-- [ ] 12.5 Add the decay energy cost counter the published hook drains — verify
+  **Annotated 2026-09-23:** Core A′ has no CMP or UMP species, so "the other
+  two" credit the **CTP and UTP chemostats**, which absorb them; that is ours and
+  `reduction_notes` says so. No hybrid can build with those two counters until
+  task 13.9 (§12).
+  **Done:** five `DeferredCounterEdge`s — `ATP_mRNAdeg` `:in` on ATP; AMP, GMP,
+  CTP, UTP `:out`. Resolved beside a transcript-source double — not beside
+  transcription, whose own CTP/UTP counters would supply the exemptions
+  whatever decay declared — decay alone puts `M_ctp_c` and `M_utp_c` among the
+  chemostat exemptions, and its four credits resolve on AMP, GMP, CTP and UTP;
+  the hybrid throw is pinned. A counter aimed at the wrong pool, a duplicate
+  or an unknown name is refused at construction.
+  **Executed, not only declared:** with the ATP, AMP and GMP counters, decay
+  composes with `NucleotideRecycling`, the phase 8 glycolytic double and a
+  transcript-source double; over 600 handshakes 75 decays returned 13,162 G and
+  the guanylate pool rose by **13,162.08** particles, while adenylate moved by
+  **−46,929.00** against the −46,930 its AMP credit and uncredited ATP debit
+  predict.
+- [x] 12.5 Add the decay energy cost counter the published hook drains — verify
   by it accruing per firing and by the composed model reporting which registry
   species it debits.
-- [ ] 12.6 **This module's own check: monomer closure.** Assert that over a
+  **Done:** `ATP_mRNAdeg` accrues `n_g` per firing (one ATP per nucleotide,
+  `in_out.py:178`); `counter_drains` and the resolved edge report `:M_atp_c`,
+  declared by `CoreATranscriptDecay`, with products ADP and Pi recorded and not
+  yet credited — task 13.10 now covers it (§12).
+- [x] 12.6 **This module's own check: monomer closure.** Assert that over a
   composed transcription-and-decay run the total monomers returned equals the
   total bases polymerised, per moiety — verify by the assertion passing and by a
   mutation to one gene's returned counts failing and naming the moiety.
-- [ ] 12.7 Record the leak this module closes — verify by the composed model
+  **Done:** read as *polymerised + initial stock = returned + final stock*,
+  since transcripts alive at either end sit on one side only. Over eight 6,300 s
+  jump-only runs the residual is **exactly 0** for A, C, G and U, and
+  `ATP_mRNAdeg` equals the monomers returned. One extra guanine in GAPD's
+  returned counts gives a negative G residual, zero elsewhere, and
+  `assert_monomer_closure` throws naming G alone.
+- [x] 12.7 Record the leak this module closes — verify by the composed model
   reporting the guanylate return over a cycle against the guanylate pool, about
-  60%, as the recorded reason the guanylate kinase is in the core.
-- [ ] 12.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  ~~60%~~ **150% (amended 2026-09-23; see §12)**, as the recorded reason the
+  guanylate kinase is in the core.
+  **Done:** **61,219** GMP returned per cycle over eight replicates, against the
+  analytic **61,531** and a guanylate pool of **39,806** particles — a ratio of
+  **1.54**. Without GK1 one cycle strands more guanylate than the whole pool.
+- [x] 12.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** job 17023839 at `a6b7abd`, **2703 passed, 0 failed, 1 broken**,
+  5m20 (2580 before the phase, 10b's recorded count; the 123 added are this
+  phase's; the one broken is the repo's remaining `@test_skip`). The
+  `/check-PR` fixes added five assertions (128 in the phase file), run on the
+  login node and in the PR's CI, not in a further Slurm job.
 
 ### Phase 13 — Assemble Core A′ and assert structural completeness
 
@@ -3202,12 +3256,17 @@ per-trajectory wall-clock is recorded.
   verify by `build_problem([CoreATranscription(), NucleotideRecycling()])`
   building, by the transcription rebuild reading 0.6874 and 2.7681 mM for CTP
   and UTP, and by the two pinned throws in `test/test_corea_transcription.jl`
-  being replaced by these assertions.
+  being replaced by these assertions. **Widened 2026-09-23 by phase 12:** decay's
+  `CMP_mRNAdeg` and `UMP_mRNAdeg` credit the same two chemostats, so the
+  ownerless path must take a credit as well as a debit, and the pinned throw in
+  `test/test_corea_transcript_decay.jl` is replaced too.
 - [ ] 13.10 Give a deferred counter per-product stoichiometry and wire the five
   transcription counters' products (§12, 2026-09-23 B) — verify by `ATP_trsc`
   crediting ADP and phosphate one each per ATP actually paid, by the adenylate
   and phosphate moieties balancing across a handshake on which ATP clips, and by
-  task 13.2 seeing every product edge executed.
+  task 13.2 seeing every product edge executed. **Widened 2026-09-23 by phase
+  12:** decay's `ATP_mRNAdeg` has the same two products and the same gap, and
+  its credits are wired here too.
 
 ### Phase 14 — The validation checks, in the scoping note's order
 
@@ -3419,6 +3478,57 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-23 — phase 12: the guanylate leak is 1.5× the pool, not 60%, and decay's CMP and UMP credit the chemostats
+
+**Trigger:** implementing phase 12. One acceptance number was wrong, and one
+task named a species the registry does not have.
+
+**Change:**
+
+**A — the guanylate return is about 61,500 particles per cycle, not ~24,000.**
+The phase's done-when and task 12.7 took the scoping note's ~24,000 GMP per
+cycle, about 60% of the ~39,800-particle guanylate pool. At the rate constants
+phase 10 landed, the steady return is the transcription flux's guanine,
+`Σ_g k_g · 6,300 · G_g` = **61,531**, whatever decay's constant is. Eight
+simulated cycles give **61,219**. That is **1.54×** the pool. The note's
+derivation is not recorded, and no route reproduces it: the measured transcript
+means under the published per-gene law give 53,110, and under the dead
+`rnaDegRate` of 2026-09-10 B they give 51,055. Every estimate lands at 51,000 to
+62,000. The consequence **strengthens** the note's argument for GK1: without it,
+one cycle strands more guanylate than the whole pool, which removes the
+guanylate pool rather than biasing it. The done-when now asserts the analytic
+figure within Monte Carlo error, and 12.7 reads "about 150%".
+Because §0 lets the note win on model content, the note is corrected too, in
+its own convention: a Was/Actually row of record beside its second-review
+table, and an inline correction to the GK1 paragraph. Neither deletes the
+original figure.
+
+**B — CMP and UMP credit the CTP and UTP chemostats.** Task 12.4 said to "take
+the chemostat exemption on the other two". Core A′ has no CMP or UMP species at
+all, chemostatted or otherwise, and the resolver refuses an edge that names a
+non-registry species. So decay's `CMP_mRNAdeg` and `UMP_mRNAdeg` are declared as
+outbound counters on `M_ctp_c` and `M_utp_c`. The chemostat absorbs them, and
+`resolve_coupling` records the exemption the task asks for. This is **ours**: a
+monophosphate credited to a triphosphate pool is an exemption, not a reaction,
+and `reduction_notes` says so. It inherits 2026-09-10 E's defect from the
+producer's side, so no hybrid can build with those two counters until task 13.9.
+**Task 13.9 is widened** so that the ownerless path takes credits as well as
+debits. The rejected alternative was to accrue CMP and UMP into counters with no
+edge. That verifies nothing, and 12.4 would have had to be rewritten rather
+than annotated.
+
+**C — decay's energy counter joins task 13.10.** `ATP_mRNAdeg` is ATP → ADP +
+Pi upstream (`in_out.py:178`), the same two-product shape as `ATP_trsc` in
+2026-09-23 B. It is declared as a debit on ATP alone with its products
+recorded, and **task 13.10 is widened** to wire them. Until then the adenylate
+moiety loses one ATP per decayed nucleotide, and the phase's executed-credit
+test asserts exactly that loss.
+
+**Sections touched:** §11 (Status line; phase 12's done-when and tasks 12.4 and
+12.7, annotated in place; tasks 13.9 and 13.10 widened), §12; and
+`dev/notes/reduced-syn3a-scoping.md` (a correction-of-record row and the GK1
+paragraph).
 
 ### 2026-09-23 — task 9.8's check 7 half waits for phase 11, and 9.9 is rematched
 

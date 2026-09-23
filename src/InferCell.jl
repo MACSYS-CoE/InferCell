@@ -49,6 +49,8 @@ include("organisms/coreA/trna_charging.jl")
 # constraint against the three above; it needs handshake.jl in scope because
 # its rate law converts a polymerase copy number at the registry's volume.
 include("organisms/coreA/transcription.jl")
+# Decay reads transcription's extract and its `TranscriptionGene`, so it follows it.
+include("organisms/coreA/transcript_decay.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
