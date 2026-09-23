@@ -20,8 +20,10 @@ no-op for it and composition behaves exactly as it did before.
 
 One declared edge after resolution: which module declared it, which species it
 touches, where that species sits in the registry, and which module it couples
-to. `state_index` is always a registry position — an edge naming a species
-outside the registry fails resolution before a `ResolvedEdge` exists.
+to. `state_index` is the species' registry position, or `0` for the one kind
+allowed to name a species outside the registry: a [`CatalyticEdge`](@ref) on a
+protein count the jump block owns (spec §11 task 11a.1). Every other kind naming
+an unregistered species fails resolution before a `ResolvedEdge` exists.
 """
 struct ResolvedEdge
     edge::CouplingEdge
@@ -85,8 +87,8 @@ end
 
 Resolve and validate the declared coupling of a composition.
 
-Throws when the boundary is inconsistent: an edge naming an unregistered
-species or pool, an edge whose named peer is absent or is not its counterpart
+Throws when the boundary is inconsistent: an edge other than a catalytic one
+naming an unregistered species, a currency edge naming an unregistered pool, an edge whose named peer is absent or is not its counterpart
 (neither integrating the species nor declaring its opposite direction), one
 species-and-direction crossing described as both mass and currency — two spellings of one continuous
 transport (the other kinds are distinct mechanisms and coexist: the published
@@ -398,10 +400,17 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
         for e in coupling(m)
             kind = edge_kind(e)   # throws for a subtype outside the seven
 
-            is_registered(e.species) || throw(ArgumentError(
+            # A catalytic edge is the one exception. Its species is a protein
+            # count, which is jump-block state like a transcript and not a
+            # registry species; it carries no mass, so it touches no moiety the
+            # registry exists to track. Whether a jump module actually owns the
+            # count is the driver's check, since only a composition can answer
+            # it (spec §11 task 11a.1).
+            is_registered(e.species) || e isa CatalyticEdge || throw(ArgumentError(
                 "Module $name declares a $kind edge on :$(e.species), which is " *
                 "not a Core A′ registry species. See src/organisms/coreA/registry.jl " *
-                "for the $(length(COREA_SPECIES)) registered species"))
+                "for the $(length(COREA_SPECIES)) registered species. Only a " *
+                "CatalyticEdge may name a non-registry protein count"))
 
             if e.peer !== nothing && !(e.peer in present)
                 throw(ArgumentError(
@@ -489,7 +498,8 @@ function _resolve_edges(models::Vector{<:AbstractSubModel})
             end
 
             push!(resolved, ResolvedEdge(e, kind, e.species, name, e.peer,
-                                         species_index(e.species)))
+                                         is_registered(e.species) ?
+                                             species_index(e.species) : 0))
         end
     end
     return resolved

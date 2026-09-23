@@ -35,6 +35,7 @@ function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0), k
     end
 
     if collective == :ode
+        _refuse_inert_catalytic(models)
         return _build_ode_problem(models; tspan=tspan)
     elseif collective == :jump
         return _build_jump_problem(models; tspan=tspan)
@@ -48,6 +49,29 @@ function build_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0), k
     else
         return _build_hybrid_problem(models; tspan=tspan, kwargs...)
     end
+end
+
+# A catalytic edge executes only in the hybrid driver, which lowers it from a
+# jump-block count into an ODE parameter slot. A composition with no jump block
+# has nothing to read, so the edge would be declared, resolved and inert, and its
+# slot, which must be free to be filled, would be sampled as an ordinary
+# parameter. That is how a translated-enzyme module built alone would return
+# posteriors over enzyme concentrations nothing sets, so it is refused (spec §11
+# phase 11a). The hybrid path builds its ODE block through `_build_ode_problem`
+# directly, so this check lives here and not there.
+function _refuse_inert_catalytic(models::Vector{<:AbstractSubModel})
+    for m in models, e in coupling(m)
+        e isa CatalyticEdge || continue
+        throw(ArgumentError(
+            "Module $(module_id(m)) declares a CatalyticEdge filling " *
+            ":$(e.param_slot) from :$(e.species), but this composition has no " *
+            "jump block. A catalytic edge executes only in a hybrid build, where " *
+            "the handshake reads the count from the stochastic block, so here the " *
+            "slot would be sampled as a free parameter that nothing sets. Compose " *
+            "the jump module that owns :$(e.species), or build the module without " *
+            "the edge, for example with enzymes = :nominal"))
+    end
+    return nothing
 end
 
 # The collective formalism of a composition: the single declared value where the

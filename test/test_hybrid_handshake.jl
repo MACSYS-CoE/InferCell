@@ -508,8 +508,11 @@ _exact_mM(n) = n / _F
 
         # The same problem, solved on its own for one second at the enzyme
         # concentration the handshake wrote.
+        # No catalytic edge: the reference fixes the enzyme at the written value,
+        # and a pure-ODE build refuses a catalytic edge it cannot execute.
         ref = build_problem([ToyPool(kcat = 30.0, enzyme = counts_to_mM(n, _F),
-                                     atp0 = _exact_mM(73717))]; tspan = (0.0, 1.0))
+                                     atp0 = _exact_mM(73717),
+                                     edges = CouplingEdge[])]; tspan = (0.0, 1.0))
         sol = solve(ref, Rodas5P(); abstol = 1e-10, reltol = 1e-8)
 
         # ADP is not named by any deferred counter, so nothing quantises it and

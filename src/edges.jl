@@ -58,7 +58,8 @@ const EDGE_ORIGINS = (:published, :ours)
     CouplingEdge
 
 Supertype for the seven coupling-edge kinds. Every edge names a registry
-species, a direction (`:in` where the declaring module reads or consumes,
+species — except a [`CatalyticEdge`](@ref), which may name a protein count the
+jump block owns — a direction (`:in` where the declaring module reads or consumes,
 `:out` where it writes or produces), and optionally a peer module.
 
 A `peer` of `nothing` means "whichever module owns this species", which is the
@@ -181,6 +182,13 @@ Counts enter a rate law as parameters. **No mass flows**: a catalytic edge
 contributes to no balance, and [`mass_contribution`](@ref) rejects it rather
 than counting it as zero. `param_slot` names the rate-law parameter the count
 fills.
+
+`species` may be a non-registry state: the protein counts translation publishes
+are jump-block state, like transcripts, and only the eight PTS carrier forms are
+registry species. It is the one kind allowed to, because it carries no mass
+(spec §11 task 11a.1). A hybrid build requires a jump module in the
+composition to own the count, and a build with no jump block refuses any
+catalytic edge, since nothing there would execute it.
 """
 struct CatalyticEdge <: CouplingEdge
     species::Symbol

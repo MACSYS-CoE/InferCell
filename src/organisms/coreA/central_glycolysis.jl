@@ -153,6 +153,20 @@ one coefficient and show the redox check failing. `protein_sources` names the
 ten protein counts this module declares as inputs, so translation (spec §11
 phase 11) can supersede the nominal concentrations under whatever names it gives
 its proteins.
+
+`enzymes` chooses where the ten concentrations come from (spec §11 task 11a.2):
+
+- `:nominal`, the default — held on the struct at `enzyme_conc`, as phase 6
+  built them. The protein counts are listed in `inputs` and never read.
+- `:translated` — each becomes a free parameter `enz_<reaction>` at the same
+  value, and the module declares a [`CatalyticEdge`](@ref) from its protein
+  count to that slot, so the handshake overwrites it from the live count at
+  every step. The counts leave `inputs`, since a hybrid build refuses a
+  cross-block input and the edge is now the declaration. The declared value
+  matters only before the first handshake, and a sampler that draws one of these
+  slots has its draw overwritten; see [`driver_written_params`](@ref). The mode
+  is for a hybrid build: composed with no jump block, `build_problem` refuses
+  it, because nothing would fill the slots.
 """
 struct CentralGlycolysis{R <: Tuple} <: AbstractSubModel
     params::Vector{InferParameter}
@@ -163,6 +177,10 @@ struct CentralGlycolysis{R <: Tuple} <: AbstractSubModel
     stoich::SMatrix{13, 10, Float64, 130}
     currency_stoich::SMatrix{3, 10, Float64, 30}
     protein_sources::Vector{Symbol}
+    # Position in `params` of each enzyme's concentration, in reaction order, or
+    # 0 where it is held on the struct (`enzymes = :nominal`).
+    enzyme_param::SVector{10, Int}
+    edges::Vector{CouplingEdge}
     notes::Vector{String}
 end
 
@@ -210,7 +228,10 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
                            enzyme_conc = nominal_enzyme_concentrations(reactions),
                            protein_sources::AbstractVector{Symbol} =
                                default_protein_sources(reactions),
+                           enzymes::Symbol = :nominal,
                            table_path::AbstractString = CENTRAL_GLYCOLYSIS_TABLE)
+    enzymes in (:nominal, :translated) || throw(ArgumentError(
+        "enzymes must be :nominal or :translated, not :$enzymes"))
     length(reactions) == 10 ||
         throw(ArgumentError("Central glycolysis has ten reactions; $(length(reactions)) were given"))
     length(protein_sources) == 10 ||
@@ -268,6 +289,26 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
     end
     for s in owned
         import_value!("conc_$s"; name = Symbol(s, "0"), role = :initial_condition)
+    end
+
+    # The translated mode's enzyme slots. Free, because only a free parameter
+    # reaches the composed vector a catalytic edge writes into. The value is the
+    # published copy number at the registry's cell and the width is this
+    # project's, so the informedness is `:asserted`, as phase 8's are.
+    enzyme_param = zeros(Int, 10)
+    if enzymes === :translated
+        for (k, r) in enumerate(reactions)
+            E = Float64(enzyme_conc[k])
+            push!(params, InferParameter(E, LogNormal(log(E), log(GLYCOLYSIS_ENZYME_GSTD)),
+                                         false, Symbol(:enz_, r.id), :CentralGlycolysis,
+                                         :rate,
+                                         ParameterSource("published_proteomics";
+                                                         table = "proteomics count",
+                                                         identifier = r.locus,
+                                                         informedness = :asserted)))
+            push!(values, E)
+            enzyme_param[k] = length(values)
+        end
     end
 
     # A `free` name that matches nothing would leave all 65 fixed and produce a
@@ -338,14 +379,26 @@ function CentralGlycolysis(; free::AbstractVector{Symbol} = Symbol[],
         end
     end
 
+    edges = copy(GLYCOLYSIS_EDGES)
+    if enzymes === :translated
+        append!(edges, [CatalyticEdge(species = protein_sources[k], direction = :in,
+                                      param_slot = Symbol(:enz_, r.id))
+                        for (k, r) in enumerate(reactions)])
+    end
+
     n_owned = length(owned)
     return CentralGlycolysis(params, values, free_slot,
                              SVector{10, Float64}(enzyme_conc), rates,
                              SMatrix{13, 10, Float64}(net[1:n_owned, :]),
                              SMatrix{3, 10, Float64}(net[(n_owned + 1):end, :]),
                              collect(Symbol, protein_sources),
-                             _glycolysis_reduction_notes())
+                             SVector{10, Int}(enzyme_param), edges,
+                             _glycolysis_reduction_notes(enzymes))
 end
+
+# The width on a translated enzyme slot, the same as phase 8's for the same
+# reason: the proteomics table gives a count and no uncertainty.
+const GLYCOLYSIS_ENZYME_GSTD = 1.2
 
 # ---------------------------------------------------------------------------
 # The protocol
@@ -357,11 +410,13 @@ formalism(::CentralGlycolysis) = :ode
 inference_mode(::CentralGlycolysis) = :differentiable
 
 # The three currencies come first, in `GLYCOLYSIS_CURRENCIES` order, because
-# `dynamics` indexes them positionally straight after the owned states. The ten
-# protein counts follow: they are not registry species, so the resolver's
-# inputs/edges check skips them, and translation supersedes the nominal enzyme
-# concentrations through them (spec §11 task 6.4).
-inputs(m::CentralGlycolysis) = vcat(GLYCOLYSIS_CURRENCIES, m.protein_sources)
+# `dynamics` indexes them positionally straight after the owned states. Under
+# `enzymes = :nominal` the ten protein counts follow: they are not registry
+# species, so the resolver's inputs/edges check skips them (spec §11 task 6.4).
+# Under `:translated` the catalytic edges carry them instead, and listing them
+# too would be a cross-block input, which a hybrid build refuses.
+inputs(m::CentralGlycolysis) = all(iszero, m.enzyme_param) ?
+    vcat(GLYCOLYSIS_CURRENCIES, m.protein_sources) : copy(GLYCOLYSIS_CURRENCIES)
 
 """
 Nine edges, every `peer` unnamed.
@@ -386,8 +441,14 @@ and why check 3 is a per-module test rather than an assembled one.
 exist yet, and the resolver fails an edge whose named peer is absent. The cost
 is that a genuinely missing counterpart is not caught at composition, which is
 spec §11 phase 13's assertion to make and not this one's.
+
+Under `enzymes = :translated` ten [`CatalyticEdge`](@ref)s follow, one per
+enzyme, from its protein count to its `enz_<reaction>` slot (spec §11 task
+11a.2).
 """
-coupling(::CentralGlycolysis) = CouplingEdge[
+coupling(m::CentralGlycolysis) = m.edges
+
+const GLYCOLYSIS_EDGES = CouplingEdge[
     CurrencyEdge(species = :M_atp_c, direction = :in),    # PFK draws
     CurrencyEdge(species = :M_atp_c, direction = :out),   # PGK, PYK supply
     CurrencyEdge(species = :M_adp_c, direction = :in),    # PGK, PYK draw
@@ -441,7 +502,9 @@ end
     end
     forward = _pval(m, p, r.kf, T) * num_s
     reverse = _pval(m, p, r.kr, T) * num_p
-    return m.enzyme_conc[r.enzyme] * (forward - reverse) / (den_s + den_p - one(T))
+    k = m.enzyme_param[r.enzyme]
+    E = k == 0 ? T(m.enzyme_conc[r.enzyme]) : _pval(m, p, k, T)
+    return E * (forward - reverse) / (den_s + den_p - one(T))
 end
 
 """
@@ -507,7 +570,7 @@ const KM_COLUMN_DISAGREEMENTS = [
     ("km_R_PGM_M_2pg_c", 1.47, 0.0278),
 ]
 
-function _glycolysis_reduction_notes()
+function _glycolysis_reduction_notes(enzymes::Symbol)
     km_list = join(("$id runs at $ran and is imported at $imported"
                     for (id, ran, imported) in KM_COLUMN_DISAGREEMENTS), "; ")
     return [
@@ -536,25 +599,38 @@ function _glycolysis_reduction_notes()
         "integrates non-negatively over a full cycle, but no statement about " *
         "an initial flux here is the published model's",
 
-        "the ten enzyme concentrations are frozen at the registry's initial " *
-        "radius and sit on no coupling channel, so under a growing " *
-        "composition every concentration dilutes while they do not, and the " *
-        "fluxes run high by the volume ratio -- about 7 percent at Core A's " *
-        "1.07x growth. Translation supersedes them through the catalytic " *
-        "channel, which recomputes them from live counts at every handshake, " *
-        "so this is a property of the module before phase 11 and not after",
-
         "M_atp_c, M_adp_c and M_pi_c are read and contributed to but not " *
         "integrated here, so any trajectory produced without the nucleotide " *
         "recycling module composed holds them at whatever the double supplies " *
         "and is not a closed energy loop",
 
-        "the ten enzyme concentrations of R_PGI, R_PFK, R_FBA, R_TPI, " *
-        "R_GAPD, R_PGK, R_PGM, R_ENO, R_PYK and R_LDH_L are nominal " *
-        "stand-ins derived from published copy number at the registry's cell " *
-        "volume, not measured concentrations, and translation supersedes them",
+        (enzymes === :nominal ? _nominal_enzyme_notes() :
+                                _translated_enzyme_notes())...,
     ]
 end
+
+_nominal_enzyme_notes() = [
+    "the ten enzyme concentrations are frozen at the registry's initial " *
+    "radius and sit on no coupling channel, so under a growing " *
+    "composition every concentration dilutes while they do not, and the " *
+    "fluxes run high by the volume ratio -- about 7 percent at Core A's " *
+    "1.07x growth. Translation supersedes them through the catalytic " *
+    "channel, which recomputes them from live counts at every handshake, " *
+    "so this is a property of the module before phase 11 and not after",
+
+    "the ten enzyme concentrations of R_PGI, R_PFK, R_FBA, R_TPI, " *
+    "R_GAPD, R_PGK, R_PGM, R_ENO, R_PYK and R_LDH_L are nominal " *
+    "stand-ins derived from published copy number at the registry's cell " *
+    "volume, not measured concentrations, and translation supersedes them",
+]
+
+_translated_enzyme_notes() = [
+    "the ten enzyme concentrations are free slots enz_R_<reaction> that " *
+    "catalytic edges overwrite from the protein counts at every handshake, " *
+    "so their declared values -- the published copy numbers at the " *
+    "registry's cell -- hold only before the first one, and their priors, " *
+    "asserted by this project, describe draws the driver discards",
+]
 
 export CentralGlycolysis, GLYCOLYTIC_REACTIONS, GLYCOLYSIS_CURRENCIES,
        CENTRAL_GLYCOLYSIS_TABLE, CENTRAL_GSTD_COLUMN, KM_COLUMN_DISAGREEMENTS,
