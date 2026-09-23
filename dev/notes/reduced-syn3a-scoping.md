@@ -845,22 +845,20 @@ careful about what Step 1a's success licenses.
   potentials. The same trap has now bitten twice, once in kinetics and once in
   initial concentrations, so the port should carry the source file for every
   imported value rather than resolving it once by hand.
-- **Does the lumped charging step's stoichiometry matter?** Real synthetases
+- ~~**Does the lumped charging step's stoichiometry matter?** Real synthetases
   produce AMP + PPi, which is why ADK1 and PPA are needed; a `2 ATP -> 2 ADP`
   lumping would close the moieties without them. The two differ in how much
   traffic they put through ADK1 (553/s versus zero), and so in how much the ADK1
   equilibrium constant can influence the ATP/ADP ratio that the 60 s CME rebuild
   reads. Worth one comparison run, since it is cheap and the answer determines
-  whether ADK1 belongs in the inference target set.
-  **Measured 2026-09-23 (spec task 9.9, job 17023622,
-  `dev/scripts/trna_charging_diagnostics_result.md`).** Matched on steady flux,
-  not event count, with both forms as mass-action laws: ADK1 carries 548/s
-  under AMP + PPi and 0 under 2 ATP, but the ATP/ADP ratio the rebuild reads
-  differs by only 1.02% (8.097 vs 8.180). Pyrophosphate settles at 0.367 against
-  0.024 mM. So the stoichiometry decides ADK1's *traffic* entirely and moves its
-  lever on ATP/ADP by about a percent, at least against the phase 8 glycolytic
-  double. Whether ADK1 belongs in the target set now turns on whether that
-  percent is visible in a posterior (spec R8), not on the traffic.
+  whether ADK1 belongs in the inference target set.~~ **Measured 2026-09-23**
+  (spec task 9.9, Slurm job 17044321,
+  `dev/scripts/trna_charging_diagnostics_result.md`). At matched steady flux
+  (548.17/s), ADK1 carries 548/s under AMP + PPi and 0 under 2 ATP. The ATP/ADP
+  ratio differs by 0.035% (8.0969 vs 8.0998), and pyrophosphate settles at 0.367
+  against 0.024 mM. This compares the two lumpings; ADK1's equilibrium constant
+  was not perturbed. The composition uses phase 8's glycolytic double, not live
+  glycolysis.
 - **Which observable is most informative about the boundary-crossing
   parameters?** Answer by simulation before committing to a data model: simulate
   Core A', then measure how much each candidate observable moves each target

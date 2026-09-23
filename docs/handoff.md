@@ -8,22 +8,28 @@
 `TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
 module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at
 `k_chg·[trna]·[ATP]`, owns the tRNA pair, and contributes to ATP, AMP and PPi
-through three currency edges. Full suite: Slurm job **17023812**, 2,598 pass,
-and the one "broken" is task 10.7's skip, which phase 10b owns.
+through three currency edges. Full suite: Slurm job **17044322**, 2,608 pass,
+and the one "broken" is task 10.7's skip, which phase 10b owns. The
+diagnostics artefact is from job **17044321**.
 
 - **Phase 8's `ChargingDrain` is superseded for composed runs** by
   `TrnaCharging` plus `TranslationDemand` (`test/trna_test_models.jl`). It is
   kept only for phase 8's standalone checks, whose recorded numbers belong to it.
-- **Two amendments, both in §12 under 2026-09-23.** First, D14's derivation
-  needed a nominal charged fraction, so the defaults are 0.25 mM at 0.8 charged,
-  `k_chg = 0.15006`, and 9.7's flux check is restated as a drift (−0.89%,
-  measured). Second, a small moiety that is bitwise zero per evaluation may
-  assert the `tol_C` ladder rather than the flat 100-ulp bound.
+- **Amendments, all in §12 under 2026-09-23.**
+  - D14 gains a nominal charged fraction. The defaults are 0.25 mM at 0.8
+    charged, recalled rather than cited, and each **still needs a source**.
+    9.7's flux check becomes a drift (−0.89%).
+  - A small moiety that is bitwise zero per evaluation may assert the `tol_C`
+    ladder, provided the ladder ends at the pinned tolerances and every rung
+    run is reported from Slurm.
+  - 9.8's check 7 half is deferred to 11.7.
+  - 9.9 was rematched on flux: ATP/ADP differs by 0.035%, not the 1.02%
+    first reported.
+- **Roundoff ladders depend on the machine.** Quote them from Slurm, not the
+  login node, which is how the first draft of the §12 entry went wrong.
 - **Open for phase 11:** task 11.7's clipping census decides whether 0.25 mM
-  buffers enough. It holds 7.23 s of demand (`dev/scripts/trna_charging_diagnostics_result.md`).
-  Check 1b needs at least 0.125 mM.
-- The spec's merge dates for #51 and #52 were given as 2026-09-17; both merged
-  on 2026-09-10 (UTC). They are corrected in the closing spec commit.
+  buffers enough; it holds 7.23 s of demand. Check 1b needs at least
+  ≈ 0.124 mM.
 
 ## Earlier: a hygiene pass, not a phase (2026-09-18)
 
