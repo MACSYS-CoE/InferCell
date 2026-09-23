@@ -3,8 +3,9 @@
 
 Result of [`abc_smc`](@ref): a weighted particle approximation of the
 posterior. `particles` is `n_params × n_particles`, `weights` sums to one, and
-`param_names` orders the rows of `particles`. `tolerance` and `n_populations`
-record the final acceptance threshold and the number of SMC populations run.
+`param_names` orders the rows of `particles`. `tolerance` is the threshold the
+returned population was accepted under, so every returned particle's distance
+is at or below it, and `n_populations` is the number of SMC populations run.
 """
 struct ABCPosterior
     particles::Matrix{Float64}   # n_params x n_particles
@@ -22,12 +23,22 @@ Approximate Bayesian Computation with Sequential Monte Carlo (Beaumont et al.).
 `observed_stats`. The tolerance schedule is adaptive: at each population the
 new tolerance is the `alpha`-quantile of the previous distances.
 
-Returns an [`ABCPosterior`](@ref).
+Population 1 is drawn from the prior and never filtered, so `n_populations`
+must be at least 2; a single population would return the prior under a
+tolerance none of it was tested against.
+
+Returns an [`ABCPosterior`](@ref) whose `tolerance` is the threshold the
+returned particles were accepted under, not the next one the schedule would
+have used.
 """
 function abc_smc(simulate, observed_stats::Vector{Float64},
                  priors::Vector{<:Distribution}, param_names::Vector{Symbol};
                  n_particles=1000, n_populations=10, alpha=0.5,
                  verbose=false, rng=Random.default_rng())
+    n_populations >= 2 || throw(ArgumentError(
+        "abc_smc needs n_populations ≥ 2, got $n_populations. Population 1 " *
+        "is the unfiltered prior, so returning it would report a tolerance " *
+        "its particles were never accepted under"))
     n_params = length(priors)
     particles = zeros(n_params, n_particles)
     weights = fill(1.0 / n_particles, n_particles)
@@ -43,6 +54,7 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
     end
 
     tolerance = quantile(distances, alpha)
+    accepted_under = tolerance   # overwritten each population; returned
     if verbose
         println(" tolerance=$(round(tolerance; digits=3))")
         flush(stdout)
@@ -61,6 +73,7 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
         n_simulations = 0
 
         candidate = zeros(n_params)
+        accepted_under = tolerance
         for i in 1:n_particles
             accepted = false
             while !accepted
@@ -101,7 +114,7 @@ function abc_smc(simulate, observed_stats::Vector{Float64},
         end
     end
 
-    return ABCPosterior(particles, weights, param_names, tolerance, n_populations)
+    return ABCPosterior(particles, weights, param_names, accepted_under, n_populations)
 end
 
 function _compute_kernel_widths(particles::Matrix{Float64}, weights::Vector{Float64})

@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-23
-**Branch:** `phase-9-trna-charging`
+**Branches:** `phase-9-trna-charging` (merged after `phase-10b-review-fixes`)
 
 ## Latest: phase 9, lumped tRNA charging (2026-09-23)
 
@@ -31,6 +31,42 @@ diagnostics artefact is from job **17044321**.
 - **Open for phase 11:** task 11.7's clipping census decides whether 0.25 mM
   buffers enough; it holds 7.23 s of demand. Check 1b needs at least
   ≈ 0.124 mM.
+
+## Earlier: phase 10b, the 2026-09-22 review fixes (2026-09-23)
+
+Phase 10b fixes the review findings that §12's 2026-09-23 entry assigned to
+it, one commit per task, plus three commits of `/check-PR` fixes. Suite:
+Slurm job **17021441** at `b04d467`, **2580 passed, 0 failed, 1 broken**,
+4m56.0s (up from 2513 and 2 broken; 17019818 at `f611345`, before the
+review fixes, gave 2577).
+The one broken test left was phase 8's `@test_skip`, which waited on phase 9;
+phase 9 (#59) executes it.
+
+- **10b.1 (E).** `abc_smc` now returns the tolerance its final population
+  was accepted under, not the next one. `n_populations = 1` is refused:
+  population 1 is the unfiltered prior.
+- **10b.2 (D).** Shared priors are compared by family and parameters, not
+  by type.
+- **10b.3 (C).** A named peer must integrate the species or declare the
+  opposite side of the crossing. No Core A′ module names a peer, so none
+  changed.
+- **10b.4 (F).** `iterative_infer` throws on an empty boundary before any
+  sampling.
+- **10b.5 (H).** Transcription's `states`, `reactions` and
+  `counter_drains` now follow the configured counters. Before, the
+  reactions wrote five fixed positions, which the review did not mention.
+  `reduction_notes` follows `base_mapping`.
+- **10b.6 (H).** The 10.7 skip is now an executed check against phases 6,
+  7 and 8. All seventeen loci agree.
+- **Review fixes.** Prior comparison is now plain `isequal`, because a
+  `nameof`/`params` fallback let `truncated(Normal)` and
+  `truncated(LogNormal)` agree. A transcription counter charged against the
+  wrong pool is refused. The peer rule is recorded in the edge and
+  resolver docstrings.
+
+Still open from the review: A and B (tasks 13.9 and 13.10) and G (15.9).
+The integration suite stays parked, so the ABC and boundary changes are
+covered only by the unit tests above.
 
 ## Earlier: a hygiene pass, not a phase (2026-09-18)
 

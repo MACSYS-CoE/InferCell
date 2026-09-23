@@ -1,8 +1,8 @@
 # Spec: Core A′ — inference across a whole-cell ODE/stochastic boundary
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
-phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59) and phase 10 (#51);
-phase 10b and the CME-block phases 11 and 12 are the rest of the fan-out
+phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51) and
+phase 10b (#57); the CME-block phases 11 and 12 are the rest of the fan-out
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -2963,33 +2963,73 @@ none of them.
 shared priors are compared by value, a named peer must supply the quantity, an
 empty boundary is refused, and transcription's states and provenance follow its
 own configuration.
-**PR:** _not started_
+**PR:** #57 (merged 2026-09-23)
 
 Independent of phases 11 and 12, so it can land at any point before phase 13.
 
-- [ ] 10b.1 Report the tolerance the returned population was accepted under —
+- [x] 10b.1 Report the tolerance the returned population was accepted under —
   verify by a seeded run in which every returned particle's distance is at or
   below the reported tolerance, including at `n_populations = 1`, where
   population 1 must itself be filtered or the call refused.
-- [ ] 10b.2 Compare shared priors by value, not by type — verify by
+  **Done:** `abc_smc` returns the threshold its final population was accepted
+  under. The test uses a deterministic simulator, so every distance can be
+  recomputed, and runs at `n_populations` 2 and 5. Every returned particle is
+  at or below `tolerance`, and the largest is above `tolerance / 2`, so the
+  label is tight rather than inflated. `n_populations = 1` is **refused**
+  with an `ArgumentError`, not filtered.
+- [x] 10b.2 Compare shared priors by value, not by type — verify by
   `LogNormal(0, 0.1)` against `LogNormal(5, 2)` under one name throwing and
   naming both modules, and by identical priors still composing.
-- [ ] 10b.3 Require a named peer to own or supply the edge's quantity — verify by
+  **Done:** Distributions' `isequal`, which compares family and fields. Under
+  `:k_tx`, the pair throws, naming `:txl`, `:metab` and both priors.
+  `LogNormal(0, 0.1)` against `LogNormal(0.0, 0.1)` composes.
+  `truncated(Normal)` against `truncated(LogNormal)` throws. An earlier
+  `nameof`/`params` fallback let that pair through, and `/check-PR` caught it.
+- [x] 10b.3 Require a named peer to own or supply the edge's quantity — verify by
   an owner, a consumer and a bystander, with the edge naming the bystander,
   throwing and naming the actual owner; and by every existing module's edges
   still resolving.
-- [ ] 10b.4 Refuse an empty boundary in `iterative_infer` — verify by two blocks
+  **Done:** a named peer must integrate the species or declare the opposite
+  direction of the same crossing. The bystander case throws with "integrated
+  by Central". Naming the owner resolves, and so does a producer naming its
+  consumer. No Core A′ module names a peer, and all five named peers in the
+  tests pass. A clamp or an inbound volume edge has no counterpart, so its peer
+  stays unnamed, which the `CouplingEdge` docstring now says.
+- [x] 10b.4 Refuse an empty boundary in `iterative_infer` — verify by two blocks
   with no shared free parameter throwing before any sampling, instead of
   returning `n_iters = 2` with a zero KL.
-- [ ] 10b.5 Make transcription's states and reduction notes follow its
+  **Done:** `TranscriptionTranslation([:g1])` against
+  `StochasticGeneExpression()` throws an `ArgumentError` ("share none") at a
+  guard placed before the iteration loop. The message points a state-coupled
+  composition at D10.
+- [x] 10b.5 Make transcription's states and reduction notes follow its
   configuration — verify by a three-counter construction exposing exactly three
   counter states, and by `reduction_notes` under `base_mapping = :published`
   describing the published permutation, not the corrected mapping.
-- [ ] 10b.6 Replace the 10.7 `@test_skip` with the executed check — verify by the
+  **Done:** a three-counter build (`ATP_trsc`, `GTP_mRNA`, `UTP_mRNA`) has 20
+  states, with those three at 18:20. **Wider than the review said:**
+  `reactions` wrote five hard-coded positions and `counter_drains` returned
+  the default five, so both now follow the configured counters too. Firing
+  GAPD writes its length, G count and U count to 18:20. An unknown counter
+  is refused, and so is a counter charged against the wrong pool. Under
+  `:published` there is one mapping note, it says "is the published
+  permutation", and no note claims the correction. The ATP double-debit note
+  appears only when both ATP counters are configured.
+- [x] 10b.6 Replace the 10.7 `@test_skip` with the executed check — verify by the
   seventeen transcription loci's copy numbers agreeing with those phases 6 and 7
   declare wherever a locus appears in both, and by the suite's broken count
   falling from 2 to 1.
-- [ ] 10b.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** equal to phase 6's per-locus `copies`. Phase 7's phospho-state
+  pairs times particles per mM agree to rtol 1e-9, and phase 8's per-locus
+  `copies` match too, which is what covers ADK1, PPA and GK1. The set of
+  compared loci equals all seventeen. The broken count went **2 → 1**; the one
+  left is phase 8's skip, waiting on phase 9.
+- [x] 10b.7 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+  **Done:** job 17021441 at `b04d467` gave **2580 passed, 0 failed, 1
+  broken** in 4m56.0s, against 2513 and 2 broken before the phase (job
+  16614893). Job 17019818 at `f611345`, before the review fixes, gave 2577,
+  0 and 1. `docs/handoff.md` is updated. CI didn't run, because the Actions
+  quota is exhausted until 2026-10-01.
 
 ### Phase 11 — Translation
 

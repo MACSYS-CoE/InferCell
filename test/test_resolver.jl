@@ -61,6 +61,33 @@ using Distributions
         @test length(resolve_coupling([lone]).edges) == 1
     end
 
+    @testset "A named peer must be the counterpart, not a bystander" begin
+        # Presence alone let an edge name a bystander: it resolved, kept the
+        # wrong peer in its metadata, and ran against the real owner.
+        owner = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [MassEdge(species=:M_atp_c, direction=:out)])
+        consumer(peer) = CoreAStub(:Expression;
+            edges = [MassEdge(species=:M_atp_c, direction=:in, peer=peer)],
+            ins = [:M_atp_c],
+            contribs = [:M_atp_c])
+        bystander = CoreAStub(:Bystander; st = [:M_g6p_c])
+
+        err = caught(() -> resolve_coupling([owner, consumer(:Bystander), bystander]))
+        @test err isa ArgumentError
+        @test occursin("Bystander", err.msg)
+        @test occursin("integrated by Central", err.msg)
+
+        # Naming the owner resolves, and so does a producer naming its consumer,
+        # which owns nothing but declares the other direction.
+        graph = resolve_coupling([owner, consumer(:Central), bystander])
+        @test any(r -> r.declared_by == :Expression && r.peer == :Central, graph.edges)
+        producer = CoreAStub(:Central;
+            st = [:M_atp_c],
+            edges = [MassEdge(species=:M_atp_c, direction=:out, peer=:Expression)])
+        @test length(resolve_coupling([producer, consumer(nothing), bystander]).edges) == 2
+    end
+
     @testset "Two modules disagreeing on the transport description is rejected" begin
         # Mass and currency are two spellings of one continuous crossing —
         # direct shared state versus the same state routed via a pool — so one
