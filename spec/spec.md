@@ -3,7 +3,7 @@
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57) and phase 12 (#60); the CME-block phase 11 is the rest of the
-fan-out
+fan-out, and the framework phase 11a lands first (amended 2026-09-23)
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -168,7 +168,7 @@ summary:
 | | |
 |---|---|
 | ODE block | 22 reactions in 4 modules: glycolysis through lactate (10), the phosphotransferase cascade plus lactate export (6), nucleotide recycling (5), the lumped tRNA charging step (1) |
-| Stochastic block | 52 reactions in 3 modules: 17 transcription, 17 translation, 17 decay, plus one translocation for ptsG. Matches the scoping note's own count. Protein degradation would be seventeen more and is **ours if kept** — see phase 11 |
+| Stochastic block | 52 reactions in 3 modules: 17 transcription, 17 translation, 17 decay, plus one translocation for ptsG. Matches the scoping note's own count. ~~Protein degradation would be seventeen more and is **ours if kept** — see phase 11~~ **Amended 2026-09-23:** there is none to keep — upstream defines `ptnDegRate` and never builds a reaction from it (task 11.9, §12) |
 | State | 32 dynamic species and 5 chemostats, named and ordered once in the registry |
 | Copy-number span | mRNA 0–2, protein 266–1355, metabolites ~200–74,000 particles |
 | Coupling | 6 channels: 3 at 1 s, 2 at 60 s, and the volume channel, which is on neither clock. It runs in both directions after phase 5b — counts set the volume, and the volume re-enters an ODE rate law — and counts as one channel because one geometry carries both halves. Enumerated in §6 F1 |
@@ -1648,7 +1648,7 @@ point of D0's reordering.
 
 ## 11. Task list
 
-Seventeen phases plus a phase 0, a phase 5b and a phase 10b, each one reviewable pull request. Ordering is
+Seventeen phases plus a phase 0, a phase 5b, a phase 10b and a phase 11a, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
@@ -3032,6 +3032,46 @@ Independent of phases 11 and 12, so it can land at any point before phase 13.
   0 and 1. `docs/handoff.md` is updated. CI didn't run, because the Actions
   quota is exhausted until 2026-10-01.
 
+### Phase 11a — Catalytic edges on jump-owned protein counts
+
+**Goal:** give the translation phase a channel to write into. A catalytic edge
+may name a protein count the jump block owns, which is not a registry species,
+and the two metabolic modules whose enzymes translation makes expose those
+enzymes as slots the edge can fill.
+**Done when:** a catalytic edge on a non-registry protein count resolves and
+executes, every other edge kind still refuses a non-registry species,
+`CentralGlycolysis` and `NucleotideRecycling` each have an opt-in mode whose
+enzyme concentrations are filled by catalytic edges from `P_<locus>` counts,
+their default mode is unchanged, and a jump module's producer counter is shown
+to raise a PTS carrier and, through it, the cell's surface area.
+**PR:** _not started_
+
+Added 2026-09-23 because phase 11 could not be built as written (§12, same
+date). Framework and two module files, so §10 R15 puts it in its own pull
+request, as 5b and 10b were.
+
+- [ ] 11a.1 Let the resolver accept a `CatalyticEdge` on a non-registry species —
+  verify by a toy hybrid in which a catalytic edge on a jump-owned `:P_toy`
+  resolves, lowers and fills its slot at every handshake; by a mass, currency,
+  deferred-counter, rate-constant, volume or clamped edge on the same name still
+  throwing; and by a catalytic edge on a count no jump module owns throwing at
+  build time and naming it.
+- [ ] 11a.2 Give `CentralGlycolysis` a translated-enzyme mode — verify by its ten
+  enzyme concentrations becoming free slots `enz_R_<reaction>` at the nominal
+  values, by ten catalytic edges from `P_<locus>` to those slots, by the protein
+  counts leaving `inputs()` in that mode only, by the derivative at the registry
+  state being bitwise equal to the default mode's, and by the default mode's
+  parameters, edges and inputs being unchanged.
+- [ ] 11a.3 Give `NucleotideRecycling` the same mode — verify by its five
+  `enz_R_*` slots freed and filled by catalytic edges, by PGK3 and PYK3 reading
+  the same `P_<locus>` counts as glycolysis's PGK and PYK, and by one count
+  filling both modules' slots in a hybrid build.
+- [ ] 11a.4 Pin the carrier path translation will use — verify by a jump module's
+  producer `DeferredCounterEdge` raising a PTS carrier state by exactly its
+  accrual per drain, and by the volume chain reading the larger surface area
+  through the carrier owner's existing membrane flag.
+- [ ] 11a.5 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing.
+
 ### Phase 11 — Translation
 
 **Goal:** one translation reaction per transcript plus ptsG translocation, with
@@ -3046,7 +3086,13 @@ through executed catalytic edges rather than nominal stand-ins.
 - [ ] 11.1 Extract per-gene amino-acid counts and residue totals for the
   seventeen loci from the genome record — verify by the residue counts summing to
   3,484,518 for a full proteome doubling, matching the scoping note's own figure,
-  and by four spot lengths matching the recorded 746, 574, 155 and 90 residues.
+  and by four spot lengths matching the recorded ~~746, 574, 155 and 90~~
+  **745, 573, 154 and 89** residues. **Amended 2026-09-23:** 3,484,518 is
+  Σ copies × (length/3 − 1), so it excludes the stop codon, and the recorded
+  spot lengths include it. Residues exclude the stop throughout, which is the
+  convention `k_chg` was calibrated on in phase 9. Upstream charges GTP on
+  `len(aasequence)`, which counts the `*`, so it charges two more GTP per
+  protein; that difference is recorded as ours (§12).
 - [ ] 11.2 Implement seventeen jumps catalytic in the transcript count, reading
   transcripts as a phase-2 peer state — verify by firing one gene's reaction
   raising only that gene's protein by one, leaving the transcript unchanged, and
@@ -3060,11 +3106,24 @@ through executed catalytic edges rather than nominal stand-ins.
 - [ ] 11.4 Add the ptsG translocation reaction — verify by only that locus
   carrying it, by translocation being what increments the state phase 5's volume
   edge reads, and by no cytosolic protein having it.
+  **Annotated 2026-09-23:** `PtsTransport` owns that state and its volume edge,
+  so translocation increments it through a producer deferred counter crediting
+  `M_ptsg_c` (task 11a.4), not by owning it. The other three carriers are
+  credited the same way. Upstream translocation also charges `int(len/10)` ATP
+  (`ATP_transloc`, `MinCell_CMEODE.py:1012`), which this task did not name:
+  declare it as a counter or record its omission as ours (§12).
 - [ ] 11.5 Declare the boundary, **rewritten by D13 and by the defect below**: a
   60 s inbound rate-constant edge on the charged pool, a deferred counter on GTP
   under the published clamped policy, **a paired deferred counter debiting the
   charged pool and crediting the uncharged one**, seventeen outbound catalytic
-  edges naming each rate law's parameter slot, and a volume edge on ptsG —
+  edges naming each rate law's parameter slot, and a volume edge on ptsG
+  (**amended 2026-09-23:** the catalytic edges are declared by the consuming ODE
+  modules through phase 11a's mode, since only the consumer has a slot, and
+  there are thirteen distinct enzyme counts behind fifteen slots, not seventeen;
+  the four PTS carriers have no enzyme slot and take producer counters instead;
+  translation declares no volume edge, because `PtsTransport` owns that one; and
+  the GTP counter debits GTP alone until task 13.10 gives it GDP and Pi —
+  see §12) —
   verify by the exact edge count, kinds and directions; by the catalytic edges
   carrying no mass, with an attempt to include one in a conservation check
   rejected rather than counted as zero; and by no tRNA edge being declared as
@@ -3100,6 +3159,12 @@ through executed catalytic edges rather than nominal stand-ins.
   the count the tests assert must agree. If kept, degradation returns nothing to
   the chemostatted amino-acid pool, and that exemption is recorded so a later
   change making the pool live reinstates the check.
+  **Determined 2026-09-23 (§12):** not a reaction. `ptnDegRate` is assigned at
+  `MinCell_CMEODE.py:273` and `:343`, `translation_rate_start.py:29`,
+  `translation_rate_restart.py:30` and `MinCell_restart.py:440` and `:513`, and
+  no reaction reads it; `ptnDegProd = []` at `MinCell_CMEODE.py:1006` is never
+  used. Dropped, and §2 corrected. What remains for this task is the test
+  asserting 52.
 - [ ] 11.10 **Settle two open questions from §9 here.** Measure the elasticity of
   the translation rate constant to the charged pool, and the protein fold change
   over a full cycle — verify by both numbers recorded against the predictions
@@ -3107,6 +3172,10 @@ through executed catalytic edges rather than nominal stand-ins.
   short of two), and by either shortfall diagnosed to the charging step or the
   ribosome constant *in this phase*, since R1 and R12 both say diagnosing here is
   far cheaper than explaining at the end.
+  **Annotated 2026-09-23:** `riboKcat` is 12 in the two translation-rate files
+  that run and 10 in `MinCell_CMEODE.py:332`; `riboKd` is 1e-4 in the start
+  file and 1e-3 in the restart file. Record which value the module uses and
+  why before either number here is quoted.
 - [ ] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the metabolic modules' nominal enzyme
   concentrations are now superseded by live counts.
@@ -3479,6 +3548,74 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-23 — phase 11 cannot be built as written: catalytic edges, enzyme slots, ptsG, residues and degradation
+
+**Trigger:** confirming phase 11 against the source before starting it. Six
+things the phase assumes are false, each checked in code or upstream.
+
+**Change:**
+
+**A — a catalytic edge cannot name a protein count.** The resolver refuses any
+edge on a non-registry species (`src/resolver.jl:400`). The registry's only
+proteins are the eight PTS carrier forms, so thirteen of the enzyme counts
+translation publishes have no species to name. The count is not a registry
+species and should not become one: it is jump-block state, like a transcript.
+**Phase 11a relaxes the rule for `CatalyticEdge` alone**, since a catalytic edge
+carries no mass and so touches no moiety the registry exists to track. Every
+other kind still needs a registry species.
+
+**B — the metabolic modules have no slot to fill.** A catalytic edge fills one of
+the consuming ODE module's free parameters (`src/handshake.jl:697`).
+`CentralGlycolysis` holds its enzyme concentrations in a struct field, and
+`NucleotideRecycling` holds them as fixed parameters. **Phase 11a gives both an
+opt-in translated-enzyme mode** whose enzyme concentrations are free slots filled
+by catalytic edges. The default mode stays as it is, so phases 6 and 8 keep
+their standalone results. Only the consumer knows its slot, so the edges are
+declared by these two modules and not by translation, which is how the channel
+already lowers. PGK and PGK3 share locus 0606, and PYK and PYK3 share 0221, so
+thirteen counts fill fifteen slots.
+
+**C — the PTS carriers take protein by credit, and translation declares no
+volume edge.** The four carriers are reactants in `PtsTransport`, with no enzyme
+factor, so no catalytic edge can reach them. `PtsTransport` already owns
+`M_ptsg_c` and `M_ptsg_P_c`, flags them as membrane proteins and declares their
+volume edge, and a second owner, flag or outbound volume edge is refused
+(`handshake.jl:1142`, `:1271`; `interface.jl:343`). So translation credits each
+carrier through a producer deferred counter, the channel transcript decay
+already uses to credit AMP and GMP, and the volume chain sees new ptsG through
+`PtsTransport`'s flag. Check 5's "conserved up to what translation adds" is
+exactly this credit. Task 11a.4 pins the path, and tasks 11.4 and 11.5 are
+annotated.
+
+**D — residues exclude the stop codon.** 3,484,518 = Σ copies × (length/3 − 1),
+exactly, from `transcription_genes.tsv`. The spot lengths 746, 574, 155 and 90
+are length/3, so they include the stop. Phase 9 calibrated `k_chg` on the
+former, so 11.1's residue counts and 11.8's closure use it too, and the spot
+checks become 745, 573, 154 and 89. Upstream charges GTP on
+`len(aasequence)` (`MinCell_CMEODE.py:1008`), which counts the `*`, so it
+charges two more GTP per protein. That is recorded as ours.
+
+**E — protein degradation is not a reaction (resolves task 11.9).**
+`ptnDegRate` is assigned six times across four upstream files and read by no
+reaction; `ptnDegProd = []` is never used. The seventeen degradation jumps are
+dropped, and §2's count of 52 stands without the "ours if kept".
+
+**F — two upstream facts the phase did not name.** Translocation charges
+`int(len/10)` ATP (`ATP_transloc`, `MinCell_CMEODE.py:1012`), which task 11.4
+must declare or record as omitted. And `riboKcat` is 12 in the translation-rate
+files that run but 10 in `MinCell_CMEODE.py:332`, while `riboKd` differs between
+the start and restart files. Task 11.10 records which is used before quoting a
+number.
+
+**Not changed:** the GTP counter still cannot credit both GDP and Pi, because of
+the one-producer rule (`handshake.jl:852`). Task 13.10 already owns that, and
+task 11.5 records it.
+
+Approved 2026-09-23, before phase 11a was started.
+
+**Sections touched:** header Status; §2 (the stochastic-block row); §11 (new
+phase 11a; tasks 11.1, 11.4, 11.5, 11.9 and 11.10 annotated in place); §12.
 
 ### 2026-09-23 — phase 12: the guanylate leak is 1.5× the pool, not 60%, and decay's CMP and UMP credit the chemostats
 
