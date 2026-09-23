@@ -65,7 +65,9 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
     @testset "11a.1 a catalytic edge may name a non-registry count" begin
         @test !is_registered(:P_toy)
 
-        pool = ToyMembranePool(edges = CouplingEdge[
+        # No membrane flag: this testset is about the catalytic channel alone, and
+        # a flag with no outbound volume edge is refused at build.
+        pool = ToyMembranePool(membrane = Symbol[], edges = CouplingEdge[
             CatalyticEdge(species = :P_toy, direction = :in, param_slot = :enzyme_conc)])
         graph = resolve_coupling(pool)
         r = only(graph.edges)
@@ -90,7 +92,7 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
         end
 
         # A catalytic edge on a count no jump module owns is refused at build.
-        orphan = ToyMembranePool(edges = CouplingEdge[
+        orphan = ToyMembranePool(membrane = Symbol[], edges = CouplingEdge[
             CatalyticEdge(species = :P_missing, direction = :in, param_slot = :enzyme_conc)])
         err = caught(() -> build_problem([orphan, ToyProteome([:P_toy => 400])]))
         @test err isa ArgumentError
