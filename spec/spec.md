@@ -1790,8 +1790,9 @@ error.
   edge~~ **a `written_states` declaration** — verify by a decay-shaped double
   decrementing a transcript it does not own, and by the same write throwing once
   the ~~edge~~ **declaration** is removed. **Amended 2026-09-04:** no edge kind
-  can name a non-registry state and the transcripts are non-registry by task
-  10.2, so the gate is the declaration; where the written state *is* a registry
+  can name a non-registry state (**since phase 11a, a `CatalyticEdge` can**,
+  which writes nothing and so does not bear on this gate) and the transcripts
+  are non-registry by task 10.2, so the gate is the declaration; where the written state *is* a registry
   species the resolver additionally holds the declaration to a mass or currency
   edge (§12).
 - [x] 2.6 Preserve single-module behaviour exactly — verify by the existing
@@ -3030,8 +3031,10 @@ Independent of phases 11 and 12, so it can land at any point before phase 13.
   **Done:** job 17021441 at `b04d467` gave **2580 passed, 0 failed, 1
   broken** in 4m56.0s, against 2513 and 2 broken before the phase (job
   16614893). Job 17019818 at `f611345`, before the review fixes, gave 2577,
-  0 and 1. `docs/handoff.md` is updated. CI didn't run, because the Actions
-  quota is exhausted until 2026-10-01.
+  0 and 1. `docs/handoff.md` is updated. ~~CI didn't run, because the Actions
+  quota is exhausted until 2026-10-01.~~ **Corrected 2026-09-23:** CI did run.
+  The Test workflow passed on this branch (runs 35793639222 and 35795062475),
+  because the repo had gone public and public repos run Actions free.
 
 ### Phase 11a — Catalytic edges on jump-owned protein counts
 
@@ -3354,6 +3357,10 @@ per-trajectory wall-clock is recorded.
   geometry and exogenous membrane
   growth; by the count matching the phases that registered them; and by the
   lumping appearing exactly once, since phase 11 no longer registers it.
+  **Annotated 2026-09-23 (phase 11a):** the translated-enzyme modes add fifteen
+  enzyme slots with `:asserted` priors, beside the five nominal recycling slots
+  phase 8 already registered as asserted and not in the fourteen. Decide here
+  whether driver-written slots count, and record the decision.
 - [ ] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
