@@ -8,7 +8,7 @@
 `TrnaCharging` (`src/organisms/coreA/trna_charging.jl`) is the fourth ODE
 module. It runs `M_trna_c + ATP -> M_trna_chg_c + AMP + PPi` at
 `k_chg·[trna]·[ATP]`, owns the tRNA pair, and contributes to ATP, AMP and PPi
-through three currency edges. Full suite: Slurm job **17044322**, 2,608 pass,
+through three currency edges. Full suite: Slurm job **17045628** at `3b32be5`, 2,608 pass,
 and the one "broken" is task 10.7's skip, which phase 10b owns. The
 diagnostics artefact is from job **17044321**.
 
@@ -23,8 +23,9 @@ diagnostics artefact is from job **17044321**.
     ladder, provided the ladder ends at the pinned tolerances and every rung
     run is reported from Slurm.
   - 9.8's check 7 half is deferred to 11.7.
-  - 9.9 was rematched on flux: ATP/ADP differs by 0.035%, not the 1.02%
-    first reported.
+  - 9.9 was rematched on flux. It answers the kinase traffic (548/s vs 0)
+    but **not** the ATP/ADP question, because phase 8's glycolytic double pins
+    ADP. That half is carried to task 14.9.
 - **Roundoff ladders depend on the machine.** Quote them from Slurm, not the
   login node, which is how the first draft of the §12 entry went wrong.
 - **Open for phase 11:** task 11.7's clipping census decides whether 0.25 mM
