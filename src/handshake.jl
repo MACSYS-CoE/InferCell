@@ -2085,8 +2085,10 @@ function driver_declarations(d::HandshakeDriver)
     d.drain_interval > d.interval || push!(labels, ReductionLabel(
         :driver_policy, :drain_interval,
         "the deferred counters are debited at every $(d.interval) s handshake, " *
-        "the published model's granularity; a coarser drain would be a labelled " *
-        "reduction (spec §4 D10)"))
+        "the published model's granularity. A coarser drain would be a labelled " *
+        "reduction, and on the assembled Core A′ none is affordable: task 13.4 " *
+        "measured the final paired difference at up to 53% for a 5 s drain and " *
+        "288% for 60 s, against spec §4 D10's one percent (job 17298253)"))
     d.rounding.policy === :fractional_carry && push!(labels, ReductionLabel(
         :driver_policy, :fractional_carry,
         "counts are written back under fractional carry, this project's policy " *

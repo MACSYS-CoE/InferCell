@@ -5,7 +5,7 @@ phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and 13b, assembly, is next
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-24
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-25
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -1019,7 +1019,7 @@ chooses among three options and records which:
 |---|---|
 | Particle Gibbs with ancestor sampling | The stochastic block written against the `SSMProblems` interface |
 | Exact forward filtering | A defensible truncation, hardest for the protein counts, which reach 1355 |
-| No augmentation | The 60 s aggregate drain passing the granularity measurement above |
+| No augmentation | The 60 s aggregate drain passing the granularity measurement above. **Annotated 2026-09-25:** it fails, at +288% (task 13.4), so this option is closed unless the model changes |
 
 **Two installed facts that constrain the first option**, recorded here so nobody
 meets them the hard way. Ancestor sampling is implemented only for the
@@ -1541,10 +1541,14 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   identifiability finding. And the factorisation is over genes *given the path*:
   the ODE conditional does not factorise. Verified by construction in the
   transcription and translation phases rather than by a determination task.
-- **[NEEDS CLARIFICATION: what handshake granularity do the pools require?]**
+- ~~**[NEEDS CLARIFICATION: what handshake granularity do the pools require?]**
   Settled by the 1 s / 5 s / 60 s comparison in D10 — in miniature in phase 4,
   at full scale in phase 13. Expected to rule out 60 s, given the GTP pool turns
-  over in half the rebuild interval.
+  over in half the rebuild interval.~~ — **resolved 2026-09-25 by task 13.4:
+  the published 1 s drain, and nothing coarser.** Over 50 paired seeds, the
+  largest final paired difference is **−52.9% ± 9.6%** for a 5 s drain
+  (`M_3pg_c`) and **+288% ± 29%** for 60 s (`M_pi_c`), against D10's one
+  percent (job 17298253). D10 expected 5 s to pass. It does not.
 - ~~**[NEEDS CLARIFICATION: is the charged-tRNA channel stronger or weaker than
   transcription's?]** The scoping note hopes it is stronger and would rescue the
   reverse direction. A first pass at the published rate law suggests the opposite
@@ -1572,6 +1576,11 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
     13a credited GDP and Pi, so 13b remeasures it). There the charged
     pool empties at rebuild instants and the constants fall about 20×, so
     charging plausibly contributes. How much is not measured.
+  - **Remeasured 2026-09-25 by task 13.7** on the assembled model, every
+    counter and credit wired: median **1.627** (min 1.215, max 2.193, one
+    seed, job 17298242). The charged pool is under one particle at none of
+    the 105 rebuild instants, so phase 11's clip-meets-rebuild mechanism is
+    absent from this run.
   - Open for phase 14's F5, with §3's [1.7, 2.3] unchanged (amendment
     2026-09-24 F).
 - **Does the lumped charging step's stoichiometry change the answer?** The
@@ -3502,10 +3511,17 @@ per-trajectory wall-clock is recorded.
   the unowned states and stranded moieties. The contract is explicit that a
   successful resolve is not evidence of closure, so **this assertion must be
   shown to fail** or it is not an assertion.
+  **Annotated 2026-09-25:** the real assembly had eight dead ends. Four were
+  missing owner-mirror edges, which are now added. Four are the PTS carriers,
+  reported as `accumulating` biomass by a `:protein`-regime rule (§12,
+  2026-09-25 A and B).
 - [ ] 13.2 Assert every declared edge is executed — verify by a test
   cross-checking the resolved graph against the driver's registered
   contributions, debits, rebuilds and volume reads, so a declared-but-inert edge
   fails the build rather than passing silently.
+  **Annotated 2026-09-25:** a clamp is executed when it is held and its value
+  is read. An owner's mirror edge is executed by the owner's own term, and a
+  missing peer is 13.1's to catch (§12, 2026-09-25 C).
 - [x] 13.3 (in 13a, as 13a.3; #66) Fix inference dispatch for a hybrid composition — verify by a test that
   a mixed composition either dispatches on the composition or throws a named
   error, since dispatch currently reads only the first module in the vector and
@@ -3514,6 +3530,9 @@ per-trajectory wall-clock is recorded.
   verify by nominal trajectories at 1 s, 5 s and 60 s granularity, by the largest
   relative difference in any observed pool reported, and by the chosen
   granularity registered as a labelled reduction with its *measured* cost.
+  **Annotated 2026-09-25:** the chosen granularity is the published 1 s, so
+  there is no reduction to register. It is recorded as a `:driver_policy` row
+  quoting what the coarser drains cost (§12, 2026-09-25 G).
 - [ ] 13.5 Run a full cycle at published parameters with a stiff solver and pinned
   tolerances — verify by a trajectory over the full interval with no solver
   failure, and by the solver and tolerances recorded on the model rather than in
@@ -3532,6 +3551,11 @@ per-trajectory wall-clock is recorded.
   enzyme slots with `:asserted` priors, beside the five nominal recycling slots
   phase 8 already registered as asserted and not in the fourteen. Decide here
   whether driver-written slots count, and record the decision.
+  **Decided 2026-09-25:** they are reported apart as `:discarded_prior`.
+  There are 16, not 15: the inbound volume channel also overwrites
+  `r_cell_nm`. The fourteen stay the asserted rate priors an inference might
+  free. The report gains `:model_note`, `:formalism` and `:driver_policy`
+  (§12, 2026-09-25 D).
 - [ ] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
@@ -3549,7 +3573,8 @@ per-trajectory wall-clock is recorded.
 - [ ] 13.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
-  record.
+  record. **Annotated 2026-09-25:** no gate. A warm cycle is 32.2 s, so the
+  full cycle runs in the default suite (§12, 2026-09-25 E).
 - [x] 13.9 (in 13a, as 13a.1; #66) Give a chemostatted pool both an ownerless debit path and a rebuild
   that reads its held value (§12, 2026-09-10 E, widened by 2026-09-23 A) —
   verify by `build_problem([CoreATranscription(), NucleotideRecycling()])`
@@ -3631,6 +3656,11 @@ mutation test showing it can fail.
   first at 199 s, as ATP falls to about 0.44 mM (job 17131232). That run lacks
   13.10's credits and transcription's costs, so it is not the K5 score. In
   phase 9's composition the same counter never clips at 0.25 mM (task 11.7).
+  **Annotated 2026-09-25 (phase 13b):** on the assembled model with every
+  credit, one seed, `GTP_translat` clips on 253 of 6,300 drains, first at
+  953 s, and `tRNA_translat` on 20 (job 17298242). This is still non-zero, so
+  K5 is expected to fire at published parameters unless phase 14 finds
+  otherwise.
 - [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
@@ -3802,6 +3832,103 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-25 — phase 13b: what closure means on the real assembly, what "executed" means per edge, and how the report is typed
+
+**Trigger:** implementing phase 13b. The assembled model had eight dead ends
+where the spec expected none. 13.2 and 13.6 each needed a decision the spec
+left open, and the first 13.2 rule failed eight tests of partial compositions
+(job 17293734).
+
+**Change:**
+
+**A — the four owner-mirror edges that were missing.** Completeness mode on
+`corea_models()` found nothing unowned, but it found eight dead ends. Four of
+them were owners that never declared their side of a peer's flow:
+- glycolysis on 13DPG, which recycling's PGK3 draws;
+- recycling on GDP, which translation's GTP counter credits;
+- charging on the tRNA pair, which translation's counters draw and return.
+
+Glycolysis and recycling already declare such edges for g6p, pyr, pep, lac
+and the nucleotide currencies. The four are added, and no flow changes.
+Approved 2026-09-25.
+
+**B — translated protein accumulates, and that is not a dead end.** The other
+four dead ends are the PTS carriers. Translation produces them, nothing draws
+them down, and the cascade only moves them between phospho-states. Core A′
+has no protein degradation (task 11.9), so their only sink is growth
+dilution, and that moves no mass between modules. The rule is mechanical: a
+registry `:protein`-regime species produced with no consumer is reported in
+`CouplingGraph.accumulating`, not in `dead_ends`. A protein consumed with no
+producer is still a dead end. So 13b's "no dead ends remain" holds with four
+species accumulating. Approved 2026-09-25.
+
+**C — what "executed" means for each edge kind (task 13.2).**
+`unexecuted_edges` maps each resolved edge to a record on the driver:
+- contributions and peer writes: the driver now keeps these, as
+  `ContributionRecord`;
+- debits and credits, sign-matched on the accruing side;
+- catalytic and geometry exchanges, rebuilds and growth chains.
+
+Two rules were decisions:
+- **A clamp is executed when it is held** (approved 2026-09-25). No module
+  integrates or writes the species, and its value is read, either by a
+  rebuild through the chemostat path or as a fixed parameter sourced from the
+  species.
+- **An owner's mirror edge is executed by the owner's own term.** The first
+  rule asked for a peer's flow in the opposite direction. That refused
+  legitimate partial compositions: 8 errors in job 17293734, for example
+  recycling's GMP edge with no transcription composed. Whether the peer is
+  there is closure, and A's completeness mode already fails it.
+
+**D — the report is typed (task 13.6).** Approved 2026-09-25, with the code
+fixed rather than the list amended. Four categories are added:
+- `:model_note`, for a module's own simplifications. Every note used to be
+  filed as `:lumping`, so "the lumping exactly once" could not be counted.
+- `:formalism`, for the charging step's deterministic integration.
+- `:discarded_prior`, for an asserted prior on a slot the driver overwrites.
+- `:driver_policy`, which records the 1 s drain and fractional carry even at
+  their defaults, so both reach every report. The report prints them apart
+  and leaves them out of its departure count.
+
+`reduction_notes` entries may now be `category => text` pairs. The driver-written
+slots are reported apart from the fourteen: there are **16, not 15**, because
+the inbound volume channel also overwrites `r_cell_nm`. The amino-acid
+chemostat had no declaration anywhere. `TrnaCharging` now carries one as a
+note. A `ClampedEdge` would have been inert, since no reaction reads the pool,
+and C's rule refuses an inert clamp.
+
+**E — 13.8 needs no gate.** A warm full cycle is 32.2 s of stepping (job
+17298242), so the 6,300 s run sits in the default suite.
+
+**F — what the assembled cycle shows, recorded for phase 14.** One seed, job
+17298242:
+- `GTP_translat` still clips, on 253 of 6,300 drains, first at 953 s. Phase
+  11's partial run clipped it on 6,257, from 44 s.
+- `tRNA_translat` clips on 20 drains, down from 911.
+- Check 7 requires zero at published parameters (§8 K5). That is scored in
+  task 14.8, and this is its early warning.
+- The fold-change median is 1.627, and the charged pool never reads under one
+  particle at a rebuild instant (§9).
+
+**G — the drain stays at 1 s (task 13.4).** Over 50 paired seeds at aligned
+instants (job 17298253):
+- At 5 s, 26 of the 29 compared pools have a final point estimate beyond
+  1%, though not all of them outside their standard error. The worst is
+  **−52.9% ± 9.6%** on 3PG. The phospho-carriers, 2PG and NADH move by
+  48–50%.
+- 60 s reaches **+288% ± 29%** on phosphate, and several glycolytic pools
+  fall about 100%.
+
+D10 expected 60 s to fail and 5 s to pass. Only the first came true. So the
+published 1 s drain is used and no reduction is registered. D10's
+"no augmentation" route for task 16.2 needs a passing aggregate drain, so it
+is closed for this model. A coarse drain cuts a warm trajectory from 29.7 s to
+16.6 s (5 s) or 4.6 s (60 s), but that saving cannot be claimed.
+
+**Sections touched:** header; §4 D10 (the path-update table); §9 (the
+granularity and fold-change entries); §11 (tasks 13.1, 13.2, 13.4, 13.6 and
+13.8 annotated, 14.8 annotated); §12.
 
 ### 2026-09-24 — K1's 10 s proxy is retired, and phase 13 splits into 13a and 13b
 
