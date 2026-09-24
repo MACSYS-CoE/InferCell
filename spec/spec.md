@@ -3299,7 +3299,8 @@ through executed catalytic edges rather than nominal stand-ins.
   that run and 10 in `MinCell_CMEODE.py:332`; `riboKd` is 1e-4 in the start
   file and 1e-3 in the restart file. Record which value the module uses and
   why before either number here is quoted.
-  **Done, with the diagnosis coming back "neither" (amendment 2026-09-24 F):**
+  **Done; the diagnosis is "neither" in the jump-only runs and unmeasured in
+  the hybrid (amendment 2026-09-24 F):**
   riboKcat 12 and riboKd 1e-3, the restart law (11.3). **Elasticity
   0.0909 to 0.0911**, about 1.9× transcription's 0.044 to 0.051. So the
   reverse channel is **stronger** than predicted, and R1 does not fire.
@@ -3314,11 +3315,17 @@ through executed catalytic edges rather than nominal stand-ins.
   - **Full seven-module hybrid**, one seed: median **1.497**, minimum
     **1.232**. That fails §3's median and its no-gene-below-1.5 rule. Here
     charging plausibly does throttle translation. The charged pool reads
-    0.0000 mM at rebuild instants, and at an empty pool the floored law puts
-    every constant about 20× below nominal for the next 60 s.
-  - **How much of the drop from 1.691 to 1.497 is that is not measured.** It
-    needs a hybrid rerun with the constants frozen at 0.2 mM, or with a 6 s
-    rebuild.
+    0.0000 mM at some rebuild instants: alternate ones among the last five
+    printed samples, with how many over the whole cycle not recorded. After
+    such an instant the floored law puts every constant about 20× below
+    nominal for the next 60 s.
+  - **How much of the drop from 1.691 to 1.497 is due to that is not
+    measured.** It needs a hybrid rerun with the constants frozen at 0.2 mM,
+    or with a 6 s rebuild.
+  - The result file's sentence "The charged pool is not what holds it back",
+    and its 1.53× and riboKcat ≈ 18.4, are **superseded** by this entry. They
+    come from the analytic baseline, and the file is left as job 17131232
+    wrote it.
   - Carried to phase 14's F5, with §3's bound unchanged.
 - [x] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the metabolic modules' nominal enzyme
@@ -3765,13 +3772,14 @@ transcription's costs.
 - 17.9 s per cycle after an 80 s compile, 2.84 ms per handshake, against K1's
   roughly 10 s. This is R7's early warning, and 13.7 is annotated.
 - **The clip meets the rebuild.** In that run the charged pool reads 0.0000 mM
-  at rebuild instants. The 60 s rebuild then evaluates the translation law at
-  its one-particle floor, and every constant sits about 20× low until the
-  next rebuild. ATP alternates in step. That is R11's rebuild-cadence
+  at some rebuild instants: alternate ones among the last five printed
+  samples, with the count over the cycle not recorded. At those instants the
+  60 s rebuild evaluates the translation law at its one-particle floor, and
+  every constant sits about 20× low until the next rebuild. ATP alternates in step. That is R11's rebuild-cadence
   concern made concrete: a pool the counter clips is read at the instant it
   is pinned. The protein fold-change median falls to 1.497 (F).
 
-**F — task 11.10's diagnosis came back "neither".**
+**F — task 11.10's diagnosis: "neither" in the jump-only runs, unmeasured in the hybrid.**
 - The elasticity is **0.091**, about 1.9× transcription's, so §9's first-pass
   prediction fails the other way. The reverse channel is stronger, and R1
   does not fire.

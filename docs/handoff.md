@@ -26,7 +26,7 @@ passed, 0 failed, 0 broken**, 9m40.8s (2,987 on the merged 11a tree). Diagnostic
     the nominal pool. There it is neither the charging step nor the ribosome
     constant, and missing replication is the untested candidate.
   - In the full hybrid the median is **1.497**. There the charged pool
-    empties at rebuild instants, the constants drop about 20×, and charging
+    empties at some rebuild instants, the constants then drop about 20×, and charging
     plausibly contributes. The split is unmeasured; it needs a hybrid rerun
     with the constants frozen or a 6 s rebuild (§12 E, F).
   - 0.25 mM clears check 7 (0 clips per cycle) as well as 1b.
