@@ -1,9 +1,51 @@
 # Handoff
 
-**Session date:** 2026-09-23
-**Branches:** `phase-11a-catalytic-slots`
+**Session date:** 2026-09-24
+**Branches:** `phase-11-translation`
 
-## Latest: phase 11a, catalytic edges on jump-owned protein counts (2026-09-23)
+## Latest: phase 11, translation (2026-09-24)
+
+`CoreATranslation` (`src/organisms/coreA/translation.jl`) has 17 translation
+jumps at `k_tl_g · mRNA_g` and one ptsG translocation. It publishes the 17
+`P_<locus>` counts. Suite: Slurm job **17131233** at `9cd7b66`, **27,305
+passed, 0 failed, 0 broken**, 9m40.8s (2,987 on the merged 11a tree). Diagnostics: job
+**17131232**, `dev/scripts/translation_diagnostics_result.md`.
+
+- **The metabolic modules' nominal enzyme concentrations are superseded by
+  live counts.** In `:translated` mode their 15 slots are filled at every
+  handshake from translation's 13 enzyme counts. The nominal mode stays for
+  standalone runs only. The four PTS carriers are credited by producer
+  counters (ptsG at translocation).
+- **Two choices, approved and recorded** (§12, 2026-09-24 A, B):
+  - Each tRNA term reads the lumped pool's per-amino-acid share,
+    [M_trna_chg_c]/20.
+  - The law is the restart law throughout: riboKcat 12, riboKd 1e-3.
+- **Results:**
+  - The charged-pool elasticity is **0.091**, about 1.9× transcription's.
+  - The fold-change median is **1.691** jump-only, with the constants held at
+    the nominal pool. There it is neither the charging step nor the ribosome
+    constant, and missing replication is the untested candidate.
+  - In the full hybrid the median is **1.497**. There the charged pool
+    empties at some rebuild instants, the constants then drop about 20×, and charging
+    plausibly contributes. The split is unmeasured; it needs a hybrid rerun
+    with the constants frozen or a 6 s rebuild (§12 E, F).
+  - 0.25 mM clears check 7 (0 clips per cycle) as well as 1b.
+- **Early warnings from the first full seven-module cycle** (§12 E):
+  - GTP sits at zero from 44 s until task 13.10 credits GDP.
+  - The tRNA counter clips on 911 drains as ATP falls to about 0.44 mM
+    (R2/K5, annotated on 14.8).
+  - The cycle takes 17.9 s after an 80 s compile, against K1's roughly 10 s
+    (R7, annotated on 13.7).
+- **A test file that compiles for minutes.** `full_models()` in
+  `test/test_corea_translation.jl` builds all seven modules. Its first build
+  compiles for about 6 minutes on the login node, so the phase's tests take
+  about 8 minutes locally. It is built once per test and reused.
+
+Next: phase 13, assembly. 13.9 (chemostat credits) and 13.10 (per-product
+counters) come first, because no assembled run means anything for guanylate
+without 13.10.
+
+## Earlier: phase 11a, catalytic edges on jump-owned protein counts (2026-09-23)
 
 Phase 11 could not be built as the spec described it, so this phase lands the
 framework half first, per R15 (§12, 2026-09-23, "phase 11 cannot be built as

@@ -29,6 +29,13 @@
 # `CMono1`/`CMono2`), so the two bases are part of the per-gene data even though
 # the archived design's header omitted them.
 #
+# `!Residues` is the protein length translation charges for (spec §11 task
+# 11.1): the amino acids of the transcript translated under NCBI table 4, as
+# `MinCell_CMEODE.py:121` builds `aasequence`, with the one stop excluded. It
+# is counted from the translation rather than computed as `length/3 - 1`, and
+# the two are asserted equal, so a CDS with an internal stop or a partial codon
+# aborts instead of loading a wrong residue count (§12, 2026-09-23 D).
+#
 #   JCVISYN3A_xxxx  --suffix-->  MMSYN1_xxxx
 #                   --Syn3A_annotation_compilation.xlsx col 6 -> col 14-->
 #                   JCVSYN2_xxxxx
@@ -163,6 +170,39 @@ function read_genbank(path::AbstractString)
 end
 
 const COMPLEMENT = Dict('A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', 'N' => 'N')
+
+# NCBI translation table 4 (mycoplasma and spiroplasma), codons ordered with
+# U, C, A, G varying first-base-slowest. It is the standard code with UGA read
+# as tryptophan, which is why a syn3A gene cannot be translated with table 1.
+const TABLE4_AA = "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+const RNA_ORDER = Dict('U' => 0, 'C' => 1, 'A' => 2, 'G' => 3)
+
+"""
+    residues(rna) -> Int
+
+The number of amino acids translation charges for: the transcript translated
+under table 4, less its one stop codon. Raises on a partial codon, a base
+outside ACGU, or any stop other than a single terminal one, since each would
+make `length/3 - 1` and the translated count disagree.
+"""
+function residues(rna::AbstractString)
+    n = length(rna)
+    n % 3 == 0 || error("transcript of $n nucleotides is not a whole number of codons")
+    aa = Char[]
+    for i in 1:3:n
+        c = rna[i:i+2]
+        all(haskey(RNA_ORDER, b) for b in c) ||
+            error("codon $c at position $i holds a base outside ACGU")
+        push!(aa, TABLE4_AA[16 * RNA_ORDER[c[1]] + 4 * RNA_ORDER[c[2]] + RNA_ORDER[c[3]] + 1])
+    end
+    stops = findall(==('*'), aa)
+    stops == [length(aa)] || error(
+        "translation under table 4 has stops at codons $stops of $(length(aa)); " *
+        "expected exactly one, at the end")
+    r = length(aa) - 1
+    r == n ÷ 3 - 1 || error("translated residues $r disagree with length/3 - 1")
+    return r
+end
 
 """
     transcript(cds, genome) -> String
@@ -335,7 +375,7 @@ function main()
         push!(rows, join([locus, string(n), string(counts['A']),
                           string(counts['C']), string(counts['G']),
                           string(counts['U']), rna[1:2], string(ptn),
-                          @sprintf("%.4f", mrna[locus]),
+                          @sprintf("%.4f", mrna[locus]), string(residues(rna)),
                           "syn3A.gb|Syn3A_annotation_compilation.xlsx|syn2.gb|proteomics.xlsx|mRNA_counts.csv"],
                          '\t'))
     end
@@ -348,7 +388,7 @@ function main()
         println(io, "% Base-count totals across the seventeen genes: " *
                     "A $(totals['A']), C $(totals['C']), G $(totals['G']), U $(totals['U']).")
         println(io, join(["!ID", "!Length", "!A", "!C", "!G", "!U", "!First2",
-                          "!PtnCount", "!MeanMRNA", "!UpstreamRow"], '\t'))
+                          "!PtnCount", "!MeanMRNA", "!Residues", "!UpstreamRow"], '\t'))
         for r in rows
             println(io, r)
         end

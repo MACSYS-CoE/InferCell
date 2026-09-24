@@ -51,6 +51,8 @@ include("organisms/coreA/trna_charging.jl")
 include("organisms/coreA/transcription.jl")
 # Decay reads transcription's extract and its `TranscriptionGene`, so it follows it.
 include("organisms/coreA/transcript_decay.jl")
+# Translation reads the same extract and transcription's transcript names.
+include("organisms/coreA/translation.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")

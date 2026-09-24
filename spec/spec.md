@@ -2,9 +2,9 @@
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
-phase 10b (#57), phase 11a (#62) and phase 12 (#60); the CME-block phase 11
-is the rest of the fan-out
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-23
+phase 10b (#57), phase 11a (#62) and phase 12 (#60); phase 11, the last of the
+fan-out, is in review
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-24
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -1534,7 +1534,7 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   Settled by the 1 s / 5 s / 60 s comparison in D10 — in miniature in phase 4,
   at full scale in phase 13. Expected to rule out 60 s, given the GTP pool turns
   over in half the rebuild interval.
-- **[NEEDS CLARIFICATION: is the charged-tRNA channel stronger or weaker than
+- ~~**[NEEDS CLARIFICATION: is the charged-tRNA channel stronger or weaker than
   transcription's?]** The scoping note hopes it is stronger and would rescue the
   reverse direction. A first pass at the published rate law suggests the opposite
   — that both denominators are dominated by polymer length, bounding the whole
@@ -1543,11 +1543,25 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   **D13 made this question well posed.** With charging in the stochastic block
   the charged pool was an intra-block read, not a channel at all; now it is a
   genuine second reverse channel alongside the nucleotide pools. Measuring it
-  needs the charging module composed, or a double — see R1.
-- **[NEEDS CLARIFICATION: does protein fold change over a cycle reach two?]** A
+  needs the charging module composed, or a double — see R1.~~ — **resolved
+  2026-09-24 by task 11.10: stronger.** The translation constant's elasticity to
+  the charged pool is **0.0909 to 0.0911**, about 1.9× transcription's four-pool
+  0.044 to 0.051 (job 17131232). The first pass's "few percent" does not hold.
+  That number rests on the lumped pool's per-amino-acid share (amendment
+  2026-09-24 A). Reading the whole pool instead would give 0.005.
+- ~~**[NEEDS CLARIFICATION: does protein fold change over a cycle reach two?]** A
   first pass suggests it may fall well short, which would indicate the lumped
   charging step throttling translation. Settled in phase 11, and far cheaper to
-  diagnose there than to explain at the end.
+  diagnose there than to explain at the end.~~ — **measured 2026-09-24 by task
+  11.10: no, and whether charging is the cause depends on the composition.**
+  - With the constants held at the nominal pool (jump-only) the median is
+    **1.691**. Charging cannot be the cause there. The ribosome constant is
+    the published 12. Missing replication is the untested leading candidate.
+  - In the full seven-module hybrid the median is **1.497**. There the charged
+    pool empties at rebuild instants and the constants fall about 20×, so
+    charging plausibly contributes. How much is not measured.
+  - Open for phase 14's F5, with §3's [1.7, 2.3] unchanged (amendment
+    2026-09-24 F).
 - **Does the lumped charging step's stoichiometry change the answer?** The
   published AMP-and-pyrophosphate form puts 553 events per second through the
   adenylate kinase; a two-ATP-to-two-ADP form puts zero. That changes how much
@@ -1574,7 +1588,10 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   consequences, and all three are ours. Check 1b bounds it from below and check 7
   from above; whether a value satisfies both is not yet known.~~ — **partly
   resolved 2026-09-23 by task 9.8** (`dev/scripts/trna_charging_diagnostics_result.md`,
-  job 17044321). The default is **0.25 mM at 0.8 charged**. At that fraction,
+  job 17044321), **and its check 7 half 2026-09-24 by task 11.7**: with
+  translation consuming, 0.25 mM clips on none of a cycle's 6,300 drains and
+  0.125 mM on 7, so **0.25 mM satisfies both checks** in phase 9's composition
+  (`dev/scripts/translation_diagnostics_result.md`, job 17131232). The default is **0.25 mM at 0.8 charged**. At that fraction,
   check 1b's floor is ≈ 0.124 mM analytically (500 / (0.2 · 20,180.39)); the
   scan's uncharged minimum is 404 particles at 0.1 mM and 505 at 0.125 mM.
   0.25 mM clears it with 1,009 uncharged and 4,000 charged particles (cycle-end
@@ -2812,6 +2829,8 @@ but it depends on phase 8, so the track is not a clean fan-out.
   check 7's charged-tRNA counter, and the lag on the adenylate forward channel;
   and by the §9 open question on the pool size being replaced with a value that
   satisfies both check 1b and check 7, or by a statement that none does.
+  **Annotated 2026-09-24: answered by task 11.7** — 0 clips per cycle at
+  0.25 mM and above, 7 at 0.125 mM (job 17131232).
   **Annotated 2026-09-23: the check 7 half is deferred to task 11.7**, which
   already feeds its census back here. Check 7 counts clips of translation's
   charged-tRNA debit, and there is no translation until phase 11. This phase
@@ -3127,7 +3146,7 @@ translated, and the counts feed the metabolic modules' enzyme concentrations
 through executed catalytic edges rather than nominal stand-ins.
 **PR:** _not started_
 
-- [ ] 11.1 Extract per-gene amino-acid counts and residue totals for the
+- [x] 11.1 Extract per-gene amino-acid counts and residue totals for the
   seventeen loci from the genome record — verify by the residue counts summing to
   3,484,518 for a full proteome doubling, matching the scoping note's own figure,
   and by four spot lengths matching the recorded ~~746, 574, 155 and 90~~
@@ -3137,17 +3156,39 @@ through executed catalytic edges rather than nominal stand-ins.
   convention `k_chg` was calibrated on in phase 9. Upstream charges GTP on
   `len(aasequence)`, which counts the `*`, so it charges two more GTP per
   protein; that difference is recorded as ours (§12).
-- [ ] 11.2 Implement seventeen jumps catalytic in the transcript count, reading
+  **Done:** the gene extract gains `!Residues`, each transcript translated
+  under NCBI table 4 as `MinCell_CMEODE.py:121` does, less its one stop; the
+  generator asserts a single terminal stop, so it equals `length/3 − 1` by
+  translation. Σ copies × residues = **3,484,518**; ptsG, ptsI, Crr, ptsH have
+  **745, 573, 154, 89**. The first nine columns are byte-identical and two runs
+  give identical files. **Per-amino-acid counts are not extracted** (amendment
+  2026-09-24 C): under the lumped law they drop out, since Σ n_aa = residues.
+- [x] 11.2 Implement seventeen jumps catalytic in the transcript count, reading
   transcripts as a phase-2 peer state — verify by firing one gene's reaction
   raising only that gene's protein by one, leaving the transcript unchanged, and
   raising the energy counter by exactly twice that gene's residue count.
-- [ ] 11.3 Implement the rate constant with the lumped pool substituted for the
+  **Done:** `CoreATranslation`, 18 jumps (17 plus translocation), each
+  `k_tl_g · mRNA_g` read through `inputs`. For all seventeen genes one firing
+  raises that gene's count by one (ptsG's cytosolic count for ptsG), leaves
+  the transcripts unchanged, and adds exactly 2r_g to `GTP_translat` and r_g
+  to `tRNA_translat`. It composes jump-only with `CoreATranscription`.
+- [x] 11.3 Implement the rate constant with the lumped pool substituted for the
   twenty per-amino-acid pools — verify by the three polymerase-capacity constants
   carried with the note that all are computed at initial volume and are among the
   genuinely frozen quantities, and by the lumping **not** being registered here:
   phase 9 owns that declaration after D13, and registering it twice would
   double-count it in phase 13's enumeration.
-- [ ] 11.4 Add the ptsG translocation reaction — verify by only that locus
+  **Done, with two choices approved 2026-09-24 (amendment A, B):** the restart
+  law (`translation_rate_restart.py`: riboKcat 12, riboKd 1e-3, kcat_mod
+  (0.25n + 0.2)·riboKcat), and each of the twenty-one tRNA concentrations read
+  as the lumped pool's per-amino-acid share, [M_trna_chg_c]/20. Hand-checked at
+  GAPD to 1e-14, and equal to the upstream law at upstream's own 150-copy
+  pools. **Of the three constants only the ribosome concentration is computed
+  at initial volume** (503 copies, as upstream computes `ribosomeConc` once);
+  K₀ and K_d are dissociation constants in mM. All three, and riboKcat, are
+  fixed `:asserted` parameters citing the restart file. `reduction_notes`
+  carries the share and the restart law, and no lumping declaration.
+- [x] 11.4 Add the ptsG translocation reaction — verify by only that locus
   carrying it, by translocation being what increments the state phase 5's volume
   edge reads, and by no cytosolic protein having it.
   **Annotated 2026-09-23:** `PtsTransport` owns that state and its volume edge,
@@ -3156,7 +3197,14 @@ through executed catalytic edges rather than nominal stand-ins.
   credited the same way. Upstream translocation also charges `int(len/10)` ATP
   (`ATP_transloc`, `MinCell_CMEODE.py:1012`), which this task did not name:
   declare it as a counter or record its omission as ours (§12).
-- [ ] 11.5 Declare the boundary, **rewritten by D13 and by the defect below**: a
+  **Done:** one translocation jump, `50/746 · Pcyto_ptsG`, and only ptsG has
+  it. A firing moves one ptsG into `P_JCVISYN3A_0779`, accrues **74**
+  `ATP_transloc` (declared, debiting ATP, products pending 13.10) and one
+  `ptsG_transloc`, which credits `M_ptsg_c`. No other reaction lowers a
+  protein count. In the seven-module composition, over 120 handshakes, PTS's
+  ptsG pair plus the hook's carried remainders rises by exactly the pending
+  credit at every handshake (rtol 1e-9), and the area grows through PTS's flag.
+- [x] 11.5 Declare the boundary, **rewritten by D13 and by the defect below**: a
   60 s inbound rate-constant edge on the charged pool, a deferred counter on GTP
   under the published clamped policy, **a paired deferred counter debiting the
   charged pool and crediting the uncharged one**, seventeen outbound catalytic
@@ -3173,7 +3221,14 @@ through executed catalytic edges rather than nominal stand-ins.
   rejected rather than counted as zero; and by no tRNA edge being declared as
   *mass*, since a jump module cannot continuously write an ODE state, which is
   the same constraint D13 applies to charging's currency edges.
-- [ ] 11.6 **Fix the missing debit, which is a defect in the committed spec.**
+  **Done:** nine edges, exactly. One 60 s inbound rate-constant edge on
+  `M_trna_chg_c`, and eight counter channels: `GTP_translat` debiting GTP;
+  `tRNA_translat` debiting `M_trna_chg_c` and crediting `M_trna_c`;
+  `ATP_transloc` debiting ATP; four carrier credits. No catalytic, volume, mass,
+  currency or clamped edge. Composed with all seven modules the driver lowers
+  15 catalytic exchanges from 13 of translation's counts, the eight channels
+  and one rebuild. All 15 catalytic edges refuse `mass_contribution`.
+- [x] 11.6 **Fix the missing debit, which is a defect in the committed spec.**
   As originally written this module credited uncharged tRNA and never debited the
   charged pool: it read the charged pool through a 60 s rate-constant edge rather
   than consuming it. That is unbalanced — with charging producing and nothing
@@ -3182,16 +3237,38 @@ through executed catalytic edges rather than nominal stand-ins.
   with phase 9 reaching a steady tRNA split rather than a fully charged pool, and
   by a test that removing the debit reproduces the collapse, so the fix has a
   witness rather than a claim.
-- [ ] 11.7 Report whether the charged-tRNA counter can clip — verify by the
+  **Done, with one correction (amendment 2026-09-24 D):** composed with
+  phase 9's modules and live transcripts, the split is a stochastic steady
+  state. The test asserts each 300 s mean over 1,200 s within (0.6, 0.95).
+  An ad hoc full-cycle run on the login node, recorded in no artefact, put
+  the 300 s means at 0.71 to 0.90 with no trend. tRNA plus carries equals 0.25 mM to
+  1e-9. **With no transfer at all the pool collapses**, fully charged with
+  uncharged tRNA at 2e-156 mM. **Removing only the debit does not collapse**:
+  the credit then creates tRNA, 276,128 particles in 600 s. Both are pinned.
+- [x] 11.7 Report whether the charged-tRNA counter can clip — verify by the
   census of check 7 run on this counter specifically, since it debits ~553
   residues per second against a pool of order 10³ particles and is now the most
   likely clip in the model (K5); and by the result feeding phase 9's pool-size
   diagnostic rather than being reported in isolation.
-- [ ] 11.8 **This module's own check: residue-to-energy closure.** Assert the
+  **Done** (`dev/scripts/translation_diagnostics_result.md`, job 17131232).
+  With translation as the consumer in phase 9's composition, over one full
+  cycle per pool, the counter clips on **0** of 6,300 drains at 0.25, 0.5 and
+  1.0 mM, **7** at 0.125, 17 at 0.1, 253 at 0.05 and 1,009 at 0.025. At
+  0.25 mM the charged pool's minimum is 1,144 particles. The suite pins zero
+  clips over 1,200 drains at 0.25 mM, and 77 of 120 at 0.01 mM so the census
+  can fire. **The first full seven-module cycle clips it on 911 drains**,
+  with ATP falling to about 0.44 mM: an early warning for K5, carried to 14.8
+  (amendment E).
+- [x] 11.8 **This module's own check: residue-to-energy closure.** Assert the
   accumulated counter equals exactly twice the residues translated at every write
   point — verify by the assertion passing and by a mutation halving one gene's
   residue count failing and naming that gene.
-- [ ] 11.9 **Resolve whether protein degradation is a reaction at all, then
+  **Done:** `assert_residue_energy_closure` takes its residues from the
+  extract, not the module. Over a full jump-only cycle with transcription and
+  decay it is exactly zero at all 106 save points, and every protein count is
+  a non-negative integer. Halving GAPD's residues gives −2 × made × 169 and
+  an error naming `JCVISYN3A_0607 (GAPD)` and no other gene.
+- [x] 11.9 **Resolve whether protein degradation is a reaction at all, then
   implement or drop it.** The published model builds three reactions per locus
   plus one translocation, which is the 52 the scoping note counts, and carries
   `ptnDegRate` as a constant with no matching per-gene reaction in that list. So
@@ -3209,7 +3286,9 @@ through executed catalytic edges rather than nominal stand-ins.
   no reaction reads it; `ptnDegProd = []` at `MinCell_CMEODE.py:1006` is never
   used. Dropped, and §2 corrected. What remains for this task is the test
   asserting 52.
-- [ ] 11.10 **Settle two open questions from §9 here.** Measure the elasticity of
+  **Done:** 17 + 17 + 18 = 52 reactions across transcription, decay and
+  translation, asserted; no translation reaction lowers a protein count.
+- [x] 11.10 **Settle two open questions from §9 here.** Measure the elasticity of
   the translation rate constant to the charged pool, and the protein fold change
   over a full cycle — verify by both numbers recorded against the predictions
   (a reverse channel bounded at a few percent, and a fold change that may fall
@@ -3220,9 +3299,41 @@ through executed catalytic edges rather than nominal stand-ins.
   that run and 10 in `MinCell_CMEODE.py:332`; `riboKd` is 1e-4 in the start
   file and 1e-3 in the restart file. Record which value the module uses and
   why before either number here is quoted.
-- [ ] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
+  **Done; the diagnosis is "neither" in the jump-only runs and unmeasured in
+  the hybrid (amendment 2026-09-24 F):**
+  riboKcat 12 and riboKd 1e-3, the restart law (11.3). **Elasticity
+  0.0909 to 0.0911**, about 1.9× transcription's 0.044 to 0.051. So the
+  reverse channel is **stronger** than predicted, and R1 does not fire.
+  **Fold change, two numbers, and they differ.**
+  - **Jump-only**, eight seeds, constants held at the nominal pool: median
+    **1.691**, 1.604 to 1.822, none below 1.5, log-log slope against length
+    −0.012. Here it is neither candidate. The pool is nominal by construction,
+    and the ribosome constant is the published 12. Reaching 2 needs 1.45× more
+    translation output (riboKcat ≈ 17.4). The **untested** leading candidate
+    is that Core A′ cuts replication, so gene dosage never rises; a 1.5× mean
+    dosage gives 2.04.
+  - **Full seven-module hybrid**, one seed: median **1.497**, minimum
+    **1.232**. That fails §3's median and its no-gene-below-1.5 rule. Here
+    charging plausibly does throttle translation. The charged pool reads
+    0.0000 mM at some rebuild instants: alternate ones among the last five
+    printed samples, with how many over the whole cycle not recorded. After
+    such an instant the floored law puts every constant about 20× below
+    nominal for the next 60 s.
+  - **How much of the drop from 1.691 to 1.497 is due to that is not
+    measured.** It needs a hybrid rerun with the constants frozen at 0.2 mM,
+    or with a 6 s rebuild.
+  - The result file's sentence "The charged pool is not what holds it back",
+    and its 1.53× and riboKcat ≈ 18.4, are **superseded** by this entry. They
+    come from the analytic baseline, and the file is left as job 17131232
+    wrote it.
+  - Carried to phase 14's F5, with §3's bound unchanged.
+- [x] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the metabolic modules' nominal enzyme
   concentrations are now superseded by live counts.
+  **Done:** job **17131233** at `9cd7b66`, **27,305 passed, 0 failed, 0
+  broken**, 9m40.8s, against 2,987 on the merged phase 11a tree (job
+  17127716). `docs/handoff.md`
+  records the supersession.
 
 ### Phase 12 — Transcript decay
 
@@ -3365,6 +3476,11 @@ per-trajectory wall-clock is recorded.
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
   budget affords. **K1 and K7 are decided by this number.**
+  **Annotated 2026-09-24 (phase 11):** an early reading exists. The seven
+  modules composed as phase 11 composes them, without transcription's
+  counters, take **17.9 s** for 6,299 handshakes after an 80 s first-handshake
+  compile (2.84 ms each, job 17131232). That is above K1's roughly 10 s, and
+  it is R7's early warning. It is not the phase 13 number.
 - [ ] 13.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
@@ -3387,6 +3503,10 @@ per-trajectory wall-clock is recorded.
   its credits are wired here too. **Widened 2026-09-23 by phase 11a:**
   translation's GTP counter is GTP → GDP + Pi upstream, two per residue, the
   same shape again, and its credits are wired here too.
+  **Annotated 2026-09-24 (phase 11):** without this, no assembled run means
+  anything for guanylate. In the first full seven-module cycle, GTP sits at
+  zero from **44 s** and `GTP_translat` clips on 6,257 of 6,300 drains (job
+  17131232). `ATP_transloc`'s ADP and Pi join the list here too.
 
 ### Phase 14 — The validation checks, in the scoping note's order
 
@@ -3431,6 +3551,11 @@ mutation test showing it can fail.
   carried deficits at published parameters and the clipping fraction across 200
   prior draws (K5), and by the metabolic control analysis identities holding
   within 1e-6, which is the one analytic result the implementation must reproduce.
+  **Annotated 2026-09-24 (phase 11), R2's early warning:** the first full
+  seven-module cycle clips the charged-tRNA counter on **911** of 6,300 drains,
+  first at 199 s, as ATP falls to about 0.44 mM (job 17131232). That run lacks
+  13.10's credits and transcription's costs, so it is not the K5 score. In
+  phase 9's composition the same counter never clips at 0.25 mM (task 11.7).
 - [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
@@ -3598,6 +3723,90 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-24 — phase 11: the lumped pool's per-amino-acid share, the restart law, and what the first full cycle showed
+
+**Trigger:** implementing phase 11. Two things the spec left open had to be
+chosen, two task clauses did not match what the code showed, and diagnostic
+job 17131232 produced four results the spec did not predict.
+
+**Change:**
+
+**A — the lumped pool enters the rate law as its per-amino-acid share.**
+Task 11.3 said to substitute "the lumped pool" for the twenty per-amino-acid
+pools. Read literally, each of the twenty-one concentrations in the published
+law would be the whole 0.2 mM pool, 27× upstream's 150 copies (0.0074 mM).
+That would cut the charged-pool elasticity from about 0.09 to 0.005 for no
+reason but the lumping. Each concentration instead reads [M_trna_chg_c]/20,
+0.01 mM at the nominal pool. **Ours**, approved 2026-09-24, and in
+`CoreATranslation`'s `reduction_notes`.
+
+**B — the restart law throughout.** Upstream runs `translation_rate_start.py`
+(riboKd 1e-4, kcat_mod +0.25) for the first minute and
+`translation_rate_restart.py` (riboKd 1e-3, +0.2) at every 60 s rebuild after
+it. The module's rebuild is that channel, so it takes the restart law from
+t = 0. riboKcat is 12 in both files. The 10 at `MinCell_CMEODE.py:332` is a
+variable no rate law reads. Recorded in `reduction_notes`. Approved 2026-09-24.
+
+**C — task 11.1 extracts residues, not per-amino-acid counts.** Under A the
+composition drops out of the law, since Σ n_aa = residues. So the extract
+gains only `!Residues`, counted by translating each transcript under table 4.
+
+**D — task 11.6's witness has two halves.** It said removing the debit
+"reproduces the collapse". It does not. With the credit kept and the debit
+removed, translation creates tRNA, 276,128 particles in 600 s. The collapse,
+a fully charged pool with no charging flux, needs the whole transfer removed.
+Both are pinned. The fix's criterion, a steady split, is a stochastic steady
+state: in an ad hoc full-cycle run its 300 s means wandered 0.71 to 0.90 with
+transcript noise, and the test asserts a band over 1,200 s.
+
+**E — early warnings from the first full seven-module cycle**, which is not the
+assembled model: it has none of 13.10's product credits and none of
+transcription's costs.
+- `GTP_translat` debits GTP with no GDP credit. GTP sits at zero from 44 s,
+  and the counter clips on 6,257 of 6,300 drains. 13.10 is annotated.
+- The charged-tRNA counter clips on 911 drains, first at 199 s, as ATP falls
+  to about 0.44 mM. This is R2's early warning, and 14.8 is annotated. In
+  phase 9's composition, with ATP held by the double, it never clips at
+  0.25 mM (task 11.7).
+- 17.9 s per cycle after an 80 s compile, 2.84 ms per handshake, against K1's
+  roughly 10 s. This is R7's early warning, and 13.7 is annotated.
+- **The clip meets the rebuild.** In that run the charged pool reads 0.0000 mM
+  at some rebuild instants: alternate ones among the last five printed
+  samples, with the count over the cycle not recorded. At those instants the
+  60 s rebuild evaluates the translation law at its one-particle floor, and
+  every constant sits about 20× low until the next rebuild. ATP alternates in step. That is R11's rebuild-cadence
+  concern made concrete: a pool the counter clips is read at the instant it
+  is pinned. The protein fold-change median falls to 1.497 (F).
+
+**F — task 11.10's diagnosis: "neither" in the jump-only runs, unmeasured in the hybrid.**
+- The elasticity is **0.091**, about 1.9× transcription's, so §9's first-pass
+  prediction fails the other way. The reverse channel is stronger, and R1
+  does not fire.
+- The fold change has two answers, depending on the composition.
+  - **Jump-only**, with the constants held at the nominal pool: median
+    **1.691** against §3's [1.7, 2.3]. There it is neither of the task's two
+    candidates. The pool is nominal by construction, and the ribosome
+    constant is the published 12. Reaching 2 needs 1.45× more translation
+    output (riboKcat ≈ 17.4). The untested leading candidate is that Core A′
+    cuts replication, so gene dosage never rises; a 1.5× mean dosage gives
+    2.04.
+  - **Full seven-module hybrid**: median **1.497**, minimum 1.232. There
+    charging plausibly contributes, through the clip at rebuild instants (E).
+- **The split between those two causes is not measured.** Measuring it needs
+  the hybrid rerun with the constants frozen at 0.2 mM, or a 6 s rebuild.
+- §3's bound is **not relaxed**. The comparison belongs to phase 14's F5. It
+  should expect a clear miss on the hybrid unless 13.10 and a fix for the
+  clip change the picture.
+- *Corrected before merge (/check-PR of #64):* an earlier version of this
+  entry said "not the charging step" on the strength of the jump-only runs,
+  which cannot test it. It also quoted 1.53× and riboKcat ≈ 18.4, which came
+  from an analytic median (1.653) built on the measured rather than the
+  simulated transcript means.
+
+**Sections touched:** header; §9 (the channel-strength, fold-change and
+pool-size entries); §11 (tasks 11.1 to 11.11 annotated in place and ticked;
+9.8, 13.7, 13.10 and 14.8 annotated); §12.
 
 ### 2026-09-23 — phase 11 cannot be built as written: catalytic edges, enzyme slots, ptsG, residues and degradation
 
