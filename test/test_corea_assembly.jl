@@ -64,6 +64,14 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         @test length(d.rebuilds) == 2 && length(d.growth) == 2
         @test length(d.geometry) == 1
 
+        # Task 13.5: the solver and tolerances are recorded on the model, and
+        # the assembly runs. The full 6,300 s cycle is the Slurm driver's
+        # (dev/scripts/corea_full_cycle.jl); this is the smoke test.
+        @test solver_settings(d) == (solver = :Rodas5P, abstol = 1e-10, reltol = 1e-8)
+        run_handshake!(d, 60)
+        @test d.ode.t == 60.0
+        @test d.n_handshakes == 60
+
         # Task 13.10's last clause: every product edge the four product-bearing
         # counters declare is credited by the driver.
         for c in (:ATP_trsc, :ATP_mRNAdeg, :GTP_translat, :ATP_transloc)

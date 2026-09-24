@@ -615,6 +615,19 @@ function growth_census(d::HandshakeDriver)
 end
 
 """
+    solver_settings(driver) -> NamedTuple
+
+The ODE block's integrator and tolerances, `(solver, abstol, reltol)`, read back
+from the live integrator rather than from the keywords the build was called
+with, so what is reported is what runs (spec §11 task 13.5). Spec §3 pins
+Rodas5P at `abstol = 1e-10` mM and `reltol = 1e-8`, which are the build's
+defaults.
+"""
+solver_settings(d::HandshakeDriver) = (solver = nameof(typeof(d.ode.alg)),
+                                       abstol = d.ode.opts.abstol,
+                                       reltol = d.ode.opts.reltol)
+
+"""
     driver_written_params(driver) -> Vector{NamedTuple}
 
 Every parameter slot the driver overwrites during a trajectory: the catalytic
@@ -639,7 +652,7 @@ driver_written_params(d::HandshakeDriver) = vcat(
 export ContributionRecord, unexecuted_edges, assert_edges_executed
 export CatalyticExchange, GeometryExchange, DeferredDebit, RateConstantRebuild,
        GrowthChain, HandshakeDriver, clipping_census, rebuild_census, chemostat_census,
-       growth_census, driver_written_params, radius_from_volume_nm
+       growth_census, driver_written_params, radius_from_volume_nm, solver_settings
 
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
