@@ -2,8 +2,8 @@
 
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
-phase 10b (#57), phase 11a (#62) and phase 12 (#60); phase 11, the last of the
-fan-out, is in review
+phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
+fan-out is complete, and phase 13, assembly, is next
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-24
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3144,7 +3144,7 @@ seventeen protein counts the ODE block and the growth channel read.
 non-negative integers, the energy counter equals exactly twice the residues
 translated, and the counts feed the metabolic modules' enzyme concentrations
 through executed catalytic edges rather than nominal stand-ins.
-**PR:** _not started_
+**PR:** #64 (merged 2026-09-24)
 
 - [x] 11.1 Extract per-gene amino-acid counts and residue totals for the
   seventeen loci from the genome record — verify by the residue counts summing to
