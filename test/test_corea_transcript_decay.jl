@@ -200,12 +200,16 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
             reactions(dec)[i].affect!(u, w)
             @test u[1] == 2 * g.length                # one ATP per nucleotide
         end
-        # The composed model reports which registry species it debits.
+        # The composed model reports which registry species it debits, and
+        # which it credits per ATP paid (task 13.10).
         r = resolve_coupling(AbstractSubModel[tx, dec])
         atp = filter(x -> x.edge isa DeferredCounterEdge &&
                           x.edge.counter === :ATP_mRNAdeg, r.edges)
-        @test only(atp).species === :M_atp_c
-        @test only(atp).declared_by === :CoreATranscriptDecay
+        debit = only(x for x in atp if x.edge.direction === :in)
+        @test debit.species === :M_atp_c
+        @test debit.declared_by === :CoreATranscriptDecay
+        @test Set(x.species for x in atp if x.edge.direction === :out) ==
+              Set([:M_adp_c, :M_pi_c])
     end
 
     @testset "12.6 and 12.7 monomer closure and the guanylate return" begin
