@@ -23,5 +23,6 @@ Pages = [
     "organisms/coreA/transcription.jl",
     "organisms/coreA/transcript_decay.jl",
     "organisms/coreA/translation.jl",
+    "organisms/coreA/assembly.jl",
 ]
 ```

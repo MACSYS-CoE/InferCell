@@ -1329,7 +1329,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                                initial_surface_area_nm2 = nothing,
                                footprint_nm2 = nothing,
                                ode_solver = Rodas5P(),
-                               abstol = 1e-10, reltol = 1e-8)
+                               abstol = 1e-10, reltol = 1e-8,
+                               complete = false)
     interval > 0 || throw(ArgumentError(
         "The handshake interval must be positive, got $interval"))
     drain = drain_interval === nothing ? Float64(interval) : Float64(drain_interval)
@@ -1339,7 +1340,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     _validate_shared_params(models)
     # The contract is validated over the whole composition, not per block: a
     # boundary crossing is by definition not visible from one side.
-    resolve_coupling(models)
+    # `complete = true` makes closure a build failure (spec §11 task 13.1).
+    resolve_coupling(models; complete)
 
     ode_models = AbstractSubModel[m for m in models if formalism(m) === :ode]
     jump_models = AbstractSubModel[m for m in models if formalism(m) === :jump]

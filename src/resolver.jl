@@ -65,6 +65,12 @@ The resolved boundary of a composition.
   an error: a single module under test legitimately leaves most of them unowned.
 - `dead_ends` — mass-carrying species consumed with no declared producer, or
   produced with no declared consumer.
+- `accumulating` — protein-regime species produced with no declared consumer.
+  Core A′ has no protein degradation (spec §11 task 11.9), so a translated
+  protein's only sink is growth dilution, which moves no mass between modules.
+  That is accumulating biomass, not a stranded moiety, and it is kept apart
+  from `dead_ends` by a mechanical rule — the registry's `:protein` regime —
+  rather than by name. A protein *consumed* with no producer is still a dead end.
 - `chemostat_exemptions` — species exempted from the dead-end check, on either
   side of the flow, because the registry chemostats them. Recorded so that a
   later change making a pool live reinstates the check rather than inheriting
@@ -76,6 +82,7 @@ struct CouplingGraph
     edges::Vector{ResolvedEdge}
     unowned_states::Vector{Symbol}
     dead_ends::Vector{DeadEnd}
+    accumulating::Vector{DeadEnd}
     chemostat_exemptions::Vector{Symbol}
     gradient_obstructions::Vector{ResolvedEdge}
     deviations::Vector{ResolvedEdge}
@@ -108,8 +115,14 @@ species with no mass or currency edge.
 Returns a graph reporting what is merely incomplete rather than wrong: unowned
 states and dead ends — including a declared cost whose paying state is absent —
 which a partial composition is expected to have.
+
+`complete = true` is the assertion the wave-0 contract withholds: a successful
+resolve is not evidence of closure, so completeness mode turns the two reports
+into a failure. It throws an [`IncompleteComposition`](@ref) naming every
+unowned state and every dead end, grouped by the moiety each strands (spec §11
+task 13.1). Protein-regime species in `accumulating` do not fail it.
 """
-function resolve_coupling(models::Vector{<:AbstractSubModel})
+function resolve_coupling(models::Vector{<:AbstractSubModel}; complete::Bool = false)
     _check_module_ids(models)
     _check_state_ownership(models)
     _check_inputs_consistency(models)
@@ -124,16 +137,60 @@ function resolve_coupling(models::Vector{<:AbstractSubModel})
     _check_clamp_ownership(resolved, owned)
     unowned = [s for s in dynamic_species() if !haskey(owned, s)]
 
-    dead_ends, exemptions = _find_dead_ends(resolved)
+    stops, exemptions = _find_dead_ends(resolved)
+    biomass(d) = d.missing_role === :consumer &&
+                 species_entry(d.species).regime === :protein
+    dead_ends = filter(!biomass, stops)
+    accumulating = filter(biomass, stops)
 
     obstructions = [r for r in resolved if obstructs_gradients(r.edge)]
     deviations = [r for r in resolved if deviates_from_published(r.edge)]
 
-    return CouplingGraph(resolved, unowned, dead_ends, exemptions,
-                         obstructions, deviations)
+    graph = CouplingGraph(resolved, unowned, dead_ends, accumulating, exemptions,
+                          obstructions, deviations)
+    complete && _assert_complete(graph)
+    return graph
 end
 
-resolve_coupling(model::AbstractSubModel) = resolve_coupling([model])
+resolve_coupling(model::AbstractSubModel; complete::Bool = false) =
+    resolve_coupling([model]; complete)
+
+"""
+    IncompleteComposition <: Exception
+
+Thrown by [`resolve_coupling`](@ref) in completeness mode. `unowned` lists the
+registry dynamic states no module integrates; `dead_ends` the species whose
+declared flow stops, and the message groups them by the moiety each strands.
+"""
+struct IncompleteComposition <: Exception
+    unowned::Vector{Symbol}
+    dead_ends::Vector{DeadEnd}
+end
+
+function Base.showerror(io::IO, e::IncompleteComposition)
+    print(io, "IncompleteComposition: this composition does not close.")
+    if !isempty(e.unowned)
+        print(io, "\n$(length(e.unowned)) registry dynamic state(s) no module " *
+                  "integrates: ", join((":$s" for s in e.unowned), ", "))
+    end
+    if !isempty(e.dead_ends)
+        print(io, "\n$(length(e.dead_ends)) dead end(s), by stranded moiety:")
+        for moiety in sort!(unique(d.moiety for d in e.dead_ends))
+            print(io, "\n  $moiety moiety:")
+            for d in e.dead_ends
+                d.moiety === moiety || continue
+                print(io, "\n    :$(d.species) ", d.missing_role === :producer ?
+                      "consumed by $(join(d.modules, ", ")) with nothing returning it" :
+                      "produced by $(join(d.modules, ", ")) with nothing drawing it down")
+            end
+        end
+    end
+end
+
+function _assert_complete(graph::CouplingGraph)
+    (isempty(graph.unowned_states) && isempty(graph.dead_ends)) && return nothing
+    throw(IncompleteComposition(graph.unowned_states, graph.dead_ends))
+end
 
 function _owned_states(models::Vector{<:AbstractSubModel})
     owned = Dict{Symbol, Symbol}()   # species => declaring module
@@ -708,5 +765,5 @@ function check_gradient_safety(models::Vector{<:AbstractSubModel})
     return graph.gradient_obstructions
 end
 
-export ResolvedEdge, DeadEnd, CouplingGraph, resolve_coupling,
+export ResolvedEdge, DeadEnd, CouplingGraph, IncompleteComposition, resolve_coupling,
        dead_end_report, gradient_report, check_gradient_safety

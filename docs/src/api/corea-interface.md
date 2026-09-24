@@ -96,6 +96,7 @@ graph.edges                  # every declared edge, resolved
 graph.dead_ends              # flow that stops: consumed with no producer,
                              # or produced with no consumer
 graph.unowned_states         # registry states no module integrates
+graph.accumulating           # proteins produced with no consumer: biomass, not a dead end
 graph.chemostat_exemptions   # costs exempted because the registry holds the pool
 graph.gradient_obstructions
 graph.deviations
@@ -106,6 +107,8 @@ It **throws** when the boundary is inconsistent: an edge naming an unregistered 
 Kinds beyond the mass/currency pair are distinct mechanisms, not rival spellings, and **coexist** on one species and direction: the published model routes ATP through a currency pool, a deferred-counter debit and a rate-constant rebuild simultaneously, and the resolver accepts exactly that.
 
 It **reports** what is merely incomplete: unowned states and dead ends — including a declared cost whose paying state is absent from the composition — which a partial composition is expected to have. A successful resolution is therefore **not** evidence that the boundary is closed; asserting completeness is wave 3's job, made separately.
+
+**Completeness mode** makes that assertion. `resolve_coupling(models; complete = true)`, or `build_problem(models; complete = true)` on a hybrid composition, throws an `IncompleteComposition` naming every unowned state and every dead end, grouped by the moiety each strands (spec §11 task 13.1). A protein-regime species produced with nothing drawing it down is reported in `accumulating` instead: Core A′ has no protein degradation, so a translated protein's only sink is growth dilution, which moves no mass between modules.
 
 !!! note "Every declared cost needs a state that can pay it and a reaction that returns it"
     This is the mechanical form of a rule the scoping note derived from two errors of record. The lumped charging step converts ATP to AMP, and without ADK1 nothing returns it — 3.48M charging events against an adenylate pool of ~79,800 particles exhausts it after 2.3% of the cell cycle. Transcription buries GTP as GMP and, without GK1, that GMP is stranded. `dead_end_report` names the conserved moiety of each stranded species, because those two are one class of error, not two.

@@ -445,9 +445,9 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
     @testset "6.5 the boundary" begin
         edges = coupling(m)
-        @test length(edges) == 9
+        @test length(edges) == 10
         @test count(e -> e isa CurrencyEdge, edges) == 5
-        @test count(e -> e isa MassEdge, edges) == 4
+        @test count(e -> e isa MassEdge, edges) == 5
         @test all(e -> e.peer === nothing, edges)
 
         kinds = [(e.species, edge_kind(e), e.direction) for e in edges]
@@ -455,7 +455,8 @@ const GLYCOLYSIS_CYCLE = 6300.0
                         (:M_adp_c, :currency, :in), (:M_adp_c, :currency, :out),
                         (:M_pi_c, :currency, :in),
                         (:M_g6p_c, :mass, :in), (:M_pyr_c, :mass, :in),
-                        (:M_pep_c, :mass, :out), (:M_lac__L_c, :mass, :out)]
+                        (:M_pep_c, :mass, :out), (:M_lac__L_c, :mass, :out),
+                        (:M_13dpg_c, :mass, :out)]
 
         # No edge names a redox species. NAD+/NADH are touched only by GAPD and
         # LDH_L, both inside this module, which is why check 3 is per-module.
@@ -467,7 +468,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # Standalone resolution reports rather than fails, and reports the three
         # currencies among the states no module here integrates.
         graph = resolve_coupling([m])
-        @test length(graph.edges) == 9
+        @test length(graph.edges) == 10
         @test issubset(GLYCOLYSIS_CURRENCIES, graph.unowned_states)
         @test length(graph.unowned_states) == n_dynamic_states() - 13
         @test !any(s -> s in graph.unowned_states, states(m))

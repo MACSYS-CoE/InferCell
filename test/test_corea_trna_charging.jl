@@ -97,13 +97,18 @@ using StaticArrays: SA, setindex
             (:currency, :M_atp_c, :in),
             (:currency, :M_amp_c, :out),
             (:currency, :M_ppi_c, :out),
+            (:currency, :M_trna_c, :in),
+            (:currency, :M_trna_chg_c, :out),
         ])
-        @test length(edges) == 3
+        @test length(edges) == 5
         @test all(e -> e isa CurrencyEdge, edges)
-        # No tRNA edge: this module owns the pair, and no other module writes it
-        # continuously (phase 11's debit is a deferred counter, task 11.5).
-        @test !any(e -> e.species in CHARGING_STATES, edges)
-        @test Set(contributed_states(m)) == Set(e.species for e in edges)
+        # The two tRNA edges are the owner's side of translation's counters
+        # (task 13.1): they close the pair against the dead-end check and wire
+        # no contribution, since the owner's term is already in `dynamics`.
+        owned = [e for e in edges if e.species in CHARGING_STATES]
+        @test length(owned) == 2
+        @test Set(contributed_states(m)) ==
+              Set(e.species for e in edges if !(e.species in CHARGING_STATES))
 
         # With phase 8: resolves, so no species and direction is both mass and
         # currency. The resolver throws on exactly that (`_check_kind_agreement`).
@@ -115,7 +120,7 @@ using StaticArrays: SA, setindex
                                 NucleotideRecycling(), m]
         g = resolve_coupling(four)
         @test g isa CouplingGraph
-        @test count(r -> r.declared_by === :TrnaCharging, g.edges) == 3
+        @test count(r -> r.declared_by === :TrnaCharging, g.edges) == 5
 
         # The contributions EXECUTE. Evaluate the composed right-hand side at the
         # initial state, and again with the uncharged pool zeroed so charging's

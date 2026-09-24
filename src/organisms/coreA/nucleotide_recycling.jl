@@ -377,6 +377,7 @@ const RECYCLING_EDGES = CouplingEdge[
     CurrencyEdge(species = :M_ppi_c, direction = :in),
     CurrencyEdge(species = :M_pi_c, direction = :out),
     CurrencyEdge(species = :M_gtp_c, direction = :out),
+    CurrencyEdge(species = :M_gdp_c, direction = :in),    # translation's GTP counter returns it
 ]
 
 states(::NucleotideRecycling) = RECYCLING_STATES

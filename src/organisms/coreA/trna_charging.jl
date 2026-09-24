@@ -178,11 +178,21 @@ charging step is the principal consumer of ATP's turnover (~81%, spec §4 D13)
 and a principal producer of AMP and pyrophosphate, so it declares all three. As
 a jump module it could not have executed these against ODE states (D13); in the
 ODE block they run through phase 1's contribution channel.
+
+Two more are on the tRNA pair this module owns. They move nothing through the
+contribution channel, since the owner's term is already in `dynamics`; they are
+the owner's side of translation's counters, without which the resolver reads
+the pair as a dead end (spec §11 task 13.1).
 """
 const CHARGING_EDGES = CouplingEdge[
     CurrencyEdge(species = :M_atp_c, direction = :in),
     CurrencyEdge(species = :M_amp_c, direction = :out),
     CurrencyEdge(species = :M_ppi_c, direction = :out),
+    # The owner's side of translation's two tRNA counters: it charges the
+    # uncharged pool translation returns and supplies the charged pool
+    # translation draws (spec §11 task 13.1).
+    CurrencyEdge(species = :M_trna_c, direction = :in),
+    CurrencyEdge(species = :M_trna_chg_c, direction = :out),
 ]
 
 states(::TrnaCharging) = CHARGING_STATES
