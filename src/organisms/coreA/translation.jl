@@ -197,9 +197,8 @@ what fills it.
 
 - `GTP_translat` is the elongation energy, two GTP per residue
   (`MinCell_CMEODE.py:1008-1010`; upstream names it `ATP_translat`, and its
-  hook drains GTP, `in_out.py:199-218`). Its GDP and phosphate are recorded in
-  `produces` and not yet credited: one accrual cannot credit two products until
-  task 13.10 (spec §12, 2026-09-23). Two per residue, and residues exclude the
+  hook drains GTP, `in_out.py:199-218`). Its GDP and phosphate are credited one
+  each per GTP actually paid (spec §11 task 13.10). Two per residue, and residues exclude the
   stop, so this is two GTP per protein fewer than upstream's
   `2·len(aasequence)`. That is ours.
 - `tRNA_translat` is the charged tRNA consumed, one per residue. It **debits
@@ -207,8 +206,8 @@ what fills it.
   edges. The hook credits what the debit actually paid, so a clipped debit
   cannot create tRNA (spec §11 task 11.6).
 - `ATP_transloc` is translocation's energy, `int(len(aasequence)/10)` ATP per
-  ptsG inserted (`MinCell_CMEODE.py:1012-1013`), debited from ATP, products
-  pending 13.10 like GTP's.
+  ptsG inserted (`MinCell_CMEODE.py:1012-1013`), debited from ATP, with ADP
+  and phosphate credited like GTP's products.
 - The four carrier counters credit one new carrier each to the
   unphosphorylated state `PtsTransport` owns (spec §12, 2026-09-23 C). The
   three cytosolic carriers are credited as they are translated; ptsG as it is
@@ -384,6 +383,11 @@ function CoreATranslation(; genes = read_transcription_genes(),
         c.credits === nothing ||
             push!(default, DeferredCounterEdge(species = c.credits, direction = :out,
                                                counter = c.counter, clip = clip))
+        # The products, one each per unit the debit actually paid (task 13.10).
+        for p in c.produces
+            push!(default, DeferredCounterEdge(species = p, direction = :out,
+                                               counter = c.counter, clip = clip))
+        end
     end
 
     return CoreATranslation(
@@ -527,7 +531,7 @@ translation_rate_constants(m::CoreATranslation,
     counter_drains(m::CoreATranslation) -> Vector{NamedTuple}
 
 Each configured counter, the pool it debits and the pool it credits (either
-may be `nothing`), and what a debit produces but does not yet credit.
+may be `nothing`), and what a debit produces, credited one each per unit paid.
 """
 counter_drains(m::CoreATranslation) = copy(m.counters)
 

@@ -130,7 +130,8 @@ CurrencyEdge(; species=nothing, direction=nothing, peer=nothing, pool=nothing) =
 
 """
     DeferredCounterEdge(; species, direction, counter, peer=nothing,
-                          clip=:clamped_deficit_carried, smoothing=nothing)
+                          clip=:clamped_deficit_carried, smoothing=nothing,
+                          stoichiometry=1.0)
 
 The stochastic block accrues a cost in `counter`; the hook debits it against
 `species` one step later. This is the kind that carries the interface's
@@ -141,6 +142,15 @@ what a clamped policy costs a gradient-based sampler.
 exactly when `clip = :smoothed` — the parameter controlling the smoothing is
 exposed rather than hidden, so the deviation is fully specified where it is
 declared. The other policies take no smoothing and reject one.
+
+`stoichiometry` is how many particles of `species` one accrued unit credits,
+and is a property of the product side only (spec §11 task 13.10). A counter
+accrues in its consumer's units — one ATP, one GTP, one charged tRNA — so an
+inbound edge is one unit per unit by definition and refuses any other value.
+An outbound edge on a counter that also has a consumer is credited
+`stoichiometry` × what the consumer actually *paid*, so `ATP_trsc`, which
+turns one ATP into one ADP and one phosphate, is one consumer and two producers
+at stoichiometry 1.
 """
 struct DeferredCounterEdge <: CouplingEdge
     species::Symbol
@@ -149,11 +159,21 @@ struct DeferredCounterEdge <: CouplingEdge
     counter::Symbol
     clip::Symbol
     smoothing::Union{Float64, Nothing}
+    stoichiometry::Float64
 
-    function DeferredCounterEdge(species, direction, peer, counter, clip, smoothing)
+    function DeferredCounterEdge(species, direction, peer, counter, clip, smoothing,
+                                 stoichiometry = 1.0)
         _check_common(:DeferredCounterEdge, species, direction)
         _require(:DeferredCounterEdge, :counter, counter)
         _check_vocab(:DeferredCounterEdge, :clip, clip, CLIP_POLICIES)
+        (isfinite(stoichiometry) && stoichiometry > 0) || throw(ArgumentError(
+            "DeferredCounterEdge field `stoichiometry` must be positive and " *
+            "finite, got $stoichiometry"))
+        direction === :in && stoichiometry != 1 && throw(ArgumentError(
+            "DeferredCounterEdge on :$species is inbound with stoichiometry " *
+            "$stoichiometry. A counter accrues in its consumer's units, so a " *
+            "debit is one unit per accrued unit by definition; scale the " *
+            "accrual in the reaction that fills the counter instead"))
         if clip === :smoothed
             smoothing === nothing && throw(ArgumentError(
                 "DeferredCounterEdge with clip = :smoothed requires the field " *
@@ -161,19 +181,22 @@ struct DeferredCounterEdge <: CouplingEdge
                 "part of the deviation, not an implementation detail"))
             smoothing > 0 || throw(ArgumentError(
                 "DeferredCounterEdge field `smoothing` must be positive, got $smoothing"))
-            return new(species, direction, peer, counter, clip, Float64(smoothing))
+            return new(species, direction, peer, counter, clip, Float64(smoothing),
+                       Float64(stoichiometry))
         end
         smoothing === nothing || throw(ArgumentError(
             "DeferredCounterEdge with clip = :$clip takes no `smoothing`; " *
             "carrying one would imply an approximation it does not make"))
-        return new(species, direction, peer, counter, clip, nothing)
+        return new(species, direction, peer, counter, clip, nothing,
+                   Float64(stoichiometry))
     end
 end
 
 DeferredCounterEdge(; species=nothing, direction=nothing, peer=nothing,
                     counter=nothing, clip=:clamped_deficit_carried,
-                    smoothing=nothing) =
-    DeferredCounterEdge(species, direction, peer, counter, clip, smoothing)
+                    smoothing=nothing, stoichiometry=1.0) =
+    DeferredCounterEdge(species, direction, peer, counter, clip, smoothing,
+                        stoichiometry)
 
 """
     CatalyticEdge(; species, direction, param_slot, peer=nothing)

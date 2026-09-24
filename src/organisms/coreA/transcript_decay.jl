@@ -47,15 +47,13 @@ The five decay counters, the registry pool each one touches, and the
 direction.
 
 `ATP_mRNAdeg` is the decay energy, one ATP per nucleotide, debited from ATP. Its
-products, ADP and phosphate, are recorded in `produces` but not yet credited:
-one accrual cannot credit two products until task 13.10 gives the counter
-per-product stoichiometry (§12, 2026-09-23 B).
+products, ADP and phosphate, are credited one each per ATP actually paid (spec
+§11 task 13.10).
 
 The four NMP counters are productions, with no consumer. AMP and GMP credit the
 pools nucleotide recycling owns. CMP and UMP credit the CTP and UTP chemostats,
-because the registry has no CMP or UMP species. A hybrid composition cannot
-build with those two until task 13.9 gives a chemostatted pool an ownerless
-path (§12, 2026-09-10 E).
+because the registry has no CMP or UMP species; the chemostat absorbs them with
+no owner behind it (task 13.9), and `chemostat_census` counts what it took.
 """
 const DECAY_COUNTERS = (
     (counter = :ATP_mRNAdeg, species = :M_atp_c, direction = :in,
@@ -130,10 +128,15 @@ function CoreATranscriptDecay(; genes = read_transcription_genes(),
                                      :CoreATranscriptDecay, :initial_condition))
     end
 
-    default = CouplingEdge[
-        DeferredCounterEdge(species = c.species, direction = c.direction,
-                            counter = c.counter, clip = clip)
-        for c in counters]
+    default = CouplingEdge[]
+    for c in counters
+        push!(default, DeferredCounterEdge(species = c.species, direction = c.direction,
+                                           counter = c.counter, clip = clip))
+        for p in c.produces
+            push!(default, DeferredCounterEdge(species = p, direction = :out,
+                                               counter = c.counter, clip = clip))
+        end
+    end
 
     names = [transcript_state(g.locus) for g in genes]
     return CoreATranscriptDecay(

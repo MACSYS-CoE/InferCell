@@ -94,6 +94,8 @@ using Aqua
     include("test_catalytic_slots.jl")
     # Phase 11 reuses phase 8's `HeldGlycolytic`, so it comes after it.
     include("test_corea_translation.jl")
+    # The framework fixes assembly needs (spec phase 13a), on the hybrid doubles.
+    include("test_chemostat_and_products.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

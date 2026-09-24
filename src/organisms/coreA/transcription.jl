@@ -424,6 +424,11 @@ function CoreATranscription(; genes = read_transcription_genes(),
     for c in counters
         push!(default, DeferredCounterEdge(species = c.species, direction = :in,
                                            counter = c.counter, clip = clip))
+        # The products, one each per unit the debit actually paid (task 13.10).
+        for p in c.produces
+            push!(default, DeferredCounterEdge(species = p, direction = :out,
+                                               counter = c.counter, clip = clip))
+        end
     end
     # CTP and UTP only. ATP and GTP are live pools the recycling module owns,
     # and clamping them would be a claim this module has no right to make.
@@ -673,7 +678,8 @@ turnover_headroom(m::CoreATranscription) =
     counter_drains(m) -> Vector{NamedTuple}
 
 Each configured cost counter, the registry species it debits, and what that
-drain produces. By default all five: `ATP_trsc` yields ADP and phosphate; the
+drain produces, which the hook credits one each per unit paid (spec §11 task
+13.10). By default all five: `ATP_trsc` yields ADP and phosphate; the
 four monomer counters yield pyrophosphate — a source the project's earlier
 accounting attributed to amino-acid charging alone, and one phase 8's phosphate
 closure must see.

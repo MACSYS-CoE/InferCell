@@ -337,14 +337,23 @@ pool at zero and carries the shortfall to the next handshake.
 `deficit` is the carried shortfall, in particles, and is the interface's
 `max(0, ·)` in its stateful form — the quantity check 7's census counts and the
 one [`obstructs_gradients`](@ref) is about.
+
+`pool_idx` is `0` for a **registry chemostat**, which no module may integrate
+and so has no slot (spec §11 task 13.9). A chemostat holds its concentration
+whatever is taken from it or returned to it, so it pays a debit in full, never
+clips, and is never written; `exchanged` is the running total of particles that
+crossed into or out of it, which is what a moiety closure has to account for.
+`stoich` is the edge's `stoichiometry`, read on the product side only.
 """
 mutable struct DeferredDebit
     counter_idx::Int      # the accrual counter's slot in the jump state vector
-    pool_idx::Int         # the debited pool's slot in the ODE state vector
+    pool_idx::Int         # the debited pool's slot in the ODE state vector; 0 for a chemostat
     sign::Int             # -1 where the module consumes the pool, +1 where it produces
+    stoich::Float64       # particles credited per unit paid; 1 on a consumer
     clip::Symbol
     smoothing::Union{Float64, Nothing}
     deficit::Float64
+    exchanged::Float64    # particles a chemostat has absorbed or supplied; 0 otherwise
     species::Symbol
     counter::Symbol
     declared_by::Symbol
@@ -377,12 +386,17 @@ accidental continuous one.
 The record is per module rather than per edge: one pool feeds many constants —
 the nucleotide pools set all seventeen transcription rate constants — so the
 edges name the inputs and the module names the outputs.
+
+A pool that is a registry chemostat has `pool_idxs` entry `0` and is read from
+`pool_held` instead, the value the composition clamps it at (spec §11 task
+13.9). Transcription's CTP and UTP are the case.
 """
 mutable struct RateConstantRebuild
     model::AbstractSubModel
     p_idxs::Vector{Int}       # global jump-parameter slots of the module's own free params
     fill_idxs::Vector{Int}    # the slots the rebuild fills, in rebuilt_params order
-    pool_idxs::Vector{Int}    # global ODE state indices of the pools, in edge order
+    pool_idxs::Vector{Int}    # global ODE state indices of the pools, in edge order; 0 for a chemostat
+    pool_held::Vector{Float64} # a chemostat's held value in mM; NaN for a live pool
     steps::Int                # handshakes between refreshes
     interval::Float64
     names::Vector{Symbol}     # rebuilt_params(m), for reports and refusals
@@ -508,6 +522,21 @@ clipping_census(d::HandshakeDriver) = (handshakes = d.n_handshakes,
                                                   for c in d.counters])
 
 """
+    chemostat_census(driver) -> Vector{NamedTuple}
+
+What every deferred channel on a registry chemostat has moved: one row per
+channel, with the chemostat, the counter, `sign` (-1 where the chemostat
+supplied the particles, +1 where it absorbed them) and the running total in
+particles. A chemostat is an open boundary, so a moiety that passes through
+one does not close on the integrated pools alone, and this is the term that
+closes it.
+"""
+chemostat_census(d::HandshakeDriver) =
+    [(species = b.species, counter = b.counter, sign = b.sign,
+      particles = b.exchanged, declared_by = b.declared_by)
+     for b in d.debits if b.pool_idx == 0]
+
+"""
     rebuild_census(driver) -> Vector{NamedTuple}
 
 How many times each rate-constant rebuild has fired, and on what schedule. One
@@ -584,7 +613,7 @@ driver_written_params(d::HandshakeDriver) = vcat(
      for r in d.rebuilds for s in r.names])
 
 export CatalyticExchange, GeometryExchange, DeferredDebit, RateConstantRebuild,
-       GrowthChain, HandshakeDriver, clipping_census, rebuild_census,
+       GrowthChain, HandshakeDriver, clipping_census, rebuild_census, chemostat_census,
        growth_census, driver_written_params, radius_from_volume_nm
 
 # ---------------------------------------------------------------------------
@@ -629,6 +658,30 @@ end
 # first-seen-by-name dedup; a third implementation of that rule here would be one
 # more thing to keep in step, and the failure if it drifted would be a silent
 # write to the wrong rate-law slot.
+
+# A registry chemostat is held rather than integrated, and the resolver refuses
+# any module that would integrate one. So an edge naming it has no owner by
+# construction, and that is the one case in which "no ODE module integrates this
+# pool" is not a missing module (spec §12, 2026-09-10 E).
+_ownerless_chemostat(s::Symbol) = is_registered(s) && is_chemostatted(s)
+
+# The value a chemostat is held at: the composition's clamp on it, which the
+# resolver has already checked against the registry and against every other
+# clamp on the same species, or else the registry's own value.
+function _chemostat_value(models, s::Symbol, id::Symbol)
+    for m in models, e in coupling(m)
+        e isa ClampedEdge && e.species === s && e.held_value !== nothing &&
+            return e.held_value
+    end
+    v = held_value(s)
+    v === nothing && throw(ArgumentError(
+        "Module $id rebuilds its rate constants from the chemostat :$s, but " *
+        "nothing gives it a value: no module in this composition clamps it with " *
+        "a held_value, and the registry imports none. A rebuild reads the " *
+        "concentration the pool is held at; declare a ClampedEdge with that " *
+        "value"))
+    return v
+end
 
 # Lower every edge that crosses the formalism boundary into an executable
 # record, with every index resolved at build time. An edge whose two ends are in
@@ -792,6 +845,8 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
                 "hook clears every handshake, not a modelled pool; clearing a " *
                 "registry species would destroy it once per second"))
             pool_idx = _block_state_index(ode_models, e.species)
+            # A chemostat takes the debit or the credit with no owner behind it.
+            pool_idx === nothing && _ownerless_chemostat(e.species) && (pool_idx = 0)
             pool_idx === nothing && throw(ArgumentError(
                 "Module $id declares a DeferredCounterEdge debiting " *
                 ":$(e.species), but no ODE module in this composition " *
@@ -802,8 +857,9 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             key in seen && continue
             push!(seen, key)
             push!(debits, DeferredDebit(counter_idx,
-                                        pool_idx, mass_contribution(e), e.clip,
-                                        e.smoothing, 0.0, e.species, e.counter, id))
+                                        pool_idx, mass_contribution(e),
+                                        e.stoichiometry, e.clip,
+                                        e.smoothing, 0.0, 0.0, e.species, e.counter, id))
         end
     end
 
@@ -849,17 +905,21 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             "declared only from here it would never write anything"))
     end
 
-    # One accrual can be split among several consumers — they share what the
-    # counter holds — but two producers would each be credited the whole of it,
-    # which creates matter. Spec §3's only shape is one of each; refuse the rest
-    # rather than leave a silent doubling for a later phase to meet.
+    # Several producers on a counter with a consumer are a reaction: ATP → ADP +
+    # Pi credits both products from what the ATP actually paid, each scaled by
+    # its stoichiometry (spec §11 task 13.10). Without a consumer there is no
+    # payment to scale from, so each producer would be credited the raw
+    # accrual; one such producer is a pure production, two are one event
+    # counted twice. Refuse that shape rather than guess which was meant.
     for c in unique(b.counter for b in debits)
+        any(b -> b.counter === c && b.sign < 0, debits) && continue
         producers = [b for b in debits if b.counter === c && b.sign > 0]
         length(producers) <= 1 || throw(ArgumentError(
             "Counter :$c credits more than one pool — " *
-            "$(join((string(":", b.species) for b in producers), ", ")) — and each " *
-            "would receive the whole accrual, creating matter from one cost. " *
-            "Split the accrual across separate counters, one per credited pool"))
+            "$(join((string(":", b.species) for b in producers), ", ")) — and " *
+            "debits none, so there is no payment to scale the credits from and " *
+            "each would receive the whole accrual. Declare the consumer the " *
+            "event draws on, or split the accrual across separate counters"))
     end
 
     # Group the debits by counter, so the hook reads and clears each counter
@@ -883,6 +943,7 @@ end
 # counterpart is refused below, because that one *is* a channel declared and
 # never run.
 function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
+    models = vcat(ode_models, jump_models)
     rebuilds = RateConstantRebuild[]
 
     # A rebuilt slot must belong to exactly one jump module, for the reason a
@@ -1010,8 +1071,15 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
         steps = _handshake_steps(iv, interval, "Module $id's rate-constant interval")
 
         pool_idxs = Int[]
+        pool_held = Float64[]
         for e in edges
             k = _block_state_index(ode_models, e.species)
+            # A chemostat has no slot; the rebuild reads its held value.
+            if k === nothing && _ownerless_chemostat(e.species)
+                push!(pool_idxs, 0)
+                push!(pool_held, _chemostat_value(models, e.species, id))
+                continue
+            end
             k === nothing && throw(ArgumentError(
                 "Module $id declares an inbound RateConstantEdge on " *
                 ":$(e.species), but no ODE module in this composition integrates " *
@@ -1019,10 +1087,11 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
                 "metabolic block; compose the module that owns :$(e.species), or " *
                 "drop the edge"))
             push!(pool_idxs, k)
+            push!(pool_held, NaN)
         end
 
         push!(rebuilds, RateConstantRebuild(m, collect(Int, ctx.param_idxs), fill_idxs,
-                                            pool_idxs, steps, Float64(iv), collect(names),
+                                            pool_idxs, pool_held, steps, Float64(iv), collect(names),
                                             [e.species for e in edges], id, 0))
     end
 
@@ -1555,6 +1624,13 @@ function handshake_step!(d::HandshakeDriver)
                 b = d.debits[k]
                 b.sign < 0 || continue
                 consumers = true
+                if b.pool_idx == 0
+                    # A chemostat holds whatever is taken, so it pays in full
+                    # and is not written. Nothing clips, nothing is carried.
+                    b.exchanged += accrued_now
+                    paid_total += accrued_now
+                    continue
+                end
                 accrued = accrued_now + b.deficit
                 pool = d.ode.u[b.pool_idx] * d.factor     # the pool, in particles
 
@@ -1580,14 +1656,20 @@ function handshake_step!(d::HandshakeDriver)
             end
 
             # Then the producers, crediting what was taken rather than what was
-            # asked for. With no consumer on this counter there is nothing to match,
-            # and the accrual is a pure production.
+            # asked for, scaled by each product's stoichiometry. With no consumer
+            # on this counter there is nothing to match, and the accrual is a
+            # pure production.
             credit = consumers ? paid_total : accrued_now
             for k in g.debit_idxs
                 b = d.debits[k]
                 b.sign > 0 || continue
                 b.deficit = 0.0
-                _write_pool!(d, b.pool_idx, d.ode.u[b.pool_idx] * d.factor + credit)
+                amount = b.stoich * credit
+                if b.pool_idx == 0
+                    b.exchanged += amount                 # a chemostat absorbs it
+                else
+                    _write_pool!(d, b.pool_idx, d.ode.u[b.pool_idx] * d.factor + amount)
+                end
             end
         end
     end
@@ -1602,7 +1684,7 @@ function handshake_step!(d::HandshakeDriver)
     rebuilt = false
     for r in d.rebuilds
         step % r.steps == 0 || continue
-        pools = _fvec([d.ode.u[k] for k in r.pool_idxs])
+        pools = _fvec(_rebuild_pools(d, r))
         vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model, pools)
         length(vals) == length(r.fill_idxs) || error(
             "rate_constants() for $(r.declared_by) returned $(length(vals)) " *
@@ -1635,6 +1717,11 @@ function handshake_step!(d::HandshakeDriver)
     clipped && (d.n_clipped += 1)
     return d
 end
+
+# The pools a rebuild reads, in edge order: a live ODE state, or a chemostat's
+# held value.
+_rebuild_pools(d::HandshakeDriver, r::RateConstantRebuild) =
+    [k == 0 ? r.pool_held[j] : d.ode.u[k] for (j, k) in enumerate(r.pool_idxs)]
 
 # A shortfall this far below the cost is the smoothing's own residue rather
 # than a pool that ran dry. Loose enough to stay right at a smoothing width
@@ -1757,7 +1844,7 @@ the pool concentration travels with the number.
 function rate_constant_elasticity(d::HandshakeDriver; rel = 1e-4)
     rows = NamedTuple[]
     for r in d.rebuilds
-        pools = [d.ode.u[k] for k in r.pool_idxs]
+        pools = _rebuild_pools(d, r)
         p_local = collect(Float64, view(d.jump.p, r.p_idxs))
         k_at(v) = rate_constants(p_local, d.ode.t, r.model, _fvec(v))
         base = collect(Float64, k_at(pools))
