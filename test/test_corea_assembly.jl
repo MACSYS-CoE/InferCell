@@ -49,6 +49,52 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
               IncompleteComposition
     end
 
+    @testset "13.2 every declared edge of the assembly is executed" begin
+        ms = corea_models()
+        d = build_corea(tspan = (0.0, 60.0))   # builds, so the assertion held
+        @test isempty(unexecuted_edges(ms, d))
+
+        graph = resolve_coupling(ms)
+        kinds = Dict(k => count(r -> r.kind === k, graph.edges)
+                     for k in unique(r.kind for r in graph.edges))
+        @test kinds == Dict(:mass => 17, :currency => 16, :deferred_counter => 30,
+                            :catalytic => 15, :rate_constant => 5, :volume => 3,
+                            :clamped => 3)
+        @test length(d.debits) == 30 && length(d.catalytic) == 15
+        @test length(d.rebuilds) == 2 && length(d.growth) == 2
+        @test length(d.geometry) == 1
+
+        # Task 13.10's last clause: every product edge the four product-bearing
+        # counters declare is credited by the driver.
+        for c in (:ATP_trsc, :ATP_mRNAdeg, :GTP_translat, :ATP_transloc)
+            declared = Set(e.species for m in ms for e in coupling(m)
+                           if e isa DeferredCounterEdge && e.counter === c &&
+                              e.direction === :out)
+            credited = Set(b.species for b in d.debits if b.counter === c && b.sign > 0)
+            @test !isempty(declared)
+            @test declared == credited
+        end
+    end
+
+    @testset "13.2 an inert edge fails the build, naming it" begin
+        # A jump module declaring an outbound currency edge on a peer's pool
+        # with no written_states entry: it resolves, and before task 13.2 it
+        # built and never ran.
+        inert = ToyExpression(edges = CouplingEdge[
+            DeferredCounterEdge(species = :M_atp_c, direction = :in, counter = :atp_cost),
+            CurrencyEdge(species = :M_adp_c, direction = :out)])
+        @test resolve_coupling(AbstractSubModel[ToyPool(), inert]) isa CouplingGraph
+        err = caught(() -> build_problem(AbstractSubModel[ToyPool(), inert];
+                                         tspan = (0.0, 10.0)))
+        @test err isa ArgumentError
+        @test occursin("nothing in this composition executes", err.msg)
+        @test occursin("currency on :M_adp_c (out) declared by ToyExpression", err.msg)
+
+        # The same pair without the extra edge builds, and every edge runs.
+        ok = AbstractSubModel[ToyPool(), ToyExpression()]
+        @test isempty(unexecuted_edges(ok, build_problem(ok; tspan = (0.0, 10.0))))
+    end
+
     @testset "13.1 a protein consumed with no producer is still a dead end" begin
         # The accumulating class is the produced-with-no-consumer half only.
         drawer = CoreAStub(:Drawer; ins = [:M_ptsg_c], contribs = [:M_ptsg_c],
