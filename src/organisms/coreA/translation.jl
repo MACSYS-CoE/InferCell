@@ -525,6 +525,83 @@ may be `nothing`), and what a debit produces but does not yet credit.
 """
 counter_drains(m::CoreATranslation) = copy(m.counters)
 
+"""
+    proteins_made(m, u0, u) -> Vector{Int}
+
+Each gene's proteins translated between two states of this module's own slice:
+the rise in its `P_<locus>` count, plus, for ptsG, the rise in the cytosolic
+count, since a translated ptsG is cytosolic until it is translocated.
+
+**Jump-only runs.** Nothing lowers a protein count but translocation, which
+moves ptsG from one of its two states to the other, so this is exact there. In
+a hybrid run it is too, since the hook reads and clears the counters but never
+the protein counts.
+"""
+function proteins_made(m::CoreATranslation, u0, u)
+    n = length(m.genes)
+    made = [Int(u[i] - u0[i]) for i in 1:n]
+    iptsg = findfirst(g -> g.locus === TL_PTSG, m.genes)
+    made[iptsg] += Int(u[n + 1] - u0[n + 1])
+    return made
+end
+
+"""
+    residue_energy_closure(m, made, gtp; residues) -> Int
+
+Task 11.8's residual: the GTP counter's accrual less twice the residues
+translated,
+
+```
+GTP_translat − 2 · Σ_g made_g · r_g
+```
+
+where `r_g` comes from the **extract**, not from the module, so a module that
+charges the wrong residue count cannot close its own check. Every term is an
+integer, so a closed module gives exactly zero. `made` is
+[`proteins_made`](@ref) over the same interval `gtp` accrued over; in a
+jump-only run that is the whole run, since nothing clears the counter.
+"""
+function residue_energy_closure(m::CoreATranslation, made, gtp;
+                                residues = read_translation_residues())
+    ref = [residues[g.locus] for g in m.genes]
+    return Int(gtp) - 2 * sum(made[i] * ref[i] for i in eachindex(ref))
+end
+
+"""
+    assert_residue_energy_closure(m, made, gtp; residues) -> Int
+
+Throw if [`residue_energy_closure`](@ref) is not exactly zero, naming every
+gene whose single firing charges other than twice its extract residue count,
+or return the zero residual. The counter holds one aggregate, so the gene is
+found by firing each reaction once on an empty state rather than inferred from
+the sum.
+"""
+function assert_residue_energy_closure(m::CoreATranslation, made, gtp;
+                                       residues = read_translation_residues())
+    r = residue_energy_closure(m, made, gtp; residues = residues)
+    r == 0 && return r
+    k = findfirst(c -> c.counter === :GTP_translat, m.counters)
+    k === nothing && throw(ArgumentError(
+        "This CoreATranslation carries no GTP_translat counter, so there is " *
+        "no energy accrual to close against"))
+    idx = length(m.genes) + 1 + k
+    bad = String[]
+    for (i, g) in enumerate(m.genes)
+        u = zeros(Int, length(states(m)))
+        reactions(m)[i].affect!(u, zeros(Int, length(m.genes)))
+        u[idx] == 2 * residues[g.locus] ||
+            push!(bad, "$(g.locus) ($(g.reaction)): $(u[idx]) GTP per protein " *
+                       "against 2 × $(residues[g.locus])")
+    end
+    throw(ErrorException(
+        "Residue-to-energy closure fails by $r GTP: the counter does not equal " *
+        "twice the residues translated. " *
+        (isempty(bad) ? "Every gene's single firing charges twice its residues, " *
+                        "so the proteins-made tally disagrees with the run" :
+                        "Genes charging the wrong amount: " * join(bad, "; "))))
+end
+
+export proteins_made, residue_energy_closure, assert_residue_energy_closure
 export CoreATranslation, TRANSLATION_COUNTERS, TL_PTSG, TL_PTSG_CYTO, TRANSLOC_KCAT
 export protein_state, translation_rate_param, translation_genes, residue_counts,
        translation_rate_constants

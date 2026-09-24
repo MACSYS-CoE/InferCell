@@ -351,4 +351,44 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         @info "11.7 census at a 0.01 mM pool" cs.clipped cs.drains
         @test cs.clipped > 0
     end
+
+    @testset "11.8 residue-to-energy closure, and the done-when's full cycle" begin
+        cycle = 6300.0
+        ms = AbstractSubModel[CoreATranscription(seed = 1108), CoreATranscriptDecay(), tl]
+        Random.seed!(1108)
+        sol = solve(build_problem(ms; tspan = (0.0, cycle)), SSAStepper(); saveat = 60.0)
+        off = sum(length(states(m)) for m in ms[1:2])
+        sl(u) = u[off .+ (1:n_state)]
+        u0 = sl(sol.u[1])
+        for u in sol.u
+            v = sl(u)
+            # Seventeen protein counts, non-negative integers, at every write.
+            @test all(x -> x >= 0 && isinteger(x), v[1:cyto])
+            made = proteins_made(tl, u0, v)
+            @test assert_residue_energy_closure(tl, made, v[ix(:GTP_translat)] - u0[ix(:GTP_translat)]) == 0
+            @test v[ix(:tRNA_translat)] - u0[ix(:tRNA_translat)] == sum(made .* res)
+        end
+        made = proteins_made(tl, u0, sl(sol.u[end]))
+        @info "11.8 proteins made over one cycle" total=sum(made) residues=sum(made .* res)
+        @test all(>(0), made)
+
+        # The mutation: GAPD charged for half its residues. The closure fails
+        # and names GAPD, and only GAPD.
+        igapd = findfirst(g -> g.locus === :JCVISYN3A_0607, genes)
+        bad = copy(res); bad[igapd] ÷= 2
+        tlm = CoreATranslation(residues = bad)
+        ms2 = AbstractSubModel[CoreATranscription(seed = 1108), CoreATranscriptDecay(), tlm]
+        Random.seed!(1108)
+        sol2 = solve(build_problem(ms2; tspan = (0.0, 600.0)), SSAStepper(); saveat = 600.0)
+        v0, v1 = sl(sol2.u[1]), sl(sol2.u[end])
+        made2 = proteins_made(tlm, v0, v1)
+        @test made2[igapd] > 0
+        r = residue_energy_closure(tlm, made2, v1[ix(:GTP_translat)] - v0[ix(:GTP_translat)])
+        @test r == -2 * made2[igapd] * (res[igapd] - bad[igapd])
+        err = caught(() -> assert_residue_energy_closure(tlm, made2,
+                                                          v1[ix(:GTP_translat)] - v0[ix(:GTP_translat)]))
+        msg = sprint(showerror, err)
+        @test occursin("JCVISYN3A_0607 (GAPD)", msg)
+        @test count("JCVISYN3A_", msg) == 1
+    end
 end
