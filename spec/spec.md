@@ -1553,13 +1553,15 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   first pass suggests it may fall well short, which would indicate the lumped
   charging step throttling translation. Settled in phase 11, and far cheaper to
   diagnose there than to explain at the end.~~ — **measured 2026-09-24 by task
-  11.10: no, and not because of charging.** The jump-only median is **1.691**,
-  1.604 to 1.822. A 5% lower charged pool moves each constant 0.48%, so
-  charging does not throttle it. The ribosome constant is the published 12.
-  The shortfall needs 1.53× more translation output. Missing replication is
-  the untested leading candidate: a 1.5× mean gene dosage would give 2.04.
-  Open for phase 14's F5, with §3's [1.7, 2.3] unchanged (amendment
-  2026-09-24 F).
+  11.10: no, and whether charging is the cause depends on the composition.**
+  - With the constants held at the nominal pool (jump-only) the median is
+    **1.691**. Charging cannot be the cause there. The ribosome constant is
+    the published 12. Missing replication is the untested leading candidate.
+  - In the full seven-module hybrid the median is **1.497**. There the charged
+    pool empties at rebuild instants and the constants fall about 20×, so
+    charging plausibly contributes. How much is not measured.
+  - Open for phase 14's F5, with §3's [1.7, 2.3] unchanged (amendment
+    2026-09-24 F).
 - **Does the lumped charging step's stoichiometry change the answer?** The
   published AMP-and-pyrophosphate form puts 553 events per second through the
   adenylate kinase; a two-ATP-to-two-ADP form puts zero. That changes how much
@@ -3237,8 +3239,9 @@ through executed catalytic edges rather than nominal stand-ins.
   witness rather than a claim.
   **Done, with one correction (amendment 2026-09-24 D):** composed with
   phase 9's modules and live transcripts, the split is a stochastic steady
-  state. Its 300 s means run 0.71 to 0.90 over a cycle with no trend, and the
-  test asserts each within (0.6, 0.95). tRNA plus carries equals 0.25 mM to
+  state. The test asserts each 300 s mean over 1,200 s within (0.6, 0.95).
+  An ad hoc full-cycle run on the login node, recorded in no artefact, put
+  the 300 s means at 0.71 to 0.90 with no trend. tRNA plus carries equals 0.25 mM to
   1e-9. **With no transfer at all the pool collapses**, fully charged with
   uncharged tRNA at 2e-156 mM. **Removing only the debit does not collapse**:
   the credit then creates tRNA, 276,128 particles in 600 s. Both are pinned.
@@ -3300,20 +3303,29 @@ through executed catalytic edges rather than nominal stand-ins.
   riboKcat 12 and riboKd 1e-3, the restart law (11.3). **Elasticity
   0.0909 to 0.0911**, about 1.9× transcription's 0.044 to 0.051. So the
   reverse channel is **stronger** than predicted, and R1 does not fire.
-  **Fold change**, jump-only over eight seeds: median **1.691**, 1.604 to
-  1.822, none below 1.5, log-log slope against length −0.012. The median is
-  just short of §3's 1.7. It is **not the charging step**: a 5% lower charged
-  pool moves each constant 0.48%. It is **not the ribosome constant**
-  either, which is the published 12. Closing it needs 1.53× more translation
-  output, which would take riboKcat ≈ 18.4. The leading candidate, **untested**,
-  is that Core A′ cuts replication, so no gene's dosage rises over the cycle;
-  a 1.5× mean dosage would give 2.04. Carried to phase 14's F5 comparison with
-  §3's bound unchanged.
+  **Fold change, two numbers, and they differ.**
+  - **Jump-only**, eight seeds, constants held at the nominal pool: median
+    **1.691**, 1.604 to 1.822, none below 1.5, log-log slope against length
+    −0.012. Here it is neither candidate. The pool is nominal by construction,
+    and the ribosome constant is the published 12. Reaching 2 needs 1.45× more
+    translation output (riboKcat ≈ 17.4). The **untested** leading candidate
+    is that Core A′ cuts replication, so gene dosage never rises; a 1.5× mean
+    dosage gives 2.04.
+  - **Full seven-module hybrid**, one seed: median **1.497**, minimum
+    **1.232**. That fails §3's median and its no-gene-below-1.5 rule. Here
+    charging plausibly does throttle translation. The charged pool reads
+    0.0000 mM at rebuild instants, and at an empty pool the floored law puts
+    every constant about 20× below nominal for the next 60 s.
+  - **How much of the drop from 1.691 to 1.497 is that is not measured.** It
+    needs a hybrid rerun with the constants frozen at 0.2 mM, or with a 6 s
+    rebuild.
+  - Carried to phase 14's F5, with §3's bound unchanged.
 - [x] 11.11 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing and
   by the handoff recording that the metabolic modules' nominal enzyme
   concentrations are now superseded by live counts.
   **Done:** job **17131233** at `9cd7b66`, **27,305 passed, 0 failed, 0
-  broken**, 9m40.8s, against 2,985 before (job 17127107). `docs/handoff.md`
+  broken**, 9m40.8s, against 2,987 on the merged phase 11a tree (job
+  17127716). `docs/handoff.md`
   records the supersession.
 
 ### Phase 12 — Transcript decay
@@ -3738,7 +3750,8 @@ gains only `!Residues`, counted by translating each transcript under table 4.
 removed, translation creates tRNA, 276,128 particles in 600 s. The collapse,
 a fully charged pool with no charging flux, needs the whole transfer removed.
 Both are pinned. The fix's criterion, a steady split, is a stochastic steady
-state: its 300 s means wander 0.71 to 0.90 with transcript noise.
+state: in an ad hoc full-cycle run its 300 s means wandered 0.71 to 0.90 with
+transcript noise, and the test asserts a band over 1,200 s.
 
 **E — early warnings from the first full seven-module cycle**, which is not the
 assembled model: it has none of 13.10's product credits and none of
@@ -3751,24 +3764,41 @@ transcription's costs.
   0.25 mM (task 11.7).
 - 17.9 s per cycle after an 80 s compile, 2.84 ms per handshake, against K1's
   roughly 10 s. This is R7's early warning, and 13.7 is annotated.
+- **The clip meets the rebuild.** In that run the charged pool reads 0.0000 mM
+  at rebuild instants. The 60 s rebuild then evaluates the translation law at
+  its one-particle floor, and every constant sits about 20× low until the
+  next rebuild. ATP alternates in step. That is R11's rebuild-cadence
+  concern made concrete: a pool the counter clips is read at the instant it
+  is pinned. The protein fold-change median falls to 1.497 (F).
 
 **F — task 11.10's diagnosis came back "neither".**
 - The elasticity is **0.091**, about 1.9× transcription's, so §9's first-pass
   prediction fails the other way. The reverse channel is stronger, and R1
   does not fire.
-- The jump-only fold-change median is **1.691** against §3's [1.7, 2.3].
-  The task named two causes to diagnose among. It is neither. The charged
-  pool's contribution is 0.48% per 5%, and the ribosome constant is the
-  published one.
-- The shortfall needs 1.53× more translation output. The untested leading
-  candidate is that Core A′ cuts replication, so gene dosage never rises; a
-  1.5× mean dosage gives 2.04.
-- §3's bound is **not relaxed**. The comparison belongs to phase 14's F5, and
-  this is recorded so that phase meets it expecting a narrow miss.
+- The fold change has two answers, depending on the composition.
+  - **Jump-only**, with the constants held at the nominal pool: median
+    **1.691** against §3's [1.7, 2.3]. There it is neither of the task's two
+    candidates. The pool is nominal by construction, and the ribosome
+    constant is the published 12. Reaching 2 needs 1.45× more translation
+    output (riboKcat ≈ 17.4). The untested leading candidate is that Core A′
+    cuts replication, so gene dosage never rises; a 1.5× mean dosage gives
+    2.04.
+  - **Full seven-module hybrid**: median **1.497**, minimum 1.232. There
+    charging plausibly contributes, through the clip at rebuild instants (E).
+- **The split between those two causes is not measured.** Measuring it needs
+  the hybrid rerun with the constants frozen at 0.2 mM, or a 6 s rebuild.
+- §3's bound is **not relaxed**. The comparison belongs to phase 14's F5. It
+  should expect a clear miss on the hybrid unless 13.10 and a fix for the
+  clip change the picture.
+- *Corrected before merge (/check-PR of #64):* an earlier version of this
+  entry said "not the charging step" on the strength of the jump-only runs,
+  which cannot test it. It also quoted 1.53× and riboKcat ≈ 18.4, which came
+  from an analytic median (1.653) built on the measured rather than the
+  simulated transcript means.
 
 **Sections touched:** header; §9 (the channel-strength, fold-change and
-pool-size entries); §11 (tasks 11.1 to 11.10 annotated in place; 9.8, 13.7,
-13.10 and 14.8 annotated); §12.
+pool-size entries); §11 (tasks 11.1 to 11.11 annotated in place and ticked;
+9.8, 13.7, 13.10 and 14.8 annotated); §12.
 
 ### 2026-09-23 — phase 11 cannot be built as written: catalytic edges, enzyme slots, ptsG, residues and degradation
 

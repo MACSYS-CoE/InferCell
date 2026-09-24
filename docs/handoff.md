@@ -8,7 +8,7 @@
 `CoreATranslation` (`src/organisms/coreA/translation.jl`) has 17 translation
 jumps at `k_tl_g · mRNA_g` and one ptsG translocation. It publishes the 17
 `P_<locus>` counts. Suite: Slurm job **17131233** at `9cd7b66`, **27,305
-passed, 0 failed, 0 broken**, 9m40.8s (2,985 before). Diagnostics: job
+passed, 0 failed, 0 broken**, 9m40.8s (2,987 on the merged 11a tree). Diagnostics: job
 **17131232**, `dev/scripts/translation_diagnostics_result.md`.
 
 - **The metabolic modules' nominal enzyme concentrations are superseded by
@@ -22,9 +22,13 @@ passed, 0 failed, 0 broken**, 9m40.8s (2,985 before). Diagnostics: job
   - The law is the restart law throughout: riboKcat 12, riboKd 1e-3.
 - **Results:**
   - The charged-pool elasticity is **0.091**, about 1.9× transcription's.
-  - The jump-only fold-change median is **1.691**, just under §3's 1.7. It
-    is neither the charging step nor the ribosome constant. Missing
-    replication is the untested candidate (§12 F).
+  - The fold-change median is **1.691** jump-only, with the constants held at
+    the nominal pool. There it is neither the charging step nor the ribosome
+    constant, and missing replication is the untested candidate.
+  - In the full hybrid the median is **1.497**. There the charged pool
+    empties at rebuild instants, the constants drop about 20×, and charging
+    plausibly contributes. The split is unmeasured; it needs a hybrid rerun
+    with the constants frozen or a 6 s rebuild (§12 E, F).
   - 0.25 mM clears check 7 (0 clips per cycle) as well as 1b.
 - **Early warnings from the first full seven-module cycle** (§12 E):
   - GTP sits at zero from 44 s until task 13.10 credits GDP.
