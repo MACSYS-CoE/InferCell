@@ -4,7 +4,7 @@
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
-fixes assembly needs, is next, then 13b, assembly
+fixes assembly needs, is done (#66), and 13b, assembly, is next
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-24
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3451,20 +3451,38 @@ real model rather than one with GTP starved from 44 s.
 CTP and UTP taking ownerless debits and credits; every deferred counter credits
 its products per unit actually paid; and a mixed composition either dispatches
 on the composition or throws a named error.
-**PR:** _not started_
+**PR:** #66 (merged 2026-09-24)
 
 Split out of phase 13 on 2026-09-24 (§12, same date). Framework files, so §10
 R15 puts them in their own pull request, as 5b, 10b and 11a were. The tasks are
 13.9, 13.10 and 13.3 as written in 13b's list, which keeps their ids and their
 annotations; they are ticked there.
 
-- [ ] 13a.1 = task 13.9, the ownerless path for chemostatted pools. Its
+- [x] 13a.1 = task 13.9, the ownerless path for chemostatted pools. Its
   two-module build carries phase 8's `HeldGlycolytic` double as a third module
   (§12, 2026-09-24 C).
-- [ ] 13a.2 = task 13.10, per-product stoichiometry on deferred counters. Its
+- [x] 13a.2 = task 13.10, per-product stoichiometry on deferred counters. Its
   last clause, task 13.2 seeing every product edge executed, is verified in 13b,
   where 13.2 is built.
-- [ ] 13a.3 = task 13.3, hybrid inference dispatch.
+- [x] 13a.3 = task 13.3, hybrid inference dispatch.
+
+**Done (#66):** Slurm job 17163832 at `20dce20`, **27,382/27,382**. The later
+commit `54f4b23` touched only prose; CI's unit tests passed on it.
+- 13.9: `NucleotideRecycling + HeldGlycolytic + CoreATranscription` builds. The
+  rebuild holds CTP at 0.6874 and UTP at 2.7681, and the 60 s refresh
+  reproduces `rate_constants` at those values to rtol 1e-14. Decay with all
+  five counters composes, and its chemostat census equals Σ fired × C and
+  Σ fired × U. Two pinned throws are replaced.
+- 13.10: on a toy with ATP clipping (100 paid of 250), ADP and Pi each rise by
+  100 and both moieties balance to 1e-6 particles. With transcription and
+  `ATP_trsc` forced to clip, adenylate stays within 2 particles. In decay's
+  executed-credit test, the adenylate change now equals the AMP returned.
+- 13.3: a hybrid is refused by name in either module order, and mixed
+  inference modes are refused.
+- /check-PR added two things (§12, 2026-09-24 E and F): products are refused
+  on a counter with two consumers, and inert clip fields are no longer
+  reported. A pool owner that mirrors a product credit as `:in` would still
+  be reported as clipping. No module does that; it is latent.
 
 ### Phase 13b — Assemble Core A′ and assert structural completeness
 
@@ -3488,7 +3506,7 @@ per-trajectory wall-clock is recorded.
   cross-checking the resolved graph against the driver's registered
   contributions, debits, rebuilds and volume reads, so a declared-but-inert edge
   fails the build rather than passing silently.
-- [ ] 13.3 (in 13a, as 13a.3) Fix inference dispatch for a hybrid composition — verify by a test that
+- [x] 13.3 (in 13a, as 13a.3; #66) Fix inference dispatch for a hybrid composition — verify by a test that
   a mixed composition either dispatches on the composition or throws a named
   error, since dispatch currently reads only the first module in the vector and
   would silently take whichever path that module declares.
@@ -3532,7 +3550,7 @@ per-trajectory wall-clock is recorded.
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
   record.
-- [ ] 13.9 (in 13a, as 13a.1) Give a chemostatted pool both an ownerless debit path and a rebuild
+- [x] 13.9 (in 13a, as 13a.1; #66) Give a chemostatted pool both an ownerless debit path and a rebuild
   that reads its held value (§12, 2026-09-10 E, widened by 2026-09-23 A) —
   verify by `build_problem([CoreATranscription(), NucleotideRecycling()])`
   building, by the transcription rebuild reading 0.6874 and 2.7681 mM for CTP
@@ -3544,7 +3562,7 @@ per-trajectory wall-clock is recorded.
   had one pinned build throw, not two; the `CtpOwner` refusal beside it is
   kept, as the reason the path must be ownerless. Two throws were replaced in
   all.)*
-- [ ] 13.10 (in 13a, as 13a.2) Give a deferred counter per-product stoichiometry and wire the five
+- [x] 13.10 (in 13a, as 13a.2; #66; its last clause, 13.2 seeing every product edge executed, is verified in 13b) Give a deferred counter per-product stoichiometry and wire the five
   transcription counters' products (§12, 2026-09-23 B) — verify by `ATP_trsc`
   crediting ADP and phosphate one each per ATP actually paid, by the adenylate
   and phosphate moieties balancing across a handshake on which ATP clips, and by
