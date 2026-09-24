@@ -161,11 +161,17 @@ end
 `∂ ln k / ∂ ln [M_trna_chg_c]`, analytically: the charged-pool terms' share of
 the denominator, with the fMet term counted twice because it is squared. This
 is the charged-tRNA reverse channel's gain (spec §9, R1, task 11.10).
+
+Below the one-particle floor of [`translation_rate_constant`](@ref) the
+constant no longer depends on the pool, so the elasticity there is zero. It is
+not a small-signal quantity near the floor: at 0.02 mM it is about 0.5, not
+the nominal pool's 0.09.
 """
 function translation_elasticity(n::Integer, residues::Integer, chg_mM::Real;
                                 ribo_conc::Real = RIBOSOME_COPIES /
                                                   corea_particles_per_mM())
     c = chg_mM / TL_AA_TYPES
+    c < 1 / corea_particles_per_mM() && return 0.0
     a = (1 + RIBO_K0 / ribo_conc) * RIBO_KD^2 / c^2
     b = residues * RIBO_KD / c
     return (2a + b) / (a + b + residues)

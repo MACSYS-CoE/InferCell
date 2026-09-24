@@ -1,17 +1,16 @@
 using Test
 using InferCell
 using Random
-using Statistics: mean, median
+using Statistics: mean
 
 import InferCell: states, parameters, reactions, inputs, written_states,
-                  coupling, rebuilt_params, reduction_notes, formalism
+                  coupling, rebuilt_params, formalism
 
 # Spec §11 phase 11 — translation: one reaction per transcript plus ptsG
 # translocation, with the rate constant read from the lumped charged-tRNA pool.
 #
-# `TranscriptSource` is in `corea_decay_doubles.jl`; `HeldGlycolytic` in
-# `nucleotide_test_models.jl`; `caught` in `corea_test_models.jl`. All are
-# included first by `runtests.jl`.
+# `HeldGlycolytic` is in `nucleotide_test_models.jl` and `caught` in
+# `corea_test_models.jl`, both included first by `runtests.jl`.
 
 # Transcripts that are born and die with no coupling: transcription and decay
 # with every counter and edge stripped, so a hybrid build can carry live
@@ -55,7 +54,7 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         @test RIBO_KCAT == 12 && RIBO_KD == 1e-3 && RIBO_K0 == 1e-4
 
         # The polysome: min(15, max(1, round(L/125 - 1))). ptsH (270 nt) has
-        # one ribosome; ptsG (2238 nt) sixteen, capped at fifteen.
+        # one ribosome; ptsG (2238 nt) seventeen, capped at fifteen.
         @test ribosomes_per_transcript(270) == 1
         @test ribosomes_per_transcript(1017) == 7
         @test ribosomes_per_transcript(2238) == 15
@@ -88,6 +87,9 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
                   log(translation_rate_constant(n, r, 0.2 * exp(-h)))) / 2h
             @test e ≈ fd rtol = 1e-6
         end
+        # Below the one-particle floor the constant no longer reads the pool.
+        @test translation_elasticity(g.length, res[g.locus], 0.0) == 0.0
+        @test translation_elasticity(g.length, res[g.locus], 10 / ppm) == 0.0
 
         # An exhausted pool is floored at one particle per share, as upstream
         # floors each pool with max(1, count), rather than dividing by zero.
@@ -300,11 +302,10 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         @info "11.6 steady tRNA split with translation consuming" first=frac[60] last=frac[end] mean_2nd_half=mean(frac[601:end]) min=minimum(frac[601:end]) max=maximum(frac[601:end])
         # A stochastic steady state, neither saturated nor empty. Translation's
         # demand follows the transcripts, 0 to 2 copies each, so the split
-        # wanders: over a whole cycle (seed 1106) its 300 s means run 0.71 to
-        # 0.90 with no trend, and a single ptsG firing debits 745 residues
-        # against a pool that relaxes in about 1.5 s. So each block's mean is
-        # asserted inside a band far from the collapse's 1.0, rather than two
-        # windows asserted equal.
+        # wanders: a single ptsG firing debits 745 residues against a pool
+        # that relaxes in about 1.5 s. So each 300 s block's mean over these
+        # 1,200 s is asserted inside a band far from the collapse's 1.0,
+        # rather than two windows asserted equal.
         blocks = [mean(frac[k:k+299]) for k in 1:300:1200]
         @test all(0.6 < b < 0.95 for b in blocks)
         @test all(0.1 < x < 0.9999 for x in frac)
