@@ -273,4 +273,64 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         handshake_step!(d)
         @test r.n_refreshes >= 1
     end
+
+    # Phase 9's composition with translation itself as the consumer: the
+    # recycling module, the glycolytic double, charging, live transcripts, and
+    # translation carrying only the tRNA transfer, so the pool's behaviour is
+    # the transfer's alone.
+    trna_only = [c for c in TRANSLATION_COUNTERS if c.counter === :tRNA_translat]
+    trna_models(tlx; charging = TrnaCharging()) = AbstractSubModel[
+        NucleotideRecycling(), HeldGlycolytic(), charging, birth_death()..., tlx]
+    function trna_run(tlx, n; seed = 1106, charging = TrnaCharging())
+        ms = trna_models(tlx; charging = charging)
+        d = build_problem(ms; tspan = (0.0, float(n)))
+        Random.seed!(seed)
+        rec = run_handshake!(d, n)
+        return ms, d, rec, _block_idx(ms, :M_trna_c, :ode), _block_idx(ms, :M_trna_chg_c, :ode)
+    end
+
+    @testset "11.6 the debit, and the collapse without it" begin
+        tl1 = CoreATranslation(counters = trna_only)
+        ms, d, rec, iu, ic = trna_run(tl1, 1200)
+        frac = [u[ic] / (u[iu] + u[ic]) for u in rec.ode]
+        # Particles, pool plus carried remainder: the transfer is exact, and
+        # nothing grows the cell here, so the factor is fixed.
+        ledger(u) = (u[iu] + u[ic]) * d.factor
+        rem = d.rounding.remainders
+        @info "11.6 steady tRNA split with translation consuming" first=frac[60] last=frac[end] mean_2nd_half=mean(frac[601:end]) min=minimum(frac[601:end]) max=maximum(frac[601:end])
+        # A stochastic steady state, neither saturated nor empty. Translation's
+        # demand follows the transcripts, 0 to 2 copies each, so the split
+        # wanders: over a whole cycle (seed 1106) its 300 s means run 0.71 to
+        # 0.90 with no trend, and a single ptsG firing debits 745 residues
+        # against a pool that relaxes in about 1.5 s. So each block's mean is
+        # asserted inside a band far from the collapse's 1.0, rather than two
+        # windows asserted equal.
+        blocks = [mean(frac[k:k+299]) for k in 1:300:1200]
+        @test all(0.6 < b < 0.95 for b in blocks)
+        @test all(0.1 < x < 0.9999 for x in frac)
+        # tRNA is conserved through the whole run: the pair plus its carries
+        # equals the initial pair.
+        pool0 = 0.25 * d.factor
+        @test ledger(d.ode.u) + rem[iu] + rem[ic] ≈ pool0 rtol = 1e-9
+
+        # The witness. With no transfer at all, nothing consumes charged tRNA:
+        # the pool charges completely and the charging flux collapses.
+        tl0 = CoreATranslation(counters = NamedTuple[])
+        _, d0, rec0, iu0, ic0 = trna_run(tl0, 600)
+        f0 = rec0.ode[end][ic0] / (rec0.ode[end][iu0] + rec0.ode[end][ic0])
+        @info "11.6 without the transfer" charged_fraction=f0 uncharged_mM=rec0.ode[end][iu0]
+        @test f0 > 0.999
+        @test rec0.ode[end][iu0] < 1e-3 * rec.ode[end][iu]
+
+        # The defect as first committed: the uncharged pool credited and the
+        # charged pool never debited. That does not collapse, it creates tRNA —
+        # every residue translated adds one uncharged tRNA from nothing.
+        tl2 = CoreATranslation(counters = trna_only,
+                               edges = filter(e -> !(e isa DeferredCounterEdge &&
+                                                     e.direction === :in), coupling(tl1)))
+        _, d2, rec2, iu2, ic2 = trna_run(tl2, 600)
+        grown = (rec2.ode[end][iu2] + rec2.ode[end][ic2]) * d2.factor - pool0
+        @info "11.6 credit without the debit" tRNA_created_particles=grown
+        @test grown > 50_000
+    end
 end
