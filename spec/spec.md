@@ -3598,7 +3598,7 @@ mutation test showing it can fail.
   **Annotated 2026-09-24 (phase 13a):** phosphate now also crosses the CTP and
   UTP chemostats. `CTP_mRNA` and `UTP_mRNA` are paid by the chemostat and credit
   PPi to a live pool, and `CMP_mRNAdeg` and `UMP_mRNAdeg` return one phosphate
-  each into it. The closure needs `chemostat_census`, each row weighted by what
+  each into the chemostat, not into any integrated pool. The closure needs `chemostat_census`, each row weighted by what
   its counter carries — three phosphates for a supplied NTP, one for a returned
   NMP — not by the species.
 - [ ] 14.7 Check 5, carrier conservation — verify by four independent bounds

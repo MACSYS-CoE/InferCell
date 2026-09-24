@@ -14,7 +14,7 @@ Owns the seventeen transcripts at a fixed initial count and has no reactions.
 nucleotide recycling closes, and the only proof of that is a hybrid build in
 which the hook executes decay's AMP and GMP credits. It was written when
 `CoreATranscription` could not be in that build (§12, 2026-09-10 E), and is kept
-since task 13.9 made it possible: it stands in as the transcripts' owner, so
+although task 13.9 has since made that possible: it stands in as the transcripts' owner, so
 decay has something to decrement and nothing else moves.
 """
 struct TranscriptSource <: AbstractSubModel
