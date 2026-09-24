@@ -212,7 +212,11 @@ end
         @test length(states(m3)) == 20
         @test states(m3)[18:20] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
         @test [c.counter for c in counter_drains(m3)] == [:ATP_trsc, :GTP_mRNA, :UTP_mRNA]
-        @test count(e -> e isa DeferredCounterEdge, coupling(m3)) == 3
+        # Three debits, and their products: ADP and Pi for ATP_trsc, PPi for
+        # the other two (task 13.10).
+        @test count(e -> e isa DeferredCounterEdge && e.direction === :in,
+                    coupling(m3)) == 3
+        @test count(e -> e isa DeferredCounterEdge, coupling(m3)) == 3 + 4
 
         g = genes[5]
         u = zeros(Int, 20)
@@ -303,9 +307,10 @@ end
         @test v4[2:end] ≈ v[2:end] rtol = 1e-12
     end
 
-    @testset "10.6 eleven edges, no inputs" begin
+    @testset "10.6 seventeen edges, no inputs" begin
+        # Eleven until task 13.10 added the six product credits.
         es = coupling(m)
-        @test length(es) == 11
+        @test length(es) == 17
         @test isempty(inputs(m))
 
         rc = filter(e -> edge_kind(e) === :rate_constant, es)
@@ -314,14 +319,18 @@ end
         @test all(e -> e.direction === :in, rc)
         @test all(e -> e.cadence === :piecewise_constant && e.interval == 60.0, rc)
 
-        dc = filter(e -> edge_kind(e) === :deferred_counter, es)
+        dcs = filter(e -> edge_kind(e) === :deferred_counter, es)
+        dc = filter(e -> e.direction === :in, dcs)
         @test length(dc) == 5
         @test [(e.counter, e.species) for e in dc] ==
               [(c.counter, c.species) for c in TRANSCRIPTION_COUNTERS]
-        @test all(e -> e.direction === :in, dc)
-        # All five take the published policy, so none is a labelled deviation.
-        @test all(e -> e.clip === :clamped_deficit_carried, dc)
-        @test !any(deviates_from_published, dc)
+        # The products, credited per unit paid (task 13.10).
+        @test Set((e.counter, e.species) for e in dcs if e.direction === :out) ==
+              Set((c.counter, p) for c in TRANSCRIPTION_COUNTERS for p in c.produces)
+        @test length(dcs) == 11
+        # All take the published policy, so none is a labelled deviation.
+        @test all(e -> e.clip === :clamped_deficit_carried, dcs)
+        @test !any(deviates_from_published, dcs)
 
         cl = filter(e -> edge_kind(e) === :clamped, es)
         @test length(cl) == 2
@@ -358,41 +367,84 @@ end
         @test count(x -> :M_ppi_c in x.produces, drains) == 4
     end
 
-    # The edges resolve standalone and cannot resolve composed, which is a
-    # framework gap rather than a declaration this module can correct. Pinned
-    # here so phase 13 meets a recorded failure instead of a surprise; see §12's
-    # 2026-09-10 phase 10 entry, amendment E.
-    @testset "10.6 the CTP/UTP declarations are unsatisfiable composed" begin
-        # Standalone the clamp stands in for the absent owner and the whole
-        # declaration resolves — this is what the 10.6 block above asserts.
+    # Until phase 13a these edges resolved standalone and could not build
+    # composed, and this block pinned the throw (§12, 2026-09-10 E). Task 13.9
+    # gave a chemostatted pool an ownerless path, so the block now asserts
+    # what replaced the throw.
+    @testset "13.9 the CTP/UTP declarations compose through the chemostats" begin
         @test resolve_coupling([CoreATranscription()]) !== nothing
 
-        # Composed with any ODE module, the deferred counters on CTP and UTP
-        # ask for an owner of pools nothing integrates.
-        err = caught(() -> build_problem([CoreATranscription(),
-                                          NucleotideRecycling()];
-                                         tspan = (0.0, 60.0)))
-        @test err isa ArgumentError
-        msg = sprint(showerror, err)
-        @test occursin("DeferredCounterEdge", msg)
-        @test occursin("M_ctp_c", msg) || occursin("M_utp_c", msg)
-
-        # And the reason no composition can satisfy it: the pool is un-ownable.
-        # The registry holds CTP at a fixed concentration, so the module that
-        # would satisfy the debit is itself refused. The debit therefore asks
-        # for something that cannot exist, rather than for a module phase 12
-        # will supply.
+        # The pool is still un-ownable, which is why the path has to be
+        # ownerless: the registry holds CTP at a fixed concentration, so a
+        # module that integrated it would be refused.
         owner = caught(() -> resolve_coupling(
             [m, CoreAStub(:CtpOwner; st = [:M_ctp_c], form = :ode)]))
         @test owner isa ArgumentError
         @test occursin("fixed concentration", sprint(showerror, owner))
 
-        # The clamps themselves are right — a clamp is what a chemostatted pool
-        # takes — and the module does not clamp ATP or GTP, which recycling owns.
+        # The clamps are what the rebuild reads, and ATP and GTP, which
+        # recycling owns, are not clamped.
         @test any(e -> e.species === :M_ctp_c && edge_kind(e) === :clamped,
                   coupling(m))
         @test !any(e -> e.species in (:M_atp_c, :M_gtp_c) &&
                        edge_kind(e) === :clamped, coupling(m))
+
+        # It builds with recycling. The glycolytic double stands in for the
+        # glycolysis recycling reads, which a two-module composition lacks.
+        tx = CoreATranscription()
+        d = build_problem(AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(), tx];
+                          tspan = (0.0, 120.0))
+        r = only(d.rebuilds)
+        held = Dict(s => v for (s, k, v) in zip(r.species, r.pool_idxs, r.pool_held)
+                    if k == 0)
+        @test held == Dict(:M_ctp_c => 0.6874, :M_utp_c => 2.7681)
+        chemo = Set((b.counter, b.species) for b in d.debits if b.pool_idx == 0)
+        @test chemo == Set([(:CTP_mRNA, :M_ctp_c), (:UTP_mRNA, :M_utp_c)])
+
+        # The refresh at 60 s filled every constant from live ATP and GTP and
+        # the held CTP and UTP.
+        Random.seed!(13)
+        rec = run_handshake!(d, 60)
+        pools = [k == 0 ? r.pool_held[j] : rec.ode[end][k]
+                 for (j, k) in enumerate(r.pool_idxs)]
+        want = rate_constants(rec.jump_p[end][r.p_idxs], 60.0, tx,
+                              SVector{4, Float64}(Tuple(pools)))
+        @test rec.jump_p[end][r.fill_idxs] ≈ collect(want) rtol = 1e-14
+        @test pools[2] == 0.6874 && pools[4] == 2.7681
+    end
+
+    # Task 13.10: each counter credits its products per unit its debit paid.
+    @testset "13.10 the five counters credit their products" begin
+        tx = CoreATranscription()
+        d = build_problem(AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(), tx];
+                          tspan = (0.0, 10.0))
+        wired = Set((b.counter, b.species, b.sign) for b in d.debits)
+        for c in counter_drains(tx)
+            @test (c.counter, c.species, -1) in wired
+            for p in c.produces
+                @test (c.counter, p, 1) in wired
+            end
+        end
+
+        # ATP_trsc balances adenylate across a handshake on which ATP clips.
+        # Recycling and the glycolytic double conserve adenylate, and an
+        # accrual larger than the whole moiety guarantees the clip, so every
+        # particle ATP pays must arrive in ADP.
+        odes = reduce(vcat, states.([NucleotideRecycling(), HeldGlycolytic()]))
+        oi(s) = findfirst(==(s), odes)
+        aden(u) = (u[oi(:M_atp_c)] + u[oi(:M_adp_c)] + u[oi(:M_amp_c)]) * d.factor
+        a0 = aden(d.ode.u)
+        trsc = only(b for b in d.debits if b.counter === :ATP_trsc && b.sign < 0)
+        d.jump.u[trsc.counter_idx] = 10^6
+        Random.seed!(14)
+        rec = run_handshake!(d, 1)
+        @test d.n_clipped == 1
+        @test d.ode.u[oi(:M_atp_c)] == 0.0
+        @test trsc.deficit > 0
+        # Transcription itself may fire in the jump step after the debit, and
+        # that accrual is not paid until the next hook, so the moiety moves by
+        # at most the carry. ATP_mRNA was zero at the hook.
+        @test abs(aden(d.ode.u) - a0) < 2.0
     end
 
     @testset "10.7 both promoter-proxy declarations" begin

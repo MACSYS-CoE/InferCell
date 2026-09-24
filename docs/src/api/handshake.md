@@ -62,6 +62,10 @@ A [`DeferredCounterEdge`](corea-interface.md) declares that the stochastic block
 
 One counter may feed several pools — the published charged-tRNA transfer debits the charged pool and credits the uncharged one from a single accrual. The counter is read and cleared once per handshake, so every pool it feeds sees the same accrued value, and a credit matches what the debited pool actually paid rather than what was asked of it.
 
+A counter with a consumer may credit several products, each at its edge's `stoichiometry` times what the consumer actually paid: `ATP_trsc` is one debit on ATP and two credits, on ADP and phosphate, so a clipped ATP mints neither. A counter with no consumer may credit only one pool, since with nothing paid each product would be credited the raw accrual.
+
+A **registry chemostat** — CTP, UTP, the amino-acid pool — cannot be integrated by any module, so an edge on one has no owner by construction. The hook treats it as the open boundary it is: a debit on a chemostat is paid in full and never clips, a credit into one is absorbed, and neither writes a state. `chemostat_census(driver)` reports what each such channel has moved, which is the term a moiety closure through a chemostat needs. A rebuild reading a chemostat reads the value the composition clamps it at, or the registry's own, and is refused if neither exists. A *dynamic* pool with no owner is still refused: that is a missing module, not a boundary.
+
 `clipping_census(driver)` reports how many handshakes ran, how many of them applied a debit, and at how many of *those* a counter carried a shortfall material against its cost. **The fraction is per drain, not per handshake** — only a drain can clip, so at a coarse `drain_interval` a per-handshake denominator would dilute it by exactly `steps_per_drain`. `pending` reports the accrual still sitting in the counters, which between drains belongs to no `deficit`. The comparison is relative rather than against zero: under `:smoothed` the softplus leaves a strictly positive residue at every step however deep the pool, so an absolute test would report every handshake as clipping. A non-zero count at published parameters means the non-smooth drain is in the operating regime.
 
 ## The 60 s rebuild
@@ -114,7 +118,7 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 
 ## What this layer does not yet do
 
-The clamped edge's held value still travels as a fixed parameter rather than being executed. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set is spec §11 task 13.3's.
+A clamped edge's held value otherwise travels as a fixed parameter; the one place the driver reads it is a rebuild whose pool is a registry chemostat. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set belongs to the inference phases 15 to 17 (spec §11 task 5b.10), not to task 13.3, which is hybrid dispatch.
 
 ## Reference
 

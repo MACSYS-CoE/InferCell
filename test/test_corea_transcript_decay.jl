@@ -107,10 +107,12 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
 
     @testset "12.4 two counters reach recycling, two are chemostat-exempt" begin
         edges = coupling(dec)
-        @test length(edges) == 5
+        @test length(edges) == 7
         @test all(e -> e isa DeferredCounterEdge, edges)
+        # ATP_mRNAdeg's products follow its debit (task 13.10).
         @test [(e.counter, e.species, e.direction) for e in edges] ==
-              [(:ATP_mRNAdeg, :M_atp_c, :in), (:AMP_mRNAdeg, :M_amp_c, :out),
+              [(:ATP_mRNAdeg, :M_atp_c, :in), (:ATP_mRNAdeg, :M_adp_c, :out),
+               (:ATP_mRNAdeg, :M_pi_c, :out), (:AMP_mRNAdeg, :M_amp_c, :out),
                (:GMP_mRNAdeg, :M_gmp_c, :out), (:CMP_mRNAdeg, :M_ctp_c, :out),
                (:UMP_mRNAdeg, :M_utp_c, :out)]
         @test all(e -> e.clip === :clamped_deficit_carried, edges)
@@ -124,7 +126,8 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test :M_utp_c in r.chemostat_exemptions
         credited = [x.species for x in r.edges
                     if x.declared_by === :CoreATranscriptDecay && x.edge.direction === :out]
-        @test sort(credited) == sort([:M_amp_c, :M_gmp_c, :M_ctp_c, :M_utp_c])
+        @test sort(credited) == sort([:M_adp_c, :M_pi_c, :M_amp_c, :M_gmp_c,
+                                      :M_ctp_c, :M_utp_c])
 
         # A counter aimed at the wrong pool, a duplicate, or an unknown name is
         # refused at construction rather than silently crediting elsewhere.
@@ -141,23 +144,14 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         @test length(notes) == 1
         @test occursin("CTP and UTP chemostats", only(notes))
 
-        # A hybrid build cannot take the CTP and UTP counters until task 13.9
-        # gives a chemostatted pool an ownerless path (§12, 2026-09-10 E). Pinned,
-        # so the day the framework learns it, this fails and points there.
-        full = AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(),
-                                TranscriptSource(genes), dec]
-        err = caught(() -> build_problem(full; tspan = (0.0, 60.0)))
-        @test err isa ArgumentError
-        @test occursin("CoreATranscriptDecay declares a DeferredCounterEdge " *
-                       "debiting :M_ctp_c", sprint(showerror, err))
-
-        # **Executed, not only declared.** Without the two chemostat counters the
-        # hybrid builds, and the hook credits what decay returned into the
-        # pools recycling closes. Recycling and the glycolytic double conserve
-        # guanylate and adenylate exactly, so every particle of change is decay's.
-        dec3 = CoreATranscriptDecay(counters = DECAY_COUNTERS[1:3])
+        # **Executed, not only declared.** All five counters compose: the CMP
+        # and UMP credits go to the CTP and UTP chemostats through the ownerless
+        # path task 13.9 added, where a pinned throw used to stand. The hook
+        # credits what decay returned into the pools recycling closes.
+        # Recycling and the glycolytic double conserve guanylate and adenylate
+        # exactly, so every particle of change is decay's.
         ms = AbstractSubModel[NucleotideRecycling(), HeldGlycolytic(),
-                              TranscriptSource(genes; n0 = 5), dec3]
+                              TranscriptSource(genes; n0 = 5), dec]
         d = build_problem(ms; tspan = (0.0, 600.0))
         odes = reduce(vcat, states.(ms[1:2]))
         oi(s) = findfirst(==(s), odes)
@@ -170,7 +164,7 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         fired = 5 .- n_end
         @test sum(fired) > 0
         # The run ends on a drain, so every accrual has been paid.
-        @test all(==(0), rec.jump[end][18:20])
+        @test all(==(0), rec.jump[end][18:22])
 
         g_returned = sum(fired[i] * genes[i].counts.G for i in 1:17)
         a_returned = sum(fired[i] * genes[i].counts.A for i in 1:17)
@@ -183,9 +177,15 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         # a ~80,000-particle adenylate pool, while a missing or doubled credit
         # is thousands.
         @test abs(dg - g_returned) < 1e-4 * g0
-        # ATP_mRNAdeg's ADP and phosphate are not credited until task 13.10, so
-        # the adenylate moiety loses what decay's energy cost debits.
-        @test abs(da - (a_returned - atp_paid)) < 1e-4 * a0
+        # ATP_mRNAdeg credits ADP one for one with the ATP it paid (task
+        # 13.10), so its energy cost moves adenylate between pools and loses
+        # none. Before 13.10 the moiety fell by `atp_paid`.
+        @test atp_paid > 0
+        @test abs(da - a_returned) < 1e-4 * a0
+        # The chemostats absorbed exactly the C and U decay returned.
+        absorbed = Dict(r.species => r.particles for r in chemostat_census(d))
+        @test absorbed[:M_ctp_c] == sum(fired[i] * genes[i].counts.C for i in 1:17)
+        @test absorbed[:M_utp_c] == sum(fired[i] * genes[i].counts.U for i in 1:17)
     end
 
     @testset "12.5 the decay energy counter" begin
@@ -200,12 +200,16 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
             reactions(dec)[i].affect!(u, w)
             @test u[1] == 2 * g.length                # one ATP per nucleotide
         end
-        # The composed model reports which registry species it debits.
+        # The composed model reports which registry species it debits, and
+        # which it credits per ATP paid (task 13.10).
         r = resolve_coupling(AbstractSubModel[tx, dec])
         atp = filter(x -> x.edge isa DeferredCounterEdge &&
                           x.edge.counter === :ATP_mRNAdeg, r.edges)
-        @test only(atp).species === :M_atp_c
-        @test only(atp).declared_by === :CoreATranscriptDecay
+        debit = only(x for x in atp if x.edge.direction === :in)
+        @test debit.species === :M_atp_c
+        @test debit.declared_by === :CoreATranscriptDecay
+        @test Set(x.species for x in atp if x.edge.direction === :out) ==
+              Set([:M_adp_c, :M_pi_c])
     end
 
     @testset "12.6 and 12.7 monomer closure and the guanylate return" begin

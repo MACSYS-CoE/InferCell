@@ -3,7 +3,8 @@
 **Status:** in progress — phases 0 to 5b done (PRs #41 to #46, #48), with
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
-fan-out is complete, and phase 13, assembly, is next
+fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
+fixes assembly needs, is next, then 13b, assembly
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-24
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1319,8 +1320,9 @@ Every synthetic dataset stores its own ground-truth parameters, its seed, and th
 `reduction_report` of the model that produced it. Two runs at one seed must be
 identical. Wall-clock per trajectory is unmeasured today and is the binding
 practical number, because the inverse problem needs thousands; it is measured
-twice, on the toy in phase 3 and at full scale in phase 13, and it drives the
-first kill criterion.
+twice, on the toy in phase 3 and at full scale in phase 13b, and it feeds the
+first kill criterion, which is scored per posterior rather than per trajectory
+(§8 K1, amended 2026-09-24).
 
 Regenerable: every extract, every synthetic dataset, every figure. Irreplaceable:
 nothing, provided the extracts' regeneration scripts and the upstream commit
@@ -1419,11 +1421,20 @@ whether they fire or not.
 
 **K1 — the calibration claim, through feasibility.**
 *Fires when* measured wall-clock forces fewer than 50 calibration replications on
-the assembled model. Concretely, above roughly 10 s per full-cycle trajectory on
-the simulation-based path. **D13 loosened this considerably** by removing about
+the assembled model. ~~Concretely, above roughly 10 s per full-cycle trajectory on
+the simulation-based path.~~ **Amended 2026-09-24:** the 10 s proxy is retired.
+It was never derived from an evaluation count, and replications are independent,
+so a cluster runs them in parallel; a 60 s trajectory is affordable. What binds is
+the **cost of one posterior**: sequential evaluations per posterior times
+per-trajectory wall-clock, since D10's alternating updates do not parallelise
+within a chain. K1 is scored in phase 16, once task 16.2 fixes the path-update
+mechanism and so the evaluation count, from task 13.7's measured wall-clock.
+**No numeric bound is set yet, deliberately** (2026-09-24): the first inference
+on the minimal model comes first, and the bound is set from where that lands,
+before phase 16 scores K1. T3 records that it was set after the measurement.
+**D13 loosened this considerably** by removing about
 350 times the stochastic block's event count, which is the largest single change
-to the budget in this spec; the threshold is unchanged but it should now be much
-easier to meet.
+to the budget in this spec.
 *Why 50:* below it the rank-ECDF test cannot distinguish a 95%-to-85% coverage
 error from noise, so the posterior is uncheckable — and an uncheckable posterior
 is not a result. This is a scientific criterion, not a budgetary one.
@@ -1557,7 +1568,8 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   - With the constants held at the nominal pool (jump-only) the median is
     **1.691**. Charging cannot be the cause there. The ribosome constant is
     the published 12. Missing replication is the untested leading candidate.
-  - In the full seven-module hybrid the median is **1.497**. There the charged
+  - In the full seven-module hybrid the median is **1.497** (before phase
+    13a credited GDP and Pi, so 13b remeasures it). There the charged
     pool empties at rebuild instants and the constants fall about 20×, so
     charging plausibly contributes. How much is not measured.
   - Open for phase 14's F5, with §3's [1.7, 2.3] unchanged (amendment
@@ -1652,7 +1664,7 @@ point of D0's reordering.
 | R4 | The reference system is skipped because production looks fine | **A calibration pass reported with no reference comparison beside it.** This is a process risk, so the warning is procedural | F10 is a phase deliverable, not an optional extra. A calibration claim without it is unattributable |
 | R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
 | R6 | The six targets are not identifiable as a set | **A rank below six or a condition number above 1e6, computed before any sampling.** Costs one Jacobian | Reparameterise to the product plus an anchor. K6 |
-| R7 | Calibration is unaffordable, so the claim cannot be made | **The phase 13 wall-clock exceeding 10 s per trajectory** | K1's ladder, pre-committed so it is not negotiated under pressure |
+| R7 | Calibration is unaffordable, so the claim cannot be made | ~~The phase 13 wall-clock exceeding 10 s per trajectory~~ **Amended 2026-09-24: the projected cost of one posterior** — task 13.7's per-trajectory wall-clock times the sequential evaluation count of the mechanism task 16.2 chooses — too long to run 50 replications side by side on the cluster; the bound is deferred until the first minimal-model inference lands (§8 K1) | K1's ladder, pre-committed so it is not negotiated under pressure |
 | R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound ~~and check 7 as its upper~~ — **amended 2026-09-23:** check 7 bounds it from below too, since a larger pool buffers the counter; no check bounds it from above, and what grows with it is the forward-channel lag (task 9.8) |
 | R9 | Core A′ is better-conditioned than the same subnetwork inside the full model, so success over-claims | **Measurable now, without waiting:** the posterior width on the pyruvate-kinase constant with the seven dropped sibling reactions stubbed in as a competing sink | Quote the factor alongside every recovery claim. K7 |
 | R10 | Everything rests on synthetic data, so misspecification is untested by construction | **No internal early warning exists, and that is why this is a stated scope limit rather than a mitigated risk.** The nearest signal is F5: if either external check fails, the model is already misspecified against the data that does exist | State the limit in the abstract. Do not claim robustness that was not tested |
@@ -1666,7 +1678,7 @@ point of D0's reordering.
 
 ## 11. Task list
 
-Seventeen phases plus a phase 0, a phase 5b, a phase 10b and a phase 11a, each one reviewable pull request. Ordering is
+Seventeen phases plus a phase 0, a phase 5b, a phase 10b, a phase 11a and a phase 13a, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
@@ -3394,14 +3406,17 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
   transcript-source double; over 600 handshakes 75 decays returned 13,162 G and
   the guanylate pool rose by **13,162.08** particles, while adenylate moved by
   **−46,929.00** against the −46,930 its AMP credit and uncredited ATP debit
-  predict.
+  predict. **Superseded 2026-09-24 by phase 13a:** the pinned throw is replaced by a build with all
+  five counters, the chemostats' census matches the C and U returned, and
+  adenylate now moves by the AMP credit alone, since `ATP_mRNAdeg` credits ADP.
 - [x] 12.5 Add the decay energy cost counter the published hook drains — verify
   by it accruing per firing and by the composed model reporting which registry
   species it debits.
   **Done:** `ATP_mRNAdeg` accrues `n_g` per firing (one ATP per nucleotide,
   `in_out.py:178`); `counter_drains` and the resolved edge report `:M_atp_c`,
   declared by `CoreATranscriptDecay`, with products ADP and Pi recorded and not
-  yet credited — task 13.10 now covers it (§12).
+  yet credited — task 13.10 now covers it (§12). **Superseded 2026-09-24 by phase 13a:** the products
+  are credited, one each per ATP paid.
 - [x] 12.6 **This module's own check: monomer closure.** Assert that over a
   composed transcription-and-decay run the total monomers returned equals the
   total bases polymerised, per moiety — verify by the assertion passing and by a
@@ -3427,7 +3442,34 @@ within Monte Carlo error** (amended 2026-09-23; see §12).
   login node and in the PR's CI, not in a further Slurm job. CI on the tree merged
   with phase 9 (run 35814484827): **2803 passed, 0 broken**.
 
-### Phase 13 — Assemble Core A′ and assert structural completeness
+### Phase 13a — The framework fixes assembly needs
+
+**Goal:** remove the three framework gaps that stop the seven modules composing
+into a model whose moieties can balance, so that 13b assembles and measures the
+real model rather than one with GTP starved from 44 s.
+**Done when:** transcription and recycling build together with the chemostatted
+CTP and UTP taking ownerless debits and credits; every deferred counter credits
+its products per unit actually paid; and a mixed composition either dispatches
+on the composition or throws a named error.
+**PR:** _not started_
+
+Split out of phase 13 on 2026-09-24 (§12, same date). Framework files, so §10
+R15 puts them in their own pull request, as 5b, 10b and 11a were. The tasks are
+13.9, 13.10 and 13.3 as written in 13b's list, which keeps their ids and their
+annotations; they are ticked there.
+
+- [ ] 13a.1 = task 13.9, the ownerless path for chemostatted pools. Its
+  two-module build carries phase 8's `HeldGlycolytic` double as a third module
+  (§12, 2026-09-24 C).
+- [ ] 13a.2 = task 13.10, per-product stoichiometry on deferred counters. Its
+  last clause, task 13.2 seeing every product edge executed, is verified in 13b,
+  where 13.2 is built.
+- [ ] 13a.3 = task 13.3, hybrid inference dispatch.
+
+### Phase 13b — Assemble Core A′ and assert structural completeness
+
+Was phase 13 until the 2026-09-24 split. Task ids are unchanged; 13.3, 13.9 and
+13.10 land in 13a.
 
 **Goal:** compose all seven modules into one hybrid model and make the assertion
 the wave-0 contract deliberately withholds.
@@ -3446,7 +3488,7 @@ per-trajectory wall-clock is recorded.
   cross-checking the resolved graph against the driver's registered
   contributions, debits, rebuilds and volume reads, so a declared-but-inert edge
   fails the build rather than passing silently.
-- [ ] 13.3 Fix inference dispatch for a hybrid composition — verify by a test that
+- [ ] 13.3 (in 13a, as 13a.3) Fix inference dispatch for a hybrid composition — verify by a test that
   a mixed composition either dispatches on the composition or throws a named
   error, since dispatch currently reads only the first module in the vector and
   would silently take whichever path that module declares.
@@ -3475,17 +3517,22 @@ per-trajectory wall-clock is recorded.
 - [ ] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
-  budget affords. **K1 and K7 are decided by this number.**
+  budget affords. ~~**K1 and K7 are decided by this number.**~~ **Amended
+  2026-09-24:** this number feeds K1, which is scored per posterior in phase 16
+  (§8); it does not decide K1 alone, and it never bore on K7, which is about
+  posterior width.
   **Annotated 2026-09-24 (phase 11):** an early reading exists. The seven
   modules composed as phase 11 composes them, without transcription's
   counters, take **17.9 s** for 6,299 handshakes after an 80 s first-handshake
   compile (2.84 ms each, job 17131232). That is above K1's roughly 10 s, and
-  it is R7's early warning. It is not the phase 13 number.
+  it is R7's early warning. It is not the phase 13 number. *(The 10 s bound
+  was retired the same day, amendment 2026-09-24 A; the reading stands as a
+  measurement.)*
 - [ ] 13.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
   record.
-- [ ] 13.9 Give a chemostatted pool both an ownerless debit path and a rebuild
+- [ ] 13.9 (in 13a, as 13a.1) Give a chemostatted pool both an ownerless debit path and a rebuild
   that reads its held value (§12, 2026-09-10 E, widened by 2026-09-23 A) —
   verify by `build_problem([CoreATranscription(), NucleotideRecycling()])`
   building, by the transcription rebuild reading 0.6874 and 2.7681 mM for CTP
@@ -3493,8 +3540,11 @@ per-trajectory wall-clock is recorded.
   being replaced by these assertions. **Widened 2026-09-23 by phase 12:** decay's
   `CMP_mRNAdeg` and `UMP_mRNAdeg` credit the same two chemostats, so the
   ownerless path must take a credit as well as a debit, and the pinned throw in
-  `test/test_corea_transcript_decay.jl` is replaced too.
-- [ ] 13.10 Give a deferred counter per-product stoichiometry and wire the five
+  `test/test_corea_transcript_decay.jl` is replaced too. *(13a: transcription
+  had one pinned build throw, not two; the `CtpOwner` refusal beside it is
+  kept, as the reason the path must be ownerless. Two throws were replaced in
+  all.)*
+- [ ] 13.10 (in 13a, as 13a.2) Give a deferred counter per-product stoichiometry and wire the five
   transcription counters' products (§12, 2026-09-23 B) — verify by `ATP_trsc`
   crediting ADP and phosphate one each per ATP actually paid, by the adenylate
   and phosphate moieties balancing across a handshake on which ATP clips, and by
@@ -3506,7 +3556,8 @@ per-trajectory wall-clock is recorded.
   **Annotated 2026-09-24 (phase 11):** without this, no assembled run means
   anything for guanylate. In the first full seven-module cycle, GTP sits at
   zero from **44 s** and `GTP_translat` clips on 6,257 of 6,300 drains (job
-  17131232). `ATP_transloc`'s ADP and Pi join the list here too.
+  17131232). `ATP_transloc`'s ADP and Pi join the list here too. *(Those
+  numbers, and 11.10's 1.497, predate these credits; 13b remeasures them.)*
 
 ### Phase 14 — The validation checks, in the scoping note's order
 
@@ -3544,6 +3595,12 @@ mutation test showing it can fail.
   Charging's pyrophosphate needs no correction after D13: ATP's three phosphates
   become AMP's one plus pyrophosphate's two, exactly closed inside the block. A
   test should assert that rather than leaving a reader to assume it.
+  **Annotated 2026-09-24 (phase 13a):** phosphate now also crosses the CTP and
+  UTP chemostats. `CTP_mRNA` and `UTP_mRNA` are paid by the chemostat and credit
+  PPi to a live pool, and `CMP_mRNAdeg` and `UMP_mRNAdeg` return one phosphate
+  each into the chemostat, not into any integrated pool. The closure needs `chemostat_census`, each row weighted by what
+  its counter carries — three phosphates for a supplied NTP, one for a returned
+  NMP — not by the species.
 - [ ] 14.7 Check 5, carrier conservation — verify by four independent bounds
   naming the carrier that drifts, restated as conserved up to what translation
   adds, again by subtraction.
@@ -3648,7 +3705,9 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   control does not recover, the machinery is wrong and this phase stops** (K4).
 - [ ] 16.5 Recover the full six-parameter set — verify by every marginal
   containing truth and by the run's cost reported against phase 13's measured
-  per-trajectory budget.
+  per-trajectory budget. **Annotated 2026-09-24:** the per-trajectory budget is
+  retired (§8 K1); report the cost per posterior, which is what K1 is judged
+  on.
 - [ ] 16.6 Compute coverage over repeated datasets — verify by nominal 50, 80, 90,
   95 and 99 percent intervals covering truth at those rates within binomial
   error, per parameter, with the replicate count stated, and by the tight-prior
@@ -3674,7 +3733,9 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   is well-posed, and K7's measured factor if it fired.
 - [ ] 16.11 Fill the kill-criteria scoreboard, output T3 — verify by all seven
   criteria carrying a threshold, a measured value and a verdict, **published
-  whether or not everything passed.**
+  whether or not everything passed.** **Annotated 2026-09-24:** K1's threshold
+  is set from the first minimal-model inference, before its verdict is
+  written, and T3 records that it was set after the measurement.
 
 ### Phase 17 — Per-module calibration
 
@@ -3723,6 +3784,70 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-24 — K1's 10 s proxy is retired, and phase 13 splits into 13a and 13b
+
+**Trigger:** planning phase 13. Phase 11's partial seven-module run took 17.9 s
+per cycle (job 17131232), above K1's roughly 10 s, before transcription's costs
+or any product credit exist. The user's view: a 60 s trajectory is affordable,
+because calibration replications are independent and a cluster runs them in
+parallel. Separately, phase 13's ten tasks mix three framework fixes with the
+assembly and its Slurm measurements, and the measurements mean nothing until
+13.10 stops GTP sitting at zero from 44 s.
+
+**Change:**
+
+**A — K1 keeps its criterion and drops its proxy.** Fewer than 50 joint
+calibration replications still fires K1, for the same reason: below it the rank
+test cannot tell 95% coverage from 85%. The "roughly 10 s per trajectory"
+translation is struck. It was never derived from an evaluation count; it appears
+only as a flat budget in phase 3, 4 and 5b's notes and in phase 11's readings
+(13.7's annotation, and entry E of the phase 11 amendment), which stay as the record of
+what they passed. What binds instead is the cost of one posterior: sequential
+evaluations times per-trajectory wall-clock. Replications parallelise; D10's
+alternating path and parameter updates do not, within a chain. So K1 is scored
+in phase 16, once task 16.2 fixes the mechanism and its evaluation count. R7's
+early warning becomes that projection. Task 13.7 still measures and records, and
+no longer "decides K1 and K7"; the K7 half was wrong, since K7 is about posterior
+width. Approved 2026-09-24.
+
+**B — phase 13 splits.** 13a takes tasks 13.9, 13.10 and 13.3, all framework
+code, so §10 R15 wants them in their own pull request. 13b is the old phase 13
+with the rest. Task ids are kept and annotated in place rather than renumbered.
+The parameter-accessor refactor that 2026-09-11 left to "phase 13 or 14" is not
+in 13a; it stays unassigned. Approved 2026-09-24.
+
+**C — task 13.9's build needs a third module.** Its clause says
+`build_problem([CoreATranscription(), NucleotideRecycling()])` builds. With the
+ownerless path in place that call gets past every CTP and UTP check and then
+fails for an unrelated reason: recycling reads `M_13dpg_c` and three other
+glycolytic species, and in a two-module composition nothing owns them. The test
+adds phase 8's `HeldGlycolytic` double, which is what phase 12's tests already
+compose recycling with. Nothing about the chemostat path changes. Recorded
+2026-09-24, during 13a.
+
+**D — where a chemostat's held value comes from.** 2026-09-23 A says the rebuild
+"reads the registry's held value". The registry imports none for CTP or UTP
+(`:not_imported`), so the value is the composition's `ClampedEdge` on the
+species — transcription's 0.6874 and 2.7681 — with the registry as fallback and
+a named error when neither exists. The resolver already holds clamps to the
+registry and to each other.
+
+**E — a counter with two consumers may not credit products.** Each consumer pays
+the whole accrual and the credit is their sum, so relaxing the one-producer rule
+let A + B → C credit C once per reactant (/check-PR of #66: 350 from an accrual
+of 250). The driver refuses products on such a counter. No Core A′ counter has
+two consumers.
+
+**F — K1 has no numeric bound for now.** Approved 2026-09-24: build and run the
+first inference on the minimal model, then set the bound from where it lands,
+before phase 16 scores K1. Tasks 16.5 and 16.11 are annotated. This is recorded
+so the missing number reads as a decision rather than an omission.
+
+**Sections touched:** header; §5 (seeds and cost); §8 K1; §9 (the fold-change
+entry); §10 R7; §11 (preamble count, new phase 13a, phase 13 retitled 13b, tasks
+12.4, 12.5, 13.3, 13.7, 13.9, 13.10, 14.6, 16.5 and 16.11 annotated); §12
+(this entry; 2026-09-23 C annotated).
 
 ### 2026-09-24 — phase 11: the lumped pool's per-amino-acid share, the restart law, and what the first full cycle showed
 
@@ -3922,7 +4047,8 @@ Pi upstream (`in_out.py:178`), the same two-product shape as `ATP_trsc` in
 2026-09-23 B. It is declared as a debit on ATP alone with its products
 recorded, and **task 13.10 is widened** to wire them. Until then the adenylate
 moiety loses one ATP per decayed nucleotide, and the phase's executed-credit
-test asserts exactly that loss.
+test asserts exactly that loss. *(Superseded 2026-09-24: phase 13a wired the
+credits, and the test now asserts no loss.)*
 
 **Sections touched:** §11 (Status line; phase 12's done-when and tasks 12.4 and
 12.7, annotated in place; tasks 13.9 and 13.10 widened), §12; and

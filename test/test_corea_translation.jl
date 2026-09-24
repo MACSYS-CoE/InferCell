@@ -14,7 +14,8 @@ import InferCell: states, parameters, reactions, inputs, written_states,
 
 # Transcripts that are born and die with no coupling: transcription and decay
 # with every counter and edge stripped, so a hybrid build can carry live
-# transcripts before task 13.9 lets transcription's CTP and UTP clamps compose.
+# transcripts. Written before task 13.9 let transcription's CTP and UTP clamps
+# compose, and kept: these tests are about translation, not transcription's costs.
 birth_death() = AbstractSubModel[
     CoreATranscription(counters = (), edges = CouplingEdge[], rebuilt = Symbol[]),
     CoreATranscriptDecay(counters = ())]
@@ -212,14 +213,17 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
 
     @testset "11.5 the boundary, and the catalytic channel it feeds" begin
         es = coupling(tl)
-        @test length(es) == 9
+        # 13 since task 13.10 wired GTP's and translocation's two products each.
+        @test length(es) == 13
         rc = only(e for e in es if e isa RateConstantEdge)
         @test rc.species === :M_trna_chg_c && rc.direction === :in
         @test rc.cadence === :piecewise_constant && rc.interval == 60.0
         dc = [(e.counter, e.species, e.direction) for e in es if e isa DeferredCounterEdge]
-        @test length(dc) == 8
+        @test length(dc) == 12
         @test Set(dc) == Set([
             (:GTP_translat, :M_gtp_c, :in),
+            (:GTP_translat, :M_gdp_c, :out), (:GTP_translat, :M_pi_c, :out),
+            (:ATP_transloc, :M_adp_c, :out), (:ATP_transloc, :M_pi_c, :out),
             (:tRNA_translat, :M_trna_chg_c, :in), (:tRNA_translat, :M_trna_c, :out),
             (:ATP_transloc, :M_atp_c, :in),
             (:ptsI_translat, :M_ptsi_c, :out), (:ptsH_translat, :M_ptsh_c, :out),
@@ -230,13 +234,13 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         # module cannot continuously write an ODE state.
         @test !any(e -> e isa Union{CatalyticEdge, VolumeEdge, MassEdge,
                                     CurrencyEdge, ClampedEdge}, es)
-        # GTP → GDP + Pi upstream; the products wait on task 13.10.
+        # GTP → GDP + Pi upstream, credited per GTP paid since task 13.10.
         gtp = only(c for c in counter_drains(tl) if c.counter === :GTP_translat)
         @test gtp.produces == (:M_gdp_c, :M_pi_c) && gtp.credits === nothing
         @test resolve_coupling(tl) isa CouplingGraph
 
         # Composed, every declared channel is lowered: fifteen catalytic
-        # exchanges reading thirteen of translation's counts, eight counter
+        # exchanges reading thirteen of translation's counts, twelve counter
         # channels, one rebuild.
         ms = full_models()
         d = build_problem(ms; tspan = (0.0, 120.0))

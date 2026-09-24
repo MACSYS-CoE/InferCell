@@ -66,6 +66,8 @@ The charged pool is not what holds it back: at the nominal pool the elasticity i
 
 `CentralGlycolysis(:translated)` + `PtsTransport` + `NucleotideRecycling(:translated)` + `TrnaCharging` + live transcripts + `CoreATranslation` with every counter. One seed.
 
+> **Pre-13.10 (annotated 2026-09-24).** This run predates phase 13a, which credits GDP and Pi from `GTP_translat` and ADP and Pi from `ATP_transloc`. Rerunning the script at a later commit will not reproduce these numbers, and the GTP clipping below is the uncredited GDP. Phase 13b remeasures them on the assembled model.
+
 Wall-clock: build 22.5 s, first handshake (compiles) 80.3 s, the remaining 6299 handshakes **17.9 s** (2.84 ms each).
 Fold change: median 1.497, min 1.232, max 1.777. Fractional growth 1.0318.
 
