@@ -3451,7 +3451,9 @@ R15 puts them in their own pull request, as 5b, 10b and 11a were. The tasks are
 13.9, 13.10 and 13.3 as written in 13b's list, which keeps their ids and their
 annotations; they are ticked there.
 
-- [ ] 13a.1 = task 13.9, the ownerless path for chemostatted pools.
+- [ ] 13a.1 = task 13.9, the ownerless path for chemostatted pools. Its
+  two-module build carries phase 8's `HeldGlycolytic` double as a third module
+  (§12, 2026-09-24 C).
 - [ ] 13a.2 = task 13.10, per-product stoichiometry on deferred counters. Its
   last clause, task 13.2 seeing every product edge executed, is verified in 13b,
   where 13.2 is built.
@@ -3790,6 +3792,15 @@ code, so §10 R15 wants them in their own pull request. 13b is the old phase 13
 with the rest. Task ids are kept and annotated in place rather than renumbered.
 The parameter-accessor refactor that 2026-09-11 left to "phase 13 or 14" is not
 in 13a; it stays unassigned. Approved 2026-09-24.
+
+**C — task 13.9's build needs a third module.** Its clause says
+`build_problem([CoreATranscription(), NucleotideRecycling()])` builds. With the
+ownerless path in place that call gets past every CTP and UTP check and then
+fails for an unrelated reason: recycling reads `M_13dpg_c` and three other
+glycolytic species, and in a two-module composition nothing owns them. The test
+adds phase 8's `HeldGlycolytic` double, which is what phase 12's tests already
+compose recycling with. Nothing about the chemostat path changes. Recorded
+2026-09-24, during 13a.
 
 **Sections touched:** header; §5 (seeds and cost); §8 K1; §10 R7; §11 (preamble
 count, new phase 13a, phase 13 retitled 13b, tasks 13.3, 13.7, 13.9 and 13.10
