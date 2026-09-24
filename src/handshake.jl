@@ -1561,10 +1561,11 @@ What counts as executed, per kind:
 
 - **Mass and currency**, declared on a state the declarer does not own: a
   [`ContributionRecord`](@ref) from it on that species. Declared by the state's
-  **owner**, the edge is the owner's side of a peer's flow — its own term is
-  already in `dynamics` — and it is executed when some other module's record
-  flows into that species in the opposite direction: a contribution, a peer
-  write, or a deferred debit or credit.
+  **owner**, the edge is the owner's side of a peer's flow, and the owner's own
+  term in `dynamics` is what executes it. Whether the peer is in the
+  composition is closure, not execution: a partial composition legitimately
+  lacks it, and completeness mode reports the missing half as a dead end (task
+  13.1), so it is not failed twice.
 - **Deferred counter**: a [`DeferredDebit`](@ref) on its counter and pool. From
   the module that owns the counter the sign must match too, so a second
   declaration that the lowering's dedup dropped does not pass on the first's
@@ -1587,26 +1588,12 @@ function unexecuted_edges(models::Vector{<:AbstractSubModel}, d::HandshakeDriver
     owner = Dict{Symbol, Symbol}(s => module_id(m) for m in models for s in states(m))
     by_id = Dict{Symbol, AbstractSubModel}(module_id(m) => m for m in models)
 
-    # (species, module, sign) for every mass flow some record executes. A
-    # contribution is a net signed rate, so it carries the sign of every
-    # mass-carrying edge its module declares on that species.
-    flows = Set{Tuple{Symbol, Symbol, Int}}()
-    for c in d.contributions, e in coupling(by_id[c.declared_by])
-        (carries_mass(e) && e.species === c.species) || continue
-        push!(flows, (c.species, c.declared_by, mass_contribution(e)))
-    end
-    for b in d.debits
-        push!(flows, (b.species, b.declared_by, b.sign))
-    end
-
     bad = NamedTuple{(:edge, :reason), Tuple{ResolvedEdge, String}}[]
     for r in graph.edges
         e, s, id = r.edge, r.species, r.declared_by
         reason = if r.kind in (:mass, :currency)
             if get(owner, s, nothing) === id
-                want = -mass_contribution(e)
-                any(f -> f[1] === s && f[2] !== id && f[3] == want, flows) ? nothing :
-                    "the owner's side of a flow no other module executes"
+                nothing   # the owner's own term executes it; see the docstring
             else
                 any(c -> c.species === s && c.declared_by === id, d.contributions) ?
                     nothing : "no contribution or peer write from $id into :$s"
