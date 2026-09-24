@@ -333,4 +333,22 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         @info "11.6 credit without the debit" tRNA_created_particles=grown
         @test grown > 50_000
     end
+
+    @testset "11.7 check 7's census on the charged-tRNA counter" begin
+        # At the nominal pool over twenty minutes: the counter never clips.
+        tl1 = CoreATranslation(counters = trna_only)
+        ms, d, rec, iu, ic = trna_run(tl1, 1200; seed = 1107)
+        census = clipping_census(d)
+        chg_min = minimum(u[ic] for u in rec.ode) * d.factor
+        @info "11.7 census at the nominal pool" census.clipped census.drains min_charged_particles=chg_min
+        @test census.drains == 1200
+        @test census.clipped == 0
+        # And it can fire: a pool of 0.01 mM holds about 160 charged tRNA
+        # against a demand near 380 per second, and the census sees it.
+        _, ds, _, _, _ = trna_run(CoreATranslation(counters = trna_only), 120;
+                                  seed = 1107, charging = TrnaCharging(pool_mM = 0.01))
+        cs = clipping_census(ds)
+        @info "11.7 census at a 0.01 mM pool" cs.clipped cs.drains
+        @test cs.clipped > 0
+    end
 end
