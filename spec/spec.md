@@ -4,7 +4,8 @@
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
-fixes assembly needs, is done (#66), and 13b, assembly, is next
+fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14,
+the validation checks, is next
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-25
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3503,9 +3504,34 @@ the wave-0 contract deliberately withholds.
 **Done when:** every registry dynamic state is owned, no dead ends remain, every
 declared edge is executed, the model runs a full 6,300 s cycle, and the
 per-trajectory wall-clock is recorded.
-**PR:** _not started_
+**PR:** #68 (merged 2026-09-25)
 
-- [ ] 13.1 Add a completeness mode — every dynamic state owned and no dead ends,
+**Done (#68):** Slurm suite **27,453/27,453** at `a777a03` (job 17315831);
+CI unit tests passed.
+- 13.1: `build_corea()` resolves in completeness mode with nothing unowned and
+  no dead ends. Four PTS carriers are reported as `accumulating`. Dropping
+  recycling or charging fails, naming the states and the stranded moieties.
+- 13.2: 0 of 89 declared edges unexecuted. An inert outbound currency edge
+  fails the build, naming it. Every product edge of the four product-bearing
+  counters is credited.
+- 13.4: the drain stays at the published 1 s. The worst final paired
+  difference is −52.9% ± 9.6% at 5 s and +288% ± 29% at 60 s (job 17298253).
+- 13.5: a full 6,300 s cycle at Rodas5P, 1e-10 and 1e-8 with no solver
+  failure, read back by `solver_settings`. It runs in the default suite.
+- 13.6: the lumping is reported once and its formalism apart. The fourteen
+  are among 52 asserted priors, with 16 discarded driver-written priors.
+- 13.7: 32.2 s warm per cycle, 5.11 ms per handshake, plus a 28.1 s build and
+  an 81.8 s one-off compile (job 17298242).
+- /check-PR verdict MERGE, with nine MINOR should-fix items left open in
+  `PR_REVIEW_68_2026-09-25.md`, which is not tracked. The most
+  consequential:
+  - `accumulating` would also file a stranded phospho-carrier as biomass;
+  - the `:driver_policy` drain row calls any handshake interval the
+    published one;
+  - the full-cycle driver seeds after the build, so a `DRAIN_S≠1` rerun is
+    not deterministic.
+
+- [x] 13.1 Add a completeness mode — every dynamic state owned and no dead ends,
   as a *failure* rather than a report — verify by the assembled composition
   passing it and by a composition with one module removed failing it and naming
   the unowned states and stranded moieties. The contract is explicit that a
@@ -3515,7 +3541,7 @@ per-trajectory wall-clock is recorded.
   missing owner-mirror edges, which are now added. Four are the PTS carriers,
   reported as `accumulating` biomass by a `:protein`-regime rule (§12,
   2026-09-25 A and B).
-- [ ] 13.2 Assert every declared edge is executed — verify by a test
+- [x] 13.2 Assert every declared edge is executed — verify by a test
   cross-checking the resolved graph against the driver's registered
   contributions, debits, rebuilds and volume reads, so a declared-but-inert edge
   fails the build rather than passing silently.
@@ -3526,18 +3552,18 @@ per-trajectory wall-clock is recorded.
   a mixed composition either dispatches on the composition or throws a named
   error, since dispatch currently reads only the first module in the vector and
   would silently take whichever path that module declares.
-- [ ] 13.4 Settle the drain granularity with D10's measurement at full scale —
+- [x] 13.4 Settle the drain granularity with D10's measurement at full scale —
   verify by nominal trajectories at 1 s, 5 s and 60 s granularity, by the largest
   relative difference in any observed pool reported, and by the chosen
   granularity registered as a labelled reduction with its *measured* cost.
   **Annotated 2026-09-25:** the chosen granularity is the published 1 s, so
   there is no reduction to register. It is recorded as a `:driver_policy` row
   quoting what the coarser drains cost (§12, 2026-09-25 G).
-- [ ] 13.5 Run a full cycle at published parameters with a stiff solver and pinned
+- [x] 13.5 Run a full cycle at published parameters with a stiff solver and pinned
   tolerances — verify by a trajectory over the full interval with no solver
   failure, and by the solver and tolerances recorded on the model rather than in
   a test file.
-- [ ] 13.6 Enumerate what is ours across the whole composition — verify by
+- [x] 13.6 Enumerate what is ours across the whole composition — verify by
   `reduction_report` returning the lumped charging step **and its deterministic
   formalism as two separate declarations**, `k_chg`, the tRNA pool size and its
   charged fraction, the
@@ -3556,7 +3582,7 @@ per-trajectory wall-clock is recorded.
   `r_cell_nm`. The fourteen stay the asserted rate priors an inference might
   free. The report gains `:model_note`, `:formalism` and `:driver_policy`
   (§12, 2026-09-25 D).
-- [ ] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
+- [x] 13.7 Measure and record per-trajectory wall-clock at full scale — verify by
   a Slurm run reporting seconds per cycle, comparison against phase 3's
   extrapolation, and an explicit statement of how many trajectories the inference
   budget affords. ~~**K1 and K7 are decided by this number.**~~ **Amended
@@ -3570,7 +3596,7 @@ per-trajectory wall-clock is recorded.
   it is R7's early warning. It is not the phase 13 number. *(The 10 s bound
   was retired the same day, amendment 2026-09-24 A; the reading stands as a
   measurement.)*
-- [ ] 13.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
+- [x] 13.8 Suite and handoff — verify by `sbatch test/run_tests.slurm` passing,
   with the full-cycle run marked and Slurm-gated if it is too slow for the default
   suite. Shortening the interval is forbidden; it is precisely the error of
   record. **Annotated 2026-09-25:** no gate. A warm cycle is 32.2 s, so the
@@ -3587,7 +3613,7 @@ per-trajectory wall-clock is recorded.
   had one pinned build throw, not two; the `CtpOwner` refusal beside it is
   kept, as the reason the path must be ownerless. Two throws were replaced in
   all.)*
-- [x] 13.10 (in 13a, as 13a.2; #66; its last clause, 13.2 seeing every product edge executed, is verified in 13b) Give a deferred counter per-product stoichiometry and wire the five
+- [x] 13.10 (in 13a, as 13a.2; #66; its last clause, 13.2 seeing every product edge executed, is verified in 13b — done in #68) Give a deferred counter per-product stoichiometry and wire the five
   transcription counters' products (§12, 2026-09-23 B) — verify by `ATP_trsc`
   crediting ADP and phosphate one each per ATP actually paid, by the adenylate
   and phosphate moieties balancing across a handshake on which ATP clips, and by
