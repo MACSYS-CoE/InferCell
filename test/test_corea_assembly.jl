@@ -84,6 +84,58 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         end
     end
 
+    @testset "13.6 what is ours, across the whole composition" begin
+        ms = corea_models()
+        d = build_corea(tspan = (0.0, 60.0))
+        labels = reduction_declarations(ms, d)
+        of(c) = [l for l in labels if l.category === c]
+        has(c, subject, text = "") = any(l -> l.subject === subject &&
+                                              occursin(text, l.description), of(c))
+
+        # The lumping once, and its deterministic formalism as a second,
+        # separate declaration. Translation's per-amino-acid note mentions the
+        # lumping and is a model note, not a second lumping.
+        @test length(of(:lumping)) == 1 && has(:lumping, :TrnaCharging)
+        @test length(of(:formalism)) == 1 && has(:formalism, :TrnaCharging, "deterministic")
+
+        # The fourteen asserted priors an inference might free (spec §4 D7).
+        fourteen = [Symbol(k, :_glcpts, i) for i in 0:4 for k in (:kf, :kr)]
+        append!(fourteen, [:p_lact2r, :k_chg, :trna_pool_mM, :trna_charged_fraction])
+        @test length(fourteen) == 14
+        @test issubset(fourteen, [l.subject for l in of(:asserted_prior)])
+
+        # Asserted priors on slots the driver overwrites, reported apart: the
+        # fifteen translated-enzyme slots and the cell radius the inbound
+        # volume channel fills.
+        written = Set(w.param_slot for w in driver_written_params(d))
+        @test all(l -> l.subject in written, of(:discarded_prior))
+        @test !any(l -> l.subject in written, of(:asserted_prior))
+        @test count(l -> startswith(string(l.subject), "enz_"), of(:discarded_prior)) == 15
+        @test has(:discarded_prior, :r_cell_nm)
+        @test length(of(:discarded_prior)) == 16
+
+        # The chemostatted pools: CTP and UTP clamped by transcription, and the
+        # amino-acid pool, which nothing reads.
+        @test has(:clamp, :M_ctp_c) && has(:clamp, :M_utp_c)
+        @test has(:model_note, :CoreATranscription, "chemostat")
+        @test has(:model_note, :TrnaCharging, "M_aa_pool_c")
+
+        # The module notes the list names, each from the module that owns it.
+        @test has(:model_note, :CoreATranscription, "mapping")
+        @test has(:model_note, :CentralGlycolysis, "balanced")      # Km column
+        @test has(:model_note, :PtsTransport, "medium-to-cell")     # lactate ratio
+
+        # The driver's: rounding and drain granularity on every report, the
+        # capped geometry, and exogenous membrane growth.
+        @test has(:driver_policy, :fractional_carry)
+        @test has(:driver_policy, :drain_interval)
+        @test has(:capped_rate_law_geometry, :inbound_volume_channel)
+        @test has(:exogenous_growth, :membrane_area_baseline)
+
+        # The report counts departures and leaves the policy records out.
+        @test occursin("$(length(labels) - 2) declaration(s)", reduction_report(ms, d))
+    end
+
     @testset "13.2 an inert edge fails the build, naming it" begin
         # A jump module declaring an outbound currency edge on a peer's pool
         # with no written_states entry: it resolves, and before task 13.2 it

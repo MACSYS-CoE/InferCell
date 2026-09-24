@@ -58,7 +58,10 @@ const _slow_pool = toy_slow_pool
         @test isempty(d.rebuilds)
         @test d.drain_interval == d.interval
         @test d.steps_per_drain == 1
-        @test isempty(driver_declarations(d))
+        # Only the policy records, which reach every report since task 13.6;
+        # nothing that departs.
+        @test [l.category for l in driver_declarations(d)] ==
+              [:driver_policy, :driver_policy]
 
         # In trajectory form: with nothing rebuilding, the jump block's
         # parameter vector is bitwise constant for the whole run.
@@ -310,6 +313,10 @@ const _slow_pool = toy_slow_pool
 
         labels = driver_declarations(d)
         @test :coarse_drain in [l.category for l in labels]
+        # The coarse drain replaces the drain's policy record rather than
+        # joining it; the rounding's record stays.
+        @test [l.subject for l in labels if l.category === :driver_policy] ==
+              [:fractional_carry]
 
         # A non-carry rounding policy is a departure too, and phase 3's own
         # docstring said so while nothing labelled it.

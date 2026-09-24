@@ -150,7 +150,7 @@ reduction_declarations(models)   # Vector{ReductionLabel}
 reduction_report(models)         # the same, written for a human
 ```
 
-It collects reduction-introduced clamps, smoothed and unclamped deferred counters, continuous rate-constant edges, parameters whose prior this project asserted, and any lumping a module registers through `reduction_notes`. A composition that follows the published model throughout reports that nothing departs from it.
+It collects reduction-introduced clamps, smoothed and unclamped deferred counters, continuous rate-constant edges, parameters whose prior this project asserted, and what each module registers through `reduction_notes`: a plain note under `:model_note`, or a `category => text` pair under its own category, which is how the lumped charging step is `:lumping` and its deterministic integration `:formalism`. A composition that follows the published model throughout reports that nothing departs from it.
 
 ## Reference
 

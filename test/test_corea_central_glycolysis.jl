@@ -550,7 +550,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
         # Each reads as a sentence rather than a slug.
         @test all(l -> length(split(l.description)) > 8, ours)
-        @test all(l -> l.category === :lumping, ours)
+        @test all(l -> l.category === :model_note, ours)
     end
 
     @testset "6.7 integration and redox balance" begin

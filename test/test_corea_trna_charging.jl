@@ -148,11 +148,11 @@ using StaticArrays: SA, setindex
     end
 
     @testset "9.4 two declarations: the lumping and the formalism" begin
-        labels = [l for l in reduction_declarations([TrnaCharging()])
-                  if l.category === :lumping]
-        @test length(labels) == 2
-        @test all(l -> l.subject === :TrnaCharging, labels)
-        lump, form = labels
+        # Two categories since task 13.6, so the lumping is countable as one.
+        all_labels = reduction_declarations([TrnaCharging()])
+        lump = only(l for l in all_labels if l.category === :lumping)
+        form = only(l for l in all_labels if l.category === :formalism)
+        @test lump.subject === form.subject === :TrnaCharging
         # The lumping names what it replaces and why the published products won.
         @test occursin("20 per-amino-acid chains of 5 reactions", lump.description)
         @test occursin("AMP + PPi", lump.description)

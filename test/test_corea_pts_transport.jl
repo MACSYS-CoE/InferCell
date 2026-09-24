@@ -313,7 +313,7 @@ end
                                 membrane_protein_states(m)))
 
         notes = reduction_declarations(m)
-        ratio_notes = filter(l -> l.category === :lumping, notes)
+        ratio_notes = filter(l -> l.category === :model_note, notes)
         @test length(ratio_notes) == 1
         @test occursin("100000", only(ratio_notes).description)
         @test occursin("medium-to-cell", only(ratio_notes).description)
@@ -413,7 +413,7 @@ end
         labels = reduction_declarations(m)
         @test !any(l -> l.category === :clamp, labels)
         @test !any(l -> l.subject === :M_glc__D_e, labels)
-        @test any(l -> l.category === :lumping, labels)
+        @test any(l -> l.category === :model_note, labels)
 
         # Drop an input the rate law needs, or add the chemostat, and the
         # resolver says which species and why.

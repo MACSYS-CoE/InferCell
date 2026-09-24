@@ -2092,6 +2092,18 @@ instead of it.
 """
 function driver_declarations(d::HandshakeDriver)
     labels = ReductionLabel[]
+    # The drain granularity and the rounding reach every report, departing or
+    # not (spec §11 task 13.6): a report silent on them cannot be told apart
+    # from one whose driver was never asked.
+    d.drain_interval > d.interval || push!(labels, ReductionLabel(
+        :driver_policy, :drain_interval,
+        "the deferred counters are debited at every $(d.interval) s handshake, " *
+        "the published model's granularity; a coarser drain would be a labelled " *
+        "reduction (spec §4 D10)"))
+    d.rounding.policy === :fractional_carry && push!(labels, ReductionLabel(
+        :driver_policy, :fractional_carry,
+        "counts are written back under fractional carry, this project's policy " *
+        "(spec §3 check 0) and the only one whose round trip is exact"))
     if d.drain_interval > d.interval
         push!(labels, ReductionLabel(
             :coarse_drain, :drain_interval,
@@ -2162,8 +2174,20 @@ these two-argument forms, because a result produced under a coarse drain or a
 non-carry rounding policy that carried only the one-argument enumeration would
 be exactly the unlabelled departure §6 T2 exists to prevent.
 """
-reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
-    vcat(reduction_declarations(models), driver_declarations(d))
+function reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+    # An asserted prior on a slot the driver overwrites at every handshake is
+    # never what the rate law runs on, so it is reported apart from the priors
+    # an inference might free (spec §11 task 13.6).
+    written = Set(w.param_slot for w in driver_written_params(d))
+    labels = map(reduction_declarations(models)) do l
+        l.category === :asserted_prior && l.subject in written || return l
+        ReductionLabel(:discarded_prior, l.subject,
+                       "prior on :$(l.subject) is asserted by this project and " *
+                       "discarded: the driver overwrites the slot at every " *
+                       "handshake, so a posterior for it is its prior")
+    end
+    return vcat(labels, driver_declarations(d))
+end
 
 reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
     _reduction_report(reduction_declarations(models, d); driver_seen = true)

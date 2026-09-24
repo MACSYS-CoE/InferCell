@@ -28,7 +28,7 @@ struct CoreAStub <: AbstractSubModel
     ins::Vector{Symbol}
     contribs::Vector{Symbol}
     params::Vector{InferParameter}
-    notes::Vector{String}
+    notes::Vector{Any}
     mode::Symbol
     form::Symbol
     membrane::Vector{Symbol}
@@ -50,7 +50,7 @@ function CoreAStub(id::Symbol;
                      collect(Symbol, ins),
                      collect(Symbol, contribs),
                      collect(InferParameter, params),
-                     collect(String, notes),
+                     collect(Any, notes),
                      mode,
                      form,
                      collect(Symbol, membrane))

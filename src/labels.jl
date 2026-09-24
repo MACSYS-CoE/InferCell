@@ -6,8 +6,11 @@ UTP and amino-acid pools, a lumped tRNA charging step, asserted priors on the
 PTS mass-action constants, and — where an author selects them — a smoothed or
 unclamped expression-cost drain or a continuous rebuild.
 
-Four of the categories are the *driver's* policy rather than any module's
-declaration, and so are enumerated by [`driver_declarations`](@ref) rather than
+`:driver_policy` and `:discarded_prior` need a driver too: the first records
+the drain granularity and the rounding when they are *not* departures, so both
+reach every report, and the second is an asserted prior on a slot the driver
+overwrites. Four of the categories are the *driver's* policy rather than any
+module's declaration, and so are enumerated by [`driver_declarations`](@ref) rather than
 by [`reduction_declarations`](@ref): a drain coarser than the handshake
 (`:coarse_drain`), a rounding policy other than fractional carry
 (`:rounding_policy`), and the two the growth chain carries — the membrane
@@ -29,8 +32,15 @@ silently dropped from its body, so membership is enforced at construction.
 const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
                               :continuous_rebuild, :coarse_drain, :rounding_policy,
                               :calibrated_constant, :exogenous_growth,
-                              :asserted_prior, :lumping,
-                              :capped_rate_law_geometry)
+                              :asserted_prior, :discarded_prior, :lumping,
+                              :formalism, :model_note,
+                              :capped_rate_law_geometry, :driver_policy)
+
+# `:driver_policy` records the driver's policy where it is *not* a departure —
+# the published 1 s drain, and fractional carry — so that the drain granularity
+# and the rounding reach every report whether or not they depart (spec §11 task
+# 13.6). The report prints it apart and leaves it out of its departure count.
+const _POLICY_RECORDS = (:driver_policy,)
 
 """
     ReductionLabel
@@ -60,8 +70,9 @@ published model's.
 
 Collects, in order: clamps introduced by the reduction, deferred counters using
 a smoothed or unclamped clip, rate-constant edges refreshing continuously,
-parameters whose prior this project asserted, and lumpings a module registered
-through [`reduction_notes`](@ref).
+parameters whose prior this project asserted, and what each module registered
+through [`reduction_notes`](@ref) — under the category a note names, or
+`:model_note`.
 
 A deviation that reaches a result unlabelled is the failure this exists to
 prevent, so prefer calling it over remembering what was declared where.
@@ -85,9 +96,14 @@ function reduction_declarations(models::Vector{<:AbstractSubModel})
             "carries a point value with no quantified uncertainty"))
     end
 
+    # A plain note is a module's own simplification; a `category => text` pair
+    # names its category, which is how the lumping is reported as `:lumping`
+    # and nothing else is (spec §11 task 13.6).
     for m in models
         for note in reduction_notes(m)
-            push!(labels, ReductionLabel(:lumping, module_id(m), note))
+            push!(labels, note isa Pair ?
+                  ReductionLabel(first(note), module_id(m), last(note)) :
+                  ReductionLabel(:model_note, module_id(m), note))
         end
     end
 
@@ -123,11 +139,14 @@ function _reduction_report(labels::Vector{ReductionLabel}; driver_seen = false)
         "not a declaration and is enumerated by `driver_declarations`; pass the " *
         "driver to see both."
 
-    lines = ["$(length(labels)) declaration(s) that are this reduction's, not the published model's:"]
+    departures = count(l -> !(l.category in _POLICY_RECORDS), labels)
+    lines = ["$departures declaration(s) that are this reduction's, not the published model's:"]
     for category in REDUCTION_CATEGORIES
         of_category = filter(l -> l.category === category, labels)
         isempty(of_category) && continue
-        push!(lines, "  $category:")
+        push!(lines, category in _POLICY_RECORDS ?
+              "  $category (recorded whether or not it departs; not counted above):" :
+              "  $category:")
         for l in of_category
             push!(lines, "    - $(l.description)")
         end

@@ -109,7 +109,7 @@ using Random
         @test isempty(d.dilute_idxs)
         @test d.factor == corea_particles_per_mM()          # the pre-phase-5 constant
         @test d.radius_nm == COREA_INITIAL_RADIUS_NM
-        @test isempty(driver_declarations(d))
+        @test all(l -> l.category === :driver_policy, driver_declarations(d))
 
         # In trajectory form: with nothing flagged the cell never moves, so the
         # factor and the geometry are bitwise constant for the whole run.
