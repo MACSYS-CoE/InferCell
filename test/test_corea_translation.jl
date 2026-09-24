@@ -391,4 +391,18 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         @test occursin("JCVISYN3A_0607 (GAPD)", msg)
         @test count("JCVISYN3A_", msg) == 1
     end
+
+    @testset "11.9 no protein degradation: the stochastic block has 52 reactions" begin
+        # 17 transcription + 17 decay + 17 translation + 1 translocation, the
+        # scoping note's count. ptnDegRate is dead upstream (§12, 2026-09-23 E).
+        tx, dec = CoreATranscription(), CoreATranscriptDecay()
+        @test length(reactions(tx)) + length(reactions(dec)) + length(reactions(tl)) == 52
+        # And no translation reaction lowers a protein count: only
+        # translocation lowers one, the cytosolic ptsG, by the one it inserts.
+        for (i, r) in enumerate(reactions(tl))
+            u = fill(5, n_state); r.affect!(u, fill(1, 17))
+            lowered = findall(u .< 5)
+            @test lowered == (i == 18 ? [cyto] : Int[])
+        end
+    end
 end
