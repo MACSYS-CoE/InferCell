@@ -176,6 +176,36 @@ _costs(edges) = ToyExpression(k_tx = 0.0, k_tl = 0.0, edges = edges)
         end
     end
 
+    @testset "13a.2 two reactants with products are refused" begin
+        # Each consumer pays the whole accrual and the credit is their sum, so
+        # ATP + CTP → ADP would credit ADP twice per event (/check-PR of #66:
+        # 350 from an accrual of 250).
+        err = caught(() -> build_problem([_frozen(atp = 100),
+                                          _costs([_dc(:M_atp_c, :in), _dc(:M_ctp_c, :in),
+                                                  _dc(:M_adp_c, :out)])];
+                                         tspan = (0.0, 10.0)))
+        @test err isa ArgumentError
+        @test occursin("credited once per reactant", sprint(showerror, err))
+    end
+
+    @testset "13a.2 an inert clip policy is not reported as one" begin
+        # A product credit cannot clip, and a chemostat pays in full, so neither
+        # obstructs gradients or departs from the published drain, whatever its
+        # clip field says. A debit on a live pool still does both.
+        for (sp, dir) in ((:M_adp_c, :out), (:M_ctp_c, :in))
+            for clip in (:clamped_deficit_carried, :unclamped)
+                e = DeferredCounterEdge(species = sp, direction = dir, counter = :c,
+                                        clip = clip)
+                @test !obstructs_gradients(e)
+                @test !deviates_from_published(e)
+            end
+        end
+        @test obstructs_gradients(DeferredCounterEdge(species = :M_atp_c,
+                                                      direction = :in, counter = :c))
+        @test deviates_from_published(DeferredCounterEdge(species = :M_atp_c,
+            direction = :in, counter = :c, clip = :unclamped))
+    end
+
     @testset "13a.2 a debit is one unit per accrued unit" begin
         @test_throws ArgumentError DeferredCounterEdge(species = :M_atp_c,
             direction = :in, counter = :c, stoichiometry = 2.0)

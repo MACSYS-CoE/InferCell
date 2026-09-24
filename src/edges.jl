@@ -147,7 +147,8 @@ declared. The other policies take no smoothing and reject one.
 and is a property of the product side only (spec §11 task 13.10). A counter
 accrues in its consumer's units — one ATP, one GTP, one charged tRNA — so an
 inbound edge is one unit per unit by definition and refuses any other value.
-An outbound edge on a counter that also has a consumer is credited
+An outbound edge on a counter that also has a consumer — exactly one; the
+driver refuses products on a counter with two — is credited
 `stoichiometry` × what the consumer actually *paid*, so `ATP_trsc`, which
 turns one ATP into one ADP and one phosphate, is one consumer and two producers
 at stoichiometry 1.
@@ -495,9 +496,19 @@ end
 Whether the edge is non-differentiable at the boundary. True only for a
 deferred counter under the published clamped policy — the `max(0, ·)` that will
 obstruct NUTS if the ODE block is sampled with a gradient-based method.
+
+Only a debit on an integrated pool can clip. A product credit adds to its pool,
+and a registry chemostat pays any debit in full (spec §11 task 13.9), so the
+`clip` field of either is inert and neither obstructs anything.
 """
-obstructs_gradients(e::DeferredCounterEdge) = e.clip === :clamped_deficit_carried
+obstructs_gradients(e::DeferredCounterEdge) =
+    _can_clip(e) && e.clip === :clamped_deficit_carried
 obstructs_gradients(::CouplingEdge) = false
+
+# Whether the hook ever applies this edge's clip policy: an inbound debit on a
+# pool that is not a registry chemostat.
+_can_clip(e::DeferredCounterEdge) =
+    e.direction === :in && !(is_registered(e.species) && is_chemostatted(e.species))
 
 """
     deviates_from_published(e::CouplingEdge) -> Bool
@@ -519,6 +530,8 @@ A one-line description of how an edge departs from the published model, or
 `nothing` where it does not. Written for a report a human reads.
 """
 function deviation_reason(e::DeferredCounterEdge)
+    # A clip policy the hook never applies is no departure (see obstructs_gradients).
+    _can_clip(e) || return nothing
     e.clip === :smoothed &&
         return "deferred counter on :$(e.species) uses a smoothed clip of width " *
                "$(e.smoothing), replacing the published model's max(0, ·) with a " *

@@ -530,6 +530,12 @@ supplied the particles, +1 where it absorbed them) and the running total in
 particles. A chemostat is an open boundary, so a moiety that passes through
 one does not close on the integrated pools alone, and this is the term that
 closes it.
+
+**Rows count particles of what the counter moved, not of the chemostat.** On
+`M_ctp_c` a `CTP_mRNA` row (sign -1) is CTP supplied, three phosphates of which
+two leave as the PPi it credits, while a `CMP_mRNAdeg` row (sign +1) is CMP
+returned, one phosphate. A phosphate closure has to weight each row by what its
+counter carries, read from the module's counter table, not by the species.
 """
 chemostat_census(d::HandshakeDriver) =
     [(species = b.species, counter = b.counter, sign = b.sign,
@@ -601,8 +607,9 @@ These are free parameters, so `build_turing_model` and the ABC path both sample
 them — and the driver then overwrites the drawn value. **A posterior for one of
 these slots is its prior and is not an identifiability result.** The warning is
 `rebuilt_params`' (see its docstring) and applies to all three channels;
-enumerating them is the first step to excluding them, which is spec §11 task
-13.3's, not this function's.
+enumerating them is the first step to excluding them, which belongs to the
+inference phases 15 to 17 (spec §11 task 5b.10), not to this function — and not
+to task 13.3, which is hybrid dispatch.
 """
 driver_written_params(d::HandshakeDriver) = vcat(
     [(param_slot = c.param_slot, channel = :catalytic, declared_by = c.declared_by)
@@ -905,15 +912,28 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             "declared only from here it would never write anything"))
     end
 
-    # Several producers on a counter with a consumer are a reaction: ATP → ADP +
+    # Several producers on a counter with one consumer are a reaction: ATP → ADP +
     # Pi credits both products from what the ATP actually paid, each scaled by
     # its stoichiometry (spec §11 task 13.10). Without a consumer there is no
     # payment to scale from, so each producer would be credited the raw
     # accrual; one such producer is a pure production, two are one event
     # counted twice. Refuse that shape rather than guess which was meant.
     for c in unique(b.counter for b in debits)
-        any(b -> b.counter === c && b.sign < 0, debits) && continue
+        consumers = [b for b in debits if b.counter === c && b.sign < 0]
         producers = [b for b in debits if b.counter === c && b.sign > 0]
+        # Every consumer on a counter pays the whole accrual, and the credit is
+        # their sum. With products that is one event credited once per
+        # consumer: A + B → C would mint a C for each reactant. The extent of a
+        # multi-reactant event is not what any one consumer paid, so refuse the
+        # shape rather than pick a rule for it no model yet needs.
+        length(consumers) > 1 && !isempty(producers) && throw(ArgumentError(
+            "Counter :$c debits more than one pool — " *
+            "$(join((string(":", b.species) for b in consumers), ", ")) — and " *
+            "credits $(join((string(":", b.species) for b in producers), ", ")). " *
+            "Each debit pays the whole accrual and the credit is their sum, so " *
+            "every product would be credited once per reactant. Split the " *
+            "reactants across counters, or drop the credits"))
+        isempty(consumers) || continue
         length(producers) <= 1 || throw(ArgumentError(
             "Counter :$c credits more than one pool — " *
             "$(join((string(":", b.species) for b in producers), ", ")) — and " *

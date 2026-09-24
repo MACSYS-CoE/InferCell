@@ -38,7 +38,7 @@ The legend of [`fig1r_state_graph_reduced.pdf`](https://github.com/MACSYS-CoE/In
 |---|---|---|
 | `MassEdge` | shared state, continuous; gradients cross inside the ODE block | — |
 | `CurrencyEdge` | routed via a shared pool node | `pool` |
-| `DeferredCounterEdge` | a cost accrued in one block, debited a step later | `counter`, `clip`, `smoothing` |
+| `DeferredCounterEdge` | a cost accrued in one block, debited a step later | `counter`, `clip`, `smoothing`, `stoichiometry` (products only) |
 | `CatalyticEdge` | counts entering a rate law as parameters; no mass flows | `param_slot` |
 | `RateConstantEdge` | pools re-entering the stochastic block as rate constants | `cadence`, `interval` |
 | `VolumeEdge` | outbound: counts set surface area, hence volume, hence every concentration — the flagged states come from `membrane_protein_states`. Inbound: that geometry re-enters an ODE rate law | `param_slot` and `quantity`, on the inbound direction only |

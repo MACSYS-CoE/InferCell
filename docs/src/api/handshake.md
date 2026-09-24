@@ -118,7 +118,7 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 
 ## What this layer does not yet do
 
-The clamped edge's held value still travels as a fixed parameter rather than being executed. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set is spec §11 task 13.3's.
+The clamped edge's held value still travels as a fixed parameter rather than being executed. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set belongs to the inference phases 15 to 17 (spec §11 task 5b.10), not to task 13.3, which is hybrid dispatch.
 
 ## Reference
 

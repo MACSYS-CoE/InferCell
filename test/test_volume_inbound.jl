@@ -377,16 +377,16 @@ using Random
         @test !isempty(d.geometry)
 
         # Every driver-written slot is enumerable, across all three channels —
-        # the first step to excluding them from the sampled set, which is task
-        # 13.3's. They are free parameters, so inference samples them today and
+        # the first step to excluding them from the sampled set, which belongs
+        # to phases 15 to 17 (task 5b.10), not to 13.3. They are free parameters, so inference samples them today and
         # the driver overwrites the draw; a posterior for one is its prior.
         written = driver_written_params(d)
         @test (param_slot = :r_cell_nm, channel = :volume,
                declared_by = :ToyExportingPool) in written
         @test any(w -> w.channel === :catalytic, written)
 
-        # The third channel, on phase 4's own composition. Task 13.3 reads this
-        # to decide what not to sample, so a rebuilt slot silently missing from
+        # The third channel, on phase 4's own composition. The inference phases
+        # read this to decide what not to sample, so a rebuilt slot silently missing from
         # it is a posterior that gets read as an identifiability result.
         reb = build_problem([toy_slow_pool(), ToyRebuiltExpression()];
                             tspan = (0.0, 120.0))

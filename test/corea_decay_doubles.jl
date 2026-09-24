@@ -12,10 +12,10 @@ Owns the seventeen transcripts at a fixed initial count and has no reactions.
 
 **Why this exists.** Task 12.4 wants the recyclable monomers to reach the pools
 nucleotide recycling closes, and the only proof of that is a hybrid build in
-which the hook executes decay's AMP and GMP credits. `CoreATranscription` cannot
-be in that build, because its CTP and UTP counters need an owner the registry
-forbids (§12, 2026-09-10 E; task 13.9). This stands in for it as the
-transcripts' owner, so decay has something to decrement and nothing else moves.
+which the hook executes decay's AMP and GMP credits. It was written when
+`CoreATranscription` could not be in that build (§12, 2026-09-10 E), and is kept
+since task 13.9 made it possible: it stands in as the transcripts' owner, so
+decay has something to decrement and nothing else moves.
 """
 struct TranscriptSource <: AbstractSubModel
     genes::Vector{TranscriptionGene}
