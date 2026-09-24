@@ -153,6 +153,29 @@ _costs(edges) = ToyExpression(k_tx = 0.0, k_tl = 0.0, edges = edges)
         @test occursin("debits none", sprint(showerror, err))
     end
 
+    @testset "13a.3 inference dispatches on the composition, not its first module" begin
+        data = ObservedData([0.0, 1.0], zeros(1, 2), [:M_atp_c])
+        # A hybrid, in both orders. Before 13a.3 the first went to NUTS and the
+        # second to ABC-SMC, and neither can run a handshake driver.
+        for ms in ([ToyPool(), ToyExpression()], [ToyExpression(), ToyPool()])
+            err = caught(() -> infer(ms, data))
+            @test err isa ArgumentError
+            msg = sprint(showerror, err)
+            @test occursin("no path for a hybrid composition", msg)
+            @test occursin("ToyPool are :ode", msg) && occursin("ToyExpression are :jump", msg)
+        end
+        # One formalism, two modes, in both orders.
+        a = CoreAStub(:DiffA; st = [:M_atp_c], mode = :differentiable)
+        b = CoreAStub(:SimB; st = [:M_adp_c], mode = :simulation)
+        for ms in ([a, b], [b, a])
+            err = caught(() -> infer(AbstractSubModel[ms...], data))
+            @test err isa ArgumentError
+            msg = sprint(showerror, err)
+            @test occursin("different inference modes", msg)
+            @test occursin("DiffA :differentiable", msg) && occursin("SimB :simulation", msg)
+        end
+    end
+
     @testset "13a.2 a debit is one unit per accrued unit" begin
         @test_throws ArgumentError DeferredCounterEdge(species = :M_atp_c,
             direction = :in, counter = :c, stoichiometry = 2.0)

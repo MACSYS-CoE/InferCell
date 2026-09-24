@@ -8,7 +8,7 @@ Source: [`src/inference.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/s
 
 ## Entry point
 
-[`infer`](@ref) selects NUTS for sub-models with `inference_mode = :differentiable` and ABC-SMC for `:simulation`. `priors_override` is forwarded to [`build_turing_model`](@ref) on the NUTS path — the hook the boundary protocol uses to feed conditioned priors back into NUTS.
+[`infer`](@ref) selects NUTS for sub-models with `inference_mode = :differentiable` and ABC-SMC for `:simulation`. `priors_override` is forwarded to [`build_turing_model`](@ref) on the NUTS path — the hook the boundary protocol uses to feed conditioned priors back into NUTS. The mode is read from the whole composition: every module must declare the same one, and a hybrid ODE/jump composition is refused by name, because it builds a handshake driver that neither backend can run.
 
 ## Synthesising data
 

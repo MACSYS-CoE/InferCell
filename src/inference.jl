@@ -71,6 +71,10 @@ Dispatch entry point for parameter inference. Selects NUTS for sub-models with
 `inference_mode = :differentiable` and ABC-SMC for `:simulation`. Returns an
 `MCMCChains.Chains` object for NUTS or an [`ABCPosterior`](@ref) for ABC-SMC.
 
+The mode is the **composition's**, not its first module's (spec §11 task 13.3):
+every module must declare the same one, and a hybrid ODE/jump composition is
+refused, because neither backend can run the handshake driver it builds.
+
 `priors_override::Dict{Symbol,Distribution}` is forwarded to
 [`build_turing_model`](@ref) on the NUTS path and is the hook used by the
 boundary protocol's iterative loop.
@@ -81,7 +85,7 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                prob=nothing, tspan=nothing,
                priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
                kwargs...)
-    mode = inference_mode(models[1])
+    mode = _composition_inference_mode(models)
     if mode == :differentiable
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
@@ -95,6 +99,29 @@ end
 
 infer(model::AbstractSubModel, data::ObservedData; kwargs...) =
     infer([model], data; kwargs...)
+
+# Which backend a composition takes, read from all of it. Reading the first
+# module alone let composition order choose the path: a hybrid listing an ODE
+# module first went to NUTS and one listing a jump module first went to ABC,
+# and neither can run the `HandshakeDriver` a hybrid builds.
+function _composition_inference_mode(models::Vector{<:AbstractSubModel})
+    isempty(models) && throw(ArgumentError("infer needs at least one sub-model"))
+    if _determine_formalism(models) === :mixed
+        ids(f) = join((string(module_id(m)) for m in models if formalism(m) === f), ", ")
+        throw(ArgumentError(
+            "infer has no path for a hybrid composition: $(ids(:ode)) are :ode " *
+            "and $(ids(:jump)) are :jump. It builds a HandshakeDriver, which NUTS " *
+            "(an ODEProblem through Turing) and ABC-SMC (a JumpProblem re-solved " *
+            "with SSAStepper) both cannot run. Inference across the boundary is " *
+            "the conditional scheme of spec §4 D10, built in phase 16"))
+    end
+    modes = unique(inference_mode.(models))
+    length(modes) == 1 || throw(ArgumentError(
+        "The sub-models in this composition declare different inference modes " *
+        "— $(join(("$(module_id(m)) :$(inference_mode(m))" for m in models), ", ")) " *
+        "— so no one backend is right for all of them. Declare one mode"))
+    return only(modes)
+end
 
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
                      solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
