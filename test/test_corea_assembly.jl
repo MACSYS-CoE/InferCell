@@ -84,6 +84,21 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         end
     end
 
+    @testset "13.5 a full cycle at published parameters" begin
+        # The whole 6,300 s, never shortened (spec §3). Warm, it costs about
+        # 32 s of stepping (job 17298242), so it stays in the default suite
+        # rather than behind a gate (task 13.8). The hook throws on any
+        # non-success solver retcode, so completing is the no-failure check.
+        d = build_corea()
+        @test solver_settings(d) == (solver = :Rodas5P, abstol = 1e-10, reltol = 1e-8)
+        out = run_handshake!(d, round(Int, COREA_CYCLE_S))
+        @test d.ode.t == COREA_CYCLE_S
+        @test last(out.t) == COREA_CYCLE_S
+        @test d.n_handshakes == 6300
+        @test all(isfinite, d.ode.u)
+        @test growth_report(d).fractional > 1
+    end
+
     @testset "13.6 what is ours, across the whole composition" begin
         ms = corea_models()
         d = build_corea(tspan = (0.0, 60.0))
