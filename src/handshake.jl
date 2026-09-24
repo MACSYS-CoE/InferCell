@@ -435,6 +435,22 @@ end
 # ---------------------------------------------------------------------------
 
 """
+    ContributionRecord
+
+One mass or currency flow a module executes into a state another module in its
+own block owns: an ODE module's term through the contribution channel
+(`channel = :contribution`, phase 1), or a jump module's declared peer write
+(`channel = :peer_write`, phase 2). Both are wired by the block builders, not by
+the hook, and neither was recorded anywhere a check could read until task 13.2
+asked whether every declared edge is executed.
+"""
+struct ContributionRecord
+    species::Symbol
+    declared_by::Symbol
+    channel::Symbol
+end
+
+"""
     HandshakeDriver
 
 A mixed ODE/jump composition, advanced by a split-operator exchange.
@@ -472,6 +488,7 @@ mutable struct HandshakeDriver{OI, JI}
     geometry::Vector{GeometryExchange}  # the volume channel's inbound half
     debits::Vector{DeferredDebit}
     counters::Vector{_CounterRead}        # debits grouped by the counter feeding them
+    contributions::Vector{ContributionRecord} # in-block flows into a peer's state
     rebuilds::Vector{RateConstantRebuild} # the 60 s rate-constant channel
     growth::Vector{GrowthChain}           # the volume channel, on neither clock
     dilute_idxs::Vector{Int}              # ODE states growth dilutes; empty when it is inert
@@ -598,6 +615,19 @@ function growth_census(d::HandshakeDriver)
 end
 
 """
+    solver_settings(driver) -> NamedTuple
+
+The ODE block's integrator and tolerances, `(solver, abstol, reltol)`, read back
+from the live integrator rather than from the keywords the build was called
+with, so what is reported is what runs (spec §11 task 13.5). Spec §3 pins
+Rodas5P at `abstol = 1e-10` mM and `reltol = 1e-8`, which are the build's
+defaults.
+"""
+solver_settings(d::HandshakeDriver) = (solver = nameof(typeof(d.ode.alg)),
+                                       abstol = d.ode.opts.abstol,
+                                       reltol = d.ode.opts.reltol)
+
+"""
     driver_written_params(driver) -> Vector{NamedTuple}
 
 Every parameter slot the driver overwrites during a trajectory: the catalytic
@@ -619,9 +649,10 @@ driver_written_params(d::HandshakeDriver) = vcat(
     [(param_slot = s, channel = :rate_constant, declared_by = r.declared_by)
      for r in d.rebuilds for s in r.names])
 
+export ContributionRecord, unexecuted_edges, assert_edges_executed
 export CatalyticExchange, GeometryExchange, DeferredDebit, RateConstantRebuild,
        GrowthChain, HandshakeDriver, clipping_census, rebuild_census, chemostat_census,
-       growth_census, driver_written_params, radius_from_volume_nm
+       growth_census, driver_written_params, radius_from_volume_nm, solver_settings
 
 # ---------------------------------------------------------------------------
 # Building a hybrid composition (spec §11 task 3.2)
@@ -1329,7 +1360,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                                initial_surface_area_nm2 = nothing,
                                footprint_nm2 = nothing,
                                ode_solver = Rodas5P(),
-                               abstol = 1e-10, reltol = 1e-8)
+                               abstol = 1e-10, reltol = 1e-8,
+                               complete = false)
     interval > 0 || throw(ArgumentError(
         "The handshake interval must be positive, got $interval"))
     drain = drain_interval === nothing ? Float64(interval) : Float64(drain_interval)
@@ -1339,7 +1371,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     _validate_shared_params(models)
     # The contract is validated over the whole composition, not per block: a
     # boundary crossing is by definition not visible from one side.
-    resolve_coupling(models)
+    # `complete = true` makes closure a build failure (spec §11 task 13.1).
+    resolve_coupling(models; complete)
 
     ode_models = AbstractSubModel[m for m in models if formalism(m) === :ode]
     jump_models = AbstractSubModel[m for m in models if formalism(m) === :jump]
@@ -1460,7 +1493,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     d = HandshakeDriver(ode_integ, jump_integ, Float64(interval), drain,
                         steps_per_drain, factor,
                         RoundingState(rounding; nspecies = length(ode_prob.u0)),
-                        catalytic, geometry, debits, counters, rebuilds,
+                        catalytic, geometry, debits, counters,
+                        _lower_contributions(ode_models, jump_models), rebuilds,
                         growth, dilute,
                         0.0, footprint,
                         corea_volume_cap_litres(volume0),
@@ -1491,7 +1525,140 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
             "initial_surface_area_nm2, or flag fewer states"))
         d.area_baseline_nm2 = base
     end
+
+    # Every declared edge must have a record behind it (spec §11 task 13.2). The
+    # refusals above catch the shapes known to be inert; this catches the rest,
+    # including any shape nobody has thought of yet, by asking the question the
+    # other way round.
+    assert_edges_executed(models, d)
     return d
+end
+
+# The in-block flows the builders wire. The ODE builder wires every
+# `contributed_states` entry into its owner's derivative, and throws if the
+# owner is absent; the jump builder makes every `written_states` entry writable
+# through the `PeerView`. So these lists are what runs, read from the same
+# declarations the builders consume.
+function _lower_contributions(ode_models, jump_models)
+    recs = ContributionRecord[]
+    for m in ode_models, s in contributed_states(m)
+        push!(recs, ContributionRecord(s, module_id(m), :contribution))
+    end
+    for m in jump_models, s in written_states(m)
+        push!(recs, ContributionRecord(s, module_id(m), :peer_write))
+    end
+    return recs
+end
+
+"""
+    unexecuted_edges(models, driver) -> Vector{NamedTuple}
+
+Every declared edge of the composition that no record on the driver executes,
+each as `(edge, reason)` with `edge` the [`ResolvedEdge`](@ref) (spec §11 task
+13.2). Empty for a composition whose declarations all run.
+
+What counts as executed, per kind:
+
+- **Mass and currency**, declared on a state the declarer does not own: a
+  [`ContributionRecord`](@ref) from it on that species. Declared by the state's
+  **owner**, the edge is the owner's side of a peer's flow, and the owner's own
+  term in `dynamics` is what executes it. Whether the peer is in the
+  composition is closure, not execution: a partial composition legitimately
+  lacks it, and completeness mode reports the missing half as a dead end (task
+  13.1), so it is not failed twice.
+- **Deferred counter**: a [`DeferredDebit`](@ref) on its counter and pool. From
+  the module that owns the counter the sign must match too, so a second
+  declaration that the lowering's dedup dropped does not pass on the first's
+  record.
+- **Catalytic**: a [`CatalyticExchange`](@ref) filling the declarer's slot, or,
+  from the jump module owning the count, one reading that count.
+- **Rate constant**: from the rebuilt module, a [`RateConstantRebuild`](@ref) of
+  its own reading that pool; from the pool's side, any rebuild reading it.
+- **Volume**: outbound, a [`GrowthChain`](@ref) on that state; inbound, a
+  [`GeometryExchange`](@ref) filling the declarer's slot.
+- **Clamped** is executed when it is *held*: no module integrates the species
+  and no record writes it, and its held value is read — by a rebuild, which
+  takes it through the chemostat path, or by the declarer as a fixed parameter
+  whose source identifies the species and whose value equals the clamp's.
+  Anything else is a clamp declared beside a value that travels some other way,
+  which is the declare-only state spec §2 G2 records.
+"""
+function unexecuted_edges(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+    graph = resolve_coupling(models)
+    owner = Dict{Symbol, Symbol}(s => module_id(m) for m in models for s in states(m))
+    by_id = Dict{Symbol, AbstractSubModel}(module_id(m) => m for m in models)
+
+    bad = NamedTuple{(:edge, :reason), Tuple{ResolvedEdge, String}}[]
+    for r in graph.edges
+        e, s, id = r.edge, r.species, r.declared_by
+        reason = if r.kind in (:mass, :currency)
+            if get(owner, s, nothing) === id
+                nothing   # the owner's own term executes it; see the docstring
+            else
+                any(c -> c.species === s && c.declared_by === id, d.contributions) ?
+                    nothing : "no contribution or peer write from $id into :$s"
+            end
+        elseif r.kind === :deferred_counter
+            accruing = get(owner, e.counter, nothing) === id
+            any(b -> b.counter === e.counter && b.species === s &&
+                     (!accruing || b.sign == mass_contribution(e)), d.debits) ? nothing :
+                "no debit or credit of :$s from counter :$(e.counter)"
+        elseif r.kind === :catalytic
+            any(c -> (c.declared_by === id && c.param_slot === e.param_slot) ||
+                     (get(owner, s, nothing) === id && c.species === s),
+                d.catalytic) ? nothing : "no catalytic exchange for :$s"
+        elseif r.kind === :rate_constant
+            any(rb -> s in rb.species &&
+                      (formalism(by_id[id]) === :ode || rb.declared_by === id),
+                d.rebuilds) ? nothing : "no rebuild reads :$s"
+        elseif r.kind === :volume
+            is_consumer(e) ?
+                (any(g -> g.declared_by === id && g.param_slot === e.param_slot,
+                     d.geometry) ? nothing : "no geometry exchange fills :$(e.param_slot)") :
+                (any(g -> g.species === s, d.growth) ? nothing :
+                     "no growth chain reads :$s")
+        elseif r.kind === :clamped
+            _clamp_held(e, id, owner, by_id, d)
+        else
+            "no execution rule for a :$(r.kind) edge"
+        end
+        reason === nothing || push!(bad, (edge = r, reason = reason))
+    end
+    return bad
+end
+
+function _clamp_held(e::ClampedEdge, id, owner, by_id, d)
+    s = e.species
+    haskey(owner, s) && return "held, but :$s is integrated by $(owner[s])"
+    any(c -> c.species === s, d.contributions) && return "held, but a record writes :$s"
+    any(rb -> s in rb.species, d.rebuilds) && return nothing
+    held = e.held_value === nothing ? held_value(s) : e.held_value
+    read = held !== nothing && any(parameters(by_id[id])) do p
+        p.fixed && p.value == held && p.provenance !== nothing &&
+            p.provenance.identifier == String(s)
+    end
+    return read ? nothing :
+        "held at $held, but neither a rebuild nor a fixed parameter of $id reads it"
+end
+
+"""
+    assert_edges_executed(models, driver)
+
+Throw if any declared edge of the composition is not executed by the driver,
+naming each one (spec §11 task 13.2). The hybrid build calls this last, so a
+declared-but-inert edge fails the build rather than passing silently.
+"""
+function assert_edges_executed(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+    bad = unexecuted_edges(models, d)
+    isempty(bad) && return nothing
+    lines = ["$(length(bad)) declared edge(s) that nothing in this composition executes:"]
+    for (r, why) in bad
+        push!(lines, "  $(r.kind) on :$(r.species) ($(r.edge.direction)) declared by " *
+                     "$(r.declared_by): $why")
+    end
+    push!(lines, "An edge that resolves and never runs is the failure the " *
+                 "contract exists to prevent; wire it, or drop the declaration")
+    throw(ArgumentError(join(lines, "\n")))
 end
 
 # ---------------------------------------------------------------------------
@@ -1912,6 +2079,20 @@ instead of it.
 """
 function driver_declarations(d::HandshakeDriver)
     labels = ReductionLabel[]
+    # The drain granularity and the rounding reach every report, departing or
+    # not (spec §11 task 13.6): a report silent on them cannot be told apart
+    # from one whose driver was never asked.
+    d.drain_interval > d.interval || push!(labels, ReductionLabel(
+        :driver_policy, :drain_interval,
+        "the deferred counters are debited at every $(d.interval) s handshake, " *
+        "the published model's granularity. A coarser drain would be a labelled " *
+        "reduction, and on the assembled Core A′ none is affordable: task 13.4 " *
+        "measured the final paired difference at up to 53% for a 5 s drain and " *
+        "288% for 60 s, against spec §4 D10's one percent (job 17298253)"))
+    d.rounding.policy === :fractional_carry && push!(labels, ReductionLabel(
+        :driver_policy, :fractional_carry,
+        "counts are written back under fractional carry, this project's policy " *
+        "(spec §3 check 0) and the only one whose round trip is exact"))
     if d.drain_interval > d.interval
         push!(labels, ReductionLabel(
             :coarse_drain, :drain_interval,
@@ -1982,8 +2163,20 @@ these two-argument forms, because a result produced under a coarse drain or a
 non-carry rounding policy that carried only the one-argument enumeration would
 be exactly the unlabelled departure §6 T2 exists to prevent.
 """
-reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
-    vcat(reduction_declarations(models), driver_declarations(d))
+function reduction_declarations(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+    # An asserted prior on a slot the driver overwrites at every handshake is
+    # never what the rate law runs on, so it is reported apart from the priors
+    # an inference might free (spec §11 task 13.6).
+    written = Set(w.param_slot for w in driver_written_params(d))
+    labels = map(reduction_declarations(models)) do l
+        l.category === :asserted_prior && l.subject in written || return l
+        ReductionLabel(:discarded_prior, l.subject,
+                       "prior on :$(l.subject) is asserted by this project and " *
+                       "discarded: the driver overwrites the slot at every " *
+                       "handshake, so a posterior for it is its prior")
+    end
+    return vcat(labels, driver_declarations(d))
+end
 
 reduction_report(models::Vector{<:AbstractSubModel}, d::HandshakeDriver) =
     _reduction_report(reduction_declarations(models, d); driver_seen = true)

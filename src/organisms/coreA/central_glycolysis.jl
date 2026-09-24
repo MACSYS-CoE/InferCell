@@ -458,6 +458,7 @@ const GLYCOLYSIS_EDGES = CouplingEdge[
     MassEdge(species = :M_pyr_c, direction = :in),        # the PTS cascade supplies
     MassEdge(species = :M_pep_c, direction = :out),       # the PTS cascade draws
     MassEdge(species = :M_lac__L_c, direction = :out),    # lactate export draws
+    MassEdge(species = :M_13dpg_c, direction = :out),     # recycling's PGK3 draws
 ]
 
 # The four inbound mass edges are on states this module integrates, so they take

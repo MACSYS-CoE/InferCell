@@ -138,7 +138,7 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
         cat = [e for e in coupling(tr) if e isa CatalyticEdge]
         @test [e.species for e in cat] == default_protein_sources()
         @test [e.param_slot for e in cat] == slots
-        @test coupling(tr)[1:9] == coupling(nominal)
+        @test coupling(tr)[1:length(coupling(nominal))] == coupling(nominal)
         @test InferCell.inputs(tr) == collect(GLYCOLYSIS_CURRENCIES)
         @test resolve_coupling(tr) isa CouplingGraph
 
@@ -186,7 +186,8 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
               [:enz_R_PGK3, :enz_R_PYK3, :enz_R_GK1, :enz_R_PPA]
         @test [e.param_slot for e in coupling(no_adk) if e isa CatalyticEdge] ==
               [:enz_R_PGK3, :enz_R_PYK3, :enz_R_GK1, :enz_R_PPA]
-        @test coupling(nominal) == coupling(NucleotideRecycling(enzymes = :translated))[1:11]
+        @test coupling(nominal) ==
+              coupling(NucleotideRecycling(enzymes = :translated))[1:length(coupling(nominal))]
 
         # PGK3 and PYK3 read the counts glycolysis's PGK and PYK read.
         glyc = Dict(e.param_slot => e.species

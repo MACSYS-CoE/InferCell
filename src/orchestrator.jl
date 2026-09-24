@@ -11,7 +11,8 @@ object that means what the published coupling means (spec §11 phase 3).
 
 Keyword arguments other than `tspan` are the hybrid driver's declared policy
 (exchange `interval`, `drain_interval`, `rounding`, `radius_nm`,
-`initial_surface_area_nm2`, `footprint_nm2`, `ode_solver`, `abstol`, `reltol`)
+`initial_surface_area_nm2`, `footprint_nm2`, `ode_solver`, `abstol`, `reltol`,
+and `complete`, which runs [`resolve_coupling`](@ref) in completeness mode)
 and are accepted only by that path.
 
 Shared parameters across sub-models are deduplicated by name and must agree

@@ -178,11 +178,21 @@ charging step is the principal consumer of ATP's turnover (~81%, spec §4 D13)
 and a principal producer of AMP and pyrophosphate, so it declares all three. As
 a jump module it could not have executed these against ODE states (D13); in the
 ODE block they run through phase 1's contribution channel.
+
+Two more are on the tRNA pair this module owns. They move nothing through the
+contribution channel, since the owner's term is already in `dynamics`; they are
+the owner's side of translation's counters, without which the resolver reads
+the pair as a dead end (spec §11 task 13.1).
 """
 const CHARGING_EDGES = CouplingEdge[
     CurrencyEdge(species = :M_atp_c, direction = :in),
     CurrencyEdge(species = :M_amp_c, direction = :out),
     CurrencyEdge(species = :M_ppi_c, direction = :out),
+    # The owner's side of translation's two tRNA counters: it charges the
+    # uncharged pool translation returns and supplies the charged pool
+    # translation draws (spec §11 task 13.1).
+    CurrencyEdge(species = :M_trna_c, direction = :in),
+    CurrencyEdge(species = :M_trna_chg_c, direction = :out),
 ]
 
 states(::TrnaCharging) = CHARGING_STATES
@@ -208,20 +218,26 @@ Two declarations, not one, because two separate things here are ours (spec task
    though its placement in the ODE block is the scoping note's (§4 D13). The
    published model fires it as ~3.49 million stochastic events per cycle.
 
-Both land under `:lumping`, the only category `reduction_notes` feeds. A
-separate `:formalism` category would be a change to `src/labels.jl`, which
-§10 R15 freezes against a module branch.
+The first lands under `:lumping` and the second under `:formalism`, so the
+lumping is one declaration a report can count (spec §11 task 13.6). A third,
+plain note records the chemostatted amino-acid pool, which is ours and which
+nothing in Core A′ reads.
 """
-reduction_notes(::TrnaCharging) = [
-    "tRNA charging lumped: one reaction M_trna_c + ATP -> M_trna_chg_c + AMP + " *
+reduction_notes(::TrnaCharging) = Any[
+    :lumping => "tRNA charging lumped: one reaction M_trna_c + ATP -> M_trna_chg_c + AMP + " *
     "PPi replaces the published 20 per-amino-acid chains of 5 reactions each (100 " *
     "reactions), with one effective tRNA pool whose size and charged fraction are " *
     "asserted by this project. The published AMP + PPi product stoichiometry is " *
     "kept in preference to a 2 ATP -> 2 ADP + 2 Pi form, which would close the " *
     "same moieties by fiat and route no traffic through the adenylate kinase",
-    "tRNA charging integrated deterministically in the ODE block: the placement " *
+    :formalism => "tRNA charging integrated deterministically in the ODE block: the placement " *
     "is the scoping note's, but the formalism is this project's; the published " *
     "model fires charging as ~3.49 million stochastic events per cycle (spec §4 D13)",
+    "the amino-acid pool :M_aa_pool_c is a registry chemostat held at an asserted " *
+    "0.1 mM, and no Core A′ reaction reads it: the lumped step charges tRNA from " *
+    "ATP alone, so the amino acids the published chains consume are neither " *
+    "drawn nor limiting. Ours, since its sources are in modules Core A′ cuts " *
+    "(spec §3)",
 ]
 
 # From the parameter vector where free, from the struct where fixed, converted

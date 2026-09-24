@@ -57,9 +57,11 @@ using Distributions
         # one effective charging step is ours, not the published model's.
         note = "one lumped tRNA charging step replaces the 20 per-amino-acid " *
                "synthetase chains; this lumping is ours, not the published model's"
+        # A note names its category as a pair; a plain string is a
+        # `:model_note` (spec §11 task 13.6), so `:lumping` means a lumping.
         charging = CoreAStub(:Charging;
             st = [:M_trna_chg_c],
-            notes = [note])
+            notes = Any[:lumping => note, "some other simplification"])
 
         labels = reduction_declarations([charging])
         lumpings = filter(l -> l.category === :lumping, labels)
@@ -67,6 +69,8 @@ using Distributions
         @test lumpings[1].subject == :Charging
         @test occursin("lumped tRNA charging", lumpings[1].description)
         @test occursin("lumping", reduction_report([charging]))
+        @test only(l for l in labels if l.category === :model_note).description ==
+              "some other simplification"
     end
 
     @testset "A composition that follows the published model is labelled clean" begin
@@ -108,8 +112,9 @@ using Distributions
                                        :unclamped_counter, :continuous_rebuild,
                                        :coarse_drain, :rounding_policy,
                                        :calibrated_constant, :exogenous_growth,
-                                       :asserted_prior, :lumping,
-                                       :capped_rate_law_geometry)
+                                       :asserted_prior, :discarded_prior,
+                                       :lumping, :formalism, :model_note,
+                                       :capped_rate_law_geometry, :driver_policy)
     end
 
     @testset "Asserted-prior labelling does not depend on composition order" begin

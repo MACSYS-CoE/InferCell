@@ -53,6 +53,8 @@ include("organisms/coreA/transcription.jl")
 include("organisms/coreA/transcript_decay.jl")
 # Translation reads the same extract and transcription's transcript names.
 include("organisms/coreA/translation.jl")
+# The assembled model composes all seven, so it follows every one of them.
+include("organisms/coreA/assembly.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")

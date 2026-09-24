@@ -338,7 +338,7 @@ const TIGHT_SOL = recycling_solve(recycling_models();
     @testset "8.5 the boundary" begin
         m = NucleotideRecycling()
         edges = coupling(m)
-        @test length(edges) == 11
+        @test length(edges) == 12
 
         declared = Set((edge_kind(e), e.species, e.direction) for e in edges)
         @test declared == Set([
@@ -348,6 +348,8 @@ const TIGHT_SOL = recycling_solve(recycling_models();
             (:currency, :M_amp_c, :in), (:currency, :M_gmp_c, :in),
             (:currency, :M_ppi_c, :in),
             (:currency, :M_pi_c, :out), (:currency, :M_gtp_c, :out),
+            # The owner's side of translation's GDP credit (task 13.1).
+            (:currency, :M_gdp_c, :in),
         ])
 
         # ATP and ADP deliberately carry no edge. This module is neither their
@@ -383,7 +385,7 @@ const TIGHT_SOL = recycling_solve(recycling_models();
         @test :M_13dpg_c in graph.unowned_states
         @test :M_pep_c in graph.unowned_states
         @test !(:M_atp_c in graph.unowned_states)
-        @test length(graph.edges) == 11
+        @test length(graph.edges) == 12
 
         # The contribution channel and the edges are held to each other in both
         # directions: dropping either half is drift, and drift is what this

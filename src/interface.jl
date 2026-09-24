@@ -94,10 +94,15 @@ composition, where the type name would name both instances identically.
 module_id(m::AbstractSubModel) = nameof(typeof(m))
 
 """
-    reduction_notes(m::AbstractSubModel) -> Vector{String}
+    reduction_notes(m::AbstractSubModel) -> Vector
 
 Simplifications this sub-model introduces that the published model does not
 make. Defaults to empty.
+
+Each entry is a `String`, reported under `:model_note`, or a `category =>
+description` pair naming one of [`REDUCTION_CATEGORIES`](@ref) — which is how
+the lumped charging step is reported as `:lumping` and its deterministic
+integration as `:formalism`, two separate declarations (spec §11 task 13.6).
 
 Core A′ carries several treatments that are ours rather than the source model's
 — the lumped tRNA charging step most of all — and each is a place where a result
