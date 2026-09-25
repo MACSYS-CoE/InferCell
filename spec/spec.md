@@ -5,8 +5,8 @@ phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
-is split (§12, 2026-09-25): 14a, the balance checks, is in progress, and 14b,
-the derivative, ensemble and census checks, follows it
+is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and 14b,
+the derivative, ensemble and census checks, is next
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-25
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3655,16 +3655,36 @@ mutation test showing it can fail.~~
 **Done when (amended 2026-09-25):** checks 0, 1, 2, 3, 4, 4b and 5 pass over a
 full 6,300 s cycle of the assembled model, and each has a mutation test that
 fails it naming the intended quantity.
-**PR:** _not started_
+**PR:** #70 (merged 2026-09-26)
 
-- [ ] 14.1 Re-assert check 0 on the assembled model — verify by the round-trip
+**Done (#70):** the suite passes 27,556/27,556 at `3bee403` (Slurm job
+17539617), and CI's unit tests pass at `289c491`, which touched only prose and
+one test comment. The run of record is job 17539616,
+`dev/scripts/corea_validation_result.md`.
+- Every whole-cell closure is at 3e-10 to 9e-9 of its `tol_C`, over the full
+  cycle and a ladder of seven decades. Nothing falls: the residuals are
+  roundoff.
+- Carbon and phosphate pass the exception at `n` ulps (3.94 of 13, 4.50 of
+  21), and the other seven bitwise or at one ulp.
+- Each stoichiometry mutant fails its moiety at 1.6e4 to 1.7e5 × `tol_C`
+  and misses the gate by 11 to 18 orders. The boundary mutant fails adenylate
+  alone, at 89.6×.
+- With the kinase removed, ATP crosses 1% at 246 s. The homolactic ratio is
+  2 − 6.0e-13, and 99.86% of the lactate formed is exported.
+- /check-PR: MERGE AFTER FIXES (5 major, 9 minor). Every item was fixed or
+  stated, then re-reviewed. The fixes also raised CI's timeout from 40 to 90
+  minutes, since its first run took 37m53.
+- Split tasks: 14.2's check 1 half and 14.10's part for checks 0 to 5 are
+  done here, and their boxes stay open for 14b.
+
+- [x] 14.1 Re-assert check 0 on the assembled model — verify by the round-trip
   residual showing the signature its policy predicts across 6,300 handshakes, so
   no downstream residual can be a rounding artefact.
   **Annotated 2026-09-25:** on the assembly the rejected policies' growth laws
   do not separate. So 14.1 asserts the carry within 10⁻⁶ of `tol_C`, and
   deterministic rounding at least 10⁶ times it. The driver records stochastic
   rounding (§3, §12 2026-09-25 B).
-- [ ] 14.2 Check 1 and 1b — verify by non-negativity naming the first state and
+- [ ] 14.2 (check 1's half done in 14a, #70; 1b in 14b) Check 1 and 1b — verify by non-negativity naming the first state and
   time of any violation rather than reporting a global failure, and by the
   particle-floor report flagging every state below 500 particles and
   cross-checking the three smallest against a chemical-Langevin ensemble, with
@@ -3677,7 +3697,7 @@ fails it naming the intended quantity.
   **Check 1's half done in 14a:** no state falls below its bound over the
   pinned cycle. With translation's debits unclamped, check 1 names `M_gtp_c`
   at 4,914 s (job 17539616). 1b's half stays open for 14b.
-- [ ] 14.3 Check 2, carbon balance — verify by closure satisfying the tolerance
+- [x] 14.3 Check 2, carbon balance — verify by closure satisfying the tolerance
   principle, by the homolactic ratio equalling 2.000 to integrator tolerance
   since it is analytically exact, and by a mutation removing lactate export
   failing with cytosolic lactate heading for the recorded ~691 mM.
@@ -3688,17 +3708,17 @@ fails it naming the intended quantity.
   module is a distinct type, and compiling it would add about five minutes to
   the suite. The stoichiometry mutation (LDH making two lactate)
   fails carbon alone.
-- [ ] 14.4 Check 3, redox — verify by the module-local check from phase 6
+- [x] 14.4 Check 3, redox — verify by the module-local check from phase 6
   restated at composition scope rather than reimplemented, so there is one
   implementation and one bound.
-- [ ] 14.5 Check 4, adenylate and guanylate **over a full cycle** — verify by both
+- [x] 14.5 Check 4, adenylate and guanylate **over a full cycle** — verify by both
   moieties closing over 6,300 s, by each being asserted separately so a failure
   names the moiety, and by an explicit assertion that the interval is a full
   cycle, since 144 s of it looked fine before the dead end was found. After D13
   charging's transfer is internal to the ODE block and conserves adenylate, so
   there is no drain to correct for; the kinase-removed configuration asserts a
   threshold crossing rather than exhaustion, per phase 8.
-- [ ] 14.6 Check 4b, phosphate closure — verify by closure after accounting for
+- [x] 14.6 Check 4b, phosphate closure — verify by closure after accounting for
   transcription's pyrophosphate, which the scoping note's own accounting omits,
   and by the flux correction being a subtraction rather than a relaxed bound.
   Charging's pyrophosphate needs no correction after D13: ATP's three phosphates
@@ -3710,7 +3730,7 @@ fails it naming the intended quantity.
   each into the chemostat, not into any integrated pool. The closure needs `chemostat_census`, each row weighted by what
   its counter carries — three phosphates for a supplied NTP, one for a returned
   NMP — not by the species.
-- [ ] 14.7 Check 5, carrier conservation — verify by four independent bounds
+- [x] 14.7 Check 5, carrier conservation — verify by four independent bounds
   naming the carrier that drifts, restated as conserved up to what translation
   adds, again by subtraction.
 - [ ] 14.8 Check 7 and check 8 — verify by the clipping census reporting zero
@@ -3739,7 +3759,7 @@ fails it naming the intended quantity.
   comparison on the assembled model, matched on steady flux, and record the
   ATP/ADP ratio under both lumpings. Phase 9 could not answer this, because its
   glycolytic double pins ADP (§9, §12 2026-09-23).
-- [ ] 14.10 Show each check can fail — verify by one mutation test per check, each
+- [ ] 14.10 (checks 0 to 5 done in 14a, #70; 1b, 7 and 8 in 14b) Show each check can fail — verify by one mutation test per check, each
   failing the intended check and naming the intended quantity, collected into the
   mutation table of output F3.
   **Split 2026-09-25:** 14a lands the mutations for checks 0 to 5 and the
