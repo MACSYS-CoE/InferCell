@@ -18,16 +18,20 @@ end was found.
 const COREA_CYCLE_S = CHARGING_CYCLE_S
 
 """
-    corea_models() -> Vector{AbstractSubModel}
+    corea_models(; metered = false) -> Vector{AbstractSubModel}
 
 The seven Core A′ modules as the assembled model composes them. Glycolysis and
 recycling read their enzyme concentrations from translated protein counts
 (`enzymes = :translated`, spec §11 phase 11a); transcription, decay and
 translation carry every deferred counter they declare.
+
+`metered = true` swaps in [`MeteredPtsTransport`](@ref), which integrates
+glucose uptake and lactate export into two extra states that nothing reads.
+It is the instrument check 2's carbon balance needs (spec §11 task 14.3).
 """
-corea_models() = AbstractSubModel[
+corea_models(; metered::Bool = false) = AbstractSubModel[
     CentralGlycolysis(enzymes = :translated),
-    PtsTransport(),
+    metered ? MeteredPtsTransport() : PtsTransport(),
     NucleotideRecycling(enzymes = :translated),
     TrnaCharging(),
     CoreATranscription(),
@@ -36,15 +40,16 @@ corea_models() = AbstractSubModel[
 ]
 
 """
-    build_corea(; tspan = (0.0, COREA_CYCLE_S), kwargs...) -> HandshakeDriver
+    build_corea(; tspan = (0.0, COREA_CYCLE_S), metered = false, kwargs...) -> HandshakeDriver
 
 Build the assembled Core A′ over one full cycle, in completeness mode: the build
 fails if any registry dynamic state is unowned or any moiety is stranded (spec
 §11 task 13.1). The remaining keywords are the hybrid driver's
 ([`build_problem`](@ref)); the solver and tolerances default to the pinned
-Rodas5P at `abstol = 1e-10`, `reltol = 1e-8` of spec §3.
+Rodas5P at `abstol = 1e-10`, `reltol = 1e-8` of spec §3. `metered` is
+[`corea_models`](@ref)'s.
 """
-build_corea(; tspan = (0.0, COREA_CYCLE_S), kwargs...) =
-    build_problem(corea_models(); tspan, complete = true, kwargs...)
+build_corea(; tspan = (0.0, COREA_CYCLE_S), metered::Bool = false, kwargs...) =
+    build_problem(corea_models(; metered); tspan, complete = true, kwargs...)
 
 export COREA_CYCLE_S, corea_models, build_corea
