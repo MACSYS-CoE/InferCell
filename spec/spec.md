@@ -460,8 +460,9 @@ terms and the phosphate sum 21, and they arrive from several modules, so they
 round more. On the assembled model carbon measures 3.94 ulps per evaluation
 and phosphate 4.50. Against the floating-point summation bound
 `n·ε·Σ|wᵢ·duᵢ|` that is 0.04 and 0.02, which is roundoff. Their integrated
-residuals are 1e-9 of `tol_C`. A mutated stoichiometry still misses the
-widened gate by about sixteen orders, so it cannot absorb a leak. A moiety
+residuals are 2.3e-9 and 8.7e-9 of `tol_C`. A mutated stoichiometry still
+misses the widened gate by 11 to 18 orders, measured on the six
+stoichiometry mutants (job 17539616). So it cannot absorb a leak. A moiety
 that passes at one ulp still reports `:one_ulp`. The integrated ladder
 condition is unchanged. See §12.
 
@@ -527,16 +528,16 @@ conservation number is uninterpretable.
 
 | # | Check | What is asserted | Scope |
 |---|---|---|---|
-| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff and not growing with handshake count, and each rejected policy at least 10⁶ times it. The measured growth ratios are reported, not asserted (§12) | Handshake phase, re-asserted on assembly |
+| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (**amended 2026-09-10:** pyrophosphate strands the phosphate moiety and stalls the pathway; it cannot diverge in a model whose phosphate is closed, which this one is — see §12). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
-| 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** **Amended 2026-09-11:** standalone, nothing consumes GTP, so the inbound flux is exactly `u[GTP] − u0[GTP]` — a state difference, which keeps the corrected closure a linear functional and inside §3's exception. Assembled, translation consumes GTP and that proxy is wrong; the restatement needs an accumulated flux, and a quadrature does carry tolerance-scaling error, so the fall binds there (task 14.4). See §12. **Amended 2026-09-25 (phase 14a):** no quadrature is needed. The assembled closure is whole-cell. It counts transcripts by sequence length, the CTP and UTP chemostat rows by what each counter carries, and the accrual not yet applied. Every boundary term is then an exact integer, and the closure passes the exception's second gate at `n` ulps. Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
+| 4b | Phosphate closure | Free phosphate plus every phosphorylated species with pyrophosphate counted twice, minus flux across the two inbound mass edges. Two forms: exact with the GTP-branch reactions inactive, flux-corrected with them active. **Subtract the flux; do not relax the tolerance.** **Amended 2026-09-11:** standalone, nothing consumes GTP, so the inbound flux is exactly `u[GTP] − u0[GTP]` — a state difference, which keeps the corrected closure a linear functional and inside §3's exception. Assembled, translation consumes GTP and that proxy is wrong; the restatement needs an accumulated flux, and a quadrature does carry tolerance-scaling error, so the fall binds there (task 14.4, meaning 14.6). See §12. **Amended 2026-09-25 (phase 14a):** no quadrature is needed. The assembled closure is whole-cell. It counts transcripts by sequence length, the CTP and UTP chemostat rows by what each counter carries, and the accrual not yet applied. Every boundary term is then an exact integer, and the closure passes the exception's second gate at `n` ulps. Charging's contribution is internal and exactly closed after D13 — ATP's three phosphates become AMP's one plus pyrophosphate's two — so it needs no correction, unlike transcription's pyrophosphate, which does | Assembled only |
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
-| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters**. If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
+| 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters** (scored for K5 rather than gated, amended 2026-09-25; see task 14.8). If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
 | 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero | Assembled, and independent of every balance check because it tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
@@ -1683,7 +1684,7 @@ point of D0's reordering.
 |---|---|---|---|
 | R1 | The reverse channel is too weak for the bidirectional claim | **Measure the charged-tRNA elasticity as soon as the translation rate law exists.** Below 0.02 and the reverse direction is bounded at a few percent by the structure of both published rate laws. **D13 delayed this warning and that is a real cost**: the charged pool is now an ODE state, so a jump module cannot produce it standalone. Either the translation phase carries a charged-pool double or the measurement waits for assembly. Carry the double | K2's response: reframe as a measured bound plus the replicate count needed, and promote Step 1b |
 | R2 | The non-smooth drain operates in-regime, so the ODE block is not differentiable where it matters | **Any non-zero deficit carried on the first full-cycle run at published parameters** (check 7, ~~phase 3~~ **phase 14 — the assembled model; phase 3's toy exercises the mechanism only, see §12**). Do not wait to meet it as sampler divergences, which look like a step-size problem | Smooth the drain; validate the smoothed model against the clipped one. K5 |
-| R3 | Integer rounding drift swamps the integrator and is read as a conservation leak | ~~The adenylate residual failing to shrink when tolerances tighten tenfold.~~ **Amended 2026-09-11 (see §12): a flat adenylate residual is the *healthy* signature for a moiety passing §3's exception, so it no longer discriminates.** The warning is now **the per-evaluation residual `|Σ nᵢ·duᵢ|` exceeding one ulp of the conserved sum**, which rounding drift does and exact conservation does not — and, at composition scope, the residual growing with *handshake count* rather than with tolerance (check 0 / output F4) | Fractional-carry rounding (check 0). The magnitudes differ by ~140×, so this is not hypothetical |
+| R3 | Integer rounding drift swamps the integrator and is read as a conservation leak | ~~The adenylate residual failing to shrink when tolerances tighten tenfold.~~ **Amended 2026-09-11 (see §12): a flat adenylate residual is the *healthy* signature for a moiety passing §3's exception, so it no longer discriminates.** The warning is now **the per-evaluation residual `|Σ nᵢ·duᵢ|` exceeding one ulp of the conserved sum**, which rounding drift does and exact conservation does not — and, at composition scope, the residual growing with *handshake count* rather than with tolerance (check 0 / output F4). **Amended 2026-09-25 (phase 14a):** read "one ulp" as `n` ulps for an `n`-term moiety, as §3's second gate now does. And at composition scope, growth *at roundoff* is expected: fractional carry's phosphate residual grows 9.4× over the cycle while staying below 10⁻⁸ of `tol_C`. The warning is growth to whole particles, which is what a rejected rounding policy does | Fractional-carry rounding (check 0). The magnitudes differ by ~140×, so this is not hypothetical |
 | R4 | The reference system is skipped because production looks fine | **A calibration pass reported with no reference comparison beside it.** This is a process risk, so the warning is procedural | F10 is a phase deliverable, not an optional extra. A calibration claim without it is unattributable |
 | R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
 | R6 | The six targets are not identifiable as a set | **A rank below six or a condition number above 1e6, computed before any sampling.** Costs one Jacobian | Reparameterise to the product plus an anchor. K6 |
@@ -3660,8 +3661,9 @@ fails it naming the intended quantity.
   residual showing the signature its policy predicts across 6,300 handshakes, so
   no downstream residual can be a rounding artefact.
   **Annotated 2026-09-25:** on the assembly the rejected policies' growth laws
-  do not separate, so 14.1 asserts the carry at roundoff and each rejected
-  policy at least 10⁶ times it (§3, §12 2026-09-25 B).
+  do not separate. So 14.1 asserts the carry within 10⁻⁶ of `tol_C`, and
+  deterministic rounding at least 10⁶ times it. The driver records stochastic
+  rounding (§3, §12 2026-09-25 B).
 - [ ] 14.2 Check 1 and 1b — verify by non-negativity naming the first state and
   time of any violation rather than reporting a global failure, and by the
   particle-floor report flagging every state below 500 particles and
@@ -3674,7 +3676,7 @@ fails it naming the intended quantity.
   stands (§12, 2026-09-25).
   **Check 1's half done in 14a:** no state falls below its bound over the
   pinned cycle. With translation's debits unclamped, check 1 names `M_gtp_c`
-  at 4,914 s (job 17506883). 1b's half stays open for 14b.
+  at 4,914 s (job 17539616). 1b's half stays open for 14b.
 - [ ] 14.3 Check 2, carbon balance — verify by closure satisfying the tolerance
   principle, by the homolactic ratio equalling 2.000 to integrator tolerance
   since it is analytically exact, and by a mutation removing lactate export
@@ -3766,6 +3768,11 @@ mutation table covers every check.
 - [ ] 14b.2 = task 14.8.
 - [ ] 14b.3 = task 14.9.
 - [ ] 14b.4 = task 14.10's remainder, for checks 1b, 7 and 8.
+
+**Unassigned, noted 2026-09-25:** output F5, the two external comparisons, has
+no task in either half. §9 and tasks 11.10 and 13.7 defer the fold-change
+comparison to "phase 14's F5", and the original phase 14 had no F5 task
+either. It is to be placed when 14b is planned.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -3931,8 +3938,10 @@ fabricated task list.
 ### 2026-09-25 — phase 14a: whole-cell closures, an n-ulp gate, and what check 0 can assert on the assembly
 
 **Trigger:** implementing phase 14a. The assembled checks were run at
-full scale, in Slurm job 17506883 at `fa3bedc`, with the suite at the same
-commit passing 27,559/27,559 (job 17506884). Two of §3's criteria did not fit
+full scale, first in Slurm job 17506883 at `fa3bedc`. After /check-PR's
+fixes they were run again in job 17539616 at `3bee403`, which is the run of
+record; the suite at that commit passes 27,556/27,556 (job 17539617). Every
+residual below is unchanged between the two runs. Two of §3's criteria did not fit
 what the assembled model does.
 
 **Change:**
@@ -3950,16 +3959,21 @@ Nothing falls. The residual is roundoff throughout.
 
 **B — check 0 on the assembly asserts the carry and the gap, not the growth
 laws.** Approved 2026-09-25. Fractional carry holds every remainder within
-half a particle. Its whole-cell residuals are 1e-9 to 1.2e-6 particles and do
-not grow with handshake count. The rejected policies inject 1 to 400
-particles, but their growth from 630 to 6,300 handshakes is not the toy's:
-- deterministic: 1.05× to 9.7× by moiety, one seed;
-- stochastic: 0.25× to 146× across five seeds.
+half a particle. Its whole-cell residuals are 2e-11 to 1.2e-6 particles. They
+stay at roundoff but are not flat. Phosphate's largest residual grows 9.4×
+from the first 630 handshakes to the whole cycle, the ulp per handshake that
+`N_restarts` puts in `tol_C`. The rejected policies inject 3 to 485
+particles. Their growth over the same span is not the toy's, and the two do
+not separate:
+- deterministic: 2.4× to 4.8× by moiety, one seed;
+- stochastic: 1.3× to 7.0× across five seeds.
 
 The pool fractions on the assembled model are not systematically biased, so
 the rounding does not accumulate the way the phase 3 toy showed. That toy
-remains the signature evidence. On the assembly, 14.1 asserts the carry at
-roundoff and each rejected policy at least 10⁶ times it (§3, check 0's row).
+remains the signature evidence. On the assembly, 14.1 asserts the carry
+within 10⁻⁶ of `tol_C` and deterministic rounding at least 10⁶ times it. The
+driver records stochastic rounding, whose smallest margin over the carry is
+3.4e8 (seed 1410, phosphate, first 630 handshakes). See §3, check 0's row.
 
 **C — closures are whole-cell, so 4b needs no quadrature.** Each moiety
 counts four things:
@@ -3983,12 +3997,14 @@ accumulator states. External lactate is referred to a medium of `R` times the
 metered export by +1.8% at the final factor and −1.9% at the initial one over
 a cycle. This changes no rate law materially, since lac_e is under 1% of
 cytosolic lactate. It is recorded, not changed. The homolactic ratio is 2 −
-6.0e-13, and 99.86% of the lactate formed leaves the cell.
+6.0e-13. That is the carbon closure written as a ratio, not an independent
+result. The independent quantity is that 99.86% of the lactate formed leaves
+the cell.
 
 **E — what the configurations and mutations showed.**
 - Kinase removed: ATP falls below 1% at **246 s**, against the scoping note's
-  144 s for a constant drain. A mass-action drain slows as ATP falls. Every
-  moiety still closes.
+  144 s for a constant drain. A mass-action drain slows as ATP falls.
+  Adenylate, guanylate and phosphate still close.
 - With the exporter's permeability zeroed, cytosolic lactate rises at 0.102
   mM/s, heading for 643 mM over a cycle, against the 691 mM recorded.
 - Each of the six stoichiometry mutations fails its own moiety at 1.6e4 to
@@ -3997,13 +4013,17 @@ cytosolic lactate. It is recorded, not changed. The homolactic ratio is 2 −
 - Unclamped translation debits first take GTP negative at **4,914 s** (seed
   1410), and check 1 names it.
 
-**F — cost.** The first metered cycle takes 327 s including compilation, and
-a warm cycle takes 8 to 47 s by tolerance. Two mutant module types cost about
-five minutes each to compile. The phase adds about 22 minutes to the suite,
-now 33 minutes, so `run_tests.slurm`'s limit rises to 60 minutes.
+**F — cost.** On the node of record, the first metered cycle takes 381 s
+including the build and compilation. A warm cycle takes 12 to 40 s from
+(1e-4, 1e-2) to the pinned pair, and 55 s one decade tighter. Two mutant
+module types cost about five minutes each to compile, about 10 of the 22
+minutes the phase adds to the suite, which now takes 33 to 38 minutes (jobs
+17506884, 17539617). `run_tests.slurm`'s limit rises
+to 60 minutes. CI took 37m53 against a 40-minute timeout, so the workflow's
+timeout rises to 90.
 
-**Sections touched:** §3 (the exception's second gate; check 0's and 4b's
-rows); §6 F3; §11 (14a's tasks annotated); §12.
+**Sections touched:** §3 (the exception's second gate; check 0's, 4b's and
+7's rows); §6 F3; §10 R3; §11 (14a's tasks annotated; 14b notes F5); §12.
 
 ### 2026-09-25 — phase 14 splits into 14a and 14b; 1b's ensemble is a test double; check 7 is scored, not gated
 

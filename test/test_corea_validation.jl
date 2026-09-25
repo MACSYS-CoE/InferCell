@@ -70,7 +70,7 @@ const V_MUT = 600
         # 6,300 handshakes, and the whole-cell closures stay at roundoff. They
         # are not flat: each handshake's dilution and write-back costs about an
         # ulp, so the residual accumulates with handshake count (phosphate grows
-        # 9.4× from 630 to 6,300, job 17506883). That is the accumulation
+        # 9.4× from 630 to 6,300, job 17539616). That is the accumulation
         # N_restarts puts in tol_C, so the bound that tests it is tol_C, and at
         # a millionth of it this is far tighter than the tolerance principle's
         # three orders.
@@ -84,7 +84,7 @@ const V_MUT = 600
         # downstream residual can be mistaken for a rounding artefact. Only the
         # deterministic policy is asserted here. Stochastic rounding is recorded
         # by the driver over five seeds, where its smallest margin over the
-        # carry is 1.2e6 (dev/scripts/corea_validation_result.md).
+        # carry is 3.4e8 (dev/scripts/corea_validation_result.md).
         _, det = _vrun(ms, 630; rounding = :deterministic)
         for name in (:adenylate, :guanylate, :phosphate)
             @test _maxres(det, name) > 1e6 * max(_maxres(run, name), 1e-12)
