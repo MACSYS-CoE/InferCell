@@ -7,7 +7,7 @@ fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and 14b,
 the derivative, ensemble and census checks, is next
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-25
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-26
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -530,7 +530,7 @@ conservation number is uninterpretable.
 |---|---|---|---|
 | 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
-| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert | Assembled |
+| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12) | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (**amended 2026-09-10:** pyrophosphate strands the phosphate moiety and stalls the pathway; it cannot diverge in a model whose phosphate is closed, which this one is — see §12). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
@@ -538,7 +538,7 @@ conservation number is uninterpretable.
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
 | 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters** (scored for K5 rather than gated, amended 2026-09-25; see task 14.8). If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
-| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero | Assembled, and independent of every balance check because it tests derivatives rather than balances |
+| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero. **Amended 2026-09-26 (phase 14b):** the 18 quantities cannot close the sums. Only fifteen genes multiply a rate, and PGK and PYK each multiply two. The four PTS genes are carrier totals, and the steps are bilinear in two carriers. Export and the demand forcing have no enzyme. So the perturbation set is **one rate multiplier per reaction** of the frozen variant: the 22 ODE reactions plus its tRNA and GTP demands. Gene-level coefficients are reported by summing a gene's reactions, and carrier-total responses are reported apart. The coefficients come from the implicit function theorem on automatic-differentiation Jacobians at the solved steady state. A reaction with zero steady flux is named and left out of the flux sum (§12) | Assembled, and independent of every balance check because it tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
 Check 8 is the one genuinely analytic result the implementation must reproduce,
@@ -3790,11 +3790,23 @@ mutation table covers every check.
 - [ ] 14b.2 = task 14.8.
 - [ ] 14b.3 = task 14.9.
 - [ ] 14b.4 = task 14.10's remainder, for checks 1b, 7 and 8.
+- [ ] 14b.5 Output F5, the two external comparisons of §3 (added 2026-09-26)
+  — verify by the assembled model's time-averaged transcripts against the
+  measured means, over several seeds, with Spearman at least 0.7 and at least
+  15 of 17 genes within a factor of two; and by protein fold change over one
+  cycle with a median in [1.7, 2.3], no gene below 1.5 or above 3.0, and a
+  negative fold-against-length slope. A miss is reported as a divergence, not
+  absorbed into the bounds.
 
-**Unassigned, noted 2026-09-25:** output F5, the two external comparisons, has
-no task in either half. §9 and tasks 11.10 and 13.7 defer the fold-change
-comparison to "phase 14's F5", and the original phase 14 had no F5 task
-either. It is to be placed when 14b is planned.
+**Placed 2026-09-26:** output F5 was unassigned in either half. §9 and tasks
+11.10 and 13.7 defer the fold-change comparison to "phase 14's F5", and the
+original phase 14 had no F5 task either. It is 14b.5 (§12, same date).
+
+**Decided at planning, 2026-09-26 (§12):** check 7's prior draws vary every
+ODE-block kinetic constant with an informed prior. Asserted and uninformed
+priors stay at their values, and a slot the driver writes is never drawn.
+Task 9.9's rerun matches the two lumpings on cycle-mean charging flux, since
+a growing cell has no steady state to match at.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -3956,6 +3968,51 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-26 — phase 14b planning: check 8's perturbation set, what check 1b can exclude before phase 15, and F5's home
+
+**Trigger:** planning phase 14b against the code. Check 8's summation
+theorems hold over a set of parameters that each multiply one reaction's whole
+rate, and must cover every reaction. §3's "17 enzymes plus `k_chg`" is not
+such a set on this model:
+- only fifteen of the seventeen genes multiply a rate;
+- PGK and PYK each multiply two reactions (the glycolytic step and its GTP
+  branch, `nucleotide_recycling.jl` slots `enz_R_PGK3` and `enz_R_PYK3`);
+- the four PTS genes are carrier totals, and the cascade's steps are bilinear
+  in two carriers, so scaling a total scales no rate proportionally;
+- lactate export and the demand forcing that the frozen variant needs have no
+  enzyme.
+
+Separately, check 1b excludes an observable "by more than the assumed
+observation noise", and that noise is task 15.4's. F5 had no task.
+
+**Change:**
+
+**A — check 8 perturbs one multiplier per reaction.** Approved 2026-09-26.
+The set is the 22 ODE reactions plus the frozen variant's tRNA and GTP
+demands. Gene-level coefficients are reported by summing a gene's
+reactions, and carrier-total responses are reported apart and are not in the
+sums. The coefficients come from the implicit function theorem on
+automatic-differentiation Jacobians at the solved steady state. That is
+exact to the solve and needs no new dependency. A reaction whose steady flux
+is zero has no flux control coefficient, so it is named and left out of the
+flux sum. It stays in the concentration sums.
+
+**B — check 1b reports the excursion.** Approved 2026-09-26. Per pool, the
+largest relative excursion of the ODE trajectory outside the Langevin
+ensemble's 90% band. That is the noise level below which phase 15 must
+exclude the pool.
+
+**C — F5 is task 14b.5.** Approved 2026-09-26, with §3's thresholds
+unchanged. 13b's median fold change of 1.627 predicts a miss. A miss is a
+divergence to report, not a band to widen.
+
+**D — check 7's draws and task 9.9's matching.** Approved 2026-09-26. The
+draws vary the informed ODE-block kinetic priors only. Task 9.9 matches on
+cycle-mean charging flux.
+
+**Sections touched:** header; §3 (checks 1b and 8); §11 (14b.5 added, 14b's
+decisions recorded); §12.
 
 ### 2026-09-25 — phase 14a: whole-cell closures, an n-ulp gate, and what check 0 can assert on the assembly
 
