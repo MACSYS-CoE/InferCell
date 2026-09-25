@@ -4,8 +4,9 @@
 phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
-fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14,
-the validation checks, is next
+fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
+is split (§12, 2026-09-25): 14a, the balance checks, is in progress, and 14b,
+the derivative, ensemble and census checks, follows it
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-25
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1688,7 +1689,7 @@ point of D0's reordering.
 
 ## 11. Task list
 
-Seventeen phases plus a phase 0, a phase 5b, a phase 10b, a phase 11a and a phase 13a, each one reviewable pull request. Ordering is
+Seventeen phases plus a phase 0, a phase 5b, a phase 10b, a phase 11a, a phase 13a and a phase 14b, each one reviewable pull request. Ordering is
 D0's: the two protocol changes, then the kill phase on a toy, then the drivers,
 then the modules, then assembly, validation and inference.
 
@@ -3628,12 +3629,19 @@ CI unit tests passed.
   17131232). `ATP_transloc`'s ADP and Pi join the list here too. *(Those
   numbers, and 11.10's 1.497, predate these credits; 13b remeasures them.)*
 
-### Phase 14 — The validation checks, in the scoping note's order
+### Phase 14a — The balance checks, in the scoping note's order
+
+Was phase 14 until the 2026-09-25 split (§12, same date). Task ids are
+unchanged. 14a takes 14.1, check 1's half of 14.2, 14.3 to 14.7, and 14.10 for
+those checks. 14b takes the rest.
 
 **Goal:** run the balance checks on the assembled model in the order in which
 each catches errors the next would mask.
-**Done when:** checks 0 through 8 all pass over a full cycle, and each has a
-mutation test showing it can fail.
+~~**Done when:** checks 0 through 8 all pass over a full cycle, and each has a
+mutation test showing it can fail.~~
+**Done when (amended 2026-09-25):** checks 0, 1, 2, 3, 4, 4b and 5 pass over a
+full 6,300 s cycle of the assembled model, and each has a mutation test that
+fails it naming the intended quantity.
 **PR:** _not started_
 
 - [ ] 14.1 Re-assert check 0 on the assembled model — verify by the round-trip
@@ -3644,6 +3652,11 @@ mutation test showing it can fail.
   particle-floor report flagging every state below 500 particles and
   cross-checking the three smallest against a chemical-Langevin ensemble, with
   any observable outside the band excluded from the likelihood.
+  **Split 2026-09-25:** check 1 is 14a's; check 1b is 14b's. 1b's
+  chemical-Langevin ensemble is a **test-local double**: Euler–Maruyama over
+  the ODE block's reactions with the jump path frozen, used by this check
+  only. The `:sde` formalism stays refused in `src`, and §7's non-goal
+  stands (§12, 2026-09-25).
 - [ ] 14.3 Check 2, carbon balance — verify by closure satisfying the tolerance
   principle, by the homolactic ratio equalling 2.000 to integrator tolerance
   since it is analytically exact, and by a mutation removing lactate export
@@ -3687,6 +3700,11 @@ mutation test showing it can fail.
   953 s, and `tRNA_translat` on 20 (job 17298242). This is still non-zero, so
   K5 is expected to fire at published parameters unless phase 14 finds
   otherwise.
+  **Amended 2026-09-25 (14b):** check 7 is **run and scored, not gated**. The
+  carried-deficit count at published parameters and the 200-draw fraction go
+  on T3 as K5's measured values whatever they show, and phase 14b is done
+  when they are recorded, not when they are zero. What to do if K5 fires is a
+  separate decision.
 - [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
@@ -3697,6 +3715,30 @@ mutation test showing it can fail.
 - [ ] 14.10 Show each check can fail — verify by one mutation test per check, each
   failing the intended check and naming the intended quantity, collected into the
   mutation table of output F3.
+  **Split 2026-09-25:** 14a lands the mutations for checks 0 to 5 and the
+  table's function. 14b adds checks 1b, 7 and 8 and completes F3's table.
+
+### Phase 14b — The derivative, ensemble and census checks
+
+Split from phase 14 on 2026-09-25 (§12, same date). Its tasks are 14.2's check
+1b half, 14.8, 14.9 and the rest of 14.10, as written in 14a's list, which
+keeps their ids and their annotations. They are ticked there.
+
+**Goal:** finish the checks that each need new machinery: an ensemble for 1b,
+a steady-state solve with derivatives for check 8, and a prior-draw census on
+Slurm for check 7.
+**Done when:** check 1b's floor report and its three smallest pools are
+cross-checked against the test-local chemical-Langevin double; check 7 is run
+at published parameters and across 200 prior draws and scored on T3 as K5,
+pass or fail; check 8's summation identities hold within 1e-6; check 6's
+nominal trajectory is reported with task 9.9's comparison rerun; and F3's
+mutation table covers every check.
+**PR:** _not started_
+
+- [ ] 14b.1 = task 14.2's check 1b half.
+- [ ] 14b.2 = task 14.8.
+- [ ] 14b.3 = task 14.9.
+- [ ] 14b.4 = task 14.10's remainder, for checks 1b, 7 and 8.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -3858,6 +3900,39 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-25 — phase 14 splits into 14a and 14b; 1b's ensemble is a test double; check 7 is scored, not gated
+
+**Trigger:** planning phase 14. Three of its ten tasks need machinery that
+does not exist: a chemical-Langevin ensemble for check 1b, which §7 lists as a
+non-goal and the orchestrator refuses as `:sde`; a steady-state solve with
+derivatives for check 8, for which nothing and no dependency exists; and a
+200-draw prior census for check 7, about 1.8 CPU-hours on Slurm. Separately,
+13b's one assembled seed already clips `GTP_translat` on 253 drains and
+`tRNA_translat` on 20 (job 17298242), so "checks 0 through 8 all pass" cannot
+be the done-when for check 7, whose zero requirement is K5's threshold.
+
+**Change:**
+
+**A — phase 14 splits.** 14a is the balance checks: 0, 1, 2, 3, 4, 4b and 5,
+with their mutation tests. 14b is checks 1b, 7, 8 and 6, and completes F3's
+mutation table. Task ids are kept and annotated in place, as in the 13a/13b
+split. Approved 2026-09-25.
+
+**B — check 1b's ensemble is a test-local double.** Euler–Maruyama over the
+ODE block's reactions, with the jump path frozen, used only by check 1b. The
+`:sde` formalism stays refused in `src`, so §7's non-goal is unchanged.
+Approved 2026-09-25.
+
+**C — check 7 is scored, not gated.** The deficit count at published
+parameters and the fraction over 200 prior draws are K5's measured values and
+go on T3 whatever they show. 14b is done when they are recorded. Whether to
+smooth the drain or resize a pool if K5 fires is a separate decision, not
+taken here. Approved 2026-09-25.
+
+**Sections touched:** header; §11 (preamble count, phase 14 retitled 14a with
+its done-when amended, new phase 14b, tasks 14.2, 14.8 and 14.10 annotated);
+§12.
 
 ### 2026-09-25 — phase 13b: what closure means on the real assembly, what "executed" means per edge, and how the report is typed
 
