@@ -98,6 +98,10 @@ using Aqua
     include("test_chemostat_and_products.jl")
     # The assembled model (spec phase 13b) composes all seven modules.
     include("test_corea_assembly.jl")
+    # The balance checks on the assembly (spec phase 14a). Its mutants reuse
+    # phase 8's `MutatedRecycling`, included above.
+    include("corea_validation_doubles.jl")
+    include("test_corea_validation.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

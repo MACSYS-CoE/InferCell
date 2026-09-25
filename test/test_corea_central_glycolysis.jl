@@ -99,14 +99,6 @@ _u0(conc) = SVector{13, Float64}(conc[s] for s in glycolytic_states())
 _uin(conc) = SVector{13, Float64}(vcat([conc[s] for s in GLYCOLYSIS_CURRENCIES],
                                        [Float64(r.copies) for r in GLYCOLYTIC_REACTIONS]))
 
-"""
-    redox_drift(sol, nad, nadh) -> Float64
-
-The largest departure of NAD⁺ + NADH from its initial value over the saved
-points. GAPD and LDH_L are the only reactions that touch the pair and their
-stoichiometry mirrors, so the sum is invariant and any drift is the integrator's
-— or a broken stoichiometry's.
-"""
 # Allocation probes as top-level functions, matching `_rhs_alloc` in
 # test/test_contributions.jl:14. `@allocated` written inline inside a `@testset`
 # measures the boxing of the testset block's own locals as well as the call, and
@@ -121,38 +113,20 @@ _rhs_alloc(rhs, u, p, t) = @allocated rhs(u, p, t)
 _rates(model, conc, p = SVector{0, Float64}()) =
     reaction_rates(_u0(conc), p, 0.0, model, _uin(conc))
 
-function redox_drift(sol, nad::Int, nadh::Int)
-    total0 = sol.u[1][nad] + sol.u[1][nadh]
-    return maximum(abs(u[nad] + u[nadh] - total0) for u in sol.u)
-end
-
+# The redox pair's residual and its assertion are the shared implementation of
+# src/organisms/coreA/validation.jl, so this module-local check and task 14.4's
+# composition-scope restatement are one implementation with one bound.
 """
-    assert_redox_conserved(sol, nad, nadh; bound)
+    redox_drift(sol, nad, nadh) -> Float64
 
-Throw naming the conserved pool and the drift where NAD⁺ + NADH has moved
-further than the integrator can account for. The message is the assertion: a
-mutation test that could only report `false` would not show *which* invariant
-broke.
+The largest departure of NAD⁺ + NADH from its initial value over the saved
+points. GAPD and LDH_L are the only reactions that touch the pair and their
+stoichiometry mirrors, so the sum is invariant and any drift is the integrator's
+— or a broken stoichiometry's.
 """
-function assert_redox_conserved(sol, nad::Int, nadh::Int; bound::Float64)
-    drift = redox_drift(sol, nad, nadh)
-    drift <= bound || throw(ArgumentError(
-        "The conserved pool M_nad_c + M_nadh_c is not invariant: it drifts by " *
-        "$drift mM over the trajectory, against an integrator bound of $bound mM. " *
-        "GAPD and LDH_L are the only reactions that touch it and their " *
-        "stoichiometry must mirror"))
-    return drift
-end
-
-# The integrator's own bound on state `i` over a trajectory: one definition, used
-# both for non-negativity and for tol_C, so the two cannot drift apart.
-state_bound(sol, i::Int, abstol, reltol) =
-    max(abstol, reltol * maximum(abs(u[i]) for u in sol.u))
-
-# tol_C of spec §3: the single-run bound on a conserved sum. Reported as a
-# secondary number; the assertion is the scaling, not this.
-conservation_bound(sol, idxs, abstol, reltol) =
-    sum(state_bound(sol, i, abstol, reltol) for i in idxs)
+redox_drift(sol, nad::Int, nadh::Int) = moiety_drift(sol.u, ((nad, 1.0), (nadh, 1.0)))
+assert_redox_conserved(sol, nad::Int, nadh::Int; bound::Float64) =
+    assert_conserved("M_nad_c + M_nadh_c", redox_drift(sol, nad, nadh), bound)
 
 # One reaction's stoichiometry mutated, everything else identical.
 function mutate_stoichiometry(id::Symbol, species::Symbol, coefficient::Int)
@@ -562,7 +536,7 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # assertion over the whole trajectory, naming the state and time that
         # came closest, rather than 1,378 assertions that would report only
         # that one of them failed.
-        bounds = [state_bound(sol, i, GLYCOLYSIS_ABSTOL, GLYCOLYSIS_RELTOL) for i in 1:13]
+        bounds = [state_bound(sol.u, i, GLYCOLYSIS_ABSTOL, GLYCOLYSIS_RELTOL) for i in 1:13]
         mins = [minimum(u[i] for u in sol.u) for i in 1:13]
         margins = mins .+ bounds
         @test all(>(0), margins)
@@ -603,7 +577,8 @@ const GLYCOLYSIS_CYCLE = 6300.0
         drift_loose = drifts[end - 1]                       # at the pinned pair
         total0 = sol.u[1][nad] + sol.u[1][nadh]
         floor_ulps = drifts ./ eps(total0)
-        tol_C = conservation_bound(sol, (nad, nadh), GLYCOLYSIS_ABSTOL, GLYCOLYSIS_RELTOL)
+        tol_C = conservation_bound(sol.u, ((nad, 1.0), (nadh, 1.0));
+                                   abstol = GLYCOLYSIS_ABSTOL, reltol = GLYCOLYSIS_RELTOL)
 
         # Spec §3's two bounds for an exact invariant: every rung within a
         # hundred ulps of the conserved sum, and the largest rung within 100×

@@ -55,6 +55,7 @@ include("organisms/coreA/transcript_decay.jl")
 include("organisms/coreA/translation.jl")
 # The assembled model composes all seven, so it follows every one of them.
 include("organisms/coreA/assembly.jl")
+include("organisms/coreA/validation.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")

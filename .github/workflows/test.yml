@@ -24,10 +24,11 @@ jobs:
   test:
     name: Unit tests (Julia ${{ matrix.julia-version }})
     runs-on: ${{ matrix.os }}
-    # Cached runs land in ~3-5 min. The 40-min ceiling covers a first-ever
-    # cold run (no cache anywhere) that must precompile the full stack before
-    # it can save a cache; subsequent PRs reuse main's cache and finish fast.
-    timeout-minutes: 40
+    # The ceiling covers a cold run that must precompile the full stack
+    # before it can save a cache. It was 40 min until phase 14a's full-cycle
+    # balance checks took the Slurm suite from ~11 to ~33 min (spec §12,
+    # 2026-09-25 F). CI then took 37m53 on PR #70, two minutes under 40.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
