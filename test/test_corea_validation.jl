@@ -84,7 +84,8 @@ const V_MUT = 600
         # downstream residual can be mistaken for a rounding artefact. Only the
         # deterministic policy is asserted here. Stochastic rounding is recorded
         # by the driver over five seeds, where its smallest margin over the
-        # carry is 3.4e8 (dev/scripts/corea_validation_result.md).
+        # carry's whole-cycle maximum is 3.6e7 at 630 handshakes
+        # (dev/scripts/corea_validation_result.md).
         _, det = _vrun(ms, 630; rounding = :deterministic)
         for name in (:adenylate, :guanylate, :phosphate)
             @test _maxres(det, name) > 1e6 * max(_maxres(run, name), 1e-12)

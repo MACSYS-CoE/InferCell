@@ -3684,7 +3684,9 @@ fails it naming the intended quantity.
   **Annotated 2026-09-25:** glucose enters through a clamp, so the closure
   needs `MeteredPtsTransport`'s accumulators (§12, 2026-09-25 D). The export
   mutation leaves carbon closed and heads for 643 mM, and the check that fails
-  is the exported fraction. The stoichiometry mutation (LDH making two lactate)
+  is the exported fraction. It is run by the driver only: a zero-permeability
+  module is a distinct type, and compiling it would add about five minutes to
+  the suite. The stoichiometry mutation (LDH making two lactate)
   fails carbon alone.
 - [ ] 14.4 Check 3, redox — verify by the module-local check from phase 6
   restated at composition scope rather than reimplemented, so there is one
@@ -3959,21 +3961,34 @@ Nothing falls. The residual is roundoff throughout.
 
 **B — check 0 on the assembly asserts the carry and the gap, not the growth
 laws.** Approved 2026-09-25. Fractional carry holds every remainder within
-half a particle. Its whole-cell residuals are 2e-11 to 1.2e-6 particles. They
-stay at roundoff but are not flat. Phosphate's largest residual grows 9.4×
-from the first 630 handshakes to the whole cycle, the ulp per handshake that
-`N_restarts` puts in `tol_C`. The rejected policies inject 3 to 485
-particles. Their growth over the same span is not the toy's, and the two do
-not separate:
+half a particle. Over all nine moieties its whole-cell residuals are 2e-11
+(Crr) to 9.5e-6 (carbon) particles, and 4e-11 to 1.2e-6 over the four check 0
+tabulates. They stay at roundoff but are not flat. Phosphate's largest
+residual grows 9.4× from the first 630 handshakes to the whole cycle, the ulp
+per handshake that `N_restarts` puts in `tol_C`. The rejected policies inject
+3 to 485 particles. Over the same span, the running maximum grows:
 - deterministic: 2.4× to 4.8× by moiety, one seed;
-- stochastic: 1.3× to 7.0× across five seeds.
+- stochastic: 1.3× to 7.0× across five seeds, median 3.6 against √10 = 3.16.
 
-The pool fractions on the assembled model are not systematically biased, so
-the rounding does not accumulate the way the phase 3 toy showed. That toy
+So stochastic rounding keeps the toy's √N law, and deterministic rounding does
+not show the toy's linear one. The pool fractions on the assembled model are
+not systematically biased, so its bias does not accumulate. Both policies grow
+roughly as √N here, and the growth does not separate them. That toy
 remains the signature evidence. On the assembly, 14.1 asserts the carry
 within 10⁻⁶ of `tol_C` and deterministic rounding at least 10⁶ times it. The
-driver records stochastic rounding, whose smallest margin over the carry is
-3.4e8 (seed 1410, phosphate, first 630 handshakes). See §3, check 0's row.
+driver records stochastic rounding. Against the carry's whole-cycle maximum,
+its smallest margin is 3.6e7 over the first 630 handshakes (seed 1410,
+phosphate) and 1.3e8 over the whole cycle (seed 1413, phosphate). See §3,
+check 0's row.
+
+**What `tol_C` does and does not discriminate.** At the pinned pair `tol_C` is
+143 particles for phosphate and 4,140 for carbon, because it carries
+`N_restarts`, and for carbon the growing meters as well. So an
+`assert_conserved` at `tol_C` would admit a leak of whole particles.
+Stochastic rounding's phosphate residual is 44 to 107 particles over the first
+630 handshakes, under the 143, and 165 to 485 over the cycle. The discriminating asserts are check 0's `10⁻⁶·tol_C` bound,
+which every closure meets with at least 100× to spare, and the mutants, which
+exceed `tol_C` by 90 to 1.7e5.
 
 **C — closures are whole-cell, so 4b needs no quadrature.** Each moiety
 counts four things:
@@ -4013,8 +4028,8 @@ the cell.
 - Unclamped translation debits first take GTP negative at **4,914 s** (seed
   1410), and check 1 names it.
 
-**F — cost.** On the node of record, the first metered cycle takes 381 s
-including the build and compilation. A warm cycle takes 12 to 40 s from
+**F — cost.** On the node of record, which the suite job was sharing at the
+time, the first metered cycle takes 381 s including the build and compilation. A warm cycle takes 12 to 40 s from
 (1e-4, 1e-2) to the pinned pair, and 55 s one decade tighter. Two mutant
 module types cost about five minutes each to compile, about 10 of the 22
 minutes the phase adds to the suite, which now takes 33 to 38 minutes (jobs
