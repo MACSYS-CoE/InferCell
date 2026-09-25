@@ -58,25 +58,33 @@ const V_MUT = 600
               dynamics(SVector{9}(own[1:9]), pl, 0.0, inner, ins)
         @test contributions(own, pl, 0.0, metered, ins) ==
               contributions(SVector{9}(own[1:9]), pl, 0.0, inner, ins)
-        # The unmetered assembly composes the plain module.
+        # The unmetered assembly composes the plain module, and the doubles'
+        # default composition is exactly the metered assembly.
         @test corea_models()[2] isa PtsTransport
         @test corea_models(metered = true)[2] isa MeteredPtsTransport
+        @test typeof.(ms) == typeof.(corea_models(metered = true))
     end
 
     @testset "14.1 check 0: the round trip on the assembly" begin
         # Fractional carry keeps every remainder within half a particle over
-        # 6,300 handshakes, and the whole-cell closures sit at roundoff and do
-        # not grow with the handshake count.
+        # 6,300 handshakes, and the whole-cell closures stay at roundoff. They
+        # are not flat: each handshake's dilution and write-back costs about an
+        # ulp, so the residual accumulates with handshake count (phosphate grows
+        # 9.4× from 630 to 6,300, job 17506883). That is the accumulation
+        # N_restarts puts in tol_C, so the bound that tests it is tol_C, and at
+        # a millionth of it this is far tighter than the tolerance principle's
+        # three orders.
         @test run.max_remainder <= 0.5
         for name in (:adenylate, :guanylate, :phosphate, :carrier_ptsI)
-            r = closure_residual(run, name)
-            @test maximum(abs, r) < 1e-4
-            @test maximum(abs, r[3151:end]) < 1e-4    # the second half no worse
+            @test _maxres(run, name) < 1e-6 * moiety_bound(run, name)
         end
 
         # A rejected policy is visible at once: deterministic rounding injects
         # whole particles, orders of magnitude above the carry's roundoff, so no
-        # downstream residual can be mistaken for a rounding artefact.
+        # downstream residual can be mistaken for a rounding artefact. Only the
+        # deterministic policy is asserted here. Stochastic rounding is recorded
+        # by the driver over five seeds, where its smallest margin over the
+        # carry is 1.2e6 (dev/scripts/corea_validation_result.md).
         _, det = _vrun(ms, 630; rounding = :deterministic)
         for name in (:adenylate, :guanylate, :phosphate)
             @test _maxres(det, name) > 1e6 * max(_maxres(run, name), 1e-12)
@@ -111,14 +119,16 @@ const V_MUT = 600
         # Thirteen weighted terms from three modules: the composed right-hand
         # side cancels carbon to within n ulps per evaluation, the second
         # gate as amended 2026-09-25, not to one.
-        g = rhs_gate(ms, d, run, :carbon)
+        g = rhs_gate(d, run, :carbon)
         @test g.gate in (:bitwise, :one_ulp, :n_ulps)
         @test g.n == 13
         ca = carbon_accounts(run)
         @test ca.glucose_in > 1e6
-        # Analytically exactly two lactate per glucose consumed.
+        # Two lactate per glucose consumed. This is the carbon closure at the
+        # endpoints written as a ratio, not an independent result.
         @test abs(ca.homolactic - 2) < 1e-10
-        # The exporter carries the lactate: nearly all of what is formed leaves.
+        # The independent quantity: the exporter carries the lactate, and nearly
+        # all of what is formed leaves the cell.
         @test ca.exported > 0.99
 
         # The mutation: LDH written as making two lactate. Carbon alone fails.
@@ -131,7 +141,7 @@ const V_MUT = 600
     @testset "14.4 check 3: redox at composition scope" begin
         # Phase 6's check, restated in particles with N_restarts, through the
         # same `assert_conserved` and `conservation_bound` phase 6 now calls.
-        @test rhs_gate(ms, d, run, :redox).gate === :bitwise
+        @test rhs_gate(d, run, :redox).gate === :bitwise
         b = moiety_bound(run, :redox)
         @test assert_conserved(run, :redox; bound = b) <= b
 
@@ -149,13 +159,15 @@ const V_MUT = 600
         for name in (:adenylate, :guanylate)      # separately, so a failure names one
             b = moiety_bound(run, name)
             @test assert_conserved(run, name; bound = b) <= b
-            @test rhs_gate(ms, d, run, name).gate in (:bitwise, :one_ulp)
+            @test rhs_gate(d, run, name).gate in (:bitwise, :one_ulp)
         end
 
         # The kinase removed: charging's AMP has no way back, so ATP decays. Under
-        # mass action it never reaches zero, so the assertion is a threshold
-        # crossing, reconciled against the scoping note's 144 s for a constant
-        # drain. Both moieties still close.
+        # mass action the decay is exponential rather than a constant drain, so
+        # the assertion is a threshold crossing, reconciled against the scoping
+        # note's 144 s for a constant drain. (The pool does reach exactly zero
+        # later, once the write-back rounds it to whole particles.) Adenylate,
+        # guanylate and phosphate still close.
         _, ko = _vrun(validation_models(recycling = kinase_removed()), 600)
         ia = findfirst(==(:M_atp_c), ko.ode_names)
         k = findfirst(u -> u[ia] < 0.01 * ko.ode[1][ia], ko.ode)
@@ -188,7 +200,7 @@ const V_MUT = 600
     @testset "14.6 check 4b: phosphate, through the chemostats and the transcripts" begin
         b = moiety_bound(run, :phosphate)
         @test assert_conserved(run, :phosphate; bound = b) <= b
-        g = rhs_gate(ms, d, run, :phosphate)
+        g = rhs_gate(d, run, :phosphate)
         @test g.gate in (:bitwise, :one_ulp, :n_ulps)
         @test g.n == 21
 
@@ -230,7 +242,7 @@ const V_MUT = 600
         for c in (:carrier_ptsI, :carrier_ptsH, :carrier_Crr, :carrier_ptsG)
             b = moiety_bound(run, c)
             @test assert_conserved(run, c; bound = b) <= b
-            @test rhs_gate(ms, d, run, c).gate === :bitwise
+            @test rhs_gate(d, run, c).gate === :bitwise
         end
         # Translation did add carriers, so the subtraction is doing work: each
         # carrier's two forms hold more particles at the end than at the start.

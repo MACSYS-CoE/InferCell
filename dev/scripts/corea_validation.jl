@@ -21,7 +21,6 @@ using InferCell
 using Printf
 using Dates
 using Random
-using Statistics: mean
 
 include(joinpath(@__DIR__, "..", "..", "test", "nucleotide_test_models.jl"))
 include(joinpath(@__DIR__, "..", "..", "test", "corea_validation_doubles.jl"))
@@ -57,9 +56,9 @@ p("Regenerate with `sbatch dev/scripts/corea_validation.slurm`.")
 p()
 
 function run_cycle(models; n = CYCLE, abstol = PINNED[1], reltol = PINNED[2],
-                   rounding = :fractional_carry, seed = SEED, tspan_end = n)
+                   rounding = :fractional_carry, seed = SEED)
     Random.seed!(seed)
-    d = build_problem(models; tspan = (0.0, Float64(tspan_end)), complete = true,
+    d = build_problem(models; tspan = (0.0, Float64(n)), complete = true,
                       abstol, reltol, rounding)
     Random.seed!(seed)
     local vrun
@@ -80,11 +79,9 @@ p(@sprintf("Built and ran 6,300 handshakes at (%g, %g): %.1f s including build a
 p()
 p("| moiety | max residual (particles) | final residual | tol_C (particles) | residual / tol_C | RHS gate | n terms | max ulps per evaluation | max residual / γₙ |")
 p("|---|---|---|---|---|---|---|---|---|")
-gates = Dict{Symbol, Any}()
 for name in names_of(vrun)
     r = closure_residual(vrun, name)
-    g = rhs_gate(ms, d, vrun, name)
-    gates[name] = g
+    g = rhs_gate(d, vrun, name)
     b = moiety_bound(vrun, name)
     p("| $name | $(fmt(maximum(abs, r))) | $(fmt(last(r))) | $(fmt(b)) | $(fmt(maximum(abs, r) / b)) | $(g.gate) | $(g.n) | $(fmt(g.max_ulps)) | $(fmt(g.max_gamma)) |")
 end
@@ -139,18 +136,15 @@ p()
 # ---------------------------------------------------------------------------
 p("## The tolerance ladder")
 p()
-p("Every rung is a full cycle at the same seed. The residual is the largest whole-cell closure residual over the cycle, in particles.")
+p("Every rung is a full cycle at the same seed, run after compilation, so the wall-clock row is warm. The residual is the largest whole-cell closure residual over the cycle, in particles.")
 p()
 ladder = Dict{Tuple{Float64, Float64}, ValidationRun}()
 walls = Dict{Tuple{Float64, Float64}, Float64}()
 for rung in LADDER
     try
-        if rung == PINNED
-            ladder[rung] = vrun; walls[rung] = wall
-        else
-            _, r, w = run_cycle(ms; abstol = rung[1], reltol = rung[2])
-            ladder[rung] = r; walls[rung] = w
-        end
+        # The pinned rung is rerun too, so every wall-clock in the row is warm.
+        _, r, w = run_cycle(ms; abstol = rung[1], reltol = rung[2])
+        ladder[rung] = r; walls[rung] = w
     catch err
         p("Rung $(rung): failed — ", sprint(showerror, err)[1:min(end, 300)])
     end
@@ -164,7 +158,7 @@ for name in names_of(vrun)
 end
 p("| run wall-clock (s) | ", join((@sprintf("%.1f", walls[r]) for r in rungs), " | "), " |")
 p()
-tight = (PINNED[1] / 10, PINNED[2] / 10)
+tight = (1e-11, 1e-9)                  # a literal: 1e-10 / 10 is not 1e-11 in binary
 if haskey(ladder, tight)
     p("Fall from the pinned pair to one decade tighter (≥5 is the fall; flat is the exception):")
     p()
@@ -178,7 +172,7 @@ end
 # ---------------------------------------------------------------------------
 p("## Check 0 on the assembly: three rounding policies")
 p()
-p("Each policy runs a full cycle at the pinned tolerances. The residual at 630 and 6,300 handshakes tells a bounded signature from √N or linear growth.")
+p("Each policy runs a full cycle at the pinned tolerances. The table gives the largest whole-cell residual up to 630 and up to 6,300 handshakes, and their ratio. Spec §3 amended 2026-09-25: on the assembly these ratios are reported, not asserted.")
 p()
 p("| policy | seed | moiety | residual at 630 | residual at 6,300 | ratio |")
 p("|---|---|---|---|---|---|")
@@ -188,8 +182,8 @@ for (policy, seeds) in ((:fractional_carry, [SEED]), (:deterministic, [SEED]),
         r = (policy, s) == (:fractional_carry, SEED) ? vrun :
             run_cycle(ms; rounding = policy, seed = s)[2]
         for name in (:adenylate, :guanylate, :phosphate, :carrier_ptsI)
-            res = closure_residual(r, name)
-            a, b = abs(res[min(631, end)]), abs(res[end])
+            res = abs.(closure_residual(r, name))
+            a, b = maximum(res[1:min(631, end)]), maximum(res)
             p("| $policy | $s | $name | $(fmt(a)) | $(fmt(b)) | $(fmt(b / max(a, eps()))) |")
         end
     end
@@ -200,7 +194,7 @@ p()
 p("## Check 4: the kinase removed")
 p()
 km = validation_models(recycling = kinase_removed())
-dk, rk, wk = run_cycle(km; n = KINASE_S)
+_, rk, _ = run_cycle(km; n = KINASE_S)
 ia = findfirst(==(:M_atp_c), rk.ode_names)
 atp0 = first(rk.ode)[ia]
 kc = findfirst(u -> u[ia] < 0.01 * atp0, rk.ode)
@@ -228,17 +222,29 @@ mutants = [
     ("ptsH: GLCpts1 creates phospho-HPr", validation_models(pts = MeteredCarrierLeak()), :carrier_ptsH),
     ("boundary: GAPD's counters charge ten A for ten U", validation_models(transcription = CoreATranscription(genes = shifted_genes(:JCVISYN3A_0607; A = 10, U = -10))), :adenylate),
 ]
+gate_rows = []
 p("| mutation | intended | ", join(string.(names_of(vrun)), " | "), " |")
 p("|---|---|", repeat("---|", length(names_of(vrun))))
 for (label, mm, intended) in mutants
     try
-        local rm
-        tm = @elapsed (rm = run_cycle(mm; n = MUT_S)[2])
+        local dm, rm
+        tm = @elapsed ((dm, rm) = run_cycle(mm; n = MUT_S)[1:2])
         p("| $label ($(round(Int, tm)) s) | $intended | ",
           join((fmt(maxres(rm, n) / moiety_bound(rm, n)) for n in names_of(rm)), " | "), " |")
+        g = rhs_gate(dm, rm, intended)
+        push!(gate_rows, (label, intended, g))
     catch err
         p("| $label | $intended | failed to run: ", replace(sprint(showerror, err)[1:min(end, 200)], "\n" => " "), " |")
     end
+end
+p()
+p("How far each mutant's composed right-hand side misses the n-ulp gate for its intended moiety (orders = log10(max ulps / n)). A mutation that changes no ODE stoichiometry leaves the gate intact, and the closure fails through its jump or boundary terms instead:")
+p()
+p("| mutation | intended | gate | n | max ulps per evaluation | orders beyond n ulps |")
+p("|---|---|---|---|---|---|")
+for (label, intended, g) in gate_rows
+    p("| $label | $intended | $(g.gate) | $(g.n) | $(fmt(g.max_ulps)) | ",
+      g.max_ulps > g.n ? @sprintf("%.1f", log10(g.max_ulps / g.n)) : "—", " |")
 end
 p()
 p("Check 1's mutation: translation's debits unclamped, so a clip takes a pool negative.")
@@ -249,6 +255,7 @@ p(vn === nothing ? "No state went negative in $UNCLAMPED_S s." :
 p()
 p("Check 2's export mutation: the exporter's permeability set to zero.")
 nx = validation_models(pts = MeteredPtsTransport(PtsTransport(free = [:p_lact2r])))
+Random.seed!(SEED)
 dx = build_problem(nx; tspan = (0.0, Float64(MUT_S)), complete = true)
 # The ODE block's parameter layout is first-seen-by-name over its modules.
 pnames = unique([q.name for m in nx if formalism(m) === :ode

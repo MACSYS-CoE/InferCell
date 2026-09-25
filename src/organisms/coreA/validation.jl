@@ -89,7 +89,7 @@ contributions(u, p, t, m::MeteredPtsTransport, u_inputs) =
 # ---------------------------------------------------------------------------
 
 """
-    Moiety(name, ode; jump = [], chemostat = [], module_id = nothing)
+    Moiety(name, ode; jump = [], chemostat = [])
 
 One conserved quantity across the whole cell:
 - `ode`, weights on ODE states;
@@ -449,7 +449,7 @@ function assert_conserved(run::ValidationRun, name::Symbol; bound::Real)
 end
 
 """
-    rhs_gate(models, d, run, name) -> NamedTuple
+    rhs_gate(d, run, name) -> NamedTuple
 
 Which branch of spec §3's exact-conservation exception the composed right-hand
 side passes for one moiety's ODE weights. The composed `f` is evaluated at every
@@ -471,8 +471,7 @@ Also returned:
 The criterion is mechanical: which gate a check uses is read off this, not
 argued (spec §3).
 """
-function rhs_gate(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
-                  run::ValidationRun, name::Symbol)
+function rhs_gate(d::HandshakeDriver, run::ValidationRun, name::Symbol)
     idx = _weights(run, _moiety(run, name))
     f = d.ode.f
     bitwise = true
@@ -536,9 +535,12 @@ Check 2's scalars over the run, in particles:
 - `lactate_formed`, which is lactate out plus the rise in cytosolic lactate;
 - `glucose_consumed`, which is glucose in minus the rise in the glycolytic
   intermediates, in glucose equivalents (carbon over six);
-- `homolactic`, `lactate_formed / glucose_consumed`. This is analytically
-  exactly 2, so its departure from 2 is the carbon closure seen as a ratio;
-- `exported`, the fraction of the lactate formed that left the cell.
+- `homolactic`, `lactate_formed / glucose_consumed`. It is exactly 2 whenever
+  carbon closes, because it is the carbon closure at the run's two endpoints
+  written as a ratio. It is not independent evidence that the carbon went to
+  lactate, since a rise in pyruvate is subtracted from the glucose consumed;
+- `exported`, the fraction of the lactate formed that left the cell. This is
+  the independent quantity: it is what fails when export is removed.
 """
 function carbon_accounts(run::ValidationRun)
     i(s) = findfirst(==(s), run.ode_names)
