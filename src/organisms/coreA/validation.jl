@@ -679,9 +679,84 @@ clip_summary(rec::ClipRecord) =
     sort([(counter = c, drains = n, first = rec.first_clip[c], max_deficit = rec.max_deficit[c])
           for (c, n) in rec.clipped]; by = r -> -r.drains)
 
+# ---------------------------------------------------------------------------
+# Output F5: the two external comparisons (spec §3, §11 task 14b.5)
+# ---------------------------------------------------------------------------
+
+# Ranks with ties averaged, so a Spearman correlation needs no dependency.
+function _ranks(x::AbstractVector)
+    o = sortperm(x)
+    r = similar(x, Float64)
+    i = 1
+    while i <= length(o)
+        j = i
+        while j < length(o) && x[o[j+1]] == x[o[i]]
+            j += 1
+        end
+        r[o[i:j]] .= (i + j) / 2
+        i = j + 1
+    end
+    return r
+end
+
+"""
+    spearman(x, y) -> Float64
+
+Spearman's rank correlation, with tied ranks averaged.
+"""
+function spearman(x::AbstractVector, y::AbstractVector)
+    length(x) == length(y) || throw(ArgumentError("lengths differ"))
+    rx, ry = _ranks(x), _ranks(y)
+    rx .-= mean(rx)
+    ry .-= mean(ry)
+    return sum(rx .* ry) / sqrt(sum(abs2, rx) * sum(abs2, ry))
+end
+
+"""
+    transcript_comparison(predicted, measured; min_rho = 0.7, factor = 2.0, min_within = 15)
+        -> NamedTuple
+
+Spec §3's first external comparison: predicted transcript steady states
+against measured mean counts, gene by gene. It passes when Spearman's
+correlation is at least `min_rho` and at least `min_within` genes agree
+within `factor`. Returns `rho`, `within`, `n`, the per-gene `ratio` and `pass`.
+"""
+function transcript_comparison(predicted::AbstractVector, measured::AbstractVector;
+                               min_rho::Real = 0.7, factor::Real = 2.0,
+                               min_within::Integer = 15)
+    ratio = predicted ./ measured
+    within = count(r -> 1 / factor <= r <= factor, ratio)
+    rho = spearman(predicted, measured)
+    return (rho = rho, within = within, n = length(ratio), ratio = ratio,
+            pass = rho >= min_rho && within >= min_within)
+end
+
+"""
+    fold_change_report(folds, lengths; band = (1.7, 2.3), bounds = (1.5, 3.0)) -> NamedTuple
+
+Spec §3's second external comparison: protein fold change over one cycle. It
+passes when the median is inside `band`, no gene is outside `bounds`, and the
+least-squares slope of log fold change against log length is negative, as in
+the published histogram, where long genes underproduce. Returns `median`,
+`min`, `max`, `below` and `above` (genes outside `bounds`), `slope` and `pass`.
+"""
+function fold_change_report(folds::AbstractVector, lengths::AbstractVector;
+                            band = (1.7, 2.3), bounds = (1.5, 3.0))
+    x = log.(lengths)
+    y = log.(folds)
+    slope = sum((x .- mean(x)) .* (y .- mean(y))) / sum(abs2, x .- mean(x))
+    med = median(folds)
+    below = count(<(bounds[1]), folds)
+    above = count(>(bounds[2]), folds)
+    return (median = med, min = minimum(folds), max = maximum(folds), below = below,
+            above = above, slope = slope,
+            pass = band[1] <= med <= band[2] && below == 0 && above == 0 && slope < 0)
+end
+
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,
        ValidationRun, validation_run!, closure_residual, state_bound, conservation_bound,
        moiety_drift, assert_conserved, moiety_bound, rhs_gate, first_negative,
        assert_nonnegative, carbon_accounts
 export PARTICLE_FLOOR, particle_floor, flagged_states, CONTINUUM_MEDIAN, langevin_pools
 export ClipRecord, record_clips!, clip_summary
+export spearman, transcript_comparison, fold_change_report

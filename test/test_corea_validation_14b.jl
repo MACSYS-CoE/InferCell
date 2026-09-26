@@ -222,4 +222,25 @@ const B_SHORT = 600
         @test g.fractional > 1.0
     end
 
+    # ------------------------------------------------------------------
+    @testset "14b.5 F5's two comparisons, on constructed inputs" begin
+        @test spearman([1, 2, 3, 4], [10, 20, 30, 40]) ≈ 1
+        @test spearman([1, 2, 3, 4], [4, 3, 2, 1]) ≈ -1
+        @test spearman([1, 2, 2, 3], [1, 2, 2, 3]) ≈ 1       # ties averaged
+        m = collect(1.0:17.0)
+        ok = transcript_comparison(1.5 .* m, m)
+        @test ok.pass && ok.within == 17 && ok.rho ≈ 1
+        bad = transcript_comparison(reverse(m), m)
+        @test !bad.pass
+        far = transcript_comparison(vcat(3 .* m[1:3], m[4:end]), m)
+        @test far.within == 14 && !far.pass                  # three genes out of 2×
+
+        L = collect(300.0:100.0:1900.0)
+        fc = fold_change_report(2.2 .- L ./ 1e4, L)
+        @test fc.pass && fc.slope < 0
+        @test !fold_change_report(fill(1.6, 17) .- L ./ 1e5, L).pass      # median below 1.7
+        @test !fold_change_report(2.0 .+ L ./ 1e4, L).pass                # slope positive
+        hi = 2.0 .- L ./ 1e5; hi[1] = 3.5
+        @test fold_change_report(hi, L).above == 1
+    end
 end
