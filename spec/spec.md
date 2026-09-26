@@ -530,7 +530,7 @@ conservation number is uninterpretable.
 |---|---|---|---|
 | 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
-| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12) | Assembled |
+| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12). **Amended again 2026-09-26:** on the assembly the smallest pools sit at about one particle for most of the cycle, where neither the ODE nor a diffusion describes them. A pool whose cycle median is under 10 particles is excluded outright, with no ensemble. The cross-check runs on the three smallest pools with a median of at least 10 (§12) | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (**amended 2026-09-10:** pyrophosphate strands the phosphate moiety and stalls the pathway; it cannot diverge in a model whose phosphate is closed, which this one is — see §12). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
@@ -538,7 +538,7 @@ conservation number is uninterpretable.
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
 | 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters** (scored for K5 rather than gated, amended 2026-09-25; see task 14.8). If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
-| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero. **Amended 2026-09-26 (phase 14b):** the 18 quantities cannot close the sums. Only fifteen genes multiply a rate, and PGK and PYK each multiply two. The four PTS genes are carrier totals, and the steps are bilinear in two carriers. Export and the demand forcing have no enzyme. So the perturbation set is **one rate multiplier per reaction** of the frozen variant: the 22 ODE reactions plus its tRNA and GTP demands. Gene-level coefficients are reported by summing a gene's reactions, and carrier-total responses are reported apart. The coefficients come from the implicit function theorem on automatic-differentiation Jacobians at the solved steady state. A reaction with zero steady flux is named and left out of the flux sum (§12) | Assembled, and independent of every balance check because it tests derivatives rather than balances |
+| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero. **Amended 2026-09-26 (phase 14b):** the 18 quantities cannot close the sums. Only thirteen genes multiply a rate, and PGK and PYK each multiply two. The four PTS genes are carrier totals, and the steps are bilinear in two carriers. Export and the demand forcing have no enzyme. So the perturbation set is **one rate multiplier per reaction** of the frozen variant: the 22 ODE reactions plus its tRNA and GTP demands. Gene-level coefficients are reported by summing a gene's reactions, and carrier-total responses are reported apart. The coefficients come from the implicit function theorem on automatic-differentiation Jacobians at the solved steady state. A reaction with zero steady flux is named and left out of the flux sum (§12) | Assembled, and independent of every balance check because it tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
 Check 8 is the one genuinely analytic result the implementation must reproduce,
@@ -3693,7 +3693,11 @@ one test comment. The run of record is job 17539616,
   chemical-Langevin ensemble is a **test-local double**: Euler–Maruyama over
   the ODE block's reactions with the jump path frozen, used by this check
   only. The `:sde` formalism stays refused in `src`, and §7's non-goal
-  stands (§12, 2026-09-25).
+  stands (§12, 2026-09-25). **Amended 2026-09-26:** not Euler–Maruyama but
+  its local-linearization form, at h = 0.01 s, since the block is too stiff
+  for an explicit step. The cross-check is on the three smallest pools with a
+  cycle median of at least 10 particles; a pool below that is excluded
+  outright (§12).
   **Check 1's half done in 14a:** no state falls below its bound over the
   pinned cycle. With translation's debits unclamped, check 1 names `M_gtp_c`
   at 4,914 s (job 17539616). 1b's half stays open for 14b.
@@ -3975,7 +3979,8 @@ fabricated task list.
 theorems hold over a set of parameters that each multiply one reaction's whole
 rate, and must cover every reaction. §3's "17 enzymes plus `k_chg`" is not
 such a set on this model:
-- only fifteen of the seventeen genes multiply a rate;
+- only thirteen of the seventeen genes multiply a rate: the ten glycolytic
+  enzymes, ADK1, GK1 and PPA;
 - PGK and PYK each multiply two reactions (the glycolytic step and its GTP
   branch, `nucleotide_recycling.jl` slots `enz_R_PGK3` and `enz_R_PYK3`);
 - the four PTS genes are carrier totals, and the cascade's steps are bilinear
@@ -4011,8 +4016,40 @@ divergence to report, not a band to widen.
 draws vary the informed ODE-block kinetic priors only. Task 9.9 matches on
 cycle-mean charging flux.
 
+**E — check 1b's ensemble is a local-linearization CLE, at h = 0.01 s.**
+Approved 2026-09-26. Check 8's frozen steady state has a fastest mode of
+−2.09e4 /s (job 17545158), so explicit Euler–Maruyama needs steps under
+5e-5 s, about 1.3e8 per cycle. A drift-implicit step damps the noise on the
+fast near-equilibrium modes by about 1/(1 + λh), and those modes set the small
+glycolytic pools. Each step is instead the exact solution of the SDE
+linearised at its start. The noise is summed over each reaction's forward and
+reverse channel separately, and its covariance integral is built by scaling
+and squaring. Over one interval this integrator misses the pinned Rodas5P by
+up to 24% on the lower-glycolysis pools at h = 0.05 s and 12% at 0.025 s,
+first order in h (job 17545342). At 0.01 s that is about 5%. The frozen path
+absorbs it at each handshake, and the driver reports the h-halving.
+
+**F — check 1b's cross-check skips pools at about one particle.** Approved
+2026-09-26. Over the pinned cycle at seed 1410 (job 17545535), 22 of the 32
+ODE states fall below 500 particles and 10 fall below one. Several sit at
+about one particle for most of the cycle:
+
+| pool | start | median | time under one particle |
+|---|---|---|---|
+| PPi | 2,019 | 1.0 | 42% |
+| 13DPG | 198 | 0.7 | 73% |
+| phospho-EI | 336 | 0.4 | 99% |
+
+NADH, phospho-HPr and phospho-Crr have medians of 2.5, 3.4 and 4.3.
+
+A Langevin band around a pool of one particle compares two invalid
+descriptions. So a pool whose cycle median is under 10 particles is excluded
+outright, and the cross-check runs on the three smallest with a median of at
+least 10. For phase 15: **13DPG, one of D8's informative small pools, cannot
+be an observable on the assembled model.**
+
 **Sections touched:** header; §3 (checks 1b and 8); §11 (14b.5 added, 14b's
-decisions recorded); §12.
+decisions recorded, 14.2 annotated); §12.
 
 ### 2026-09-25 — phase 14a: whole-cell closures, an n-ulp gate, and what check 0 can assert on the assembly
 
