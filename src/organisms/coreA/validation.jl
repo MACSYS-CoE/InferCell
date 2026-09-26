@@ -558,7 +558,207 @@ function carbon_accounts(run::ValidationRun)
             exported = lout / formed)
 end
 
+# ---------------------------------------------------------------------------
+# Check 1b: the particle floor (spec §3, §11 task 14.2)
+# ---------------------------------------------------------------------------
+
+"The particle count below which spec §3 check 1b flags a continuous state."
+const PARTICLE_FLOOR = 500
+
+"""
+    particle_floor(run; floor = PARTICLE_FLOOR) -> Vector{NamedTuple}
+
+Check 1b's report: every ODE state over the run, in particles at the factor it
+was held at, sorted from the smallest minimum. Each row carries:
+- `min_particles` and the time `t` it was reached;
+- `median_particles` over the run;
+- `below_one`, the fraction of handshakes spent under one particle;
+- `flagged`, whether the minimum is below `floor`.
+
+Every state is listed, as §3 asks. The carried rounding remainder is below one
+particle and is not added. External states are referred to the medium rather
+than the cell, so [`langevin_pools`](@ref) leaves them out.
+"""
+function particle_floor(run::ValidationRun; floor::Real = PARTICLE_FLOOR)
+    rows = map(eachindex(run.ode_names)) do i
+        x = [run.ode[k][i] * run.factor[k] for k in eachindex(run.ode)]
+        k = argmin(x)
+        (species = run.ode_names[i], min_particles = x[k], t = run.t[k],
+         median_particles = median(x), below_one = count(<(1), x) / length(x),
+         flagged = x[k] < floor)
+    end
+    return sort(rows; by = r -> r.min_particles)
+end
+
+"""
+    flagged_states(report) -> Vector{Symbol}
+
+The states [`particle_floor`](@ref) puts below the floor, smallest first.
+"""
+flagged_states(report) = Symbol[r.species for r in report if r.flagged]
+
+"The cycle median, in particles, below which check 1b excludes a pool outright."
+const CONTINUUM_MEDIAN = 10
+
+"""
+    langevin_pools(report; n = 3, min_median = CONTINUUM_MEDIAN, external = Symbol[])
+        -> (cross_check, excluded)
+
+How check 1b splits the flagged pools (spec §3, amended 2026-09-26):
+- `excluded` are the flagged pools whose cycle median is under `min_median`
+  particles. Neither the ODE nor a Langevin diffusion describes a pool of about
+  one particle, so no ensemble is needed to exclude them.
+- `cross_check` are the `n` remaining flagged pools with the smallest medians,
+  which the chemical-Langevin ensemble is run on. By median, not minimum: a
+  pool of thousands that a clipped debit empties for one handshake has a
+  minimum of zero and is not a small pool.
+
+`external` states are left out of both.
+"""
+function langevin_pools(report; n::Integer = 3, min_median::Real = CONTINUUM_MEDIAN,
+                        external = Symbol[])
+    rows = [r for r in report if r.flagged && !(r.species in external)]
+    excluded = Symbol[r.species for r in rows if r.median_particles < min_median]
+    rest = sort([r for r in rows if r.median_particles >= min_median]; by = r -> r.median_particles)
+    return (cross_check = Symbol[r.species for r in rest[1:min(n, end)]], excluded = excluded)
+end
+
+# ---------------------------------------------------------------------------
+# Check 7: which counter clips, and when (spec §3, §11 task 14.8)
+# ---------------------------------------------------------------------------
+
+"""
+    ClipRecord(d)
+
+Check 7's per-counter record. [`clipping_census`](@ref) counts drains at which
+*any* counter carried a deficit. K5 needs to know which counter, how often and
+from when, so [`record_clips!`](@ref) is called after every
+`handshake_step!` and reads the carried deficits at each drain.
+"""
+mutable struct ClipRecord
+    clipped::Dict{Symbol, Int}          # drains at which the counter carried a deficit
+    first_clip::Dict{Symbol, Float64}   # the first such drain's time
+    max_deficit::Dict{Symbol, Float64}  # the largest deficit carried, in particles
+    counters::Vector{Symbol}            # every consumer counter on a live pool
+    drains::Int
+    last_drain::Int                     # the driver's drain count when last read
+end
+function ClipRecord(d::HandshakeDriver)
+    cs = unique(Symbol[b.counter for b in d.debits if b.sign < 0 && b.pool_idx != 0])
+    return ClipRecord(Dict{Symbol, Int}(), Dict{Symbol, Float64}(),
+                      Dict{Symbol, Float64}(), cs, 0, d.n_drains)
+end
+
+"""
+    record_clips!(rec, d) -> rec
+
+Read the driver after one `handshake_step!`. On a step that drained, every
+consumer row carrying a deficit is counted against its counter. A deficit is
+nonzero exactly when the pool paid less than was asked, since a paid debit
+leaves `accrued − accrued`, which is zero.
+"""
+function record_clips!(rec::ClipRecord, d::HandshakeDriver)
+    d.n_drains == rec.last_drain && return rec
+    rec.last_drain = d.n_drains
+    rec.drains += 1
+    for b in d.debits
+        (b.sign < 0 && b.pool_idx != 0 && b.deficit > 0) || continue
+        rec.clipped[b.counter] = get(rec.clipped, b.counter, 0) + 1
+        haskey(rec.first_clip, b.counter) || (rec.first_clip[b.counter] = d.ode.t)
+        rec.max_deficit[b.counter] = max(get(rec.max_deficit, b.counter, 0.0), b.deficit)
+    end
+    return rec
+end
+
+"""
+    clip_summary(rec) -> Vector{NamedTuple}
+
+One row per counter that clipped: `counter`, `drains` clipped, `first` clip
+time, and `max_deficit` in particles. Sorted by drains clipped, most first. An
+empty vector is check 7's zero.
+"""
+clip_summary(rec::ClipRecord) =
+    sort([(counter = c, drains = n, first = rec.first_clip[c], max_deficit = rec.max_deficit[c])
+          for (c, n) in rec.clipped]; by = r -> -r.drains)
+
+# ---------------------------------------------------------------------------
+# Output F5: the two external comparisons (spec §3, §11 task 14b.5)
+# ---------------------------------------------------------------------------
+
+# Ranks with ties averaged, so a Spearman correlation needs no dependency.
+function _ranks(x::AbstractVector)
+    o = sortperm(x)
+    r = similar(x, Float64)
+    i = 1
+    while i <= length(o)
+        j = i
+        while j < length(o) && x[o[j+1]] == x[o[i]]
+            j += 1
+        end
+        r[o[i:j]] .= (i + j) / 2
+        i = j + 1
+    end
+    return r
+end
+
+"""
+    spearman(x, y) -> Float64
+
+Spearman's rank correlation, with tied ranks averaged.
+"""
+function spearman(x::AbstractVector, y::AbstractVector)
+    length(x) == length(y) || throw(ArgumentError("lengths differ"))
+    rx, ry = _ranks(x), _ranks(y)
+    rx .-= mean(rx)
+    ry .-= mean(ry)
+    return sum(rx .* ry) / sqrt(sum(abs2, rx) * sum(abs2, ry))
+end
+
+"""
+    transcript_comparison(predicted, measured; min_rho = 0.7, factor = 2.0, min_within = 15)
+        -> NamedTuple
+
+Spec §3's first external comparison: predicted transcript steady states
+against measured mean counts, gene by gene. It passes when Spearman's
+correlation is at least `min_rho` and at least `min_within` genes agree
+within `factor`. Returns `rho`, `within`, `n`, the per-gene `ratio` and `pass`.
+"""
+function transcript_comparison(predicted::AbstractVector, measured::AbstractVector;
+                               min_rho::Real = 0.7, factor::Real = 2.0,
+                               min_within::Integer = 15)
+    ratio = predicted ./ measured
+    within = count(r -> 1 / factor <= r <= factor, ratio)
+    rho = spearman(predicted, measured)
+    return (rho = rho, within = within, n = length(ratio), ratio = ratio,
+            pass = rho >= min_rho && within >= min_within)
+end
+
+"""
+    fold_change_report(folds, lengths; band = (1.7, 2.3), bounds = (1.5, 3.0)) -> NamedTuple
+
+Spec §3's second external comparison: protein fold change over one cycle. It
+passes when the median is inside `band`, no gene is outside `bounds`, and the
+least-squares slope of log fold change against log length is negative, as in
+the published histogram, where long genes underproduce. Returns `median`,
+`min`, `max`, `below` and `above` (genes outside `bounds`), `slope` and `pass`.
+"""
+function fold_change_report(folds::AbstractVector, lengths::AbstractVector;
+                            band = (1.7, 2.3), bounds = (1.5, 3.0))
+    x = log.(lengths)
+    y = log.(folds)
+    slope = sum((x .- mean(x)) .* (y .- mean(y))) / sum(abs2, x .- mean(x))
+    med = median(folds)
+    below = count(<(bounds[1]), folds)
+    above = count(>(bounds[2]), folds)
+    return (median = med, min = minimum(folds), max = maximum(folds), below = below,
+            above = above, slope = slope,
+            pass = band[1] <= med <= band[2] && below == 0 && above == 0 && slope < 0)
+end
+
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,
        ValidationRun, validation_run!, closure_residual, state_bound, conservation_bound,
        moiety_drift, assert_conserved, moiety_bound, rhs_gate, first_negative,
        assert_nonnegative, carbon_accounts
+export PARTICLE_FLOOR, particle_floor, flagged_states, CONTINUUM_MEDIAN, langevin_pools
+export ClipRecord, record_clips!, clip_summary
+export spearman, transcript_comparison, fold_change_report

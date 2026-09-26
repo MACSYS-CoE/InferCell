@@ -1,9 +1,44 @@
 # Handoff
 
-**Session date:** 2026-09-24
-**Branches:** `phase-11-translation`
+**Session date:** 2026-09-26
+**Branches:** `phase-14b-derivative-checks` (PR #72, open)
 
-## Latest: phase 11, translation (2026-09-24)
+## Latest: phase 14b, the derivative, ensemble and census checks (2026-09-26)
+
+Phases 13a (#66), 13b (#68) and 14a (#70) merged without handoff entries.
+Their records are spec §11's Done blocks and §12. Phase 14b's results are in
+spec §11's 14b block. Its run of record is
+`dev/scripts/corea_validation_14b_result.md` (every section at `ebe9e9d`), and
+check 7's census is `dev/scripts/corea_census_result.md` (`7e3c1c9`). Suite:
+Slurm job **17558897**, **27,650/27,650**.
+
+- **Check 1b's Langevin double had a mass-creating clamp** (§12, 2026-09-26
+  G). The first band run (job 17549506) crashed on one of 20 tasks. Every
+  trajectory had lost its energy charge, because clamping noisy near-empty
+  pools (GMP, phospho-EI) at zero injected guanylate and carriers. The fix
+  partitions the channels: a channel carries noise only while every species it
+  moves holds at least 10 particles. Clamps are booked, and each moiety's drift
+  is reported and tested against the booked amount.
+- **Check 1b passes.** The reference stays inside the 90% band on all three
+  cross-checked pools, and halving enolase leaves it by 4.5 to 7.2. The bands
+  are narrower than the truth, since frozen channels carry no noise.
+- **K5 fires, and is recorded rather than gated.** Deficits are carried on 10
+  of 10 seeds at published parameters, and 73% of 200 prior draws clip. §8 K5
+  says the smoothed model must be built and validated before any posterior.
+  **That decision is open.**
+- **F5 misses on fold change.** The median is 1.614 against [1.7, 2.3], and
+  the slope against length is positive. Transcripts pass (Spearman 0.850, 16
+  of 17 within 2×).
+- **Check 8** holds to 3.6e-14. **Check 6**'s fractional growth is 1.0382.
+  Task 9.9's ATP/ADP differs 13.1% between lumpings at matched flux.
+
+Next: /check-PR on #72, fix what it finds, merge, then the spec-landed PR.
+Then decide what K5 firing means for phases 15 to 17 before starting 15.
+Housekeeping: job 17549507 (the dead merge-band) needs `scancel`. The
+scratchpad worktrees (`wt14b*`) and the `.worktrees/phase-6` and `phase-7`
+checkouts can go.
+
+## Earlier: phase 11, translation (2026-09-24)
 
 `CoreATranslation` (`src/organisms/coreA/translation.jl`) has 17 translation
 jumps at `k_tl_g · mRNA_g` and one ptsG translocation. It publishes the 17

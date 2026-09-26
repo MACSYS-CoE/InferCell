@@ -11,8 +11,8 @@ using StaticArrays
 using Random
 using MCMCChains: replacenames
 using ForwardDiff
-using LinearAlgebra: rank
-using Statistics: quantile, mean, std
+using LinearAlgebra: rank, svd, eigvals, I
+using Statistics: quantile, mean, std, median
 
 include("parameters.jl")
 # Reading order, not a load-time requirement: resolver.jl and loader.jl call
@@ -56,6 +56,7 @@ include("organisms/coreA/translation.jl")
 # The assembled model composes all seven, so it follows every one of them.
 include("organisms/coreA/assembly.jl")
 include("organisms/coreA/validation.jl")
+include("control_analysis.jl")
 include("models/transcription_translation.jl")
 include("models/stochastic_gene_expression.jl")
 include("models/bursty_gene_expression.jl")
