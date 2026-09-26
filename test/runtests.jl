@@ -102,6 +102,10 @@ using Aqua
     # phase 8's `MutatedRecycling`, included above.
     include("corea_validation_doubles.jl")
     include("test_corea_validation.jl")
+    # The derivative, ensemble and census checks (spec phase 14b). The
+    # doubles are shared with dev/scripts/corea_validation_14b.jl.
+    include("corea_control_doubles.jl")
+    include("test_corea_validation_14b.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
