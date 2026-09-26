@@ -49,6 +49,22 @@ using Statistics: quantile
 # Loan's block exponential would need `e^{−Jh}`, which overflows at `|λ|h ≈
 # 1000`.
 #
+# **Small pools take no noise: the channels are partitioned** (§12,
+# 2026-09-26 G). At each step's start, a channel keeps its noise only if
+# every intracellular species it touches holds at least `min_particles`,
+# `CONTINUUM_MEDIAN` by default. The others stay in the drift, noiselessly
+# (Salis & Kaznessis 2005's partition, by population alone). Without it, a
+# pool of a few particles under a large gross flux, GMP under GK1 or phospho-EI
+# in the cascade, draws below zero on about half its steps. The clamp that
+# follows creates mass: in job 17558677 the guanylate total rose from 1.98 to
+# 22 mM over 1,200 handshakes, GK1 spent the injected GMP's phosphate from
+# ATP, the energy charge collapsed, and a negative ATP gave the linearisation
+# a +1,625 /s mode that overflowed `exp`. The clamp is kept as a last resort,
+# and what each clamp injects is booked and reported, as is each moiety's
+# drift from the reference, which the injection bounds. Most of what is booked
+# is not drift: where the reference's own debit clipped a pool to zero, the
+# clamp after `aₖ` returns the replay to that zero.
+#
 # **Channels are read off the right-hand side.** Each channel is one parameter
 # the composed `f` is linear in: a `kcatF` or `kcatR`, a PTS `kf` or `kr`,
 # `p_lact2r` or `k_chg`. `g_c = p_c·∂f/∂p_c = N_c·v_c`. The integer column
@@ -97,6 +113,7 @@ struct LangevinBlock{F}
     channel_names::Vector{Symbol}
     N::Matrix{Float64}                      # n × channels, integer except external rows
     ref::Vector{Int}                        # per channel, the row v_c is read on
+    touches::Vector{Vector{Int}}            # per channel, the intracellular rows it moves
     enzyme_slots::Vector{Tuple{Symbol, Vector{Int}, Float64}}  # (enz slot in hybrid p, kcat slots here, E nominal)
     radius_slot::Int
 end
@@ -143,6 +160,7 @@ function LangevinBlock(hybrid_models::Vector{<:AbstractSubModel}, hybrid_pnames:
         end
         ref[c] = r
     end
+    touches = [[i for i in 1:n if !(i in ext) && N[i, c] != 0] for c in axes(N, 2)]
 
     # The enzyme each kcat pair is scaled by, named as the hybrid's slot.
     enz = Tuple{Symbol, Vector{Int}, Float64}[]
@@ -158,8 +176,8 @@ function LangevinBlock(hybrid_models::Vector{<:AbstractSubModel}, hybrid_pnames:
     for (s, _, _) in enz
         s in hybrid_pnames || throw(ArgumentError("the hybrid has no enzyme slot :$s"))
     end
-    return LangevinBlock(f, names, n, u0[n+1:end], collect(prob.p), ch, chn, N, ref, enz,
-                         slot(:r_cell_nm))
+    return LangevinBlock(f, names, n, u0[n+1:end], collect(prob.p), ch, chn, N, ref, touches,
+                         enz, slot(:r_cell_nm))
 end
 
 # g_c = p_c · ∂f/∂p_c at (u, p), for each channel slot.
@@ -192,15 +210,16 @@ end
 _ufull(lb::LangevinBlock, u) = SVector{lb.n + length(lb.u_held)}(vcat(u, lb.u_held))
 
 """
-    ll_step(lb, u, p, h, Ω, rng) -> (u, clamped)
+    ll_step(lb, u, p, h, Ω, rng; min_particles = CONTINUUM_MEDIAN) -> (u, injected, frozen)
 
 One local-linearization step of length `h`. `rng === nothing` takes the
-deterministic step. A state the noise takes below zero is set to zero, and
-`clamped` says whether that happened. The CLE is not meant for a pool of a
-few particles, and the count is reported rather than hidden.
+deterministic step. Only channels whose every intracellular species holds at
+least `min_particles` at the step's start are noisy; `frozen` counts the
+others. A state still taken below zero is set to zero, and `injected` is what
+that added, per state in mM (zero if nothing clamped).
 """
 function ll_step(lb::LangevinBlock, u::AbstractVector, p::AbstractVector, h::Real,
-                 Ω::Real, rng)
+                 Ω::Real, rng; min_particles::Real = CONTINUUM_MEDIAN)
     n = lb.n
     u = collect(Float64, u)
     U = _ufull(lb, u)
@@ -212,16 +231,38 @@ function ll_step(lb::LangevinBlock, u::AbstractVector, p::AbstractVector, h::Rea
     A[1:n, n+1] .= f0 .* h
     drift = exp(A)[1:n, n+1]
     unew = u .+ drift
+    frozen = 0
     if rng !== nothing
+        noisy = [all(i -> u[i] * Ω >= min_particles, lb.touches[c]) for c in eachindex(lb.touches)]
+        frozen = count(!, noisy)
         G = _channels(lb.f, U, p, lb.channels)[1:n, :]
-        v = [G[lb.ref[c], c] / lb.N[lb.ref[c], c] for c in axes(G, 2)]
+        v = [noisy[c] ? G[lb.ref[c], c] / lb.N[lb.ref[c], c] : 0.0 for c in axes(G, 2)]
         D = (lb.N .* (abs.(v) ./ Ω)') * lb.N'
         λ, V = eigen(Symmetric(noise_covariance(J, D, h)))
         unew .+= V * (sqrt.(max.(λ, 0.0)) .* randn(rng, n))
     end
-    clamped = any(<(0), unew)
-    clamped && (unew .= max.(unew, 0.0))
-    return unew, clamped
+    injected = max.(.-unew, 0.0)
+    unew .+= injected
+    return unew, injected, frozen
+end
+
+"""
+    langevin_moieties(lb) -> Vector{Pair{Symbol, Vector{Float64}}}
+
+The moieties every channel conserves, as weights on the integrated states:
+14a's eight without carbon (redox, adenylate, guanylate, phosphate and the
+four carriers, from [`corea_moieties`](@ref)), and the tRNA pair. A noisy
+replay can move them off the reference only through what its clamps inject.
+"""
+function langevin_moieties(lb::LangevinBlock)
+    w(ps) = (x = zeros(lb.n); for (s, v) in ps; x[findfirst(==(s), lb.names)] = v; end; x)
+    ms = vcat([m.name => w(m.ode) for m in corea_moieties(carbon = false)],
+              [:trna => w((:M_trna_c => 1.0, :M_trna_chg_c => 1.0))])
+    for (m, x) in ms, c in axes(lb.N, 2)
+        abs(x' * lb.N[:, c]) < 1e-12 || throw(ArgumentError(
+            "channel :$(lb.channel_names[c]) does not conserve $m"))
+    end
+    return ms
 end
 
 """
@@ -301,26 +342,54 @@ function record_frozen_path(lb::LangevinBlock, hybrid_models, d, n::Integer; h::
 end
 
 """
-    replay(lb, fp, rng; noise = true) -> (traj, clamped_steps)
+    replay(lb, fp, rng; noise = true, min_particles = CONTINUUM_MEDIAN) -> (traj, stats)
 
 One trajectory along the frozen path: the ODE state after every handshake.
-With `noise = false` it reproduces the reference.
+With `noise = false` it reproduces the reference. Adding `aₖ` can take a pool
+the noise has left below the reference negative; that is clamped too, and
+booked apart. `stats`:
+- `clamped`, the steps whose noise clamped, and `clamped_a`, the handshakes
+  whose `aₖ` did;
+- `injected` and `injected_a`, per state, what those clamps added, in mM;
+- `frozen`, the fraction of channel-steps the partition held noiseless;
+- `drift` and `booked`, per moiety of [`langevin_moieties`](@ref), the
+  largest `|w·(u − u_ref)|` over the handshakes and `w·` all the injection,
+  in mM. Every channel conserves the moieties, so only a clamp moves one off
+  the reference, and the drift is at most what was booked.
 """
-function replay(lb::LangevinBlock, fp::FrozenPath, rng; noise::Bool = true)
+function replay(lb::LangevinBlock, fp::FrozenPath, rng; noise::Bool = true,
+                min_particles::Real = CONTINUUM_MEDIAN)
     steps = round(Int, 1.0 / fp.h)
     u = copy(fp.u0)
     traj = Vector{Vector{Float64}}(undef, length(fp.t))
-    clamped = 0
+    ms = langevin_moieties(lb)
+    clamped = clamped_a = frozen = 0
+    injected = zeros(lb.n)
+    injected_a = zeros(lb.n)
+    drift = zeros(length(ms))
     for k in eachindex(fp.t)
         u[fp.dilute] .*= fp.dil[k]
         for _ in 1:steps
-            u, c = ll_step(lb, u, fp.θ[k], fp.h, fp.Ω[k], noise ? rng : nothing)
-            clamped += c
+            u, inj, fr = ll_step(lb, u, fp.θ[k], fp.h, fp.Ω[k], noise ? rng : nothing;
+                                 min_particles)
+            clamped += any(>(0), inj)
+            injected .+= inj
+            frozen += fr
         end
         u .+= fp.a[k]
+        inj = max.(.-u, 0.0)
+        u .+= inj
+        clamped_a += any(>(0), inj)
+        injected_a .+= inj
+        for (j, (_, w)) in enumerate(ms)
+            drift[j] = max(drift[j], abs(w' * (u .- fp.u_ref[k])))
+        end
         traj[k] = copy(u)
     end
-    return traj, clamped
+    booked = [w' * (injected .+ injected_a) for (_, w) in ms]
+    return traj, (clamped = clamped, clamped_a = clamped_a, injected = injected,
+                  injected_a = injected_a, frozen = frozen / (length(fp.t) * steps * length(lb.touches)),
+                  moieties = first.(ms), drift = drift, booked = booked)
 end
 
 """
@@ -328,20 +397,22 @@ end
 
 An ensemble of `n` replays and, per species and handshake, the `q` quantiles
 in mM. Also reported: the reference, the largest relative `excursion` of the
-reference outside the band (zero if it never leaves), the time it occurs, and
-the steps any trajectory clamped at zero.
+reference outside the band (zero if it never leaves), the time it occurs, the
+steps any trajectory clamped at zero, and each replay's `stats`.
 """
 function langevin_band(lb::LangevinBlock, fp::FrozenPath, species::Vector{Symbol};
                        n::Integer = 100, seed::Integer = 1, q = (0.05, 0.95),
-                       reference = fp.u_ref)
+                       reference = fp.u_ref, min_particles::Real = CONTINUUM_MEDIAN)
     idx = [findfirst(==(s), lb.names) for s in species]
     any(isnothing, idx) && throw(ArgumentError("unknown species in $species"))
     K = length(fp.t)
     vals = zeros(n, K, length(idx))
     clamped = 0
+    stats = []
     for r in 1:n
-        tr, c = replay(lb, fp, MersenneTwister(seed + r))
-        clamped += c
+        tr, st = replay(lb, fp, MersenneTwister(seed + r); min_particles)
+        clamped += st.clamped
+        push!(stats, st)
         for k in 1:K, (j, i) in enumerate(idx)
             vals[r, k, j] = tr[k][i]
         end
@@ -353,5 +424,5 @@ function langevin_band(lb::LangevinBlock, fp::FrozenPath, species::Vector{Symbol
     exc = [maximum(view(rel, :, j)) for j in eachindex(idx)]
     at = [fp.t[argmax(view(rel, :, j))] for j in eachindex(idx)]
     return (species = species, t = fp.t, lo = lo, hi = hi, ref = ref,
-            excursion = exc, at = at, clamped = clamped, n = n)
+            excursion = exc, at = at, clamped = clamped, n = n, stats = stats)
 end

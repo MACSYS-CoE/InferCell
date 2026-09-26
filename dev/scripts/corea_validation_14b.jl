@@ -148,9 +148,12 @@ elseif SECTION == "band"
     end
     res = []
     for (h, r) in mine
-        t = @elapsed (tr, c) = replay(lb, paths[h], MersenneTwister(r))
-        push!(res, (h = h, r = r, clamped = c, x = [tr[k][i] for k in eachindex(tr), i in idx]))
-        println("trajectory $r at h = $h: $(round(t; digits = 1)) s, $c steps clamped"); flush(stdout)
+        t = @elapsed (tr, st) = replay(lb, paths[h], MersenneTwister(r))
+        push!(res, (h = h, r = r, clamped = st.clamped, stats = st,
+                    x = [tr[k][i] for k in eachindex(tr), i in idx]))
+        println("trajectory $r at h = $h: $(round(t; digits = 1)) s, $(st.clamped) steps and ",
+                "$(st.clamped_a) handshakes clamped, largest moiety drift $(fmt(maximum(st.drift))) mM")
+        flush(stdout)
     end
     # The reference and its path's integrator check, once.
     extra = TASK == 0 ? Dict(h => (u_ref = [fp.u_ref[k][idx] for k in eachindex(fp.t)],
@@ -218,8 +221,26 @@ elseif SECTION == "merge-band"
     end
     p()
     p("The excursion is the smallest relative observation noise below which phase 15 must exclude the pool ",
-      "(spec §3, amended 2026-09-26 B). Steps a trajectory clamped at zero: $(b.clamped) over ",
-      "$(b.n) trajectories.")
+      "(spec §3, amended 2026-09-26 B).")
+    p()
+    # The partition and what the clamps cost (§12, 2026-09-26 G).
+    p("**The partition and the clamps**, per step size. A channel is noisy only while every species it moves ",
+      "holds at least $(CONTINUUM_MEDIAN) particles. A clamp creates mass, so each moiety's largest drift ",
+      "from the reference is shown beside what the clamps injected into it, both in particles at the end of ",
+      "the cycle, worst trajectory.")
+    p()
+    ms = first(res).stats.moieties
+    p("| h | trajectories | channel-steps noiseless | steps clamped | handshakes clamped by aₖ | " *
+      join(("$m drift / booked" for m in ms), " | ") * " |")
+    p("|---|---|---|---|---|" * repeat("---|", length(ms)))
+    Ωe = extra[H].Ω[end]
+    for h in hs
+        S = [r.stats for r in res if r.h == h]
+        p(@sprintf("| %g | %d | %.2f%% | %d | %d | ", h, length(S), 100 * sum(s.frozen for s in S) / length(S),
+                   sum(s.clamped for s in S), sum(s.clamped_a for s in S)) *
+          join((@sprintf("%.3g / %.3g", maximum(s.drift[j] for s in S) * Ωe, maximum(s.booked[j] for s in S) * Ωe)
+                for j in eachindex(ms)), " | ") * " |")
+    end
     p()
     if haskey(bands, H_COARSE)
         c = bands[H_COARSE]

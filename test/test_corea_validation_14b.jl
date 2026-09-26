@@ -170,6 +170,31 @@ const B_SHORT = 600
         bb = langevin_band(lb, fp, [:M_atp_c, :M_pep_c]; n = 4, seed = 3, reference = biased)
         @test bb.excursion[2] > 0.5
         @test bb.excursion[1] == b.excursion[1]
+
+        # The partition (§12, 2026-09-26 G). Every channel conserves the seven
+        # moieties, so a replay leaves them only through what its clamps
+        # inject, and never by more. With the partition the noise rarely
+        # clamps (4 or 5 steps per replay in job 17558769, against 368 to 390
+        # without) and the carriers stay on the reference.
+        Ω = fp.Ω[end]
+        for st in b.stats
+            @test all(st.drift .<= st.booked .+ 1e-3 / Ω)
+            @test st.clamped <= 20
+            @test 0.1 < st.frozen < 0.5                     # 27.5% in job 17558769
+        end
+        carriers = findall(in((:carrier_ptsI, :carrier_ptsH, :carrier_Crr, :carrier_ptsG)), first(b.stats).moieties)
+        @test length(carriers) == 4
+        @test maximum(maximum(st.drift[carriers]) for st in b.stats) * Ω < 1.0
+        # The mutation: every channel noisy, the old integrator. The noise
+        # clamps on hundreds of steps and the carrier totals move by whole
+        # particles, 5 to 64 of them per carrier in job 17558769.
+        b0 = langevin_band(lb, fp, [:M_atp_c, :M_pep_c]; n = 4, seed = 3, min_particles = 0)
+        for st in b0.stats
+            @test all(st.drift .<= st.booked .+ 1e-3 / Ω)
+            @test st.clamped > 200
+            @test st.frozen == 0
+        end
+        @test minimum(maximum(st.drift[carriers]) for st in b0.stats) * Ω > 10
     end
 
     # ------------------------------------------------------------------
