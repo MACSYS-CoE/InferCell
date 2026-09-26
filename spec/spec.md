@@ -3698,6 +3698,9 @@ one test comment. The run of record is job 17539616,
   for an explicit step. The cross-check is on the three pools with the smallest
   cycle medians of at least 10 particles; a pool below that is excluded
   outright (§12).
+  **Amended 2026-09-26 (G):** a channel carries noise only while every species
+  it moves holds at least 10 particles. Clamps are booked, and each moiety's
+  drift from the reference is reported (§12).
   **Check 1's half done in 14a:** no state falls below its bound over the
   pinned cycle. With translation's debits unclamped, check 1 names `M_gtp_c`
   at 4,914 s (job 17539616). 1b's half stays open for 14b.
@@ -3972,6 +3975,69 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-26 — check 1b's first band run: the zero clamp created mass, and the ensemble partitions its channels
+
+**Trigger:** the band run at `98aa5fa` (job 17549506, 20 array tasks) failed
+on one task: trajectory 10005 at h = 0.02 s overflowed `exp` at handshake
+1,498. The other 114 trajectories finished, but they were wrong too. Traced in
+jobs 17557754 to 17558806, all on the saved h = 0.02 path:
+- **The noise alone is responsible.** With the noise off, the replay tracks
+  the reference to 1e-15 over 1,400 handshakes.
+- **With the noise on, every seed collapses the same way.** Seeds 10001 and
+  10005 lose ATP from 1.9 to about 0 mM, and AMP climbs from 0.6 to 3.6 mM,
+  while the adenylate total stays conserved. The guanylate total rises from
+  1.98 to 22 mM, and the PTS carriers move by up to 121×.
+- **The mechanism.** GMP and phospho-EI hold a few particles under large
+  gross fluxes, so their Gaussian noise drew below zero on about half their
+  steps. The zero clamp in `ll_step` then created mass. GK1 phosphorylated the
+  injected GMP from ATP.
+- **How it crashed.** At handshake 1,497 a −0.150 mM ATP debit in `aₖ`,
+  which the replay added unclamped, took ATP to −0.125 mM. The linearisation
+  there has a +1,625 /s mode (λh = 32), so the next step overflowed.
+
+So no band from job 17549506 is usable. §12 E's rule that clamps are
+"reported rather than hidden" assumed they only add noise. They corrupted the
+conserved totals.
+
+**Change:**
+
+**G — the ensemble partitions its channels by population.** Approved
+2026-09-26, over Brownian-bridge step refinement
+and a clamp that conserves mass.
+- **The partition.** At each step's start, a channel keeps its noise only if
+  every intracellular species it moves holds at least `CONTINUUM_MEDIAN` = 10
+  particles, the threshold of F. The others stay in the drift, noiselessly
+  (Salis & Kaznessis 2005's partition, by population alone).
+- **The clamp stays as a last resort, booked.** `ll_step` returns what each
+  clamp injects, and `replay` also clamps after adding `aₖ`, booked apart.
+  Each replay reports the largest drift from the reference of the nine
+  moieties every channel conserves: 14a's eight without carbon, and the tRNA
+  pair. Since only a clamp moves one, the drift is bounded by what was booked.
+- **Measured over the full cycle** (job 17558806, one seed per step size):
+  - 45.9% of channel-steps are noiseless.
+  - ATP and AMP track the reference to about 1% at both h.
+  - Adenylate, tRNA and three of the four carriers drift by at most 1e-3
+    particles.
+  - Guanylate drifts 251 to 332 particles, about 0.7% of its total. That is
+    its booked injection from the clamp after `aₖ` at the handshakes where
+    the reference's own debit clipped GTP to zero (F).
+  - Phosphate drifts 768 to 1,170 particles, about 0.2%, and redox 7 to 34.
+- **Most of what is booked is not noise.** The noiseless replay clamps PPi, a
+  pool of about one particle, as often (4.9e4 particles booked at h = 0.02,
+  4.2e3 at 0.01) and drifts by 1e-9. That is the integrator's own error, which
+  `aₖ` absorbs (E).
+- **What the partition costs.** A pool's band omits the noise that reaches
+  it through a channel frozen at a small pool. Phospho-PtsG's band loses the
+  phospho-EI end of the cascade, for example. A narrower band errs toward a
+  larger excursion, so phase 15 excludes too readily, not too rarely.
+- **The mutation.** Over 60 handshakes at h = 0.05 (job 17558769),
+  `min_particles = 0` clamps on 368 to 390 steps per replay and moves the
+  carriers by 5 to 64 particles. The partition clamps on 4 or 5 steps and
+  moves them by under one particle. `test/test_corea_validation_14b.jl`
+  asserts both.
+
+**Sections touched:** §11 (14.2 annotated); §12.
 
 ### 2026-09-26 — phase 14b planning: check 8's perturbation set, what check 1b can exclude before phase 15, and F5's home
 
