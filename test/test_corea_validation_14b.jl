@@ -78,4 +78,96 @@ const B_SHORT = 600
         @test cq.p == frozen_control_problem().p
     end
 
+    # ------------------------------------------------------------------
+    @testset "14.2 check 1b: the particle floor and its split" begin
+        ms = corea_models()
+        Random.seed!(B_SEED)
+        d = build_corea(tspan = (0.0, 120.0))
+        Random.seed!(B_SEED)
+        vr = validation_run!(ms, d, 120; moieties = corea_moieties(carbon = false))
+        rep = particle_floor(vr)
+        @test length(rep) == length(vr.ode_names)            # every state, as §3 asks
+        @test issorted([r.min_particles for r in rep])
+        @test all(r -> r.flagged == (r.min_particles < PARTICLE_FLOOR), rep)
+        # 13DPG starts at ~198 particles, so it is flagged from the first handshake.
+        @test :M_13dpg_c in flagged_states(rep)
+
+        # The mutation: a state far above the floor, scaled below it, is named.
+        i = findfirst(==(:M_fdp_c), vr.ode_names)
+        @test !(:M_fdp_c in flagged_states(rep))
+        for u in vr.ode
+            u[i] *= 1e-5
+        end
+        @test :M_fdp_c in flagged_states(particle_floor(vr))
+
+        # The split of spec §3 (amended 2026-09-26): a pool with a median under
+        # CONTINUUM_MEDIAN particles is excluded; the three smallest others are
+        # cross-checked; an external state is in neither.
+        row(s, mn, md) = (species = s, min_particles = mn, t = 0.0, median_particles = md,
+                          below_one = 0.0, flagged = mn < PARTICLE_FLOOR)
+        synth = [row(:ext, 0.0, 50.0), row(:a, 0.1, 0.5), row(:b, 1.0, 20.0), row(:c, 2.0, 5.0),
+                 row(:d, 3.0, 60.0), row(:e, 4.0, 100.0), row(:f, 5.0, 400.0), row(:g, 900.0, 1e4)]
+        sp = langevin_pools(synth; external = [:ext])
+        @test sp.excluded == [:a, :c]
+        @test sp.cross_check == [:b, :d, :e]
+    end
+
+    # ------------------------------------------------------------------
+    @testset "14.2 check 1b: the local-linearization Langevin double" begin
+        # The covariance integral against the scalar Ornstein–Uhlenbeck formula,
+        # including a mode 2000 times faster than the step.
+        for (λ, h) in ((-3.0, 0.7), (-2.0e4, 0.05), (0.5, 0.3))
+            Σ = noise_covariance(fill(λ, 1, 1), fill(2.0, 1, 1), h)
+            @test Σ[1] ≈ 2.0 * (exp(2λ * h) - 1) / (2λ) rtol = 1e-8
+        end
+        # And a stiff, non-normal pair against Simpson quadrature.
+        J = [-1.0 5.0; 0.0 -2.0e3]
+        D = [1.0 0.3; 0.3 2.0]
+        h = 0.05
+        n = 200_000
+        s = range(0, h; length = n + 1)
+        w = [k == 1 || k == n + 1 ? 1 : (iseven(k) ? 4 : 2) for k in 1:n+1] .* (h / n / 3)
+        quad = sum(w[k] * exp(J * s[k]) * D * exp(J' * s[k]) for k in eachindex(s))
+        @test noise_covariance(J, D, h) ≈ quad rtol = 1e-6
+
+        ms = corea_models()
+        pn = unique(Symbol[q.name for m in ms if formalism(m) === :ode
+                           for q in model_free_params(parameters(m))])
+        lb = LangevinBlock(ms, pn)
+        @test length(lb.channels) == 42                   # every reaction, both directions
+        # The stoichiometry read off the right-hand side is the published one.
+        col(c) = Dict(lb.names[i] => lb.N[i, c] for i in 1:lb.n if lb.N[i, c] != 0)
+        gapd = col(findfirst(==(:kcatF_R_GAPD), lb.channel_names))
+        sgn = gapd[:M_13dpg_c]
+        @test Dict(k => v * sgn for (k, v) in gapd) ==
+              Dict(:M_g3p_c => -1, :M_nad_c => -1, :M_pi_c => -1, :M_13dpg_c => 1, :M_nadh_c => 1)
+        ppa = col(findfirst(==(:kcatF_R_PPA), lb.channel_names))
+        @test abs(ppa[:M_pi_c]) == 2 && abs(ppa[:M_ppi_c]) == 1
+
+        Random.seed!(B_SEED)
+        d = build_corea(tspan = (0.0, 60.0))
+        Random.seed!(B_SEED)
+        fp = record_frozen_path(lb, ms, d, 60; h = 0.05)
+        # With the noise off the replay is the reference: the frozen path holds
+        # everything the handshakes did.
+        tr, _ = replay(lb, fp, MersenneTwister(1); noise = false)
+        @test maximum(maximum(abs.(tr[k] .- fp.u_ref[k])) for k in eachindex(tr)) < 1e-12
+        # On a species no counter touches, `a` is the integrator's own error
+        # against the pinned Rodas5P. Upper glycolysis is slow and small there.
+        ig = findfirst(==(:M_fdp_c), lb.names)
+        @test maximum(abs(fp.a[k][ig]) / fp.u_ref[k][ig] for k in eachindex(fp.a)) < 1e-2
+
+        b = langevin_band(lb, fp, [:M_atp_c, :M_pep_c]; n = 4, seed = 3)
+        @test all(isfinite, b.lo) && all(b.lo .<= b.hi)
+        @test any(b.hi .> b.lo)                             # it is noisy
+
+        # The mutation: a reference three times the true PEP leaves the band,
+        # and the excursion names the pool.
+        ipep = findfirst(==(:M_pep_c), lb.names)
+        biased = [(v = copy(u); v[ipep] *= 3; v) for u in fp.u_ref]
+        bb = langevin_band(lb, fp, [:M_atp_c, :M_pep_c]; n = 4, seed = 3, reference = biased)
+        @test bb.excursion[2] > 0.5
+        @test bb.excursion[1] == b.excursion[1]
+    end
+
 end

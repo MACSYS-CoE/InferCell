@@ -558,7 +558,71 @@ function carbon_accounts(run::ValidationRun)
             exported = lout / formed)
 end
 
+# ---------------------------------------------------------------------------
+# Check 1b: the particle floor (spec §3, §11 task 14.2)
+# ---------------------------------------------------------------------------
+
+"The particle count below which spec §3 check 1b flags a continuous state."
+const PARTICLE_FLOOR = 500
+
+"""
+    particle_floor(run; floor = PARTICLE_FLOOR) -> Vector{NamedTuple}
+
+Check 1b's report: every ODE state over the run, in particles at the factor it
+was held at, sorted from the smallest minimum. Each row carries:
+- `min_particles` and the time `t` it was reached;
+- `median_particles` over the run;
+- `below_one`, the fraction of handshakes spent under one particle;
+- `flagged`, whether the minimum is below `floor`.
+
+Every state is listed, as §3 asks. The carried rounding remainder is below one
+particle and is not added. External states are referred to the medium rather
+than the cell, so [`langevin_pools`](@ref) leaves them out.
+"""
+function particle_floor(run::ValidationRun; floor::Real = PARTICLE_FLOOR)
+    rows = map(eachindex(run.ode_names)) do i
+        x = [run.ode[k][i] * run.factor[k] for k in eachindex(run.ode)]
+        k = argmin(x)
+        (species = run.ode_names[i], min_particles = x[k], t = run.t[k],
+         median_particles = median(x), below_one = count(<(1), x) / length(x),
+         flagged = x[k] < floor)
+    end
+    return sort(rows; by = r -> r.min_particles)
+end
+
+"""
+    flagged_states(report) -> Vector{Symbol}
+
+The states [`particle_floor`](@ref) puts below the floor, smallest first.
+"""
+flagged_states(report) = Symbol[r.species for r in report if r.flagged]
+
+"The cycle median, in particles, below which check 1b excludes a pool outright."
+const CONTINUUM_MEDIAN = 10
+
+"""
+    langevin_pools(report; n = 3, min_median = CONTINUUM_MEDIAN, external = Symbol[])
+        -> (cross_check, excluded)
+
+How check 1b splits the flagged pools (spec §3, amended 2026-09-26):
+- `excluded` are the flagged pools whose cycle median is under `min_median`
+  particles. Neither the ODE nor a Langevin diffusion describes a pool of about
+  one particle, so no ensemble is needed to exclude them.
+- `cross_check` are the `n` smallest remaining flagged pools, by minimum, which
+  the chemical-Langevin ensemble is run on.
+
+`external` states are left out of both.
+"""
+function langevin_pools(report; n::Integer = 3, min_median::Real = CONTINUUM_MEDIAN,
+                        external = Symbol[])
+    rows = [r for r in report if r.flagged && !(r.species in external)]
+    excluded = Symbol[r.species for r in rows if r.median_particles < min_median]
+    rest = [r for r in rows if r.median_particles >= min_median]
+    return (cross_check = Symbol[r.species for r in rest[1:min(n, end)]], excluded = excluded)
+end
+
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,
        ValidationRun, validation_run!, closure_residual, state_bound, conservation_bound,
        moiety_drift, assert_conserved, moiety_bound, rhs_gate, first_negative,
        assert_nonnegative, carbon_accounts
+export PARTICLE_FLOOR, particle_floor, flagged_states, CONTINUUM_MEDIAN, langevin_pools

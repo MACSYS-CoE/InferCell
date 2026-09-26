@@ -12,7 +12,7 @@ using Random
 using MCMCChains: replacenames
 using ForwardDiff
 using LinearAlgebra: rank, svd, eigvals, I
-using Statistics: quantile, mean, std
+using Statistics: quantile, mean, std, median
 
 include("parameters.jl")
 # Reading order, not a load-time requirement: resolver.jl and loader.jl call
