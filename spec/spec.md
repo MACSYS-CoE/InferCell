@@ -3684,7 +3684,7 @@ one test comment. The run of record is job 17539616,
   do not separate. So 14.1 asserts the carry within 10⁻⁶ of `tol_C`, and
   deterministic rounding at least 10⁶ times it. The driver records stochastic
   rounding (§3, §12 2026-09-25 B).
-- [ ] 14.2 (check 1's half done in 14a, #70; 1b in 14b) Check 1 and 1b — verify by non-negativity naming the first state and
+- [x] 14.2 (check 1's half done in 14a, #70; 1b in 14b, #72) Check 1 and 1b — verify by non-negativity naming the first state and
   time of any violation rather than reporting a global failure, and by the
   particle-floor report flagging every state below 500 particles and
   cross-checking the three smallest against a chemical-Langevin ensemble, with
@@ -3740,7 +3740,7 @@ one test comment. The run of record is job 17539616,
 - [x] 14.7 Check 5, carrier conservation — verify by four independent bounds
   naming the carrier that drifts, restated as conserved up to what translation
   adds, again by subtraction.
-- [ ] 14.8 Check 7 and check 8 — verify by the clipping census reporting zero
+- [x] 14.8 Check 7 and check 8 — verify by the clipping census reporting zero
   carried deficits at published parameters and the clipping fraction across 200
   prior draws (K5), and by the metabolic control analysis identities holding
   within 1e-6, which is the one analytic result the implementation must reproduce.
@@ -3759,14 +3759,14 @@ one test comment. The run of record is job 17539616,
   on T3 as K5's measured values whatever they show, and phase 14b is done
   when they are recorded, not when they are zero. What to do if K5 fires is a
   separate decision.
-- [ ] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
+- [x] 14.9 Check 6, the nominal trajectory — verify by the trajectory produced and
   reported as fractional growth or time-to-threshold, with the doubling-time
   comparison refused in code as phase 5 established, not merely in prose.
   **Annotated 2026-09-23 (from phase 9):** also rerun task 9.9's stoichiometry
   comparison on the assembled model, matched on steady flux, and record the
   ATP/ADP ratio under both lumpings. Phase 9 could not answer this, because its
   glycolytic double pins ADP (§9, §12 2026-09-23).
-- [ ] 14.10 (checks 0 to 5 done in 14a, #70; 1b, 7 and 8 in 14b) Show each check can fail — verify by one mutation test per check, each
+- [x] 14.10 (checks 0 to 5 done in 14a, #70; 1b, 7 and 8 in 14b, #72) Show each check can fail — verify by one mutation test per check, each
   failing the intended check and naming the intended quantity, collected into the
   mutation table of output F3.
   **Split 2026-09-25:** 14a lands the mutations for checks 0 to 5 and the
@@ -3791,13 +3791,48 @@ at published parameters and across 200 prior draws and scored on T3 as K5,
 pass or fail; check 8's summation identities hold within 1e-6; check 6's
 nominal trajectory is reported with task 9.9's comparison rerun; and F3's
 mutation table covers every check.
-**PR:** _not started_
+**PR:** #72 (open)
 
-- [ ] 14b.1 = task 14.2's check 1b half.
-- [ ] 14b.2 = task 14.8.
-- [ ] 14b.3 = task 14.9.
-- [ ] 14b.4 = task 14.10's remainder, for checks 1b, 7 and 8.
-- [ ] 14b.5 Output F5, the two external comparisons of §3 (added 2026-09-26)
+**Results (#72, not yet merged):** the suite passes 27,650/27,650 on the
+tree of `3f39175` (Slurm job 17558897). The run of record is
+`dev/scripts/corea_validation_14b_result.md`, every section at `ebe9e9d`
+(floor 17559025, band 17559026 and 17559027, check 8 17559265, check 6
+17559266, F5 17559267, report 17559268). Check 7's census is
+`dev/scripts/corea_census_result.md`, at `7e3c1c9` (jobs 17549122 to
+17549142), whose code no later commit touches. Check 6 and F5 at `ebe9e9d`
+match their earlier runs line for line.
+- **Check 1b.** 22 of 32 states fall below 500 particles. Six are excluded
+  outright, with medians under 10: PPi, phospho-EI, 13DPG, NADH, phospho-HPr
+  and phospho-Crr. Phospho-PtsG, PEP and 2PG are cross-checked against 100
+  Langevin trajectories at h = 0.01. The reference stays inside the 90% band
+  at every handshake, so each excursion is 0, and 0.007 at most at h = 0.02.
+  Halving enolase leaves the band by 4.5 to 7.2. The ensemble needed the
+  partition of §12 G, and its bands omit noise entering through frozen
+  channels.
+- **Check 8.** The summation identities hold to 3.6e-14 (concentration) and
+  2.6e-14 (flux) against 1e-6. Omitting `k_chg`'s multiplier fails them at
+  0.807, naming PPi.
+- **Check 7, K5's measured values: K5 fires.** Deficits are carried at
+  published parameters on 10 of 10 seeds, at 0.33% to 4.0% of drains, mostly
+  `GTP_translat`. Across the prior, 146 of 200 draws clip (73.0%, Wilson 95%
+  66.5 to 78.7%), against a 5% threshold. By the 2026-09-25 amendment this is
+  recorded, not gated. What to do about it is a separate decision (§8 K5: the
+  smoothed model must be built and validated against the clipped one before
+  any posterior is reported).
+- **Check 6.** Fractional growth over the cycle is 1.0382, reaching 1.02× at
+  2,131 s, and `doubling_time` is refused in code. Task 9.9, matched on
+  cycle-mean charging flux (`k2_scale` = 1.85, +0.93%): ATP/ADP differs by
+  13.1% between the two lumpings, against phase 9's 0.035% with ADP pinned.
+- **F5: transcripts pass and fold change misses** (a divergence, per §12
+  2026-09-26 C). Spearman is 0.850, and 16 of 17 genes are within 2×.
+  The fold-change median is 1.614 against [1.7, 2.3], one gene is below 1.5
+  (1.489), and the slope against length is +0.030, not negative.
+
+- [x] 14b.1 = task 14.2's check 1b half.
+- [x] 14b.2 = task 14.8.
+- [x] 14b.3 = task 14.9.
+- [x] 14b.4 = task 14.10's remainder, for checks 1b, 7 and 8.
+- [x] 14b.5 Output F5, the two external comparisons of §3 (added 2026-09-26)
   — verify by the assembled model's time-averaged transcripts against the
   measured means, over several seeds, with Spearman at least 0.7 and at least
   15 of 17 genes within a factor of two; and by protein fold change over one
@@ -4019,7 +4054,7 @@ and a clamp that conserves mass.
   - ATP and AMP track the reference to about 1% at both h.
   - Adenylate, tRNA and three of the four carriers drift by at most 1e-3
     particles.
-  - Guanylate drifts 251 to 332 particles, about 0.7% of its total. That is
+  - Guanylate drifts 251 to 332 particles, about 0.6 to 0.8% of its total. That is
     its booked injection from the clamp after `aₖ` at the handshakes where
     the reference's own debit clipped GTP to zero (F).
   - Phosphate drifts 768 to 1,170 particles, about 0.2%, and redox 7 to 34.
@@ -4036,8 +4071,21 @@ and a clamp that conserves mass.
   carriers by 5 to 64 particles. The partition clamps on 4 or 5 steps and
   moves them by under one particle. `test/test_corea_validation_14b.jl`
   asserts both.
+- **The run of record** (job 17559027, 100 trajectories at h = 0.01, 20 at
+  0.02). Over the worst trajectory, adenylate and tRNA stay within 4e-3
+  particles. Guanylate drifts by 676 particles, about 1.7% of its roughly
+  4e4. Phosphate drifts by 2,820, about 0.2%. Redox drifts by 60, and ptsI,
+  the worst carrier, by 15. Every
+  drift is within what its clamps booked.
+- **E's integrator error is a tail, not a level.** The band report gives the
+  largest per-interval `|aₖ|/u` on lower glycolysis: 0.25 to 0.28 at
+  h = 0.01, and 0.47 to 0.54 at 0.02. E's "about 5% at 0.01" does not describe
+  that. Over the cycle's 6,300 handshakes at h = 0.01, the median is 1e-7 and
+  the 99th percentile about 1e-4. Only 7 or 8 handshakes exceed 10%, all at
+  5,918 s. At 0.02, 80 to 88 do. The error is first order where it is large,
+  and the frozen path absorbs it in either case.
 
-**Sections touched:** §11 (14.2 annotated); §12.
+**Sections touched:** §11 (14.2 annotated; 14b's results); §12.
 
 ### 2026-09-26 — phase 14b planning: check 8's perturbation set, what check 1b can exclude before phase 15, and F5's home
 
