@@ -203,4 +203,23 @@ const B_SHORT = 600
         @test r.drains > 0 && r.first > 0 && r.max_deficit > 0
     end
 
+    # ------------------------------------------------------------------
+    @testset "14.9 check 6: the nominal trajectory refuses a doubling time" begin
+        d = build_corea(tspan = (0.0, 60.0))
+        err = try
+            doubling_time(d); nothing
+        catch e
+            e
+        end
+        @test err isa ErrorException && occursin("refused", err.msg)
+        rc = only(reporting_constraints(d))
+        @test rc.quantity === :doubling_time && rc.verdict === :refused
+        @test rc.instead == [:fractional_growth, :time_to_threshold]
+        for _ in 1:60
+            handshake_step!(d)
+        end
+        g = growth_report(d)
+        @test g.fractional > 1.0
+    end
+
 end
