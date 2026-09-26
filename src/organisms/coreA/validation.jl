@@ -621,8 +621,67 @@ function langevin_pools(report; n::Integer = 3, min_median::Real = CONTINUUM_MED
     return (cross_check = Symbol[r.species for r in rest[1:min(n, end)]], excluded = excluded)
 end
 
+# ---------------------------------------------------------------------------
+# Check 7: which counter clips, and when (spec §3, §11 task 14.8)
+# ---------------------------------------------------------------------------
+
+"""
+    ClipRecord(d)
+
+Check 7's per-counter record. [`clipping_census`](@ref) counts drains at which
+*any* counter carried a deficit. K5 needs to know which counter, how often and
+from when, so [`record_clips!`](@ref) is called after every
+`handshake_step!` and reads the carried deficits at each drain.
+"""
+mutable struct ClipRecord
+    clipped::Dict{Symbol, Int}          # drains at which the counter carried a deficit
+    first_clip::Dict{Symbol, Float64}   # the first such drain's time
+    max_deficit::Dict{Symbol, Float64}  # the largest deficit carried, in particles
+    counters::Vector{Symbol}            # every consumer counter on a live pool
+    drains::Int
+    last_drain::Int                     # the driver's drain count when last read
+end
+function ClipRecord(d::HandshakeDriver)
+    cs = unique(Symbol[b.counter for b in d.debits if b.sign < 0 && b.pool_idx != 0])
+    return ClipRecord(Dict{Symbol, Int}(), Dict{Symbol, Float64}(),
+                      Dict{Symbol, Float64}(), cs, 0, d.n_drains)
+end
+
+"""
+    record_clips!(rec, d) -> rec
+
+Read the driver after one `handshake_step!`. On a step that drained, every
+consumer row carrying a deficit is counted against its counter. A deficit is
+nonzero exactly when the pool paid less than was asked, since a paid debit
+leaves `accrued − accrued`, which is zero.
+"""
+function record_clips!(rec::ClipRecord, d::HandshakeDriver)
+    d.n_drains == rec.last_drain && return rec
+    rec.last_drain = d.n_drains
+    rec.drains += 1
+    for b in d.debits
+        (b.sign < 0 && b.pool_idx != 0 && b.deficit > 0) || continue
+        rec.clipped[b.counter] = get(rec.clipped, b.counter, 0) + 1
+        haskey(rec.first_clip, b.counter) || (rec.first_clip[b.counter] = d.ode.t)
+        rec.max_deficit[b.counter] = max(get(rec.max_deficit, b.counter, 0.0), b.deficit)
+    end
+    return rec
+end
+
+"""
+    clip_summary(rec) -> Vector{NamedTuple}
+
+One row per counter that clipped: `counter`, `drains` clipped, `first` clip
+time, and `max_deficit` in particles. Sorted by drains clipped, most first. An
+empty vector is check 7's zero.
+"""
+clip_summary(rec::ClipRecord) =
+    sort([(counter = c, drains = n, first = rec.first_clip[c], max_deficit = rec.max_deficit[c])
+          for (c, n) in rec.clipped]; by = r -> -r.drains)
+
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,
        ValidationRun, validation_run!, closure_residual, state_bound, conservation_bound,
        moiety_drift, assert_conserved, moiety_bound, rhs_gate, first_negative,
        assert_nonnegative, carbon_accounts
 export PARTICLE_FLOOR, particle_floor, flagged_states, CONTINUUM_MEDIAN, langevin_pools
+export ClipRecord, record_clips!, clip_summary

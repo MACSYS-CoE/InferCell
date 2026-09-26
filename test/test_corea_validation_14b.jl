@@ -170,4 +170,37 @@ const B_SHORT = 600
         @test bb.excursion[1] == b.excursion[1]
     end
 
+    # ------------------------------------------------------------------
+    @testset "14.8 check 7: the per-counter clip record" begin
+        run7(ms) = begin
+            Random.seed!(B_SEED)
+            d = build_problem(ms; tspan = (0.0, Float64(B_SHORT)), complete = true)
+            Random.seed!(B_SEED)
+            rec = ClipRecord(d)
+            for _ in 1:B_SHORT
+                handshake_step!(d)
+                record_clips!(rec, d)
+            end
+            rec, d
+        end
+        rec, d = run7(validation_models())
+        # One record per drain, and it agrees with the driver's own census.
+        c = clipping_census(d)
+        @test rec.drains == c.drains == B_SHORT
+        @test (sum(values(rec.clipped); init = 0) > 0) == (c.clipped > 0)
+        @test isempty(clip_summary(rec)) == (c.clipped == 0)
+        @test :tRNA_translat in rec.counters
+
+        # The mutation: a tRNA pool a fifth of the asserted one buffers under
+        # two seconds of demand, so translation's counter clips on it, and the
+        # record names that counter.
+        mrec, md = run7(validation_models(charging = TrnaCharging(pool_mM = 0.05)))
+        @test clipping_census(md).clipped > 0
+        rows = clip_summary(mrec)
+        @test !isempty(rows)
+        @test any(r -> r.counter === :tRNA_translat, rows)
+        r = only(r for r in rows if r.counter === :tRNA_translat)
+        @test r.drains > 0 && r.first > 0 && r.max_deficit > 0
+    end
+
 end
