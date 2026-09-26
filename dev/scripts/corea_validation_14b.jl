@@ -350,19 +350,45 @@ elseif SECTION == "check6"
     pub = [lumping_run(TrnaCharging(), s) for s in TRNA_SEEDS]
     target = mean(r.flux for r in pub)
     two(s) = [lumping_run(AssembledTwoAtp(TwoAtpCharging(k2_scale = s)), sd) for sd in TRNA_SEEDS]
-    # Secant on the two-ATP scale, matching the seed-mean cycle-mean flux.
-    s0, s1 = 1.0, 1.044
-    r0, r1 = two(s0), two(s1)
-    f0, f1 = mean(r.flux for r in r0) - target, mean(r.flux for r in r1) - target
-    for _ in 1:6
-        abs(f1) <= 1e-4 * target && break
-        s0, s1 = s1, s1 - f1 * (s1 - s0) / (f1 - f0)
-        r0, f0 = r1, f1
-        r1 = two(s1)
-        f1 = mean(r.flux for r in r1) - target
+    # A scan over the two-ATP scale, not a secant: a secant on the cycle-mean
+    # flux ran away to k2_scale 9.1 still 9.4% off (job 17549118), so the flux
+    # need not be monotonic in k2 here. Every scan point is reported. A match is
+    # claimed only when the scan brackets the target and the interpolated
+    # scale lands within 1% of it.
+    grid = SMOKE ? [0.5, 2.0] : [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
+    scan = Tuple{Float64, Vector{Any}}[]
+    for sc in grid
+        rs = two(sc)
+        push!(scan, (sc, rs))
+        println(@sprintf("  k2_scale %.4g: flux %.3f against %.3f", sc, mean(r.flux for r in rs), target)); flush(stdout)
     end
-    p(@sprintf("Over %d paired seeds, the published AMP + PPi lumping charges %.2f residues/s on the cycle mean. The two-ATP lumping matches it at `k2_scale` = %.5f (%.2e relative).",
-               length(TRNA_SEEDS), target, s1, f1 / target))
+    fl = [mean(r.flux for r in rs) for (_, rs) in scan]
+    p("Over $(length(TRNA_SEEDS)) paired seeds, the published AMP + PPi lumping charges ",
+      @sprintf("%.2f", target), " residues/s on the cycle mean. The two-ATP lumping's cycle-mean flux against `k2_scale`:")
+    p()
+    p("| k2_scale | " * join((@sprintf("%.3g", sc) for (sc, _) in scan), " | ") * " |")
+    p("|---|" * repeat("---|", length(scan)))
+    p("| flux (/s) | " * join((@sprintf("%.2f", f) for f in fl), " | ") * " |")
+    p("| relative to published | " * join((@sprintf("%+.2f%%", 100(f / target - 1)) for f in fl), " | ") * " |")
+    p()
+    k = findfirst(i -> (fl[i] - target) * (fl[i+1] - target) <= 0, 1:length(fl)-1)
+    matched = false
+    r1 = scan[argmin(abs.(fl .- target))][2]
+    s1 = scan[argmin(abs.(fl .- target))][1]
+    if k !== nothing
+        # Interpolate in log scale between the bracketing points.
+        x0, x1 = log(grid[k]), log(grid[k+1])
+        s1 = exp(x0 + (target - fl[k]) * (x1 - x0) / (fl[k+1] - fl[k]))
+        r1 = two(s1)
+        matched = abs(mean(r.flux for r in r1) / target - 1) <= 0.01
+    end
+    f1 = mean(r.flux for r in r1)
+    if matched
+        p(@sprintf("Matched at `k2_scale` = %.4g: flux %.2f, %+.2f%% from published.", s1, f1, 100(f1 / target - 1)))
+    else
+        p(@sprintf("**Not matched.** The closest point is `k2_scale` = %.4g at %+.2f%% from published flux, so the comparison below is at unequal flux and is not task 9.9's answer.",
+                   s1, 100(f1 / target - 1)))
+    end
     p()
     p("| lumping | charging flux (/s) | ATP/ADP, cycle mean | ATP/ADP at the end | AMP (mM) | PPi (mM) | ADK1 net flux (/s) |")
     p("|---|---|---|---|---|---|---|")
@@ -373,8 +399,10 @@ elseif SECTION == "check6"
     end
     p()
     Δ = mean(r.ratio_mean for r in r1) / mean(r.ratio_mean for r in pub) - 1
-    p(@sprintf("ATP/ADP differs by **%.2f%%** between the lumpings on the cycle mean, with live glycolysis. Phase 9's double pinned ADP and measured 0.035%%.", 100Δ))
-    serialize(joinpath(OUTDIR, "check6.jls"), (fractional = g.fractional, ratio_delta = Δ, k2_scale = s1))
+    p(@sprintf("ATP/ADP differs by **%.2f%%** between the lumpings on the cycle mean, with live glycolysis, %s. Phase 9's double pinned ADP and measured 0.035%%.",
+               100Δ, matched ? "at matched flux" : "at unequal flux"))
+    p("ADK1's forward direction is AMP + ATP → 2 ADP. A negative net flux is the kinase making AMP.")
+    serialize(joinpath(OUTDIR, "check6.jls"), (fractional = g.fractional, ratio_delta = Δ, k2_scale = s1, matched = matched))
     save("check6")
 
 # ===========================================================================
