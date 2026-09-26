@@ -530,7 +530,7 @@ conservation number is uninterpretable.
 |---|---|---|---|
 | 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
-| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12). **Amended again 2026-09-26:** on the assembly the smallest pools sit at about one particle for most of the cycle, where neither the ODE nor a diffusion describes them. A pool whose cycle median is under 10 particles is excluded outright, with no ensemble. The cross-check runs on the three smallest pools with a median of at least 10 (§12) | Assembled |
+| 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12). **Amended again 2026-09-26:** on the assembly the smallest pools sit at about one particle for most of the cycle, where neither the ODE nor a diffusion describes them. A pool whose cycle median is under 10 particles is excluded outright, with no ensemble. The cross-check runs on the three pools with the smallest medians of at least 10 (§12) | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
 | 3 | Redox | NAD⁺ + NADH invariant | Per-module (glycolysis); exactly invariant there, so assembly adds nothing. **Exact means exact**, and phase 6 measured it: the module-local residual is bounded at 2 to 60 ulps across eight decades of solver tolerance, so what this row asserts *on the module* is the tolerance principle's exact-invariant branch and not the fivefold fall. **"Assembly adds nothing" holds only for the derivative.** Growth dilution rewrites every concentration at each handshake, so the assembled restatement is in particles and carries the `N_restarts` factor; task 14.4 owns it (amended 2026-09-10; see §12) |
 | 4 | Adenylate and guanylate, **over a full 6,300 s cycle** | Each moiety separately. After D13 charging is inside the ODE block and its ATP→AMP+PPi transfer conserves adenylate internally, so there is no declared drain to correct for and the check needs only the inbound mass flux. Three configurations: all five recycling reactions (conserved); adenylate kinase removed; pyrophosphatase removed (**amended 2026-09-10:** pyrophosphate strands the phosphate moiety and stalls the pathway; it cannot diverge in a model whose phosphate is closed, which this one is — see §12). **The kinase-removed assertion is a threshold crossing, not exhaustion** — under mass action the drain is proportional to ATP, so ATP decays exponentially and never reaches zero. Assert the time at which ATP falls below 1% of its initial value, and reconcile against the 144 s the scoping note computes for a constant drain | Assembled only. Standalone the recycling module conserves both moieties trivially, so the charging module or a drain double must be composed with it |
@@ -3695,8 +3695,8 @@ one test comment. The run of record is job 17539616,
   only. The `:sde` formalism stays refused in `src`, and §7's non-goal
   stands (§12, 2026-09-25). **Amended 2026-09-26:** not Euler–Maruyama but
   its local-linearization form, at h = 0.01 s, since the block is too stiff
-  for an explicit step. The cross-check is on the three smallest pools with a
-  cycle median of at least 10 particles; a pool below that is excluded
+  for an explicit step. The cross-check is on the three pools with the smallest
+  cycle medians of at least 10 particles; a pool below that is excluded
   outright (§12).
   **Check 1's half done in 14a:** no state falls below its bound over the
   pinned cycle. With translation's debits unclamped, check 1 names `M_gtp_c`
@@ -4044,8 +4044,10 @@ NADH, phospho-HPr and phospho-Crr have medians of 2.5, 3.4 and 4.3.
 
 A Langevin band around a pool of one particle compares two invalid
 descriptions. So a pool whose cycle median is under 10 particles is excluded
-outright, and the cross-check runs on the three smallest with a median of at
-least 10. For phase 15: **13DPG, one of D8's informative small pools, cannot
+outright, and the cross-check runs on the three with the smallest medians of
+at least 10. Ranked by median, not minimum: GTP, GDP and GMP each reach zero
+for one handshake when a clipped debit empties them, and hold thousands of
+particles otherwise. For phase 15: **13DPG, one of D8's informative small pools, cannot
 be an observable on the assembled model.**
 
 **Sections touched:** header; §3 (checks 1b and 8); §11 (14b.5 added, 14b's

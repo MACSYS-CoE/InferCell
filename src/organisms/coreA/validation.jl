@@ -608,8 +608,10 @@ How check 1b splits the flagged pools (spec §3, amended 2026-09-26):
 - `excluded` are the flagged pools whose cycle median is under `min_median`
   particles. Neither the ODE nor a Langevin diffusion describes a pool of about
   one particle, so no ensemble is needed to exclude them.
-- `cross_check` are the `n` smallest remaining flagged pools, by minimum, which
-  the chemical-Langevin ensemble is run on.
+- `cross_check` are the `n` remaining flagged pools with the smallest medians,
+  which the chemical-Langevin ensemble is run on. By median, not minimum: a
+  pool of thousands that a clipped debit empties for one handshake has a
+  minimum of zero and is not a small pool.
 
 `external` states are left out of both.
 """
@@ -617,7 +619,7 @@ function langevin_pools(report; n::Integer = 3, min_median::Real = CONTINUUM_MED
                         external = Symbol[])
     rows = [r for r in report if r.flagged && !(r.species in external)]
     excluded = Symbol[r.species for r in rows if r.median_particles < min_median]
-    rest = [r for r in rows if r.median_particles >= min_median]
+    rest = sort([r for r in rows if r.median_particles >= min_median]; by = r -> r.median_particles)
     return (cross_check = Symbol[r.species for r in rest[1:min(n, end)]], excluded = excluded)
 end
 

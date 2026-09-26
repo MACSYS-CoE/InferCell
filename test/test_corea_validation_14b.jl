@@ -101,15 +101,17 @@ const B_SHORT = 600
         @test :M_fdp_c in flagged_states(particle_floor(vr))
 
         # The split of spec §3 (amended 2026-09-26): a pool with a median under
-        # CONTINUUM_MEDIAN particles is excluded; the three smallest others are
-        # cross-checked; an external state is in neither.
+        # CONTINUUM_MEDIAN particles is excluded; the three others with the
+        # smallest medians are cross-checked; an external state is in neither.
+        # :d is emptied once by a clip, so its minimum is small and its median
+        # is not, and it is not a small pool.
         row(s, mn, md) = (species = s, min_particles = mn, t = 0.0, median_particles = md,
                           below_one = 0.0, flagged = mn < PARTICLE_FLOOR)
-        synth = [row(:ext, 0.0, 50.0), row(:a, 0.1, 0.5), row(:b, 1.0, 20.0), row(:c, 2.0, 5.0),
-                 row(:d, 3.0, 60.0), row(:e, 4.0, 100.0), row(:f, 5.0, 400.0), row(:g, 900.0, 1e4)]
+        synth = [row(:ext, 0.0, 50.0), row(:a, 0.1, 0.5), row(:d, 0.0, 6000.0), row(:b, 1.0, 20.0),
+                 row(:c, 2.0, 5.0), row(:e, 4.0, 100.0), row(:f, 5.0, 400.0), row(:g, 900.0, 1e4)]
         sp = langevin_pools(synth; external = [:ext])
         @test sp.excluded == [:a, :c]
-        @test sp.cross_check == [:b, :d, :e]
+        @test sp.cross_check == [:b, :e, :f]
     end
 
     # ------------------------------------------------------------------
