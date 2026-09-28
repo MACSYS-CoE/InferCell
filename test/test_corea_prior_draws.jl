@@ -168,10 +168,18 @@ end
         assert_haldane(dms, draw)
 
         d = build_problem(dms; tspan = (0.0, 120.0), complete = true)
-        ode_names = unique(Symbol[q.name for m in dms if formalism(m) === :ode
-                                  for q in model_free_params(parameters(m))])
-        jump_names = unique(Symbol[q.name for m in dms if formalism(m) === :jump
-                                   for q in model_free_params(parameters(m))])
+        ode_names = InferCell._block_param_names(filter(m -> formalism(m) === :ode, dms))
+        jump_names = InferCell._block_param_names(filter(m -> formalism(m) === :jump, dms))
+        # The layout `set_parameters!` assumes is the one the builder made: every
+        # slot the driver does not overwrite holds its name's nominal value. Most
+        # values are distinct, so a permuted layout would fail here.
+        nominal = nominal_parameter_values(dms)
+        written = Set(w.param_slot for w in driver_written_params(d))
+        for (names, p) in ((ode_names, d.ode.p), (jump_names, d.jump.p))
+            @test length(names) == length(p)
+            @test all(p[i] == nominal[n] for (i, n) in enumerate(names) if !(n in written))
+        end
+        @test length(unique(d.ode.p)) > length(d.ode.p) ÷ 2
         k_gapd = findfirst(==(Symbol("k_tx_JCVISYN3A_0607")), jump_names)
         s_gapd = findfirst(==(Symbol("S_JCVISYN3A_0607")), jump_names)
         p_ode0 = copy(d.ode.p)

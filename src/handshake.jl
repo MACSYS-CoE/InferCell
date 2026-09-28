@@ -709,7 +709,8 @@ end
 # rather than re-derived. `_build_p0` and `_build_contexts` already agree on the
 # first-seen-by-name dedup; a third implementation of that rule here would be one
 # more thing to keep in step, and the failure if it drifted would be a silent
-# write to the wrong rate-law slot.
+# write to the wrong rate-law slot. `_block_param_names`, which `set_parameters!`
+# uses, reads the same contexts for the same reason.
 
 # A registry chemostat is held rather than integrated, and the resolver refuses
 # any module that would integrate one. So an edge naming it has no owner by
@@ -1887,16 +1888,7 @@ function handshake_step!(d::HandshakeDriver)
     rebuilt = false
     for r in d.rebuilds
         step % r.steps == 0 || continue
-        pools = _fvec(_rebuild_pools(d, r))
-        vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model, pools)
-        length(vals) == length(r.fill_idxs) || error(
-            "rate_constants() for $(r.declared_by) returned $(length(vals)) " *
-            "value$(length(vals) == 1 ? "" : "s") but rebuilt_params() names " *
-            "$(length(r.fill_idxs)) parameter$(length(r.fill_idxs) == 1 ? "" : "s") " *
-            "($(r.names)); return a static vector of the same length")
-        for (k, v) in zip(r.fill_idxs, vals)
-            d.jump.p[k] = v
-        end
+        _apply_rebuild!(d, r)
         r.n_refreshes += 1
         rebuilt = true
     end
@@ -1919,6 +1911,22 @@ function handshake_step!(d::HandshakeDriver)
     drained && (d.n_drains += 1)
     clipped && (d.n_clipped += 1)
     return d
+end
+
+# One rebuild: the module's rate constants from the live pools, written into the
+# jump block's parameter slots. Shared by the 60 s schedule and `set_parameters!`.
+function _apply_rebuild!(d::HandshakeDriver, r::RateConstantRebuild)
+    vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model,
+                          _fvec(_rebuild_pools(d, r)))
+    length(vals) == length(r.fill_idxs) || error(
+        "rate_constants() for $(r.declared_by) returned $(length(vals)) " *
+        "value$(length(vals) == 1 ? "" : "s") but rebuilt_params() names " *
+        "$(length(r.fill_idxs)) parameter$(length(r.fill_idxs) == 1 ? "" : "s") " *
+        "($(r.names)); return a static vector of the same length")
+    for (k, v) in zip(r.fill_idxs, vals)
+        d.jump.p[k] = v
+    end
+    return nothing
 end
 
 # The pools a rebuild reads, in edge order: a live ODE state, or a chemostat's
@@ -1958,10 +1966,19 @@ function _assert_ode_advanced(d::HandshakeDriver, target)
     return nothing
 end
 
-# Free-parameter names in the order the block's parameter vector holds them:
-# `_build_p0`'s walk, deduplicated by name.
-_block_param_names(models) =
-    unique(Symbol[q.name for m in models for q in model_free_params(parameters(m))])
+# Free-parameter names in the order the block's parameter vector holds them,
+# read off the builder's own contexts rather than re-deriving its dedup rule
+# (see the note above `_ownerless_chemostat`).
+function _block_param_names(models)
+    ctxs = _build_contexts(collect(AbstractSubModel, models))
+    names = Symbol[]
+    for (m, ctx) in zip(models, ctxs), (q, k) in zip(model_free_params(parameters(m)),
+                                                     ctx.param_idxs)
+        k > length(names) && resize!(names, k)
+        names[k] = q.name
+    end
+    return names
+end
 
 """
     set_parameters!(driver, models, values) -> driver
@@ -2002,9 +2019,15 @@ function set_parameters!(d::HandshakeDriver, models::AbstractVector{<:AbstractSu
         name in written && throw(ArgumentError(
             ":$name is a slot the driver writes at every handshake or rebuild, so " *
             "a value set here would be overwritten before it was used"))
+        # A name free in both blocks would be one parameter held in two slots,
+        # and writing one would run the blocks at different values. Core A′ has
+        # none (spec §4 D13); refuse rather than pick a block.
         i = findfirst(==(name), ode_names)
+        i !== nothing && name in jump_names && throw(ArgumentError(
+            ":$name is free in both blocks, so it has two slots and one value " *
+            "would leave the other block at its nominal"))
         if i !== nothing
-            d.ode.p[i] == v || (d.ode.p[i] = v)
+            d.ode.p[i] = v
             continue
         end
         j = findfirst(==(name), jump_names)
@@ -2018,12 +2041,7 @@ function set_parameters!(d::HandshakeDriver, models::AbstractVector{<:AbstractSu
     end
     isempty(changed_jump) && return d
     for r in d.rebuilds
-        any(in(changed_jump), r.p_idxs) || continue
-        vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model,
-                              _fvec(_rebuild_pools(d, r)))
-        for (k, v) in zip(r.fill_idxs, vals)
-            d.jump.p[k] = v
-        end
+        any(in(changed_jump), r.p_idxs) && _apply_rebuild!(d, r)
     end
     reset_aggregated_jumps!(d.jump)
     return d

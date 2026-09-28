@@ -97,21 +97,17 @@ end
 `kcatF/kcatR · Π KmP^n / Π KmS^n`, with `values` mapping each parameter name
 to its value.
 """
-function equilibrium_constant(rel::HaldaneRelation, values::AbstractDict{Symbol})
-    k = values[rel.forward] / values[rel.reverse]
-    for (km, n) in rel.products
-        k *= values[km]^n
-    end
-    for (km, n) in rel.substrates
-        k /= values[km]^n
-    end
-    return k
-end
+equilibrium_constant(rel::HaldaneRelation, values::AbstractDict{Symbol}) =
+    _km_quotient(values[rel.forward] / values[rel.reverse], rel, values)
 
 # The reverse constant that puts `rel` at equilibrium constant `keq`, given the
 # forward and Michaelis constants in `values`.
-function _derived_reverse(rel::HaldaneRelation, values::AbstractDict{Symbol}, keq)
-    k = values[rel.forward] / keq
+_derived_reverse(rel::HaldaneRelation, values::AbstractDict{Symbol}, keq) =
+    _km_quotient(values[rel.forward] / keq, rel, values)
+
+# `k · Π KmP^n / Π KmS^n`, one rounding per factor, which is what
+# `assert_haldane`'s bound counts.
+function _km_quotient(k, rel::HaldaneRelation, values::AbstractDict{Symbol})
     for (km, n) in rel.products
         k *= values[km]^n
     end
@@ -163,8 +159,9 @@ constant scales that reaction's reverse constant by the same factor, and every
 reaction keeps its equilibrium constant, which [`assert_haldane`](@ref) checks.
 
 `reverse = :independent` draws every name from its own prior, reverse constants
-included. That is phase 14b's rule, which breaks the Haldane relations. It is
-kept to reproduce 14b's census and as the mutation 14c.1's check must fail on.
+included. That is the rule phase 14b's census drew by, which breaks the Haldane
+relations. It is kept as the mutation 14c.1's check must fail on (14b's own
+script draws inline and does not call this).
 """
 function draw_parameters(rng::AbstractRNG, models::AbstractVector{<:AbstractSubModel},
                          names::AbstractVector{Symbol}; reverse::Symbol = :derived)
@@ -254,6 +251,6 @@ function d11_models(; smoothing::Union{Nothing, Real} = nothing)
     return ms
 end
 
-export HaldaneRelation, RECYCLING_HALDANE, haldane_relations, equilibrium_constant,
+export HaldaneRelation, haldane_relations, equilibrium_constant,
        nominal_parameter_values, draw_parameters, assert_haldane, D11_TARGETS,
        d11_models

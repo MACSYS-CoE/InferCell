@@ -125,7 +125,8 @@ end
         @test count(θ -> slope(θ, pub) == 0, grid) >= 18
         # The clamp alone, on continuous pools: one side pays in full and moves
         # with the pool, the other floors it at zero, so the slope jumps by the
-        # whole sensitivity.
+        # pool's sensitivity at the clip. `dP` is taken a unit of kcat away, where
+        # the sensitivity is slightly larger, so the ratio sits just below one.
         for k in (30, 3)
             @test jump(k, kink) > 0.9
         end
@@ -138,15 +139,9 @@ end
     end
 
     @testset "14a's closures hold on the sampler model, at their own gates" begin
-        # validation_models is the metered assembly; smoothing all three
-        # stochastic modules is corea_models(smoothing = w) with the meters, and
-        # the build below adds the sampler model's continuous pools.
-        drain = (clip = :smoothed, smoothing = COREA_SMOOTHING_WIDTH)
-        ms = validation_models(transcription = CoreATranscription(; drain...),
-                               decay = CoreATranscriptDecay(; drain...),
-                               translation = CoreATranslation(; drain...))
-        @test typeof.(ms) == typeof.(corea_models(metered = true,
-                                                  smoothing = COREA_SMOOTHING_WIDTH))
+        # The metered assembly with every counter smoothed; the build below adds
+        # the sampler model's continuous pools.
+        ms = corea_models(metered = true, smoothing = COREA_SAMPLER.smoothing)
         n = round(Int, COREA_CYCLE_S)
         function vrun(abstol, reltol)
             Random.seed!(1410)

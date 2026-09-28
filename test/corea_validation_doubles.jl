@@ -86,8 +86,7 @@ function shifted_genes(locus::Symbol; A::Int = 1, U::Int = -1)
 end
 
 """
-    validation_models(; glycolysis, pts, recycling, charging, transcription, decay,
-                        translation)
+    validation_models(; glycolysis, pts, recycling, charging, transcription, translation)
 
 The assembled composition with the carbon meters, and any one module swapped.
 Every default is exactly `corea_models(metered = true)`.
@@ -97,10 +96,9 @@ function validation_models(; glycolysis = CentralGlycolysis(enzymes = :translate
                              recycling = NucleotideRecycling(enzymes = :translated),
                              charging = TrnaCharging(),
                              transcription = CoreATranscription(),
-                             decay = CoreATranscriptDecay(),
                              translation = CoreATranslation())
     return InferCell.AbstractSubModel[glycolysis, pts, recycling, charging,
-                                      transcription, decay, translation]
+                                      transcription, CoreATranscriptDecay(), translation]
 end
 
 "The kinase-removed recycling module of check 4's second configuration."
