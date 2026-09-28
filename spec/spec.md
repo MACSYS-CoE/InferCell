@@ -3911,6 +3911,45 @@ the smoothed drain under the `:continuous` rounding policy of task 14c.7, and
 derivative is of the ODE state the next interval integrates from.
 **PR:** _not started_
 
+**Results (branch `phase-14c-smoothed-drain`).** The census is
+`dev/scripts/corea_census_14c_result.md` (jobs 17623900 to 17623902, at
+`946bfaa`), and the smoothing runs are `dev/scripts/corea_smoothing_14c_result.md`
+(job 17625498, at `b377dde`).
+- **14c.1.** Over 200 broad draws the worst Haldane residual is 0.125 of its
+  `4n·eps` bound. Drawing reverse constants independently fails, naming
+  `R_PGI`. A forward constant drawn alone scales its reverse constant by the
+  same factor to 8 eps. Each relation zeroes its own reaction's flux at its
+  equilibrium constant (job 17623761).
+- **14c.2: K5's rescored prior half fires.** 163 of 200 draws of D11's six
+  clip (81.5%, Wilson 75.5 to 86.3%), but only 8 are starved (4.0%), against
+  104 in 14b. The median per-drain fraction is 0.006, against 0.653. The
+  draws clip a few drains near the kink, which is where the smoothing
+  matters. By §12 B this confirms the smoothing and changes nothing else.
+- **14c.3.** Haldane-consistent broad draws clip in 141 of 200 (70.5%) and
+  starve 95 (47.5%), against 14b's 73.0% and 52.0%. The median per-drain
+  fraction falls from 0.653 to 0.271. The broken equilibrium constants made
+  starved draws clip more of the cycle, not more draws clip.
+- **14c.4.** Seven consumer counters are smoothed at one particle. The
+  resolver reports no gradient obstruction (seven before), and each is labelled
+  ours.
+- **14c.5.** 100 seeds. Before a pair's jump states first differ, the largest
+  of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
+  passes. At the end of the cycle 20 observables pass, none fails and 30 are
+  unresolved. 47 of 100 sampler pairs decouple, against 3 of 100 for the
+  control. As a diagnostic beside the gate, the difference of ensemble means
+  finds no observable beyond |z| = 1.72 of 50. Every whole-cell closure on the
+  sampler model is at 3.5e-10 to 2.3e-9 of its `tol_C` over a full cycle,
+  at the pinned pair and one decade tighter.
+- **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
+  clips by 5×, and at 2× they are down to at most 4 drains. The clipping moves
+  to `tRNA_translat` (medians 9 to 58 drains), and 9 or 10 of 10 seeds still
+  carry a deficit at every scale. More GTP supply does not stop the
+  published-parameter clipping. It moves it to the charged-tRNA pool.
+- **14c.7.** At seed 14800's first `GTP_translat` clip, the clamp on
+  continuous pools jumps by 0.915 of the pool's sensitivity at every spacing.
+  The sampler model's jump falls with the spacing, 0.39 to 0.013. The
+  published model's slope is exactly zero at all 21 points.
+
 **Decided at planning, 2026-09-28 (§12, same date):** "the published
 equilibrium constant" is the one the nominal Mode values imply, which
 upstream's own equilibrium-constant rows contradict by more than 1% on 9 of 15
