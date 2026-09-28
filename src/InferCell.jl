@@ -55,6 +55,8 @@ include("organisms/coreA/transcript_decay.jl")
 include("organisms/coreA/translation.jl")
 # The assembled model composes all seven, so it follows every one of them.
 include("organisms/coreA/assembly.jl")
+# Prior draws read glycolysis's and recycling's rate laws and the assembly.
+include("organisms/coreA/prior_draws.jl")
 include("organisms/coreA/validation.jl")
 include("control_analysis.jl")
 include("models/transcription_translation.jl")

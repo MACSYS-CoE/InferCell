@@ -1942,6 +1942,79 @@ function _assert_ode_advanced(d::HandshakeDriver, target)
     return nothing
 end
 
+# Free-parameter names in the order the block's parameter vector holds them:
+# `_build_p0`'s walk, deduplicated by name.
+_block_param_names(models) =
+    unique(Symbol[q.name for m in models for q in model_free_params(parameters(m))])
+
+"""
+    set_parameters!(driver, models, values) -> driver
+
+Write `name => value` pairs into a built driver's parameter vectors, before its
+first handshake. `models` is the composition the driver was built from, and it
+fixes where each name lives. This is how a prior draw reaches a trajectory
+(spec §11 tasks 14.8 and 14c.2).
+
+A name must be a free parameter of the composition, and it may not be a slot the
+driver itself writes ([`driver_written_params`](@ref)), since the driver would
+overwrite the draw at the first handshake and the run would silently use the
+nominal value.
+
+A stochastic-block parameter can feed the 60 s rebuild: transcription's rate
+constants are functions of its promoter strengths. A rebuild first fires at the
+end of its first interval, so the rate constants of a module whose parameters
+changed are recomputed here from the initial pools, as its constructor
+computed them from the nominal values. The propensity aggregation is then
+rebuilt. A value equal to the one already held is not written, so a draw at the
+nominal values leaves the driver exactly as built.
+"""
+function set_parameters!(d::HandshakeDriver, models::AbstractVector{<:AbstractSubModel},
+                         values)
+    d.n_handshakes == 0 || throw(ArgumentError(
+        "set_parameters! after $(d.n_handshakes) handshakes: a parameter changed " *
+        "mid-trajectory is a different model from the one either value describes"))
+    ode_names = _block_param_names([m for m in models if formalism(m) === :ode])
+    jump_names = _block_param_names([m for m in models if formalism(m) === :jump])
+    length(ode_names) == length(d.ode.p) && length(jump_names) == length(d.jump.p) ||
+        throw(ArgumentError(
+            "The models name $(length(ode_names)) ODE and $(length(jump_names)) jump " *
+            "free parameters, but the driver holds $(length(d.ode.p)) and " *
+            "$(length(d.jump.p)). Pass the composition the driver was built from"))
+    written = Set(w.param_slot for w in driver_written_params(d))
+    changed_jump = Int[]
+    for (name, v) in values
+        name in written && throw(ArgumentError(
+            ":$name is a slot the driver writes at every handshake or rebuild, so " *
+            "a value set here would be overwritten before it was used"))
+        i = findfirst(==(name), ode_names)
+        if i !== nothing
+            d.ode.p[i] == v || (d.ode.p[i] = v)
+            continue
+        end
+        j = findfirst(==(name), jump_names)
+        j === nothing && throw(ArgumentError(
+            ":$name is not a free parameter of this composition; free it in its " *
+            "module's constructor"))
+        if d.jump.p[j] != v
+            d.jump.p[j] = v
+            push!(changed_jump, j)
+        end
+    end
+    isempty(changed_jump) && return d
+    for r in d.rebuilds
+        any(in(changed_jump), r.p_idxs) || continue
+        vals = rate_constants(view(d.jump.p, r.p_idxs), d.ode.t, r.model,
+                              _fvec(_rebuild_pools(d, r)))
+        for (k, v) in zip(r.fill_idxs, vals)
+            d.jump.p[k] = v
+        end
+    end
+    reset_aggregated_jumps!(d.jump)
+    return d
+end
+
+export set_parameters!
+
 """
     run_handshake!(driver, n_steps) -> NamedTuple
 
