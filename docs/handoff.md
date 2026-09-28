@@ -1,10 +1,36 @@
 # Handoff
 
 **Session date:** 2026-09-28
-**Branches:** `phase-14b-derivative-checks` (PR #72, merged 2026-09-28),
-`spec-phase-14b-landed` (records it in the spec)
+**Branches:** `spec-k5-decision` (local, not pushed: the K5 amendment, drafted
+for review)
 
-## Latest: `/check-PR` on #72, and its blockers fixed (2026-09-28)
+## Latest: K5's response drafted as a proposed amendment (2026-09-28)
+
+`spec-k5-decision` adds §12 2026-09-28 "K5 fired", **proposed, pending
+approval**, plus a new phase 14c, a §9 question and annotations on 15.2, 15.8
+and 16.3. The proposal:
+- **Smooth every consumer counter** and validate the smoothed model against the
+  clipped one. The published-parameter half of K5 binds on its own.
+- **Rescore K5's prior half over D11's six targets.** 14b's broad census stays
+  on record as the stress result.
+- **Draw kinetic constants Haldane-consistently.** Each reverse constant is
+  derived through the published equilibrium constant.
+- **Let most of phase 15 start alongside 14c.**
+
+The census has three findings the verdict alone hides:
+- **The GTP clamp is upstream's.** It is at `Minimal_Cell/CME_ODE/program/in_out.py:199`.
+  Upstream keeps no run logs, so its clip rate is unknown.
+- **The prior draws that clip are mostly starved cells.** The median per-drain
+  fraction is 0.653, and `GTP_translat` clips at a median of 5,824 of 6,300 drains.
+- **The broad draws break Haldane.**
+
+Open for approval: the whole proposal. The smoothing width and 14c.5's
+agreement threshold are left for 14c's planning.
+
+Next: user reviews the amendment. On approval, flip "proposed" to "approved",
+push and open the PR, then plan 14c. Housekeeping as below.
+
+## Earlier: `/check-PR` on #72, and its blockers fixed (2026-09-28)
 
 The review found four blockers, all now fixed on the branch (§12 2026-09-28):
 - **Docs CI failed.** `control_analysis.jl`'s 8 exports were on no docs page.
