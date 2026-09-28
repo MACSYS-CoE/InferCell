@@ -10,7 +10,7 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 **Approved 2026-09-28 (§12):** phase 14c, the smoothed drain
 and a Haldane-consistent prior, is next. Phase 15's tasks that need neither
 may start alongside it
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-28
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -3914,9 +3914,9 @@ derivative is of the ODE state the next interval integrates from.
 **Results (branch `phase-14c-smoothed-drain`).** The census is
 `dev/scripts/corea_census_14c_result.md` (jobs 17623900 to 17623902, at
 `946bfaa`), and the smoothing runs are `dev/scripts/corea_smoothing_14c_result.md`
-(job 17625498, at `b377dde`). The suite passes 28,286/28,286 at `b377dde`
-(Slurm job 17625447), and no later commit on the branch touches `src` or
-`test`.
+(job 17625498, at `b377dde`). After the review's fixes the suite passes
+28,290/28,290 at `c2e1aac` (Slurm job 17653728), and no later commit on the
+branch touches `src` or `test`.
 - **14c.1.** Over 200 broad draws the worst Haldane residual is 0.125 of its
   `4n·eps` bound. Drawing reverse constants independently fails, naming
   `R_PGI`. A forward constant drawn alone scales its reverse constant by the
@@ -3928,10 +3928,12 @@ derivative is of the ODE state the next interval integrates from.
   draws clip a few drains near the kink, which is where the smoothing
   matters. By §12 B this confirms the smoothing and changes nothing else.
 - **14c.3.** Haldane-consistent broad draws clip in 141 of 200 (70.5%) and
-  starve 95 (47.5%), against 14b's 73.0% and 52.0%. The intervals overlap, so
-  the broken equilibrium constants explain little of 14b's result. The
+  starve 95 (47.5%), against 14b's 73.0% and 52.0%. At 200 unpaired draws that
+  is no detectable effect of the broken equilibrium constants: the difference
+  in starved draws is 4.5 points, with a 95% interval of about −5 to +14. The
   per-drain fraction is bimodal: starved draws clip on a median 0.957 of drains
-  (14b 0.969), and the others on none. So the all-draw median, 0.271 against
+  (14b 0.969), and the others' median is zero, although 17 of the 105 clip on
+  more than 10% of drains. So the all-draw median, 0.271 against
   0.653, only tracks the starved count crossing 100 and says nothing further.
   The draws share 14b's seed numbers, but not its streams, since a derived
   reverse constant consumes no random number.
@@ -3942,7 +3944,7 @@ derivative is of the ODE state the next interval integrates from.
   of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
   passes. The end-of-cycle half resolves 20 of 50 observables, and none of
   them fails. It can neither pass nor fail the other 30, whose SE exceeds 1%.
-  Some of their gate means sit 2 to 2.4 SE from zero (`M_gtp_c` +37.8% ± 16%),
+  Some of their gate means sit up to 2.3 SE from zero (`M_gtp_c` +37.8% ± 16%),
   but the per-seed ratio is skewed upward once a pair decouples. The
   difference of ensemble means, a diagnostic outside the gate, finds no
   observable beyond |z| = 1.72 of 50, with mixed signs. **14c.5 is therefore met
@@ -4025,8 +4027,9 @@ particles.
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
 check 8's frozen steady state, whose demands are forcing terms and not
 counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
-15.8 wait for 14c.5. 15.8 also waits for 14c.7 (added 2026-09-28): its
-Jacobian is taken on the sampler model, `build_corea(; COREA_SAMPLER...)`.
+15.8 wait for 14c.5, including its open half (§12, 2026-09-29). 15.8 also
+waits for 14c.7 (added 2026-09-28): its Jacobian is taken on the sampler model,
+`build_corea(; COREA_SAMPLER...)`.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -4072,7 +4075,8 @@ observable that closes the proxy loop is rejected by a check.
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
   **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
-  smoothed model, since at a clip the clipped model's has no value.
+  smoothed model, since at a clip the clipped model's has no value. That is
+  the sampler model, smoothed drain and continuous pools (§12, 2026-09-28).
 - [ ] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
@@ -4195,6 +4199,41 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-29 — 14c.5 lands partly open, and 15.7 and 15.8 keep waiting on its open half
+
+**Status: a record of what #75's review found. It changes no plan. Closing
+the open half is a decision still to be made.**
+
+**Trigger:** the 100-seed run of the split gate (job 17625498) and the
+/check-PR review of #75.
+
+**What is true.**
+- **The coupled half passes.** Its largest paired difference is 0.763%.
+- **The end-of-cycle half resolves 20 of 50 observables,** and none fails.
+- **It cannot decide the other 30,** whose SE exceeds 1%. Their gate means
+  reach 2.3 SE, but the per-seed ratio is skewed upward once a pair decouples.
+- **A symmetric statistic finds no bias.** The difference of the ensemble
+  means, a diagnostic outside the gate, finds no observable beyond
+  |z| = 1.72, with mixed signs.
+- **The control is not the null the split-gate entry intended.** That entry
+  said the sampler pair is read against the control. But the control
+  decouples 3 of 100 pairs against the sampler model's 47, so it shows only
+  that a small nudge leaves the model paired.
+
+**What this means for the task list.** 14c.5 is recorded as met for the
+coupled half and the 20 resolved observables, and open for the other 30. Tasks
+15.7 and 15.8 wait for 14c.5, and they keep waiting on its open half. Two ways
+to close it are named. Neither is chosen:
+- **More seeds.** The SE falls as the square root of the seed count, so GTP
+  at 16% needs thousands.
+- **A gate statistic without the skew**, such as the difference of ensemble
+  means with its SE.
+
+A later entry records the choice. Neither 15.7 nor 15.8 starts past the open
+half without it.
+
+*Sections:* §11 phase 14c (Results; the phase-15 gating line).
 
 ### 2026-09-28 — 14c.5's paired gate cannot see past a flipped event, so it splits in two
 

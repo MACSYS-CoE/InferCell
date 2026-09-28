@@ -182,8 +182,9 @@ p()
 p("## Clipping under each run")
 p()
 p("The two models' counts use different predicates in effect. A smoothed debit leaves a ",
-  "residue `w·exp(−gap/w)`, which the census counts as a clip while the pool is within about ",
-  "14 particles above the accrual, although it paid in full to 1e-4 of a particle. So the ",
+  "residue `w·exp(−gap/w)`, and the census counts a clip while that residue exceeds 1e-6 ",
+  "of the accrual: whenever the pool is less than `w·ln(1e6/accrual)` particles above the ",
+  "accrual, at most about 14, although the debit paid in full to within 1e-6 of it. So the ",
   "sampler row is not a like-for-like count, and it is recorded, not compared.")
 p()
 p("| | median drains clipped | seeds carrying a deficit |")
@@ -202,7 +203,7 @@ if isfile(deriv)
     p("*Note added at merge.* The clamped jump reads 0.915, not one, because the ",
       "sensitivity it is divided by is taken at 1.5 × the clip, where it is larger. The ",
       "paragraph above, as the driver at the run's commit wrote it, says \"the whole ",
-      "sensitivity\"; the driver now says so.")
+      "sensitivity\"; the driver's wording is corrected for future runs.")
 end
 write(OUT, take!(out))
 println("Wrote $OUT")

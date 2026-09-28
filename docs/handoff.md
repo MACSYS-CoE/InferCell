@@ -30,17 +30,19 @@ Results:
 - **Haldane-consistent broad census:** 70.5% clip, against 73.0% in 14b, with
   overlapping intervals. The all-draw median per-drain fraction (0.653 to
   0.271) only tracks the starved count crossing 100; starved draws clip alike
-  (0.969 against 0.957).
+  (0.969 against 0.957). No detectable effect at n = 200 (starved difference
+  95% CI about −5 to +14 points).
 - **Loosening the GTP branch** moves the clipping to `tRNA_translat`
   rather than removing it.
 - **14c.5, partly open:** the coupled half passes (largest 0.763%). The
   end-of-cycle half resolves 20 of 50, and none fails. It cannot decide the
-  other 30, whose SE exceeds 1%, and some gate means sit 2 to 2.4 SE out,
+  other 30, whose SE exceeds 1%, and some gate means sit up to 2.3 SE out,
   skewed upward by the per-seed ratio. A symmetric diagnostic, the difference
   of ensemble means, finds nothing beyond |z| = 1.72. The control decoupled 3
-  of 100 pairs against 47, so it is not a null for that half. To close it,
-  use more seeds or a statistic without the skew. That is a decision for
-  phase 15.7, which generates data.
+  of 100 pairs against 47, so it is not a null for that half. §12
+  2026-09-29 records it: 15.7 and 15.8 keep waiting until the open half is
+  closed, by more seeds or a statistic without the skew. **That choice is the
+  next decision**, and it needs your call.
 - **14c.7:** on the assembled model the sampler's slope jump across a clip
   falls with the spacing; the clamp's stays at 0.915.
 
@@ -53,7 +55,7 @@ GiB left in use). Worktrees under `.worktrees/` (`census14c`, `smooth14c7`,
 `smooth14c8`, `suite14c2`, `control14c`, `suite14c3`) hold the Slurm runs of record and can go once the
 PR merges.
 
-Suite: 28,286/28,286 at `b377dde` (Slurm job 17625447). Next: the PR, /check-PR, merge. Then phase 15,
+Suite: 28,290/28,290 at `c2e1aac` (Slurm job 17653728), after /check-PR's fixes. PR #75. Then phase 15,
 whose tasks 15.2 (truths drawn with `draw_parameters`), 15.7 and 15.8 were
 waiting on 14c.
 
