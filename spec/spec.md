@@ -3948,7 +3948,12 @@ particles.
   the published model, and the derivative is of the ODE state, not of the
   state plus its carried remainder. On the published model the scan shows
   one-particle steps rather than a kink, because the debit reads a pool
-  already rounded to whole particles.
+  already rounded to whole particles. **Amended again 2026-09-28 (§12):** the
+  agreement gate runs over 100 seeds in two halves. While a pair's jump states
+  still match, every paired difference must be within 1%. At the end of the
+  cycle, the mean paired difference must be within 1% with its SE, and an SE
+  above 1% is reported as unresolved. The published model against itself,
+  with `krnadeg` scaled by 1 + 1e-5, is the matched control for decoupling.
 - [ ] 14c.6 Bound how much of the published-parameter clipping is our
   reduction's — verify by 14b's published-parameter census rerun with the GTP
   supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
@@ -4137,6 +4142,50 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-28 — 14c.5's paired gate cannot see past a flipped event, so it splits in two
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** 14c.5's agreement run of the sampler model against the published
+one (job 17624062, at `a0b8e8f`). 1,060 of 5,300 comparisons fall outside 1%.
+The worst is `M_gtp_c`, at +73% mean with SE 76%, and one seed at 756%. With
+the smoothed drain alone under fractional carry the same run agreed to
+0.005%.
+
+**What is true.** Seven of the ten seeds stay within 1% on every observable
+for the whole cycle. The other three part at one stochastic event. Seeds 1410
+and 14802 first differ by one transcript, near 5,000 s, and 14801 differs on
+GTP, by 5.7% at 720 s. After that the two runs follow different paths, and
+their paired difference is Monte Carlo noise. A control rules out numerical
+instability on its own: the sampler model against itself, with
+`kcatF_R_ENO` scaled by 1 + 1e-9, stays paired to 6e-8% with identical clip
+counts on every seed (job 17624388). Continuous pools are a far larger nudge.
+They move a pool by up to half a particle a second, and the rebuild's rate
+constants by about 1e-5, which is enough to flip an event now and then. Under
+fractional carry both drains round to the same integers, so the paths never
+parted. The gate fixed at planning C, a paired mean within 1%, is therefore
+valid only while the paths are coupled.
+
+**Change: 14c.5's agreement gate has two halves, over 100 seeds.** The seeds
+are 14b's ten and 90 more.
+- **Coupled.** A pair is coupled up to the first handshake at which any jump
+  state (transcripts, proteins, counters) differs. Every paired difference at a
+  save point before that must be within 1%, relative to max(|published|,
+  floor), as planning C defined it. This is the test of a model difference.
+- **Decoupled.** At the end of the cycle, the mean over seeds of the paired
+  relative difference must be within 1% for every observable, reported with
+  its SE. An observable whose SE exceeds 1% is reported as unresolved, not as
+  passing.
+- **A matched control runs beside it.** The published model against itself,
+  with `krnadeg` scaled by 1 + 1e-5, which shifts the decay propensities by
+  about what continuous pools shift the rebuild's. The control reports how
+  often and how early pairs decouple with no model change. The sampler pair is
+  read against it, not against zero.
+
+The width, the floors and the 1% are unchanged.
+
+*Sections:* §11 task 14c.5.
 
 ### 2026-09-28 — phase 14c: rounding to whole particles breaks the gradient too, so the sampler model carries pools continuously
 
