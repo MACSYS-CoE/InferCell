@@ -15,10 +15,13 @@
 #          count the catalytic channel writes into E, and it keeps the reaction's
 #          equilibrium constant. Recorded, not gated (14c.6).
 #
-# Draw i runs at seed DRAW_SEED0 + i, 14b's seeds, and draw 0 is the nominal
-# values through the freed build: its census must equal the published build's
-# at seed 14800, which is the evidence that `set_parameters!` changes nothing
-# but which vector holds a value.
+# Draw i runs at seed DRAW_SEED0 + i, 14b's seed numbers. The draws are not
+# paired with 14b's, since a derived reverse constant consumes no random number
+# and the stream diverges after the first one. Draw 0 is the freed build with no
+# value written: its census must equal the published build's at seed 14800,
+# which is the evidence that freeing the constants changes nothing but which
+# vector holds them. That `set_parameters!` writes the right slots is the suite's
+# (test/test_corea_prior_draws.jl).
 #
 # Every task writes one TSV. `corea_census_14c_merge.jl` reads all three modes
 # and writes the result file. A failed cycle is recorded with its message.

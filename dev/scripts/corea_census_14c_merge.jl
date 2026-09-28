@@ -10,6 +10,9 @@
 # (§11 task 14c.3): its pool sits at zero for most of the cycle, which is past
 # the kink rather than near it.
 #
+# 14b's task files are gitignored. In a fresh clone, run 14b's census first
+# (`sbatch dev/scripts/corea_census.slurm`), which writes dev/scripts/census/.
+#
 # Usage: julia --project dev/scripts/corea_census_14c_merge.jl
 
 using Printf
@@ -21,6 +24,8 @@ const OUT = joinpath(@__DIR__, "corea_census_14c_result.md")
 const K5_DRAW_FRACTION = 0.05
 
 function read_rows(dir)
+    isdir(dir) || error("$dir does not exist. 14b's census is gitignored: run " *
+                        "`sbatch dev/scripts/corea_census.slurm` first")
     files = sort(filter(f -> occursin(r"^task_\d+\.tsv$", f), readdir(dir)))
     isempty(files) && error("no census TSVs in $dir")
     headers = String[]
@@ -62,6 +67,8 @@ function draw_summary(rows)
     return (n = length(prior), ok = ok, failed = [r for r in prior if r.status != "ok"],
             clipping = k, frac = k / m, lo = lo, hi = hi, starved = s, sfrac = s / m,
             slo = slo, shi = shi, median_fraction = median([r.fraction for r in ok]),
+            median_starved = median([r.fraction for r in ok if starved(r)]),
+            median_other = median([r.fraction for r in ok if !starved(r)]),
             max_fraction = maximum(r.fraction for r in ok))
 end
 
@@ -77,7 +84,9 @@ p("# Phase 14c: check 7's census, rerun three ways", smoke ? " — SMOKE RUN, NO
 p()
 p("Merged by `dev/scripts/corea_census_14c_merge.jl`. Regenerate with ",
   "`sbatch dev/scripts/corea_census_14c.slurm <mode>` for each of `d11`, `broad` and `gtp`, then ",
-  "this script. Every run is at the published clamped drain. The tasks' headers:")
+  "this script. 14b's task files, which this merge also reads, are gitignored: in a fresh ",
+  "clone run `sbatch dev/scripts/corea_census.slurm` first. Every run is at the published ",
+  "clamped drain. The tasks' headers:")
 p()
 for m in modes, h in unique(replace.(first(data[m]), r", task \d+ of \d+" => ""))
     p("- ", h)
@@ -98,21 +107,26 @@ function draw_section(mode, title)
     d0 = [r for r in rows if r.kind === :draw && r.id == 0]
     for r in ref, z in d0
         eq = r.drains == z.drains && r.clipped == z.clipped && r.clips == z.clips
-        p("Draw 0 (the nominal values through the freed build and `set_parameters!`) at seed ",
+        p("Draw 0 (the freed build, no value written) at seed ",
           "$(z.seed): $(z.clipped) drains clipped, against $(r.clipped) for the published ",
           "build at the same seed. Per-counter records ", eq ? "**identical**" : "**DIFFER**", ".")
         p()
     end
     p("$(s.n) draws; $(length(s.ok)) completed, $(length(s.failed)) failed.")
     p()
-    p("| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | max |")
-    p("|---|---|---|---|---|---|---|")
+    p("| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | starved draws' median | the others' median | max |")
+    p("|---|---|---|---|---|---|---|---|---|")
     for (lab, x) in ((title, s), ("14b broad, independent draws", s14b))
-        p(@sprintf("| %s | %d of %d, %.1f%% | %.1f–%.1f%% | %d of %d, %.1f%% | %.1f–%.1f%% | %.3g | %.3g |",
+        p(@sprintf("| %s | %d of %d, %.1f%% | %.1f–%.1f%% | %d of %d, %.1f%% | %.1f–%.1f%% | %.3g | %.3g | %.3g | %.3g |",
                    lab, x.clipping, length(x.ok), 100x.frac, 100x.lo, 100x.hi,
                    x.starved, length(x.ok), 100x.sfrac, 100x.slo, 100x.shi,
-                   x.median_fraction, x.max_fraction))
+                   x.median_fraction, x.median_starved, x.median_other, x.max_fraction))
     end
+    p()
+    p("The per-drain fraction is bimodal: a starved draw clips on most drains and the ",
+      "others on almost none. The median over all draws therefore falls in whichever mode ",
+      "holds more than half of them, and moves with the starved count rather than with how ",
+      "long a starved draw clips. Read the split columns.")
     p()
     counters = sort(unique(c.counter for r in s.ok for c in r.clips))
     if !isempty(counters)
@@ -146,18 +160,19 @@ if "d11" in modes
     p("|---|---|---|---|")
     p(@sprintf("| K5, prior draws over D11's targets (rescored, §12 2026-09-28 B) | ≤ 5%% of draws clip | %.1f%% of %d (Wilson %.1f–%.1f%%) | %s |",
                100s.frac, length(s.ok), 100s.lo, 100s.hi, fires ? "**fires**" : "passes"))
-    p(@sprintf("| K5, prior draws over every informed constant (14b, kept as the stress result) | ≤ 5%% of draws clip | %.1f%% of %d | **fires** |",
-               100s14b.frac, length(s14b.ok)))
+    p(@sprintf("| K5, prior draws over every informed constant (14b, kept as the stress result) | ≤ 5%% of draws clip | %.1f%% of %d | %s |",
+               100s14b.frac, length(s14b.ok), s14b.frac > K5_DRAW_FRACTION ? "**fires**" : "passes"))
     p()
 end
 
 if "broad" in modes
     p("## 14c.3: 14b's broad census, drawn Haldane-consistently")
     p()
-    p("The same informed constants as 14b's census, at the same seeds, with every ",
-      "reverse constant derived rather than drawn. Recorded, not gated: the ",
-      "difference from 14b is how much of its result the broken equilibrium ",
-      "constants caused.")
+    p("The same informed constants as 14b's census, at the same seed numbers, with every ",
+      "reverse constant derived rather than drawn. The draws are not paired with 14b's: a ",
+      "derived reverse constant consumes no random number, so the streams diverge after the ",
+      "first. Recorded, not gated: the difference from 14b is what the broken equilibrium ",
+      "constants did.")
     p()
     draw_section("broad", "14c.3, broad, Haldane-consistent")
 end

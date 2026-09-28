@@ -63,20 +63,22 @@ Merged by `dev/scripts/corea_smoothing_14c_merge.jl` from 50 task files. Regener
 
 **Decoupled half, at t = 6300 s.** Mean over 100 seeds of the paired difference, per observable. 20 observables pass, 0 fail, and 30 are unresolved (SE above 1%).
 
-| observable | mean | SE | largest single seed | verdict |
-|---|---|---|---|---|
-| `M_gtp_c` | 37.8% | 16% | 866% | unresolved |
-| `mRNA_JCVISYN3A_0131` | 16.5% | 7.6% | 400% | unresolved |
-| `mRNA_JCVISYN3A_0607` | 15.9% | 10% | 500% | unresolved |
-| `mRNA_JCVISYN3A_0213` | 15.8% | 6.8% | 400% | unresolved |
-| `mRNA_JCVISYN3A_0475` | 15.4% | 7.3% | 400% | unresolved |
-| `M_pi_c` | 14% | 8.8% | 622% | unresolved |
-| `M_lac__L_c` | 13.5% | 7.4% | 537% | unresolved |
-| `mRNA_JCVISYN3A_0727` | 11% | 6% | 300% | unresolved |
-| `M_trna_c` | 9.09% | 6.1% | 390% | unresolved |
-| `mRNA_JCVISYN3A_0220` | 8.5% | 5.7% | 300% | unresolved |
-| `mRNA_JCVISYN3A_0203` | 7% | 4.3% | 300% | unresolved |
-| `mRNA_JCVISYN3A_0221` | 3.92% | 6.6% | 300% | unresolved |
+The mean over seeds, its SE, and z = mean/SE, so a mean far from zero is visible even when the SE leaves it unresolved.
+
+| observable | mean | SE | z | largest single seed | verdict |
+|---|---|---|---|---|---|
+| `M_gtp_c` | 37.8% | 16% | 2.33 | 866% | unresolved |
+| `mRNA_JCVISYN3A_0131` | 16.5% | 7.6% | 2.18 | 400% | unresolved |
+| `mRNA_JCVISYN3A_0607` | 15.9% | 10% | 1.59 | 500% | unresolved |
+| `mRNA_JCVISYN3A_0213` | 15.8% | 6.8% | 2.33 | 400% | unresolved |
+| `mRNA_JCVISYN3A_0475` | 15.4% | 7.3% | 2.12 | 400% | unresolved |
+| `M_pi_c` | 14% | 8.8% | 1.59 | 622% | unresolved |
+| `M_lac__L_c` | 13.5% | 7.4% | 1.82 | 537% | unresolved |
+| `mRNA_JCVISYN3A_0727` | 11% | 6% | 1.84 | 300% | unresolved |
+| `M_trna_c` | 9.09% | 6.1% | 1.48 | 390% | unresolved |
+| `mRNA_JCVISYN3A_0220` | 8.5% | 5.7% | 1.48 | 300% | unresolved |
+| `mRNA_JCVISYN3A_0203` | 7% | 4.3% | 1.62 | 300% | unresolved |
+| `mRNA_JCVISYN3A_0221` | 3.92% | 6.6% | 0.59 | 300% | unresolved |
 
 *Diagnostic, not the gate:* the difference of the ensemble means at t = 6300 s, over max(|published mean|, floor), which is not skewed by the gate's per-seed ratio. The largest |z| over 50 observables is 1.72 (`mRNA_JCVISYN3A_0233`, -8% ± 4.6%); 0 exceed 3, and 0 of the 20 with SE within 1% move by more than 1%.
 
@@ -88,20 +90,22 @@ Merged by `dev/scripts/corea_smoothing_14c_merge.jl` from 50 task files. Regener
 
 **Decoupled half, at t = 6300 s.** Mean over 100 seeds of the paired difference, per observable. 48 observables pass, 0 fail, and 2 are unresolved (SE above 1%).
 
-| observable | mean | SE | largest single seed | verdict |
-|---|---|---|---|---|
-| `M_trna_c` | 1.54% | 1.5% | 154% | unresolved |
-| `M_pi_c` | 1.39% | 1.4% | 139% | unresolved |
-| `mRNA_JCVISYN3A_0131` | -1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0213` | 1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0220` | -1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0221` | -1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0694` | -1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0727` | 1% | 1% | 100% | passes |
-| `mRNA_JCVISYN3A_0779` | 1% | 1% | 100% | passes |
-| `M_3pg_c` | 0.597% | 0.6% | 59.7% | passes |
-| `M_lac__L_c` | 0.583% | 0.58% | 58.3% | passes |
-| `mRNA_JCVISYN3A_0475` | 0.5% | 0.5% | 50% | passes |
+The mean over seeds, its SE, and z = mean/SE, so a mean far from zero is visible even when the SE leaves it unresolved.
+
+| observable | mean | SE | z | largest single seed | verdict |
+|---|---|---|---|---|---|
+| `M_trna_c` | 1.54% | 1.5% | 1.00 | 154% | unresolved |
+| `M_pi_c` | 1.39% | 1.4% | 1.00 | 139% | unresolved |
+| `mRNA_JCVISYN3A_0131` | -1% | 1% | -1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0213` | 1% | 1% | 1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0220` | -1% | 1% | -1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0221` | -1% | 1% | -1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0694` | -1% | 1% | -1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0727` | 1% | 1% | 1.00 | 100% | passes |
+| `mRNA_JCVISYN3A_0779` | 1% | 1% | 1.00 | 100% | passes |
+| `M_3pg_c` | 0.597% | 0.6% | 1.00 | 59.7% | passes |
+| `M_lac__L_c` | 0.583% | 0.58% | 1.00 | 58.3% | passes |
+| `mRNA_JCVISYN3A_0475` | 0.5% | 0.5% | 1.00 | 50% | passes |
 
 *Diagnostic, not the gate:* the difference of the ensemble means at t = 6300 s, over max(|published mean|, floor), which is not skewed by the gate's per-seed ratio. The largest |z| over 50 observables is 1.01 (`M_f6p_c`, 0.288% ± 0.29%); 0 exceed 3, and 0 of the 49 with SE within 1% move by more than 1%.
 
@@ -112,9 +116,13 @@ Merged by `dev/scripts/corea_smoothing_14c_merge.jl` from 50 task files. Regener
 | sampler model | 47 of 100 | passes | 0 | 30 |
 | control | 3 of 100 | passes | 0 | 2 |
 
-14c.5's agreement gate: **passes where resolved**; 30 observables are unresolved at 100 seeds.
+14c.5's agreement gate: the coupled half **passes**. The end-of-cycle half resolves 20 of 50 observables, of which 0 fail, and it can neither pass nor fail the other 30: their SE exceeds 1%, because once a pair decouples the per-seed ratio is Monte Carlo noise, skewed upward. For those observables the evidence is the symmetric diagnostic above, which is not the gate.
+
+The control was specified as matched to the sampler model's nudge in size. It is not matched in effect: it decouples 3 of 100 pairs against the sampler model's 47, so it shows that the model is deterministic enough to stay paired under a small nudge, and cannot serve as a null for the sampler model's decoupled half.
 
 ## Clipping under each run
+
+The two models' counts use different predicates in effect. A smoothed debit leaves a residue `w·exp(−gap/w)`, which the census counts as a clip while the pool is within about 14 particles above the accrual, although it paid in full to 1e-4 of a particle. So the sampler row is not a like-for-like count, and it is recorded, not compared.
 
 | | median drains clipped | seeds carrying a deficit |
 |---|---|---|
@@ -140,3 +148,5 @@ The slope, in ln θ, of the GTP state after the debit, either side of the clip, 
 A continuous derivative has a jump that falls with the spacing. The clamp's stays at the whole sensitivity, since one side pays and the other floors at zero.
 
 The published model on the same 21 points, spaced 37 steps apart across the clip: the state is a whole number of particles at 18 of them, and the finite-difference slope is exactly zero at 21. Its derivative is zero wherever no one-particle step falls inside the stencil, so a gradient through the handshake sees no dependence on θ at all.
+
+*Note added at merge.* The clamped jump reads 0.915, not one, because the sensitivity it is divided by is taken at 1.5 × the clip, where it is larger. The paragraph above, as the driver at the run's commit wrote it, says "the whole sensitivity"; the driver now says so.

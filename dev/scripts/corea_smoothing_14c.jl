@@ -44,7 +44,8 @@ const HEADER = "# commit $(strip(read(`git rev-parse --short HEAD`, String))), j
                "Julia $VERSION$(SMOKE ? ", SMOKE" : "")"
 mkpath(DIR)
 
-_names(ms, f) = Symbol[s for m in ms if formalism(m) === f for s in states(m)]
+_names(ms, f) = InferCell._block_names(ms, f)
+const TX = Set(transcript_state(g.locus) for g in read_transcription_genes())
 
 # ---------------------------------------------------------------------------
 # agree
@@ -69,9 +70,11 @@ end
 const CONTROL_SCALE = 1 + 1e-5
 
 function variant_driver(variant)
-    ms = corea_models(; smoothing = variant === :smoothed ? COREA_SMOOTHING_WIDTH : nothing)
-    kw = variant === :smoothed ? (; rounding = COREA_SAMPLER.rounding) : (;)
-    d = build_problem(ms; tspan = (0.0, Float64(CYCLE)), complete = true, kw...)
+    # The sampler model is built from COREA_SAMPLER itself, so this script and the
+    # suite cannot come to mean different models by it.
+    kw = variant === :smoothed ? COREA_SAMPLER : (;)
+    ms = corea_models(; smoothing = get(kw, :smoothing, nothing))
+    d = build_corea(; tspan = (0.0, Float64(CYCLE)), kw...)
     if variant === :control
         v = nominal_parameter_values(ms)[:krnadeg]
         set_parameters!(d, ms, [:krnadeg => v * CONTROL_SCALE])
@@ -86,7 +89,7 @@ function agree_run(io, seed, variant; reference = nothing)
     Random.seed!(seed)
     ms, d = variant_driver(variant)
     ode_names, jump_names = _names(ms, :ode), _names(ms, :jump)
-    tx = Set(transcript_state(g.locus) for g in read_transcription_genes())
+    tx = TX
     Random.seed!(seed)
     rows(t) = for (s, v) in observe(d, ode_names, jump_names, tx)
         println(io, join((seed, variant, t, s, repr(v)), '\t'))
@@ -133,9 +136,7 @@ TASK == 0 && open(joinpath(DIR, "deriv.md"), "w") do io
     θname = :kcatF_R_PGK3
     ms = corea_models()
     ms[3] = NucleotideRecycling(enzymes = :translated, free = [θname])
-    ode_names = unique(Symbol[q.name for m in ms if formalism(m) === :ode
-                              for q in model_free_params(parameters(m))])
-    iθ = findfirst(==(θname), ode_names)
+    iθ = findfirst(==(θname), InferCell._block_param_names(filter(m -> formalism(m) === :ode, ms)))
     igtp = findfirst(==(:M_gtp_c), _names(ms, :ode))
     gtp_debit(d) = only(k for (k, b) in enumerate(d.debits)
                         if b.counter === :GTP_translat && b.sign < 0)
@@ -176,7 +177,7 @@ TASK == 0 && open(joinpath(DIR, "deriv.md"), "w") do io
         if variant === :sampler
             for b in d.debits
                 b.sign < 0 && b.pool_idx != 0 &&
-                    (b.clip = :smoothed; b.smoothing = COREA_SMOOTHING_WIDTH)
+                    (b.clip = :smoothed; b.smoothing = COREA_SAMPLER.smoothing)
             end
         end
         handshake_step!(d)
@@ -222,7 +223,8 @@ TASK == 0 && open(joinpath(DIR, "deriv.md"), "w") do io
     end
     p()
     p("A continuous derivative has a jump that falls with the spacing. The clamp's ",
-      "stays at the whole sensitivity, since one side pays and the other floors at zero.")
+      "stays at the pool's sensitivity at the clip, since one side pays and the other floors ",
+      "at zero; it reads below one because the sensitivity is taken at 1.5 × the clip.")
     p()
     grid = [θc * exp(k * 37δ) for k in -10:10]
     ys = [first(after(θ, :published)) for θ in grid]

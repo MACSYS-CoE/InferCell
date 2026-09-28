@@ -119,11 +119,15 @@ for (v, title) in ((:smoothed, "The sampler model"), (:control, "The control"))
       "$(length(obs) - length(unresolved) - length(failing)) observables pass, ",
       "$(length(failing)) fail, and $(length(unresolved)) are unresolved (SE above 1%).")
     p()
-    p("| observable | mean | SE | largest single seed | verdict |")
-    p("|---|---|---|---|---|")
+    p("The mean over seeds, its SE, and z = mean/SE, so a mean far from zero is ",
+      "visible even when the SE leaves it unresolved.")
+    p()
+    p("| observable | mean | SE | z | largest single seed | verdict |")
+    p("|---|---|---|---|---|---|")
     for x in sort(st; by = x -> -max(abs(x.mean), x.se))[1:min(12, end)]
         verdict = x.se > THRESHOLD ? "unresolved" : abs(x.mean) > THRESHOLD ? "**fails**" : "passes"
-        p(@sprintf("| `%s` | %.3g%% | %.2g%% | %.3g%% | %s |", x.o, 100x.mean, 100x.se, 100x.maxabs, verdict))
+        p(@sprintf("| `%s` | %.3g%% | %.2g%% | %.2f | %.3g%% | %s |", x.o, 100x.mean, 100x.se,
+                   x.se > 0 ? x.mean / x.se : 0.0, 100x.maxabs, verdict))
     end
     p()
     # A diagnostic beside the gate, not part of it. The gate's per-seed ratio is
@@ -162,11 +166,25 @@ for (lab, x) in (("sampler model", s), ("control", c))
       " | $(x.failing) | $(x.unresolved) |")
 end
 p()
-p("14c.5's agreement gate: ", s.coupled && s.failing == 0 ?
-  (s.unresolved == 0 ? "**passes**." : "**passes where resolved**; $(s.unresolved) observables are unresolved at 100 seeds.") :
-  "**fails**.")
+nobs = length(obs)
+p("14c.5's agreement gate: the coupled half ", s.coupled ? "**passes**" : "**fails**",
+  ". The end-of-cycle half resolves $(nobs - s.unresolved) of $nobs observables, of which ",
+  "$(s.failing) fail", s.unresolved == 0 ? "." :
+  ", and it can neither pass nor fail the other $(s.unresolved): their SE exceeds 1%, " *
+  "because once a pair decouples the per-seed ratio is Monte Carlo noise, skewed upward. " *
+  "For those observables the evidence is the symmetric diagnostic above, which is not the gate.")
+p()
+p("The control was specified as matched to the sampler model's nudge in size. It is not ",
+  "matched in effect: it decouples $(c.decoupled) of $(length(seeds)) pairs against the sampler ",
+  "model's $(s.decoupled), so it shows that the model is deterministic enough to stay paired ",
+  "under a small nudge, and cannot serve as a null for the sampler model's decoupled half.")
 p()
 p("## Clipping under each run")
+p()
+p("The two models' counts use different predicates in effect. A smoothed debit leaves a ",
+  "residue `w·exp(−gap/w)`, which the census counts as a clip while the pool is within about ",
+  "14 particles above the accrual, although it paid in full to 1e-4 of a particle. So the ",
+  "sampler row is not a like-for-like count, and it is recorded, not compared.")
 p()
 p("| | median drains clipped | seeds carrying a deficit |")
 p("|---|---|---|")
@@ -180,6 +198,11 @@ if isfile(deriv)
     for line in eachline(deriv)
         p(line)
     end
+    p()
+    p("*Note added at merge.* The clamped jump reads 0.915, not one, because the ",
+      "sensitivity it is divided by is taken at 1.5 × the clip, where it is larger. The ",
+      "paragraph above, as the driver at the run's commit wrote it, says \"the whole ",
+      "sensitivity\"; the driver now says so.")
 end
 write(OUT, take!(out))
 println("Wrote $OUT")

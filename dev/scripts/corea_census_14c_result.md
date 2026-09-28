@@ -1,6 +1,6 @@
 # Phase 14c: check 7's census, rerun three ways
 
-Merged by `dev/scripts/corea_census_14c_merge.jl`. Regenerate with `sbatch dev/scripts/corea_census_14c.slurm <mode>` for each of `d11`, `broad` and `gtp`, then this script. Every run is at the published clamped drain. The tasks' headers:
+Merged by `dev/scripts/corea_census_14c_merge.jl`. Regenerate with `sbatch dev/scripts/corea_census_14c.slurm <mode>` for each of `d11`, `broad` and `gtp`, then this script. 14b's task files, which this merge also reads, are gitignored: in a fresh clone run `sbatch dev/scripts/corea_census.slurm` first. Every run is at the published clamped drain. The tasks' headers:
 
 - commit 946bfaa, job 17623903, mode d11, 2026-09-28T16:17:50.492, Julia 1.10.5
 - commit 946bfaa, job 17623904, mode d11, 2026-09-28T16:17:50.622, Julia 1.10.5
@@ -69,14 +69,16 @@ Merged by `dev/scripts/corea_census_14c_merge.jl`. Regenerate with `sbatch dev/s
 
 Each draw varies the three promoter strengths, `krnadeg`, and ENO's and FBA's forward constants from their priors, with the two reverse constants derived (task 14c.1). Everything else is at its published value.
 
-Draw 0 (the nominal values through the freed build and `set_parameters!`) at seed 14800: 34 drains clipped, against 34 for the published build at the same seed. Per-counter records **identical**.
+Draw 0 (the freed build, no value written) at seed 14800: 34 drains clipped, against 34 for the published build at the same seed. Per-counter records **identical**.
 
 200 draws; 200 completed, 0 failed.
 
-| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | max |
-|---|---|---|---|---|---|---|
-| 14c.2, D11's six, Haldane-consistent | 163 of 200, 81.5% | 75.5–86.3% | 8 of 200, 4.0% | 2.0–7.7% | 0.00611 | 0.781 |
-| 14b broad, independent draws | 146 of 200, 73.0% | 66.5–78.7% | 104 of 200, 52.0% | 45.1–58.8% | 0.653 | 0.995 |
+| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | starved draws' median | the others' median | max |
+|---|---|---|---|---|---|---|---|---|
+| 14c.2, D11's six, Haldane-consistent | 163 of 200, 81.5% | 75.5–86.3% | 8 of 200, 4.0% | 2.0–7.7% | 0.00611 | 0.622 | 0.00524 | 0.781 |
+| 14b broad, independent draws | 146 of 200, 73.0% | 66.5–78.7% | 104 of 200, 52.0% | 45.1–58.8% | 0.653 | 0.969 | 0 | 0.995 |
+
+The per-drain fraction is bimodal: a starved draw clips on most drains and the others on almost none. The median over all draws therefore falls in whichever mode holds more than half of them, and moves with the starved count rather than with how long a starved draw clips. Read the split columns.
 
 | counter | draws in which it clipped | median drains clipped when it did | earliest first clip (s) |
 |---|---|---|---|
@@ -90,16 +92,18 @@ Draw 0 (the nominal values through the freed build and `set_parameters!`) at see
 
 ## 14c.3: 14b's broad census, drawn Haldane-consistently
 
-The same informed constants as 14b's census, at the same seeds, with every reverse constant derived rather than drawn. Recorded, not gated: the difference from 14b is how much of its result the broken equilibrium constants caused.
+The same informed constants as 14b's census, at the same seed numbers, with every reverse constant derived rather than drawn. The draws are not paired with 14b's: a derived reverse constant consumes no random number, so the streams diverge after the first. Recorded, not gated: the difference from 14b is what the broken equilibrium constants did.
 
-Draw 0 (the nominal values through the freed build and `set_parameters!`) at seed 14800: 34 drains clipped, against 34 for the published build at the same seed. Per-counter records **identical**.
+Draw 0 (the freed build, no value written) at seed 14800: 34 drains clipped, against 34 for the published build at the same seed. Per-counter records **identical**.
 
 200 draws; 200 completed, 0 failed.
 
-| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | max |
-|---|---|---|---|---|---|---|
-| 14c.3, broad, Haldane-consistent | 141 of 200, 70.5% | 63.8–76.4% | 95 of 200, 47.5% | 40.7–54.4% | 0.271 | 0.994 |
-| 14b broad, independent draws | 146 of 200, 73.0% | 66.5–78.7% | 104 of 200, 52.0% | 45.1–58.8% | 0.653 | 0.995 |
+| | draws clipping | Wilson 95% | starved draws | Wilson 95% | median per-drain fraction | starved draws' median | the others' median | max |
+|---|---|---|---|---|---|---|---|---|
+| 14c.3, broad, Haldane-consistent | 141 of 200, 70.5% | 63.8–76.4% | 95 of 200, 47.5% | 40.7–54.4% | 0.271 | 0.957 | 0 | 0.994 |
+| 14b broad, independent draws | 146 of 200, 73.0% | 66.5–78.7% | 104 of 200, 52.0% | 45.1–58.8% | 0.653 | 0.969 | 0 | 0.995 |
+
+The per-drain fraction is bimodal: a starved draw clips on most drains and the others on almost none. The median over all draws therefore falls in whichever mode holds more than half of them, and moves with the starved count rather than with how long a starved draw clips. Read the split columns.
 
 | counter | draws in which it clipped | median drains clipped when it did | earliest first clip (s) |
 |---|---|---|---|
