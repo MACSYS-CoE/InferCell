@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-28
-**Branches:** `phase-14c-smoothed-drain` (phase 14c)
+**Branches:** none open; phase 14c merged as #75 (2026-09-29)
 
 ## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 
@@ -55,7 +55,9 @@ GiB left in use). Worktrees under `.worktrees/` (`census14c`, `smooth14c7`,
 `smooth14c8`, `suite14c2`, `control14c`, `suite14c3`) hold the Slurm runs of record and can go once the
 PR merges.
 
-Suite: 28,290/28,290 at `c2e1aac` (Slurm job 17653728), after /check-PR's fixes. PR #75. Then phase 15,
+Suite: 28,290/28,290 at `c2e1aac` (Slurm job 17653728), after /check-PR's fixes.
+**Merged as #75 on 2026-09-29** (/check-PR: MERGE AFTER FIXES, then fixed and
+re-reviewed; the advisory formatter job is cancelled on every recent branch). Then phase 15,
 whose tasks 15.2 (truths drawn with `draw_parameters`), 15.7 and 15.8 were
 waiting on 14c.
 

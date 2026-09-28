@@ -7,9 +7,10 @@ fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
-**Approved 2026-09-28 (§12):** phase 14c, the smoothed drain
-and a Haldane-consistent prior, is next. Phase 15's tasks that need neither
-may start alongside it
+Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75),
+with 14c.5 partly open (§12, 2026-09-29). Phase 15's tasks that need neither
+14c.5 nor 14c.7 may start. 15.7 and 15.8 wait until a way to close 14c.5's
+open half is chosen.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3909,7 +3910,7 @@ clip. **Amended 2026-09-28 (§12):** "the smoothed model" is the sampler model,
 the smoothed drain under the `:continuous` rounding policy of task 14c.7, and
 "the clipped one" is the published model, clamped under fractional carry. The
 derivative is of the ODE state the next interval integrates from.
-**PR:** _not started_
+**PR:** #75 (merged 2026-09-29)
 
 **Results (branch `phase-14c-smoothed-drain`).** The census is
 `dev/scripts/corea_census_14c_result.md` (jobs 17623900 to 17623902, at
@@ -3972,26 +3973,27 @@ reactions. The smoothing width is one particle. 14c.5's threshold is D10's one p
 the difference taken relative to the larger of the clipped value and 500
 particles.
 
-- [ ] 14c.1 Draw kinetic constants Haldane-consistently — each reversible
+- [x] 14c.1 Draw kinetic constants Haldane-consistently — each reversible
   reaction's reverse constant is derived from its drawn forward constant and
   Michaelis constants through its published equilibrium constant, rather than
   drawn. Verify by every draw reproducing each reaction's published equilibrium
   constant to roundoff, by a mutation that draws the reverse constant
   independently failing, and by a draw of D11's `kcat_ENO` or `kcat_FBA` alone
   scaling that reaction's reverse constant by the same factor.
-- [ ] 14c.2 Rescore K5's prior half over D11's targets — verify by 200 draws of
+- [x] 14c.2 Rescore K5's prior half over D11's targets — verify by 200 draws of
   the six from their priors under 14c.1, every other parameter at its published
   value, scored on T3 beside 14b's result with a Wilson interval, pass or fail.
-- [ ] 14c.3 Rerun 14b's broad census under 14c.1 — verify by the fraction of
+- [x] 14c.3 Rerun 14b's broad census under 14c.1 — verify by the fraction of
   clipping draws, and of starved draws (a counter clipped at more than half its
   drains), reported beside 14b's 73.0% and median per-drain fraction of 0.653.
   This is a diagnostic of how much of 14b's result the independent draws
   caused. It is recorded, not gated.
-- [ ] 14c.4 Smooth every consumer counter — verify by each consumer
+- [x] 14c.4 Smooth every consumer counter — verify by each consumer
   `DeferredCounterEdge` declaring `clip = :smoothed` with its width, by the
   width's choice recorded with its reason, by `reduction_report` carrying the
   smoothing as ours (T2), and by `obstructs_gradients` reporting no edge.
-- [ ] 14c.5 Validate the smoothed model against the clipped one — verify by the
+- [ ] 14c.5 (partly open — the coupled half and 20 of 50 end-of-cycle
+  observables are met, the other 30 undecided; §12 2026-09-29) Validate the smoothed model against the clipped one — verify by the
   difference in every candidate observable at 60 s, at published parameters on
   14b's seeds, being reported against a threshold fixed at planning; by 14a's
   closures holding under smoothing at their own gates, so that smoothing
@@ -4008,13 +4010,13 @@ particles.
   cycle, the mean paired difference must be within 1% with its SE, and an SE
   above 1% is reported as unresolved. The published model against itself,
   with `krnadeg` scaled by 1 + 1e-5, is the matched control for decoupling.
-- [ ] 14c.6 Bound how much of the published-parameter clipping is our
+- [x] 14c.6 Bound how much of the published-parameter clipping is our
   reduction's — verify by 14b's published-parameter census rerun with the GTP
   supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
   after the handshake fills their enzyme slots from live counts), reporting whether and at what scale the `GTP_translat` clips vanish. It is
   the cheap proxy for the §9 question on the full published model, and it is
   recorded, not gated.
-- [ ] 14c.7 Carry pools continuously in the sampler model (added 2026-09-28,
+- [x] 14c.7 Carry pools continuously in the sampler model (added 2026-09-28,
   §12) — verify by a `:continuous` rounding policy that writes debited pools
   back as floats and carries no remainder, labelled a departure by
   `driver_declarations`; by the fractional-carry build still the default; and
