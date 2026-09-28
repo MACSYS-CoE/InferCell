@@ -34,6 +34,21 @@ the published model's, and `reduction_report` says so.
 const COREA_SMOOTHING_WIDTH = 1.0
 
 """
+    COREA_SAMPLER
+
+The keywords that make [`build_corea`](@ref) build the **sampler model**, the one
+a gradient-based sampler differentiates (spec §11 tasks 14c.5 and 14c.7):
+`build_corea(; COREA_SAMPLER...)`. Two departures, both ours and both
+labelled: every consumer counter smoothed at [`COREA_SMOOTHING_WIDTH`](@ref),
+and pools written back continuously rather than as whole particles
+(`rounding = :continuous`). Either alone leaves the ODE block non-differentiable
+through the handshake: the clamp's kink, or a pool rounded to a step function
+of every parameter. The published model, clamped under fractional carry, is
+`build_corea()`, and it is the one that generates data.
+"""
+const COREA_SAMPLER = (smoothing = COREA_SMOOTHING_WIDTH, rounding = :continuous)
+
+"""
     corea_models(; metered = false, smoothing = nothing) -> Vector{AbstractSubModel}
 
 The seven Core A′ modules as the assembled model composes them. Glycolysis and
@@ -81,4 +96,4 @@ build_corea(; tspan = (0.0, COREA_CYCLE_S), metered::Bool = false,
             smoothing::Union{Nothing, Real} = nothing, kwargs...) =
     build_problem(corea_models(; metered, smoothing); tspan, complete = true, kwargs...)
 
-export COREA_CYCLE_S, COREA_SMOOTHING_WIDTH, corea_models, build_corea
+export COREA_CYCLE_S, COREA_SMOOTHING_WIDTH, COREA_SAMPLER, corea_models, build_corea

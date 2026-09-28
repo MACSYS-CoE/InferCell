@@ -3,8 +3,8 @@
 # writes, and writes dev/scripts/corea_smoothing_14c_result.md.
 #
 # The gate, fixed at planning: for every candidate observable at every 60 s save
-# point, the smoothed-minus-clamped difference is taken per seed relative to
-# max(|clamped|, floor), with a floor of 500 particles for an ODE state (check
+# point, the sampler-minus-published difference is taken per seed relative to
+# max(|published|, floor), with a floor of 500 particles for an ODE state (check
 # 1b's) and one copy for a transcript. The mean over seeds must be within 1%
 # (D10's threshold), and is reported with its standard error.
 #
@@ -73,10 +73,12 @@ p()
 p("## Agreement on the candidate observables")
 p()
 p("$(length(seeds)) seeds ($(join(seeds, ", "))), each a full cycle under the published ",
-  "clamped drain and under the smoothed drain at one particle, paired per seed. ",
-  "$(length(obs)) observables (every ODE state in particles, every transcript, the volume) ",
+  "model (clamped drain, fractional carry) and under the sampler model (drain smoothed at ",
+  "one particle, pools carried continuously), paired per seed. ",
+  "$(length(obs)) observables (every ODE state in particles with its carried remainder, ",
+  "every transcript, the volume) ",
   "at $(length(times)) save points, so $(length(stats)) comparisons. Each difference is ",
-  "relative to max(|clamped|, floor): 500 particles for an ODE state, one copy for a ",
+  "relative to max(|published|, floor): 500 particles for an ODE state, one copy for a ",
   "transcript, none for the volume. The gate is the mean over seeds within 1%.")
 p()
 worst = sort(stats; by = s -> -abs(s.mean))
@@ -99,9 +101,9 @@ end
 p()
 p(@sprintf("Verdict against the 1%% threshold: **%s**.", fails == 0 ? "passes" : "fails"))
 p()
-p("## Clipping under each drain")
+p("## Clipping under each model")
 p()
-p("| seed | clamped: drains clipped | smoothed: drains clipped |")
+p("| seed | published: drains clipped | sampler: drains clipped |")
 p("|---|---|---|")
 for s in seeds
     a = only(c for c in census if c.seed == s && c.drain === :clamped)

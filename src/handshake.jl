@@ -215,8 +215,15 @@ rather than on any single magnitude:
   **Rejected by the spec.** It is implemented only so that check 0 can
   demonstrate the signature that rejects it; selecting it is a labelled
   departure from this project's own policy.
+- `:continuous` — no rounding: the pool is written back as the continuous
+  quantity it is, and nothing is carried. Not a way of emitting counts at all,
+  and **ours**, labelled as a departure. It exists for the model a
+  gradient-based sampler differentiates (spec §11 task 14c.7): under the other
+  three every debited pool the next interval integrates from is a whole
+  particle count, a step function of every ODE parameter, whose derivative is
+  zero almost everywhere. Fractional carry stays the policy that generates data.
 """
-const ROUNDING_POLICIES = (:fractional_carry, :stochastic, :deterministic)
+const ROUNDING_POLICIES = (:fractional_carry, :stochastic, :deterministic, :continuous)
 
 """
     RoundingState(policy; nspecies)
@@ -243,10 +250,11 @@ RoundingState(policy::Symbol = :fractional_carry; nspecies::Integer = 0) =
     RoundingState(policy, zeros(Float64, nspecies))
 
 """
-    round_to_counts!(state, i, x) -> Int
+    round_to_counts!(state, i, x) -> Int, or Float64 under `:continuous`
 
 Emit whole particles for the continuous quantity `x` at slot `i`, under the
-state's policy, updating its carried remainder.
+state's policy, updating its carried remainder. Under `:continuous` it returns
+`x` itself and carries nothing.
 
 Fractional carry rounds the *carry-adjusted* value to nearest rather than
 flooring it. Flooring is the textbook formulation and is wrong here: a quantity
@@ -262,6 +270,8 @@ function round_to_counts!(state::RoundingState, i::Integer, x::Real)
         n = round(Int, total)
         state.remainders[i] = total - n
         return n
+    elseif state.policy === :continuous
+        return float(x)
     elseif state.policy === :stochastic
         base = floor(x)
         n = Int(base) + (rand() < (x - base) ? 1 : 0)
@@ -2189,7 +2199,12 @@ function driver_declarations(d::HandshakeDriver)
             "round trip is exact (spec §3, check 0)" *
             (d.rounding.policy === :deterministic ?
              " — and deterministic rounding is rejected by the spec, its residual " *
-             "accumulating linearly in the handshake count" : "")))
+             "accumulating linearly in the handshake count" :
+             d.rounding.policy === :continuous ?
+             " — pools are written back as continuous quantities, not particle " *
+             "counts, so the ODE block is differentiable through the handshake; " *
+             "ours, for the model a gradient sampler differentiates, while " *
+             "synthetic data comes from fractional carry (spec §11 task 14c.7)" : "")))
     end
     if !isempty(d.growth)
         push!(labels, ReductionLabel(

@@ -55,63 +55,92 @@ _consumers(ms) = [e for m in ms for e in coupling(m)
     end
 end
 
-# Task 14c.5, the two halves that are tests. The agreement of the candidate
-# observables over 14b's seeds, and the same continuity on the assembled model,
-# are `dev/scripts/corea_smoothing_14c.jl`'s, whose result file is the record.
+# Tasks 14c.5 and 14c.7, the halves that are tests. The agreement of the
+# candidate observables over 14b's seeds, and the same continuity on the
+# assembled model, are `dev/scripts/corea_smoothing_14c.jl`'s, whose result file
+# is the record.
 
 # One handshake of the toy with transcription and translation off, so the debit
 # is a fixed `accrued` and the ATP pool before it is a smooth function of
-# `kcat` through the ODE step. The drain is then the only kink. Returns the pool
-# after the debit, in particles, exactly (the carried remainder included).
-function _toy_pool_after(kcat; clip, accrued = 400.0, n0 = 1000, protein = 500)
+# `kcat` through the ODE step. Returns the ODE state after the debit, in
+# particles — what the next interval integrates from, not the state plus its
+# carried remainder, which no rate law reads (spec §12, 2026-09-28) — and
+# whether the debit clipped.
+function _toy_pool_after(kcat; clip, rounding = :fractional_carry, accrued = 400.0,
+                         n0 = 1000, protein = 500)
     kw = clip === :smoothed ? (; smoothing = COREA_SMOOTHING_WIDTH) : (;)
     f = corea_particles_per_mM()
     d = build_problem([ToyPool(kcat = kcat, atp0 = n0 / f),
                        ToyExpression(k_tx = 0.0, k_tl = 0.0, protein0 = protein,
                            edges = [DeferredCounterEdge(; species = :M_atp_c,
                                direction = :in, counter = :atp_cost, clip, kw...)])];
-                      tspan = (0.0, 10.0), abstol = 1e-14, reltol = 1e-12)
+                      tspan = (0.0, 10.0), abstol = 1e-14, reltol = 1e-12, rounding)
     d.jump.u[d.counters[1].counter_idx] = accrued
     handshake_step!(d)
-    return d.ode.u[1] * d.factor + d.rounding.remainders[1], d.debits[1].clipped
+    return d.ode.u[1] * d.factor, d.debits[1].clipped
 end
 
-@testset "The smoothed drain against the clamped one (spec §11 task 14c.5)" begin
-    @testset "the derivative is continuous across a clip, and the clamp's jumps" begin
+@testset "The sampler model against the published one (spec §11 tasks 14c.5, 14c.7)" begin
+    @testset "the :continuous policy writes floats, carries nothing, and is labelled" begin
+        st = RoundingState(:continuous; nspecies = 1)
+        @test round_to_counts!(st, 1, 12.375) === 12.375
+        @test st.remainders == [0.0]
+        @test :continuous in ROUNDING_POLICIES
+        d = build_corea(; COREA_SAMPLER..., tspan = (0.0, 10.0))
+        labels = driver_declarations(d)
+        @test any(l -> l.category === :rounding_policy && l.subject === :continuous, labels)
+        @test !any(l -> l.subject === :fractional_carry, labels)
+        # The published build is unchanged: fractional carry, the default.
+        @test build_corea(; tspan = (0.0, 10.0)).rounding.policy === :fractional_carry
+    end
+
+    @testset "the derivative is continuous across a clip on the sampler model" begin
+        pub = (clip = :clamped_deficit_carried, rounding = :fractional_carry)
+        smp = (clip = :smoothed, rounding = :continuous)
+        kink = (clip = :clamped_deficit_carried, rounding = :continuous)
         # The clip: the kcat at which the pool before the debit equals the
         # accrual, bisected on the clamped debit's own flag.
         lo, hi = 10.0, 100.0
-        @test !last(_toy_pool_after(lo; clip = :clamped_deficit_carried))
-        @test last(_toy_pool_after(hi; clip = :clamped_deficit_carried))
+        @test !last(_toy_pool_after(lo; kink...))
+        @test last(_toy_pool_after(hi; kink...))
         for _ in 1:60
             mid = (lo + hi) / 2
-            last(_toy_pool_after(mid; clip = :clamped_deficit_carried)) ? (hi = mid) : (lo = mid)
+            last(_toy_pool_after(mid; kink...)) ? (hi = mid) : (lo = mid)
         end
         θc = (lo + hi) / 2
 
         δ = 1e-4
-        slope(θ, clip) = (first(_toy_pool_after(θ + δ; clip)) -
-                          first(_toy_pool_after(θ - δ; clip))) / 2δ
+        slope(θ, m) = (first(_toy_pool_after(θ + δ; m...)) -
+                       first(_toy_pool_after(θ - δ; m...))) / 2δ
         # The pool's own sensitivity, well away from the clip, sets the scale.
-        dP = slope(θc - 1.0, :clamped_deficit_carried)
+        dP = slope(θc - 1.0, kink)
         @test dP < 0
-        jump(k, clip) = abs(slope(θc + k * δ, clip) - slope(θc - k * δ, clip)) / abs(dP)
+        jump(k, m) = abs(slope(θc + k * δ, m) - slope(θc - k * δ, m)) / abs(dP)
+
+        # The published model: the state is whole particles, a step function of
+        # kcat, so its finite-difference slope is zero wherever no step falls
+        # inside the stencil, which is almost everywhere.
+        grid = [θc + k * 37δ for k in -10:10]
+        @test all(θ -> isinteger(first(_toy_pool_after(θ; pub...))), grid)
+        @test count(θ -> slope(θ, pub) == 0, grid) >= 18
+        # The clamp alone, on continuous pools: one side pays in full and moves
+        # with the pool, the other floors it at zero, so the slope jumps by the
+        # whole sensitivity.
         for k in (30, 3)
-            # The clamp: one side pays in full and moves with the pool, the other
-            # floors it at zero, so the slope jumps by the whole sensitivity.
-            @test jump(k, :clamped_deficit_carried) > 0.9
+            @test jump(k, kink) > 0.9
         end
-        # The smoothed drain: the slope difference across the clip shrinks with
+        # The sampler model: the slope difference across the clip shrinks with
         # the spacing, which is what a continuous derivative does.
-        far, near = jump(30, :smoothed), jump(3, :smoothed)
+        far, near = jump(30, smp), jump(3, smp)
         @test far < 0.05
         @test near < far / 5
-        @info "14c.5 toy: slope jump across the clip, as a fraction of the pool's sensitivity" θc far near clamped = jump(3, :clamped_deficit_carried)
+        @info "14c.5 toy: slope jump across the clip, as a fraction of the pool's sensitivity" θc far near clamped = jump(3, kink)
     end
 
-    @testset "14a's closures hold under smoothing, at their own gates" begin
+    @testset "14a's closures hold on the sampler model, at their own gates" begin
         # validation_models is the metered assembly; smoothing all three
-        # stochastic modules is corea_models(smoothing = w) with the meters.
+        # stochastic modules is corea_models(smoothing = w) with the meters, and
+        # the build below adds the sampler model's continuous pools.
         drain = (clip = :smoothed, smoothing = COREA_SMOOTHING_WIDTH)
         ms = validation_models(transcription = CoreATranscription(; drain...),
                                decay = CoreATranscriptDecay(; drain...),
@@ -121,7 +150,8 @@ end
         n = round(Int, COREA_CYCLE_S)
         function vrun(abstol, reltol)
             Random.seed!(1410)
-            d = build_problem(ms; tspan = (0.0, Float64(n)), complete = true, abstol, reltol)
+            d = build_problem(ms; tspan = (0.0, Float64(n)), complete = true, abstol, reltol,
+                              rounding = COREA_SAMPLER.rounding)
             Random.seed!(1410)
             return validation_run!(ms, d, n)
         end
@@ -136,7 +166,7 @@ end
             a, b = maxres(run, m.name), maxres(tight, m.name)
             @test max(a, b) <= 100 * max(min(a, b), 1e-12)
         end
-        @info "14c.5: smoothed closures, max residual / tol_C at the pinned pair" [
+        @info "14c.5: sampler-model closures, max residual / tol_C at the pinned pair" [
             m.name => maxres(run, m.name) / moiety_bound(run, m.name) for m in run.moieties]
     end
 end

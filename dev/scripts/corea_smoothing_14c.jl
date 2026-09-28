@@ -1,19 +1,23 @@
-# Spec §11 task 14c.5: the smoothed model against the clipped one, on the
-# assembled Core A′. Two sections, one Slurm array:
+# Spec §11 tasks 14c.5 and 14c.7: the sampler model against the published one,
+# on the assembled Core A′. The sampler model smooths every consumer counter at
+# COREA_SMOOTHING_WIDTH and writes pools back continuously (COREA_SAMPLER); the
+# published model clamps under fractional carry (§12, 2026-09-28). Two
+# sections, one Slurm array:
 #
 # - agree: 14b's ten published-parameter seeds, each run through a full cycle
-#   under the published clamped drain and under the smoothed drain at
-#   COREA_SMOOTHING_WIDTH, with every candidate observable recorded at 60 s.
-#   Candidate observables are task 15.3's: every ODE state as a particle count,
+#   under both models, with every candidate observable recorded at 60 s.
+#   Candidate observables are task 15.3's: every ODE state as a particle count
+#   (with its carried remainder, so both models report the amount they hold),
 #   every transcript count, and the cell volume. Fluxes are left out, since §4
 #   D8 rules them out of the likelihood. The merge pairs the two runs per seed.
 # - deriv: the continuity half on the assembled model. At the first drain where
-#   `GTP_translat` clips at seed 14800, the GTP pool after the debit is scanned
-#   in PGK3's forward constant, the ODE parameter that supplies GTP, across the
-#   value at which that drain stops clipping. The clamped and the smoothed debit
-#   are applied to the same state. The suite asserts the same continuity on a
-#   toy (test/test_corea_smoothed_drain.jl); this is the record on the real
-#   model.
+#   `GTP_translat` clips at seed 14800, the GTP state after the debit — what the
+#   next interval integrates from — is scanned in PGK3's forward constant, the
+#   ODE parameter that supplies GTP, across the value at which that drain stops
+#   clipping. Three variants are applied to the same saved state: the published
+#   model, the clamp on continuous pools, and the sampler model. The suite
+#   asserts the same on a toy (test/test_corea_smoothed_drain.jl); this is the
+#   record on the real model.
 #
 # Usage: julia --project dev/scripts/corea_smoothing_14c.jl <task> <ntasks>
 #        Task 0 also runs deriv. Merge with corea_smoothing_14c_merge.jl.
@@ -55,12 +59,14 @@ function observe(d, ode_names, jump_names, tx)
 end
 
 function agree_run(io, seed, drain)
-    smoothing = drain === :smoothed ? COREA_SMOOTHING_WIDTH : nothing
-    ms = corea_models(; smoothing)
+    # `:smoothed` labels the sampler model, which smooths the drain and carries
+    # pools continuously; `:clamped` is the published model (spec §12, 2026-09-28).
+    kw = drain === :smoothed ? COREA_SAMPLER : (;)
+    ms = corea_models(; smoothing = get(kw, :smoothing, nothing))
     ode_names, jump_names = _names(ms, :ode), _names(ms, :jump)
     tx = Set(transcript_state(g.locus) for g in read_transcription_genes())
     Random.seed!(seed)
-    d = build_corea(; smoothing, tspan = (0.0, Float64(CYCLE)))
+    d = build_corea(; kw..., tspan = (0.0, Float64(CYCLE)))
     Random.seed!(seed)
     rows(t) = for (s, v) in observe(d, ode_names, jump_names, tx)
         println(io, join((seed, drain, t, s, repr(v)), '\t'))
@@ -128,59 +134,76 @@ TASK == 0 && open(joinpath(DIR, "deriv.md"), "w") do io
     end
     θ0 = d0.ode.p[iθ]
 
-    # One more handshake from the saved state at θ, under either drain, returning
-    # the GTP pool after the debit in particles and whether that debit clipped.
-    function after(θ, drain)
+    # One more handshake from the saved state at θ, returning the GTP state after
+    # the debit in particles — what the next interval integrates from, without
+    # the carried remainder no rate law reads — and whether that debit clipped.
+    # Variants: `:published` as built; `:kink`, the clamp on continuous pools;
+    # `:sampler`, the smoothed drain on continuous pools.
+    function after(θ, variant)
         d = deepcopy(d0)
         d.ode.p[iθ] = θ
-        if drain === :smoothed
+        if variant !== :published
+            d.rounding = RoundingState(:continuous; nspecies = length(d.ode.u))
+        end
+        if variant === :sampler
             for b in d.debits
                 b.sign < 0 && b.pool_idx != 0 &&
                     (b.clip = :smoothed; b.smoothing = COREA_SMOOTHING_WIDTH)
             end
         end
         handshake_step!(d)
-        return d.ode.u[igtp] * d.factor + d.rounding.remainders[igtp], d.debits[kg].clipped
+        return d.ode.u[igtp] * d.factor, d.debits[kg].clipped
     end
-    @assert last(after(θ0, :clamped)) "the replay did not reproduce the clip at handshake $nstar"
+    @assert last(after(θ0, :published)) "the replay did not reproduce the clip at handshake $nstar"
 
-    # Bracket the value at which the drain stops clipping, then bisect.
+    # Bracket the value at which the drain stops clipping, then bisect, on the
+    # clamp over continuous pools, whose clip is a point rather than a step.
     lo, hi = θ0, θ0
-    while last(after(hi, :clamped))
+    while last(after(hi, :kink))
         lo = hi
         hi *= 2
         hi > 1e6 * θ0 && error("no θ up to 1e6 × nominal stops the clip")
     end
     for _ in 1:60
         mid = sqrt(lo * hi)
-        last(after(mid, :clamped)) ? (lo = mid) : (hi = mid)
+        last(after(mid, :kink)) ? (lo = mid) : (hi = mid)
     end
     θc = sqrt(lo * hi)
 
     # Slopes in ln θ. δ is set so the pool moves about 0.01 particles per step,
     # well inside the one-particle width, from the slope on the paying side.
-    slope(θ, drain, δ) = (first(after(θ * exp(δ), drain)) - first(after(θ * exp(-δ), drain))) / 2δ
-    dP = slope(θc * 1.5, :clamped, 1e-3)
+    slope(θ, v, δ) = (first(after(θ * exp(δ), v)) - first(after(θ * exp(-δ), v))) / 2δ
+    dP = slope(θc * 1.5, :kink, 1e-3)
     δ = 0.01 / abs(dP)
-    p("## 14c.5: the derivative across a clip, on the assembled model")
+    jump(k, v) = abs(slope(θc * exp(k * δ), v, δ) - slope(θc * exp(-k * δ), v, δ)) / abs(dP)
+    p("## 14c.5 and 14c.7: the derivative across a clip, on the assembled model")
     p()
     p(@sprintf("Seed %d: `GTP_translat` first clips at handshake %d (t = %d s). `%s` is %.6g ",
                seed, nstar, nstar, θname, θ0),
       @sprintf("at nominal, and that drain stops clipping at %.6g (%.4g × nominal). ", θc, θc / θ0),
       @sprintf("The pool's sensitivity there, dP/d ln θ on the paying side, is %.5g particles.", dP))
     p()
-    p("The slope of the post-debit GTP pool in ln θ, either side of the clip, as a ",
-      @sprintf("fraction of that sensitivity. Finite-difference step %.3g in ln θ.", δ))
+    p("The slope, in ln θ, of the GTP state after the debit, either side of the clip, as a ",
+      @sprintf("fraction of that sensitivity. Finite-difference step %.3g in ln θ. ", δ),
+      "All three variants start from the published model's saved state.")
     p()
-    p("| spacing either side (steps) | pool − accrual at the spacing (particles) | clamped jump | smoothed jump |")
+    p("| spacing either side (steps) | pool − accrual at the spacing (particles) | clamp, continuous pools | sampler model |")
     p("|---|---|---|---|")
     for k in (100, 30, 10, 3)
-        jc = abs(slope(θc * exp(k * δ), :clamped, δ) - slope(θc * exp(-k * δ), :clamped, δ)) / abs(dP)
-        js = abs(slope(θc * exp(k * δ), :smoothed, δ) - slope(θc * exp(-k * δ), :smoothed, δ)) / abs(dP)
-        p(@sprintf("| %d | ±%.3g | %.4g | %.4g |", k, k * δ * abs(dP), jc, js))
+        p(@sprintf("| %d | ±%.3g | %.4g | %.4g |", k, k * δ * abs(dP), jump(k, :kink), jump(k, :sampler)))
     end
     p()
     p("A continuous derivative has a jump that falls with the spacing. The clamp's ",
       "stays at the whole sensitivity, since one side pays and the other floors at zero.")
+    p()
+    grid = [θc * exp(k * 37δ) for k in -10:10]
+    ys = [first(after(θ, :published)) for θ in grid]
+    nzero = count(θ -> slope(θ, :published, δ) == 0, grid)
+    p(@sprintf("The published model on the same %d points, spaced %d steps apart across the clip: ",
+               length(grid), 37),
+      "the state is a whole number of particles at ", count(isinteger, ys), " of them, ",
+      "and the finite-difference slope is exactly zero at $nzero. Its derivative is zero ",
+      "wherever no one-particle step falls inside the stencil, so a gradient through the ",
+      "handshake sees no dependence on θ at all.")
 end
 println("Done")
