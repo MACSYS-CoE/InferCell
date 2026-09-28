@@ -17,6 +17,8 @@ core.*
 # they are merged into are tracked
 /dev/scripts/census/
 /dev/scripts/validation_14b/
+/dev/scripts/census_14c/
+/dev/scripts/smoothing_14c/
 
 # LaTeX build artifacts (talks/)
 *.aux

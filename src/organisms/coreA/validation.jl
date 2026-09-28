@@ -653,16 +653,18 @@ end
     record_clips!(rec, d) -> rec
 
 Read the driver after one `handshake_step!`. On a step that drained, every
-consumer row carrying a deficit is counted against its counter. A deficit is
-nonzero exactly when the pool paid less than was asked, since a paid debit
-leaves `accrued − accrued`, which is zero.
+consumer row that clipped is counted against its counter. Clipping is the
+driver's own predicate, the one [`clipping_census`](@ref) counts: a deficit above
+`1e-6` of the accrued cost. Under `clip = :smoothed` the softplus leaves a
+positive residue on every drain, so testing the deficit against zero would
+count every drain as a clip (spec §11 task 14c.4).
 """
 function record_clips!(rec::ClipRecord, d::HandshakeDriver)
     d.n_drains == rec.last_drain && return rec
     rec.last_drain = d.n_drains
     rec.drains += 1
     for b in d.debits
-        (b.sign < 0 && b.pool_idx != 0 && b.deficit > 0) || continue
+        (b.sign < 0 && b.pool_idx != 0 && b.clipped) || continue
         rec.clipped[b.counter] = get(rec.clipped, b.counter, 0) + 1
         haskey(rec.first_clip, b.counter) || (rec.first_clip[b.counter] = d.ode.t)
         rec.max_deficit[b.counter] = max(get(rec.max_deficit, b.counter, 0.0), b.deficit)

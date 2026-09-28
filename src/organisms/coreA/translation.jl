@@ -255,7 +255,8 @@ The name of a gene's translation rate constant, which the 60 s rebuild fills.
 translation_rate_param(locus::Symbol) = Symbol("k_tl_", locus)
 
 """
-    CoreATranslation(; genes, residues, counters, clip, interval, chg_mM, edges, rebuilt)
+    CoreATranslation(; genes, residues, counters, clip, smoothing, interval, chg_mM, edges,
+                      rebuilt)
 
 Seventeen translation reactions and one translocation.
 
@@ -291,6 +292,7 @@ function CoreATranslation(; genes = read_transcription_genes(),
                           residues = nothing,
                           counters = TRANSLATION_COUNTERS,
                           clip = :clamped_deficit_carried,
+                          smoothing = nothing,
                           interval = 60.0,
                           chg_mM = CHARGING_POOL_DEFAULTS.charged_fraction *
                                    CHARGING_POOL_DEFAULTS.pool_mM,
@@ -379,14 +381,17 @@ function CoreATranslation(; genes = read_transcription_genes(),
     for c in counters
         c.debits === nothing ||
             push!(default, DeferredCounterEdge(species = c.debits, direction = :in,
-                                               counter = c.counter, clip = clip))
+                                               counter = c.counter, clip = clip,
+                                               smoothing = smoothing))
         c.credits === nothing ||
             push!(default, DeferredCounterEdge(species = c.credits, direction = :out,
-                                               counter = c.counter, clip = clip))
+                                               counter = c.counter, clip = clip,
+                                               smoothing = smoothing))
         # The products, one each per unit the debit actually paid (task 13.10).
         for p in c.produces
             push!(default, DeferredCounterEdge(species = p, direction = :out,
-                                               counter = c.counter, clip = clip))
+                                               counter = c.counter, clip = clip,
+                                               smoothing = smoothing))
         end
     end
 

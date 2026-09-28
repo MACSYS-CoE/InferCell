@@ -316,6 +316,7 @@ function CoreATranscription(; genes = read_transcription_genes(),
                             pools = TRANSCRIPTION_POOLS,
                             counters = TRANSCRIPTION_COUNTERS,
                             clip = :clamped_deficit_carried,
+                            smoothing = nothing,
                             edges = nothing,
                             rebuilt = nothing)
     haskey(BASE_MAPPINGS, base_mapping) || throw(ArgumentError(
@@ -423,11 +424,13 @@ function CoreATranscription(; genes = read_transcription_genes(),
     end
     for c in counters
         push!(default, DeferredCounterEdge(species = c.species, direction = :in,
-                                           counter = c.counter, clip = clip))
+                                           counter = c.counter, clip = clip,
+                                           smoothing = smoothing))
         # The products, one each per unit the debit actually paid (task 13.10).
         for p in c.produces
             push!(default, DeferredCounterEdge(species = p, direction = :out,
-                                               counter = c.counter, clip = clip))
+                                               counter = c.counter, clip = clip,
+                                               smoothing = smoothing))
         end
     end
     # CTP and UTP only. ATP and GTP are live pools the recycling module owns,

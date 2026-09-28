@@ -10,7 +10,7 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 **Approved 2026-09-28 (§12):** phase 14c, the smoothed drain
 and a Haldane-consistent prior, is next. Phase 15's tasks that need neither
 may start alongside it
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-28
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -531,7 +531,7 @@ conservation number is uninterpretable.
 
 | # | Check | What is asserted | Scope |
 |---|---|---|---|
-| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
+| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12). **Amended 2026-09-28 (phase 14c):** rounding to whole particles makes every debited pool a step function of the ODE parameters, so the model a gradient sampler differentiates runs a fourth policy, `:continuous`, which writes pools back as floats and is labelled ours. Fractional carry stays the data-generating policy (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12). **Amended again 2026-09-26:** on the assembly the smallest pools sit at about one particle for most of the cycle, where neither the ODE nor a diffusion describes them. A pool whose cycle median is under 10 particles is excluded outright, with no ensemble. The cross-check runs on the three pools with the smallest medians of at least 10 (§12) | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
@@ -992,6 +992,12 @@ forcing once the path is fixed. They do not: the drain is clipped at zero agains
 the pool, and the pool depends on `theta_ODE`, so the non-smoothness survives
 conditioning. K5 governs inside the conditional step exactly as it does outside
 it, and check 7's census is what decides whether it bites.
+**Amended 2026-09-28 (phase 14c):** it bites, and the clip is not the only
+non-smoothness. Each drain writes the debited pools back as whole particles,
+so the ODE block is a step function of its parameters even with the clip
+smoothed. The gradient step therefore differentiates a model with two labelled
+departures, the smoothed drain and continuous pools. The data comes from the
+published one (§12).
 
 **M0, the reference.** A deliberately small Core A′: two genes, 600 s horizon,
 small enough that a very long run is a defensible ground truth. The three-block
@@ -3899,8 +3905,72 @@ constants; K5's prior half is scored over D11's targets drawn that way, beside
 14b's broad census; every consumer counter is smoothed with a recorded width;
 and the smoothed model agrees with the clipped one on the candidate
 observables, keeps 14a's closures, and has a continuous derivative across a
-clip.
+clip. **Amended 2026-09-28 (§12):** "the smoothed model" is the sampler model,
+the smoothed drain under the `:continuous` rounding policy of task 14c.7, and
+"the clipped one" is the published model, clamped under fractional carry. The
+derivative is of the ODE state the next interval integrates from.
 **PR:** _not started_
+
+**Results (branch `phase-14c-smoothed-drain`).** The census is
+`dev/scripts/corea_census_14c_result.md` (jobs 17623900 to 17623902, at
+`946bfaa`), and the smoothing runs are `dev/scripts/corea_smoothing_14c_result.md`
+(job 17625498, at `b377dde`). After the review's fixes the suite passes
+28,290/28,290 at `c2e1aac` (Slurm job 17653728), and no later commit on the
+branch touches `src` or `test`.
+- **14c.1.** Over 200 broad draws the worst Haldane residual is 0.125 of its
+  `4n·eps` bound. Drawing reverse constants independently fails, naming
+  `R_PGI`. A forward constant drawn alone scales its reverse constant by the
+  same factor to 8 eps. Each relation zeroes its own reaction's flux at its
+  equilibrium constant (job 17623761).
+- **14c.2: K5's rescored prior half fires.** 163 of 200 draws of D11's six
+  clip (81.5%, Wilson 75.5 to 86.3%), but only 8 are starved (4.0%), against
+  104 in 14b. The median per-drain fraction is 0.006, against 0.653. The
+  draws clip a few drains near the kink, which is where the smoothing
+  matters. By §12 B this confirms the smoothing and changes nothing else.
+- **14c.3.** Haldane-consistent broad draws clip in 141 of 200 (70.5%) and
+  starve 95 (47.5%), against 14b's 73.0% and 52.0%. At 200 unpaired draws that
+  is no detectable effect of the broken equilibrium constants: the difference
+  in starved draws is 4.5 points, with a 95% interval of about −5 to +14. The
+  per-drain fraction is bimodal: starved draws clip on a median 0.957 of drains
+  (14b 0.969), and the others' median is zero, although 17 of the 105 clip on
+  more than 10% of drains. So the all-draw median, 0.271 against
+  0.653, only tracks the starved count crossing 100 and says nothing further.
+  The draws share 14b's seed numbers, but not its streams, since a derived
+  reverse constant consumes no random number.
+- **14c.4.** Seven consumer counters are smoothed at one particle. The
+  resolver reports no gradient obstruction (seven before), and each is labelled
+  ours.
+- **14c.5.** 100 seeds. Before a pair's jump states first differ, the largest
+  of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
+  passes. The end-of-cycle half resolves 20 of 50 observables, and none of
+  them fails. It can neither pass nor fail the other 30, whose SE exceeds 1%.
+  Some of their gate means sit up to 2.3 SE from zero (`M_gtp_c` +37.8% ± 16%),
+  but the per-seed ratio is skewed upward once a pair decouples. The
+  difference of ensemble means, a diagnostic outside the gate, finds no
+  observable beyond |z| = 1.72 of 50, with mixed signs. **14c.5 is therefore met
+  for the coupled half and the 20 resolved observables, and open for the other
+  30.** More seeds, or a statistic without the skew, would close it. 47 of 100
+  sampler pairs decouple against 3 of 100 for the control, so the control is
+  matched in size but not in effect, and cannot serve as a null for the
+  decoupled half. Every whole-cell closure on the sampler model passes 14a's
+  gate at the pinned pair and one decade tighter. The seven logged at the
+  pinned pair are at 3.5e-10 to 2.3e-9 of `tol_C`.
+- **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
+  clips by 5×, and at 2× they are down to at most 4 drains. The clipping moves
+  to `tRNA_translat` (medians 9 to 58 drains), and 9 or 10 of 10 seeds still
+  carry a deficit at every scale. More GTP supply does not stop the
+  published-parameter clipping. It moves it to the charged-tRNA pool.
+- **14c.7.** At seed 14800's first `GTP_translat` clip, the clamp on
+  continuous pools jumps by 0.915 of the pool's sensitivity at every spacing.
+  The sampler model's jump falls with the spacing, 0.39 to 0.013. The
+  published model's slope is exactly zero at all 21 points.
+
+**Decided at planning, 2026-09-28 (§12, same date):** "the published
+equilibrium constant" is the one the nominal Mode values imply, which
+upstream's own equilibrium-constant rows contradict by more than 1% on 9 of 15
+reactions. The smoothing width is one particle. 14c.5's threshold is D10's one percent, with
+the difference taken relative to the larger of the clipped value and 500
+particles.
 
 - [ ] 14c.1 Draw kinetic constants Haldane-consistently — each reversible
   reaction's reverse constant is derived from its drawn forward constant and
@@ -3928,18 +3998,38 @@ clip.
   neither creates nor destroys mass; and by a finite-difference derivative in
   an ODE parameter being continuous across a clip event that the clipped
   model's derivative jumps at (the complement of task 16.3).
+  **Amended 2026-09-28 (§12):** the comparison is the sampler model against
+  the published model, and the derivative is of the ODE state, not of the
+  state plus its carried remainder. On the published model the scan shows
+  one-particle steps rather than a kink, because the debit reads a pool
+  already rounded to whole particles. **Amended again 2026-09-28 (§12):** the
+  agreement gate runs over 100 seeds in two halves. While a pair's jump states
+  still match, every paired difference must be within 1%. At the end of the
+  cycle, the mean paired difference must be within 1% with its SE, and an SE
+  above 1% is reported as unresolved. The published model against itself,
+  with `krnadeg` scaled by 1 + 1e-5, is the matched control for decoupling.
 - [ ] 14c.6 Bound how much of the published-parameter clipping is our
   reduction's — verify by 14b's published-parameter census rerun with the GTP
   supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
   after the handshake fills their enzyme slots from live counts), reporting whether and at what scale the `GTP_translat` clips vanish. It is
   the cheap proxy for the §9 question on the full published model, and it is
   recorded, not gated.
+- [ ] 14c.7 Carry pools continuously in the sampler model (added 2026-09-28,
+  §12) — verify by a `:continuous` rounding policy that writes debited pools
+  back as floats and carries no remainder, labelled a departure by
+  `driver_declarations`; by the fractional-carry build still the default; and
+  by a finite-difference derivative of the post-debit ODE state, in an ODE
+  parameter, being continuous across a clip on the sampler model and stepped
+  on the published model, on the toy in the suite and on the assembled model
+  at seed 14800's first `GTP_translat` clip in the driver.
 
 **Phase 15 may start alongside 14c.** Tasks 15.1, 15.3, 15.4, 15.6 and 15.9
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
 check 8's frozen steady state, whose demands are forcing terms and not
 counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
-15.8 wait for 14c.5.
+15.8 wait for 14c.5, including its open half (§12, 2026-09-29). 15.8 also
+waits for 14c.7 (added 2026-09-28): its Jacobian is taken on the sampler model,
+`build_corea(; COREA_SAMPLER...)`.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -3985,7 +4075,8 @@ observable that closes the proxy loop is rejected by a check.
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
   **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
-  smoothed model, since at a clip the clipped model's has no value.
+  smoothed model, since at a clip the clipped model's has no value. That is
+  the sampler model, smoothed drain and continuous pools (§12, 2026-09-28).
 - [ ] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
@@ -4108,6 +4199,202 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-29 — 14c.5 lands partly open, and 15.7 and 15.8 keep waiting on its open half
+
+**Status: a record of what #75's review found. It changes no plan. Closing
+the open half is a decision still to be made.**
+
+**Trigger:** the 100-seed run of the split gate (job 17625498) and the
+/check-PR review of #75.
+
+**What is true.**
+- **The coupled half passes.** Its largest paired difference is 0.763%.
+- **The end-of-cycle half resolves 20 of 50 observables,** and none fails.
+- **It cannot decide the other 30,** whose SE exceeds 1%. Their gate means
+  reach 2.3 SE, but the per-seed ratio is skewed upward once a pair decouples.
+- **A symmetric statistic finds no bias.** The difference of the ensemble
+  means, a diagnostic outside the gate, finds no observable beyond
+  |z| = 1.72, with mixed signs.
+- **The control is not the null the split-gate entry intended.** That entry
+  said the sampler pair is read against the control. But the control
+  decouples 3 of 100 pairs against the sampler model's 47, so it shows only
+  that a small nudge leaves the model paired.
+
+**What this means for the task list.** 14c.5 is recorded as met for the
+coupled half and the 20 resolved observables, and open for the other 30. Tasks
+15.7 and 15.8 wait for 14c.5, and they keep waiting on its open half. Two ways
+to close it are named. Neither is chosen:
+- **More seeds.** The SE falls as the square root of the seed count, so GTP
+  at 16% needs thousands.
+- **A gate statistic without the skew**, such as the difference of ensemble
+  means with its SE.
+
+A later entry records the choice. Neither 15.7 nor 15.8 starts past the open
+half without it.
+
+*Sections:* §11 phase 14c (Results; the phase-15 gating line).
+
+### 2026-09-28 — 14c.5's paired gate cannot see past a flipped event, so it splits in two
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** 14c.5's agreement run of the sampler model against the published
+one (job 17624062, at `a0b8e8f`). 1,060 of 5,300 comparisons fall outside 1%.
+The worst is `M_gtp_c`, at +73% mean with SE 76%, and one seed at 756%. With
+the smoothed drain alone under fractional carry the same run agreed to
+0.005%.
+
+**What is true.** Seven of the ten seeds stay within 1% on every observable
+for the whole cycle. The other three part at one stochastic event. Seeds 1410
+and 14802 first differ by one transcript, near 5,000 s, and 14801 differs on
+GTP, by 5.7% at 720 s. After that the two runs follow different paths, and
+their paired difference is Monte Carlo noise. A control rules out numerical
+instability on its own: the sampler model against itself, with
+`kcatF_R_ENO` scaled by 1 + 1e-9, stays paired to 6e-8% with identical clip
+counts on every seed (job 17624388). Continuous pools are a far larger nudge.
+They move a pool by up to half a particle a second, and the rebuild's rate
+constants by about 1e-5, which is enough to flip an event now and then. Under
+fractional carry both drains round to the same integers, so the paths never
+parted. The gate fixed at planning C, a paired mean within 1%, is therefore
+valid only while the paths are coupled.
+
+**Change: 14c.5's agreement gate has two halves, over 100 seeds.** The seeds
+are 14b's ten and 90 more.
+- **Coupled.** A pair is coupled up to the first handshake at which any jump
+  state (transcripts, proteins, counters) differs. Every paired difference at a
+  save point before that must be within 1%, relative to max(|published|,
+  floor), as planning C defined it. This is the test of a model difference.
+- **Decoupled.** At the end of the cycle, the mean over seeds of the paired
+  relative difference must be within 1% for every observable, reported with
+  its SE. An observable whose SE exceeds 1% is reported as unresolved, not as
+  passing.
+- **A matched control runs beside it.** The published model against itself,
+  with `krnadeg` scaled by 1 + 1e-5, which shifts the decay propensities by
+  about what continuous pools shift the rebuild's. The control reports how
+  often and how early pairs decouple with no model change. The sampler pair is
+  read against it, not against zero.
+
+The width, the floors and the 1% are unchanged.
+
+*Sections:* §11 task 14c.5.
+
+### 2026-09-28 — phase 14c: rounding to whole particles breaks the gradient too, so the sampler model carries pools continuously
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** task 14c.5's derivative scan on the assembled model (job
+17624016, at `f380774`). At seed 14800, handshake 1580, `kcatF_R_PGK3` was
+scanned across the value at which the first `GTP_translat` clip ends. The
+clamped deficit moves in whole particles (128, 50, 14, 3, 2, 1) while θ moves
+continuously. The post-debit pool is a residue that jumps between −0.28 and
+0.47 particles. The kink the clip should leave is not there. There is a
+sawtooth of one-particle steps instead, and the smoothed debit shows it too.
+
+**What is true.** Check 0's fractional carry writes every debited pool back
+to the ODE block as whole particles: `round_to_counts!` returns
+`round(Int, x + carry)` and `_write_pool!` sets the state to it. The
+sub-particle part goes to a carried remainder that no rate law reads. So the
+state each interval integrates from is a step function of every ODE
+parameter, at every drain, on every debited pool, and automatic
+differentiation sees zero derivative through each rounding. A second debit on
+a pool in the same drain reads an integer. `GTP_mRNA` precedes `GTP_translat`
+in the counter order, so even at zero accrual it rounds GTP before the
+translation debit reads it. The smoothed drain removes the clip's kink, but
+not this.
+
+**What the scan in `f380774` showed, and did not.** Its table has the same
+jump for both drains, falling with the spacing. That is a smooth window
+between rounding steps, not continuity. The toy test passed only because its
+pool has one consumer and it read the pool plus its carry, which the dynamics
+never see.
+
+**Change:**
+
+**A — a fourth rounding policy, `:continuous`.** Pools are written back as
+floats, and nothing is rounded or carried. It is ours, and the driver labels
+it as a departure. Fractional carry stays the policy of the published-model
+build that generates data, as the clamp does.
+
+**B — the sampler model is the smoothed drain under `:continuous`.** Both
+departures are needed. D10's gradient step differentiates this model, and
+14c.5 validates it against the published one: clamped drain and fractional
+carry.
+
+**C — 14c.5's continuity test reads the ODE state.** On the toy and on the
+assembled model, the finite-difference derivative of the post-debit pool the
+next interval integrates from must be continuous across the clip on the
+sampler model. On the published model the same scan must show the steps.
+
+**D — a new task, 14c.7,** builds A and labels it, and 14c.5's agreement
+reruns against the sampler model. The width and the 1% threshold are
+unchanged.
+
+*Sections:* §3 check 0 row, §4 D10, §11 phase 14c (done-when, 14c.5,
+14c.7).
+
+### 2026-09-28 — phase 14c planning: which equilibrium constant, the smoothing width, and the agreement threshold
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** planning phase 14c. The K5 amendment left the width and 14c.5's
+threshold to planning. Checking 14c.1's premise then found that "the
+published equilibrium constant" names two different numbers.
+
+**A — the equilibrium constant a draw keeps is the one the nominal Mode
+values imply.** Upstream's balanced tables carry an `equilibrium constant`
+row per reaction. The Haldane quotient of the Mode values Core A′ runs,
+`kcatF/kcatR · Π KmP^n / Π KmS^n`, disagrees with that row by more than 1%
+on 9 of the 15 reversible modular reactions (Mode quotient over the row):
+
+| Factor | Reactions |
+|---|---|
+| within 1% | ENO, LDH_L, GAPD, PFK, ADK1, GK1 |
+| 3.6% | PYK3 |
+| 1.5× to 94× | PGI 1.54, PYK 8.4, FBA 10.2, PGM 20.0, PPA 23.4, PGK3 94.2 |
+| 427× and 1.6e4× | PGK 427, TPI 1.57e4 |
+
+The row agrees with the unconstrained geometric means instead. TPI's is
+759.6/65,341.7 · 0.1028/1.0352 = 0.00115, against the row's 0.0012. The
+Mode column departs from the unconstrained geometric mean on 13 catalytic
+constants (D1's ten central ones and three in the nucleotide file) and on
+three nucleotide-file Michaelis constants. Those departures touch ten
+reactions, and the nine that disagree by more than 1% are all among them. The
+tenth is PFK: its forward constant is off by 0.7%, and its equilibrium
+constant by 0.78%. No reaction without a departure disagrees.
+So the published simulator, which reads
+`Mode`, runs reactions whose equilibrium constants are not the ones its own
+balancing reports. **Change:** 14c.1 keeps the Mode-implied constant. Draw 0
+then stays the published model, and 14a's and 14b's baselines stand. Taking
+the row would change the nominal model's reverse constants by up to 1.6e4 and
+re-baseline every check. The disagreement is recorded here and in
+`prior_draws.jl`, where the rule is defined. It is not corrected, and it is not
+a T2 row: the model runs the Modes as the published simulator does. What is
+ours is the rule that truth draws keep the Mode-implied constant, and T2 gains
+that row when task 15.2 draws the first truths with it.
+
+**B — the smoothing width is one particle on every consumer counter.** Under
+`:smoothed` the pool after a debit is `w·softplus((pool − accrued)/w)`, which
+never reaches zero. It differs from the clamp by at most `w·ln 2` at the kink
+and by `w·exp(−gap/w)` a gap away. One particle is the resolution the count
+round trip already works at, so the smoothing acts below the model's own
+quantum. At published parameters it moves at most 0.69 particles on each of
+up to 253 clipped drains per cycle. The cost is a derivative that is
+continuous but bends over about one particle, which 14c.5's
+finite-difference test resolves by construction and the sampler meets as
+curvature.
+
+**C — 14c.5's agreement threshold is D10's one percent, with a 500-particle
+floor.** For every candidate observable at every 60 s save point, on 14b's
+published-parameter seeds, the smoothed and clipped runs are paired per seed.
+The difference is taken relative to `max(|x_clipped|, 500 particles)`, and
+the gate is on the mean over seeds, reported with its standard error. The
+floor is check 1b's: below 500 particles the ODE is not trusted as a
+description of a pool, so a relative difference there measures bookkeeping.
+Transcripts are counts, so their floor is one copy rather than 500
+particles. Otherwise their gate is the same.
+
+*Sections:* §11 phase 14c (the decisions recorded in its block).
 
 ### 2026-09-28 — K5 fired: phase 14c smooths the drain, and the prior is drawn Haldane-consistently
 

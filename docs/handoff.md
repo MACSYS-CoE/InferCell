@@ -1,9 +1,65 @@
 # Handoff
 
 **Session date:** 2026-09-28
-**Branches:** `spec-k5-decision` (the K5 amendment, approved 2026-09-28)
+**Branches:** `phase-14c-smoothed-drain` (phase 14c)
 
-## Latest: K5's response, approved as an amendment (2026-09-28)
+## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
+
+Six tasks are met. 14c.5 is met for its coupled half and 20 of 50 observables,
+and open for the other 30 (below). Spec §11's 14c block has the numbers.
+Three amendments were approved this session (§12, all 2026-09-28):
+- **Planning.** The equilibrium constant a draw keeps is the one the nominal
+  Modes imply. Upstream's own equilibrium-constant rows disagree by more than
+  1% on 9 of 15 reactions, by up to 1.6e4 on TPI, all among the ten where a Mode
+  departs from its unconstrained geometric mean (the tenth, PFK, is off 0.78%). The smoothing width is one particle,
+  and 14c.5's threshold is D10's 1% with a 500-particle floor.
+- **Rounding breaks the gradient too.** Fractional carry writes every debited
+  pool back as whole particles, so the ODE state is a step function of every
+  parameter. The **sampler model** is now `build_corea(; COREA_SAMPLER...)`:
+  the smoothed drain plus a new `:continuous` rounding policy (task 14c.7).
+  The published model, `build_corea()`, generates data.
+- **14c.5's gate splits at the first flipped event.** Continuous pools nudge
+  the rebuild enough to flip a stochastic event now and then, after which
+  paired seeds are Monte Carlo. The gate is every paired difference within 1%
+  while jump states match, plus the end-of-cycle mean over 100 seeds, with an
+  SE above 1% reported as unresolved.
+
+Results:
+- **K5's prior half, rescored over D11's six, fires** at 81.5%. Only 4.0% of
+  draws are starved, so the draws sit near the kink, where smoothing matters.
+- **Haldane-consistent broad census:** 70.5% clip, against 73.0% in 14b, with
+  overlapping intervals. The all-draw median per-drain fraction (0.653 to
+  0.271) only tracks the starved count crossing 100; starved draws clip alike
+  (0.969 against 0.957). No detectable effect at n = 200 (starved difference
+  95% CI about −5 to +14 points).
+- **Loosening the GTP branch** moves the clipping to `tRNA_translat`
+  rather than removing it.
+- **14c.5, partly open:** the coupled half passes (largest 0.763%). The
+  end-of-cycle half resolves 20 of 50, and none fails. It cannot decide the
+  other 30, whose SE exceeds 1%, and some gate means sit up to 2.3 SE out,
+  skewed upward by the per-seed ratio. A symmetric diagnostic, the difference
+  of ensemble means, finds nothing beyond |z| = 1.72. The control decoupled 3
+  of 100 pairs against 47, so it is not a null for that half. §12
+  2026-09-29 records it: 15.7 and 15.8 keep waiting until the open half is
+  closed, by more seeds or a statistic without the skew. **That choice is the
+  next decision**, and it needs your call.
+- **14c.7:** on the assembled model the sampler's slope jump across a clip
+  falls with the spacing; the clamp's stays at 0.915.
+
+Also fixed: `record_clips!` now reads each debit's `clipped` flag (the census
+predicate), which closes the #72 review's should-fix on `deficit > 0`.
+
+Housekeeping: home hit its 20 GiB quota mid-session and Slurm jobs died on
+compile-cache writes. `~/.cache/pip` and uv's cache were cleared (about 18.2
+GiB left in use). Worktrees under `.worktrees/` (`census14c`, `smooth14c7`,
+`smooth14c8`, `suite14c2`, `control14c`, `suite14c3`) hold the Slurm runs of record and can go once the
+PR merges.
+
+Suite: 28,290/28,290 at `c2e1aac` (Slurm job 17653728), after /check-PR's fixes. PR #75. Then phase 15,
+whose tasks 15.2 (truths drawn with `draw_parameters`), 15.7 and 15.8 were
+waiting on 14c.
+
+## Earlier: K5's response, approved as an amendment (2026-09-28)
 
 `spec-k5-decision` adds §12 2026-09-28 "K5 fired", **approved
 2026-09-28**, plus a new phase 14c, a §9 question and annotations on 15.2, 15.8
