@@ -531,7 +531,7 @@ conservation number is uninterpretable.
 
 | # | Check | What is asserted | Scope |
 |---|---|---|---|
-| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12) | Handshake phase, re-asserted on assembly |
+| 0 | Round-trip policy | Exact-zero, square-root or linear residual scaling per policy; deterministic rejected. **Amended 2026-09-25:** on the assembly the growth laws do not separate, since the pool fractions are not systematically biased there. What is asserted is fractional carry at roundoff, within 10⁻⁶ of `tol_C`, and deterministic rounding at least 10⁶ times it. The carry's roundoff does accumulate with handshake count, which is what `N_restarts` in `tol_C` is for. Stochastic rounding and the growth ratios are recorded by the driver, not asserted (§12). **Amended 2026-09-28 (phase 14c):** rounding to whole particles makes every debited pool a step function of the ODE parameters, so the model a gradient sampler differentiates runs a fourth policy, `:continuous`, which writes pools back as floats and is labelled ours. Fractional carry stays the data-generating policy (§12) | Handshake phase, re-asserted on assembly |
 | 1 | Non-negativity | Every state above the negative of its own integrator bound at every save point, naming the first state and time to violate | Per-module as a smoke test; evidence only assembled |
 | 1b | Particle-floor honesty | Report every state's minimum in particles; flag any below 500. Cross-check the three smallest pools against a chemical-Langevin ensemble; exclude from the likelihood any observable whose ODE trajectory leaves the ensemble's 90% band by more than the assumed observation noise. **The tRNA pair is in scope and its particle count is ours** (D14), so this check is also what bounds the pool size we assert. **Amended 2026-09-26 (phase 14b):** the observation noise is not fixed until task 15.4, so 14b reports, per pool, the largest relative excursion of the ODE trajectory outside the ensemble's 90% band. That is the smallest noise at which the pool would be excluded. Phase 15 applies the exclusion (§12). **Amended again 2026-09-26:** on the assembly the smallest pools sit at about one particle for most of the cycle, where neither the ODE nor a diffusion describes them. A pool whose cycle median is under 10 particles is excluded outright, with no ensemble. The cross-check runs on the three pools with the smallest medians of at least 10 (§12) | Assembled |
 | 2 | Carbon balance | Glucose in against lactate out plus intermediates plus biomass; and the homolactic ratio, which is **analytically exactly 2.000** | Assembled only — spans transport, glycolysis and export |
@@ -992,6 +992,12 @@ forcing once the path is fixed. They do not: the drain is clipped at zero agains
 the pool, and the pool depends on `theta_ODE`, so the non-smoothness survives
 conditioning. K5 governs inside the conditional step exactly as it does outside
 it, and check 7's census is what decides whether it bites.
+**Amended 2026-09-28 (phase 14c):** it bites, and the clip is not the only
+non-smoothness. Each drain writes the debited pools back as whole particles,
+so the ODE block is a step function of its parameters even with the clip
+smoothed. The gradient step therefore differentiates a model with two labelled
+departures, the smoothed drain and continuous pools. The data comes from the
+published one (§12).
 
 **M0, the reference.** A deliberately small Core A′: two genes, 600 s horizon,
 small enough that a very long run is a defensible ground truth. The three-block
@@ -3899,7 +3905,10 @@ constants; K5's prior half is scored over D11's targets drawn that way, beside
 14b's broad census; every consumer counter is smoothed with a recorded width;
 and the smoothed model agrees with the clipped one on the candidate
 observables, keeps 14a's closures, and has a continuous derivative across a
-clip.
+clip. **Amended 2026-09-28 (§12):** "the smoothed model" is the sampler model,
+the smoothed drain under the `:continuous` rounding policy of task 14c.7, and
+"the clipped one" is the published model, clamped under fractional carry. The
+derivative is of the ODE state the next interval integrates from.
 **PR:** _not started_
 
 **Decided at planning, 2026-09-28 (§12, same date):** "the published
@@ -3935,12 +3944,25 @@ particles.
   neither creates nor destroys mass; and by a finite-difference derivative in
   an ODE parameter being continuous across a clip event that the clipped
   model's derivative jumps at (the complement of task 16.3).
+  **Amended 2026-09-28 (§12):** the comparison is the sampler model against
+  the published model, and the derivative is of the ODE state, not of the
+  state plus its carried remainder. On the published model the scan shows
+  one-particle steps rather than a kink, because the debit reads a pool
+  already rounded to whole particles.
 - [ ] 14c.6 Bound how much of the published-parameter clipping is our
   reduction's — verify by 14b's published-parameter census rerun with the GTP
   supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
   after the handshake fills their enzyme slots from live counts), reporting whether and at what scale the `GTP_translat` clips vanish. It is
   the cheap proxy for the §9 question on the full published model, and it is
   recorded, not gated.
+- [ ] 14c.7 Carry pools continuously in the sampler model (added 2026-09-28,
+  §12) — verify by a `:continuous` rounding policy that writes debited pools
+  back as floats and carries no remainder, labelled a departure by
+  `driver_declarations`; by the fractional-carry build still the default; and
+  by a finite-difference derivative of the post-debit ODE state, in an ODE
+  parameter, being continuous across a clip on the sampler model and stepped
+  on the published model, on the toy in the suite and on the assembled model
+  at seed 14800's first `GTP_translat` clip in the driver.
 
 **Phase 15 may start alongside 14c.** Tasks 15.1, 15.3, 15.4, 15.6 and 15.9
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
@@ -4115,6 +4137,60 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-28 — phase 14c: rounding to whole particles breaks the gradient too, so the sampler model carries pools continuously
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** task 14c.5's derivative scan on the assembled model (job
+17624016, at `f380774`). At seed 14800, handshake 1580, `kcatF_R_PGK3` was
+scanned across the value at which the first `GTP_translat` clip ends. The
+clamped deficit moves in whole particles (128, 50, 14, 3, 2, 1) while θ moves
+continuously. The post-debit pool is a residue that jumps between −0.28 and
+0.47 particles. The kink the clip should leave is not there. There is a
+sawtooth of one-particle steps instead, and the smoothed debit shows it too.
+
+**What is true.** Check 0's fractional carry writes every debited pool back
+to the ODE block as whole particles: `round_to_counts!` returns
+`round(Int, x + carry)` and `_write_pool!` sets the state to it. The
+sub-particle part goes to a carried remainder that no rate law reads. So the
+state each interval integrates from is a step function of every ODE
+parameter, at every drain, on every debited pool, and automatic
+differentiation sees zero derivative through each rounding. A second debit on
+a pool in the same drain reads an integer. `GTP_mRNA` precedes `GTP_translat`
+in the counter order, so even at zero accrual it rounds GTP before the
+translation debit reads it. The smoothed drain removes the clip's kink, but
+not this.
+
+**What the scan in `f380774` showed, and did not.** Its table has the same
+jump for both drains, falling with the spacing. That is a smooth window
+between rounding steps, not continuity. The toy test passed only because its
+pool has one consumer and it read the pool plus its carry, which the dynamics
+never see.
+
+**Change:**
+
+**A — a fourth rounding policy, `:continuous`.** Pools are written back as
+floats, and nothing is rounded or carried. It is ours, and the driver labels
+it as a departure. Fractional carry stays the policy of the published-model
+build that generates data, as the clamp does.
+
+**B — the sampler model is the smoothed drain under `:continuous`.** Both
+departures are needed. D10's gradient step differentiates this model, and
+14c.5 validates it against the published one: clamped drain and fractional
+carry.
+
+**C — 14c.5's continuity test reads the ODE state.** On the toy and on the
+assembled model, the finite-difference derivative of the post-debit pool the
+next interval integrates from must be continuous across the clip on the
+sampler model. On the published model the same scan must show the steps.
+
+**D — a new task, 14c.7,** builds A and labels it, and 14c.5's agreement
+reruns against the sampler model. The width and the 1% threshold are
+unchanged.
+
+*Sections:* §3 check 0 row, §4 D10, §6 T2, §11 phase 14c (done-when, 14c.5,
+14c.7).
 
 ### 2026-09-28 — phase 14c planning: which equilibrium constant, the smoothing width, and the agreement threshold
 
