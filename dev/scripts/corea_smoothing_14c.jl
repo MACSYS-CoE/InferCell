@@ -4,12 +4,15 @@
 # published model clamps under fractional carry (§12, 2026-09-28). Two
 # sections, one Slurm array:
 #
-# - agree: 14b's ten published-parameter seeds, each run through a full cycle
-#   under both models, with every candidate observable recorded at 60 s.
-#   Candidate observables are task 15.3's: every ODE state as a particle count
-#   (with its carried remainder, so both models report the amount they hold),
-#   every transcript count, and the cell volume. Fluxes are left out, since §4
-#   D8 rules them out of the likelihood. The merge pairs the two runs per seed.
+# - agree: 100 seeds (14b's ten and 90 more), each run through a full cycle
+#   under both models and under a matched control, with every candidate
+#   observable recorded at 60 s. Candidate observables are task 15.3's: every
+#   ODE state as a particle count (with its carried remainder, so both models
+#   report the amount they hold), every transcript count, and the cell volume.
+#   Fluxes are left out, since §4 D8 rules them out of the likelihood. Each run
+#   is compared with the published run at the same seed, jump state by jump
+#   state, and the first handshake at which they differ is recorded: the merge
+#   gates the paired difference before it, and the ensemble at the end.
 # - deriv: the continuity half on the assembled model. At the first drain where
 #   `GTP_translat` clips at seed 14800, the GTP state after the debit — what the
 #   next interval integrates from — is scanned in PGK3's forward constant, the
@@ -32,7 +35,8 @@ const TASK = parse(Int, get(ARGS, 1, get(ENV, "SLURM_ARRAY_TASK_ID", "0")))
 const NTASK = parse(Int, get(ARGS, 2, "1"))
 const SMOKE = get(ENV, "SMOKE", "0") == "1"
 const CYCLE = SMOKE ? 120 : round(Int, COREA_CYCLE_S)
-const SEEDS = SMOKE ? [14_800] : vcat([1310, 1410], 14_800 .+ (0:7))   # 14b's
+# 14b's ten, then 90 more (§12, 2026-09-28, the split gate).
+const SEEDS = SMOKE ? [14_800] : vcat([1310, 1410], 14_800 .+ (0:7), 15_000 .+ (1:90))
 const EVERY = 60
 const DIR = joinpath(@__DIR__, "smoothing_14c")
 const HEADER = "# commit $(strip(read(`git rev-parse --short HEAD`, String))), job " *
@@ -58,27 +62,51 @@ function observe(d, ode_names, jump_names, tx)
     return vals
 end
 
-function agree_run(io, seed, drain)
-    # `:smoothed` labels the sampler model, which smooths the drain and carries
-    # pools continuously; `:clamped` is the published model (spec §12, 2026-09-28).
-    kw = drain === :smoothed ? COREA_SAMPLER : (;)
-    ms = corea_models(; smoothing = get(kw, :smoothing, nothing))
+# The three runs per seed (§12, 2026-09-28, the split gate). `:clamped` is the
+# published model; `:smoothed` the sampler model, smoothed drain and continuous
+# pools; `:control` the published model with `krnadeg` scaled by 1 + 1e-5, which
+# measures how often a pair decouples with no model change.
+const CONTROL_SCALE = 1 + 1e-5
+
+function variant_driver(variant)
+    ms = corea_models(; smoothing = variant === :smoothed ? COREA_SMOOTHING_WIDTH : nothing)
+    kw = variant === :smoothed ? (; rounding = COREA_SAMPLER.rounding) : (;)
+    d = build_problem(ms; tspan = (0.0, Float64(CYCLE)), complete = true, kw...)
+    if variant === :control
+        v = nominal_parameter_values(ms)[:krnadeg]
+        set_parameters!(d, ms, [:krnadeg => v * CONTROL_SCALE])
+    end
+    return ms, d
+end
+
+# One full cycle. The published run records its jump state at every handshake;
+# the other two compare theirs against it and report the first handshake at
+# which any jump state differs, or -1 if the pair stays coupled to the end.
+function agree_run(io, seed, variant; reference = nothing)
+    Random.seed!(seed)
+    ms, d = variant_driver(variant)
     ode_names, jump_names = _names(ms, :ode), _names(ms, :jump)
     tx = Set(transcript_state(g.locus) for g in read_transcription_genes())
     Random.seed!(seed)
-    d = build_corea(; kw..., tspan = (0.0, Float64(CYCLE)))
-    Random.seed!(seed)
     rows(t) = for (s, v) in observe(d, ode_names, jump_names, tx)
-        println(io, join((seed, drain, t, s, repr(v)), '\t'))
+        println(io, join((seed, variant, t, s, repr(v)), '\t'))
     end
     rows(0)
+    jumps = Vector{Vector{Int}}(undef, CYCLE)
+    t_dec = -1
     wall = @elapsed for k in 1:CYCLE
         handshake_step!(d)
+        jumps[k] = collect(Int, d.jump.u)
+        if reference !== nothing && t_dec < 0 && jumps[k] != reference[k]
+            t_dec = k
+        end
         k % EVERY == 0 && rows(k)
     end
     c = clipping_census(d)
-    println(io, "# census\t$seed\t$drain\t$(c.drains)\t$(c.clipped)\t$(@sprintf("%.1f", wall))")
+    println(io, "# census\t$seed\t$variant\t$(c.drains)\t$(c.clipped)\t$(@sprintf("%.1f", wall))")
+    reference === nothing || println(io, "# couple\t$seed\t$variant\t$t_dec")
     flush(io)
+    return jumps
 end
 
 open(joinpath(DIR, "agree_task_$(TASK).tsv"), "w") do io
@@ -86,10 +114,10 @@ open(joinpath(DIR, "agree_task_$(TASK).tsv"), "w") do io
     println(io, join(("seed", "drain", "t", "observable", "value"), '\t'))
     for (j, seed) in enumerate(SEEDS)
         (j - 1) % NTASK == TASK || continue
-        for drain in (:clamped, :smoothed)
-            println("$(now()) agree seed $seed $drain"); flush(stdout)
-            agree_run(io, seed, drain)
-        end
+        println("$(now()) agree seed $seed"); flush(stdout)
+        ref = agree_run(io, seed, :clamped)
+        agree_run(io, seed, :smoothed; reference = ref)
+        agree_run(io, seed, :control; reference = ref)
     end
 end
 
