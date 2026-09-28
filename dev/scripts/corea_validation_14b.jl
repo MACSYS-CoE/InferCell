@@ -11,7 +11,7 @@
 #   SECTION=band    14.2  check 1b's Langevin ensemble. An array: task TASK of
 #                         NTASK runs its share of the trajectories and writes
 #                         them raw; SECTION=merge-band reads them all.
-#   SECTION=check8  14.8  check 8 on the frozen variant, with its mutation.
+#   SECTION=check8  14.8  check 8 on the frozen variant: sums, derivatives, mutations.
 #   SECTION=check6  14.9  check 6 and task 9.9's rerun on the assembled model.
 #   SECTION=f5      14b.5 the two external comparisons, over F5_SEEDS cycles.
 #
@@ -313,10 +313,32 @@ elseif SECTION == "check8"
     catch e
         sprint(showerror, e)
     end
-    p(@sprintf("**The mutation.** Without `k_chg`'s multiplier the worst concentration sum is %.3g and the worst flux sum is %.3g from 1. The check reports: %s",
+    p(@sprintf("**Coverage.** Without `k_chg`'s multiplier the worst concentration sum is %.3g and the worst flux sum is %.3g from 1. The check reports: %s",
                maximum(abs, mut.ccc_sum), maximum(abs.(mut.fcc_sum[live] .- 1)), msg))
-    serialize(joinpath(OUTDIR, "check8.jls"), (ccc = dev.ccc, fcc = dev.fcc,
-              mut_ccc = maximum(abs, mut.ccc_sum), mut_fcc = maximum(abs.(mut.fcc_sum[live] .- 1)), msg = msg))
+    p()
+    p("The sums hold for any derivative once the multipliers cover every reaction (see `ControlProblem`), ",
+      "so they test the steady state and that coverage, not the coefficients.")
+    p()
+    td = @elapsed der = assert_derivatives(cq, ss, cc)
+    p(@sprintf("**Derivatives.** Every coefficient column against central differences of steady states re-solved at ln α = ±1e-4, all %d multipliers, in %.1f s: worst concentration coefficient differs by %.2e, worst flux coefficient by %.2e. Tolerance 1e-5.",
+               length(cc.multipliers), td, der.ccc, der.fcc))
+    # The mutation the sums cannot see: two columns swapped keep every row sum.
+    j1, j2 = findfirst(==(:R_PYK), cc.multipliers), findfirst(==(:R_LDH_L), cc.multipliers)
+    perm = collect(eachindex(cc.multipliers)); perm[j1], perm[j2] = j2, j1
+    sw = merge(cc, (ccc = cc.ccc[:, perm], fcc = cc.fcc[:, perm]))
+    sw = merge(sw, (ccc_sum = vec(sum(sw.ccc; dims = 2)), fcc_sum = vec(sum(sw.fcc; dims = 2))))
+    swdev = assert_summation(sw)
+    swmsg = try
+        assert_derivatives(cq, ss, sw, [:R_PYK]); "passed (it should not)"
+    catch e
+        sprint(showerror, e)
+    end
+    p()
+    p(@sprintf("**The mutation.** `R_PYK`'s and `R_LDH_L`'s columns swapped: the sums still hold (%.2e, %.2e) and the derivative check reports: %s",
+               swdev.ccc, swdev.fcc, swmsg))
+    serialize(joinpath(OUTDIR, "check8.jls"), (ccc = dev.ccc, fcc = dev.fcc, der_ccc = der.ccc, der_fcc = der.fcc,
+              mut_ccc = maximum(abs, mut.ccc_sum), mut_fcc = maximum(abs.(mut.fcc_sum[live] .- 1)), msg = msg,
+              swmsg = swmsg))
     save("check8")
 
 # ===========================================================================
@@ -522,7 +544,9 @@ elseif SECTION == "report"
     println(io, "| 7 | tRNA pool at 0.05 mM, a fifth of the asserted | translation's counter clips (asserted in `test/test_corea_validation_14b.jl`, 600 handshakes) | `tRNA_translat` |")
     if isfile(joinpath(OUTDIR, "check8.jls"))
         c = deserialize(joinpath(OUTDIR, "check8.jls"))
-        println(io, @sprintf("| 8 | `k_chg`'s multiplier omitted | worst concentration sum %.3g, worst flux sum %.3g from 1, against 1e-6 | %s |",
+        println(io, "| 8 | `R_PYK`'s and `R_LDH_L`'s coefficient columns swapped | the summation sums still hold; the re-solved derivatives do not | ",
+                replace(c.swmsg, "|" => "/"), " |")
+        println(io, @sprintf("| 8 (coverage) | `k_chg`'s multiplier omitted | worst concentration sum %.3g, worst flux sum %.3g from 1, against 1e-6 | %s |",
                              c.mut_ccc, c.mut_fcc, replace(c.msg, "|" => "/")))
     end
     write(joinpath(@__DIR__, "corea_validation_14b_result.md"), take!(io))

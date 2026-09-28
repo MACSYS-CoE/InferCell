@@ -50,8 +50,29 @@ const B_SHORT = 600
         @test dev.ccc <= 1e-6
         @test dev.fcc <= 1e-6
 
-        # The mutation spec §3 names: without k_chg's multiplier the identities
-        # fail, and the check names the quantity.
+        # The sums hold for any derivative once the multipliers cover every
+        # reaction, so the derivatives are checked on their own, against steady
+        # states re-solved at perturbed multipliers.
+        der = assert_derivatives(cq, ss, cc, [:R_PYK, :R_charging, :R_ADK1])
+        @test der.ccc <= 1e-5
+        @test der.fcc <= 1e-5
+        # The mutation the sums cannot see: two columns swapped keep every row
+        # sum, and only the derivative check fails.
+        j1, j2 = findfirst(==(:R_PYK), cc.multipliers), findfirst(==(:R_LDH_L), cc.multipliers)
+        perm = collect(eachindex(cc.multipliers)); perm[j1], perm[j2] = j2, j1
+        sw = merge(cc, (ccc = cc.ccc[:, perm], fcc = cc.fcc[:, perm]))
+        sw = merge(sw, (ccc_sum = vec(sum(sw.ccc; dims = 2)), fcc_sum = vec(sum(sw.fcc; dims = 2))))
+        @test assert_summation(sw).ccc <= 1e-6
+        err = try
+            assert_derivatives(cq, ss, sw, [:R_PYK]); nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("by re-solving", err.msg)
+
+        # Coverage, the mutation spec §3 names: without k_chg's multiplier the
+        # identities fail, and the check names the quantity.
         mut = omit_multiplier(cc, :R_charging)
         err = try
             assert_summation(mut); nothing

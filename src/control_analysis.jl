@@ -1,4 +1,19 @@
 """
+    ControlProblem(f, u0, p, names; held = Symbol[], multipliers)
+
+One steady-state control analysis:
+- `f(u, p)` is the composed right-hand side, with `u` a static vector;
+- `u0` is the starting state, and the reference for every conserved total;
+- `p` is the parameter vector;
+- `names` are the state names in `f`'s layout;
+- `held` are states fixed at their `u0` value and excluded from the solve.
+  These are boundary species, such as external lactate, or accumulators that
+  have no steady state;
+- `multipliers` is a vector of `name => slots`: the slots of `p` scaled
+  together to scale one reaction.
+
+# Method
+
 Metabolic control analysis on a composed ODE right-hand side (spec §3 check 8,
 §11 task 14.8; reused by task 15.5 for output F2).
 
@@ -33,21 +48,13 @@ restated and nothing can drift from what the model integrates:
   fixed `x` is `Jₖ·δₖⱼ`, and a constant multiple has the same log-derivative,
   so `∂ln Jₖ/∂ln α = δ + (∂ln Jₖ/∂x)·dx/dln α` is the flux control
   coefficient exactly, with no nested differentiation.
-"""
 
-"""
-    ControlProblem(f, u0, p, names; held = Symbol[], multipliers)
-
-One steady-state control analysis:
-- `f(u, p)` is the composed right-hand side, with `u` a static vector;
-- `u0` is the starting state, and the reference for every conserved total;
-- `p` is the parameter vector;
-- `names` are the state names in `f`'s layout;
-- `held` are states fixed at their `u0` value and excluded from the solve.
-  These are boundary species, such as external lactate, or accumulators that
-  have no steady state;
-- `multipliers` is a vector of `name => slots`: the slots of `p` scaled
-  together to scale one reaction.
+**What the summation sums cannot see.** Column `j` of `G` is reaction `j`'s
+channel, so `G·1 = f(x)`, which vanishes at the steady state. The row sums of
+`dx` are then `−A⁻¹[Qᵀf(x); 0] ≈ 0` for *any* nonsingular `A`, and the flux sums
+are `1` for any `∂J/∂x`. They test the steady state and that the multipliers
+cover every reaction, not the derivatives. [`assert_derivatives`](@ref) tests
+the derivatives, against steady states re-solved at perturbed multipliers.
 """
 struct ControlProblem{F}
     f::F
@@ -134,6 +141,19 @@ function conservation_matrices(cp::ControlProblem; rtol::Real = 1e-9)
     return (Q = F.U[:, 1:r], L = permutedims(F.U[:, r+1:end]), rank = r)
 end
 
+# Newton's method on `[Qᵀf(y; a); L(y − x₀)] = 0` from `x`, at multipliers `a`.
+function _newton(cp::ControlProblem, Q, L, x, a; tol::Real, max_iter::Integer)
+    x0 = cp.u0[cp.internal]
+    F(y) = vcat(Q' * _f_int(cp, y, a), L * (y - x0))
+    x = copy(x)
+    for k in 1:max_iter
+        dx = ForwardDiff.jacobian(F, x) \ F(x)
+        x .-= dx
+        maximum(abs, dx) <= tol * max(maximum(abs, x), 1.0) && return x, k
+    end
+    throw(ErrorException("Newton did not converge in $max_iter iterations"))
+end
+
 """
     steady_state(cp; relax = 1e5, h0 = 1e-4, newton_tol = 1e-13, max_steps = 10_000)
         -> NamedTuple
@@ -181,16 +201,7 @@ function steady_state(cp::ControlProblem; relax::Real = 1e5, h0::Real = 1e-4,
                 "The relaxation cannot keep the state non-negative (t = $t)"))
         end
     end
-    F(y) = vcat(Q' * fx(y), L * (y - x0))
-    it = 0
-    for k in 1:max_iter
-        it = k
-        dx = ForwardDiff.jacobian(F, x) \ F(x)
-        x .-= dx
-        maximum(abs, dx) <= newton_tol * max(maximum(abs, x), 1.0) && break
-        k == max_iter && throw(ErrorException(
-            "Newton did not converge in $max_iter iterations; last step $(maximum(abs, dx))"))
-    end
+    x, it = _newton(cp, Q, L, x, a0; tol = newton_tol, max_iter = max_iter)
     G = channel_matrix(cp, x)
     Jx = ForwardDiff.jacobian(fx, x)
     return (x = x, u = collect(_full(cp, x)), residual = maximum(abs, fx(x)),
@@ -278,6 +289,55 @@ function assert_summation(cc; tol::Real = 1e-6)
 end
 
 """
+    assert_derivatives(cp, ss, cc, names = cc.multipliers; h = 1e-4, tol = 1e-5)
+        -> NamedTuple
+
+Check 8's derivative half, which the summation sums cannot supply (see
+[`ControlProblem`](@ref)). For each multiplier in `names`, re-solve the steady
+state at `ln αⱼ = ±h` by Newton from `ss.x`, within the same conserved class,
+and compare the central differences of `ln x` and `ln J` with column `j` of
+`cc.ccc` and `cc.fcc`. Zero-flux rows are skipped. Throws an `ArgumentError`
+naming the worst coefficient if any differs by more than `tol`; returns the
+worst difference of each kind.
+"""
+function assert_derivatives(cp::ControlProblem, ss, cc, names = cc.multipliers;
+                            h::Real = 1e-4, tol::Real = 1e-5)
+    (; Q, L) = ss
+    nm = length(cp.multipliers)
+    snames = cp.names[cp.internal]
+    iz = [findfirst(==(s), snames) for s in cc.ccc_states]
+    sp = [findfirst(==(s), snames) for s in cc.flux_species]
+    live = [k for k in 1:nm if !(cc.multipliers[k] in cc.zero_fluxes)]
+    function logs(a)
+        x, _ = _newton(cp, Q, L, ss.x, a; tol = 1e-14, max_iter = 50)
+        J = map(live) do k
+            b = copy(a); b[k] = -Inf                      # exp(-Inf) = 0
+            (_f_int(cp, x, a) - _f_int(cp, x, b))[sp[k]]
+        end
+        return log.(x[iz]), log.(abs.(J))
+    end
+    wc, wf = 0.0, 0.0
+    for m in names
+        j = findfirst(==(m), cc.multipliers)
+        j === nothing && throw(ArgumentError("no multiplier :$m"))
+        e = zeros(nm); e[j] = h
+        (xp, Jp), (xm, Jm) = logs(e), logs(-e)
+        dc = abs.((xp - xm) / 2h - cc.ccc[:, j])
+        df = abs.((Jp - Jm) / 2h - cc.fcc[live, j])
+        i, k = argmax(dc), argmax(df)
+        dc[i] <= tol || throw(ArgumentError(
+            "Check 8 fails: ∂ln $(cc.ccc_states[i])/∂ln $m is $(cc.ccc[i, j]) by the implicit " *
+            "function theorem but $((xp[i] - xm[i]) / 2h) by re-solving (tolerance $tol)"))
+        df[k] <= tol || throw(ArgumentError(
+            "Check 8 fails: the :$(cc.multipliers[live[k]]) flux's coefficient on :$m is " *
+            "$(cc.fcc[live[k], j]) by the implicit function theorem but " *
+            "$((Jp[k] - Jm[k]) / 2h) by re-solving (tolerance $tol)"))
+        wc, wf = max(wc, dc[i]), max(wf, df[k])
+    end
+    return (ccc = wc, fcc = wf)
+end
+
+"""
     omit_multiplier(cc, name) -> NamedTuple
 
 `cc` with multiplier `name`'s column removed and the row sums recomputed. The
@@ -315,4 +375,5 @@ function group_coefficients(C::AbstractMatrix, multipliers::AbstractVector{Symbo
 end
 
 export ControlProblem, channel_matrix, conservation_matrices, steady_state,
-       control_coefficients, assert_summation, omit_multiplier, group_coefficients
+       control_coefficients, assert_summation, assert_derivatives, omit_multiplier,
+       group_coefficients
