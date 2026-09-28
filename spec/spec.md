@@ -3795,8 +3795,8 @@ nominal trajectory is reported with task 9.9's comparison rerun; and F3's
 mutation table covers every check.
 **PR:** #72 (open)
 
-**Results (#72, not yet merged):** the suite passes 27,650/27,650 on the
-tree of `3f39175` (Slurm job 17558897). The run of record is
+**Results (#72, not yet merged):** the suite passes 27,655/27,655 at
+`179085b` (Slurm job 17620809), after the review's fixes. The run of record is
 `dev/scripts/corea_validation_14b_result.md`, every section at `ebe9e9d`
 (floor 17559025, band 17559026 and 17559027, check 6 17559266, F5 17559267)
 except check 8, rerun at `179085b` after the review (17620810, report

@@ -22,7 +22,8 @@ The review found four blockers, all now fixed on the branch (§12 2026-09-28):
 - **The 14b Slurm logs went to directories a fresh clone lacks.** They now go
   to `dev/scripts/`, and the intermediate directories are gitignored.
 
-Suite at `179085b`: Slurm job **17620809** (pending when this was written).
+Suite at `179085b`: Slurm job **17620809**, **27,655/27,655** (the five new
+tests are check 8's derivative half). CI's Documentation build passes.
 
 **Not fixed, from the same review (should-fix):**
 - Check 1b reports only excursion, which bounds mean bias, not spread. The
