@@ -6,8 +6,10 @@ phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
-14b, the derivative, ensemble and census checks (#72). Phase 15 is next, once
-what K5 firing means for it is decided (§8 K5)
+14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
+**Approved 2026-09-28 (§12):** phase 14c, the smoothed drain
+and a Haldane-consistent prior, is next. Phase 15's tasks that need neither
+may start alongside it
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-28
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -1505,6 +1507,12 @@ the published model's.
 *If it fires:* the ODE block is not differentiable where it matters,
 gradient-based sampling is invalid as posed, and the smoothed model must be built
 and validated against the clipped one before any posterior is reported.
+**Fired 2026-09-26 (phase 14b), on both halves.** **Approved 2026-09-28
+(§12):** the published-parameter half binds as it stands, and
+phase 14c builds and validates the smoothed model. The prior-draw half is
+rescored on the prior the sampler will explore — D11's targets, drawn
+Haldane-consistently — and the 14b census over every informed constant stays
+recorded as a stress result.
 ~~**This is the criterion most likely to actually fire, and it fires in phase 3,
 which is the good news.**~~ **Amended 2026-09-05:** it is scored on the
 assembled model in phase 14, not on phase 3's toy, whose drain-to-pool ratio is
@@ -1672,6 +1680,19 @@ constraint and it only binds through K1; the coupling gain in itself, per K2; an
   six such solves for barely more than one. Neither measurement touches the
   assembled model, where the cost is ~6,300 hook iterations and an SSA rather
   than one `solve`.
+- **Does the full published model clip as often as Core A′? (Added 2026-09-28,
+  §12.)** The GTP clamp that carries most of 14b's deficits is the published
+  one (`Minimal_Cell/CME_ODE/program/in_out.py:199–214`, beside the ATP branch
+  at 219–234). The upstream repository keeps no run outputs and reports no
+  clips, so its clip rate is unknown. If the full model clips as often, the
+  smoothed drain departs from a clamp the published model also meets. If it
+  rarely clips, the clipping comes from our reduction, most plausibly the GTP
+  supply left after the nucleotide module went from 46 reactions to 5, and T2
+  carries that as a reduction cost. **The cheap proxy** is task 14c.6: our
+  published-parameter census with the GTP branch loosened. **The full answer**
+  is the upstream model run with a counter at those two branches, which needs
+  its Lattice Microbes stack and GPU hours. Neither gates phase 14c, since
+  the smoothed drain is needed whichever way it falls.
 
 ---
 
@@ -3863,6 +3884,63 @@ priors stay at their values, and a slot the driver writes is never drawn.
 Task 9.9's rerun matches the two lumpings on cycle-mean charging flux, since
 a growing cell has no steady state to match at.
 
+### Phase 14c — The smoothed drain and a Haldane-consistent prior
+
+**Approved 2026-09-28 (§12, same date).** K5 fired in 14b on
+both halves. This phase is §8 K5's "if it fires" clause, plus the prior fix
+that phase 15's truth draws need.
+
+**Goal:** make the consumer counters differentiable and show the change is
+small where it matters. Draw kinetic constants so that each reaction keeps its
+published equilibrium constant. Score K5's prior half on the prior the sampler
+will actually explore.
+**Done when:** every draw reproduces its reactions' published equilibrium
+constants; K5's prior half is scored over D11's targets drawn that way, beside
+14b's broad census; every consumer counter is smoothed with a recorded width;
+and the smoothed model agrees with the clipped one on the candidate
+observables, keeps 14a's closures, and has a continuous derivative across a
+clip.
+**PR:** _not started_
+
+- [ ] 14c.1 Draw kinetic constants Haldane-consistently — each reversible
+  reaction's reverse constant is derived from its drawn forward constant and
+  Michaelis constants through its published equilibrium constant, rather than
+  drawn. Verify by every draw reproducing each reaction's published equilibrium
+  constant to roundoff, by a mutation that draws the reverse constant
+  independently failing, and by a draw of D11's `kcat_ENO` or `kcat_FBA` alone
+  scaling that reaction's reverse constant by the same factor.
+- [ ] 14c.2 Rescore K5's prior half over D11's targets — verify by 200 draws of
+  the six from their priors under 14c.1, every other parameter at its published
+  value, scored on T3 beside 14b's result with a Wilson interval, pass or fail.
+- [ ] 14c.3 Rerun 14b's broad census under 14c.1 — verify by the fraction of
+  clipping draws, and of starved draws (a counter clipped at more than half its
+  drains), reported beside 14b's 73.0% and median per-drain fraction of 0.653.
+  This is a diagnostic of how much of 14b's result the independent draws
+  caused. It is recorded, not gated.
+- [ ] 14c.4 Smooth every consumer counter — verify by each consumer
+  `DeferredCounterEdge` declaring `clip = :smoothed` with its width, by the
+  width's choice recorded with its reason, by `reduction_report` carrying the
+  smoothing as ours (T2), and by `obstructs_gradients` reporting no edge.
+- [ ] 14c.5 Validate the smoothed model against the clipped one — verify by the
+  difference in every candidate observable at 60 s, at published parameters on
+  14b's seeds, being reported against a threshold fixed at planning; by 14a's
+  closures holding under smoothing at their own gates, so that smoothing
+  neither creates nor destroys mass; and by a finite-difference derivative in
+  an ODE parameter being continuous across a clip event that the clipped
+  model's derivative jumps at (the complement of task 16.3).
+- [ ] 14c.6 Bound how much of the published-parameter clipping is our
+  reduction's — verify by 14b's published-parameter census rerun with the GTP
+  supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
+  after the handshake fills their enzyme slots from live counts), reporting whether and at what scale the `GTP_translat` clips vanish. It is
+  the cheap proxy for the §9 question on the full published model, and it is
+  recorded, not gated.
+
+**Phase 15 may start alongside 14c.** Tasks 15.1, 15.3, 15.4, 15.6 and 15.9
+need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
+check 8's frozen steady state, whose demands are forcing terms and not
+counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
+15.8 wait for 14c.5.
+
 ### Phase 15 — Observables and synthetic data
 
 **Goal:** choose what to condition on, generate synthetic data at known
@@ -3880,6 +3958,8 @@ observable that closes the proxy loop is rejected by a check.
 - [ ] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
   calibration run refusing a truth set to the nominal published values, and by a
   fixed-truth-at-nominal run being permitted only when labelled a smoke test.
+  **Annotated 2026-09-28 (§12):** truths are drawn under 14c.1's
+  Haldane-consistent rule.
 - [ ] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
   per-species counts, per-reaction fluxes and volume at the published cadence, and
   by transcripts carried as a replicates-by-genes-by-times array of counts rather
@@ -3904,6 +3984,8 @@ observable that closes the proxy loop is rejected by a check.
   `check_identifiability` reporting full rank and a condition number below 1e6
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
+  **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
+  smoothed model, since at a clip the clipped model's has no value.
 - [ ] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
@@ -3938,6 +4020,9 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   discontinuous derivative in an ODE parameter, so the gradient-based step meets
   K5 inside the conditional scheme exactly as it does outside it, and by check 7's
   census being the thing consulted rather than an assumption.
+  **Annotated 2026-09-28 (§12):** K5 fired, so the test stands as
+  written for the clipped model and is paired with 14c.5's continuity test on
+  the smoothed one. The gradient step samples the smoothed model.
 - [ ] 16.4 Recover the tight-prior control alone — verify by the posterior
   concentrating on truth well inside its prior, by a deliberate perturbation of
   the truth moving the posterior with it, and by shrinkage below 0.9. **If the
@@ -4023,6 +4108,75 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-28 — K5 fired: phase 14c smooths the drain, and the prior is drawn Haldane-consistently
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** 14b's check 7 (`dev/scripts/corea_census_result.md`, `7e3c1c9`).
+K5 fires on both halves.
+- **At published parameters,** 10 of 10 seeds carry a deficit, at 0.33% to
+  4.0% of drains, almost all on `GTP_translat`.
+- **Across prior draws,** 146 of 200 clip (73.0%, Wilson 95% 66.5 to 78.7%).
+
+**What the evidence says beyond the verdict:**
+- **The GTP clamp is inherited.** The published model's hook has the same
+  branch for GTP as for ATP (`Minimal_Cell/CME_ODE/program/in_out.py:199–214`
+  and 219–234): the pool floors at zero and the shortfall is carried. The
+  upstream repository has no run outputs and reports no clips, so whether the
+  full model clips as often as Core A′ is unknown. Our reduction left only
+  PGK3 and PYK3 producing GTP, and phase 11 saw GTP sit at zero from 44 s
+  until task 13.10's credits, so part of the rate may be ours.
+- **The prior-draw half mostly measures starved cells, not a kink.** Over
+  completed draws the median per-drain clipping fraction is 0.653. In the 102
+  draws where `GTP_translat` clips, it clips at a median of 5,824 of 6,300
+  drains. A pool that sits at zero for most of the cycle is not near the
+  kink, it is past it.
+- **The census drew more than the sampler will.** By 2026-09-26 D it varied
+  every informed ODE-block kinetic constant, forward and reverse constants
+  independently. That breaks each reaction's Haldane relation, moving the
+  equilibrium constant by ×5 to 40 at 1σ (the review of #72). D11 frees two
+  ODE constants, `kcat_ENO` and `kcat_FBA`, and D8 draws phase 15's truths
+  from the prior, so the same break reaches the truths unless it is fixed.
+  The broad draw was the approved stress test and is kept as one.
+
+**Change (approved 2026-09-28):**
+
+**A — the published-parameter half binds, so the drain is smoothed.** A new
+phase 14c smooths every consumer counter (`clip = :smoothed`, with a recorded
+width, labelled ours in T2) and validates the smoothed model against the
+clipped one before any posterior, as §8 K5 requires. The synthetic data of
+task 15.7 is generated by the clipped model, which is the published mechanism.
+The smoothed model is what the sampler differentiates. The gap between the two
+is then part of what phase 16's coverage measures, not something assumed away.
+
+**B — the prior-draw half is rescored over D11's targets.** K5 asks whether
+gradient-based sampling is valid over the region the sampler explores, and
+that region is D11's six parameters with the rest fixed. Task 14c.2 scores it,
+and 14b's broad result stays on T3 beside it. **The threshold is unchanged.**
+If the rescored fraction also exceeds 5%, that confirms A rather than changing
+it.
+
+**C — draws keep each reaction's equilibrium constant.** A reversible
+reaction's reverse constant is derived from its drawn forward constant and
+Michaelis constants through its published equilibrium constant. For D11's two
+ODE targets, with the Michaelis constants fixed, this scales the reverse
+constant with the forward one. Task 14c.3 reruns the broad census under the
+rule, to measure how much of the 73.0% the independent draws caused.
+
+**D — phase 15 does not wait for all of 14c.** Tasks 15.1, 15.3, 15.4, 15.5,
+15.6 and 15.9 may start alongside it. Task 15.2 waits for 14c.1, and tasks
+15.7 and 15.8 wait for 14c.5.
+
+**E — whether the full published model clips this often is an open question**
+(§9). Task 14c.6 is its cheap proxy: the published-parameter census with the
+GTP branch loosened. It gates nothing, since A holds either way.
+
+**Not decided here:** the smoothing width, and 14c.5's agreement threshold.
+Both are fixed at 14c's planning.
+
+*Sections:* status line, §8 K5, §9, §11 phase 14c (new), tasks 15.2, 15.8
+and 16.3 (annotated).
 
 ### 2026-09-28 — review of #72: check 8's sums cannot see the derivatives, and check 1b's partition has no known direction
 
