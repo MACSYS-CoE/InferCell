@@ -336,7 +336,10 @@ pool at zero and carries the shortfall to the next handshake.
 
 `deficit` is the carried shortfall, in particles, and is the interface's
 `max(0, ·)` in its stateful form — the quantity check 7's census counts and the
-one [`obstructs_gradients`](@ref) is about.
+one [`obstructs_gradients`](@ref) is about. `clipped` records whether the last
+drain carried one, judged as the census judges it: against the accrued cost, not
+against zero, since a smoothed drain leaves a residue at every step (spec §11
+task 14c.4).
 
 `pool_idx` is `0` for a **registry chemostat**, which no module may integrate
 and so has no slot (spec §11 task 13.9). A chemostat holds its concentration
@@ -353,6 +356,7 @@ mutable struct DeferredDebit
     clip::Symbol
     smoothing::Union{Float64, Nothing}
     deficit::Float64
+    clipped::Bool         # whether the last drain carried a deficit, by check 7's predicate
     exchanged::Float64    # particles a chemostat has absorbed or supplied; 0 otherwise
     species::Symbol
     counter::Symbol
@@ -897,7 +901,8 @@ function _lower_exchanges(models, ode_models, jump_models, ode_contexts)
             push!(debits, DeferredDebit(counter_idx,
                                         pool_idx, mass_contribution(e),
                                         e.stoichiometry, e.clip,
-                                        e.smoothing, 0.0, 0.0, e.species, e.counter, id))
+                                        e.smoothing, 0.0, false, 0.0, e.species, e.counter,
+                                        id))
         end
     end
 
@@ -1838,7 +1843,8 @@ function handshake_step!(d::HandshakeDriver)
                 # and `:smoothed` is exactly the policy adopted to escape the
                 # clamped counter's gradient obstruction, so the census that scores
                 # K5 would be uninformative precisely where it is needed.
-                b.deficit > _CLIP_ATOL * max(accrued, 1.0) && (clipped = true)
+                b.clipped = b.deficit > _CLIP_ATOL * max(accrued, 1.0)
+                b.clipped && (clipped = true)
                 _write_pool!(d, b.pool_idx, pool - paid)
             end
 

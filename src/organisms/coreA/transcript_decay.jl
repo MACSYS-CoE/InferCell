@@ -69,14 +69,15 @@ const DECAY_COUNTERS = (
 )
 
 """
-    CoreATranscriptDecay(; genes, counters, clip, edges, written)
+    CoreATranscriptDecay(; genes, counters, clip, smoothing, edges, written)
 
 Seventeen decay jumps, `mRNA_g → n_g·ATP_mRNAdeg + #A·AMP + #G·GMP + #C·CMP +
 #U·UMP`, at propensity `krnadeg / n_g · mRNA_g`.
 
 `genes` defaults to the phase 10 extract, so the two modules cannot disagree on
 a base count. `written` is overridable so a test can remove the declaration and
-watch the refusal it guards; `edges` and `clip` mirror transcription's
+watch the refusal it guards; `edges`, `clip` and `smoothing` mirror
+transcription's
 constructor.
 
 `counters` may be any subset of [`DECAY_COUNTERS`](@ref), and each entry must
@@ -94,6 +95,7 @@ end
 function CoreATranscriptDecay(; genes = read_transcription_genes(),
                               counters = DECAY_COUNTERS,
                               clip = :clamped_deficit_carried,
+                              smoothing = nothing,
                               edges = nothing,
                               written = nothing)
     genes = collect(TranscriptionGene, genes)
@@ -131,10 +133,12 @@ function CoreATranscriptDecay(; genes = read_transcription_genes(),
     default = CouplingEdge[]
     for c in counters
         push!(default, DeferredCounterEdge(species = c.species, direction = c.direction,
-                                           counter = c.counter, clip = clip))
+                                           counter = c.counter, clip = clip,
+                                           smoothing = smoothing))
         for p in c.produces
             push!(default, DeferredCounterEdge(species = p, direction = :out,
-                                               counter = c.counter, clip = clip))
+                                               counter = c.counter, clip = clip,
+                                               smoothing = smoothing))
         end
     end
 

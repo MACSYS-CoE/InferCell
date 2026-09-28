@@ -456,6 +456,28 @@ _exact_mM(n) = n / _F
         @test wide.ode.u[1] > 0
         @test wide.debits[1].deficit > 150.0
         @test wide.n_clipped == 1
+
+        # The debit carries the census's verdict, so a reader of the debits
+        # agrees with it (spec §11 task 14c.4). Twenty particles of headroom at
+        # one-particle width leave a residue of about 2e-9: positive, and far
+        # below the census's tolerance. A recorder testing `deficit > 0` would
+        # score it as a clip; one reading the flag does not.
+        near = build_problem([ToyPool(kcat = 0.0, atp0 = _exact_mM(120)),
+                              ToyExpression(k_tx = 0.0, k_tl = 0.0,
+                                  edges = [DeferredCounterEdge(species = :M_atp_c,
+                                      direction = :in, counter = :atp_cost,
+                                      clip = :smoothed, smoothing = 1.0)])];
+                             tspan = (0.0, 10.0))
+        rec = ClipRecord(near)
+        near.jump.u[near.counters[1].counter_idx] = 100
+        handshake_step!(near)
+        record_clips!(rec, near)
+        @test 0 < near.debits[1].deficit < 1e-6
+        @test !near.debits[1].clipped
+        @test near.n_clipped == 0
+        @test isempty(clip_summary(rec))
+        @test narrow.debits[1].clipped && wide.debits[1].clipped
+        @test !deep.debits[1].clipped && !u.debits[1].clipped
     end
 
     @testset "3.5 the clamped counter is reported as a gradient obstruction" begin

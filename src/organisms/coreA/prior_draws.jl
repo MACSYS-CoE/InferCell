@@ -241,13 +241,14 @@ const D11_TARGETS = [promoter_param(:JCVISYN3A_0607), promoter_param(:JCVISYN3A_
                      :kcatF_R_ENO, :kcatF_R_FBA]
 
 """
-    d11_models() -> Vector{AbstractSubModel}
+    d11_models(; smoothing = nothing) -> Vector{AbstractSubModel}
 
 The assembled composition with D11's two ODE targets freed, and the reverse
 constants their draws derive. The four stochastic targets are free already.
+`smoothing` is [`corea_models`](@ref)'s.
 """
-function d11_models()
-    ms = corea_models()
+function d11_models(; smoothing::Union{Nothing, Real} = nothing)
+    ms = corea_models(; smoothing)
     ms[1] = CentralGlycolysis(enzymes = :translated,
                               free = [:kcatF_R_ENO, :kcatR_R_ENO, :kcatF_R_FBA, :kcatR_R_FBA])
     return ms

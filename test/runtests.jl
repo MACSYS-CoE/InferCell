@@ -109,6 +109,7 @@ using Aqua
     include("test_corea_validation_14b.jl")
     # Phase 14c: Haldane-consistent prior draws and the driver's parameter writes.
     include("test_corea_prior_draws.jl")
+    include("test_corea_smoothed_drain.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
