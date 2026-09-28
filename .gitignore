@@ -13,6 +13,11 @@
 *.log
 core.*
 
+# Phase 14b's per-task and per-section intermediates; the result .md files
+# they are merged into are tracked
+/dev/scripts/census/
+/dev/scripts/validation_14b/
+
 # LaTeX build artifacts (talks/)
 *.aux
 *.fdb_latexmk

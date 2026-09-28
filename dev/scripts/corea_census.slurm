@@ -6,7 +6,7 @@
 #SBATCH --mem=8G
 #SBATCH --time=04:00:00
 #SBATCH --array=0-19
-#SBATCH --output=dev/scripts/census/corea_census_%A_%a.log
+#SBATCH --output=dev/scripts/corea_census_%A_%a.log
 
 # Check 7's census (spec §11 task 14.8): 10 published seeds and 201 draws over
 # 20 tasks, about 11 cycles each. Merge afterwards with

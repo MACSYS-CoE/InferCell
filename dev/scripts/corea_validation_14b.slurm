@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=8G
 #SBATCH --time=04:00:00
-#SBATCH --output=dev/scripts/validation_14b/corea_14b_%x_%A_%a.log
+#SBATCH --output=dev/scripts/corea_14b_%x_%A_%a.log
 
 # Phase 14b's full-scale checks (spec §11). One section per job; pass it with
 # --export, since a bare VAR=1 before sbatch does not reach the job:
