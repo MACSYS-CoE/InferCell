@@ -14,8 +14,8 @@ constant is derived from the others through the equilibrium constant, so a draw
 changes rates and never where a reaction settles.
 
 **The equilibrium constant kept is the one the nominal Mode values imply**, not
-upstream's `equilibrium constant` rows, which disagree with the Modes on 7 of the
-15 reactions, by up to 1.6e4 on TPI (§12, 2026-09-28, phase 14c planning A).
+upstream's `equilibrium constant` rows, which disagree with the Modes by more
+than 1% on 9 of the 15 reactions, by up to 1.6e4 on TPI (§12, 2026-09-28, phase 14c planning A).
 Keeping the Mode-implied constant is what keeps the nominal draw the published
 model.
 """

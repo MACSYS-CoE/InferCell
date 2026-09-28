@@ -3904,8 +3904,8 @@ clip.
 
 **Decided at planning, 2026-09-28 (§12, same date):** "the published
 equilibrium constant" is the one the nominal Mode values imply, which
-upstream's own equilibrium-constant rows contradict on 7 of 15 reactions. The
-smoothing width is one particle. 14c.5's threshold is D10's one percent, with
+upstream's own equilibrium-constant rows contradict by more than 1% on 9 of 15
+reactions. The smoothing width is one particle. 14c.5's threshold is D10's one percent, with
 the difference taken relative to the larger of the clipped value and 500
 particles.
 
@@ -4127,8 +4127,8 @@ published equilibrium constant" names two different numbers.
 **A — the equilibrium constant a draw keeps is the one the nominal Mode
 values imply.** Upstream's balanced tables carry an `equilibrium constant`
 row per reaction. The Haldane quotient of the Mode values Core A′ runs,
-`kcatF/kcatR · Π KmP^n / Π KmS^n`, disagrees with that row on 7 of the 15
-reversible modular reactions (Mode quotient over the row):
+`kcatF/kcatR · Π KmP^n / Π KmS^n`, disagrees with that row by more than 1%
+on 9 of the 15 reversible modular reactions (Mode quotient over the row):
 
 | Factor | Reactions |
 |---|---|
@@ -4138,15 +4138,22 @@ reversible modular reactions (Mode quotient over the row):
 | 427× and 1.6e4× | PGK 427, TPI 1.57e4 |
 
 The row agrees with the unconstrained geometric means instead. TPI's is
-759.6/65,341.7 · 0.1028/1.0352 = 0.00115, against the row's 0.0012. D1's
-reverse constants whose Mode is not their unconstrained geometric mean are
-exactly where the two readings part. So the published simulator, which reads
+759.6/65,341.7 · 0.1028/1.0352 = 0.00115, against the row's 0.0012. The
+Mode column departs from the unconstrained geometric mean on 13 catalytic
+constants (D1's ten central ones and three in the nucleotide file) and on
+three nucleotide-file Michaelis constants, and the nine reactions that
+disagree are exactly the nine that carry such a departure. PFK's forward
+constant, off by 0.7%, is the tenth reaction touched, and it stays within 1%.
+So the published simulator, which reads
 `Mode`, runs reactions whose equilibrium constants are not the ones its own
 balancing reports. **Change:** 14c.1 keeps the Mode-implied constant. Draw 0
 then stays the published model, and 14a's and 14b's baselines stand. Taking
 the row would change the nominal model's reverse constants by up to 1.6e4 and
-re-baseline every check. The disagreement is recorded here and in T2. It is
-not corrected.
+re-baseline every check. The disagreement is recorded here and in
+`prior_draws.jl`, where the rule is defined. It is not corrected, and it is not
+a T2 row: the model runs the Modes as the published simulator does. What is
+ours is the rule that truth draws keep the Mode-implied constant, and T2 gains
+that row when task 15.2 draws the first truths with it.
 
 **B — the smoothing width is one particle on every consumer counter.** Under
 `:smoothed` the pool after a debit is `w·softplus((pool − accrued)/w)`, which
@@ -4169,8 +4176,7 @@ description of a pool, so a relative difference there measures bookkeeping.
 Transcripts are counts, so their floor is one copy rather than 500
 particles. Otherwise their gate is the same.
 
-*Sections:* §11 phase 14c (the two decisions recorded in its block), §6 T2
-(the smoothed counter and the equilibrium-constant disagreement are rows).
+*Sections:* §11 phase 14c (the decisions recorded in its block).
 
 ### 2026-09-28 — K5 fired: phase 14c smooths the drain, and the prior is drawn Haldane-consistently
 
