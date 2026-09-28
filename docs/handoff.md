@@ -45,7 +45,7 @@ GiB left in use). Worktrees under `.worktrees/` (`census14c`, `smooth14c7`,
 `smooth14c8`, `suite14c2`) hold the Slurm runs of record and can go once the
 PR merges.
 
-Next: the suite at the branch head, the PR, /check-PR, merge. Then phase 15,
+Suite: 28,286/28,286 at `b377dde` (Slurm job 17625447). Next: the PR, /check-PR, merge. Then phase 15,
 whose tasks 15.2 (truths drawn with `draw_parameters`), 15.7 and 15.8 were
 waiting on 14c.
 

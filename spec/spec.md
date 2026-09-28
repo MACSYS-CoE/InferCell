@@ -3914,7 +3914,9 @@ derivative is of the ODE state the next interval integrates from.
 **Results (branch `phase-14c-smoothed-drain`).** The census is
 `dev/scripts/corea_census_14c_result.md` (jobs 17623900 to 17623902, at
 `946bfaa`), and the smoothing runs are `dev/scripts/corea_smoothing_14c_result.md`
-(job 17625498, at `b377dde`).
+(job 17625498, at `b377dde`). The suite passes 28,286/28,286 at `b377dde`
+(Slurm job 17625447), and no later commit on the branch touches `src` or
+`test`.
 - **14c.1.** Over 200 broad draws the worst Haldane residual is 0.125 of its
   `4n·eps` bound. Drawing reverse constants independently fails, naming
   `R_PGI`. A forward constant drawn alone scales its reverse constant by the
