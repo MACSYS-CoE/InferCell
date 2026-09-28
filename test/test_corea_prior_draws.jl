@@ -59,7 +59,7 @@ end
         rels = haldane_relations(AbstractSubModel[gly, rec])
         @test length(rels) == 15
         @test [r.reaction for r in rels] ==
-              vcat([r.id for r in GLYCOLYTIC_REACTIONS], RECYCLING_REACTIONS)
+              vcat([r.id for r in GLYCOLYTIC_REACTIONS], collect(RECYCLING_REACTIONS))
         # Setting the mass-action ratio to the relation's constant zeroes the
         # flux: the relation is the rate law's, not a transcription of it.
         for rel in haldane_relations(gly)
