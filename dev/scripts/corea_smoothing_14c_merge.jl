@@ -126,6 +126,28 @@ for (v, title) in ((:smoothed, "The sampler model"), (:control, "The control"))
         p(@sprintf("| `%s` | %.3g%% | %.2g%% | %.3g%% | %s |", x.o, 100x.mean, 100x.se, 100x.maxabs, verdict))
     end
     p()
+    # A diagnostic beside the gate, not part of it. The gate's per-seed ratio is
+    # asymmetric once a pair decouples: a pool the published run holds at its
+    # floor can come out several hundred percent high in the other run, but never
+    # below −100%, so decoupled noise averages positive. The difference of the
+    # ensemble means, over the published mean floored, has no such skew.
+    sym = NamedTuple[]
+    for o in obs
+        a = [vals[(s, :clamped, tend, o)] for s in seeds]
+        d = [vals[(s, v, tend, o)] for s in seeds] .- a
+        den = max(abs(mean(a)), floor_of(o))
+        den == 0 && (den = 1.0)
+        m, se = mean(d) / den, std(d) / sqrt(length(d)) / den
+        push!(sym, (o = o, mean = m, se = se, z = se > 0 ? abs(m) / se : 0.0))
+    end
+    top = sort(sym; by = x -> -x.z)
+    p("*Diagnostic, not the gate:* the difference of the ensemble means at t = $tend s, over ",
+      "max(|published mean|, floor), which is not skewed by the gate's per-seed ratio. ",
+      @sprintf("The largest |z| over %d observables is %.2f (`%s`, %.3g%% ± %.2g%%); ",
+               length(obs), top[1].z, top[1].o, 100top[1].mean, 100top[1].se),
+      "$(count(x -> x.z > 3, sym)) exceed 3, and $(count(x -> x.se <= THRESHOLD && abs(x.mean) > THRESHOLD, sym)) ",
+      "of the $(count(x -> x.se <= THRESHOLD, sym)) with SE within 1% move by more than 1%.")
+    p()
     verdicts[v] = (coupled = cpass, failing = length(failing), unresolved = length(unresolved),
                    decoupled = length(dec))
 end
