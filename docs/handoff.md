@@ -1,7 +1,8 @@
 # Handoff
 
 **Session date:** 2026-09-28
-**Branches:** `phase-14b-derivative-checks` (PR #72, open)
+**Branches:** `phase-14b-derivative-checks` (PR #72, merged 2026-09-28),
+`spec-phase-14b-landed` (records it in the spec)
 
 ## Latest: `/check-PR` on #72, and its blockers fixed (2026-09-28)
 
@@ -38,6 +39,13 @@ tests are check 8's derivative half). CI's Documentation build passes.
   tolerance. Under `:smoothed` that reports every drain.
 - `replay` hard-codes a 1 s step, merge-band has no provenance check, and
   `total_response` is unused.
+
+Next: decide what K5 firing means for phases 15 to 17 before starting 15
+(§8 K5 wants the smoothed model built and validated against the clipped one).
+Settle the prior's Haldane problem at the same time, since D8 draws phase 15's
+truths from it. Housekeeping: `scancel 17549507` (the dead merge-band), and
+the scratchpad worktrees (`wt14b*`, `pr72`, `landed`) and `.worktrees/phase-6`
+and `phase-7` can go.
 
 ## Earlier: phase 14b, the derivative, ensemble and census checks (2026-09-26)
 

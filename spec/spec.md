@@ -5,9 +5,10 @@ phase 6 (#50), phase 7 (#49), phase 8 (#52), phase 9 (#59), phase 10 (#51),
 phase 10b (#57), phase 11a (#62), phase 11 (#64) and phase 12 (#60); the
 fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
-is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and 14b,
-the derivative, ensemble and census checks, is next
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-26
+is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
+14b, the derivative, ensemble and census checks (#72). Phase 15 is next, once
+what K5 firing means for it is decided (§8 K5)
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-28
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -3793,10 +3794,14 @@ coefficients match re-solved steady states within 1e-5 (amended 2026-09-28,
 §12); check 6's
 nominal trajectory is reported with task 9.9's comparison rerun; and F3's
 mutation table covers every check.
-**PR:** #72 (open)
+**PR:** #72 (merged 2026-09-28)
 
-**Results (#72, not yet merged):** the suite passes 27,655/27,655 at
-`179085b` (Slurm job 17620809), after the review's fixes. The run of record is
+**Done (#72):** the suite passes 27,655/27,655 at `179085b` (Slurm job
+17620809), after the review's fixes, and CI's unit tests and documentation
+build pass at `ae51689`, which touched only prose. /check-PR: DO NOT MERGE as
+first reviewed (the docs build failed; 3 major, about 16 minor). The four
+blockers were fixed (§12 2026-09-28); the should-fix items left open are listed
+in `docs/handoff.md`. The run of record is
 `dev/scripts/corea_validation_14b_result.md`, every section at `ebe9e9d`
 (floor 17559025, band 17559026 and 17559027, check 6 17559266, F5 17559267)
 except check 8, rerun at `179085b` after the review (17620810, report
