@@ -7,7 +7,7 @@ fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
-**Proposed 2026-09-28, pending approval (§12):** phase 14c, the smoothed drain
+**Approved 2026-09-28 (§12):** phase 14c, the smoothed drain
 and a Haldane-consistent prior, is next. Phase 15's tasks that need neither
 may start alongside it
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-28
@@ -1507,8 +1507,8 @@ the published model's.
 *If it fires:* the ODE block is not differentiable where it matters,
 gradient-based sampling is invalid as posed, and the smoothed model must be built
 and validated against the clipped one before any posterior is reported.
-**Fired 2026-09-26 (phase 14b), on both halves.** **Proposed 2026-09-28,
-pending approval (§12):** the published-parameter half binds as it stands, and
+**Fired 2026-09-26 (phase 14b), on both halves.** **Approved 2026-09-28
+(§12):** the published-parameter half binds as it stands, and
 phase 14c builds and validates the smoothed model. The prior-draw half is
 rescored on the prior the sampler will explore — D11's targets, drawn
 Haldane-consistently — and the 14b census over every informed constant stays
@@ -3886,7 +3886,7 @@ a growing cell has no steady state to match at.
 
 ### Phase 14c — The smoothed drain and a Haldane-consistent prior
 
-**Proposed 2026-09-28, pending approval (§12, same date).** K5 fired in 14b on
+**Approved 2026-09-28 (§12, same date).** K5 fired in 14b on
 both halves. This phase is §8 K5's "if it fires" clause, plus the prior fix
 that phase 15's truth draws need.
 
@@ -3958,7 +3958,7 @@ observable that closes the proxy loop is rejected by a check.
 - [ ] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
   calibration run refusing a truth set to the nominal published values, and by a
   fixed-truth-at-nominal run being permitted only when labelled a smoke test.
-  **Annotated 2026-09-28 (proposed, §12):** truths are drawn under 14c.1's
+  **Annotated 2026-09-28 (§12):** truths are drawn under 14c.1's
   Haldane-consistent rule.
 - [ ] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
   per-species counts, per-reaction fluxes and volume at the published cadence, and
@@ -3984,7 +3984,7 @@ observable that closes the proxy loop is rejected by a check.
   `check_identifiability` reporting full rank and a condition number below 1e6
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
-  **Annotated 2026-09-28 (proposed, §12):** the Jacobian is taken on 14c's
+  **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
   smoothed model, since at a clip the clipped model's has no value.
 - [ ] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
@@ -4020,7 +4020,7 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   discontinuous derivative in an ODE parameter, so the gradient-based step meets
   K5 inside the conditional scheme exactly as it does outside it, and by check 7's
   census being the thing consulted rather than an assumption.
-  **Annotated 2026-09-28 (proposed, §12):** K5 fired, so the test stands as
+  **Annotated 2026-09-28 (§12):** K5 fired, so the test stands as
   written for the clipped model and is paired with 14c.5's continuity test on
   the smoothed one. The gradient step samples the smoothed model.
 - [ ] 16.4 Recover the tight-prior control alone — verify by the posterior
@@ -4111,7 +4111,7 @@ fabricated task list.
 
 ### 2026-09-28 — K5 fired: phase 14c smooths the drain, and the prior is drawn Haldane-consistently
 
-**Status: proposed, pending approval.**
+**Status: approved 2026-09-28.**
 
 **Trigger:** 14b's check 7 (`dev/scripts/corea_census_result.md`, `7e3c1c9`).
 K5 fires on both halves.
@@ -4140,7 +4140,7 @@ K5 fires on both halves.
   from the prior, so the same break reaches the truths unless it is fixed.
   The broad draw was the approved stress test and is kept as one.
 
-**Change (proposed):**
+**Change (approved 2026-09-28):**
 
 **A — the published-parameter half binds, so the drain is smoothed.** A new
 phase 14c smooths every consumer counter (`clip = :smoothed`, with a recorded
