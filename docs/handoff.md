@@ -5,12 +5,13 @@
 
 ## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 
-All seven tasks are done on the branch; spec §11's 14c block has the numbers.
+Six tasks are met. 14c.5 is met for its coupled half and 20 of 50 observables,
+and open for the other 30 (below). Spec §11's 14c block has the numbers.
 Three amendments were approved this session (§12, all 2026-09-28):
 - **Planning.** The equilibrium constant a draw keeps is the one the nominal
   Modes imply. Upstream's own equilibrium-constant rows disagree by more than
-  1% on 9 of 15 reactions, by up to 1.6e4 on TPI, exactly where a Mode departs
-  from its unconstrained geometric mean. The smoothing width is one particle,
+  1% on 9 of 15 reactions, by up to 1.6e4 on TPI, all among the ten where a Mode
+  departs from its unconstrained geometric mean (the tenth, PFK, is off 0.78%). The smoothing width is one particle,
   and 14c.5's threshold is D10's 1% with a 500-particle floor.
 - **Rounding breaks the gradient too.** Fractional carry writes every debited
   pool back as whole particles, so the ODE state is a step function of every
@@ -26,13 +27,20 @@ Three amendments were approved this session (§12, all 2026-09-28):
 Results:
 - **K5's prior half, rescored over D11's six, fires** at 81.5%. Only 4.0% of
   draws are starved, so the draws sit near the kink, where smoothing matters.
-- **Haldane-consistent broad census:** 70.5% clip, against 73.0% in 14b.
+- **Haldane-consistent broad census:** 70.5% clip, against 73.0% in 14b, with
+  overlapping intervals. The all-draw median per-drain fraction (0.653 to
+  0.271) only tracks the starved count crossing 100; starved draws clip alike
+  (0.969 against 0.957).
 - **Loosening the GTP branch** moves the clipping to `tRNA_translat`
   rather than removing it.
-- **14c.5:** the coupled half passes (largest 0.763%). At the end of the
-  cycle, 30 of 50 observables are unresolved at 100 seeds; none fails. A
-  symmetric diagnostic, the difference of ensemble means, finds no
-  observable beyond |z| = 1.72.
+- **14c.5, partly open:** the coupled half passes (largest 0.763%). The
+  end-of-cycle half resolves 20 of 50, and none fails. It cannot decide the
+  other 30, whose SE exceeds 1%, and some gate means sit 2 to 2.4 SE out,
+  skewed upward by the per-seed ratio. A symmetric diagnostic, the difference
+  of ensemble means, finds nothing beyond |z| = 1.72. The control decoupled 3
+  of 100 pairs against 47, so it is not a null for that half. To close it,
+  use more seeds or a statistic without the skew. That is a decision for
+  phase 15.7, which generates data.
 - **14c.7:** on the assembled model the sampler's slope jump across a clip
   falls with the spacing; the clamp's stays at 0.915.
 
@@ -42,7 +50,7 @@ predicate), which closes the #72 review's should-fix on `deficit > 0`.
 Housekeeping: home hit its 20 GiB quota mid-session and Slurm jobs died on
 compile-cache writes. `~/.cache/pip` and uv's cache were cleared (about 18.2
 GiB left in use). Worktrees under `.worktrees/` (`census14c`, `smooth14c7`,
-`smooth14c8`, `suite14c2`) hold the Slurm runs of record and can go once the
+`smooth14c8`, `suite14c2`, `control14c`, `suite14c3`) hold the Slurm runs of record and can go once the
 PR merges.
 
 Suite: 28,286/28,286 at `b377dde` (Slurm job 17625447). Next: the PR, /check-PR, merge. Then phase 15,

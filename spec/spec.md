@@ -3928,20 +3928,31 @@ derivative is of the ODE state the next interval integrates from.
   draws clip a few drains near the kink, which is where the smoothing
   matters. By §12 B this confirms the smoothing and changes nothing else.
 - **14c.3.** Haldane-consistent broad draws clip in 141 of 200 (70.5%) and
-  starve 95 (47.5%), against 14b's 73.0% and 52.0%. The median per-drain
-  fraction falls from 0.653 to 0.271. The broken equilibrium constants made
-  starved draws clip more of the cycle, not more draws clip.
+  starve 95 (47.5%), against 14b's 73.0% and 52.0%. The intervals overlap, so
+  the broken equilibrium constants explain little of 14b's result. The
+  per-drain fraction is bimodal: starved draws clip on a median 0.957 of drains
+  (14b 0.969), and the others on none. So the all-draw median, 0.271 against
+  0.653, only tracks the starved count crossing 100 and says nothing further.
+  The draws share 14b's seed numbers, but not its streams, since a derived
+  reverse constant consumes no random number.
 - **14c.4.** Seven consumer counters are smoothed at one particle. The
   resolver reports no gradient obstruction (seven before), and each is labelled
   ours.
 - **14c.5.** 100 seeds. Before a pair's jump states first differ, the largest
   of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
-  passes. At the end of the cycle 20 observables pass, none fails and 30 are
-  unresolved. 47 of 100 sampler pairs decouple, against 3 of 100 for the
-  control. As a diagnostic beside the gate, the difference of ensemble means
-  finds no observable beyond |z| = 1.72 of 50. Every whole-cell closure on the
-  sampler model is at 3.5e-10 to 2.3e-9 of its `tol_C` over a full cycle,
-  at the pinned pair and one decade tighter.
+  passes. The end-of-cycle half resolves 20 of 50 observables, and none of
+  them fails. It can neither pass nor fail the other 30, whose SE exceeds 1%.
+  Some of their gate means sit 2 to 2.4 SE from zero (`M_gtp_c` +37.8% ± 16%),
+  but the per-seed ratio is skewed upward once a pair decouples. The
+  difference of ensemble means, a diagnostic outside the gate, finds no
+  observable beyond |z| = 1.72 of 50, with mixed signs. **14c.5 is therefore met
+  for the coupled half and the 20 resolved observables, and open for the other
+  30.** More seeds, or a statistic without the skew, would close it. 47 of 100
+  sampler pairs decouple against 3 of 100 for the control, so the control is
+  matched in size but not in effect, and cannot serve as a null for the
+  decoupled half. Every whole-cell closure on the sampler model passes 14a's
+  gate at the pinned pair and one decade tighter. The seven logged at the
+  pinned pair are at 3.5e-10 to 2.3e-9 of `tol_C`.
 - **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
   clips by 5×, and at 2× they are down to at most 4 drains. The clipping moves
   to `tRNA_translat` (medians 9 to 58 drains), and 9 or 10 of 10 seeds still
@@ -4014,7 +4025,8 @@ particles.
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
 check 8's frozen steady state, whose demands are forcing terms and not
 counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
-15.8 wait for 14c.5.
+15.8 wait for 14c.5. 15.8 also waits for 14c.7 (added 2026-09-28): its
+Jacobian is taken on the sampler model, `build_corea(; COREA_SAMPLER...)`.
 
 ### Phase 15 — Observables and synthetic data
 
@@ -4279,7 +4291,7 @@ sampler model. On the published model the same scan must show the steps.
 reruns against the sampler model. The width and the 1% threshold are
 unchanged.
 
-*Sections:* §3 check 0 row, §4 D10, §6 T2, §11 phase 14c (done-when, 14c.5,
+*Sections:* §3 check 0 row, §4 D10, §11 phase 14c (done-when, 14c.5,
 14c.7).
 
 ### 2026-09-28 — phase 14c planning: which equilibrium constant, the smoothing width, and the agreement threshold
@@ -4307,9 +4319,10 @@ The row agrees with the unconstrained geometric means instead. TPI's is
 759.6/65,341.7 · 0.1028/1.0352 = 0.00115, against the row's 0.0012. The
 Mode column departs from the unconstrained geometric mean on 13 catalytic
 constants (D1's ten central ones and three in the nucleotide file) and on
-three nucleotide-file Michaelis constants, and the nine reactions that
-disagree are exactly the nine that carry such a departure. PFK's forward
-constant, off by 0.7%, is the tenth reaction touched, and it stays within 1%.
+three nucleotide-file Michaelis constants. Those departures touch ten
+reactions, and the nine that disagree by more than 1% are all among them. The
+tenth is PFK: its forward constant is off by 0.7%, and its equilibrium
+constant by 0.78%. No reaction without a departure disagrees.
 So the published simulator, which reads
 `Mode`, runs reactions whose equilibrium constants are not the ones its own
 balancing reports. **Change:** 14c.1 keeps the Mode-implied constant. Draw 0
