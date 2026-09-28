@@ -3902,6 +3902,13 @@ observables, keeps 14a's closures, and has a continuous derivative across a
 clip.
 **PR:** _not started_
 
+**Decided at planning, 2026-09-28 (§12, same date):** "the published
+equilibrium constant" is the one the nominal Mode values imply, which
+upstream's own equilibrium-constant rows contradict on 7 of 15 reactions. The
+smoothing width is one particle. 14c.5's threshold is D10's one percent, with
+the difference taken relative to the larger of the clipped value and 500
+particles.
+
 - [ ] 14c.1 Draw kinetic constants Haldane-consistently — each reversible
   reaction's reverse constant is derived from its drawn forward constant and
   Michaelis constants through its published equilibrium constant, rather than
@@ -4108,6 +4115,62 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-28 — phase 14c planning: which equilibrium constant, the smoothing width, and the agreement threshold
+
+**Status: approved 2026-09-28.**
+
+**Trigger:** planning phase 14c. The K5 amendment left the width and 14c.5's
+threshold to planning. Checking 14c.1's premise then found that "the
+published equilibrium constant" names two different numbers.
+
+**A — the equilibrium constant a draw keeps is the one the nominal Mode
+values imply.** Upstream's balanced tables carry an `equilibrium constant`
+row per reaction. The Haldane quotient of the Mode values Core A′ runs,
+`kcatF/kcatR · Π KmP^n / Π KmS^n`, disagrees with that row on 7 of the 15
+reversible modular reactions (Mode quotient over the row):
+
+| Factor | Reactions |
+|---|---|
+| within 1% | ENO, LDH_L, GAPD, PFK, ADK1, GK1 |
+| 3.6% | PYK3 |
+| 1.5× to 94× | PGI 1.54, PYK 8.4, FBA 10.2, PGM 20.0, PPA 23.4, PGK3 94.2 |
+| 427× and 1.6e4× | PGK 427, TPI 1.57e4 |
+
+The row agrees with the unconstrained geometric means instead. TPI's is
+759.6/65,341.7 · 0.1028/1.0352 = 0.00115, against the row's 0.0012. D1's
+reverse constants whose Mode is not their unconstrained geometric mean are
+exactly where the two readings part. So the published simulator, which reads
+`Mode`, runs reactions whose equilibrium constants are not the ones its own
+balancing reports. **Change:** 14c.1 keeps the Mode-implied constant. Draw 0
+then stays the published model, and 14a's and 14b's baselines stand. Taking
+the row would change the nominal model's reverse constants by up to 1.6e4 and
+re-baseline every check. The disagreement is recorded here and in T2. It is
+not corrected.
+
+**B — the smoothing width is one particle on every consumer counter.** Under
+`:smoothed` the pool after a debit is `w·softplus((pool − accrued)/w)`, which
+never reaches zero. It differs from the clamp by at most `w·ln 2` at the kink
+and by `w·exp(−gap/w)` a gap away. One particle is the resolution the count
+round trip already works at, so the smoothing acts below the model's own
+quantum. At published parameters it moves at most 0.69 particles on each of
+up to 253 clipped drains per cycle. The cost is a derivative that is
+continuous but bends over about one particle, which 14c.5's
+finite-difference test resolves by construction and the sampler meets as
+curvature.
+
+**C — 14c.5's agreement threshold is D10's one percent, with a 500-particle
+floor.** For every candidate observable at every 60 s save point, on 14b's
+published-parameter seeds, the smoothed and clipped runs are paired per seed.
+The difference is taken relative to `max(|x_clipped|, 500 particles)`, and
+the gate is on the mean over seeds, reported with its standard error. The
+floor is check 1b's: below 500 particles the ODE is not trusted as a
+description of a pool, so a relative difference there measures bookkeeping.
+Transcripts are counts, so their floor is one copy rather than 500
+particles. Otherwise their gate is the same.
+
+*Sections:* §11 phase 14c (the two decisions recorded in its block), §6 T2
+(the smoothed counter and the equilibrium-constant disagreement are rows).
 
 ### 2026-09-28 — K5 fired: phase 14c smooths the drain, and the prior is drawn Haldane-consistently
 
