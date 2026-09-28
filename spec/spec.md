@@ -538,7 +538,7 @@ conservation number is uninterpretable.
 | 5 | Carrier conservation | **Four** independent sums, one per phosphotransferase carrier, each named separately so a failure localises | Per-module before translation exists; restated assembled as "conserved up to what translation adds", again by subtraction rather than by widening |
 | 6 | Nominal trajectory | All of the above at published parameters, plus check 7's census | Assembled |
 | 7 | Clipping census | Count handshakes at which any deferred counter carries a deficit, at published parameters and across 200 prior draws. Require **zero at published parameters** (scored for K5 rather than gated, amended 2026-09-25; see task 14.8). If more than 5% of prior draws clip, the non-smooth drain is in the operating regime rather than at a measure-zero point, gradient-based sampling of the ODE block is invalid as posed, and smoothing becomes mandatory. **The charged-tRNA counter is the one to watch and D13 made it so**: it debits ~553 residues per second against a pool of order 10³ particles, a buffer of seconds, so it can clip on ordinary Poisson fluctuation in translation firing. Either the pool is sized so it provably cannot clip, or this census is what catches it. **Amended 2026-09-05:** the census is scored at the **published 1 s drain**. Phase 4's `drain_interval` changes what it counts in both directions — each debit is `steps_per_drain` times larger against the same pool, and there are that many fewer of them — so a coarse drain would fire or dilute this check on our choice rather than on the model. `clipping_census`'s fraction is per drain, not per handshake, for the same reason | Assembled |
-| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero. **Amended 2026-09-26 (phase 14b):** the 18 quantities cannot close the sums. Only thirteen genes multiply a rate, and PGK and PYK each multiply two. The four PTS genes are carrier totals, and the steps are bilinear in two carriers. Export and the demand forcing have no enzyme. So the perturbation set is **one rate multiplier per reaction** of the frozen variant: the 22 ODE reactions plus its tRNA and GTP demands. Gene-level coefficients are reported by summing a gene's reactions, and carrier-total responses are reported apart. The coefficients come from the implicit function theorem on automatic-differentiation Jacobians at the solved steady state. A reaction with zero steady flux is named and left out of the flux sum (§12) | Assembled, and independent of every balance check because it tests derivatives rather than balances |
+| 8 | Metabolic control analysis identities | On the frozen-expression chemostatted variant at steady state, the summation theorems hold exactly: flux control coefficients sum to one per flux, concentration control coefficients sum to zero per metabolite. Require both within 1e-6, computed by automatic differentiation through the steady-state solve. **The perturbation set is 18 quantities, not 17**: the lumping deleted charging's synthetase, so `k_chg` is the perturbable parameter that reaction contributes and the identity fails without it. The frozen-expression variant must also clamp the tRNA pair or specify the transfer as constant forcing, because with expression frozen nothing consumes charged tRNA, the pool saturates and the charging flux goes to zero. **Amended 2026-09-26 (phase 14b):** the 18 quantities cannot close the sums. Only thirteen genes multiply a rate, and PGK and PYK each multiply two. The four PTS genes are carrier totals, and the steps are bilinear in two carriers. Export and the demand forcing have no enzyme. So the perturbation set is **one rate multiplier per reaction** of the frozen variant: the 22 ODE reactions plus its tRNA and GTP demands. Gene-level coefficients are reported by summing a gene's reactions, and carrier-total responses are reported apart. The coefficients come from the implicit function theorem on automatic-differentiation Jacobians at the solved steady state. A reaction with zero steady flux is named and left out of the flux sum (§12) **Amended 2026-09-28:** the sums alone do not test the derivatives. At a steady state they hold for any Jacobian once the multipliers cover every reaction, so they test the steady state and that coverage. The coefficients are also required to match central differences of steady states re-solved at `ln α = ±1e-4`, within 1e-5 (§12) | Assembled, and independent of every balance check because its derivative half tests derivatives rather than balances |
 | 9 | Observation scale recovery | Generate at a known noise scale, infer it, assert recovery inside the calibration band | Inference phases |
 
 Check 8 is the one genuinely analytic result the implementation must reproduce,
@@ -3788,7 +3788,9 @@ Slurm for check 7.
 **Done when:** check 1b's floor report and its three smallest pools are
 cross-checked against the test-local chemical-Langevin double; check 7 is run
 at published parameters and across 200 prior draws and scored on T3 as K5,
-pass or fail; check 8's summation identities hold within 1e-6; check 6's
+pass or fail; check 8's summation identities hold within 1e-6 and its
+coefficients match re-solved steady states within 1e-5 (amended 2026-09-28,
+§12); check 6's
 nominal trajectory is reported with task 9.9's comparison rerun; and F3's
 mutation table covers every check.
 **PR:** #72 (open)
@@ -3808,7 +3810,8 @@ match their earlier runs line for line.
   at every handshake, so each excursion is 0, and 0.007 at most at h = 0.02.
   Halving enolase leaves the band by 4.5 to 7.2. The ensemble needed the
   partition of §12 G, and its bands omit noise entering through frozen
-  channels.
+  channels and any mean shift from them, so the zero excursions for
+  phospho-PtsG and PEP are not a bound in either direction (§12 2026-09-28).
 - **Check 8.** The summation identities hold to 3.6e-14 (concentration) and
   2.6e-14 (flux) against 1e-6. Omitting `k_chg`'s multiplier fails them at
   0.807, naming PPi.
@@ -4011,6 +4014,28 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-09-28 — review of #72: check 8's sums cannot see the derivatives, and check 1b's partition has no known direction
+
+**Trigger:** `/check-PR` on #72.
+- **Check 8.** Column `j` of the channel matrix is reaction `j`'s
+  stoichiometry times its rate, so its row sum is `f(x)`, which vanishes at the
+  steady state. The concentration sums are then `≈ 0` for any nonsingular
+  system matrix, and the flux sums `≈ 1` for any `∂J/∂x`. On a toy with a
+  random Jacobian and the sign of `dx` flipped they held to 6.7e-16 while the
+  coefficients were off by 2.58. Omitting `k_chg` fails them because it breaks
+  coverage, not because it touches a derivative. The shipped coefficients
+  were right: they matched finite-difference re-solves to 2.9e-9 on seven
+  multipliers. **Change:** `assert_derivatives` compares every coefficient
+  column with central differences of steady states re-solved by Newton at
+  `ln α = ±1e-4`, within 1e-5. Its mutation swaps two multipliers' columns,
+  which keeps every row sum. The `k_chg` omission stays, as the coverage
+  mutation. §3's check 8 row, 14b's done-when and its results are amended.
+- **Check 1b's partition.** §12 2026-09-26 G said the frozen channels make
+  phase 15 exclude too readily. They also carry only deterministic flux, and
+  for phospho-PtsG and PEP they are the main supply and drain, which pulls the
+  band's centre toward the reference. The net direction is unknown. G's
+  bullet and 14b's check 1b result are corrected; the result itself stands.
+
 ### 2026-09-26 — check 1b's first band run: the zero clamp created mass, and the ensemble partitions its channels
 
 **Trigger:** the band run at `98aa5fa` (job 17549506, 20 array tasks) failed
@@ -4062,10 +4087,18 @@ and a clamp that conserves mass.
   pool of about one particle, as often (4.9e4 particles booked at h = 0.02,
   4.2e3 at 0.01) and drifts by 1e-9. That is the integrator's own error, which
   `aₖ` absorbs (E).
-- **What the partition costs.** A pool's band omits the noise that reaches
-  it through a channel frozen at a small pool. Phospho-PtsG's band loses the
-  phospho-EI end of the cascade, for example. A narrower band errs toward a
-  larger excursion, so phase 15 excludes too readily, not too rarely.
+- **What the partition costs.** *(Corrected 2026-09-28, §12 same date.)* A
+  pool's band omits the noise that reaches it through a channel frozen at a
+  small pool, and the frozen channel carries only its deterministic flux, so
+  any fluctuation-induced shift in its mean is missing too. Phospho-PtsG's only
+  production (GLCpts3, through phospho-Crr at a median of 4.3 particles) and
+  PEP's PTS drain (GLCpts0, through phospho-EI at 0.4) are frozen for most of
+  the cycle. The first effect narrows the band, which errs toward a larger
+  excursion. The second pins the band's centre to the reference's flux, which
+  errs toward a smaller one. Their net direction is not bounded here, so an
+  excursion of 0 for phospho-PtsG and PEP does not certify them for phase 15.
+  ~~A narrower band errs toward a larger excursion, so phase 15 excludes too
+  readily, not too rarely.~~
 - **The mutation.** Over 60 handshakes at h = 0.05 (job 17558769),
   `min_particles = 0` clamps on 368 to 390 steps per replay and moves the
   carriers by 5 to 64 particles. The partition clamps on 4 or 5 steps and
