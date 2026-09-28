@@ -1,9 +1,80 @@
 # Handoff
 
-**Session date:** 2026-09-24
-**Branches:** `phase-11-translation`
+**Session date:** 2026-09-28
+**Branches:** `phase-14b-derivative-checks` (PR #72, open)
 
-## Latest: phase 11, translation (2026-09-24)
+## Latest: `/check-PR` on #72, and its blockers fixed (2026-09-28)
+
+The review found four blockers, all now fixed on the branch (§12 2026-09-28):
+- **Docs CI failed.** `control_analysis.jl`'s 8 exports were on no docs page.
+  It is now on the Core A′ modules page. Its derivation docstring had been a
+  free-floating string, which Julia discards, so it now sits on `ControlProblem`.
+- **Check 8's sums cannot see the derivatives.** At a steady state they hold
+  for any Jacobian once the multipliers cover every reaction. The new
+  `assert_derivatives` compares each coefficient with steady states re-solved
+  at `ln α = ±1e-4`: 2.5e-9 over all 24 multipliers (job 17620810). Its
+  mutation swaps two columns, which keeps the sums. The coefficients were
+  right all along.
+- **§12 G's "excludes too readily" was unfounded.** The frozen channels feed
+  phospho-PtsG and drain PEP deterministically, which pulls the band's centre
+  toward the reference. The direction is unknown, so those two pools are not
+  certified for phase 15. The wording is corrected; no number changed.
+- **The 14b Slurm logs went to directories a fresh clone lacks.** They now go
+  to `dev/scripts/`, and the intermediate directories are gitignored.
+
+Suite at `179085b`: Slurm job **17620809**, **27,655/27,655** (the five new
+tests are check 8's derivative half). CI's Documentation build passes.
+
+**Not fixed, from the same review (should-fix):**
+- Check 1b reports only excursion, which bounds mean bias, not spread. The
+  saved run gives median bias −0.9/−0.3/−0.1% and relative half-widths
+  25/18/14% (ptsG-P/PEP/2PG). The spec's D8 row "bounded by check 1b" overclaims.
+- Task 9.9's scan crosses the target flux three times, and the 13.1% is from
+  the first crossing.
+- The census's independent prior draws break each reaction's Haldane
+  relation (Keq ×5–40 at 1σ). That is faithful to the inference prior, but it
+  matters for phase 15's D8 truth draws. The spec does not record it.
+- `record_clips!` counts any deficit > 0, unlike `clipping_census`'s
+  tolerance. Under `:smoothed` that reports every drain.
+- `replay` hard-codes a 1 s step, merge-band has no provenance check, and
+  `total_response` is unused.
+
+## Earlier: phase 14b, the derivative, ensemble and census checks (2026-09-26)
+
+Phases 13a (#66), 13b (#68) and 14a (#70) merged without handoff entries.
+Their records are spec §11's Done blocks and §12. Phase 14b's results are in
+spec §11's 14b block. Its run of record is
+`dev/scripts/corea_validation_14b_result.md` (every section at `ebe9e9d`), and
+check 7's census is `dev/scripts/corea_census_result.md` (`7e3c1c9`). Suite:
+Slurm job **17558897**, **27,650/27,650**.
+
+- **Check 1b's Langevin double had a mass-creating clamp** (§12, 2026-09-26
+  G). The first band run (job 17549506) crashed on one of 20 tasks. Every
+  trajectory had lost its energy charge, because clamping noisy near-empty
+  pools (GMP, phospho-EI) at zero injected guanylate and carriers. The fix
+  partitions the channels: a channel carries noise only while every species it
+  moves holds at least 10 particles. Clamps are booked, and each moiety's drift
+  is reported and tested against the booked amount.
+- **Check 1b passes.** The reference stays inside the 90% band on all three
+  cross-checked pools, and halving enolase leaves it by 4.5 to 7.2. The bands
+  are narrower than the truth, since frozen channels carry no noise.
+- **K5 fires, and is recorded rather than gated.** Deficits are carried on 10
+  of 10 seeds at published parameters, and 73% of 200 prior draws clip. §8 K5
+  says the smoothed model must be built and validated before any posterior.
+  **That decision is open.**
+- **F5 misses on fold change.** The median is 1.614 against [1.7, 2.3], and
+  the slope against length is positive. Transcripts pass (Spearman 0.850, 16
+  of 17 within 2×).
+- **Check 8** holds to 3.6e-14. **Check 6**'s fractional growth is 1.0382.
+  Task 9.9's ATP/ADP differs 13.1% between lumpings at matched flux.
+
+Next: /check-PR on #72, fix what it finds, merge, then the spec-landed PR.
+Then decide what K5 firing means for phases 15 to 17 before starting 15.
+Housekeeping: job 17549507 (the dead merge-band) needs `scancel`. The
+scratchpad worktrees (`wt14b*`) and the `.worktrees/phase-6` and `phase-7`
+checkouts can go.
+
+## Earlier: phase 11, translation (2026-09-24)
 
 `CoreATranslation` (`src/organisms/coreA/translation.jl`) has 17 translation
 jumps at `k_tl_g · mRNA_g` and one ptsG translocation. It publishes the 17
