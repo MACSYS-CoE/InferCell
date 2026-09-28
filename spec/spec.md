@@ -3798,8 +3798,9 @@ mutation table covers every check.
 **Results (#72, not yet merged):** the suite passes 27,650/27,650 on the
 tree of `3f39175` (Slurm job 17558897). The run of record is
 `dev/scripts/corea_validation_14b_result.md`, every section at `ebe9e9d`
-(floor 17559025, band 17559026 and 17559027, check 8 17559265, check 6
-17559266, F5 17559267, report 17559268). Check 7's census is
+(floor 17559025, band 17559026 and 17559027, check 6 17559266, F5 17559267)
+except check 8, rerun at `179085b` after the review (17620810, report
+17620811). Check 7's census is
 `dev/scripts/corea_census_result.md`, at `7e3c1c9` (jobs 17549122 to
 17549142), whose code no later commit touches. Check 6 and F5 at `ebe9e9d`
 match their earlier runs line for line.
@@ -3814,7 +3815,11 @@ match their earlier runs line for line.
   phospho-PtsG and PEP are not a bound in either direction (§12 2026-09-28).
 - **Check 8.** The summation identities hold to 3.6e-14 (concentration) and
   2.6e-14 (flux) against 1e-6. Omitting `k_chg`'s multiplier fails them at
-  0.807, naming PPi.
+  0.807, naming PPi, which shows coverage. The coefficients match steady
+  states re-solved at `ln α = ±1e-4` to 2.5e-9 (concentration) and 1.5e-9
+  (flux) against 1e-5, over all 24 multipliers. Swapping `R_PYK`'s and
+  `R_LDH_L`'s columns keeps the sums and fails that comparison, naming
+  NADH's coefficient on PYK (§12 2026-09-28).
 - **Check 7, K5's measured values: K5 fires.** Deficits are carried at
   published parameters on 10 of 10 seeds, at 0.33% to 4.0% of drains, mostly
   `GTP_translat`. Across the prior, 146 of 200 draws clip (73.0%, Wilson 95%

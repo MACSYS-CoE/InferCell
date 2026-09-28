@@ -89,11 +89,11 @@ The excursion is the smallest relative observation noise below which phase 15 mu
 
 ## Check 8: the summation theorems on the frozen-expression variant
 
-Section `check8` at commit ebe9e9d, Slurm job 17559265, on dave5, 2026-09-26T19:35:18.493, Julia 1.10.5.
+Section `check8` at commit 179085b, Slurm job 17620810, on dave74, 2026-09-28T11:29:01.637, Julia 1.10.5.
 
 The variant: the four ODE modules at their nominal enzyme counts, with `FrozenDemand` consuming charged tRNA and GTP at the published demand at the nominal pools. External lactate, the demand's accumulator and the held protein counts are held. 24 multipliers, one per reaction (spec §3, amended 2026-09-26).
 
-Steady state in 19.4 s: max |f| 2.43e-16 mM/s against a largest reaction rate of 0.0569 mM/s, after 1 Newton iteration(s). Eigenvalues of the Jacobian within the conserved class: -2.09e+04 to -0.00597 /s, all negative.
+Steady state in 21.7 s: max |f| 2.43e-16 mM/s against a largest reaction rate of 0.0569 mM/s, after 1 Newton iteration(s). Eigenvalues of the Jacobian within the conserved class: -2.09e+04 to -0.00597 /s, all negative.
 
 **Conserved combinations: 10.** The eight of 14a's moieties the variant keeps (redox, adenylate, guanylate, phosphate and the four carriers) and the tRNA pair each lie in their span. The tenth is not one 14a asserts. With glucose and lactate both at the boundary it is a closed combination over the glycolytic intermediates, NAD/NADH, the carriers and the nucleotides, found numerically.
 
@@ -145,7 +145,13 @@ Gene-level concentration control coefficients of the smallest steady pools, summ
 | GK1 | -2.7e-17 | -2.67e-17 | -4.21e-17 | -2.67e-17 | -2.7e-17 |
 | PPA | 3.67e-12 | 2.57e-12 | -0.969 | 1.31e-12 | 6.24e-12 |
 
-**The mutation.** Without `k_chg`'s multiplier the worst concentration sum is 0.807 and the worst flux sum is 0.384 from 1. The check reports: ArgumentError: Check 8 fails: the concentration control coefficients of :M_ppi_c sum to -0.8074879841980597, not 0 (tolerance 1.0e-6)
+**Coverage.** Without `k_chg`'s multiplier the worst concentration sum is 0.807 and the worst flux sum is 0.384 from 1. The check reports: ArgumentError: Check 8 fails: the concentration control coefficients of :M_ppi_c sum to -0.8074879841980597, not 0 (tolerance 1.0e-6)
+
+The sums hold for any derivative once the multipliers cover every reaction (see `ControlProblem`), so they test the steady state and that coverage, not the coefficients.
+
+**Derivatives.** Every coefficient column against central differences of steady states re-solved at ln α = ±1e-4, all 24 multipliers, in 0.5 s: worst concentration coefficient differs by 2.50e-09, worst flux coefficient by 1.51e-09. Tolerance 1e-5.
+
+**The mutation.** `R_PYK`'s and `R_LDH_L`'s columns swapped: the sums still hold (3.61e-14, 2.58e-14) and the derivative check reports: ArgumentError: Check 8 fails: ∂ln M_nadh_c/∂ln R_PYK is -0.949258147351558 by the implicit function theorem but 0.44596195118984383 by re-solving (tolerance 1.0e-5)
 
 ## Check 6: the nominal trajectory, and task 9.9 on the assembled model
 
@@ -220,4 +226,5 @@ Checks 0 to 5 are in `corea_validation_result.md` (phase 14a).
 |---|---|---|---|
 | 1b | enolase's catalytic constants halved | excursion 7.17 outside the nominal band, against 0 nominal | `M_ptsg_P_c` |
 | 7 | tRNA pool at 0.05 mM, a fifth of the asserted | translation's counter clips (asserted in `test/test_corea_validation_14b.jl`, 600 handshakes) | `tRNA_translat` |
-| 8 | `k_chg`'s multiplier omitted | worst concentration sum 0.807, worst flux sum 0.384 from 1, against 1e-6 | ArgumentError: Check 8 fails: the concentration control coefficients of :M_ppi_c sum to -0.8074879841980597, not 0 (tolerance 1.0e-6) |
+| 8 | `R_PYK`'s and `R_LDH_L`'s coefficient columns swapped | the summation sums still hold; the re-solved derivatives do not | ArgumentError: Check 8 fails: ∂ln M_nadh_c/∂ln R_PYK is -0.949258147351558 by the implicit function theorem but 0.44596195118984383 by re-solving (tolerance 1.0e-5) |
+| 8 (coverage) | `k_chg`'s multiplier omitted | worst concentration sum 0.807, worst flux sum 0.384 from 1, against 1e-6 | ArgumentError: Check 8 fails: the concentration control coefficients of :M_ppi_c sum to -0.8074879841980597, not 0 (tolerance 1.0e-6) |
