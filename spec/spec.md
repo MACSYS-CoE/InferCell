@@ -9,8 +9,8 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
-coupled half failed and carried as a measured cost (§12, #77). Phase 15 is
-built on `phase-15-observables`, with its PR open.
+coupled half failed and carried as a measured cost (§12, #77). Phase 15,
+observables and synthetic data, is done (#78). Phase 16 is next.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -4058,9 +4058,9 @@ by memory.
 **Done when:** a synthetic dataset exists at recorded ground-truth parameters
 drawn from the prior, the observable set is justified against D8, and any
 observable that closes the proxy loop is rejected by a check.
-**PR:** #78 (open)
+**PR:** #78 (merged 2026-09-29)
 
-**Results (branch `phase-15-observables`).** Planning is §12 2026-09-29 (phase
+**Results (#78).** Planning is §12 2026-09-29 (phase
 15 planning). The runs of record are F2 (job 17681807,
 `dev/scripts/corea_f2_15_result.md`), the sensitivity (pilot job 17703391 and
 full run job 17704779, `dev/scripts/corea_sensitivity_15{,_pilot}_result.md`)
