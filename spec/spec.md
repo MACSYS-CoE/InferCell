@@ -3941,7 +3941,7 @@ branch touches `src` or `test`.
 - **14c.4.** Seven consumer counters are smoothed at one particle. The
   resolver reports no gradient obstruction (seven before), and each is labelled
   ours.
-- **14c.5.** 100 seeds. Before a pair's jump states first differ, the largest
+- **14c.5.** At 100 seeds (#75): before a pair's jump states first differ, the largest
   of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
   passes. The end-of-cycle half resolves 20 of 50 observables, and none of
   them fails. It can neither pass nor fail the other 30, whose SE exceeds 1%.
@@ -3957,9 +3957,9 @@ branch touches `src` or `test`.
   `dev/scripts/corea_smoothing_14c5_result.md`), under the difference-of-means
   gate (§12). The decoupled half passes on 50 of 50. The coupled half
   **fails**: its largest difference is 3.75% on `M_gtp_c`, and 51 of 5,000
-  seeds exceed 1%, all GTP and all with the sampler model higher. The cause is
-  the smoothing's residue adding up over a run of clipped drains (job 17679585),
-  and it is carried as a measured cost. Every whole-cell closure on the sampler model passes 14a's
+  seeds exceed 1%, all GTP and all with the sampler model higher. A 2×2 on
+  the four worst seeds (job 17695360) attributes it to continuous pools, not
+  the smoothed drain, and it is carried as their measured cost. Every whole-cell closure on the sampler model passes 14a's
   gate at the pinned pair and one decade tighter. The seven logged at the
   pinned pair are at 3.5e-10 to 2.3e-9 of `tol_C`.
 - **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
@@ -4000,8 +4000,8 @@ particles.
   smoothing as ours (T2), and by `obstructs_gradients` reporting no edge.
 - [x] 14c.5 (closed 2026-09-29 with its coupled half **failed**: the
   decoupled half passes on 50 of 50 over 5,000 seeds, and the coupled half's
-  largest difference is 3.75% on GTP against 1%, carried as the smoothing's
-  measured cost; §12 2026-09-29, the three entries) Validate the smoothed model against the clipped one — verify by the
+  largest difference is 3.75% on GTP against 1%, carried as the measured cost
+  of continuous pools; §12 2026-09-29, the three entries) Validate the smoothed model against the clipped one — verify by the
   difference in every candidate observable at 60 s, at published parameters on
   14b's seeds, being reported against a threshold fixed at planning; by 14a's
   closures holding under smoothing at their own gates, so that smoothing
@@ -4217,9 +4217,11 @@ fabricated task list.
 
 ## 12. Amendment log
 
-### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the smoothing's measured cost
+### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the measured cost of continuous pools
 
-**Status: approved 2026-09-29.**
+**Status: approved 2026-09-29.** A first version attributed the failure to the
+smoothed drain; /check-PR on #77 showed that attribution was wrong, and the
+decomposition below replaced it, also approved 2026-09-29.
 
 **Trigger:** the 5,000-seed run the entry below specifies (job 17671709, at
 `87b88f1`; `dev/scripts/corea_smoothing_14c5_result.md`).
@@ -4231,35 +4233,59 @@ fabricated task list.
 - **The null confirms the statistic change.** On the published model against
   itself, the old per-seed ratio reads `M_gtp_c` +88% (z = 16.8), `M_pi_c`
   +47% and `mRNA_JCVISYN3A_0607` +41%. The difference of means puts no
-  observable beyond |z| = 1.75, against 3.29.
+  observable beyond |z| = 1.75, against 3.29. This tests d/SE on unpaired
+  halves; it does not test the paired SE or the pass rule.
 - **The coupled half fails.** Of 21,988,700 paired comparisons made before a
-  pair's jump states first differ, the largest is 3.75% (`M_gtp_c`, seed 18227,
-  t = 4500 s), against the 1% gate. 51 of 5,000 seeds exceed 1% and 6 exceed
-  2%. All 51 are `M_gtp_c`, and in all 51 the sampler model is the higher. At
-  100 seeds the largest had been 0.763%, which at about one seed in a hundred
-  is what that sample would show.
-- **The cause is the smoothing, adding up over a clipping run.** Seed 18227
-  rerun alone (job 17679585, `dev/scripts/corea_smoothing_14c5_diag_result.md`)
-  keeps its jump states matched to 4,500 s. For most of the cycle its GTP
-  differs by 2 to 4 particles either way. At 4500 s it differs by 18.7
-  particles, at a pool of 242 particles, after 28 clipped drains in the
-  preceding minute. Each clipped drain leaves at most w·ln 2 = 0.69 particles
-  more than the clamp (planning B), and 28 × 0.69 = 19.4. The 1% gate with its
-  500-particle floor allows 5 particles, which a long clipping run exceeds.
+  pair's jump states first differ, the largest is 3.75% of
+  max(|published|, 500 particles) (`M_gtp_c`, seed 18227, t = 4500 s), against
+  the 1% gate. At that point the published pool is 242.5 particles, so the gap,
+  18.7 particles, is 7.7% of the pool itself. 51 of 5,000 seeds exceed 1% and 6
+  exceed 2%. All 51 are `M_gtp_c`, and in all 51 the sampler model is the
+  higher. The run kept only each seed's worst relative difference, so 18.7 is
+  that seed's gap, not a bound on every seed's. At 100 seeds (#75) the largest
+  had been 0.763%, which at about one seed in a hundred is what that sample
+  would show.
+- **Continuous pools cause it; the smoothed drain does not.** A 2×2 on the four
+  worst seeds, each to its decoupling (job 17695360, at `2bbb02c`;
+  `dev/scripts/corea_smoothing_14c5_decomp_result.md`), separates the two
+  departures. The clamp with continuous pools reproduces the sampler model to
+  0.02 particles, including the handshake at which the pair decouples (18.74,
+  21.29, 15.09 and 9.97 particles on seeds 18227, 16184, 19958 and 16391). The
+  smoothed drain under fractional carry never moves GTP by more than 0.98
+  particles and never decouples. The gap builds only during runs of clipped
+  GTP drains, about 3 particles per 10 s, while GDP sits a few particles higher
+  in the continuous-pool model. When the pool refills, GTP comes back higher
+  and GDP lower by about the same amount. So GTP is regenerated from GDP faster
+  during starvation when pools are carried as fractions. The rounding
+  interaction behind that is not pinned down. The same departure also flips
+  the stochastic event at which each of these pairs decouples, which is why
+  the worst coupled differences sit 15 to 230 s before decoupling.
+- **Why the smoothing cannot be the cause.** Under either clip rule a drain
+  sets `paid + deficit' = accrued + deficit` and `pool' = pool − paid`, so
+  `pool − deficit` evolves identically. The smoothing's per-drain gap, at most
+  w·ln 2, is held alongside an equal extra deficit that is repaid; it does not
+  add up across clips. A first version of this entry said it did, from
+  28 × ln 2 ≈ 18.7. That match was a coincidence.
 
 **Change.**
 - **The coupled half is recorded as failing.** It is not relabelled and its
   gate is not changed.
-- **The failure is carried as the smoothing's measured cost** in T2. It is in
-  every smoothed counter's reduction label: at most 18.7 particles of GTP,
-  above 1% in 51 of 5,000 cells, with no ensemble shift.
+- **The failure is carried as the measured cost of continuous pools** in T2,
+  in the `:continuous` rounding policy's driver label: GTP differs by more than
+  1% of max(pool, 500 particles) in 51 of 5,000 cells while the paths match, by
+  21.3 particles in the worst of four examined, with no ensemble shift. The
+  smoothed counters' labels carry no measured cost from this run.
 - **14c.5 is closed on that record.** Tasks 15.7 and 15.8 may start. Phase
   16's coverage stays the end-to-end check that the mismatch does not bias a
   posterior: it fits sampler-model posteriors to published-model data.
-- **Rejected:** a narrower smoothing width, which would cut the build-up about
-  tenfold at 0.1 particle but bend the sampler's derivative over a tenth of a
-  particle and cost a second run; and rewriting the coupled gate to the
-  analytic bound after seeing the failure.
+- **Not pursued:** a narrower smoothing width, which the decomposition shows
+  would not touch the gap. Continuous pools are what the sampler model needs
+  for a gradient through the handshake (14c.7), so the cost comes with it.
+- **The 100-seed sizing in the entry below ran about 2× high.** At 5,000 seeds
+  `mRNA_JCVISYN3A_0131`'s SE is 0.92%, which puts SE = 1% at about 4,200 seeds
+  rather than 9,400, and the worst realised requirement at about 1,950 rather
+  than 4,155. Its figures are estimates from 100 seeds, and are left as
+  written.
 
 *Sections:* §11 phase 14c (Results, 14c.5, the phase-15 gating line); the
 header's status.
@@ -4295,7 +4321,7 @@ open.
 **Change.**
 - **The coupled half is unchanged.** Every paired difference at a save point
   before the pair's first jump-state mismatch must be within 1%, relative to
-  max(|published|, floor). It passed at 0.763%. It is the direct test of the
+  max(|published|, floor). It passed at 0.763% at 100 seeds. It is the direct test of the
   model difference.
 - **The decoupled half is gated on the difference of ensemble means.** At
   t = 6300 s, per observable:

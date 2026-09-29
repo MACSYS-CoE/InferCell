@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-29
-**Branches:** `close-14c5-mean-gate` (PR 1, closes 14c.5); `phase-15-observables`
+**Branches:** `close-14c5-mean-gate` (#77, closes 14c.5); `phase-15-observables`
 (worktree `.worktrees/phase15`, not pushed, tasks 15.1 to 15.5 and 15.9 built)
 
 ## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
@@ -14,15 +14,20 @@
   is the 200-cell dataset's resolution. 5,000 seeds, about 90 CPU-h (job
   17671709). **50 of 50 observables pass**; the worst sits at 0.53 of its
   tolerance.
-- **The coupled half fails**, at 3.75% on GTP against 1%. 51 of 5,000 seeds
-  exceed 1%, all GTP, and in all of them the sampler model is higher. Seed
-  18227's rerun (job 17679585) ties this to the smoothing's w·ln 2 residue
-  adding up over 28 clipped drains (28 × 0.69 = 19.4, against 18.7 measured).
-  You chose to record the failure and carry it as the smoothing's measured cost
-  in T2. It is now in every smoothed counter's reduction label. Phase 16's
-  coverage is the backstop.
-
-Suite at `2bbb02c`, after the label change: 28,302/28,302 (job 17686329).
+- **The coupled half fails**, at 3.75% of max(pool, 500) on GTP against 1%.
+  51 of 5,000 seeds exceed 1%, all GTP, and in all of them the sampler model is
+  higher. **Continuous pools cause it, not the smoothed drain.** A 2×2 on the
+  four worst seeds (job 17695360) shows the clamp with continuous pools
+  reproduces the sampler model exactly, decoupling included, while the smoothed
+  drain alone stays within one particle and never decouples. The gap builds
+  during runs of clipped GTP drains, with GDP regenerating GTP faster when pools
+  are fractional. The rounding interaction behind that is not pinned down. You
+  chose to record the failure and carry it as a measured cost. It is now in the
+  `:continuous` rounding policy's driver label. Phase 16's coverage is the
+  backstop.
+- **A first attribution to the smoothing was wrong,** and /check-PR on #77
+  caught it. Under either clip rule `pool − deficit` evolves identically, so the
+  smoothing's residue cannot add up across clips.
 
 **Phase 15, built in `.worktrees/phase15`** (off main, not pushed):
 - **15.1** `assert_no_circularity`: protein counts, the PTS carriers included,
@@ -44,10 +49,10 @@ Suite at `2bbb02c`, after the label change: 28,302/28,302 (job 17686329).
 - **15.9** observations are mapped to states by name, and the ABC summary
   carries the per-time spread.
 
-Next: PR 1 through /check-PR and merge. Then 15.6 (influence audit, about
+Next: #77 through /check-PR again and merge. Then 15.6 (influence audit, about
 4 CPU-h), 15.7 (the dataset) and 15.8 (a driver Jacobian with a condition
 number), and phase 15's PR. Housekeeping: `.worktrees/agree14c5` and
-`.worktrees/suite14c5` hold the runs of record, and can go once PR 1 merges.
+`.worktrees/suite14c5` hold the runs of record, and can go once #77 merges.
 
 ## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 
