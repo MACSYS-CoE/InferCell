@@ -2224,12 +2224,13 @@ function driver_declarations(d::HandshakeDriver)
              "ours, for the model a gradient sampler differentiates, while " *
              "synthetic data comes from fractional carry (spec §11 task 14c.7). " *
              "Measured cost on Core A′ against fractional carry (spec §11 task " *
-             "14c.5, jobs 17671709 and 17695360): during runs of clipped GTP " *
-             "drains the pool is regenerated faster, and while the stochastic " *
-             "paths still match, GTP differs by more than 1% of max(pool, 500 " *
-             "particles) in 51 of 5,000 cells, by 21.3 particles in the worst of " *
-             "four examined; the end-of-cycle ensemble does not shift beyond " *
-             "what 200 cells resolve" : "")))
+             "14c.5, jobs 17671709 and 17695360): measured on the sampler model " *
+             "and attributed to continuous pools by a 2×2 on four seeds. While " *
+             "the stochastic paths still match, GTP runs high during runs of " *
+             "clipped GTP drains, by more than 1% of max(pool, 500 particles) in " *
+             "51 of 5,000 cells and by 21.3 particles in the worst of four " *
+             "examined; the end-of-cycle ensemble does not shift beyond what " *
+             "200 cells resolve" : "")))
     end
     if !isempty(d.growth)
         push!(labels, ReductionLabel(
