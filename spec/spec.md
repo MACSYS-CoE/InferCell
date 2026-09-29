@@ -10,8 +10,9 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
 coupled half failed and carried as a measured cost (§12, #77). Phase 15,
-observables and synthetic data, is done (#78). Phase 16 is next.
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
+observables and synthetic data, is done (#78). Phase 16 is next, specified in
+`spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30).
+**Created:** 2026-09-03  ·  **Last amended:** 2026-09-30
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -978,6 +979,13 @@ theta_ODE | path, data   ->  gradient-based sampler
 theta_CME | path         ->  closed form
 path      | theta, data  ->  mechanism decided in phase 16
 ```
+
+**Amended 2026-09-30 (§12, phase 16 sub-spec):** the first block is sampled
+gradient-free, on the published model, while it holds only the two ODE targets
+and σ. The reverse constants are derived at every proposal. The gradient step and
+14c's sampler model come back if the ODE block grows. The path update is
+conditional SMC over 60 s windows, and task 16a.7 picks its variant
+(`spec/phases/16-recovery.md` D16.1 to D16.3).
 
 **Two things about this that are easy to get wrong.**
 
@@ -4175,12 +4183,18 @@ error of nominal for every target, the tight-prior control shrinks and recovers,
 the loose-prior control is visibly wider, and the reference comparison exists.
 **PR:** _not started_
 
-- [ ] 16.1 Build M0, the two-gene reference, and run it long — verify by the
+**Specified in a sub-spec: [`spec/phases/16-recovery.md`](phases/16-recovery.md)
+(§12 2026-09-30).** It splits the phase into 16a, the sampler and the reference, and
+16b, recovery on Core A′ at the scale 16a's measured cost funds, each one PR. The
+tasks below are kept as the record, each annotated with where it now lives. The
+sub-spec's task list is the one worked.
+
+- [ ] 16.1 (moved to 16a.9 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Build M0, the two-gene reference, and run it long — verify by the
   blocked sampler targeting the joint posterior on a system small enough that a
   very long run is defensible, and by the run's length justified rather than
   chosen. **This is a prerequisite, not an appendix:** a calibration pass without
   it is unattributable (D10, R4).
-- [ ] 16.2 **Choose the path-update mechanism and record why.** D10 commits to the
+- [ ] 16.2 (moved to 16a.7 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) **Choose the path-update mechanism and record why.** D10 commits to the
   three-block conditional scheme and leaves this one decision open. Choose among
   particle Gibbs with ancestor sampling, exact forward filtering over a truncated
   state space, and no augmentation at all — verify by the choice justified against
@@ -4189,7 +4203,7 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   model's non-smooth boundary edges; and by the two installed constraints of §5
   being addressed explicitly if a particle route is chosen, since one of them
   silently shares a solver object across forked particles rather than erroring.
-- [ ] 16.3 Confirm the first block is not smooth just because the path is fixed —
+- [ ] 16.3 (moved to 16a.6 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Confirm the first block is not smooth just because the path is fixed —
   verify by a test that a clipped drain under a fixed path still has a
   discontinuous derivative in an ODE parameter, so the gradient-based step meets
   K5 inside the conditional scheme exactly as it does outside it, and by check 7's
@@ -4197,39 +4211,39 @@ the loose-prior control is visibly wider, and the reference comparison exists.
   **Annotated 2026-09-28 (§12):** K5 fired, so the test stands as
   written for the clipped model and is paired with 14c.5's continuity test on
   the smoothed one. The gradient step samples the smoothed model.
-- [ ] 16.4 Recover the tight-prior control alone — verify by the posterior
+- [ ] 16.4 (moved to 16b.1 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Recover the tight-prior control alone — verify by the posterior
   concentrating on truth well inside its prior, by a deliberate perturbation of
   the truth moving the posterior with it, and by shrinkage below 0.9. **If the
   control does not recover, the machinery is wrong and this phase stops** (K4).
-- [ ] 16.5 Recover the full six-parameter set — verify by every marginal
+- [ ] 16.5 (moved to 16b.2 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Recover the full six-parameter set — verify by every marginal
   containing truth and by the run's cost reported against phase 13's measured
   per-trajectory budget. **Annotated 2026-09-24:** the per-trajectory budget is
   retired (§8 K1); report the cost per posterior, which is what K1 is judged
   on.
-- [ ] 16.6 Compute coverage over repeated datasets — verify by nominal 50, 80, 90,
+- [ ] 16.6 (moved to 16b.3 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Compute coverage over repeated datasets — verify by nominal 50, 80, 90,
   95 and 99 percent intervals covering truth at those rates within binomial
   error, per parameter, with the replicate count stated, and by the tight-prior
   control falling inside K4's band.
-- [ ] 16.7 Produce the shrinkage table, output F6 — verify by all six targets
+- [ ] 16.7 (moved to 16b.4 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Produce the shrinkage table, output F6 — verify by all six targets
   reported under transcripts-only, metabolites-only and joint data, and by the two
   load-bearing cells present: the ptsG promoter under metabolites only and the
   tight-prior control under transcripts only. **These two cells are what "crosses
   the boundary" means operationally.**
-- [ ] 16.8 Compare against the reference — verify by output F10 reporting the
+- [ ] 16.8 (moved to 16a.10 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Compare against the reference — verify by output F10 reporting the
   divergence between the production and reference posteriors on the two-gene
   system. There is no cut arm to compare against: D13 shows the existing cut
   passes nothing here, so F11 is instead the composition-and-audit figure §6
   describes, and this task does not produce it.
-- [ ] 16.9 Decide K2 — verify by the prior-to-posterior divergence under
+- [ ] 16.9 (moved to 16b.5 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Decide K2 — verify by the prior-to-posterior divergence under
   transcript-only data reported for every metabolic parameter against the 0.05-nat
   threshold, and by the verdict written as a sentence with its consequence for how
   the result is framed.
-- [ ] 16.10 Label what the result does and does not license — verify by the report
+- [ ] 16.10 (moved to 16b.7 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Label what the result does and does not license — verify by the report
   carrying the scoping note's own caveats: that Core A′ is the best-measured
   region of the network, that enzyme competition is partly removed, that success
   is evidence the architecture works rather than that inference on the full model
   is well-posed, and K7's measured factor if it fired.
-- [ ] 16.11 Fill the kill-criteria scoreboard, output T3 — verify by all seven
+- [ ] 16.11 (moved to 16b.8 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Fill the kill-criteria scoreboard, output T3 — verify by all seven
   criteria carrying a threshold, a measured value and a verdict, **published
   whether or not everything passed.** **Annotated 2026-09-24:** K1's threshold
   is set from the first minimal-model inference, before its verdict is
@@ -4282,6 +4296,45 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-30 — phase 16 moves to a sub-spec; block 1 goes gradient-free; the phase is budgeted at 50k CPU-h
+
+**Status: approved 2026-09-30** (scope, block 1, budget, K2 and K7 answered in the
+planning session. The sub-spec's ⚠️ DRAFT items stay open).
+
+**Trigger:** `/implement-spec`'s size check on phase 16.
+- **No sampler exists.** Nothing drives the hybrid from a recorded path, and no
+  three-block sampler exists. `src/inference.jl` handles uniform compositions only.
+- **Task 16.2 is an open design decision** that every later task depends on.
+- **A projection breaks the phase's budget.** One full-scale posterior is about
+  53k CPU-h: 2,000 sweeps × 15 replays × 200 cells × 32.2 s (13.7). The phase as
+  written needs at least eight such posteriors plus coverage.
+
+**Change.**
+- **Phase 16 is specified in `spec/phases/16-recovery.md`,** as 16a (the sampler
+  and the M0 reference) and 16b (recovery on Core A′). Tasks 16.1 to 16.11 are
+  annotated in place with where each now lives.
+- **D10's first block is gradient-free, on the published model** (sub-spec D16.1).
+  It has three dimensions: two ODE constants and σ. Sampling the data-generating
+  model exactly removes 14c.5's GTP departure from phase 16. The reverse constants
+  are derived at every proposal, as the truth was drawn. 14c's sampler model is
+  kept for when the ODE block grows.
+- **The path update is conditional SMC over 60 s windows** (D16.3).
+  - Exact forward filtering survives only as the per-gene transcript bridge,
+    because the ODE state is continuous and depends on the whole path.
+  - 16a.7 chooses between PG, PGAS and truncated PGAS by measured update rate and
+    cost.
+- **The phase is budgeted at 50k CPU-h, with 16a capped at 5k** (D16.6). 16a ends by
+  measuring the cost of a posterior, setting K1's bound, and allocating 16b by a
+  written priority order. It stops there for approval. Whatever is not funded at
+  full scale drops down K1's ladder or is scored as not affordable.
+- **K2 keeps its 1,000 cells** through an 800-cell extension of the 15.7 truth
+  (D16.8), subject to the allocation.
+- **K7 gets a measuring task, 16b.6** (D16.9). It had none, although 16.10 and
+  16.11 need its number.
+
+**Sections touched:** §0 status, §4 D10 (annotation), §11 phase 16 (stub and
+annotations), and the new `spec/phases/16-recovery.md`.
 
 ### 2026-09-29 — phase 15 planning: 15.8's Jacobian is a noise-weighted ensemble sensitivity, gated on rank against its noise floor, and 15.6 shares it
 
