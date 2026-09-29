@@ -1,5 +1,5 @@
 @model function _infercell_model(data_obs, data_times, prob, priors, n_ode,
-                                  solver, sensealg)
+                                  solver, sensealg, rows)
     n = length(priors)
     theta = Vector{Real}(undef, n)
     for i in 1:n
@@ -19,7 +19,7 @@
 
     sigma = theta[n_ode + 1]
     for i in eachindex(data_times)
-        data_obs[:, i] ~ MvNormal(sol[:, i], sigma)
+        data_obs[:, i] ~ MvNormal(sol.u[i][rows], sigma)
     end
 end
 
@@ -50,9 +50,10 @@ function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedDa
     param_names = [p.name for p in all_free]
     n_ode = length(all_model_free)
 
+    rows = state_rows(data.species, reduce(vcat, states.(models)))
     turing_model = _infercell_model(
         data.observations, data.times, prob,
-        priors, n_ode, solver, sensealg
+        priors, n_ode, solver, sensealg, rows
     )
 
     return turing_model, param_names
@@ -153,15 +154,22 @@ function _infer_abc(models, data;
         priors = [p.prior for p in all_free]
         param_names = [p.name for p in all_free]
     end
-    species = reduce(vcat, states.(models))
+    names = reduce(vcat, states.(models))
+    state_rows(data.species, names)   # throws on a species that is not a state
 
-    observed_stats = vec(data.observations)
+    # The spread is kept whenever the data carries it (spec §11 task 15.9).
+    # Data observed from one noisy ODE solution has none, and then the summary
+    # is the per-time mean alone.
+    spread = data.spread !== nothing
+    observed_stats = spread ?
+        vec(vcat(data.observations, data.spread)) : vec(data.observations)
     base_prob = build_problem(models; tspan=t)
 
     function simulate(theta)
         prob = remake(base_prob, p=theta)
         trajectories = [solve(prob, SSAStepper(); saveat=data.times) for _ in 1:n_replicates]
-        return compute_summary_stats(trajectories, species; times=data.times)
+        return compute_summary_stats(trajectories, data.species; times=data.times,
+                                     spread=spread, state_names=names)
     end
 
     return abc_smc(simulate, observed_stats, priors, param_names;
@@ -178,8 +186,9 @@ end
 Synthesise an [`ObservedData`](@ref) record from a forward simulation. The two
 `sol`-flavoured methods sample a single ODE solution at `times` and add
 i.i.d. Gaussian noise with standard deviation `sigma`. The two
-`trajectories`-flavoured methods average across SSA replicates — used when the
-generative model is stochastic and the "data" is a sample mean.
+`trajectories`-flavoured methods take the mean across SSA replicates, and keep
+the replicates' standard deviation as the record's `spread`, so the ABC summary
+carries both (spec §11 task 15.9).
 """
 function observe(sol, times, model::AbstractSubModel;
                  sigma=0.1, rng=Random.default_rng())
@@ -196,33 +205,15 @@ function observe(sol, times, models::Vector{<:AbstractSubModel};
     return ObservedData(collect(Float64, times), pred .+ noise, species)
 end
 
-function observe(trajectories::Vector, times, model::AbstractSubModel)
-    # For stochastic models: take the mean across replicate trajectories
-    species = states(model)
-    n_species = length(species)
-    n_times = length(times)
-    obs = zeros(n_species, n_times)
-    for sol in trajectories
-        for (j, t) in enumerate(times)
-            obs[:, j] .+= sol(t)
-        end
-    end
-    obs ./= length(trajectories)
-    return ObservedData(collect(Float64, times), obs, species)
-end
+observe(trajectories::Vector, times, model::AbstractSubModel) =
+    observe(trajectories, times, [model])
 
 function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel})
     species = reduce(vcat, states.(models))
-    n_species = length(species)
-    n_times = length(times)
-    obs = zeros(n_species, n_times)
-    for sol in trajectories
-        for (j, t) in enumerate(times)
-            obs[:, j] .+= sol(t)
-        end
-    end
-    obs ./= length(trajectories)
-    return ObservedData(collect(Float64, times), obs, species)
+    stats = reshape(compute_summary_stats(trajectories, species; times = times),
+                    2 * length(species), length(times))
+    n = length(species)
+    return ObservedData(times, stats[1:n, :], species, stats[(n + 1):end, :])
 end
 
 """

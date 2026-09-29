@@ -83,7 +83,7 @@ export states, parameters, dynamics, inputs, formalism, inference_mode, reaction
 # The Core A′ interface contract (registry, edge kinds, resolver, labels,
 # loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.
-export ObservedData, PosteriorPredictive, ABCPosterior
+export ObservedData, PosteriorPredictive, ABCPosterior, state_rows
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism
 export build_turing_model, infer, observe, posterior_predictive, check_identifiability
