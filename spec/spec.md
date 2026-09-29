@@ -4254,8 +4254,10 @@ the task list did not settle.
   of every candidate observable at every 60 s save point, at ln θ ± 0.2, over
   paired seeds. A reverse constant follows its forward constant, as in 14c.1.
   Each row is divided by the 200-cell standard error of that observable's
-  mean, `std/√200`, taken at nominal. So one unit is one resolution unit of
-  the 15.7 dataset. The weighting is diagonal, and correlation between save
+  mean, `std/√200`, taken at nominal. That is floored at 1% of
+  max(|mean|, floor), with 14c.5's floors, as in 14c.5's gate, since a pilot
+  smoke run showed rows with almost no cell-to-cell spread dominating. So one
+  unit is one resolution unit of the 15.7 dataset. The weighting is diagonal, and correlation between save
   points is ignored. The seventh column, for the 7-parameter set, scales all
   17 promoters jointly.
 - **The gate (15.8, K6).** The noise floor is the largest singular value of

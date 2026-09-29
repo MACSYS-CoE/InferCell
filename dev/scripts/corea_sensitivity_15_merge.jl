@@ -34,12 +34,15 @@ seeds = sort(unique(k[1] for k in keys(runs)))
 cols = p1.columns
 nsp, nt = length(p1.species), length(p1.times)
 rowname(r) = (p1.species[(r - 1) % nsp + 1], p1.times[(r - 1) ÷ nsp + 1])
+# 14c.5's floors: 500 particles for a pool, one copy for a transcript, none for the volume.
+floor_of(o) = o === :volume_litres ? 0.0 : startswith(string(o), "mRNA_") ? 1.0 : 500.0
+const FLOORS = [floor_of(rowname(r)[1]) for r in 1:(nsp * nt)]
 
 mat(ss, c, s) = permutedims(reduce(hcat, [vec(runs[(k, c, s)]) for k in ss]))
 function jac(ss, cs)
     nominal = mat(seeds, :nominal, 0)    # the resolution is taken on every seed
     ensemble_jacobian([mat(ss, c, +1) for c in cs], [mat(ss, c, -1) for c in cs],
-                      nominal; delta = p1.delta, ncells = NCELLS)
+                      nominal; delta = p1.delta, ncells = NCELLS, floors = FLOORS)
 end
 h = length(seeds) ÷ 2
 A, B = seeds[1:h], seeds[(h + 1):(2h)]
@@ -56,7 +59,8 @@ p("Merged by `dev/scripts/corea_sensitivity_15_merge.jl` from $(length(files)) t
   "$(strip(read(`git rev-parse --short HEAD`, String)))). $(length(seeds)) paired seeds, ",
   "each through 15 configurations on the sampler model with D11's six freed: nominal, and ",
   "ln θ ± $(p1.delta) on each column. Rows are $(nsp) candidate observables × $(nt) save ",
-  "points, each in units of the $(NCELLS)-cell standard error of its nominal mean. The ",
+  "points, each in units of its resolution: the $(NCELLS)-cell standard error of its nominal ",
+  "mean, floored at 1% of max(|mean|, floor) as in 14c.5's gate. The ",
   "noise matrix is (J_A − J_B)/2 over two halves of $h seeds.")
 p()
 p("## 15.8: identifiability (K6)")

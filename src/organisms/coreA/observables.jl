@@ -350,16 +350,24 @@ end
 Spec §11 tasks 15.6 and 15.8. Each column is the central difference, in
 ln θ, of an ensemble mean: `(mean(plus) − mean(minus)) / 2delta`. `plus`,
 `minus` and `nominal` are replicates × rows arrays, one per column for `plus`
-and `minus`. Each row is divided by the `ncells`-cell standard error of that
-row's nominal mean, `std/√ncells`, so one unit is one resolution unit of a
-dataset of that size. A row with no spread at nominal has no resolution, and
+and `minus`. Each row is divided by its resolution, so one unit is one
+resolution unit of an `ncells`-cell dataset. The resolution is the standard
+error of the row's nominal mean, `std/√ncells`, floored at `rel` times
+`max(|mean|, floors[row])`: as in task 14c.5's gate, a shift below 1% of the
+larger of the value and its particle floor is not taken as resolvable. Without
+that floor, a row with almost no cell-to-cell spread (t = 0, or a pool the
+dynamics pin) would dominate the matrix. A row whose resolution is still zero
 is returned as zeros.
 """
 function ensemble_jacobian(plus::AbstractVector{<:AbstractMatrix},
                            minus::AbstractVector{<:AbstractMatrix},
-                           nominal::AbstractMatrix; delta::Real, ncells::Integer = 200)
+                           nominal::AbstractMatrix; delta::Real, ncells::Integer = 200,
+                           rel::Real = 0.01,
+                           floors::AbstractVector{<:Real} = zeros(size(nominal, 2)))
     length(plus) == length(minus) || throw(DimensionMismatch("plus and minus columns differ"))
-    res = vec(std(nominal; dims = 1)) ./ sqrt(ncells)
+    length(floors) == size(nominal, 2) || throw(DimensionMismatch("one floor per row"))
+    res = max.(vec(std(nominal; dims = 1)) ./ sqrt(ncells),
+               rel .* max.(abs.(vec(mean(nominal; dims = 1))), floors))
     J = zeros(size(nominal, 2), length(plus))
     for (j, (p, m)) in enumerate(zip(plus, minus))
         size(p, 2) == size(m, 2) == size(nominal, 2) ||

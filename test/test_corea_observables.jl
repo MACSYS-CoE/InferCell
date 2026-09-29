@@ -108,6 +108,11 @@ using Statistics: std
         minus = [nomi .- [0.2 0.0]]
         J = ensemble_jacobian(plus, minus, nomi; delta = 0.2)
         @test J[1, 1] ≈ sqrt(200) / std(nomi[:, 1]) && J[2, 1] == 0
+        # A row with no spread is resolved at 1% of max(|mean|, floor), not at zero.
+        flat = hcat(fill(1000.0, 4000), nomi[:, 2])
+        Jf = ensemble_jacobian([flat .+ [2.0 0.0]], [flat .- [2.0 0.0]], flat; delta = 0.2,
+                               floors = [500.0, 0.0])
+        @test Jf[1, 1] ≈ (4.0 / 0.4) / 10.0
 
         # Rank against the split-half floor. Two real directions and noise pass;
         # a duplicated column, the ridge, falls to the floor.
