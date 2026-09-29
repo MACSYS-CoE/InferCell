@@ -535,7 +535,12 @@ function deviation_reason(e::DeferredCounterEdge)
     e.clip === :smoothed &&
         return "deferred counter on :$(e.species) uses a smoothed clip of width " *
                "$(e.smoothing), replacing the published model's max(0, ·) with a " *
-               "differentiable approximation"
+               "differentiable approximation. Each clipped drain leaves at most " *
+               "width·ln 2 particles more than the clamp, and consecutive clips " *
+               "add up: at width 1 on Core A′, GTP ran up to 18.7 particles high " *
+               "over a 28-drain clipping run, and above 1% of the paired pool in " *
+               "51 of 5,000 cells, with no ensemble shift (spec §11 task 14c.5, " *
+               "job 17671709)"
     e.clip === :unclamped &&
         return "deferred counter on :$(e.species) is unclamped — the pool may go " *
                "negative, where the published model floors it at zero and " *

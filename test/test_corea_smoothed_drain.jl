@@ -50,6 +50,9 @@ _consumers(ms) = [e for m in ms for e in coupling(m)
         sm = [l for l in labels if l.category === :smoothed_counter]
         @test Set(l.subject for l in sm) == Set(e.species for e in _consumers(smoothed))
         @test all(l -> occursin("smoothed clip of width 1.0", l.description), sm)
+        # And its measured cost against the clamp (14c.5, §12 2026-09-29).
+        @test all(l -> occursin("18.7 particles", l.description) &&
+                       occursin("job 17671709", l.description), sm)
         @test !any(l -> l.category === :smoothed_counter, reduction_declarations(clamped))
         d = build_corea(; smoothing = COREA_SMOOTHING_WIDTH, tspan = (0.0, 10.0))
         @test occursin("smoothed clip of width 1.0", reduction_report(smoothed, d))
