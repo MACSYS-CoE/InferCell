@@ -65,7 +65,7 @@ p()
 p("Merged by `dev/scripts/corea_sensitivity_15_merge.jl` from $(length(files)) task files ",
   "(runs at commit $(p1.commit), job $(p1.job); merged at $MERGED_AT). Regenerate with ",
   "`sbatch --array=0-$(length(seeds) - 1) --export=ALL,NSEEDS=$(length(seeds)) ",
-  "dev/scripts/corea_sensitivity_15.slurm`, then this script. $(length(seeds)) paired seeds, "
+  "dev/scripts/corea_sensitivity_15.slurm`, then this script. $(length(seeds)) paired seeds, ",
   "each through 15 configurations on the sampler model with D11's six freed: nominal, and ",
   "ln θ ± $(p1.delta) on each column. Rows are $(nsp) candidate observables × $(nt) save ",
   "points, each in units of its resolution: the $(NCELLS)-cell standard error of its nominal ",
