@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-29
-**Branches:** `phase-15-observables` (#78, phase 15). #77 (14c.5) merged.
+**Branches:** none open. #77 (14c.5) and #78 (phase 15) merged 2026-09-29.
 
 ## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
 
@@ -60,7 +60,7 @@ the same matrix. The panel is chosen by that audit over D11's six, less check
   phase 16's metabolite `Modality` with `floor = 1.0`, as the data was, not the
   1e-12 default.
 
-Next: #78 through /check-PR again. Then phase 16, which starts with M0
+Merged as #78 (/check-PR: MERGE AFTER FIXES, then fixed and re-reviewed; suite 28,396/28,396, job 17710278). Next: Then phase 16, which starts with M0
 (16.1) and the path-update choice (16.2). Housekeeping:
 `.worktrees/{agree14c5,suite14c5,sens15,ds15}` hold runs of record, and all
 their results are committed.
