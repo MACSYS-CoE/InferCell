@@ -9,8 +9,8 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
-coupled half failed and carried as a measured cost (§12). Phase 15 may start,
-all of it.
+coupled half failed and carried as a measured cost (§12, #77). Phase 15 is
+built on `phase-15-observables`, with its PR open.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -4056,40 +4056,84 @@ by memory.
 **Done when:** a synthetic dataset exists at recorded ground-truth parameters
 drawn from the prior, the observable set is justified against D8, and any
 observable that closes the proxy loop is rejected by a check.
-**PR:** _not started_
+**PR:** branch `phase-15-observables` (open)
 
-- [ ] 15.1 Implement the circularity guard — verify by an observable set
+**Results (branch `phase-15-observables`).** Planning is §12 2026-09-29 (phase
+15 planning). The runs of record are F2 (job 17681807,
+`dev/scripts/corea_f2_15_result.md`), the sensitivity (pilot job 17703391 and
+full run job 17704779, `dev/scripts/corea_sensitivity_15{,_pilot}_result.md`)
+and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
+- **15.1.** `assert_no_circularity` refuses protein counts and freed protein
+  initial conditions, naming the 17 promoters. The PTS carriers count as
+  protein. Metabolites, transcripts and volume pass.
+- **15.2.** `draw_truth` draws Haldane-consistently. A coverage or calibration
+  truth at nominal is refused, and `nominal_truth` is allowed only for a smoke
+  test. `truth_label` is the rule's T2 row.
+- **15.3.** `emit_observables!` records counts, all 22 fluxes and volume every
+  60 s. `emit_ensemble` returns transcripts as an `Int` array of replicates ×
+  17 × times. The fluxes reproduce the composed right-hand side to 1e-12.
+- **15.4.** `NoiseModel` has lognormal and Poisson modalities. Check 9: over
+  300 datasets the 90% interval covers σ 275 times (91.7%, band 84.8 to
+  95.2%), with a mean posterior median of 0.997σ. Reading σ as a variance
+  covers it 0 times. Doubling a pool 1,000× smaller than its neighbour moves
+  the log-likelihood by 6.0, against under 1e-3 with one additive term.
+- **15.5.** F2 on the frozen variant, now in `src`: 23 pools × 13 genes, with
+  check 8's sums at 3.6e-14 and its derivatives at 2.5e-9. Its rank order
+  enters the panel with 15.6 (§12).
+- **15.6.** The influence audit is 15.8's matrix in 200-cell resolution units.
+  Every target moves some observable beyond three times its noise.
+- **15.7.** 200 published-model cells at a truth drawn with
+  `Xoshiro(1507)`. The six are free and everything else is fixed. The 200 is
+  D11's derivation. Seed 30001 reruns identically, and so does the merged file
+  (SHA-256 `77f01fd5…`). `meta.md` carries the truth, the seeds, the noise
+  scale and seed, the T2 row, and the `reduction_report`. The panel is 19
+  metabolites, observed lognormally at σ = 0.1 (ours), with the 17 transcripts
+  as exact counts. It includes `M_lac__L_e`, whose scale rests on the asserted
+  medium-to-cell volume ratio.
+- **15.8.** Over 1,470 seeds, D11's six have singular values 923, 400, 254,
+  215, 184 and 119, against a split-half noise floor of 72.3: **rank 6 of 6,
+  and K6 does not fire.** The sixth is 1.65× the floor, short of the 3× the run
+  was sized for at its 250 CPU-h cap. The condition number is 7.7, which the
+  floor caps at 12.8. **The predicted ridge is not seen.** Adding the
+  polymerase direction gives a seventh singular value of 116, above the floor,
+  since the 14 fixed promoters anchor the scale, as the planning entry
+  expected. The exact ridge, with all 17 free, stays analytic (D11), and F13
+  shows no drop.
+- **15.9.** Observations map to states by name, and the ABC summary carries a
+  per-time standard deviation.
+
+- [x] 15.1 Implement the circularity guard — verify by an observable set
   including protein counts, or freeing initial protein counts, being rejected and
   naming the seventeen promoter parameters it would double-count, and by
   metabolite time courses and transcript counts passing.
-- [ ] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
+- [x] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
   calibration run refusing a truth set to the nominal published values, and by a
   fixed-truth-at-nominal run being permitted only when labelled a smoke test.
   **Annotated 2026-09-28 (§12):** truths are drawn under 14c.1's
   Haldane-consistent rule.
-- [ ] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
+- [x] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
   per-species counts, per-reaction fluxes and volume at the published cadence, and
   by transcripts carried as a replicates-by-genes-by-times array of counts rather
   than a replicate mean, which the current ensemble observer would produce.
-- [ ] 15.4 Replace the single scalar observation noise with per-modality noise on a
+- [x] 15.4 Replace the single scalar observation noise with per-modality noise on a
   log scale — verify by check 9 recovering a known noise scale inside the
   calibration band, and by a test that the smallest pools now contribute to the
   likelihood, which under one additive term they did not.
-- [ ] 15.5 Compute output F2, the concentration control coefficient matrix, with
+- [x] 15.5 Compute output F2, the concentration control coefficient matrix, with
   check 8 as its guard — verify by the summation identities holding and by the
   metabolite panel being chosen from its largest rows rather than by argument,
   which settles the scoping note's open question.
-- [ ] 15.6 Run the influence audit — verify by a report giving, per candidate
+- [x] 15.6 Run the influence audit — verify by a report giving, per candidate
   observable and per target parameter, how much the observable moves it, so the
   data model is chosen by measurement. **Amended 2026-09-29 (§12, phase 15
   planning):** it is 15.8's matrix, in 200-cell resolution units, and it
   chooses the metabolite panel together with F2 and check 1b.
-- [ ] 15.7 Fix the target set and generate the dataset — verify by the six
+- [x] 15.7 Fix the target set and generate the dataset — verify by the six
   parameters of D11 being free with everything else fixed, by the ensemble sized
   at 200 cells with the derivation recorded, by two runs at one seed being
   identical, and by the stored dataset carrying its truth, its seed and the
   `reduction_report` of the model that produced it.
-- [ ] 15.8 Check the target set is identifiable before sampling — verify by
+- [x] 15.8 (met for the six, rank 6 of 6; the seven-parameter ridge is not seen, as the 14 fixed promoters anchor the scale; §12 2026-09-29) Check the target set is identifiable before sampling — verify by
   `check_identifiability` reporting full rank and a condition number below 1e6
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
@@ -4101,7 +4145,7 @@ observable that closes the proxy loop is rejected by a check.
   **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
   smoothed model, since at a clip the clipped model's has no value. That is
   the sampler model, smoothed drain and continuous pools (§12, 2026-09-28).
-- [ ] 15.9 Map observations to states by species name, and keep ensemble spread
+- [x] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
   scoring, by an unknown species name throwing, and by the time-series summary
