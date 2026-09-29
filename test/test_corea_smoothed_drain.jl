@@ -7,6 +7,7 @@
 using Test
 using InferCell
 using Random
+using Statistics: mean, std
 
 # The consumer counters that can clip: inbound debits on a pool a module
 # integrates. A product credit or a chemostat debit never clips.
@@ -89,6 +90,9 @@ end
         d = build_corea(; COREA_SAMPLER..., tspan = (0.0, 10.0))
         labels = driver_declarations(d)
         @test any(l -> l.category === :rounding_policy && l.subject === :continuous, labels)
+        # And its measured cost against fractional carry (14c.5, §12 2026-09-29).
+        @test any(l -> l.subject === :continuous && occursin("51 of 5,000", l.description) &&
+                       occursin("17695360", l.description), labels)
         @test !any(l -> l.subject === :fractional_carry, labels)
         # The published build is unchanged: fractional carry, the default.
         @test build_corea(; tspan = (0.0, 10.0)).rounding.policy === :fractional_carry
@@ -164,4 +168,41 @@ end
         @info "14c.5: sampler-model closures, max residual / tol_C at the pinned pair" [
             m.name => maxres(run, m.name) / moiety_bound(run, m.name) for m in run.moieties]
     end
+end
+
+# Task 14c.5's decoupled half (§12, 2026-09-29). Once a pair decouples its two
+# runs are independent draws, so the gate's statistic must be unbiased on a
+# true null. The per-seed ratio it replaces is not: E[X/Y] − 1 = CV² for iid
+# lognormals.
+@testset "ensemble_agreement: the decoupled half's statistic (§12, 2026-09-29)" begin
+    rng = Xoshiro(1405)
+    σ = sqrt(log(2.0))                 # coefficient of variation exactly 1
+    n = 20_000
+    x = exp.(σ .* randn(rng, n))
+    y = exp.(σ .* randn(rng, n))
+
+    # The null: two independent draws of one model.
+    old = mean((x .- y) ./ y)
+    @test old > 0.5                    # biased by about CV² = 1
+    a = ensemble_agreement(y, x; floor = 0.0)
+    @test abs(a.diff) < 3a.se          # unbiased
+    @test a.verdict === :pass
+    @test a.resolution ≈ std(y) / sqrt(200) / mean(y)
+
+    # A real 20% shift in every seed fails, however many seeds.
+    b = ensemble_agreement(y, 1.2 .* y; floor = 0.0)
+    @test b.diff ≈ 0.2 && b.verdict === :fail
+
+    # Identical runs pass at zero, and too few seeds are unresolved, not passed.
+    @test ensemble_agreement(y, y; floor = 0.0).verdict === :pass
+    c = ensemble_agreement([1.0, 3.0], [3.0, 1.0]; floor = 0.0)
+    @test c.diff == 0 && c.se ≈ 1.0 && c.verdict === :unresolved
+
+    # The floor sets the denominator, and 1% is the tolerance's floor.
+    d = ensemble_agreement([1.0, 1.0], [1.0, 1.0]; floor = 500.0)
+    @test d.tolerance == 0.01 && d.verdict === :pass
+
+    @test_throws DimensionMismatch ensemble_agreement([1.0, 2.0], [1.0]; floor = 1.0)
+    @test_throws ArgumentError ensemble_agreement([1.0], [1.0]; floor = 1.0)
+    @test_throws ArgumentError ensemble_agreement([0.0, 0.0], [0.0, 0.0]; floor = 0.0)
 end

@@ -1,7 +1,60 @@
 # Handoff
 
-**Session date:** 2026-09-28
-**Branches:** none open; phase 14c merged as #75 (2026-09-29)
+**Session date:** 2026-09-29
+**Branches:** `close-14c5-mean-gate` (#77, closes 14c.5); `phase-15-observables`
+(worktree `.worktrees/phase15`, not pushed, tasks 15.1 to 15.5 and 15.9 built)
+
+## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
+
+**14c.5 is closed, with its coupled half failed.** Two amendments (§12,
+2026-09-29):
+- **The decoupled half is gated on the difference of ensemble means.** The
+  per-seed ratio reads high on a true null: the published model against itself
+  gives GTP +88% (z = 16.8). The gate is `|d| + 2·SE ≤ max(R, 1%)`, where R
+  is the 200-cell dataset's resolution. 5,000 seeds, about 90 CPU-h (job
+  17671709). **50 of 50 observables pass**; the worst sits at 0.53 of its
+  tolerance.
+- **The coupled half fails**, at 3.75% of max(pool, 500) on GTP against 1%.
+  51 of 5,000 seeds exceed 1%, all GTP, and in all of them the sampler model is
+  higher. **Continuous pools cause it, not the smoothed drain.** A 2×2 on the
+  four worst seeds (job 17695360) shows the clamp with continuous pools
+  reproduces the sampler model to within 0.25 particles, decoupling included,
+  while the smoothed drain alone stays within one particle and does not decouple
+  over that window. The gap builds during runs of clipped GTP drains, at 3 to 7
+  particles per 10 s. It is consistent with faster regeneration from GDP when
+  pools are fractional, but fluxes were not recorded and the mechanism is not
+  pinned down. You
+  chose to record the failure and carry it as a measured cost. It is now in the
+  `:continuous` rounding policy's driver label. Phase 16's coverage is the
+  backstop.
+- **A first attribution to the smoothing was wrong,** and /check-PR on #77
+  caught it. Under either clip rule `pool − deficit` evolves identically, so the
+  smoothing's residue cannot add up across clips.
+
+**Phase 15, built in `.worktrees/phase15`** (off main, not pushed):
+- **15.1** `assert_no_circularity`: protein counts, the PTS carriers included,
+  and freed protein initial conditions are refused, naming the 17 promoters.
+- **15.2** `draw_truth` and `nominal_truth`: a coverage or calibration truth at
+  nominal is refused, and the T2 row is `truth_label`.
+- **15.3** `emit_observables!` and `emit_ensemble`: counts, 22 fluxes and volume
+  every 60 s; transcripts as an `Int` array of replicates × 17 × times. The
+  observables test passes 40/40 (job 17679588).
+- **15.4** `NoiseModel` and `Modality` (lognormal or Poisson). Check 9's 90%
+  interval covers σ in 275 of 300 datasets, and a variance misreading covers it
+  in 0.
+- **15.5** F2 is `concentration_control`, on the frozen variant now in `src`
+  (`control_variant.jl`). Check 8 holds (sums 3.6e-14, derivatives 2.5e-9,
+  job 17681807). `metabolite_panel` at |C| ≥ 0.1 keeps 20 of 23 pools.
+  **Open:** that threshold is ours and barely discriminates, and check 1b's
+  exclusions (PEP, pools below 10 particles) are not applied yet. The result
+  files (`dev/scripts/corea_f2_15_*`) are uncommitted in the worktree.
+- **15.9** observations are mapped to states by name, and the ABC summary
+  carries the per-time spread.
+
+Next: #77 through /check-PR again and merge. Then 15.6 (influence audit, about
+4 CPU-h), 15.7 (the dataset) and 15.8 (a driver Jacobian with a condition
+number), and phase 15's PR. Housekeeping: `.worktrees/agree14c5` and
+`.worktrees/suite14c5` hold the runs of record, and can go once #77 merges.
 
 ## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 

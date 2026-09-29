@@ -7,10 +7,10 @@ fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
-Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75),
-with 14c.5 partly open (§12, 2026-09-29). Phase 15's tasks that need neither
-14c.5 nor 14c.7 may start. 15.7 and 15.8 wait until a way to close 14c.5's
-open half is chosen.
+Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
+with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
+coupled half failed and carried as a measured cost (§12). Phase 15 may start,
+all of it.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3941,7 +3941,7 @@ branch touches `src` or `test`.
 - **14c.4.** Seven consumer counters are smoothed at one particle. The
   resolver reports no gradient obstruction (seven before), and each is labelled
   ours.
-- **14c.5.** 100 seeds. Before a pair's jump states first differ, the largest
+- **14c.5.** At 100 seeds (#75): before a pair's jump states first differ, the largest
   of 406,700 paired differences is 0.763% (`M_gtp_c`), so the coupled half
   passes. The end-of-cycle half resolves 20 of 50 observables, and none of
   them fails. It can neither pass nor fail the other 30, whose SE exceeds 1%.
@@ -3953,7 +3953,13 @@ branch touches `src` or `test`.
   30.** More seeds, or a statistic without the skew, would close it. 47 of 100
   sampler pairs decouple against 3 of 100 for the control, so the control is
   matched in size but not in effect, and cannot serve as a null for the
-  decoupled half. Every whole-cell closure on the sampler model passes 14a's
+  decoupled half. **Closed 2026-09-29 over 5,000 seeds** (job 17671709,
+  `dev/scripts/corea_smoothing_14c5_result.md`), under the difference-of-means
+  gate (§12). The decoupled half passes on 50 of 50. The coupled half
+  **fails**: its largest difference is 3.75% on `M_gtp_c`, and 51 of 5,000
+  seeds exceed 1%, all GTP and all with the sampler model higher. A 2×2 on
+  the four worst seeds (job 17695360) attributes it to continuous pools, not
+  the smoothed drain, and it is carried as their measured cost. Every whole-cell closure on the sampler model passes 14a's
   gate at the pinned pair and one decade tighter. The seven logged at the
   pinned pair are at 3.5e-10 to 2.3e-9 of `tol_C`.
 - **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
@@ -3992,8 +3998,10 @@ particles.
   `DeferredCounterEdge` declaring `clip = :smoothed` with its width, by the
   width's choice recorded with its reason, by `reduction_report` carrying the
   smoothing as ours (T2), and by `obstructs_gradients` reporting no edge.
-- [ ] 14c.5 (partly open — the coupled half and 20 of 50 end-of-cycle
-  observables are met, the other 30 undecided; §12 2026-09-29) Validate the smoothed model against the clipped one — verify by the
+- [x] 14c.5 (closed 2026-09-29 with its coupled half **failed**: the
+  decoupled half passes on 50 of 50 over 5,000 seeds, and the coupled half's
+  largest difference is 3.75% on GTP against 1%, carried as the measured cost
+  of continuous pools; §12 2026-09-29, the three entries) Validate the smoothed model against the clipped one — verify by the
   difference in every candidate observable at 60 s, at published parameters on
   14b's seeds, being reported against a threshold fixed at planning; by 14a's
   closures holding under smoothing at their own gates, so that smoothing
@@ -4010,6 +4018,11 @@ particles.
   cycle, the mean paired difference must be within 1% with its SE, and an SE
   above 1% is reported as unresolved. The published model against itself,
   with `krnadeg` scaled by 1 + 1e-5, is the matched control for decoupling.
+  **Amended 2026-09-29 (§12):** the decoupled half is gated on the difference
+  of ensemble means. It passes when `|d| + 2·SE` is within the larger of
+  the 200-cell dataset's resolution on that observable and 1%, over 5,000
+  seeds. The null is the published model against itself on independent seeds,
+  and the `krnadeg` control is retired as a null.
 - [x] 14c.6 Bound how much of the published-parameter clipping is our
   reduction's — verify by 14b's published-parameter census rerun with the GTP
   supply loosened (the capacity of the GTP branch, PGK3 and PYK3, scaled up
@@ -4029,7 +4042,9 @@ particles.
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
 check 8's frozen steady state, whose demands are forcing terms and not
 counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
-15.8 wait for 14c.5, including its open half (§12, 2026-09-29). 15.8 also
+15.8 wait for 14c.5, including its open half (§12, 2026-09-29). It closed
+on 2026-09-29 with its coupled half failed and the cost recorded, so they may
+start. 15.8 also
 waits for 14c.7 (added 2026-09-28): its Jacobian is taken on the sampler model,
 `build_corea(; COREA_SAMPLER...)`.
 
@@ -4201,6 +4216,158 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the measured cost of continuous pools
+
+**Status: approved 2026-09-29.** A first version attributed the failure to the
+smoothed drain; /check-PR on #77 showed that attribution was wrong, and the
+decomposition below replaced it, also approved 2026-09-29.
+
+**Trigger:** the 5,000-seed run the entry below specifies (job 17671709, at
+`87b88f1`; `dev/scripts/corea_smoothing_14c5_result.md`).
+
+**What is true.**
+- **The decoupled half passes on all 50 observables.** The largest
+  `(|d| + 2·SE)` is 0.53 of its tolerance (`mRNA_JCVISYN3A_0203`). `M_gtp_c`
+  reads d = +0.09% ± 0.5%, against a 200-cell resolution of 4.5%.
+- **The null confirms the statistic change.** On the published model against
+  itself, the old per-seed ratio reads `M_gtp_c` +88% (z = 16.8), `M_pi_c`
+  +47% and `mRNA_JCVISYN3A_0607` +41%. The difference of means puts no
+  observable beyond |z| = 1.75, against 3.29. This tests d/SE on unpaired
+  halves; it does not test the paired SE or the pass rule.
+- **The coupled half fails.** Of 21,988,700 paired comparisons made before a
+  pair's jump states first differ, the largest is 3.75% of
+  max(|published|, 500 particles) (`M_gtp_c`, seed 18227, t = 4500 s), against
+  the 1% gate. At that point the published pool is 242.5 particles, so the gap,
+  18.7 particles, is 7.7% of the pool itself. 51 of 5,000 seeds exceed 1% and 6
+  exceed 2%. All 51 are `M_gtp_c`, and in all 51 the sampler model is the
+  higher. The run kept only each seed's worst relative difference, so 18.7 is
+  that seed's gap, not a bound on every seed's. At 100 seeds (#75) the largest
+  had been 0.763%, which at about one seed in a hundred is what that sample
+  would show.
+- **Continuous pools cause it; the smoothed drain does not.** A 2×2 on the four
+  worst seeds, each to its decoupling (job 17695360, at `2bbb02c`;
+  `dev/scripts/corea_smoothing_14c5_decomp_result.md`), separates the two
+  departures. The clamp with continuous pools reproduces the sampler model to
+  within 0.25 particles over the coupled window, and to 0.02 at the worst save
+  points (18.74, 21.29, 15.09 and 9.97 particles on seeds 18227, 16184, 19958
+  and 16391). Its jump states match the sampler model's at every handshake, so
+  it decouples at the same one. The smoothed drain under fractional carry never
+  moves GTP by more than 0.98 particles, and does not decouple before the
+  sampler pair does; it was not run further. The gap builds only during runs
+  of clipped GTP drains, at about 3 to 7 particles per 10 s, while GDP sits 1.5
+  to 3 particles higher in the continuous-pool model. When the pool refills,
+  GTP comes back higher and GDP lower, by 75 to 85% of GTP's rise at the four
+  worst points. That is consistent with GTP being regenerated from GDP faster
+  during starvation when pools are carried as fractions, but fluxes were not
+  recorded, and the rounding interaction behind it is not pinned down. The
+  same departure flips the stochastic event at which each pair decouples, and
+  the worst coupled differences sit 15 to 230 s before decoupling. Whether the
+  growing gap triggers the flip or both share a cause is not tested, and these
+  seeds were chosen for their largest gaps.
+- **Why the smoothing cannot be the cause.** Under either clip rule a drain
+  sets `paid + deficit' = accrued + deficit` and `pool' = pool − paid`, so
+  `pool − deficit` evolves identically. The smoothing's per-drain gap, at most
+  w·ln 2, is held alongside an equal extra deficit that is repaid; it does not
+  add up across clips. A first version of this entry said it did, from
+  28 × ln 2 ≈ 18.7. That match was a coincidence.
+
+**Change.**
+- **The coupled half is recorded as failing.** It is not relabelled and its
+  gate is not changed.
+- **The failure is carried as the measured cost of continuous pools** in T2,
+  in the `:continuous` rounding policy's driver label: GTP differs by more than
+  1% of max(pool, 500 particles) in 51 of 5,000 cells while the paths match, by
+  21.3 particles in the worst of four examined, with no ensemble shift. The
+  smoothed counters' labels carry no measured cost from this run.
+- **14c.5 is closed on that record.** Tasks 15.7 and 15.8 may start. Phase
+  16's coverage stays the end-to-end check that the mismatch does not bias a
+  posterior: it fits sampler-model posteriors to published-model data.
+- **Not pursued:** a narrower smoothing width, which the decomposition shows
+  would not touch the gap. Continuous pools are what the sampler model needs
+  for a gradient through the handshake (14c.7), so the cost comes with it.
+- **The 100-seed sizing in the entry below ran about 2× high.** At 5,000 seeds
+  `mRNA_JCVISYN3A_0131`'s SE is 0.92%, which puts SE = 1% at about 4,200 seeds
+  rather than 9,400, and the worst realised requirement at about 1,950 rather
+  than 4,155. Its figures are estimates from 100 seeds, and are left as
+  written.
+
+*Sections:* §11 phase 14c (Results, 14c.5, the phase-15 gating line); the
+header's status.
+
+### 2026-09-29 — 14c.5's decoupled half is gated against what the data can resolve, on an unbiased statistic
+
+**Status: approved 2026-09-29.** It closes the choice the entry below left
+open.
+
+**Trigger:** sizing a larger 14c.5 run from the 100-seed run of record (job
+17625498). There were two findings.
+
+**What is true.**
+- **The gate's statistic is biased once a pair decouples.** Take the mean over
+  seeds of `(x_s − x_p)/max(|x_p|, floor)`. For two independent draws this has
+  a positive expectation, since E[X/Y] > 1. So a true null reads high. The
+  null is the published model against itself on independent seeds, made by
+  pairing the first 50 published runs with the other 50. On that null the
+  statistic reads `M_gtp_c` +78% ± 28%, `M_pi_c` +66% ± 24%, `M_lac__L_c`
+  +51% ± 35% and `mRNA_JCVISYN3A_0607` +81% ± 22%. The difference of ensemble
+  means reads +3.8% ± 14%, +6.8% ± 11%, +4.8% ± 7.2% and +30% ± 16%. Adding
+  seeds would shrink the SE onto the bias, and the gate would then fail
+  spuriously.
+- **The 1% threshold was set for coupled pairs, and it is the wrong yardstick
+  once a pair decouples.** Past the first flipped event, the paired difference
+  is dominated by cell-to-cell variation. `mRNA_JCVISYN3A_0131`'s coefficient
+  of variation is 1.0. Resolving 1% of its mean, 0.01 of a copy, needs about
+  9,400 seeds for an SE of 1%. Making a reading beyond 1% a 3σ event needs
+  about 85,000. That is about 1,500 CPU-h to measure a precision no posterior
+  in this project can use. The 200-cell dataset of task 15.7 pins that
+  transcript's mean to about ±7% per save point, and `M_gtp_c` to about ±5%.
+
+**Change.**
+- **The coupled half is unchanged.** Every paired difference at a save point
+  before the pair's first jump-state mismatch must be within 1%, relative to
+  max(|published|, floor). It passed at 0.763% at 100 seeds. It is the direct test of the
+  model difference.
+- **The decoupled half is gated on the difference of ensemble means.** At
+  t = 6300 s, per observable:
+  - `d = mean(x_s − x_p) / max(|mean(x_p)|, floor)`, with
+    `SE = std(x_s − x_p) / √n / max(|mean(x_p)|, floor)`, over n paired seeds.
+    The floors are unchanged: 500 particles, one copy for a transcript, none
+    for the volume.
+  - The observable passes when `|d| + 2·SE ≤ max(R, 1%)`. Here
+    `R = std(x_p) / √200 / max(|mean(x_p)|, floor)` is the standard error of
+    that observable's mean in the 200-cell dataset of task 15.7. It is the
+    smallest shift the data could see. The 1% is planning C's threshold, kept
+    as a floor for observables with almost no cell-to-cell spread, whose
+    resolution comes from observation noise rather than from R.
+  - An observable whose `|d| + 2·SE` exceeds `max(R, 1%)` fails if
+    `|d| − 2·SE > max(R, 1%)`, and is otherwise reported unresolved.
+    Unresolved is not passing.
+- **The run is 5,000 seeds, published and sampler models only.** The seeds are
+  the existing 100 and 4,900 more. The count is fixed before launch from the
+  100-seed run. It is sized so that at zero difference, `2·SE ≤ R/2` for every
+  observable: `n = 16 · 200 · (std(x_s − x_p)/std(x_p))²`. That is at most
+  4,155, for `mRNA_JCVISYN3A_0729`, and 5,000 gives margin for SD ratios
+  estimated from 100 seeds. The cost is about 90 CPU-h. With no true
+  difference, the worst observable reads unresolved about 2% of the time, and
+  the median one at |z| > 4.9.
+- **The null runs beside it at no extra cost.** The published runs are split
+  into two halves and compared unpaired. The new statistic must put no
+  observable beyond |z| = 3.29, which is 5% Bonferroni-corrected over 50
+  observables. The old per-seed ratio is reported
+  on the same null, as the record of why the statistic changed.
+- **The `krnadeg` control is retired as a null.** It decoupled 3 of 100 pairs
+  against the sampler's 47, so it was never the null the decoupled half
+  needed. Its 100-seed result stays on record.
+
+**What this does not claim.** Passing says the sampler model's end-of-cycle
+ensemble differs from the published model's by less than the 200-cell data
+can resolve. It does not say the two agree to 1% after decoupling. The
+end-to-end check that the mismatch does not bias a posterior is phase 16's
+coverage, which fits sampler-model posteriors to published-model data and was
+always required.
+
+*Sections:* §11 phase 14c (14c.5, the phase-15 gating line).
 
 ### 2026-09-29 — 14c.5 lands partly open, and 15.7 and 15.8 keep waiting on its open half
 
