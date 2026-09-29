@@ -7,10 +7,10 @@ fan-out is complete. Phase 13 is split (§12, 2026-09-24): 13a, the framework
 fixes assembly needs, is done (#66), and so is 13b, assembly (#68). Phase 14
 is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
-Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75),
-with 14c.5 partly open (§12, 2026-09-29). Phase 15's tasks that need neither
-14c.5 nor 14c.7 may start. 15.7 and 15.8 wait until 14c.5's open half
-closes, by the 5,000-seed run §12 specifies (2026-09-29, the later entry).
+Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
+with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
+coupled half failed and carried as a measured cost (§12). Phase 15 may start,
+all of it.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -3953,7 +3953,13 @@ branch touches `src` or `test`.
   30.** More seeds, or a statistic without the skew, would close it. 47 of 100
   sampler pairs decouple against 3 of 100 for the control, so the control is
   matched in size but not in effect, and cannot serve as a null for the
-  decoupled half. Every whole-cell closure on the sampler model passes 14a's
+  decoupled half. **Closed 2026-09-29 over 5,000 seeds** (job 17671709,
+  `dev/scripts/corea_smoothing_14c5_result.md`), under the difference-of-means
+  gate (§12). The decoupled half passes on 50 of 50. The coupled half
+  **fails**: its largest difference is 3.75% on `M_gtp_c`, and 51 of 5,000
+  seeds exceed 1%, all GTP and all with the sampler model higher. The cause is
+  the smoothing's residue adding up over a run of clipped drains (job 17679585),
+  and it is carried as a measured cost. Every whole-cell closure on the sampler model passes 14a's
   gate at the pinned pair and one decade tighter. The seven logged at the
   pinned pair are at 3.5e-10 to 2.3e-9 of `tol_C`.
 - **14c.6.** Scaling PGK3's and PYK3's capacity removes the `GTP_translat`
@@ -3992,8 +3998,10 @@ particles.
   `DeferredCounterEdge` declaring `clip = :smoothed` with its width, by the
   width's choice recorded with its reason, by `reduction_report` carrying the
   smoothing as ours (T2), and by `obstructs_gradients` reporting no edge.
-- [ ] 14c.5 (partly open — the coupled half and 20 of 50 end-of-cycle
-  observables are met, the other 30 undecided; §12 2026-09-29) Validate the smoothed model against the clipped one — verify by the
+- [x] 14c.5 (closed 2026-09-29 with its coupled half **failed**: the
+  decoupled half passes on 50 of 50 over 5,000 seeds, and the coupled half's
+  largest difference is 3.75% on GTP against 1%, carried as the smoothing's
+  measured cost; §12 2026-09-29, the three entries) Validate the smoothed model against the clipped one — verify by the
   difference in every candidate observable at 60 s, at published parameters on
   14b's seeds, being reported against a threshold fixed at planning; by 14a's
   closures holding under smoothing at their own gates, so that smoothing
@@ -4034,8 +4042,9 @@ particles.
 need neither the smoothed drain nor the prior fix. Task 15.5's F2 is taken on
 check 8's frozen steady state, whose demands are forcing terms and not
 counters, so it does not wait either. Task 15.2 waits for 14c.1, and 15.7 and
-15.8 wait for 14c.5, including its open half (§12, 2026-09-29), which the
-later 2026-09-29 entry decides how to close. 15.8 also
+15.8 wait for 14c.5, including its open half (§12, 2026-09-29). It closed
+on 2026-09-29 with its coupled half failed and the cost recorded, so they may
+start. 15.8 also
 waits for 14c.7 (added 2026-09-28): its Jacobian is taken on the sampler model,
 `build_corea(; COREA_SAMPLER...)`.
 
@@ -4207,6 +4216,53 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the smoothing's measured cost
+
+**Status: approved 2026-09-29.**
+
+**Trigger:** the 5,000-seed run the entry below specifies (job 17671709, at
+`87b88f1`; `dev/scripts/corea_smoothing_14c5_result.md`).
+
+**What is true.**
+- **The decoupled half passes on all 50 observables.** The largest
+  `(|d| + 2·SE)` is 0.53 of its tolerance (`mRNA_JCVISYN3A_0203`). `M_gtp_c`
+  reads d = +0.09% ± 0.5%, against a 200-cell resolution of 4.5%.
+- **The null confirms the statistic change.** On the published model against
+  itself, the old per-seed ratio reads `M_gtp_c` +88% (z = 16.8), `M_pi_c`
+  +47% and `mRNA_JCVISYN3A_0607` +41%. The difference of means puts no
+  observable beyond |z| = 1.75, against 3.29.
+- **The coupled half fails.** Of 21,988,700 paired comparisons made before a
+  pair's jump states first differ, the largest is 3.75% (`M_gtp_c`, seed 18227,
+  t = 4500 s), against the 1% gate. 51 of 5,000 seeds exceed 1% and 6 exceed
+  2%. All 51 are `M_gtp_c`, and in all 51 the sampler model is the higher. At
+  100 seeds the largest had been 0.763%, which at about one seed in a hundred
+  is what that sample would show.
+- **The cause is the smoothing, adding up over a clipping run.** Seed 18227
+  rerun alone (job 17679585, `dev/scripts/corea_smoothing_14c5_diag_result.md`)
+  keeps its jump states matched to 4,500 s. For most of the cycle its GTP
+  differs by 2 to 4 particles either way. At 4500 s it differs by 18.7
+  particles, at a pool of 242 particles, after 28 clipped drains in the
+  preceding minute. Each clipped drain leaves at most w·ln 2 = 0.69 particles
+  more than the clamp (planning B), and 28 × 0.69 = 19.4. The 1% gate with its
+  500-particle floor allows 5 particles, which a long clipping run exceeds.
+
+**Change.**
+- **The coupled half is recorded as failing.** It is not relabelled and its
+  gate is not changed.
+- **The failure is carried as the smoothing's measured cost** in T2. It is in
+  every smoothed counter's reduction label: at most 18.7 particles of GTP,
+  above 1% in 51 of 5,000 cells, with no ensemble shift.
+- **14c.5 is closed on that record.** Tasks 15.7 and 15.8 may start. Phase
+  16's coverage stays the end-to-end check that the mismatch does not bias a
+  posterior: it fits sampler-model posteriors to published-model data.
+- **Rejected:** a narrower smoothing width, which would cut the build-up about
+  tenfold at 0.1 particle but bend the sampler's derivative over a tenth of a
+  particle and cost a second run; and rewriting the coupled gate to the
+  analytic bound after seeing the failure.
+
+*Sections:* §11 phase 14c (Results, 14c.5, the phase-15 gating line); the
+header's status.
 
 ### 2026-09-29 — 14c.5's decoupled half is gated against what the data can resolve, on an unbiased statistic
 
