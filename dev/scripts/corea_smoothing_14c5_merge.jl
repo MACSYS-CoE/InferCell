@@ -104,7 +104,7 @@ p("Per observable: d is the difference of the ensemble means over max(|published
   "the mean. The observable passes when |d| + 2·SE ≤ max(R, 1%). ",
   "**$npass pass, $nfail fail, $nunres unresolved.**")
 p()
-p("| observable | d | SE | R | |d| + 2·SE over tolerance | verdict |")
+p("| observable | d | SE | R | (\\|d\\| + 2·SE) / tolerance | verdict |")
 p("|---|---|---|---|---|---|")
 for x in sort(st; by = x -> -(abs(x.a.diff) + 2x.a.se) / x.a.tolerance)
     a = x.a
@@ -116,9 +116,10 @@ p()
 
 # Null.
 h = length(seeds) ÷ 2
+h >= 2 || (@warn "the null needs two seeds per half; smoke output only"; h = 0)
 sa, sb = seeds[1:h], seeds[h+1:2h]
 nul = NamedTuple[]
-for o in obs
+for o in (h >= 2 ? obs : Symbol[])
     x, y = col(:published, o, sb), col(:published, o, sa)
     std(x) == 0 && std(y) == 0 && continue
     a = ensemble_agreement(y, x; floor = floor_of(o), ncells = NCELLS, threshold = THRESHOLD)
@@ -126,7 +127,7 @@ for o in obs
     push!(nul, (o = o, z = a.se > 0 ? a.diff / a.se : 0.0, diff = a.diff, se = a.se,
                 old = mean(r), oldse = std(r) / sqrt(h)))
 end
-zmax = maximum(abs(x.z) for x in nul)
+zmax = isempty(nul) ? NaN : maximum(abs(x.z) for x in nul)
 npass_null = zmax <= ZNULL
 p("## The null: the published model against itself on independent seeds")
 p()
