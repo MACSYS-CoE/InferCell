@@ -301,6 +301,99 @@ function emit_ensemble(build, seeds::AbstractVector{<:Integer}; every::Integer =
             genes = genes, transcripts = round.(Int, tx))
 end
 
+# ---------------------------------------------------------------------------
+# 15.6 and 15.8: the noise-weighted ensemble sensitivity (§12 2026-09-29)
+# ---------------------------------------------------------------------------
+
+"""
+    POLYMERASE_DIRECTION
+
+The seventh column of task 15.8's Jacobian. Transcription reads the polymerase
+turnover as the constant `RNAPOL_KCAT` and multiplies it by each promoter
+strength, and the turnover ceiling never binds (spec §4 D11). So scaling the
+constant is exactly scaling all 17 promoters together, and that is how the
+column is taken.
+"""
+const POLYMERASE_DIRECTION = :polymerase_kcat
+
+"""
+    perturbed_values(models, name, factor) -> Vector{Pair{Symbol, Float64}}
+
+The parameter writes that scale `name` by `factor` from the nominal values,
+ready for [`set_parameters!`](@ref).
+
+- A forward catalytic constant takes its reaction's reverse constant with it,
+  derived through the nominal equilibrium constant as spec §11 task 14c.1
+  draws do. So the perturbed model keeps every equilibrium constant.
+- [`POLYMERASE_DIRECTION`](@ref) scales every promoter strength.
+- Any other name is scaled alone.
+"""
+function perturbed_values(models::AbstractVector{<:AbstractSubModel}, name::Symbol,
+                          factor::Real)
+    nominal = nominal_parameter_values(models)
+    if name === POLYMERASE_DIRECTION
+        return [promoter_param(g.locus) => factor * nominal[promoter_param(g.locus)]
+                for g in read_transcription_genes()]
+    end
+    out = [name => factor * nominal[name]]
+    values = merge(nominal, Dict(out))
+    for r in haldane_relations(models)
+        r.forward === name || continue
+        push!(out, r.reverse => _derived_reverse(r, values, equilibrium_constant(r, nominal)))
+    end
+    return out
+end
+
+"""
+    ensemble_jacobian(plus, minus, nominal; delta, ncells = 200) -> Matrix
+
+Spec §11 tasks 15.6 and 15.8. Each column is the central difference, in
+ln θ, of an ensemble mean: `(mean(plus) − mean(minus)) / 2delta`. `plus`,
+`minus` and `nominal` are replicates × rows arrays, one per column for `plus`
+and `minus`. Each row is divided by the `ncells`-cell standard error of that
+row's nominal mean, `std/√ncells`, so one unit is one resolution unit of a
+dataset of that size. A row with no spread at nominal has no resolution, and
+is returned as zeros.
+"""
+function ensemble_jacobian(plus::AbstractVector{<:AbstractMatrix},
+                           minus::AbstractVector{<:AbstractMatrix},
+                           nominal::AbstractMatrix; delta::Real, ncells::Integer = 200)
+    length(plus) == length(minus) || throw(DimensionMismatch("plus and minus columns differ"))
+    res = vec(std(nominal; dims = 1)) ./ sqrt(ncells)
+    J = zeros(size(nominal, 2), length(plus))
+    for (j, (p, m)) in enumerate(zip(plus, minus))
+        size(p, 2) == size(m, 2) == size(nominal, 2) ||
+            throw(DimensionMismatch("column $j has a different row count"))
+        d = (vec(mean(p; dims = 1)) .- vec(mean(m; dims = 1))) ./ (2delta)
+        J[:, j] = [r > 0 ? x / r : 0.0 for (x, r) in zip(d, res)]
+    end
+    return J
+end
+
+"""
+    check_identifiability(J::AbstractMatrix, noise::AbstractMatrix) -> NamedTuple
+
+Spec §11 task 15.8 and §8 K6 for a Monte Carlo Jacobian (§12 2026-09-29, phase
+15 planning). `noise` is the split-half matrix `(J_A − J_B)/2` from disjoint
+halves of the seeds. It carries `J`'s Monte Carlo error and none of its
+signal, and its largest singular value is the noise floor. The rank is the
+number of `J`'s singular values above that floor, and the set is identifiable
+when that equals its parameter count.
+
+Returns `(singular_values, floor, rank, n_params, full_rank, condition)`. The
+condition number is capped by the largest singular value over the floor, so it
+is reported, not gated.
+"""
+function check_identifiability(J::AbstractMatrix, noise::AbstractMatrix)
+    size(J) == size(noise) || throw(DimensionMismatch("J is $(size(J)), noise $(size(noise))"))
+    sv = svdvals(J)
+    floor = maximum(svdvals(noise))
+    r = count(>(floor), sv)
+    return (singular_values = sv, floor = floor, rank = r, n_params = size(J, 2),
+            full_rank = r == size(J, 2), condition = first(sv) / last(sv))
+end
+
 export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble
+export POLYMERASE_DIRECTION, perturbed_values, ensemble_jacobian

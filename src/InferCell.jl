@@ -11,7 +11,7 @@ using StaticArrays
 using Random
 using MCMCChains: replacenames
 using ForwardDiff
-using LinearAlgebra: rank, svd, eigvals, I
+using LinearAlgebra: rank, svd, svdvals, eigvals, I
 using Statistics: quantile, mean, std, median
 
 include("parameters.jl")

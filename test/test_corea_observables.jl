@@ -3,6 +3,7 @@
 using Test
 using InferCell
 using Random
+using Statistics: std
 
 @testset "Observables and synthetic data (spec §11 phase 15)" begin
     ms = corea_models()
@@ -84,6 +85,39 @@ using Random
         i(s) = findfirst(==(s), names)
         @test du[i(:M_ptsi_c)] ≈ -f[:R_GLCpts0] + f[:R_GLCpts1] rtol = 1e-12
         @test du[i(:M_f6p_c)] ≈ f[:R_PGI] - f[:R_PFK] rtol = 1e-12
+    end
+
+    @testset "15.6 and 15.8: the ensemble Jacobian and its noise floor" begin
+        dm = d11_models()
+        nominal = nominal_parameter_values(dm)
+        # A forward constant takes its reverse constant with it, keeping Keq.
+        v = perturbed_values(dm, :kcatF_R_ENO, exp(0.2))
+        @test Dict(v)[:kcatF_R_ENO] ≈ exp(0.2) * nominal[:kcatF_R_ENO]
+        @test Dict(v)[:kcatR_R_ENO] ≈ exp(0.2) * nominal[:kcatR_R_ENO]
+        @test all(r -> r.relative <= r.bound, assert_haldane(dm, v))
+        # The polymerase direction scales all seventeen promoters.
+        pv = perturbed_values(dm, POLYMERASE_DIRECTION, 2.0)
+        @test length(pv) == 17 && all(p -> p[2] == 2nominal[p[1]], pv)
+        @test only(perturbed_values(dm, :krnadeg, 0.5)) == (:krnadeg => 0.5nominal[:krnadeg])
+
+        # The Jacobian in resolution units: a known shift of 2delta·s in the mean
+        # of a row whose cell-to-cell SD is σ reads s·√200/σ.
+        rng = Xoshiro(7)
+        nomi = randn(rng, 4000, 2) .* [1.0 3.0]
+        plus = [nomi .+ [0.2 0.0]]
+        minus = [nomi .- [0.2 0.0]]
+        J = ensemble_jacobian(plus, minus, nomi; delta = 0.2)
+        @test J[1, 1] ≈ sqrt(200) / std(nomi[:, 1]) && J[2, 1] == 0
+
+        # Rank against the split-half floor. Two real directions and noise pass;
+        # a duplicated column, the ridge, falls to the floor.
+        A = randn(rng, 200, 2) .* 10
+        noise = randn(rng, 200, 3) .* 0.1
+        full = check_identifiability(hcat(A, A[:, 1] .+ A[:, 2]) .+ noise, noise)
+        @test full.n_params == 3 && full.rank == 2 && !full.full_rank
+        ok = check_identifiability(A .+ noise[:, 1:2], noise[:, 1:2])
+        @test ok.full_rank && ok.floor < last(ok.singular_values)
+        @test ok.condition ≈ first(ok.singular_values) / last(ok.singular_values)
     end
 
     @testset "15.2: truths are drawn, and nominal is a smoke test" begin
