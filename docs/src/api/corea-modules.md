@@ -28,5 +28,6 @@ Pages = [
     "organisms/coreA/validation.jl",
     "organisms/coreA/observables.jl",
     "control_analysis.jl",
+    "organisms/coreA/control_variant.jl",
 ]
 ```

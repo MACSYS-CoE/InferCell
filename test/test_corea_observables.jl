@@ -48,6 +48,44 @@ using Random
         @test assert_no_circularity(ms, metabolites; free = [:M_atp_c0]) === nothing
     end
 
+    @testset "15.3: the candidate observables at the published cadence" begin
+        build() = (corea_models(), build_corea(; tspan = (0.0, 180.0)))
+        e = emit_ensemble(build, [11, 12, 13]; every = 60)
+        @test e.times == [0.0, 60.0, 120.0, 180.0]
+        # Per-species counts: every ODE state and every jump species, no counters.
+        @test :M_atp_c in e.species && :M_trna_chg_c in e.species
+        @test transcript_state(:JCVISYN3A_0607) in e.species
+        @test protein_state(:JCVISYN3A_0607) in e.species
+        @test !(:GTP_translat in e.species) && !(:ATP_trsc in e.species)
+        @test size(e.counts) == (3, length(e.species), 4)
+        # Per-reaction fluxes: all 22, named once each.
+        @test length(e.reactions) == 22 && allunique(e.reactions)
+        @test :R_trna_chg in e.reactions && :R_LACt in e.reactions && :R_ENO in e.reactions
+        @test size(e.fluxes) == (3, 22, 4) && all(isfinite, e.fluxes)
+        # Volume, per replicate and time.
+        @test size(e.volume) == (3, 4) && all(>(0), e.volume)
+        # Transcripts as replicates × genes × times of integer counts, not a mean.
+        @test e.transcripts isa Array{Int, 3}
+        @test size(e.transcripts) == (3, 17, 4)
+        @test any(e.transcripts[1, :, :] .!= e.transcripts[2, :, :])
+        # A seed fixes a cell.
+        @test emit_ensemble(build, [12]; every = 60).counts[1, :, :] == e.counts[2, :, :]
+
+        # The fluxes are the composed right-hand side's: evaluated at the
+        # driver's own state, they reproduce its derivative on states only one
+        # reaction pair moves.
+        ms = corea_models()
+        d = build_corea(; tspan = (0.0, 30.0))
+        emit_observables!(d, ms; every = 30)
+        ode_ms = [m for m in ms if formalism(m) === :ode]
+        f = Dict(InferCell._driver_fluxes(d, ode_ms, InferCell._ode_contexts(ode_ms)))
+        du = d.ode.f(d.ode.u, d.ode.p, d.ode.t)
+        names = InferCell._block_names(ms, :ode)
+        i(s) = findfirst(==(s), names)
+        @test du[i(:M_ptsi_c)] ≈ -f[:R_GLCpts0] + f[:R_GLCpts1] rtol = 1e-12
+        @test du[i(:M_f6p_c)] ≈ f[:R_PGI] - f[:R_PFK] rtol = 1e-12
+    end
+
     @testset "15.2: truths are drawn, and nominal is a smoke test" begin
         dm = d11_models()
         nominal = nominal_parameter_values(dm)
