@@ -1,6 +1,6 @@
 # 14c.5: the sampler model against the published one, over 5000 seeds
 
-Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from 250 task files. Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. The gate is §12 2026-09-29's (the later entry). The tasks' headers:
+Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from 250 task files. Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. The gate is §12 2026-09-29's. Merged at commit 28c855a. The tasks' headers:
 
 - commit 87b88f1, job 17671709, Julia 1.10.5
 
@@ -97,7 +97,4 @@ The published runs at the first 2500 seeds against those at the other 2500, unpa
 
 Coupled half: **fails**. Decoupled half: 50 of 50 pass, 0 fail, 0 unresolved. Null: passes. 14c.5 is **not closed**.
 
-*Note added at merge.* The verdict above is the gate's, and it stands. §12
-2026-09-29 (the entry on the coupled half) records the failure as the
-smoothing's measured cost, from the seed-18227 rerun in
-`corea_smoothing_14c5_diag_result.md`, and closes 14c.5 on that record.
+The coupled half's failure is recorded in spec §12 (2026-09-29, the entry on the coupled half) and carried as the measured cost of continuous pools; `corea_smoothing_14c5_decomp_result.md` attributes it. 14c.5 closes on that record.
