@@ -20,6 +20,7 @@ core.*
 /dev/scripts/census_14c/
 /dev/scripts/smoothing_14c/
 /dev/scripts/smoothing_14c5/
+/dev/scripts/decomp_14c5/
 
 # LaTeX build artifacts (talks/)
 *.aux
