@@ -24,8 +24,13 @@ const OUT = joinpath(@__DIR__, "corea_smoothing_14c5_result.md")
 const THRESHOLD = 0.01
 const NCELLS = 200
 const ZNULL = 3.29
+const NSEEDS = 5000
+# The driver's floors, which its coupled half used; the two must not drift.
+const ODE_FLOOR = 500.0
+const TX_FLOOR = 1.0
 floor_of(o) = o === :volume_litres ? 0.0 :
-              startswith(String(o), "mRNA_") ? 1.0 : 500.0
+              startswith(String(o), "mRNA_") ? TX_FLOOR : ODE_FLOOR
+const MERGED_AT = strip(read(`git rev-parse --short HEAD`, String))
 
 files = sort(filter(f -> occursin(r"^task_\d+\.tsv$", f), readdir(DIR)))
 isempty(files) && error("no task TSVs in $DIR")
@@ -52,6 +57,8 @@ end
 smoke = any(h -> occursin("SMOKE", h), headers)
 seeds = sort([x.seed for x in couple])
 length(unique(seeds)) == length(seeds) || error("a seed appears twice")
+smoke || length(seeds) == NSEEDS ||
+    error("read $(length(seeds)) seeds, not $NSEEDS: a task is missing or incomplete")
 obs = sort(unique(k[3] for k in keys(vals)))
 col(v, o, ss = seeds) = [vals[(s, v, o)] for s in ss]
 
@@ -62,7 +69,7 @@ p("# 14c.5: the sampler model against the published one, over $(length(seeds)) s
 p()
 p("Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from $(length(files)) task files. ",
   "Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. ",
-  "The gate is §12 2026-09-29's (the later entry). The tasks' headers:")
+  "The gate is §12 2026-09-29's. Merged at commit $MERGED_AT. The tasks' headers:")
 p()
 for h in unique(replace.(headers, r", task \d+ of \d+, [0-9T:.-]+" => ""))
     p("- ", h)
@@ -116,16 +123,18 @@ p()
 
 # Null.
 h = length(seeds) ÷ 2
-h >= 2 || (@warn "the null needs two seeds per half; smoke output only"; h = 0)
+h >= 2 || @warn "the null needs two seeds per half; smoke output only"
 sa, sb = seeds[1:h], seeds[h+1:2h]
 nul = NamedTuple[]
-for o in (h >= 2 ? obs : Symbol[])
+for o in obs
+    h >= 2 || break
     x, y = col(:published, o, sb), col(:published, o, sa)
     std(x) == 0 && std(y) == 0 && continue
     a = ensemble_agreement(y, x; floor = floor_of(o), ncells = NCELLS, threshold = THRESHOLD)
     r = (x .- y) ./ max.(abs.(y), floor_of(o))
+    oldse = std(r) / sqrt(h)
     push!(nul, (o = o, z = a.se > 0 ? a.diff / a.se : 0.0, diff = a.diff, se = a.se,
-                old = mean(r), oldse = std(r) / sqrt(h)))
+                old = mean(r), oldse = oldse, oldz = mean(r) / max(oldse, eps())))
 end
 zmax = isempty(nul) ? NaN : maximum(abs(x.z) for x in nul)
 npass_null = zmax <= ZNULL
@@ -138,9 +147,9 @@ p("The published runs at the first $h seeds against those at the other $h, unpai
 p()
 p("| observable | old: mean per-seed ratio | its z | new: d | its z |")
 p("|---|---|---|---|---|")
-for x in sort(nul; by = x -> -abs(x.old / max(x.oldse, eps())))[1:min(12, end)]
+for x in sort(nul; by = x -> -abs(x.oldz))[1:min(12, end)]
     p(@sprintf("| `%s` | %+.3g%% ± %.2g%% | %.2f | %+.3g%% ± %.2g%% | %.2f |", x.o,
-               100x.old, 100x.oldse, x.old / max(x.oldse, eps()), 100x.diff, 100x.se, x.z))
+               100x.old, 100x.oldse, x.oldz, 100x.diff, 100x.se, x.z))
 end
 p()
 
@@ -163,5 +172,8 @@ p("Coupled half: ", cpass ? "passes" : "**fails**", ". Decoupled half: $npass of
   "$(length(obs)) pass, $nfail fail, $nunres unresolved. Null: ",
   npass_null ? "passes" : "**fails**", ". 14c.5 is ",
   closed ? "**closed**." : "**not closed**.")
+cpass || (p(); p("The coupled half's failure is recorded in spec §12 (2026-09-29, the entry ",
+                 "on the coupled half) and carried as the measured cost of continuous pools; ",
+                 "`corea_smoothing_14c5_decomp_result.md` attributes it. 14c.5 closes on that record."))
 write(OUT, take!(out))
 println("Wrote $OUT")
