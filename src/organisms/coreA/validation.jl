@@ -797,12 +797,12 @@ function ensemble_agreement(published::AbstractVector{<:Real}, sampler::Abstract
     den = max(abs(mean(published)), floor)
     den > 0 || throw(ArgumentError("the published mean is zero and the floor is $floor"))
     d = sampler .- published
-    diff = mean(d) / den
+    dm = mean(d) / den
     se = std(d) / sqrt(n) / den
     resolution = std(published) / sqrt(ncells) / den
     tol = max(resolution, threshold)
-    verdict = abs(diff) + 2se <= tol ? :pass : abs(diff) - 2se > tol ? :fail : :unresolved
-    return (diff = diff, se = se, resolution = resolution, tolerance = tol, verdict = verdict)
+    verdict = abs(dm) + 2se <= tol ? :pass : abs(dm) - 2se > tol ? :fail : :unresolved
+    return (diff = dm, se = se, resolution = resolution, tolerance = tol, verdict = verdict)
 end
 
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,

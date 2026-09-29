@@ -50,9 +50,6 @@ _consumers(ms) = [e for m in ms for e in coupling(m)
         sm = [l for l in labels if l.category === :smoothed_counter]
         @test Set(l.subject for l in sm) == Set(e.species for e in _consumers(smoothed))
         @test all(l -> occursin("smoothed clip of width 1.0", l.description), sm)
-        # And its measured cost against the clamp (14c.5, §12 2026-09-29).
-        @test all(l -> occursin("18.7 particles", l.description) &&
-                       occursin("job 17671709", l.description), sm)
         @test !any(l -> l.category === :smoothed_counter, reduction_declarations(clamped))
         d = build_corea(; smoothing = COREA_SMOOTHING_WIDTH, tspan = (0.0, 10.0))
         @test occursin("smoothed clip of width 1.0", reduction_report(smoothed, d))
@@ -93,6 +90,9 @@ end
         d = build_corea(; COREA_SAMPLER..., tspan = (0.0, 10.0))
         labels = driver_declarations(d)
         @test any(l -> l.category === :rounding_policy && l.subject === :continuous, labels)
+        # And its measured cost against fractional carry (14c.5, §12 2026-09-29).
+        @test any(l -> l.subject === :continuous && occursin("51 of 5,000", l.description) &&
+                       occursin("17695360", l.description), labels)
         @test !any(l -> l.subject === :fractional_carry, labels)
         # The published build is unchanged: fractional carry, the default.
         @test build_corea(; tspan = (0.0, 10.0)).rounding.policy === :fractional_carry
@@ -182,7 +182,7 @@ end
     y = exp.(σ .* randn(rng, n))
 
     # The null: two independent draws of one model.
-    old = sum((x .- y) ./ y) / n
+    old = mean((x .- y) ./ y)
     @test old > 0.5                    # biased by about CV² = 1
     a = ensemble_agreement(y, x; floor = 0.0)
     @test abs(a.diff) < 3a.se          # unbiased

@@ -2222,7 +2222,14 @@ function driver_declarations(d::HandshakeDriver)
              " — pools are written back as continuous quantities, not particle " *
              "counts, so the ODE block is differentiable through the handshake; " *
              "ours, for the model a gradient sampler differentiates, while " *
-             "synthetic data comes from fractional carry (spec §11 task 14c.7)" : "")))
+             "synthetic data comes from fractional carry (spec §11 task 14c.7). " *
+             "Measured cost on Core A′ against fractional carry (spec §11 task " *
+             "14c.5, jobs 17671709 and 17695360): during runs of clipped GTP " *
+             "drains the pool is regenerated faster, and while the stochastic " *
+             "paths still match, GTP differs by more than 1% of max(pool, 500 " *
+             "particles) in 51 of 5,000 cells, by 21.3 particles in the worst of " *
+             "four examined; the end-of-cycle ensemble does not shift beyond " *
+             "what 200 cells resolve" : "")))
     end
     if !isempty(d.growth)
         push!(labels, ReductionLabel(
