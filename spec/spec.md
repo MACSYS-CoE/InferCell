@@ -4056,7 +4056,7 @@ by memory.
 **Done when:** a synthetic dataset exists at recorded ground-truth parameters
 drawn from the prior, the observable set is justified against D8, and any
 observable that closes the proxy loop is rejected by a check.
-**PR:** branch `phase-15-observables` (open)
+**PR:** #78 (open)
 
 **Results (branch `phase-15-observables`).** Planning is §12 2026-09-29 (phase
 15 planning). The runs of record are F2 (job 17681807,
@@ -4071,34 +4071,45 @@ and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
   test. `truth_label` is the rule's T2 row.
 - **15.3.** `emit_observables!` records counts, all 22 fluxes and volume every
   60 s. `emit_ensemble` returns transcripts as an `Int` array of replicates ×
-  17 × times. The fluxes reproduce the composed right-hand side to 1e-12.
+  17 × times. A test spot-checks the fluxes against the composed right-hand
+  side, on two states (four of the 22 fluxes), to 1e-12.
 - **15.4.** `NoiseModel` has lognormal and Poisson modalities. Check 9: over
   300 datasets the 90% interval covers σ 275 times (91.7%, band 84.8 to
   95.2%), with a mean posterior median of 0.997σ. Reading σ as a variance
   covers it 0 times. Doubling a pool 1,000× smaller than its neighbour moves
   the log-likelihood by 6.0, against under 1e-3 with one additive term.
 - **15.5.** F2 on the frozen variant, now in `src`: 23 pools × 13 genes, with
-  check 8's sums at 3.6e-14 and its derivatives at 2.5e-9. Its rank order
-  enters the panel with 15.6 (§12).
+  check 8's sums at 3.6e-14 and its derivatives at 2.5e-9. **Amended by the
+  #78 review (§12):** F2 ranks and explains the panel but does not select it.
+  15.6's audit on the actual model selects. So the verify clause's "chosen
+  from its largest rows" holds only in the sense that F2's rank is reported
+  beside each choice.
 - **15.6.** The influence audit is 15.8's matrix in 200-cell resolution units.
-  Every target moves some observable beyond three times its noise.
+  Every target moves some observable beyond three times its noise. The audit
+  takes each entry's maximum over 105 save points, and a zero-signal row's
+  maximum is about 3, so off-target entries near that level are not
+  evidence.
 - **15.7.** 200 published-model cells at a truth drawn with
   `Xoshiro(1507)`. The six are free and everything else is fixed. The 200 is
   D11's derivation. Seed 30001 reruns identically, and so does the merged file
-  (SHA-256 `77f01fd5…`). `meta.md` carries the truth, the seeds, the noise
-  scale and seed, the T2 row, and the `reduction_report`. The panel is 19
-  metabolites, observed lognormally at σ = 0.1 (ours), with the 17 transcripts
-  as exact counts. It includes `M_lac__L_e`, whose scale rests on the asserted
+  (SHA-256 `5e6382da…`). `meta.md` carries the truth, the seeds, the noise
+  scale and seed, the T2 row, the sensitivity run behind the panel, the Julia
+  version and the `reduction_report`. The panel is 17 metabolites, observed
+  lognormally at σ = 0.1 (ours) with predictions floored at one particle,
+  over the 105 save points after t = 0. The 17 transcripts are exact counts.
+  The panel includes `M_lac__L_e`, whose scale rests on the asserted
   medium-to-cell volume ratio.
 - **15.8.** Over 1,470 seeds, D11's six have singular values 923, 400, 254,
   215, 184 and 119, against a split-half noise floor of 72.3: **rank 6 of 6,
-  and K6 does not fire.** The sixth is 1.65× the floor, short of the 3× the run
-  was sized for at its 250 CPU-h cap. The condition number is 7.7, which the
-  floor caps at 12.8. **The predicted ridge is not seen.** Adding the
-  polymerase direction gives a seventh singular value of 116, above the floor,
-  since the 14 fixed promoters anchor the scale, as the planning entry
-  expected. The exact ridge, with all 17 free, stays analytic (D11), and F13
-  shows no drop.
+  and K6 does not fire.** The sixth is 1.65× the floor. The run was sized to
+  the 250 CPU-h cap and completed (248.3 CPU-h), short of the 3× margin it
+  aimed for. The condition number is 7.7, which the floor caps at 12.8.
+  **No ridge is seen.** Adding the polymerase direction gives a seventh
+  singular value of 116, 0.97 of the six-set's smallest and above the floor.
+  The planning entry expected at most a partial ridge, since the 14 fixed
+  promoters anchor the scale. That explanation is not tested here, since no
+  run frees all 17. The exact ridge, with all 17 free, stays analytic (D11),
+  and F13 shows no drop.
 - **15.9.** Observations map to states by name, and the ABC summary carries a
   per-time standard deviation.
 
@@ -4313,7 +4324,8 @@ the task list did not settle.
   7-parameter set, its seventh singular value is reported against the six-set
   spectrum and the floor.
 - **The run.** A pilot on 100 seeds over 15 configurations (nominal, and ±δ
-  on each of the seven columns), about 12 CPU-h, measures the floor. The full
+  on each of the seven columns), estimated at about 12 CPU-h (it took 17.0),
+  measures the floor. The full
   run is sized from the pilot so the floor sits at least 3× below the sixth
   singular value, capped at 250 CPU-h. If the cap cannot reach that, the
   result is reported as the pilot shows it.
@@ -4324,8 +4336,25 @@ the task list did not settle.
   under 10 particles, and PEP, which 14b did not certify. A pool is kept if its
   15.6 row reaches at least one resolution unit per unit ln θ, at some save
   point, for some target. The 0.1 threshold of 15.5's report is not the rule.
+- **Refined by the #78 review, approved 2026-09-29.**
+  - **"Some target" means D11's six.** A first merge also counted the
+    polymerase direction, which admitted `M_pyr_c` (0.92 over the six).
+  - **The test is taken where each target's effect is largest.** It is at
+    least one unit there, and more than three times the noise at that entry.
+    Both tests are weak near noise level: a zero-signal row's maximum over 105
+    save points is about 3. A pool kept by less than 2× is marked.
+  - **F2 ranks but does not select.**
+  - **`M_trna_c` is dropped.** It is conserved with `M_trna_chg_c`, and their
+    rows are identical, so independent noise on both would count one piece of
+    information twice. The charged pool, which translation reads, is kept.
+  - **The dataset's lognormal predictions are floored at one particle,** the
+    resolution of the count round trip. A clipped published drain leaves GTP
+    at −0.42 particles in one cell, and external lactate is 0 at t = 0. At a
+    1e-12 floor those points sat at log y ≈ −28 against about 8.5.
+  - **t = 0, the fixed initial condition, is left out of the observations.**
+  - The panel is 17 pools.
 
-*Sections:* §11 tasks 15.6, 15.7 and 15.8 (annotations).
+*Sections:* §11 tasks 15.5, 15.6, 15.7 and 15.8 (annotations and results).
 
 ### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the measured cost of continuous pools
 

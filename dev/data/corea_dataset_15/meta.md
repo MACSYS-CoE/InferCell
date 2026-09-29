@@ -1,8 +1,8 @@
 # The 15.7 synthetic dataset
 
-Cells run at commit 309c1c4, job 17703841, by `dev/scripts/corea_dataset_15.jl`; merged at dfd0c13 by `corea_dataset_15_merge.jl`. `observations.tsv` is regenerable and not tracked. Its SHA-256 is `77f01fd5cb2234735d6c3a70633dc71bf71f9e8bede1b3fa54ad15f6d17b57e0`.
+Cells run at commit 309c1c4, job 17703841, by `dev/scripts/corea_dataset_15.jl`; merged at 67792ad by `corea_dataset_15_merge.jl`, Julia 1.10.5. The panel comes from the sensitivity run at commit 7835c20, job 17704779, 1470 seeds, merged at 67792ad. `observations.tsv` is regenerable and not tracked. Its SHA-256 is `5e6382da1b07fb3c5023cc64d3b145e7704c232d929cb54688f0a87afa10d59a`; the SHA depends on this Julia version's random streams. Regeneration order: the sensitivity run and its merge, then `sbatch dev/scripts/corea_dataset_15.slurm`, then `corea_dataset_15_merge.jl`.
 
-**Model.** The published model: clamped drain, fractional carry, with D11's six freed (`d11_models()`). 200 cells, seeds 30001 to 30200, each a 6300 s cycle saved every 60 s.
+**Model.** The published model: clamped drain, fractional carry, with D11's six freed (`d11_models()`). 200 cells, seeds 30001 to 30200, each a 6300 s cycle. Observations are at the 105 save points from 60 s to 6300 s, every 60 s; t = 0 is the fixed initial condition and is left out. Values are in particles, as are the latent states.
 
 **Truth.** Drawn from the prior by `draw_truth(Xoshiro(1507), d11_models(); purpose = :recovery)`, Haldane-consistently (14c.1). The six targets, and the reverse constants they derive:
 
@@ -17,9 +17,9 @@ Cells run at commit 309c1c4, job 17703841, by `dev/scripts/corea_dataset_15.jl`;
 | `kcatR_R_FBA` | 0.301179 |
 | `kcatR_R_ENO` | 21.6733 |
 
-**Observation model.** 19 metabolites (15.6's panel) observed lognormally at σ = 0.1, from `Xoshiro(1508)`; the 17 transcripts as exact counts. σ = 0.1 is ours, and is itself a truth for check 9.
+**Observation model.** 17 metabolites (15.6's panel) observed lognormally at σ = 0.1, from `Xoshiro(1508)`, with the prediction floored at 1.0 particle: a pool below one particle is not observable as a concentration, and a clipped drain can leave a published pool at or just below zero. σ = 0.1 is ours, and is itself a truth for check 9. The 17 transcripts are exact counts. The `:poisson` modality only labels them as counts: phase 16 scores them by D10's exact conditional, not as Poisson draws.
 
-Panel: `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`, `M_trna_c`, `M_pi_c`, `M_3pg_c`, `M_2pg_c`, `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_lac__L_e`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`, `M_pyr_c`.
+Panel: `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`, `M_pi_c`, `M_3pg_c`, `M_2pg_c`, `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_lac__L_e`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`.
 
 **T2 row for the truth rule** (`model_note`, `truth_draws`): synthetic truths are drawn from the prior with each reverse constant derived through the equilibrium constant the nominal Mode values imply, not upstream's balanced equilibrium-constant rows, which disagree with the Modes by more than 1% on 9 of 15 reactions (spec §12 2026-09-28 A). The rule is ours.
 

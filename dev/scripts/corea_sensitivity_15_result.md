@@ -1,12 +1,12 @@
 # Tasks 15.6 and 15.8: the ensemble sensitivity
 
-Merged by `dev/scripts/corea_sensitivity_15_merge.jl` from 1470 task files (runs at commit 7835c20, job 17704779; merged at 7835c20). 1470 paired seeds, each through 15 configurations on the sampler model with D11's six freed: nominal, and ln θ ± 0.2 on each column. Rows are 42 candidate observables × 106 save points, each in units of its resolution: the 200-cell standard error of its nominal mean, floored at 1% of max(|mean|, floor) as in 14c.5's gate. The noise matrix is (J_A − J_B)/2 over two halves of 735 seeds.
+Merged by `dev/scripts/corea_sensitivity_15_merge.jl` from 1470 task files (runs at commit 7835c20, job 17704779; merged at 67792ad). Regenerate with `sbatch --array=0-1469 --export=ALL,NSEEDS=1470 dev/scripts/corea_sensitivity_15.slurm`, then this script. 1470 paired seeds, each through 15 configurations on the sampler model with D11's six freed: nominal, and ln θ ± 0.2 on each column. Rows are 42 candidate observables × 106 save points, each in units of its resolution: the 200-cell standard error of its nominal mean, floored at 1% of max(|mean|, floor) as in 14c.5's gate. The noise matrix is (J_A − J_B)/2 over two halves of 735 seeds.
 
 ## 15.8: identifiability (K6)
 
 **D11's six** (`S_JCVISYN3A_0607`, `S_JCVISYN3A_0445`, `S_JCVISYN3A_0779`, `krnadeg`, `kcatF_R_ENO`, `kcatF_R_FBA`): singular values 923, 400, 254, 215, 184, 119. Noise floor 72.3. Rank 6 of 6 — **identifiable, K6 does not fire**. Condition number 7.74, which the floor caps at about 12.8, so it is not held to 1e6.
 
-**With the polymerase direction** (all 17 promoters scaled together): singular values 1.4e+03, 406, 254, 221, 204, 177, 116. Noise floor 72.5. Rank 7 of 7. The seventh singular value is 116, 0.969 of the six-set's smallest. With 14 promoters fixed the scale is anchored, so a partial ridge was expected (§12).
+**With the polymerase direction** (all 17 promoters scaled together): singular values 1.4e+03, 406, 254, 221, 204, 177, 116. Noise floor 72.5. Rank 7 of 7. The seventh singular value is 116, 0.969 of the six-set's smallest. No drop is seen. The planning entry expected at most a partial ridge, since the 14 fixed promoters anchor the scale; that explanation is not tested here.
 
 ## 15.6: influence audit
 
@@ -59,33 +59,33 @@ Largest |∂ mean / ∂ ln θ| over the save points, in resolution units, per ob
 
 ## The metabolite panel (15.5 into 15.7)
 
-Kept: a pool check 1b does not exclude (`M_ppi_c`, `M_13dpg_c`, `M_nadh_c`, `M_pep_c`) with some target moving it by at least one resolution unit per unit ln θ, beyond three times its noise.
+Kept: a pool check 1b does not exclude (`M_ppi_c`, `M_13dpg_c`, `M_nadh_c`, `M_pep_c`), other than `M_trna_c` (conserved with `M_trna_chg_c`, which is kept), where one of D11's six moves it by at least one resolution unit per unit ln θ, beyond three times its noise, at that target's largest save point. F2's rank is shown and does not select. Both tests are weak for a row near its noise, so a pool kept by a margin of less than 2× is marked.
 
-| metabolite | F2 rank | largest entry | kept |
+| metabolite | F2 rank | largest entry over the six | kept |
 |---|---|---|---|
-| `M_g6p_c` | 11 | 49.22 | yes |
-| `M_f6p_c` | 10 | 49.21 | yes |
-| `M_lac__L_c` | 15 | 43.24 | yes |
+| `M_g6p_c` | 11 | 36.12 | yes |
+| `M_f6p_c` | 10 | 35.65 | yes |
+| `M_lac__L_c` | 15 | 36.45 | yes |
 | `M_g3p_c` | 17 | 34.80 | yes |
 | `M_dhap_c` | 18 | 34.13 | yes |
-| `M_trna_chg_c` | 16 | 32.73 | yes |
-| `M_trna_c` | 13 | 32.73 | yes |
-| `M_pi_c` | 5 | 31.03 | yes |
-| `M_3pg_c` | 12 | 30.40 | yes |
+| `M_trna_chg_c` | 16 | 32.22 | yes |
+| `M_trna_c` | 13 | 32.22 | no (conserved pair) |
+| `M_pi_c` | 5 | 24.32 | yes |
+| `M_3pg_c` | 12 | 24.38 | yes |
 | `M_2pg_c` | 9 | 29.54 | yes |
 | `M_gtp_c` | 6 | 24.62 | yes |
-| `M_fdp_c` | 21 | 21.62 | yes |
-| `M_atp_c` | 4 | 21.13 | yes |
-| `M_lac__L_e` | – | 15.50 | yes |
+| `M_fdp_c` | 21 | 3.48 | yes |
+| `M_atp_c` | 4 | 20.10 | yes |
+| `M_lac__L_e` | – | 11.97 | yes |
 | `M_amp_c` | 1 | 14.06 | yes |
-| `M_pep_c` | 14 | 14.04 | excluded (check 1b) |
+| `M_pep_c` | 14 | 10.54 | excluded (check 1b) |
 | `M_gmp_c` | 7 | 13.26 | yes |
-| `M_gdp_c` | 19 | 10.49 | yes |
+| `M_gdp_c` | 19 | 8.11 | yes |
 | `M_adp_c` | 20 | 8.31 | yes |
-| `M_ppi_c` | 2 | 6.82 | excluded (check 1b) |
-| `M_pyr_c` | 22 | 1.20 | yes |
-| `M_nadh_c` | 8 | 0.60 | excluded (check 1b) |
-| `M_13dpg_c` | 3 | 0.19 | excluded (check 1b) |
+| `M_ppi_c` | 2 | 5.14 | excluded (check 1b) |
+| `M_pyr_c` | 22 | 0.92 | no |
+| `M_nadh_c` | 8 | 0.46 | excluded (check 1b) |
+| `M_13dpg_c` | 3 | 0.14 | excluded (check 1b) |
 | `M_nad_c` | 23 | 0.01 | no |
 
-Panel (19): `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`, `M_trna_c`, `M_pi_c`, `M_3pg_c`, `M_2pg_c`, `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_lac__L_e`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`, `M_pyr_c`.
+Panel (17): `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`, `M_pi_c`, `M_3pg_c`, `M_2pg_c`, `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_lac__L_e`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`.

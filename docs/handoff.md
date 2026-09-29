@@ -1,7 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-29
-**Branches:** `phase-15-observables` (phase 15, PR open). #77 (14c.5) merged.
+**Branches:** `phase-15-observables` (#78, phase 15). #77 (14c.5) merged.
 
 ## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
 
@@ -30,7 +30,7 @@
   caught it. Under either clip rule `pool − deficit` evolves identically, so the
   smoothing's residue cannot add up across clips.
 
-**Phase 15, built on `phase-15-observables`** (all nine tasks met; PR open).
+**Phase 15, built on `phase-15-observables`** (all nine tasks met; #78).
 The spec's §11 phase 15 block has the numbers. §12 2026-09-29 (phase 15
 planning) records three decisions. 15.8's Jacobian is a noise-weighted
 ensemble sensitivity, gated on rank against a split-half noise floor. 15.6 is
@@ -40,16 +40,24 @@ kept where the audit shows a target moves it.
   value 119 against a floor of 72.3. K6 does not fire. No polymerase ridge is
   seen, since the 14 fixed promoters anchor the scale, as planned.
 - **15.7:** 200 cells at a truth drawn with `Xoshiro(1507)` (job 17703841).
-  The panel is 19 metabolites at σ = 0.1, plus 17 exact transcript counts.
-  `dev/data/corea_dataset_15/meta.md` is tracked. `observations.tsv` (37 MB)
-  is regenerable and ignored, SHA-256 `77f01fd5…`.
+  The panel is 17 metabolites at σ = 0.1, floored at one particle, with t = 0
+  left out, plus 17 exact transcript counts. `dev/data/corea_dataset_15/meta.md`
+  is tracked. `observations.tsv` is regenerable and ignored, SHA-256
+  `5e6382da…`.
+- **The #78 review changed the panel** (§12, phase 15 planning):
+  - The polymerase direction no longer counts as a target, which drops `M_pyr_c`.
+  - `M_trna_c` is dropped as `M_trna_chg_c`'s conserved partner.
+  - F2 ranks the panel but does not select it.
+  - The Core A′ observables got their own docs page, because the modules page
+    passed Documenter's 200 KiB limit.
 - **15.4:** check 9 covers σ in 275 of 300 datasets.
 - **Open for phase 16:** `M_lac__L_e` is in the panel, but its scale rests on
   our asserted volume ratio, so decide whether to keep it. The sensitivity run
-  stopped at the 250 CPU-h cap with the sixth singular value 1.65× the floor,
-  not 3×.
+  was sized to the 250 CPU-h cap and completed (248.3 CPU-h), with the sixth
+  singular value 1.65× the floor, not 3×. Transcripts are exact counts in the
+  data; score them by D10's exact conditional, not the Poisson modality.
 
-Next: phase 15's PR through /check-PR. Then phase 16, which starts with M0
+Next: #78 through /check-PR again. Then phase 16, which starts with M0
 (16.1) and the path-update choice (16.2). Housekeeping:
 `.worktrees/{agree14c5,suite14c5,sens15,ds15}` hold runs of record, and all
 their results are committed.
