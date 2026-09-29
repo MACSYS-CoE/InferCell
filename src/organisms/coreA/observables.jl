@@ -401,7 +401,84 @@ function check_identifiability(J::AbstractMatrix, noise::AbstractMatrix)
             full_rank = r == size(J, 2), condition = first(sv) / last(sv))
 end
 
+# ---------------------------------------------------------------------------
+# 15.7: the synthetic dataset
+# ---------------------------------------------------------------------------
+
+"""
+    observe_latent(latent, species, noise; scales, noise_seed) -> (observed, observed_species)
+
+Observe a latent cells × species × times record under a [`NoiseModel`](@ref).
+A `:lognormal` species is `max(x, floor)·exp(σ·ε)` with its modality's σ from
+`scales`, from a generator seeded by `noise_seed`. A `:poisson` species, a
+transcript count, is kept exact. Only the noise model's species are returned,
+in modality order.
+"""
+function observe_latent(latent::AbstractArray{<:Real, 3}, species::AbstractVector{Symbol},
+                        noise::NoiseModel; scales::AbstractDict, noise_seed::Integer)
+    rng = Xoshiro(noise_seed)
+    observed_species = reduce(vcat, [m.species for m in noise.modalities])
+    rows = state_rows(observed_species, species)
+    observed = similar(latent, Float64, size(latent, 1), length(rows), size(latent, 3))
+    k = 0
+    for m in noise.modalities, _ in m.species
+        k += 1
+        x = latent[:, rows[k], :]
+        observed[:, k, :] = m.kind === :lognormal ?
+            max.(x, m.floor) .* exp.(scales[scale_name(m)] .* randn(rng, size(x))) : x
+    end
+    return observed, observed_species
+end
+
+"""
+    generate_dataset(truth, seeds; models = d11_models(), horizon = COREA_CYCLE_S,
+                     every = 60, noise = nothing, scales = Dict(), noise_seed = 0)
+        -> NamedTuple
+
+Spec §11 task 15.7: a synthetic dataset from the **published** model (clamped
+drain, fractional carry), with `truth` written by [`set_parameters!`](@ref),
+one cell per seed. The truth must pass [`check_truth`](@ref), so a nominal
+truth is refused unless it is labelled a smoke test (§4 D8).
+
+Each cell is run by [`emit_ensemble`](@ref). The latent record keeps every
+candidate observable except protein counts ([`assert_no_circularity`](@ref)).
+When `noise` is a [`NoiseModel`](@ref), its species are also observed with that
+noise at `scales`, from a generator seeded by `noise_seed`. Transcripts stay
+exact counts.
+
+Returns `(truth, seeds, noise_seed, scales, times, species, latent, genes,
+transcripts, observed, observed_species, report)`. `latent` is cells ×
+species × times, `transcripts` an `Int` array of cells × genes × times, and
+`report` the `reduction_report` of the model that produced the data.
+"""
+function generate_dataset(truth::NamedTuple, seeds::AbstractVector{<:Integer};
+                          models = d11_models(), horizon::Real = COREA_CYCLE_S,
+                          every::Integer = 60, noise::Union{Nothing, NoiseModel} = nothing,
+                          scales::AbstractDict = Dict{Symbol, Float64}(),
+                          noise_seed::Integer = 0)
+    check_truth(models, truth)
+    function build()
+        d = build_problem(models; tspan = (0.0, Float64(horizon)), complete = true)
+        set_parameters!(d, models, truth.values)
+        return models, d
+    end
+    e = emit_ensemble(build, seeds; every)
+    proteins = Set(protein_count_states(models))
+    keep = [i for (i, s) in enumerate(e.species) if !(s in proteins)]
+    species = e.species[keep]
+    latent = e.counts[:, keep, :]
+    assert_no_circularity(models, species)
+    observed, observed_species = noise === nothing ? (nothing, Symbol[]) :
+        observe_latent(latent, species, noise; scales, noise_seed)
+    _, d0 = build()
+    return (truth = truth, seeds = collect(seeds), noise_seed = noise_seed,
+            scales = Dict(scales), times = e.times, species = species, latent = latent,
+            genes = e.genes, transcripts = e.transcripts, observed = observed,
+            observed_species = observed_species, report = reduction_report(models, d0))
+end
+
 export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble
 export POLYMERASE_DIRECTION, perturbed_values, ensemble_jacobian
+export generate_dataset, observe_latent

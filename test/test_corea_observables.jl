@@ -125,6 +125,31 @@ using Statistics: std
         @test ok.condition ≈ first(ok.singular_values) / last(ok.singular_values)
     end
 
+    @testset "15.7: the dataset carries its truth, seed and report" begin
+        dm = d11_models()
+        truth = draw_truth(Xoshiro(157), dm; purpose = :recovery)
+        nm = NoiseModel(Modality(:metabolite, :lognormal, [:M_atp_c, :M_gtp_c]),
+                        Modality(:transcript, :poisson,
+                                 [transcript_state(:JCVISYN3A_0607)]))
+        kw = (; models = dm, horizon = 120.0, noise = nm,
+              scales = Dict(:sigma_metabolite => 0.1), noise_seed = 5)
+        ds = generate_dataset(truth, [31, 32]; kw...)
+        @test ds.truth === truth && ds.seeds == [31, 32] && ds.noise_seed == 5
+        @test occursin("fractional carry", ds.report)
+        @test size(ds.latent) == (2, length(ds.species), 3) && size(ds.transcripts) == (2, 17, 3)
+        @test isempty(intersect(ds.species, protein_count_states(dm)))
+        @test ds.observed_species == [:M_atp_c, :M_gtp_c, transcript_state(:JCVISYN3A_0607)]
+        i = findfirst(==(transcript_state(:JCVISYN3A_0607)), ds.species)
+        @test ds.observed[:, 3, :] == ds.latent[:, i, :]          # transcripts exact
+        @test ds.observed[:, 1, :] != ds.latent[:, findfirst(==(:M_atp_c), ds.species), :]
+        # Two runs at one seed are identical.
+        again = generate_dataset(truth, [31, 32]; kw...)
+        @test again.latent == ds.latent && again.observed == ds.observed
+        # A nominal truth is refused unless labelled a smoke test.
+        @test_throws ArgumentError generate_dataset((; nominal_truth(dm)..., purpose = :recovery),
+                                                    [31]; models = dm, horizon = 60.0)
+    end
+
     @testset "15.2: truths are drawn, and nominal is a smoke test" begin
         dm = d11_models()
         nominal = nominal_parameter_values(dm)

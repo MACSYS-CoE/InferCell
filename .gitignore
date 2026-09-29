@@ -22,6 +22,8 @@ core.*
 /dev/scripts/smoothing_14c5/
 /dev/scripts/decomp_14c5/
 /dev/scripts/sensitivity_15/
+/dev/scripts/dataset_15/
+/dev/data/corea_dataset_15/*.tsv
 
 # LaTeX build artifacts (talks/)
 *.aux
