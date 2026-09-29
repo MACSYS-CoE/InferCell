@@ -4249,17 +4249,22 @@ decomposition below replaced it, also approved 2026-09-29.
   worst seeds, each to its decoupling (job 17695360, at `2bbb02c`;
   `dev/scripts/corea_smoothing_14c5_decomp_result.md`), separates the two
   departures. The clamp with continuous pools reproduces the sampler model to
-  0.02 particles, including the handshake at which the pair decouples (18.74,
-  21.29, 15.09 and 9.97 particles on seeds 18227, 16184, 19958 and 16391). The
-  smoothed drain under fractional carry never moves GTP by more than 0.98
-  particles and never decouples. The gap builds only during runs of clipped
-  GTP drains, about 3 particles per 10 s, while GDP sits a few particles higher
-  in the continuous-pool model. When the pool refills, GTP comes back higher
-  and GDP lower by about the same amount. So GTP is regenerated from GDP faster
-  during starvation when pools are carried as fractions. The rounding
-  interaction behind that is not pinned down. The same departure also flips
-  the stochastic event at which each of these pairs decouples, which is why
-  the worst coupled differences sit 15 to 230 s before decoupling.
+  within 0.25 particles over the coupled window, and to 0.02 at the worst save
+  points (18.74, 21.29, 15.09 and 9.97 particles on seeds 18227, 16184, 19958
+  and 16391). Its jump states match the sampler model's at every handshake, so
+  it decouples at the same one. The smoothed drain under fractional carry never
+  moves GTP by more than 0.98 particles, and does not decouple before the
+  sampler pair does; it was not run further. The gap builds only during runs
+  of clipped GTP drains, at about 3 to 7 particles per 10 s, while GDP sits 1.5
+  to 3 particles higher in the continuous-pool model. When the pool refills,
+  GTP comes back higher and GDP lower, by 75 to 85% of GTP's rise at the four
+  worst points. That is consistent with GTP being regenerated from GDP faster
+  during starvation when pools are carried as fractions, but fluxes were not
+  recorded, and the rounding interaction behind it is not pinned down. The
+  same departure flips the stochastic event at which each pair decouples, and
+  the worst coupled differences sit 15 to 230 s before decoupling. Whether the
+  growing gap triggers the flip or both share a cause is not tested, and these
+  seeds were chosen for their largest gaps.
 - **Why the smoothing cannot be the cause.** Under either clip rule a drain
   sets `paid + deficit' = accrued + deficit` and `pool' = pool − paid`, so
   `pool − deficit` evolves identically. The smoothing's per-drain gap, at most

@@ -18,10 +18,12 @@
   51 of 5,000 seeds exceed 1%, all GTP, and in all of them the sampler model is
   higher. **Continuous pools cause it, not the smoothed drain.** A 2×2 on the
   four worst seeds (job 17695360) shows the clamp with continuous pools
-  reproduces the sampler model exactly, decoupling included, while the smoothed
-  drain alone stays within one particle and never decouples. The gap builds
-  during runs of clipped GTP drains, with GDP regenerating GTP faster when pools
-  are fractional. The rounding interaction behind that is not pinned down. You
+  reproduces the sampler model to within 0.25 particles, decoupling included,
+  while the smoothed drain alone stays within one particle and does not decouple
+  over that window. The gap builds during runs of clipped GTP drains, at 3 to 7
+  particles per 10 s. It is consistent with faster regeneration from GDP when
+  pools are fractional, but fluxes were not recorded and the mechanism is not
+  pinned down. You
   chose to record the failure and carry it as a measured cost. It is now in the
   `:continuous` rounding policy's driver label. Phase 16's coverage is the
   backstop.

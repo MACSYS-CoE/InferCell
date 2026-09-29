@@ -69,7 +69,7 @@ p("# 14c.5: the sampler model against the published one, over $(length(seeds)) s
 p()
 p("Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from $(length(files)) task files. ",
   "Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. ",
-  "The gate is §12 2026-09-29's. Merged at commit $MERGED_AT. The tasks' headers:")
+  "The gate is §12 2026-09-29's difference-of-means entry. Merged at commit $MERGED_AT. The tasks' headers:")
 p()
 for h in unique(replace.(headers, r", task \d+ of \d+, [0-9T:.-]+" => ""))
     p("- ", h)

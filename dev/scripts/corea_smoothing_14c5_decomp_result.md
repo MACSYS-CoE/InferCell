@@ -2,7 +2,7 @@
 
 Job 17695360, at commit 2bbb02c, by `dev/scripts/corea_smoothing_14c5_decomp.jl`; analysed by `corea_smoothing_14c5_decomp_merge.jl`. A is the published model (clamp, fractional carry), B the clamp with continuous pools, C the smoothed drain with fractional carry, D the sampler model. Gaps are in particles, the variant minus A. "net" is the gap in the pool minus its carried GTP deficits.
 
-**Continuous pools cause the gap; the smoothed drain does not.** B reproduces D, including the handshake at which the pair decouples, on all four seeds. C never moves GTP by more than one particle and never decouples. The gap builds only during runs of clipped drains, about 3 particles per 10 s, while GDP sits a few particles higher in the continuous-pool model; when the pool refills, GTP comes back higher and GDP lower by about the same amount.
+**Continuous pools cause the gap; the smoothed drain does not.** B's jump states match D's at every handshake, so it decouples at the same one, on all four seeds; its GTP is within 0.02 particles of D's at the worst save points below (within 0.25 over the coupled window, from the raw output). C never moves GTP by more than one particle and does not decouple before D does; it was not run further. The gap builds only during runs of clipped drains, about 3 to 7 particles per 10 s, while GDP sits a few particles higher in the continuous-pool model; when the pool refills, GTP comes back higher and GDP lower, by 75 to 85% of GTP's rise. Fluxes were not recorded.
 
 ```
 === seed 16184, worst save t=5880, GTP counters [:GTP_mRNA, :GTP_translat]
