@@ -30,6 +30,7 @@ makedocs(;
             "Sub-model interface" => "api/interface.md",
             "Core A′ interface contract" => "api/corea-interface.md",
             "Core A′ modules" => "api/corea-modules.md",
+            "Core A′ observables" => "api/corea-observables.md",
             "Orchestrator" => "api/orchestrator.md",
             "Handshake driver" => "api/handshake.md",
             "Inference" => "api/inference.md",

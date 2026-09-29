@@ -17,8 +17,8 @@
         trajectories = [solve(prob, SSAStepper(); saveat=times) for _ in 1:50]
 
         stats = compute_summary_stats(trajectories, states(model); times=times)
-        # 2 species x 3 timepoints = 6
-        @test length(stats) == 6
+        # 2 species x 3 timepoints x (mean, standard deviation) = 12
+        @test length(stats) == 12
         @test all(isfinite, stats)
     end
 

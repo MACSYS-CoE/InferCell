@@ -1,8 +1,7 @@
 # Handoff
 
 **Session date:** 2026-09-29
-**Branches:** `close-14c5-mean-gate` (#77, closes 14c.5); `phase-15-observables`
-(worktree `.worktrees/phase15`, not pushed, tasks 15.1 to 15.5 and 15.9 built)
+**Branches:** `phase-15-observables` (#78, phase 15). #77 (14c.5) merged.
 
 ## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
 
@@ -31,30 +30,40 @@
   caught it. Under either clip rule `pool − deficit` evolves identically, so the
   smoothing's residue cannot add up across clips.
 
-**Phase 15, built in `.worktrees/phase15`** (off main, not pushed):
-- **15.1** `assert_no_circularity`: protein counts, the PTS carriers included,
-  and freed protein initial conditions are refused, naming the 17 promoters.
-- **15.2** `draw_truth` and `nominal_truth`: a coverage or calibration truth at
-  nominal is refused, and the T2 row is `truth_label`.
-- **15.3** `emit_observables!` and `emit_ensemble`: counts, 22 fluxes and volume
-  every 60 s; transcripts as an `Int` array of replicates × 17 × times. The
-  observables test passes 40/40 (job 17679588).
-- **15.4** `NoiseModel` and `Modality` (lognormal or Poisson). Check 9's 90%
-  interval covers σ in 275 of 300 datasets, and a variance misreading covers it
-  in 0.
-- **15.5** F2 is `concentration_control`, on the frozen variant now in `src`
-  (`control_variant.jl`). Check 8 holds (sums 3.6e-14, derivatives 2.5e-9,
-  job 17681807). `metabolite_panel` at |C| ≥ 0.1 keeps 20 of 23 pools.
-  **Open:** that threshold is ours and barely discriminates, and check 1b's
-  exclusions (PEP, pools below 10 particles) are not applied yet. The result
-  files (`dev/scripts/corea_f2_15_*`) are uncommitted in the worktree.
-- **15.9** observations are mapped to states by name, and the ABC summary
-  carries the per-time spread.
+**Phase 15, built on `phase-15-observables`** (all nine tasks met; #78).
+The spec's §11 phase 15 block has the numbers. §12 2026-09-29 (phase 15
+planning) records three decisions. 15.8's Jacobian is a noise-weighted
+ensemble sensitivity, gated on rank against a split-half noise floor. 15.6 is
+the same matrix. The panel is chosen by that audit over D11's six, less check
+1b's exclusions and the conserved `M_trna_c`. F2 ranks it but does not select.
+- **15.8:** rank 6 of 6 over 1,470 seeds (job 17704779): smallest singular
+  value 119 against a floor of 72.3. K6 does not fire. No polymerase ridge is
+  seen. The planning entry expected at most a partial one, since the 14 fixed
+  promoters anchor the scale; that explanation is untested.
+- **15.7:** 200 cells at a truth drawn with `Xoshiro(1507)` (job 17703841).
+  The panel is 17 metabolites at σ = 0.1, floored at one particle, with t = 0
+  left out, plus 17 exact transcript counts. `dev/data/corea_dataset_15/meta.md`
+  is tracked. `observations.tsv` is regenerable and ignored, SHA-256
+  `5e6382da…`.
+- **The #78 review changed the panel** (§12, phase 15 planning):
+  - The polymerase direction no longer counts as a target, which drops `M_pyr_c`.
+  - `M_trna_c` is dropped as `M_trna_chg_c`'s conserved partner.
+  - F2 ranks the panel but does not select it.
+  - The Core A′ observables got their own docs page, because the modules page
+    passed Documenter's 200 KiB limit.
+- **15.4:** check 9 covers σ in 275 of 300 datasets.
+- **Open for phase 16:** `M_lac__L_e` is in the panel, but its scale rests on
+  our asserted volume ratio, so decide whether to keep it. The sensitivity run
+  was sized to the 250 CPU-h cap and completed (248.3 CPU-h), with the sixth
+  singular value 1.65× the floor, not 3×. Transcripts are exact counts in the
+  data; score them by D10's exact conditional, not the Poisson modality. Build
+  phase 16's metabolite `Modality` with `floor = 1.0`, as the data was, not the
+  1e-12 default.
 
-Next: #77 through /check-PR again and merge. Then 15.6 (influence audit, about
-4 CPU-h), 15.7 (the dataset) and 15.8 (a driver Jacobian with a condition
-number), and phase 15's PR. Housekeeping: `.worktrees/agree14c5` and
-`.worktrees/suite14c5` hold the runs of record, and can go once #77 merges.
+Next: #78 through /check-PR again. Then phase 16, which starts with M0
+(16.1) and the path-update choice (16.2). Housekeeping:
+`.worktrees/{agree14c5,suite14c5,sens15,ds15}` hold runs of record, and all
+their results are committed.
 
 ## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 

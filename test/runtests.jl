@@ -34,6 +34,8 @@ using Aqua
     include("test_stochastic_ge.jl")
     include("test_bursty_gene_expression.jl")
     include("test_summary_stats.jl")
+    include("test_observation_mapping.jl")
+    include("test_observation_noise.jl")
     include("test_abc_smc.jl")
     include("test_light_metabolism.jl")
     include("test_composition.jl")
@@ -110,6 +112,8 @@ using Aqua
     # Phase 14c: Haldane-consistent prior draws and the driver's parameter writes.
     include("test_corea_prior_draws.jl")
     include("test_corea_smoothed_drain.jl")
+    # Phase 15: observables and synthetic data.
+    include("test_corea_observables.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

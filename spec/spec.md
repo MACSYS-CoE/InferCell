@@ -9,8 +9,8 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 14b, the derivative, ensemble and census checks (#72). K5 fired in 14b.
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
-coupled half failed and carried as a measured cost (§12). Phase 15 may start,
-all of it.
+coupled half failed and carried as a measured cost (§12, #77). Phase 15 is
+built on `phase-15-observables`, with its PR open.
 **Created:** 2026-09-03  ·  **Last amended:** 2026-09-29
 
 This is the authoritative document for the Core A′ work. It supersedes
@@ -929,7 +929,9 @@ or be superseded entirely by an exact likelihood (see D10).
 against roughly 20 metabolites, at nominal parameters, by automatic
 differentiation through the steady-state solve, with check 8's summation
 identities as the correctness guard. Choose the metabolite panel from its largest
-rows.
+rows. **Amended 2026-09-29 (§12, phase 15 planning):** F2 ranks the panel, and
+the influence audit of task 15.6, on the model itself rather than its frozen
+steady state, selects it.
 
 **Why this and not a sensitivity scan.** The scoping note lists "which observable
 is most informative about the boundary-crossing parameters" as an open question
@@ -1365,7 +1367,7 @@ is the enabler.
 | ID | Output | Claim | The number it delivers |
 |---|---|---|---|
 | **F1** | **Channel gain table.** Six rows, matching §3's coupling bullet: enzyme concentration, the expression-cost drain, the tRNA transfer, nucleotide pools into transcription's rate constants, the charged pool into translation's, and volume. Each with its analytic form and its measured value. Volume's row carries **both** directions after phase 5b: the dilution gain, and the gain of whatever rate law reads the geometry — for the lactate exporter's `3P/r` that is `∂ ln rate / ∂ ln r = −1`, analytic and needing no measurement | C1 | The reverse channels at 0.044–0.051 and the charged-tRNA figure R1 measures; the guanylate forward channel as a ~30 s turnover; the adenylate forward channel as a two-stage gain with the tRNA pool's lag stated separately, per D13. **The most important table in the work, and it appears early** |
-| **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel |
+| **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel. **Amended 2026-09-29 (§12):** F2 ranks the panel, and 15.6's influence audit on the actual model selects it |
 | F2b | Flux control coefficients, same layout | C1 | Shows them near zero at 3.6% utilisation — the quantitative reason fluxes are ruled out of the likelihood |
 | **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive — except for an invariant that passes either gate of §3's exact-conservation exception, whose line is bounded near the floating-point floor with a slope of zero, positive or negative, drawn with the ulp band marked and labelled as such rather than counted as a failure (amended 2026-09-10 and 2026-09-11; see §12). **The label must say which gate**: bitwise-zero derivative, or one ulp per evaluation, or `n` ulps for an `n`-term sum (amended 2026-09-25). Phase 8's adenylate is the second and wanders non-monotonically over nine decades, so "slightly negative" is too narrow a description of what a passing flat line looks like. Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
@@ -4056,45 +4058,109 @@ by memory.
 **Done when:** a synthetic dataset exists at recorded ground-truth parameters
 drawn from the prior, the observable set is justified against D8, and any
 observable that closes the proxy loop is rejected by a check.
-**PR:** _not started_
+**PR:** #78 (open)
 
-- [ ] 15.1 Implement the circularity guard — verify by an observable set
+**Results (branch `phase-15-observables`).** Planning is §12 2026-09-29 (phase
+15 planning). The runs of record are F2 (job 17681807,
+`dev/scripts/corea_f2_15_result.md`), the sensitivity (pilot job 17703391 and
+full run job 17704779, `dev/scripts/corea_sensitivity_15{,_pilot}_result.md`)
+and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
+- **15.1.** `assert_no_circularity` refuses protein counts and freed protein
+  initial conditions, naming the 17 promoters. The PTS carriers count as
+  protein. Metabolites, transcripts and volume pass.
+- **15.2.** `draw_truth` draws Haldane-consistently. A coverage or calibration
+  truth at nominal is refused, and `nominal_truth` is allowed only for a smoke
+  test. `truth_label` is the rule's T2 row.
+- **15.3.** `emit_observables!` records counts, all 22 fluxes and volume every
+  60 s. `emit_ensemble` returns transcripts as an `Int` array of replicates ×
+  17 × times. A test spot-checks the fluxes against the composed right-hand
+  side, on two states (four of the 22 fluxes), to 1e-12.
+- **15.4.** `NoiseModel` has lognormal and Poisson modalities. Check 9: over
+  300 datasets the 90% interval covers σ 275 times (91.7%, band 84.8 to
+  95.2%), with a mean posterior median of 0.997σ. Reading σ as a variance
+  covers it 0 times. Doubling a pool 1,000× smaller than its neighbour moves
+  the log-likelihood by 6.0, against under 1e-3 with one additive term.
+- **15.5.** F2 on the frozen variant, now in `src`: 23 pools × 13 genes, with
+  check 8's sums at 3.6e-14 and its derivatives at 2.5e-9. **Amended by the
+  #78 review (§12):** F2 ranks and explains the panel but does not select it.
+  15.6's audit on the actual model selects. So the verify clause's "chosen
+  from its largest rows" holds only in the sense that F2's rank is reported
+  beside each choice.
+- **15.6.** The influence audit is 15.8's matrix in 200-cell resolution units.
+  Every target moves some observable beyond three times its noise. The audit
+  takes each entry's maximum over 105 save points, and a zero-signal row's
+  maximum is about 3, so off-target entries near that level are not
+  evidence.
+- **15.7.** 200 published-model cells at a truth drawn with
+  `Xoshiro(1507)`. The six are free and everything else is fixed. The 200 is
+  D11's derivation. Seed 30001 reruns identically, and so does the merged file
+  (SHA-256 `5e6382da…`). `meta.md` carries the truth, the seeds, the noise
+  scale and seed, the T2 row, the sensitivity run behind the panel, the Julia
+  version and the `reduction_report`. The panel is 17 metabolites, observed
+  lognormally at σ = 0.1 (ours) with predictions floored at one particle,
+  over the 105 save points after t = 0. The 17 transcripts are exact counts.
+  The panel includes `M_lac__L_e`, whose scale rests on the asserted
+  medium-to-cell volume ratio.
+- **15.8.** Over 1,470 seeds, D11's six have singular values 923, 400, 254,
+  215, 184 and 119, against a split-half noise floor of 72.3: **rank 6 of 6,
+  and K6 does not fire.** The sixth is 1.65× the floor. The run was sized to
+  the 250 CPU-h cap and completed (248.3 CPU-h), short of the 3× margin it
+  aimed for. The condition number is 7.7, which the floor caps at 12.8.
+  **No ridge is seen.** Adding the polymerase direction gives a seventh
+  singular value of 116, 0.97 of the six-set's smallest and above the floor.
+  The planning entry expected at most a partial ridge, since the 14 fixed
+  promoters anchor the scale. That explanation is not tested here, since no
+  run frees all 17. The exact ridge, with all 17 free, stays analytic (D11),
+  and F13 shows no drop.
+- **15.9.** Observations map to states by name, and the ABC summary carries a
+  per-time standard deviation.
+
+- [x] 15.1 Implement the circularity guard — verify by an observable set
   including protein counts, or freeing initial protein counts, being rejected and
   naming the seventeen promoter parameters it would double-count, and by
   metabolite time courses and transcript counts passing.
-- [ ] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
+- [x] 15.2 Implement the truth-drawing rule from D8 — verify by a coverage or
   calibration run refusing a truth set to the nominal published values, and by a
   fixed-truth-at-nominal run being permitted only when labelled a smoke test.
   **Annotated 2026-09-28 (§12):** truths are drawn under 14c.1's
   Haldane-consistent rule.
-- [ ] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
+- [x] 15.3 Emit the candidate observables at 60 s — verify by a trajectory writing
   per-species counts, per-reaction fluxes and volume at the published cadence, and
   by transcripts carried as a replicates-by-genes-by-times array of counts rather
   than a replicate mean, which the current ensemble observer would produce.
-- [ ] 15.4 Replace the single scalar observation noise with per-modality noise on a
+- [x] 15.4 Replace the single scalar observation noise with per-modality noise on a
   log scale — verify by check 9 recovering a known noise scale inside the
   calibration band, and by a test that the smallest pools now contribute to the
   likelihood, which under one additive term they did not.
-- [ ] 15.5 Compute output F2, the concentration control coefficient matrix, with
+- [x] 15.5 Compute output F2, the concentration control coefficient matrix, with
   check 8 as its guard — verify by the summation identities holding and by the
   metabolite panel being chosen from its largest rows rather than by argument,
-  which settles the scoping note's open question.
-- [ ] 15.6 Run the influence audit — verify by a report giving, per candidate
+  which settles the scoping note's open question. **Amended 2026-09-29 (§12,
+  phase 15 planning, refined by the #78 review):** F2 ranks the panel and 15.6's
+  audit selects it.
+- [x] 15.6 Run the influence audit — verify by a report giving, per candidate
   observable and per target parameter, how much the observable moves it, so the
-  data model is chosen by measurement.
-- [ ] 15.7 Fix the target set and generate the dataset — verify by the six
+  data model is chosen by measurement. **Amended 2026-09-29 (§12, phase 15
+  planning):** it is 15.8's matrix, in 200-cell resolution units, and it
+  chooses the metabolite panel together with F2 and check 1b.
+- [x] 15.7 Fix the target set and generate the dataset — verify by the six
   parameters of D11 being free with everything else fixed, by the ensemble sized
   at 200 cells with the derivation recorded, by two runs at one seed being
   identical, and by the stored dataset carrying its truth, its seed and the
   `reduction_report` of the model that produced it.
-- [ ] 15.8 Check the target set is identifiable before sampling — verify by
+- [x] 15.8 (met for the six, rank 6 of 6; the seven-parameter ridge is not seen, as the 14 fixed promoters anchor the scale; §12 2026-09-29) Check the target set is identifiable before sampling — verify by
   `check_identifiability` reporting full rank and a condition number below 1e6
   for the six, and by the same check on the seven-parameter set including the
   polymerase constant showing the predicted ridge (K6, output F13).
+  **Amended 2026-09-29 (§12, phase 15 planning):** on the sampler model the
+  Jacobian is a noise-weighted ensemble sensitivity. The gate is all six
+  singular values above its split-half noise floor, and the condition number is
+  reported rather than held to 1e6. The seventh column scales all 17 promoters
+  jointly, and its ridge is expected partial.
   **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
   smoothed model, since at a clip the clipped model's has no value. That is
   the sampler model, smoothed drain and continuous pools (§12, 2026-09-28).
-- [ ] 15.9 Map observations to states by species name, and keep ensemble spread
+- [x] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
   scoring, by an unknown species name throwing, and by the time-series summary
@@ -4216,6 +4282,87 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-09-29 — phase 15 planning: 15.8's Jacobian is a noise-weighted ensemble sensitivity, gated on rank against its noise floor, and 15.6 shares it
+
+**Status: approved 2026-09-29.**
+
+**Trigger:** planning tasks 15.6 to 15.8 on the assembled model. Three things
+the task list did not settle.
+- **`check_identifiability` cannot take this model.** It differentiates one
+  deterministic ODE solve. Four of D11's six targets (three promoters and
+  `krnadeg`) live in the jump block, which no automatic derivative reaches.
+- **A Monte Carlo Jacobian has a noise floor.** A sensitivity estimated from
+  ensemble means carries Monte Carlo error, and that error puts a floor under
+  every singular value. A true ridge then reads as the floor, not as zero. The
+  condition number is bounded by the largest singular value over that floor,
+  so K6's 1e6 cannot be tested this way.
+- **The polymerase constant is not a parameter the rate law reads.** Transcription
+  uses the constant `RNAPOL_KCAT`, and `:tx_rnapol_kcat` is enumerated but
+  inert. Only the product `kcat·S_g` enters, and the turnover ceiling never
+  binds (D11). So scaling the constant is exactly scaling all 17 promoters
+  together, and that is how its column is taken. With 14 promoters held fixed,
+  D11's own reasoning says the scale is anchored, so the 7-parameter set's
+  ridge is expected to be partial. The exact ridge exists only with all 17
+  free, and it is analytic.
+
+**Change.**
+- **The Jacobian (15.8, and the matrix 15.6 reports).** It is taken on the
+  sampler model with D11's six freed (`d11_models(; smoothing = 1)` under
+  `:continuous`). Each column is the central difference of the ensemble mean
+  of every candidate observable at every 60 s save point, at ln θ ± 0.2, over
+  paired seeds. A reverse constant follows its forward constant, as in 14c.1.
+  Each row is divided by the 200-cell standard error of that observable's
+  mean, `std/√200`, taken at nominal. That is floored at 1% of
+  max(|mean|, floor), with 14c.5's floors, as in 14c.5's gate, since a pilot
+  smoke run showed rows with almost no cell-to-cell spread dominating. So one
+  unit is one resolution unit of the 15.7 dataset. The weighting is diagonal, and correlation between save
+  points is ignored. The seventh column, for the 7-parameter set, scales all
+  17 promoters jointly.
+- **The gate (15.8, K6).** The noise floor is the largest singular value of
+  the split-half matrix `(J_A − J_B)/2`, where A and B are disjoint halves of
+  the seeds. That matrix has J's Monte Carlo noise and no signal. The target
+  set is identifiable when all six singular values of J exceed the floor.
+  **K6 fires on a rank below six by this test.** The condition number is
+  reported with the floor beside it and is not gated against 1e6. For the
+  7-parameter set, its seventh singular value is reported against the six-set
+  spectrum and the floor.
+- **The run.** A pilot on 100 seeds over 15 configurations (nominal, and ±δ
+  on each of the seven columns), estimated at about 12 CPU-h (it took 17.0),
+  measures the floor. The full
+  run is sized from the pilot so the floor sits at least 3× below the sixth
+  singular value, capped at 250 CPU-h. If the cap cannot reach that, the
+  result is reported as the pilot shows it.
+- **15.6 is the same matrix,** reported per observable and target in
+  resolution units.
+- **The metabolite panel (15.5 into 15.7).** Pools are ranked by F2. The pools
+  check 1b excludes are dropped: PPi, 13DPG and NADH, whose cycle medians are
+  under 10 particles, and PEP, which 14b did not certify. A pool is kept if its
+  15.6 row reaches at least one resolution unit per unit ln θ, at some save
+  point, for some target. The 0.1 threshold of 15.5's report is not the rule.
+- **Refined by the #78 review, approved 2026-09-29.**
+  - **"Some target" means D11's six.** A first merge also counted the
+    polymerase direction, which admitted `M_pyr_c` (0.92 over the six).
+  - **The test is taken where each target's effect is largest.** It is at
+    least one unit there, and more than three times the noise at that entry.
+    Both tests are weak near noise level: a zero-signal row's maximum over 105
+    save points is about 3. A pool kept by less than 2× is marked.
+  - **F2 ranks but does not select.**
+  - **`M_trna_c` is dropped.** It is conserved with `M_trna_chg_c`, and their
+    rows are identical, so independent noise on both would count one piece of
+    information twice. The charged pool, which translation reads, is kept.
+  - **The dataset's lognormal predictions are floored at one particle,** the
+    resolution of the count round trip. A clipped published drain leaves GTP
+    at −0.42 particles in one cell, and external lactate is 0 at t = 0. At a
+    1e-12 floor those points sat at log y ≈ −28 against about 8.5.
+  - **The floor's reach.** Of the 357,000 panel points after t = 0, 330 have a
+    latent below one particle: 2PG 194, 3PG 94, Pi 40 and GTP 2. About 3,700
+    more lie between 1 and 10 particles, mostly external lactate (2,225) and 2PG
+    (1,181). Phase 16's noise model must use the same one-particle floor.
+  - **t = 0, the fixed initial condition, is left out of the observations.**
+  - The panel is 17 pools.
+
+*Sections:* §11 tasks 15.5, 15.6, 15.7 and 15.8 (annotations and results).
 
 ### 2026-09-29 — 14c.5 closes with its coupled half failed, and the failure is carried as the measured cost of continuous pools
 

@@ -1,21 +1,31 @@
 """
-    compute_summary_stats(trajectories, species; times=nothing)
+    compute_summary_stats(trajectories, species; times=nothing, spread=true,
+                          state_names=species)
 
 Compress an ensemble of SSA trajectories into a summary-statistic vector for
-ABC-SMC. When `times === nothing`, returns `[means; vars; fanos]` of the final
-state per species. When `times` is provided, returns per-time-point species
-means concatenated into a single vector.
+ABC-SMC. `species` are looked up by name in `state_names`, the trajectories'
+state order, so any subset in any order may be summarised, and an unknown name
+throws (spec §11 task 15.9).
+
+When `times === nothing`, returns `[means; vars; fanos]` of the final state per
+species. When `times` is provided, returns, for each time in turn, the species
+means followed (when `spread`) by the species standard deviations across
+replicates. The spread is what keeps the ensemble's low-copy information, which
+per-time means alone discard (spec §10 R14, §12 2026-09-23 G). With one
+trajectory the standard deviation is zero.
 """
 function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
-                                times=nothing)
+                               times=nothing, spread::Bool=true,
+                               state_names::AbstractVector{Symbol}=species)
     n_traj = length(trajectories)
     n_species = length(species)
+    rows = state_rows(species, state_names)
 
     if times === nothing
         final_vals = zeros(n_species, n_traj)
         for (j, sol) in enumerate(trajectories)
-            for i in 1:n_species
-                final_vals[i, j] = sol[i, end]
+            for (i, r) in enumerate(rows)
+                final_vals[i, j] = sol[r, end]
             end
         end
         means = vec(sum(final_vals; dims=2) ./ n_traj)
@@ -24,18 +34,21 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
         return vcat(means, vars, fanos)
     else
         stats = Float64[]
-        sizehint!(stats, n_species * length(times))
+        sizehint!(stats, (spread ? 2 : 1) * n_species * length(times))
         vals = zeros(n_species, n_traj)
         for t_idx in eachindex(times)
-            fill!(vals, 0.0)
             for (j, sol) in enumerate(trajectories)
                 snapshot = sol(times[t_idx])
-                for i in 1:n_species
-                    vals[i, j] = snapshot[i]
+                for (i, r) in enumerate(rows)
+                    vals[i, j] = snapshot[r]
                 end
             end
             means = vec(sum(vals; dims=2) ./ n_traj)
             append!(stats, means)
+            if spread
+                sds = n_traj > 1 ? vec(std(vals; dims=2)) : zeros(n_species)
+                append!(stats, sds)
+            end
         end
         return stats
     end

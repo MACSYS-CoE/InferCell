@@ -1,5 +1,5 @@
 @model function _infercell_model(data_obs, data_times, prob, priors, n_ode,
-                                  solver, sensealg)
+                                  solver, sensealg, rows)
     n = length(priors)
     theta = Vector{Real}(undef, n)
     for i in 1:n
@@ -19,12 +19,33 @@
 
     sigma = theta[n_ode + 1]
     for i in eachindex(data_times)
-        data_obs[:, i] ~ MvNormal(sol[:, i], sigma)
+        data_obs[:, i] ~ MvNormal(sol.u[i][rows], sigma)
     end
 end
 
+# The model under a per-modality noise model (spec §11 task 15.4): the model's
+# free parameters, then one log-scale σ per :lognormal modality. The models' own
+# :observation parameters belong to the single-σ form and are not sampled.
+@model function _infercell_model_noise(data, prob, priors, n_ode, solver, sensealg,
+                                       rows, noise, idx)
+    n = length(priors)
+    theta = Vector{Real}(undef, n)
+    for i in 1:n
+        theta[i] ~ priors[i]
+    end
+    p_ode = [theta[i] for i in 1:n_ode]
+    sol = solve(remake(prob, p=p_ode), solver; saveat=data.times, sensealg=sensealg)
+    if sol.retcode !== ReturnCode.Success
+        Turing.@addlogprob! -Inf
+        return
+    end
+    scales = [theta[i] for i in (n_ode + 1):n]
+    Turing.@addlogprob! observation_loglik(noise, data, i -> sol.u[i][rows], scales, idx)
+end
+
 """
-    build_turing_model(models, data, prob; solver, sensealg, priors_override=nothing)
+    build_turing_model(models, data, prob; solver, sensealg, priors_override=nothing,
+                       noise=nothing)
 
 Construct the Turing.jl probabilistic model used by [`infer`](@ref) for the
 differentiable (NUTS) path. `priors_override::Dict{Symbol,Distribution}`, when
@@ -34,11 +55,28 @@ the boundary protocol to feed conditioned priors back into NUTS.
 Returns `(turing_model, param_names::Vector{Symbol})` where `param_names`
 orders the sampled parameters (model free params first, then observation
 free params).
+
+`noise`, a [`NoiseModel`](@ref), replaces the single additive σ with one noise
+model per modality (spec §11 task 15.4). The observation parameters are then
+the `:lognormal` modalities' scales, `sigma_<name>`, and the models' own
+`:observation` parameters are not sampled.
 """
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
                              solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
-                             priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
+                             priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+                             noise::Union{Nothing, NoiseModel}=nothing)
     all_model_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
+    if noise !== nothing
+        model_priors = [priors_override !== nothing && haskey(priors_override, p.name) ?
+                        priors_override[p.name] : p.prior for p in all_model_free]
+        scales = noise_scales(noise)
+        rows = state_rows(data.species, reduce(vcat, states.(models)))
+        idx = _modality_rows(noise, data)   # checked once, at build time
+        turing_model = _infercell_model_noise(
+            data, prob, vcat(model_priors, last.(scales)), length(all_model_free),
+            solver, sensealg, rows, noise, idx)
+        return turing_model, vcat([p.name for p in all_model_free], first.(scales))
+    end
     all_obs_free = unique_params(reduce(vcat, obs_free_params.(parameters.(models))))
     all_free = vcat(all_model_free, all_obs_free)
 
@@ -50,9 +88,10 @@ function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedDa
     param_names = [p.name for p in all_free]
     n_ode = length(all_model_free)
 
+    rows = state_rows(data.species, reduce(vcat, states.(models)))
     turing_model = _infercell_model(
         data.observations, data.times, prob,
-        priors, n_ode, solver, sensealg
+        priors, n_ode, solver, sensealg, rows
     )
 
     return turing_model, param_names
@@ -84,12 +123,13 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
                prob=nothing, tspan=nothing,
                priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+               noise::Union{Nothing, NoiseModel}=nothing,
                kwargs...)
     mode = _composition_inference_mode(models)
     if mode == :differentiable
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
-                           priors_override=priors_override)
+                           priors_override=priors_override, noise=noise)
     elseif mode == :simulation
         return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     else
@@ -126,7 +166,8 @@ end
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
                      solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
                      prob=nothing, tspan=nothing,
-                     priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
+                     priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+                     noise::Union{Nothing, NoiseModel}=nothing)
     if prob === nothing
         t = tspan === nothing ? (data.times[1], data.times[end]) : tspan
         prob = build_problem(models; tspan=t)
@@ -134,7 +175,7 @@ function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
 
     turing_model, param_names = build_turing_model(
         models, data, prob; solver=solver, sensealg=sensealg,
-        priors_override=priors_override)
+        priors_override=priors_override, noise=noise)
 
     chain = sample(turing_model, sampler, n_samples)
 
@@ -153,15 +194,22 @@ function _infer_abc(models, data;
         priors = [p.prior for p in all_free]
         param_names = [p.name for p in all_free]
     end
-    species = reduce(vcat, states.(models))
+    names = reduce(vcat, states.(models))
+    state_rows(data.species, names)   # throws on a species that is not a state
 
-    observed_stats = vec(data.observations)
+    # The spread is kept whenever the data carries it (spec §11 task 15.9).
+    # Data observed from one noisy ODE solution has none, and then the summary
+    # is the per-time mean alone.
+    spread = data.spread !== nothing
+    observed_stats = spread ?
+        vec(vcat(data.observations, data.spread)) : vec(data.observations)
     base_prob = build_problem(models; tspan=t)
 
     function simulate(theta)
         prob = remake(base_prob, p=theta)
         trajectories = [solve(prob, SSAStepper(); saveat=data.times) for _ in 1:n_replicates]
-        return compute_summary_stats(trajectories, species; times=data.times)
+        return compute_summary_stats(trajectories, data.species; times=data.times,
+                                     spread=spread, state_names=names)
     end
 
     return abc_smc(simulate, observed_stats, priors, param_names;
@@ -178,8 +226,9 @@ end
 Synthesise an [`ObservedData`](@ref) record from a forward simulation. The two
 `sol`-flavoured methods sample a single ODE solution at `times` and add
 i.i.d. Gaussian noise with standard deviation `sigma`. The two
-`trajectories`-flavoured methods average across SSA replicates — used when the
-generative model is stochastic and the "data" is a sample mean.
+`trajectories`-flavoured methods take the mean across SSA replicates, and keep
+the replicates' standard deviation as the record's `spread`, so the ABC summary
+carries both (spec §11 task 15.9).
 """
 function observe(sol, times, model::AbstractSubModel;
                  sigma=0.1, rng=Random.default_rng())
@@ -196,33 +245,47 @@ function observe(sol, times, models::Vector{<:AbstractSubModel};
     return ObservedData(collect(Float64, times), pred .+ noise, species)
 end
 
-function observe(trajectories::Vector, times, model::AbstractSubModel)
-    # For stochastic models: take the mean across replicate trajectories
-    species = states(model)
-    n_species = length(species)
-    n_times = length(times)
-    obs = zeros(n_species, n_times)
-    for sol in trajectories
-        for (j, t) in enumerate(times)
-            obs[:, j] .+= sol(t)
+"""
+    observe(sol, times, models, noise::NoiseModel; scales, rng=...) -> ObservedData
+
+Synthesise data under a per-modality noise model (spec §11 task 15.4): each
+`:lognormal` species is `x·exp(σ·ε)` with its modality's σ from `scales`, a
+`Dict` keyed by [`scale_name`](@ref), and each `:poisson` species is a Poisson
+count with mean `x`. Only the noise model's species are observed.
+"""
+function observe(sol, times, models::Vector{<:AbstractSubModel}, noise::NoiseModel;
+                 scales::AbstractDict, rng=Random.default_rng())
+    names = reduce(vcat, states.(models))
+    species = reduce(vcat, [m.species for m in noise.modalities])
+    rows = state_rows(species, names)
+    y = zeros(length(species), length(times))
+    for (j, t) in enumerate(times)
+        x = sol(t)[rows]
+        k = 0
+        for m in noise.modalities, s in m.species
+            k += 1
+            if m.kind === :lognormal
+                y[k, j] = max(x[k], m.floor) * exp(scales[scale_name(m)] * randn(rng))
+            else
+                y[k, j] = rand(rng, Poisson(max(x[k], m.floor)))
+            end
         end
     end
-    obs ./= length(trajectories)
-    return ObservedData(collect(Float64, times), obs, species)
+    return ObservedData(times, y, species)
 end
+
+observe(trajectories::Vector, times, model::AbstractSubModel) =
+    observe(trajectories, times, [model])
 
 function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel})
     species = reduce(vcat, states.(models))
-    n_species = length(species)
-    n_times = length(times)
-    obs = zeros(n_species, n_times)
-    for sol in trajectories
-        for (j, t) in enumerate(times)
-            obs[:, j] .+= sol(t)
-        end
-    end
-    obs ./= length(trajectories)
-    return ObservedData(collect(Float64, times), obs, species)
+    stats = reshape(compute_summary_stats(trajectories, species; times = times),
+                    2 * length(species), length(times))
+    n = length(species)
+    # One trajectory has no spread to keep; a zero would pull ABC toward
+    # deterministic parameter regions.
+    spread = length(trajectories) > 1 ? stats[(n + 1):end, :] : nothing
+    return ObservedData(times, stats[1:n, :], species, spread)
 end
 
 """
