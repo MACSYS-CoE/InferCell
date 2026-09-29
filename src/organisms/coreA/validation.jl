@@ -757,6 +757,54 @@ function fold_change_report(folds::AbstractVector, lengths::AbstractVector;
             pass = band[1] <= med <= band[2] && below == 0 && above == 0 && slope < 0)
 end
 
+# ---------------------------------------------------------------------------
+# 14c.5's decoupled half: the sampler model's ensemble against the published one
+# ---------------------------------------------------------------------------
+
+"""
+    ensemble_agreement(published, sampler; floor, ncells = 200, threshold = 0.01) -> NamedTuple
+
+Spec §11 task 14c.5's decoupled half (§12, 2026-09-29). It compares one
+observable at the end of the cycle over `n` seeds, paired by seed. The
+comparison is on the difference of the ensemble means, relative to
+`max(|mean(published)|, floor)`:
+
+```
+d  = mean(sampler − published) / den
+SE = std(sampler − published) / √n / den
+R  = std(published) / √ncells / den
+```
+
+`R` is the standard error of the observable's mean in an `ncells`-cell dataset,
+the smallest shift the data could see. The verdict is `:pass` when
+`|d| + 2·SE ≤ max(R, threshold)`, `:fail` when `|d| − 2·SE` exceeds it, and
+`:unresolved` otherwise.
+
+The difference of means replaces the mean of per-seed ratios
+`(sampler − published)/published`. Once a pair decouples its two runs are
+independent draws, and a ratio of independent draws is biased upward
+(E[X/Y] > 1), so the per-seed statistic reads high on a true null.
+
+Passing two independent halves of one model's runs gives the null:
+`std(x − y)/√n` is then the unpaired standard error.
+"""
+function ensemble_agreement(published::AbstractVector{<:Real}, sampler::AbstractVector{<:Real};
+                            floor::Real, ncells::Integer = 200, threshold::Real = 0.01)
+    n = length(published)
+    n == length(sampler) ||
+        throw(DimensionMismatch("$n published values against $(length(sampler)) sampler values"))
+    n >= 2 || throw(ArgumentError("an SE needs at least two seeds, got $n"))
+    den = max(abs(mean(published)), floor)
+    den > 0 || throw(ArgumentError("the published mean is zero and the floor is $floor"))
+    d = sampler .- published
+    dm = mean(d) / den
+    se = std(d) / sqrt(n) / den
+    resolution = std(published) / sqrt(ncells) / den
+    tol = max(resolution, threshold)
+    verdict = abs(dm) + 2se <= tol ? :pass : abs(dm) - 2se > tol ? :fail : :unresolved
+    return (diff = dm, se = se, resolution = resolution, tolerance = tol, verdict = verdict)
+end
+
 export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_moieties,
        ValidationRun, validation_run!, closure_residual, state_bound, conservation_bound,
        moiety_drift, assert_conserved, moiety_bound, rhs_gate, first_negative,
@@ -764,3 +812,4 @@ export GLC_UPTAKE_METER, LAC_EXPORT_METER, MeteredPtsTransport, Moiety, corea_mo
 export PARTICLE_FLOOR, particle_floor, flagged_states, CONTINUUM_MEDIAN, langevin_pools
 export ClipRecord, record_clips!, clip_summary
 export spearman, transcript_comparison, fold_change_report
+export ensemble_agreement
