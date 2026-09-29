@@ -82,6 +82,9 @@ p("**Observation model.** $(length(panel)) metabolites (15.6's panel) observed l
 p()
 p("Panel: ", join(("`$m`" for m in panel), ", "), ".")
 p()
+p("**T2 row for the truth rule** (`$(p1.ds.truth.label.category)`, `$(p1.ds.truth.label.subject)`): ",
+  p1.ds.truth.label.description, ".")
+p()
 p("## reduction_report of the model that produced the data")
 p()
 p("```")
