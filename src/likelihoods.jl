@@ -77,7 +77,9 @@ on a log scale, replacing the single additive term).
 - `:lognormal`: `log y ~ Normal(log max(x, floor), σ)`. The scale `σ` is a free
   parameter named `sigma_<name>`, with `prior`. Because the noise is relative, a
   0.01 mM pool and a 17.8 mM pool are fitted to the same precision. One additive
-  σ lets the small pools contribute nothing.
+  σ lets the small pools contribute nothing. The density is on `log y`, so it
+  omits the `−log y` Jacobian: that term is constant in the parameters and σ,
+  but it matters when comparing likelihoods across noise models.
 - `:poisson`: `y ~ Poisson(max(x, floor))`, a count model with no scale, for
   transcript counts.
 """
@@ -136,8 +138,13 @@ order, and `scales` holds the `:lognormal` modalities' σ in
 modality. Called by the Turing model, and directly by the tests that check a
 known scale is recovered (spec §3 check 9).
 """
-function observation_loglik(nm::NoiseModel, data::ObservedData, pred_at, scales)
-    idx = _modality_rows(nm, data)
+observation_loglik(nm::NoiseModel, data::ObservedData, pred_at, scales) =
+    observation_loglik(nm, data, pred_at, scales, _modality_rows(nm, data))
+
+# With the rows checked once, as `build_turing_model` does, so a sampler does not
+# re-validate the data at every log-density evaluation.
+function observation_loglik(nm::NoiseModel, data::ObservedData, pred_at, scales,
+                            idx::AbstractVector{<:AbstractVector{Int}})
     ll = zero(eltype(scales))
     for i in eachindex(data.times)
         pred = pred_at(i)

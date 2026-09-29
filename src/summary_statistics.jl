@@ -46,9 +46,7 @@ function compute_summary_stats(trajectories::Vector, species::Vector{Symbol};
             means = vec(sum(vals; dims=2) ./ n_traj)
             append!(stats, means)
             if spread
-                sds = n_traj > 1 ?
-                    sqrt.(vec(sum((vals .- means).^2; dims=2) ./ (n_traj - 1))) :
-                    zeros(n_species)
+                sds = n_traj > 1 ? vec(std(vals; dims=2)) : zeros(n_species)
                 append!(stats, sds)
             end
         end

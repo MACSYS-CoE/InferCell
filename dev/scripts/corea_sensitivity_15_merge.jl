@@ -6,9 +6,13 @@
 #   exceed the floor (K6). The seven-column set adds the polymerase direction.
 # - 15.6: per candidate observable and target, the largest |J| over save points,
 #   against the same entry of the split-half noise matrix.
-# - The metabolite panel: F2's pools less check 1b's exclusions, kept where some
-#   target moves the pool by at least one resolution unit per unit ln θ, and by
-#   more than three times its noise at that entry.
+# - The metabolite panel (§12 2026-09-29, phase 15 planning and review): every
+#   non-protein metabolite less check 1b's exclusions and `M_trna_c`, kept where
+#   one of D11's six moves it by at least one resolution unit per unit ln θ, and
+#   by more than three times its noise, at the save point where that target's
+#   effect is largest. F2's rank is printed beside it but does not select.
+#   `M_trna_c` is conserved with `M_trna_chg_c`, and only the charged pool, the
+#   one translation reads, is kept.
 #
 # Usage: julia --project dev/scripts/corea_sensitivity_15_merge.jl
 
@@ -22,6 +26,8 @@ const OUT = joinpath(@__DIR__, "corea_sensitivity_15_result.md")
 const F2 = joinpath(@__DIR__, "corea_f2_15_matrix.tsv")
 const NCELLS = 200
 const EXCLUDED = [:M_ppi_c, :M_13dpg_c, :M_nadh_c, :M_pep_c]   # check 1b (14b)
+const CONSERVED = [:M_trna_c]   # its conserved partner M_trna_chg_c is kept
+const MERGED_AT = strip(read(`git rev-parse --short HEAD`, String))
 
 files = sort(filter(f -> occursin(r"^task_\d+\.jls$", f), readdir(DIR)))
 isempty(files) && error("no task files in $DIR")
@@ -29,6 +35,8 @@ parts = [deserialize(joinpath(DIR, f)) for f in files]
 p1 = first(parts)
 all(p -> p.species == p1.species && p.times == p1.times && p.columns == p1.columns &&
          p.delta == p1.delta, parts) || error("tasks disagree on layout")
+all(p -> p.commit == p1.commit && p.job == p1.job && p.smoke == p1.smoke, parts) ||
+    error("the task files come from more than one run")
 runs = merge((p.runs for p in parts)...)
 seeds = sort(unique(k[1] for k in keys(runs)))
 cols = p1.columns
@@ -55,8 +63,9 @@ p(args...) = (println(io, args...); println(args...))
 p("# Tasks 15.6 and 15.8: the ensemble sensitivity", p1.smoke ? " — SMOKE RUN, NOT A RESULT" : "")
 p()
 p("Merged by `dev/scripts/corea_sensitivity_15_merge.jl` from $(length(files)) task files ",
-  "(runs at commit $(p1.commit), job $(p1.job); merged at ",
-  "$(strip(read(`git rev-parse --short HEAD`, String)))). $(length(seeds)) paired seeds, ",
+  "(runs at commit $(p1.commit), job $(p1.job); merged at $MERGED_AT). Regenerate with ",
+  "`sbatch --array=0-$(length(seeds) - 1) --export=ALL,NSEEDS=$(length(seeds)) ",
+  "dev/scripts/corea_sensitivity_15.slurm`, then this script. $(length(seeds)) paired seeds, "
   "each through 15 configurations on the sampler model with D11's six freed: nominal, and ",
   "ln θ ± $(p1.delta) on each column. Rows are $(nsp) candidate observables × $(nt) save ",
   "points, each in units of its resolution: the $(NCELLS)-cell standard error of its nominal ",
@@ -77,7 +86,10 @@ p("**With the polymerase direction** (all 17 promoters scaled together): singula
   fmtv(id7.singular_values), @sprintf(". Noise floor %.3g. Rank %d of 7. ", id7.floor, id7.rank),
   @sprintf("The seventh singular value is %.3g, %.3g of the six-set's smallest. ",
            last(id7.singular_values), last(id7.singular_values) / last(id6.singular_values)),
-  "With 14 promoters fixed the scale is anchored, so a partial ridge was expected (§12).")
+  last(id7.singular_values) > id7.floor ?
+  "No drop is seen. The planning entry expected at most a partial ridge, since the 14 fixed " *
+  "promoters anchor the scale; that explanation is not tested here." :
+  "The seventh falls to the noise floor.")
 p()
 
 # 15.6: the influence audit, per observable and column, the largest |J| over
@@ -118,22 +130,31 @@ end
 proteins = Set(species_in_group(:pts))
 mets = [a for a in audit if is_registered(a.o) && !(a.o in proteins) &&
         !startswith(string(a.o), "mRNA_") && a.o !== :volume_litres]
-panel = [a.o for a in mets if !(a.o in EXCLUDED) && any(x -> x.v >= 1 && x.sig, a.vals)]
+targets6(a) = a.vals[1:6]      # D11's six; the polymerase direction is not a target
+panel = [a.o for a in mets if !(a.o in EXCLUDED) && !(a.o in CONSERVED) &&
+         any(x -> x.v >= 1 && x.sig, targets6(a))]
 p("## The metabolite panel (15.5 into 15.7)")
 p()
-p("Kept: a pool check 1b does not exclude ($(join(("`$e`" for e in EXCLUDED), ", "))) with some ",
-  "target moving it by at least one resolution unit per unit ln θ, beyond three times its noise.")
+p("Kept: a pool check 1b does not exclude ($(join(("`$e`" for e in EXCLUDED), ", "))), other ",
+  "than `M_trna_c` (conserved with `M_trna_chg_c`, which is kept), where one of D11's six moves ",
+  "it by at least one resolution unit per unit ln θ, beyond three times its noise, at that ",
+  "target's largest save point. F2's rank is shown and does not select. Both tests are weak ",
+  "for a row near its noise, so a pool kept by a margin of less than 2× is marked.")
 p()
-p("| metabolite | F2 rank | largest entry | kept |")
+p("| metabolite | F2 rank | largest entry over the six | kept |")
 p("|---|---|---|---|")
 for a in mets
     k = findfirst(==(string(a.o)), f2rank)
-    p("| `$(a.o)` | $(k === nothing ? "–" : k) | $(@sprintf("%.2f", a.top)) | ",
-      a.o in EXCLUDED ? "excluded (check 1b)" : a.o in panel ? "yes" : "no", " |")
+    top6 = maximum(x -> x.v, targets6(a))
+    p("| `$(a.o)` | $(k === nothing ? "–" : k) | $(@sprintf("%.2f", top6)) | ",
+      a.o in EXCLUDED ? "excluded (check 1b)" : a.o in CONSERVED ? "no (conserved pair)" :
+      a.o in panel ? (top6 < 2 ? "yes (marginal)" : "yes") : "no", " |")
 end
 p()
 p("Panel ($(length(panel))): ", join(("`$m`" for m in panel), ", "), ".")
 write(OUT, take!(io))
 serialize(joinpath(DIR, "merged.jls"), (J6 = J6, N6 = N6, J7 = J7, N7 = N7, species = p1.species,
-                                        times = p1.times, columns = cols, panel = panel))
+                                        times = p1.times, columns = cols, panel = panel,
+                                        commit = p1.commit, job = p1.job, nseeds = length(seeds),
+                                        merged_at = MERGED_AT, smoke = p1.smoke))
 println("Wrote $OUT")

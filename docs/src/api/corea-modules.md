@@ -26,8 +26,6 @@ Pages = [
     "organisms/coreA/assembly.jl",
     "organisms/coreA/prior_draws.jl",
     "organisms/coreA/validation.jl",
-    "organisms/coreA/observables.jl",
     "control_analysis.jl",
-    "organisms/coreA/control_variant.jl",
 ]
 ```

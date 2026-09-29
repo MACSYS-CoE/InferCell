@@ -78,4 +78,6 @@ end
     d = observe(trajs, times, model)
     @test d.spread !== nothing && size(d.spread) == size(d.observations)
     @test vec(vcat(d.observations, d.spread)) == s
+    # One trajectory has no spread to keep.
+    @test observe(trajs[1:1], times, model).spread === nothing
 end

@@ -27,7 +27,7 @@ end
 # free parameters, then one log-scale σ per :lognormal modality. The models' own
 # :observation parameters belong to the single-σ form and are not sampled.
 @model function _infercell_model_noise(data, prob, priors, n_ode, solver, sensealg,
-                                       rows, noise)
+                                       rows, noise, idx)
     n = length(priors)
     theta = Vector{Real}(undef, n)
     for i in 1:n
@@ -40,7 +40,7 @@ end
         return
     end
     scales = [theta[i] for i in (n_ode + 1):n]
-    Turing.@addlogprob! observation_loglik(noise, data, i -> sol.u[i][rows], scales)
+    Turing.@addlogprob! observation_loglik(noise, data, i -> sol.u[i][rows], scales, idx)
 end
 
 """
@@ -71,10 +71,10 @@ function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedDa
                         priors_override[p.name] : p.prior for p in all_model_free]
         scales = noise_scales(noise)
         rows = state_rows(data.species, reduce(vcat, states.(models)))
-        _modality_rows(noise, data)   # refuse a bad partition at build time
+        idx = _modality_rows(noise, data)   # checked once, at build time
         turing_model = _infercell_model_noise(
             data, prob, vcat(model_priors, last.(scales)), length(all_model_free),
-            solver, sensealg, rows, noise)
+            solver, sensealg, rows, noise, idx)
         return turing_model, vcat([p.name for p in all_model_free], first.(scales))
     end
     all_obs_free = unique_params(reduce(vcat, obs_free_params.(parameters.(models))))
@@ -282,7 +282,10 @@ function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel}
     stats = reshape(compute_summary_stats(trajectories, species; times = times),
                     2 * length(species), length(times))
     n = length(species)
-    return ObservedData(times, stats[1:n, :], species, stats[(n + 1):end, :])
+    # One trajectory has no spread to keep; a zero would pull ABC toward
+    # deterministic parameter regions.
+    spread = length(trajectories) > 1 ? stats[(n + 1):end, :] : nothing
+    return ObservedData(times, stats[1:n, :], species, spread)
 end
 
 """

@@ -230,7 +230,6 @@ function emit_observables!(d::HandshakeDriver, models::AbstractVector{<:Abstract
                            every::Integer = 60, horizon::Real = d.t_end)
     every >= 1 || throw(ArgumentError("every must be at least one handshake"))
     ode_models = AbstractSubModel[m for m in models if formalism(m) === :ode]
-    jump_models = AbstractSubModel[m for m in models if formalism(m) === :jump]
     contexts = _ode_contexts(ode_models)
     ode_names = _block_names(models, :ode)
     jump_names = _block_names(models, :jump)
@@ -341,6 +340,9 @@ function perturbed_values(models::AbstractVector{<:AbstractSubModel}, name::Symb
         r.forward === name || continue
         push!(out, r.reverse => _derived_reverse(r, values, equilibrium_constant(r, nominal)))
     end
+    # Only a forward constant is re-derived through; scaling a Km or a reverse
+    # constant alone would move Keq, so refuse that rather than return it.
+    assert_haldane(models, out)
     return out
 end
 

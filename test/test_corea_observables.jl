@@ -99,6 +99,17 @@ using Statistics: std
         pv = perturbed_values(dm, POLYMERASE_DIRECTION, 2.0)
         @test length(pv) == 17 && all(p -> p[2] == 2nominal[p[1]], pv)
         @test only(perturbed_values(dm, :krnadeg, 0.5)) == (:krnadeg => 0.5nominal[:krnadeg])
+        # A reverse constant scaled alone would move Keq, and is refused.
+        @test_throws ArgumentError perturbed_values(dm, :kcatR_R_ENO, 1.2)
+
+        # metabolite_panel ranks by a row's largest |C| and keeps those at or
+        # above the threshold, less the excluded.
+        f2 = (C = [0.5 -1.2; 0.05 0.02; 0.3 0.0], genes = [:A, :B],
+              metabolites = [:x, :y, :z])
+        mp = metabolite_panel(f2; threshold = 0.1, exclude = [:z])
+        @test [r.metabolite for r in mp.ranking] == [:x, :z, :y]
+        @test mp.ranking[1].gene === :B && mp.ranking[1].strength == 1.2
+        @test mp.panel == [:x] && mp.ranking[2].excluded
 
         # The Jacobian in resolution units: a known shift of 2delta·s in the mean
         # of a row whose cell-to-cell SD is σ reads s·√200/σ.
