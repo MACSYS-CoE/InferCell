@@ -1,6 +1,6 @@
 # 14c.5: the sampler model against the published one, over 5000 seeds
 
-Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from 250 task files. Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. The gate is §12 2026-09-29's. Merged at commit 28c855a. The tasks' headers:
+Merged by `dev/scripts/corea_smoothing_14c5_merge.jl` from 250 task files. Regenerate with `sbatch dev/scripts/corea_smoothing_14c5.slurm`, then this script. The gate is §12 2026-09-29's difference-of-means entry. Merged at commit 942a10e. The tasks' headers:
 
 - commit 87b88f1, job 17671709, Julia 1.10.5
 
