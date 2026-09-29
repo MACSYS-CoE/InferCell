@@ -929,7 +929,9 @@ or be superseded entirely by an exact likelihood (see D10).
 against roughly 20 metabolites, at nominal parameters, by automatic
 differentiation through the steady-state solve, with check 8's summation
 identities as the correctness guard. Choose the metabolite panel from its largest
-rows.
+rows. **Amended 2026-09-29 (§12, phase 15 planning):** F2 ranks the panel, and
+the influence audit of task 15.6, on the model itself rather than its frozen
+steady state, selects it.
 
 **Why this and not a sensitivity scan.** The scoping note lists "which observable
 is most informative about the boundary-crossing parameters" as an open question
@@ -1365,7 +1367,7 @@ is the enabler.
 | ID | Output | Claim | The number it delivers |
 |---|---|---|---|
 | **F1** | **Channel gain table.** Six rows, matching §3's coupling bullet: enzyme concentration, the expression-cost drain, the tRNA transfer, nucleotide pools into transcription's rate constants, the charged pool into translation's, and volume. Each with its analytic form and its measured value. Volume's row carries **both** directions after phase 5b: the dilution gain, and the gain of whatever rate law reads the geometry — for the lactate exporter's `3P/r` that is `∂ ln rate / ∂ ln r = −1`, analytic and needing no measurement | C1 | The reverse channels at 0.044–0.051 and the charged-tRNA figure R1 measures; the guanylate forward channel as a ~30 s turnover; the adenylate forward channel as a two-stage gain with the tRNA pool's lag stated separately, per D13. **The most important table in the work, and it appears early** |
-| **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel |
+| **F2** | **Concentration control coefficient heatmap**, 17 enzymes × ~20 metabolites, with the summation identities as guard | C1, and the observable choice | Answers the scoping note's open question. Its largest rows *are* the metabolite panel. **Amended 2026-09-29 (§12):** F2 ranks the panel, and 15.6's influence audit on the actual model selects it |
 | F2b | Flux control coefficients, same layout | C1 | Shows them near zero at 3.6% utilisation — the quantitative reason fluxes are ruled out of the likelihood |
 | **F3** | **Invariant residual against integrator tolerance**, log-log, one line per invariant, slopes required positive — except for an invariant that passes either gate of §3's exact-conservation exception, whose line is bounded near the floating-point floor with a slope of zero, positive or negative, drawn with the ulp band marked and labelled as such rather than counted as a failure (amended 2026-09-10 and 2026-09-11; see §12). **The label must say which gate**: bitwise-zero derivative, or one ulp per evaluation, or `n` ulps for an `n`-term sum (amended 2026-09-25). Phase 8's adenylate is the second and wanders non-monotonically over nine decades, so "slightly negative" is too narrow a description of what a passing flat line looks like. Beside it a **mutation table**: per check, the injected error, the residual it produced, the bound it exceeded | C2 | The tolerance principle, and the evidence that every check can fail |
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
@@ -4133,7 +4135,9 @@ and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
 - [x] 15.5 Compute output F2, the concentration control coefficient matrix, with
   check 8 as its guard — verify by the summation identities holding and by the
   metabolite panel being chosen from its largest rows rather than by argument,
-  which settles the scoping note's open question.
+  which settles the scoping note's open question. **Amended 2026-09-29 (§12,
+  phase 15 planning, refined by the #78 review):** F2 ranks the panel and 15.6's
+  audit selects it.
 - [x] 15.6 Run the influence audit — verify by a report giving, per candidate
   observable and per target parameter, how much the observable moves it, so the
   data model is chosen by measurement. **Amended 2026-09-29 (§12, phase 15
@@ -4351,6 +4355,10 @@ the task list did not settle.
     resolution of the count round trip. A clipped published drain leaves GTP
     at −0.42 particles in one cell, and external lactate is 0 at t = 0. At a
     1e-12 floor those points sat at log y ≈ −28 against about 8.5.
+  - **The floor's reach.** Of the 357,000 panel points after t = 0, 330 have a
+    latent below one particle: 2PG 194, 3PG 94, Pi 40 and GTP 2. About 3,700
+    more lie between 1 and 10 particles, mostly external lactate (2,225) and 2PG
+    (1,181). Phase 16's noise model must use the same one-particle floor.
   - **t = 0, the fixed initial condition, is left out of the observations.**
   - The panel is 17 pools.
 
