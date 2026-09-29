@@ -23,8 +23,29 @@
     end
 end
 
+# The model under a per-modality noise model (spec §11 task 15.4): the model's
+# free parameters, then one log-scale σ per :lognormal modality. The models' own
+# :observation parameters belong to the single-σ form and are not sampled.
+@model function _infercell_model_noise(data, prob, priors, n_ode, solver, sensealg,
+                                       rows, noise)
+    n = length(priors)
+    theta = Vector{Real}(undef, n)
+    for i in 1:n
+        theta[i] ~ priors[i]
+    end
+    p_ode = [theta[i] for i in 1:n_ode]
+    sol = solve(remake(prob, p=p_ode), solver; saveat=data.times, sensealg=sensealg)
+    if sol.retcode !== ReturnCode.Success
+        Turing.@addlogprob! -Inf
+        return
+    end
+    scales = [theta[i] for i in (n_ode + 1):n]
+    Turing.@addlogprob! observation_loglik(noise, data, i -> sol.u[i][rows], scales)
+end
+
 """
-    build_turing_model(models, data, prob; solver, sensealg, priors_override=nothing)
+    build_turing_model(models, data, prob; solver, sensealg, priors_override=nothing,
+                       noise=nothing)
 
 Construct the Turing.jl probabilistic model used by [`infer`](@ref) for the
 differentiable (NUTS) path. `priors_override::Dict{Symbol,Distribution}`, when
@@ -34,11 +55,28 @@ the boundary protocol to feed conditioned priors back into NUTS.
 Returns `(turing_model, param_names::Vector{Symbol})` where `param_names`
 orders the sampled parameters (model free params first, then observation
 free params).
+
+`noise`, a [`NoiseModel`](@ref), replaces the single additive σ with one noise
+model per modality (spec §11 task 15.4). The observation parameters are then
+the `:lognormal` modalities' scales, `sigma_<name>`, and the models' own
+`:observation` parameters are not sampled.
 """
 function build_turing_model(models::Vector{<:AbstractSubModel}, data::ObservedData, prob;
                              solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
-                             priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
+                             priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+                             noise::Union{Nothing, NoiseModel}=nothing)
     all_model_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
+    if noise !== nothing
+        model_priors = [priors_override !== nothing && haskey(priors_override, p.name) ?
+                        priors_override[p.name] : p.prior for p in all_model_free]
+        scales = noise_scales(noise)
+        rows = state_rows(data.species, reduce(vcat, states.(models)))
+        _modality_rows(noise, data)   # refuse a bad partition at build time
+        turing_model = _infercell_model_noise(
+            data, prob, vcat(model_priors, last.(scales)), length(all_model_free),
+            solver, sensealg, rows, noise)
+        return turing_model, vcat([p.name for p in all_model_free], first.(scales))
+    end
     all_obs_free = unique_params(reduce(vcat, obs_free_params.(parameters.(models))))
     all_free = vcat(all_model_free, all_obs_free)
 
@@ -85,12 +123,13 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
                prob=nothing, tspan=nothing,
                priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+               noise::Union{Nothing, NoiseModel}=nothing,
                kwargs...)
     mode = _composition_inference_mode(models)
     if mode == :differentiable
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
-                           priors_override=priors_override)
+                           priors_override=priors_override, noise=noise)
     elseif mode == :simulation
         return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     else
@@ -127,7 +166,8 @@ end
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
                      solver=Tsit5(), sensealg=ForwardDiffSensitivity(),
                      prob=nothing, tspan=nothing,
-                     priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing)
+                     priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
+                     noise::Union{Nothing, NoiseModel}=nothing)
     if prob === nothing
         t = tspan === nothing ? (data.times[1], data.times[end]) : tspan
         prob = build_problem(models; tspan=t)
@@ -135,7 +175,7 @@ function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,
 
     turing_model, param_names = build_turing_model(
         models, data, prob; solver=solver, sensealg=sensealg,
-        priors_override=priors_override)
+        priors_override=priors_override, noise=noise)
 
     chain = sample(turing_model, sampler, n_samples)
 
@@ -203,6 +243,35 @@ function observe(sol, times, models::Vector{<:AbstractSubModel};
     noise = sigma .* randn(rng, size(pred))
     species = reduce(vcat, states.(models))
     return ObservedData(collect(Float64, times), pred .+ noise, species)
+end
+
+"""
+    observe(sol, times, models, noise::NoiseModel; scales, rng=...) -> ObservedData
+
+Synthesise data under a per-modality noise model (spec §11 task 15.4): each
+`:lognormal` species is `x·exp(σ·ε)` with its modality's σ from `scales`, a
+`Dict` keyed by [`scale_name`](@ref), and each `:poisson` species is a Poisson
+count with mean `x`. Only the noise model's species are observed.
+"""
+function observe(sol, times, models::Vector{<:AbstractSubModel}, noise::NoiseModel;
+                 scales::AbstractDict, rng=Random.default_rng())
+    names = reduce(vcat, states.(models))
+    species = reduce(vcat, [m.species for m in noise.modalities])
+    rows = state_rows(species, names)
+    y = zeros(length(species), length(times))
+    for (j, t) in enumerate(times)
+        x = sol(t)[rows]
+        k = 0
+        for m in noise.modalities, s in m.species
+            k += 1
+            if m.kind === :lognormal
+                y[k, j] = max(x[k], m.floor) * exp(scales[scale_name(m)] * randn(rng))
+            else
+                y[k, j] = rand(rng, Poisson(max(x[k], m.floor)))
+            end
+        end
+    end
+    return ObservedData(times, y, species)
 end
 
 observe(trajectories::Vector, times, model::AbstractSubModel) =

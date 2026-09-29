@@ -35,6 +35,7 @@ using Aqua
     include("test_bursty_gene_expression.jl")
     include("test_summary_stats.jl")
     include("test_observation_mapping.jl")
+    include("test_observation_noise.jl")
     include("test_abc_smc.jl")
     include("test_light_metabolism.jl")
     include("test_composition.jl")

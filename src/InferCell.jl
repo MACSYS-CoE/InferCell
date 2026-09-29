@@ -84,6 +84,7 @@ export states, parameters, dynamics, inputs, formalism, inference_mode, reaction
 # loader) exports from its own files, so seven parallel wave-1 branches do not
 # all append to one export block here.
 export ObservedData, PosteriorPredictive, ABCPosterior, state_rows
+export Modality, NoiseModel, MODALITY_KINDS, scale_name, noise_scales, observation_loglik
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism
 export build_turing_model, infer, observe, posterior_predictive, check_identifiability
