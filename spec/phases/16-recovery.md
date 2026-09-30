@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** draft
-**Created:** 2026-09-30  ·  **Last amended:** —
+**Created:** 2026-09-30  ·  **Last amended:** 2026-09-30
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -174,7 +174,7 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
 |---|---|---|---|
 | V1 | Path density | Three parts: the importance identity `E_{X~p(·\|θ0)}[p(X\|θ1)/p(X\|θ0)] = 1`, the hand checks, and the mutations below | 16a.2 |
 | V2 | Replay fidelity | Replaying a generated cell's recorded path at its θ reproduces the carry-inclusive latent trajectory **bitwise** at every handshake and all 105 save points, on 3 dataset cells. If the replay changes the solver's step sequence, the fallback is ≤ 1e-8 relative, and the reason is recorded. **Mutation:** removing one translation event changes GTP | 16a.1 |
-| V2b | Snapshot restore | Snapshot a replay at a window boundary, run another particle, restore, and continue. The result must equal the uninterrupted replay (bitwise, or 1e-8 with the reason recorded), at every window boundary of one cell. The intervening particle is constructed to differ in every snapshotted field, including a non-zero deficit, a different membrane ptsG count and a different SSA state, so no field passes vacuously. **Mutation:** leaving out `DeferredDebit.deficit`, `factor`, or the SSA's next-jump state fails it | 16a.1 |
+| V2b | Snapshot restore | Snapshot a replay at a window boundary, run another particle, restore, and continue. The result must equal the uninterrupted replay (bitwise, or 1e-8 with the reason recorded), at every window boundary of one cell. The intervening particle is constructed to differ in every snapshotted field, including a non-zero deficit, a different membrane ptsG count and a different SSA state, so no field passes vacuously. **Mutation:** leaving out `DeferredDebit.deficit` or `factor` fails it. **Amended 2026-09-30 (§12):** the SSA's cached next jump is redrawn at every handshake, so it needs no snapshot. A test asserts that corrupting it in a restored particle changes nothing, with the random stream seeded alike | 16a.1 |
 | V3 | Exact transcript-only posterior | One gene, rate constants frozen (NTP pools chemostatted), transcripts observed every 60 s and nothing else. The exact posterior of `(S, krnadeg)` on a 2-D grid comes from the birth-death transition matrix. B2 with B3's bridge must match it: the 5, 25, 50, 75 and 95% marginal quantiles each within 3 Monte Carlo SE (ESS-based). **It cannot see a weight error that varies between particles, since the rates are frozen. V5 covers that** | 16a.4 |
 | V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior. The grid density is evaluated on the θ scale, or on the ln θ scale with the Jacobian, and never as the same code path the sampler uses. Quantiles must agree within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
@@ -336,8 +336,13 @@ w_m  =  g_m(y_met)  ·  Π_g  P_{R_{m−1}}(y_m | y_{m−1}; 60) · P_{R_m}(y_m 
 - the growth state (`area_nm2`, `radius_nm`, `volume_litres`, `factor`);
 - `n_handshakes`, which sets the drain and rebuild schedule;
 - both integrators' times `t`;
-- the SSA's internal state: the pre-drawn next jump time, the aggregated
-  propensities and the RNG.
+- the SSA's cached propensities and pre-drawn next jump. A deep copy carries them,
+  and every handshake redraws them.
+
+**The random stream is not part of the driver** (amended 2026-09-30, §12). The SSA
+draws from the task's global generator, which no copy of the driver captures. A
+particle that simulates forward therefore sets that generator from its own recorded
+seed before each forward step (16a.7).
 
 **How the proposal is simulated.** Transcription and decay are suppressed in the SSA
 and imposed from the bridge as scheduled events. Each imposed event applies its full
@@ -621,6 +626,8 @@ and against a long reference where it is not. Then measure what one posterior co
 - [ ] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
   and choose PG, PGAS or truncated PGAS. Verify by:
   - V5 in both cases, its mutations and the weight unit test, and V9;
+  - per-particle streams: two restores of one snapshot, seeded alike, give identical
+    forward proposals, and seeded differently they differ (§12 2026-09-30);
   - per-window update rates and cost per sweep, on M0 and on one full-scale cell, for
     each variant at N ∈ {5, 10, 20, 50};
   - the choice recorded in §4 against 13.4, D13 and 14c.4's gradient report, with the
@@ -712,4 +719,35 @@ parent's phase 16 stays unticked. It does not count as done.
 
 ## 12. Amendment log
 
-_No amendments yet._
+### 2026-09-30 — V2b's SSA clause: the random stream is not the driver's, and the cached next jump is dead at a boundary
+
+**Status: approved 2026-09-30.**
+
+**Trigger:** task 16a.1 (jobs 17754678 and 17754679,
+`dev/scripts/path_replay_16a1_result.md`). V2b asked for a snapshot to carry the
+SSA's random stream and its pre-drawn next jump, and for dropping the latter to
+fail the check. Neither is possible in the driver as built:
+- The SSA draws from JumpProcesses' `DEFAULT_RNG`, which is `Random.default_rng()`,
+  the task's global generator. A deep copy of the driver does not copy it.
+- Every handshake calls `reset_aggregated_jumps!` before the jump step, which
+  redraws the next jump and writes it to `integrator.tstop`. So the cached value is
+  dead at a window boundary, and leaving it out could not fail.
+
+Replay draws nothing, so V2 and V2b hold for everything a replay uses.
+
+**Change.**
+- **V2b's SSA mutation is replaced by a test** that corrupting a restored
+  particle's cached next jump changes nothing when the random stream is seeded
+  alike.
+- **Per-particle streams move to 16a.7.** A particle that simulates forward sets the
+  global generator from its own recorded seed before each forward step. 16a.7
+  verifies that two restores of one snapshot seeded alike are identical, and that
+  seeded differently they differ.
+- **Rejected: giving the driver its own generator.** The 15.7 dataset was generated
+  under the global stream, so it would no longer regenerate identically.
+
+**Also found in 16a.1, not an amendment.** V2b asks for the restore at every
+window boundary of one cell, and the first test did one boundary. The test and the
+full-cycle driver now cover every boundary.
+
+*Sections:* §3 V2b, D16.3 (particle state), §11 16a.7.

@@ -96,6 +96,19 @@ end
         r = PathReplay(path, y)
         cont = [begin replay_step!(y, r); _replay_state(y) end for _ in (B + 1):N]
         @test cont == sim[(B + 1):N]
+        # At every window boundary of the cell, a restored snapshot reproduces the
+        # next window exactly.
+        e = _cell(truth; horizon = H)
+        re = PathReplay(path, e)
+        for b in 60:60:(N - 60)
+            while e.n_handshakes < b
+                replay_step!(e, re)
+            end
+            z = restore(snapshot(e))
+            rz = PathReplay(path, z)
+            @test [begin replay_step!(z, rz); _replay_state(z) end for _ in 1:60] ==
+                  sim[(b + 1):(b + 60)]
+        end
         # Mutations: a restore that carried the other particle's deficit, or its
         # conversion factor, does not.
         for corrupt! in (z -> foreach(b -> b.deficit = 7.0, z.debits),
@@ -106,5 +119,27 @@ end
             @test [begin replay_step!(z, rz); _replay_state(z) end for _ in (B + 1):N] !=
                   sim[(B + 1):N]
         end
+    end
+
+    @testset "the SSA's cached next jump is redrawn at every handshake" begin
+        # So a snapshot need not carry it (spec/phases/16-recovery.md §12
+        # 2026-09-30). What a forward step depends on is the random stream, which
+        # is the task's global generator and not the driver's.
+        Random.seed!(SEED)
+        d = _cell(truth; horizon = H)
+        for _ in 1:120
+            handshake_step!(d)
+        end
+        s = snapshot(d)
+        forward(z, seed) = (Random.seed!(seed);
+                            [begin handshake_step!(z); _replay_state(z) end for _ in 1:60])
+        a = forward(restore(s), 7)
+        y = restore(s)
+        agg = y.jump.cb.affect!
+        agg.next_jump_time = y.jump.t + 1e-3
+        agg.next_jump = 1
+        y.jump.tstop = y.jump.t + 1e-3
+        @test forward(y, 7) == a
+        @test forward(restore(s), 8) != a
     end
 end

@@ -78,6 +78,25 @@ for seed in CELLS
     end
     first_bad = findfirst(k -> rep[k] != sim[k], 1:N)
 
+    # V2b at every window boundary: a restored snapshot reproduces the next
+    # window exactly (first cell only; each check costs one window).
+    if seed == first(CELLS)
+        g = cell()
+        rg = PathReplay(path, g)
+        bad = Int[]
+        for b in 60:60:(N - 60)
+            while g.n_handshakes < b
+                replay_step!(g, rg)
+            end
+            z = restore(snapshot(g))
+            rz = PathReplay(path, z)
+            [begin replay_step!(z, rz); state(z) end for _ in 1:60] == sim[(b + 1):(b + 60)] ||
+                push!(bad, b)
+        end
+        @printf("  V2b: restore at all %d window boundaries reproduces the next window: %s%s\n",
+                length(60:60:(N - 60)), isempty(bad), isempty(bad) ? "" : " (fails at $bad)")
+    end
+
     f = cell()
     replay!(f, path, N ÷ 2)
     t_snap = @elapsed s = snapshot(f)
