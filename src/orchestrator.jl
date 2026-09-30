@@ -146,9 +146,10 @@ end
 
 Every jump firing of a hybrid driver's stochastic block, as it happens: its time
 and its index in the composed jump list. It is the record a path replay needs
-(spec/phases/16-recovery.md task 16a.1). `affects` holds each composed jump's
-affect by the same index, and `labels` names it `<module>_<local index>`, so a
-path recorded on one composition cannot be replayed on another. Nothing is
+(spec/phases/16-recovery.md task 16a.1). `affects` and `rates` hold each composed
+jump's affect and propensity `rate(u, p, t)` by the same index, and `labels`
+names it `<module>_<local index>`, so a path recorded on one composition cannot
+be replayed on another. Nothing is
 logged unless `recording` is set; see [`record_path!`](@ref).
 """
 mutable struct JumpEventLog
@@ -156,9 +157,10 @@ mutable struct JumpEventLog
     times::Vector{Float64}
     reactions::Vector{Int}
     affects::Vector{Any}
+    rates::Vector{Any}
     labels::Vector{Symbol}
 end
-JumpEventLog() = JumpEventLog(false, Float64[], Int[], Any[], Symbol[])
+JumpEventLog() = JumpEventLog(false, Float64[], Int[], Any[], Any[], Symbol[])
 
 function _log_event!(e::JumpEventLog, t, k::Int)
     push!(e.times, t)
@@ -190,6 +192,7 @@ function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100
                 k = length(jumps) + 1
                 push!(jumps, _global_jump(r, slot, events, k))
                 push!(events.affects, _global_affect(r, slot))
+                push!(events.rates, jumps[end].rate)
                 push!(events.labels, Symbol(module_id(m), :_, j))
             end
         end
