@@ -1,9 +1,44 @@
 # Handoff
 
-**Session date:** 2026-09-29
-**Branches:** none open. #77 (14c.5) and #78 (phase 15) merged 2026-09-29.
+**Session date:** 2026-09-30
+**Branches:** `spec-phase-16-subspec` (PR #80, spec only, open).
 
-## Latest: 14c.5 closed, and phase 15 under way (2026-09-29)
+## Latest: phase 16 specified as a sub-spec (2026-09-30)
+
+`/implement-spec phase 16` found the phase unclear rather than long, so it is now
+specified in `spec/phases/16-recovery.md`. It splits into 16a, the sampler and the
+M0 reference, and 16b, recovery on Core A′. §12 2026-09-30 records the decisions:
+- **Block 1 is gradient-free on the published model**, with a prior on the forward
+  constants only. 14c's sampler model is off the sampling path, and the promise
+  that phase 16's coverage tests 14c.5's GTP mismatch is retired.
+- **The path update is conditional SMC over 60 s windows**, with exact per-gene
+  transcript bridges. The weight keeps the transition probabilities, because each
+  particle has its own rebuilt rates. On the jump clock the rates change at
+  60m − 1 s, because `handshake_step!` rebuilds before the jump step. 16a.7
+  chooses between PG, PGAS and truncated PGAS.
+- **Phase 16 is capped at 50k CPU-h, with 16a at 5k.** §8 now says so. The
+  projection is about 54k to 89k CPU-h per full-scale posterior for PG, and about
+  1.9M for full PGAS, so the cap cannot fund one. 16a.11 measures the real cost,
+  sets K1's bound and reopens the budget. A verdict the cap forces is labelled
+  budget-bound in T3.
+- **K2 keeps its 1,000 cells** through an 800-cell extension. **K7 gets task
+  16b.6.**
+
+The first draft failed `/check-PR` (DO NOT MERGE). It dropped the bridge's
+transition probability from the particle weights, assumed rebuilds sit on the
+save points, left fields out of the particle state, and put priors on the derived
+reverse constants. It also never drew σ in SBC truths, omitted the rounding carry
+from the prediction, and left §8 saying compute is unconstrained. All of that is
+revised on the branch, and the review is being re-run.
+
+Still ⚠️ DRAFT in the sub-spec: the update-rate threshold (10%), M0's genes (ptsG
+and GAPD) and cell count (50), the 16b priority order, keeping `M_lac__L_e`, and
+K7's sink form.
+
+Next: merge #80 on a clean `/check-PR`, then 16a on your go-ahead, starting with
+16a.1 (path replay and snapshots).
+
+## Earlier: 14c.5 closed, and phase 15 under way (2026-09-29)
 
 **14c.5 is closed, with its coupled half failed.** Two amendments (§12,
 2026-09-29):

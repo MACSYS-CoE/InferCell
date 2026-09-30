@@ -1052,8 +1052,8 @@ chooses among three options and records which:
 
 | Option | What it needs |
 |---|---|
-| Particle Gibbs with ancestor sampling | The stochastic block written against the `SSMProblems` interface |
-| Exact forward filtering | A defensible truncation, hardest for the protein counts, which reach 1355 |
+| Particle Gibbs with ancestor sampling | The stochastic block written against the `SSMProblems` interface. **Annotated 2026-09-30:** the sub-spec writes the conditional SMC by hand over driver snapshots, so it does not need `SSMProblems` (D16.3) |
+| Exact forward filtering | A defensible truncation, hardest for the protein counts, which reach 1355. **Annotated 2026-09-30:** unavailable for the joint path, because the ODE state is continuous and depends on the whole path. It survives as the per-gene transcript bridge inside particle Gibbs (D16.3) |
 | No augmentation | The 60 s aggregate drain passing the granularity measurement above. **Annotated 2026-09-25:** it fails, at +288% (task 13.4), so this option is closed unless the model changes |
 
 **Two installed facts that constrain the first option**, recorded here so nobody
@@ -1078,6 +1078,10 @@ couple of CPU-weeks. On the simulation-based path as currently coded, the same
 study is CPU-years. That is a two-order-of-magnitude difference resting on one
 structural claim, which is why it is verified in a named phase rather than
 assumed (§9).
+**Annotated 2026-09-30:** the closed-form route assumed no path augmentation,
+which 13.4 closed. With the path sampled, the first projection is about 54k CPU-h
+per full-scale posterior, not a few CPU-hours (`spec/phases/16-recovery.md`
+D16.6).
 
 ### D11. The first inference target set
 
@@ -1385,7 +1389,7 @@ is the enabler.
 | F7 | Leave-one-stream-out: refit dropping each transcript stream and each metabolite stream, reporting the change per target | C3 | Identifies load-bearing single points of failure, and streams that never informed anything |
 | **F8** | **Rank-ECDF difference plots with simultaneous bands**, per target, at the largest affordable replication count | C4 | Primary calibration evidence. Histograms are secondary |
 | F9 | Coverage curve: nominal against empirical at 50, 80, 90, 95 and 99 percent, per target, with binomial intervals | C4 | The two controls are the diagnostic rows, with the kill-criterion band drawn on |
-| **F10** | **Reference comparison** on the two-gene system: exact blocked posterior against production posterior, overlaid marginals plus a two-dimensional contour, plus the divergence between them | C4 — **without this a calibration pass is unattributable** | The number that makes every other calibration claim mean something |
+| **F10** | **Reference comparison** on the two-gene system: exact blocked posterior against production posterior, overlaid marginals plus a two-dimensional contour, plus the divergence between them. **Amended 2026-09-30 (D16.5):** production and reference are one sampler at two settings. So F10 measures what production's settings cost, and a structural approximation only if truncated ancestor sampling is chosen. The caption states which | C4 — **without this a calibration pass is unattributable** | The number that makes every other calibration claim mean something |
 | **F11** | **The architecture figure**, rebuilt after D13 removed the protocol comparison. Three panels: the hybrid composition running a full cycle at all, which no prior version of this framework could do; the machine-generated enumeration of every departure from the published model; and the completeness assertion of phase 13 shown both passing on the assembled model and failing on a deliberately incomplete one | **C5** | C5's evidence is now that the composition executes and audits itself, not that two interfaces calibrate differently. Weaker as a comparison, and honest: with no shared parameter there is no second protocol to compare against |
 | F13 | Jacobian singular-value spectrum for the target set, with and without the polymerase constant freed | C3 | The multiplicative ridge as a singular value dropping by orders. Uses the existing `check_identifiability` |
 | F14 | Wall-clock per trajectory against horizon and gene count, the budget per rung, and the achieved replication count | K1, reproducibility | The scoping note's binding practical number |
@@ -1453,6 +1457,13 @@ establishes there is no shared parameter to point at.
 Compute is unconstrained, so each of these is a threshold on what can be
 *claimed*, not on what can be afforded. All are recorded on the scoreboard (T3)
 whether they fire or not.
+**Amended 2026-09-30 (§12 2026-09-30, `spec/phases/16-recovery.md`):** phase 16 is capped at 50k CPU-h, with
+16a at 5k. The criteria below stay thresholds on what can be claimed. But a
+verdict reached under the cap, and not by the model's cost, is labelled
+**budget-bound** in T3. Task 16a.11 brings the measured cost of a posterior, per
+path-update variant, and reopens the cap before 16b starts. The first projection
+is about 54k CPU-h per full-scale posterior for plain particle Gibbs, and about
+1.9M with full ancestor sampling, so the cap alone cannot fund one.
 
 **K1 — the calibration claim, through feasibility.**
 *Fires when* measured wall-clock forces fewer than 50 calibration replications on
@@ -1473,6 +1484,9 @@ to the budget in this spec.
 *Why 50:* below it the rank-ECDF test cannot distinguish a 95%-to-85% coverage
 error from noise, so the posterior is uncheckable — and an uncheckable posterior
 is not a result. This is a scientific criterion, not a budgetary one.
+**Annotated 2026-09-30:** the mechanism is now chosen by task 16a.7, not 16.2.
+Under phase 16's cap, a K1 verdict that the cap forces is labelled budget-bound
+in T3, not scored as the model's feasibility (see §8's opening).
 *Pre-committed fallback ladder, in order:* shorten the horizon; reduce to five
 genes; run calibration on the reduced reference system only. If the ladder
 bottoms out, the headline is restated from "is calibrated" to "runs, with
@@ -1560,7 +1574,8 @@ recovery claim. The scoping note names this as something to watch; this makes it
 a number.
 
 **Rejected as criteria:** wall-clock in itself, since there is no compute
-constraint and it only binds through K1; the coupling gain in itself, per K2; and
+constraint and it only binds through K1 (**annotated 2026-09-30:** phase 16 is
+capped; see §8's opening); the coupling gain in itself, per K2; and
 "forward trajectories look biological", which is out of scope by design.
 
 ---
@@ -1727,7 +1742,7 @@ point of D0's reordering.
 | R4 | The reference system is skipped because production looks fine | **A calibration pass reported with no reference comparison beside it.** This is a process risk, so the warning is procedural | F10 is a phase deliverable, not an optional extra. A calibration claim without it is unattributable |
 | R5 | ~~The message family's finite support truncates every hand-off~~ | **Retired by D13.** This risk was entirely about the density-estimate message family in the cut and iterative protocols, which pass nothing here and are §7 non-goals. It becomes live again only if the shared-parameter extension is taken, and the survey note carries it | None needed. Recorded rather than deleted so the extension inherits it |
 | R6 | The six targets are not identifiable as a set | **A rank below six or a condition number above 1e6, computed before any sampling.** Costs one Jacobian | Reparameterise to the product plus an anchor. K6 |
-| R7 | Calibration is unaffordable, so the claim cannot be made | ~~The phase 13 wall-clock exceeding 10 s per trajectory~~ **Amended 2026-09-24: the projected cost of one posterior** — task 13.7's per-trajectory wall-clock times the sequential evaluation count of the mechanism task 16.2 chooses — too long to run 50 replications side by side on the cluster; the bound is deferred until the first minimal-model inference lands (§8 K1) | K1's ladder, pre-committed so it is not negotiated under pressure |
+| R7 | Calibration is unaffordable, so the claim cannot be made | ~~The phase 13 wall-clock exceeding 10 s per trajectory~~ **Amended 2026-09-24: the projected cost of one posterior** — task 13.7's per-trajectory wall-clock times the sequential evaluation count of the mechanism task 16.2 (now 16a.7, 2026-09-30) chooses — too long to run 50 replications side by side on the cluster; the bound is deferred until the first minimal-model inference lands (§8 K1) | K1's ladder, pre-committed so it is not negotiated under pressure |
 | R8 | The lumped charging step — ours, not the model's — determines the answer. **Upgraded by D13** | Two signals. The stoichiometry comparison shifting any target's posterior mean by more than half a posterior standard deviation. And, near-certainly, **the charged-tRNA pool size appearing in the top three by sensitivity in F2**. This is no longer only about the reverse channel: after D13 the pool also gates the *dominant forward* channel, since ~81% of ATP turnover is charging and its flux now contains no stochastic-block quantity. A quantity we assert sits between the stochastic block and the adenylate pools | Report both channel gains as *functions* of the pool size rather than point values; make the pool size a first-class asserted quantity in T1 and T2, not a detail of `k_chg`; and treat check 1b as its lower bound ~~and check 7 as its upper~~ — **amended 2026-09-23:** check 7 bounds it from below too, since a larger pool buffers the counter; no check bounds it from above, and what grows with it is the forward-channel lag (task 9.8) |
 | R9 | Core A′ is better-conditioned than the same subnetwork inside the full model, so success over-claims | **Measurable now, without waiting:** the posterior width on the pyruvate-kinase constant with the seven dropped sibling reactions stubbed in as a competing sink | Quote the factor alongside every recovery claim. K7 |
 | R10 | Everything rests on synthetic data, so misspecification is untested by construction | **No internal early warning exists, and that is why this is a stated scope limit rather than a mitigated risk.** The nearest signal is F5: if either external check fails, the model is already misspecified against the data that does exist | State the limit in the abstract. Do not claim robustness that was not tested |
@@ -4189,7 +4204,7 @@ the loose-prior control is visibly wider, and the reference comparison exists.
 tasks below are kept as the record, each annotated with where it now lives. The
 sub-spec's task list is the one worked.
 
-- [ ] 16.1 (moved to 16a.9 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Build M0, the two-gene reference, and run it long — verify by the
+- [ ] 16.1 (moved to 16a.8 and 16a.9 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Build M0, the two-gene reference, and run it long — verify by the
   blocked sampler targeting the joint posterior on a system small enough that a
   very long run is defensible, and by the run's length justified rather than
   chosen. **This is a prerequisite, not an appendix:** a calibration pass without
@@ -4211,6 +4226,9 @@ sub-spec's task list is the one worked.
   **Annotated 2026-09-28 (§12):** K5 fired, so the test stands as
   written for the clipped model and is paired with 14c.5's continuity test on
   the smoothed one. The gradient step samples the smoothed model.
+  **Annotated 2026-09-30:** there is no gradient step in phase 16. Block 1 is
+  gradient-free on the published model, and this test is kept as the record of
+  why (16a.6, D16.1).
 - [ ] 16.4 (moved to 16b.1 in `spec/phases/16-recovery.md` — see amendment 2026-09-30) Recover the tight-prior control alone — verify by the posterior
   concentrating on truth well inside its prior, by a deliberate perturbation of
   the truth moving the posterior with it, and by shrinkage below 0.9. **If the
@@ -4299,8 +4317,10 @@ fabricated task list.
 
 ### 2026-09-30 — phase 16 moves to a sub-spec; block 1 goes gradient-free; the phase is budgeted at 50k CPU-h
 
-**Status: approved 2026-09-30** (scope, block 1, budget, K2 and K7 answered in the
-planning session. The sub-spec's ⚠️ DRAFT items stay open).
+**Status: approved 2026-09-30** (scope, block 1, budget, K2 and K7 were answered in
+the planning session, and §8's cap after /check-PR on #80. The sub-spec's ⚠️ DRAFT
+items stay open). A first draft of the sub-spec had the particle weights wrong
+(below). /check-PR on #80 caught it, and the draft was corrected before merge.
 
 **Trigger:** `/implement-spec`'s size check on phase 16.
 - **No sampler exists.** Nothing drives the hybrid from a recorded path, and no
@@ -4324,17 +4344,38 @@ planning session. The sub-spec's ⚠️ DRAFT items stay open).
     because the ODE state is continuous and depends on the whole path.
   - 16a.7 chooses between PG, PGAS and truncated PGAS by measured update rate and
     cost.
-- **The phase is budgeted at 50k CPU-h, with 16a capped at 5k** (D16.6). 16a ends by
-  measuring the cost of a posterior, setting K1's bound, and allocating 16b by a
-  written priority order. It stops there for approval. Whatever is not funded at
-  full scale drops down K1's ladder or is scored as not affordable.
+  - **The first draft had two errors.** It said the bridge's density cancels in
+    the weight. It does not: the transition probability depends on each
+    particle's rebuilt rates. It also assumed rebuilds sit on the save points.
+    They do not. `handshake_step!` rebuilds before the jump step, so on the jump
+    clock the rates change at 60m − 1 s. The sub-spec now gives the weight with
+    a final-second correction, and it tests it against a brute-force reference
+    with the rates varying from particle to particle (V5).
+- **The phase is capped at 50k CPU-h, with 16a at 5k** (D16.6, and §8's
+  opening). The cap cannot fund one full-scale posterior: the projection is about
+  54k CPU-h for plain PG and about 1.9M for full PGAS.
+  - 16a ends by measuring the cost of a posterior per variant, setting K1's bound
+    and proposing a 16b allocation.
+  - **It reopens the cap with you there.** 16b does not start without approval.
+  - A verdict the cap forces is labelled budget-bound in T3, not scored as the
+    model's feasibility.
 - **K2 keeps its 1,000 cells** through an 800-cell extension of the 15.7 truth
   (D16.8), subject to the allocation.
 - **K7 gets a measuring task, 16b.6** (D16.9). It had none, although 16.10 and
   16.11 need its number.
+- **Retired:** the promise in the 2026-09-28 and 2026-09-29 entries that phase 16's
+  coverage would test 14c.5's GTP mismatch end to end. No phase 16 posterior uses
+  the sampler model. Those entries are annotated in place.
 
-**Sections touched:** §0 status, §4 D10 (annotation), §11 phase 16 (stub and
-annotations), and the new `spec/phases/16-recovery.md`.
+**Sections touched:**
+- §0 status;
+- §4 D10 (the block annotation, the path-update table and the budget paragraph);
+- §6 F10;
+- §8 (the opening, K1 and "Rejected as criteria");
+- §10 R7;
+- §11 phase 16 (the stub and the annotations, including 16.3's);
+- the §12 entries of 2026-09-28 and 2026-09-29 (annotations only);
+- the new `spec/phases/16-recovery.md`.
 
 ### 2026-09-29 — phase 15 planning: 15.8's Jacobian is a noise-weighted ensemble sensitivity, gated on rank against its noise floor, and 15.6 shares it
 
@@ -4483,6 +4524,10 @@ decomposition below replaced it, also approved 2026-09-29.
 - **14c.5 is closed on that record.** Tasks 15.7 and 15.8 may start. Phase
   16's coverage stays the end-to-end check that the mismatch does not bias a
   posterior: it fits sampler-model posteriors to published-model data.
+  **Annotated 2026-09-30:** retired. Phase 16 samples the published model
+  (D16.1), so no posterior crosses the mismatch and this check is never made.
+  The mismatch stays a measured cost of the sampler model, for whenever that
+  model is used.
 - **Not pursued:** a narrower smoothing width, which the decomposition shows
   would not touch the gap. Continuous pools are what the sampler model needs
   for a gradient through the handshake (14c.7), so the cost comes with it.
@@ -4565,7 +4610,8 @@ ensemble differs from the published model's by less than the 200-cell data
 can resolve. It does not say the two agree to 1% after decoupling. The
 end-to-end check that the mismatch does not bias a posterior is phase 16's
 coverage, which fits sampler-model posteriors to published-model data and was
-always required.
+always required. **Annotated 2026-09-30:** retired, since phase 16 samples the
+published model (D16.1).
 
 *Sections:* §11 phase 14c (14c.5, the phase-15 gating line).
 
@@ -4805,6 +4851,8 @@ clipped one before any posterior, as §8 K5 requires. The synthetic data of
 task 15.7 is generated by the clipped model, which is the published mechanism.
 The smoothed model is what the sampler differentiates. The gap between the two
 is then part of what phase 16's coverage measures, not something assumed away.
+**Annotated 2026-09-30:** no longer. Phase 16 samples the published model
+(D16.1), so this gap is not measured by any posterior.
 
 **B — the prior-draw half is rescored over D11's targets.** K5 asks whether
 gradient-based sampling is valid over the region the sampler explores, and
