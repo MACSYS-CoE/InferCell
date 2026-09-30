@@ -290,7 +290,9 @@ function emit_ensemble(build, seeds::AbstractVector{<:Integer}; every::Integer =
         runs) || error("replicates disagree on their species, reactions or save times")
     stack3(f) = permutedims(cat((f(r) for r in runs)...; dims = 3), (3, 1, 2))
     counts = stack3(r -> r.counts)
-    genes = [g.locus for g in read_transcription_genes()]
+    # The genes the composition transcribes: all seventeen in Core A′, two in M0.
+    genes = [g.locus for g in read_transcription_genes()
+             if transcript_state(g.locus) in r1.species]
     rows = state_rows([transcript_state(g) for g in genes], r1.species)
     tx = counts[:, rows, :]
     all(isinteger, tx) || error("a transcript count is not an integer")
@@ -434,13 +436,15 @@ end
 
 """
     generate_dataset(truth, seeds; models = d11_models(), horizon = COREA_CYCLE_S,
-                     every = 60, noise = nothing, scales = Dict(), noise_seed = 0)
+                     every = 60, noise = nothing, scales = Dict(), noise_seed = 0,
+                     names = D11_TARGETS)
         -> NamedTuple
 
 Spec §11 task 15.7: a synthetic dataset from the **published** model (clamped
 drain, fractional carry), with `truth` written by [`set_parameters!`](@ref),
-one cell per seed. The truth must pass [`check_truth`](@ref), so a nominal
-truth is refused unless it is labelled a smoke test (§4 D8).
+one cell per seed. The truth must pass [`check_truth`](@ref) over `names`, so a
+nominal truth is refused unless it is labelled a smoke test (§4 D8). M0 passes
+its own [`M0_TARGETS`](@ref).
 
 Each cell is run by [`emit_ensemble`](@ref). The latent record keeps every
 candidate observable except protein counts ([`assert_no_circularity`](@ref)).
@@ -457,8 +461,9 @@ function generate_dataset(truth::NamedTuple, seeds::AbstractVector{<:Integer};
                           models = d11_models(), horizon::Real = COREA_CYCLE_S,
                           every::Integer = 60, noise::Union{Nothing, NoiseModel} = nothing,
                           scales::AbstractDict = Dict{Symbol, Float64}(),
-                          noise_seed::Integer = 0)
-    check_truth(models, truth)
+                          noise_seed::Integer = 0,
+                          names::AbstractVector{Symbol} = D11_TARGETS)
+    check_truth(models, truth; names)
     function build()
         d = build_problem(models; tspan = (0.0, Float64(horizon)), complete = true)
         set_parameters!(d, models, truth.values)

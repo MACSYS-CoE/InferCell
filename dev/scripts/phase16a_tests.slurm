@@ -14,7 +14,8 @@ echo "16a tests at $(date) on $(hostname), HEAD $(git rev-parse --short HEAD)$(t
 julia --project -e 'using Test, InferCell
 for f in ("corea_test_models.jl", "contribution_test_models.jl", "jump_test_models.jl",
           "hybrid_test_models.jl", "test_path_replay.jl", "test_path_density.jl",
-          "test_transcript_bridge.jl", "test_block2.jl")
+          "test_transcript_bridge.jl", "test_block2.jl",
+          "test_m0.jl")
     include(joinpath("test", f))
 end'
 status=$?
