@@ -33,6 +33,7 @@ makedocs(;
             "Core A′ observables" => "api/corea-observables.md",
             "Orchestrator" => "api/orchestrator.md",
             "Handshake driver" => "api/handshake.md",
+            "Conditional sampler" => "api/conditional-sampler.md",
             "Inference" => "api/inference.md",
             "Boundary" => "api/boundary.md",
             "Models" => "api/models.md",

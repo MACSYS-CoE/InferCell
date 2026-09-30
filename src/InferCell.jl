@@ -31,6 +31,7 @@ include("orchestrator.jl")
 include("handshake.jl")
 include("path_replay.jl")
 include("transcript_bridge.jl")
+include("conditional_updates.jl")
 # The Core A′ modules. Unlike the files above these must come after
 # interface.jl: a sub-model's `<: AbstractSubModel` is resolved when the
 # struct is defined, not when a method is called. Each exports its own

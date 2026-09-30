@@ -118,6 +118,7 @@ using Aqua
     include("test_path_replay.jl")
     include("test_path_density.jl")
     include("test_transcript_bridge.jl")
+    include("test_block2.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
