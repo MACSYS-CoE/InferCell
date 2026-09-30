@@ -29,6 +29,7 @@ include("loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
 include("handshake.jl")
+include("path_replay.jl")
 # The Core A′ modules. Unlike the files above these must come after
 # interface.jl: a sub-model's `<: AbstractSubModel` is resolved when the
 # struct is defined, not when a method is called. Each exports its own
