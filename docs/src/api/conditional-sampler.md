@@ -18,9 +18,17 @@ Every update works on `u = ln θ`, so a `LogNormal(μ, s)` prior enters as `Norm
 - **`slice_step(rng, logf, x)`** is one univariate slice-sampling update: stepping out, then shrinkage.
 - **Block 2.** A promoter strength or the decay constant scales its reactions' propensities linearly. Its conditional given the path is `n·u − e^u·A + log Normal(u; μ, s)`, from the firing count `n` and the exposure per unit `θ`, `A` (`rate_log_conditional`). `rate_update(rng, θ, n, exposure, prior; bound)` takes one slice step on it. It throws if the accepted value passes `bound`, where the propensity stops being linear, such as a promoter's turnover ceiling.
 
+## Block 1 (task 16a.5)
+
+Block 1 samples the free forward constants and the metabolite σ given every cell's path. It runs on the published model and uses no gradient (D16.1).
+- **`Block1(models, cells; forwards, panel)`** holds the composition, the cells, the forward constants' names, the observed panel and its priors. Each cell is a `Block1Cell`: a t = 0 snapshot with the stochastic parameters written, the recorded path, and the observed panel.
+- **`block1_replay(b, u)`** replays every cell at `θF = exp.(u)`. The reverse constants are derived through the nominal equilibrium constant (`derived_ode_values`). It returns the summed path log-density and the panel's squared log residuals against `max(x, 1)`, where `x` is the carry-inclusive particle count.
+- **`block1_logtarget(b, u, σ)`** is the log target. The prior is on the forward constants only, as `Normal(u; μ, s)`, and a reverse constant contributes nothing (`block1_log_prior`).
+- **`block1_update!(rng, b, state)`** is one sweep: a slice step per `u` coordinate, then one on `ln σ` from its conditional given the residuals (`sigma_log_conditional`), which needs no replay.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["transcript_bridge.jl", "conditional_updates.jl"]
+Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl"]
 ```
