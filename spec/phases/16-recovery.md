@@ -211,9 +211,19 @@ alone. Two cases.
   about 0.07% between particles, too little for the χ² to see. So the same
   comparison also runs on a test composition built so the rates really differ
   between particles. Its transcription constant reads a pool that the translated
-  protein drains strongly, so two particles' constants differ by at least 2× within
-  a window. **Mutations:** dropping the transition-probability factor, or dropping
-  the 1 s correction alone, each fails this case.
+  protein drains strongly. It must meet two conditions, one for each factor of the
+  weight:
+  - two particles' constants differ by at least 2× within a window, which tests the
+    60 s transition factor;
+  - each particle's constant jumps by at least 2× across every rebuild, with
+    transcription rates of order 1 per second, so the last second often carries an
+    event. This tests the 1 s correction, which depends on a particle's own jump
+    across 60m − 1 and not on differences between particles.
+
+  **Mutations:** dropping the transition-probability factor, or dropping the 1 s
+  correction alone, each fails this case. If a composition meeting the second
+  condition cannot be built, V5 says so, and the weight unit test below is the only
+  check of the 1 s correction.
 - **A unit test of the weight function.** It is checked against the enumerated
   formula, with rate sets deliberately 2× apart, to 1e-12.
 
@@ -330,7 +340,9 @@ w_m  =  g_m(y_met)  ·  Π_g  P_{R_{m−1}}(y_m | y_{m−1}; 60) · P_{R_m}(y_m 
   propensities and the RNG.
 
 **How the proposal is simulated.** Transcription and decay are suppressed in the SSA
-and imposed from the bridge as scheduled events. Translation and translocation run
+and imposed from the bridge as scheduled events. Each imposed event applies its full
+affect, including the cost counters, and refreshes the SSA's cached translation
+propensities. Translation and translocation run
 in the SSA forward, from the particle's own restored state and RNG stream.
 
 V2b tests that restoring this reproduces an uninterrupted run.
