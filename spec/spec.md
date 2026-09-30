@@ -982,7 +982,8 @@ path      | theta, data  ->  mechanism decided in phase 16
 
 **Amended 2026-09-30 (§12, phase 16 sub-spec):** the first block is sampled
 gradient-free, on the published model, while it holds only the two ODE targets
-and σ. The reverse constants are derived at every proposal. The gradient step and
+and σ. The reverse constants are derived at every proposal, and the prior is on
+the forward constants only: the derived reverse constants carry no prior term. The gradient step and
 14c's sampler model come back if the ODE block grows. The path update is
 conditional SMC over 60 s windows, and task 16a.7 picks its variant
 (`spec/phases/16-recovery.md` D16.1 to D16.3).
@@ -1079,7 +1080,7 @@ study is CPU-years. That is a two-order-of-magnitude difference resting on one
 structural claim, which is why it is verified in a named phase rather than
 assumed (§9).
 **Annotated 2026-09-30:** the closed-form route assumed no path augmentation,
-which 13.4 closed. With the path sampled, the first projection is about 54k CPU-h
+which 13.4 closed. With the path sampled, the first projection is at least 54k CPU-h
 per full-scale posterior, not a few CPU-hours (`spec/phases/16-recovery.md`
 D16.6).
 
@@ -1462,7 +1463,7 @@ whether they fire or not.
 verdict reached under the cap, and not by the model's cost, is labelled
 **budget-bound** in T3. Task 16a.11 brings the measured cost of a posterior, per
 path-update variant, and reopens the cap before 16b starts. The first projection
-is about 54k CPU-h per full-scale posterior for plain particle Gibbs, and about
+is about 54k to 89k CPU-h per full-scale posterior for plain particle Gibbs, and about
 1.9M with full ancestor sampling, so the cap alone cannot fund one.
 
 **K1 — the calibration claim, through feasibility.**
@@ -4327,7 +4328,8 @@ items stay open). A first draft of the sub-spec had the particle weights wrong
   three-block sampler exists. `src/inference.jl` handles uniform compositions only.
 - **Task 16.2 is an open design decision** that every later task depends on.
 - **A projection breaks the phase's budget.** One full-scale posterior is about
-  53k CPU-h: 2,000 sweeps × 15 replays × 200 cells × 32.2 s (13.7). The phase as
+  54k to 89k CPU-h for plain particle Gibbs: 2,000 sweeps × (10 particles + 5 to
+  15 block-1 evaluations) × 200 cells × 32.2 s (13.7). The phase as
   written needs at least eight such posteriors plus coverage.
 
 **Change.**
@@ -4335,7 +4337,9 @@ items stay open). A first draft of the sub-spec had the particle weights wrong
   and the M0 reference) and 16b (recovery on Core A′). Tasks 16.1 to 16.11 are
   annotated in place with where each now lives.
 - **D10's first block is gradient-free, on the published model** (sub-spec D16.1).
-  It has three dimensions: two ODE constants and σ. Sampling the data-generating
+  It has three dimensions: two ODE constants and σ. The prior is on the forward
+  constants only. The derived reverse constants carry no prior term, although
+  `d11_models()` frees them with priors of their own. Sampling the data-generating
   model exactly removes 14c.5's GTP departure from phase 16. The reverse constants
   are derived at every proposal, as the truth was drawn. 14c's sampler model is
   kept for when the ODE block grows.
@@ -4353,7 +4357,7 @@ items stay open). A first draft of the sub-spec had the particle weights wrong
     with the rates varying from particle to particle (V5).
 - **The phase is capped at 50k CPU-h, with 16a at 5k** (D16.6, and §8's
   opening). The cap cannot fund one full-scale posterior: the projection is about
-  54k CPU-h for plain PG and about 1.9M for full PGAS.
+  54k to 89k CPU-h for plain PG and about 1.9M for full PGAS.
   - 16a ends by measuring the cost of a posterior per variant, setting K1's bound
     and proposing a 16b allocation.
   - **It reopens the cap with you there.** 16b does not start without approval.
@@ -4368,7 +4372,7 @@ items stay open). A first draft of the sub-spec had the particle weights wrong
   the sampler model. Those entries are annotated in place.
 
 **Sections touched:**
-- §0 status;
+- the header status line;
 - §4 D10 (the block annotation, the path-update table and the budget paragraph);
 - §6 F10;
 - §8 (the opening, K1 and "Rejected as criteria");

@@ -26,7 +26,7 @@ one is kept in the parent as an annotation.
 | 16.5 | 16b.2 | | 16.11 | 16b.8 |
 | 16.6 | 16b.3 | | — | 16a.1–5, 16a.11, 16b.6 (new) |
 
-**Labels.** In this file, V1 to V9 are its own verification checks. C1 to C5 are
+**Labels.** In this file, V1 to V9 and V2b are its own verification checks. C1 to C5 are
 the parent's sub-claims (§6).
 
 ---
@@ -83,8 +83,8 @@ What phase 16 starts from, all on main at `49994d3`:
   6. the jump step over [t − 1, t].
 
   **So on the jump clock the rate constants change at 60m − 1 s, not at 60m.** The
-  constants for [60m − 1, 60m + 59) come from pools that already reflect the jump
-  events of window m.
+  constants for [60m − 1, 60m + 59) come from pools that already reflect window m's
+  jump events up to 60m − 1, but not its last second.
 - **Priors.** Every target is `LogNormal`. Promoters and `krnadeg` are at
   `log(2.0)` width (ours, asserted). ENO is at gstd 1.170 and FBA at 1.747. σ's is
   `LogNormal(log 0.2, 1.0)` (`likelihoods.jl`).
@@ -174,9 +174,9 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
 |---|---|---|---|
 | V1 | Path density | Three parts: the importance identity `E_{X~p(·\|θ0)}[p(X\|θ1)/p(X\|θ0)] = 1`, the hand checks, and the mutations below | 16a.2 |
 | V2 | Replay fidelity | Replaying a generated cell's recorded path at its θ reproduces the carry-inclusive latent trajectory **bitwise** at every handshake and all 105 save points, on 3 dataset cells. If the replay changes the solver's step sequence, the fallback is ≤ 1e-8 relative, and the reason is recorded. **Mutation:** removing one translation event changes GTP | 16a.1 |
-| V2b | Snapshot restore | Snapshot a replay at a window boundary, run another particle, restore, and continue. The result must equal the uninterrupted replay (bitwise, or 1e-8 with the reason recorded), at every window boundary of one cell. **Mutation:** leaving `DeferredDebit.deficit` or the growth state out of the snapshot fails it | 16a.1 |
+| V2b | Snapshot restore | Snapshot a replay at a window boundary, run another particle, restore, and continue. The result must equal the uninterrupted replay (bitwise, or 1e-8 with the reason recorded), at every window boundary of one cell. The intervening particle is constructed to differ in every snapshotted field, including a non-zero deficit, a different membrane ptsG count and a different SSA state, so no field passes vacuously. **Mutation:** leaving out `DeferredDebit.deficit`, `factor`, or the SSA's next-jump state fails it | 16a.1 |
 | V3 | Exact transcript-only posterior | One gene, rate constants frozen (NTP pools chemostatted), transcripts observed every 60 s and nothing else. The exact posterior of `(S, krnadeg)` on a 2-D grid comes from the birth-death transition matrix. B2 with B3's bridge must match it: the 5, 25, 50, 75 and 95% marginal quantiles each within 3 Monte Carlo SE (ESS-based). **It cannot see a weight error that varies between particles, since the rates are frozen. V5 covers that** | 16a.4 |
-| V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior, with quantiles within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
+| V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior. The grid density is evaluated on the θ scale, or on the ln θ scale with the Jacobian, and never as the same code path the sampler uses. Quantiles must agree within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
 | V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ from `p(σ)`, each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows) | 16a.9 |
@@ -195,16 +195,27 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
   - reading the rates from the previous interval;
   - putting the rebuild at 60m instead of 60m − 1.
 
-**V5 in detail.** The case is tiny: M0 with one gene, over 3 windows, which is small
-enough to enumerate by rejection.
-- **Metabolite likelihood off.** Forward-simulate the full hybrid, rates live, and
-  accept runs whose transcript counts match the data. The kernel's per-window
-  event-count histograms and translation totals over 10⁴ sweeps must match the
-  accepted runs' (χ², p > 0.01, multiplicity stated).
-- **Metabolite likelihood on.** Weight the accepted runs by it. The kernel's
-  expectations of the same functionals must match within 3 SE.
-- **Mutation:** dropping the transition-probability factor from the weight fails
-  it.
+**V5 in detail.** The kernel runs at fixed θ, since the reference is for block 3
+alone. Two cases.
+- **The M0 case: one gene, 3 windows.** It is small enough to enumerate by
+  rejection. Acceptance is about 5 to 10%, so about 10⁵ runs of 180 s.
+  - *Metabolite likelihood off.* Forward-simulate the full hybrid, rates live, and
+    accept runs whose transcript counts match the data. The kernel's per-window
+    event-count histograms and translation totals over 10⁴ sweeps must match the
+    accepted runs' (χ², p > 0.01, multiplicity stated).
+  - *Metabolite likelihood on.* Weight the accepted runs by it. The kernel's
+    expectations of the same functionals must match within 3 SE. The reference's
+    weighted ESS is reported and must be at least 1,000. If it is not, σ is inflated
+    for this check until it is, and the value is stated.
+- **An amplified case for the weight.** In M0 the transition factor varies by only
+  about 0.07% between particles, too little for the χ² to see. So the same
+  comparison also runs on a test composition built so the rates really differ
+  between particles. Its transcription constant reads a pool that the translated
+  protein drains strongly, so two particles' constants differ by at least 2× within
+  a window. **Mutations:** dropping the transition-probability factor, or dropping
+  the 1 s correction alone, each fails this case.
+- **A unit test of the weight function.** It is checked against the enumerated
+  formula, with rate sets deliberately 2× apart, to 1e-12.
 
 ## 4. Approach
 
@@ -228,6 +239,12 @@ invalid as posed") rather than working around it.
   nothing to do with the method.
 - **σ is updated by its own one-dimensional slice step** on the cached replay, with
   no new replay.
+- **Every step works on u = ln θ, and the prior term there carries the
+  Jacobian.** For a `LogNormal(μ, s)` prior, the density in u is `logpdf(LogNormal,
+  θ) + ln θ`, which is `Normal(u; μ, s)`. This holds for both forward constants and
+  for σ, and the same rule applies in B2. Dropping the `+ ln θ` shifts each prior by
+  −s² in u: 0.16 prior SD for ENO, the control K4 is scored on. The "no Jacobian" of
+  the reverse constants above is a different statement. They are not sampled at all.
 
 **Alternatives considered:**
 - NUTS or HMC on 14c's sampler model, as D10 had it. That needs automatic
@@ -245,7 +262,8 @@ invalid as posed") rather than working around it.
 `S^n_g · exp(−S·A_g)`, where `A_g = Σ_c ∫ RNAPOL_KCAT/denom_g dt`. Decay gives the
 same form in `krnadeg`, with `A = Σ_c Σ_g ∫ m_g/n_g dt`. The lognormal prior makes
 each one a one-dimensional log-concave density. It is updated by a univariate slice
-step on the log scale. That is a valid kernel, not an independent draw; adaptive
+step on u = ln k, with the Jacobian D16.1 states. Without it, the step behaves as if
+each gene had one fewer event. That is a valid kernel, not an independent draw; adaptive
 rejection sampling would give exact draws if mixing ever demands them. **The
 conjugate direction is the degenerate one** (D10, D11). With the polymerase constant
 fixed, that costs nothing here.
@@ -264,6 +282,10 @@ The parent's three options, examined against the model as built:
 | Particle Gibbs | **The route.** Per cell, a conditional SMC over the 105 observation windows W_m = (60(m − 1), 60m] |
 
 **The proposal in window m, per particle, in the handshake order.**
+
+For m = 1, R_0 is read from the driver's state after `set_parameters!`, not
+recomputed. `set_parameters!` rebuilds only modules whose parameters changed, so a
+new θ_CME must re-derive transcription's R_0 from the initial pools.
 
 1. Over the first 59 s, where the constants R_{m−1} are fixed, propose each gene's
    transcript segment from the **60 s bridge at R_{m−1}**, ending at the observed
@@ -302,7 +324,14 @@ w_m  =  g_m(y_met)  ·  Π_g  P_{R_{m−1}}(y_m | y_{m−1}; 60) · P_{R_m}(y_m 
 - the rounding remainders;
 - the ODE parameter slots written by the catalytic and geometry channels;
 - the growth state (`area_nm2`, `radius_nm`, `volume_litres`, `factor`);
-- `n_handshakes`, which sets the drain and rebuild schedule.
+- `n_handshakes`, which sets the drain and rebuild schedule;
+- both integrators' times `t`;
+- the SSA's internal state: the pre-drawn next jump time, the aggregated
+  propensities and the RNG.
+
+**How the proposal is simulated.** Transcription and decay are suppressed in the SSA
+and imposed from the bridge as scheduled events. Translation and translocation run
+in the SSA forward, from the particle's own restored state and RNG stream.
 
 V2b tests that restoring this reproduces an uninterrupted run.
 
@@ -343,8 +372,9 @@ ptsG (`JCVISYN3A_0779`, the headline, the only membrane protein) and GAPD
 (`JCVISYN3A_0607`, the best-determined promoter).
 - The other 15 proteins are held at their proteomics counts as fixed enzymes, which is
   a labelled M0 reduction in `reduction_report`.
-- **`M0_TARGETS`:** `S_0607`, `S_0779`, `krnadeg`, `kcatF_R_ENO` and `kcatF_R_FBA`,
-  plus σ. That is D11's set less `S_PGI`, so every block runs as it does in
+- **`M0_TARGETS`:** `S_0607`, `S_0779`, `krnadeg`, `kcatF_R_ENO` and `kcatF_R_FBA`.
+  σ is free too, but it is drawn separately and kept out of this list:
+  `draw_truth` would throw on it. That is D11's set less `S_PGI`, so every block runs as it does in
   production.
 - **Cells per M0 dataset:** ⚠️ DRAFT, 50. The number is set by the cap, not by D11's
   precision argument, and it is stated beside every M0 result.
@@ -539,7 +569,7 @@ How the parent's criteria are placed here:
 **Goal:** build the three-block sampler and validate it exactly where that is possible
 and against a long reference where it is not. Then measure what one posterior costs.
 **Done when:**
-- V1 to V9 pass.
+- V1 to V9, and V2b, pass.
 - The path-update variant is chosen and recorded with its measurements.
 - The M0 reference has converged (V6) and is calibrated (V7).
 - F10 is reported against its floor.
@@ -578,13 +608,14 @@ and against a long reference where it is not. Then measure what one posterior co
   Recorded as the reason for D16.1.
 - [ ] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
   and choose PG, PGAS or truncated PGAS. Verify by:
-  - V5, and its mutation, and V9;
+  - V5 in both cases, its mutations and the weight unit test, and V9;
   - per-window update rates and cost per sweep, on M0 and on one full-scale cell, for
     each variant at N ∈ {5, 10, 20, 50};
   - the choice recorded in §4 against 13.4, D13 and 14c.4's gradient report, with the
     two installed traps addressed as D16.3 states.
 - [ ] 16a.8 (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
-  replicate — verify by:
+  replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
+  defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
   - the build passing completeness mode;
   - `reduction_report` naming the 15 held enzymes;
   - each dataset carrying its truth (σ included), seeds and report;
