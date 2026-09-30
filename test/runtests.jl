@@ -117,6 +117,7 @@ using Aqua
     # Phase 16a: path replay and snapshots.
     include("test_path_replay.jl")
     include("test_path_density.jl")
+    include("test_transcript_bridge.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

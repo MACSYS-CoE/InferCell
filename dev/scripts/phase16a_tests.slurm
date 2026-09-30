@@ -13,7 +13,8 @@ module load julia/1.10.5
 echo "16a tests at $(date) on $(hostname), HEAD $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain -- src test)" || echo ' (tree dirty)')"
 julia --project -e 'using Test, InferCell
 for f in ("corea_test_models.jl", "contribution_test_models.jl", "jump_test_models.jl",
-          "hybrid_test_models.jl", "test_path_replay.jl", "test_path_density.jl")
+          "hybrid_test_models.jl", "test_path_replay.jl", "test_path_density.jl",
+          "test_transcript_bridge.jl")
     include(joinpath("test", f))
 end'
 status=$?
