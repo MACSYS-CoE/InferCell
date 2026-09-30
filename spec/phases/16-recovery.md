@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** draft
-**Created:** 2026-09-30  ·  **Last amended:** 2026-09-30
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-01
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -322,9 +322,10 @@ w_m  =  g_m(y_met)  ·  Π_g  P_{R_{m−1}}(y_m | y_{m−1}; 60) · P_{R_m}(y_m 
   pools. A first draft dropped them, and V5 is the check that they are back.
 - **Cost.** The probabilities come from the same uniformisation that samples the
   bridges.
-- **The count cap.** It is set per dataset, as max(observed count) + 20, and the
-  truncation mass is asserted below 1e-12 at every set of constants used.
-  Prior-drawn truths can put GAPD's mean near 35.
+- **The count cap.** Its floor is set per dataset, as max(observed count) + 20
+  (`bridge_cap`). **Amended 2026-10-01 (§12):** the floor is not always enough, so
+  the cap grows in steps of 5 until the truncation mass is below 1e-12 at the
+  constants in use (`adequate_cap`). Prior-drawn truths can put GAPD's mean near 35.
 
 **A particle is the driver's full mutable state.** That is:
 - the ODE state vector and the integrator's adaptive state (step size and cache);
@@ -600,7 +601,8 @@ and against a long reference where it is not. Then measure what one posterior co
   mutation, and by the replay's wall-clock per cycle reported against 13.7's 32.2 s.
 - [ ] 16a.2 Implement `log p(X | θ)` from the replayed rate constants, on the jump
   clock's [60m − 1, 60m + 59) intervals — verify by V1, including both hand checks
-  and all three mutations.
+  and all three mutations. **Annotated 2026-10-01 (§12):** the importance identity
+  ran at suite size on the phase 4 toy. Its 10⁴-path run on M0 follows 16a.8.
 - [ ] 16a.3 Implement the per-gene transcript bridges (60 s and 1 s, by FFBS with
   uniformisation) and their transition probabilities, with the per-dataset cap —
   verify by:
@@ -608,10 +610,11 @@ and against a long reference where it is not. Then measure what one posterior co
   - their event-count distribution matching the exact marginal (χ², p > 0.01, 10⁵
     draws per case, multiplicity stated);
   - the transition probabilities matching a matrix exponential to 1e-12;
-  - the truncation mass asserted below 1e-12.
+  - the truncation mass asserted below 1e-12. **Amended 2026-10-01 (§12):** the
+    +20 floor fails that at amplified rates, and `adequate_cap` grows it.
 - [ ] 16a.4 Implement block 2 from sufficient statistics, with the ceiling asserted per
   proposal — verify by V3.
-- [ ] 16a.5 Implement block 1: gradient-free, forward-only prior, reverse constants
+- [ ] 16a.5 (worked after 16a.8, since V4 runs on M0; §12 2026-10-01) Implement block 1: gradient-free, forward-only prior, reverse constants
   derived, σ updated separately — verify by V4, and by a test that the log-prior
   contains no `kcatR` term.
 - [ ] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
@@ -632,7 +635,7 @@ and against a long reference where it is not. Then measure what one posterior co
     each variant at N ∈ {5, 10, 20, 50};
   - the choice recorded in §4 against 13.4, D13 and 14c.4's gradient report, with the
     two installed traps addressed as D16.3 states.
-- [ ] 16a.8 (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
+- [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
   - the build passing completeness mode;
@@ -718,6 +721,30 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-01 — the bridge cap's +20 is a floor, and M0 is built before block 1
+
+**Status: approved 2026-10-01.**
+
+**Trigger:**
+- **The cap.** Task 16a.3 (job 17758372 at `5d4bd8c`, then job 17758553 at
+  `d9b4aa5`; `dev/scripts/bridge_block2_16a34_result.md`). At k = 1/s and
+  μ = 0.2/s, over 20 s from a count of 10, max(observed) + 20 = 30 drops 7.6e-12,
+  against D16.3's 1e-12. At the 15.7 truth's rates the rule drops 2.4e-20. So the
+  rule holds where the data sit, and fails at the amplified rates V5 needs.
+- **The order.** 16a.5's check, V4, runs block 1 on M0. V1's 10⁴-path importance
+  identity needs M0 too. M0 is task 16a.8. Running V4 on full Core A′ cells instead
+  costs hundreds of CPU-hours, because every slice evaluation replays three
+  6,300 s cells.
+
+**Change.**
+- **D16.3:** max(observed) + 20 is the cap's floor. The cap grows in steps of 5
+  until the truncation mass is below 1e-12 at the constants in use
+  (`adequate_cap`). 16a.3 is annotated.
+- **§11:** 16a.8 is worked before 16a.5, and V1's 10⁴-path identity runs on M0
+  once it exists. No task's content changes. 16a.2, 16a.5 and 16a.8 are annotated.
+
+*Sections:* D16.3, §11 16a.2, 16a.3, 16a.5 and 16a.8.
 
 ### 2026-09-30 — V2b's SSA clause: the random stream is not the driver's, and the cached next jump is dead at a boundary
 
