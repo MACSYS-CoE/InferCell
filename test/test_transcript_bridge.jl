@@ -34,8 +34,8 @@ end
 @testset "16a.3: transcript bridges" begin
     # Typical Core A′ rates at the 15.7 truth (k ~ 0.02 /s, krnadeg/n ~ 0.009 /s),
     # and an amplified case of the kind V5 needs.
-    typical = BirthDeath(0.02, 0.009, bridge_cap(2))
-    amplified = BirthDeath(1.0, 0.2, bridge_cap(10))
+    typical = TranscriptChain(0.02, 0.009, bridge_cap(2))
+    amplified = TranscriptChain(1.0, 0.2, bridge_cap(10))
 
     @testset "transition probabilities match a matrix exponential to 1e-12" begin
         for bd in (typical, amplified), τ in (1.0, 20.0, 60.0)
@@ -50,7 +50,7 @@ end
         @test truncation_mass(typical, 60.0, 2) < 1e-12
         @test truncation_mass(amplified, 20.0, 10) < 1e-12
         # It discriminates: a cap near the counts reached drops real mass.
-        @test truncation_mass(BirthDeath(1.0, 0.2, 8), 20.0, 5) > 1e-3
+        @test truncation_mass(TranscriptChain(1.0, 0.2, 8), 20.0, 5) > 1e-3
     end
 
     @testset "bridges hit both endpoints, and their birth counts are exact" begin
@@ -74,6 +74,6 @@ end
             @test _chisq_p(births, exact) > 0.01
         end
         # An unreachable endpoint is refused.
-        @test_throws ArgumentError sample_bridge(rng, BirthDeath(0.0, 0.1, 5), 1.0, 0, 3)
+        @test_throws ArgumentError sample_bridge(rng, TranscriptChain(0.0, 0.1, 5), 1.0, 0, 3)
     end
 end

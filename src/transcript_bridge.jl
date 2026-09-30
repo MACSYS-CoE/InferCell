@@ -15,18 +15,18 @@ dataset as the largest observed count plus 20 ([`bridge_cap`](@ref)), and
 """
 
 """
-    BirthDeath(k, μ, cap)
+    TranscriptChain(k, μ, cap)
 
 One gene's transcript count over an interval of constant rate constants:
 births at rate `k`, deaths at rate `μ·m`, on `0:cap`, with no birth out of
 `cap`.
 """
-struct BirthDeath
+struct TranscriptChain
     k::Float64
     μ::Float64
     cap::Int
 
-    function BirthDeath(k::Real, μ::Real, cap::Integer)
+    function TranscriptChain(k::Real, μ::Real, cap::Integer)
         k >= 0 && μ >= 0 || throw(ArgumentError("rates must be non-negative, got k = $k, μ = $μ"))
         cap >= 1 || throw(ArgumentError("the cap must be at least 1, got $cap"))
         new(Float64(k), Float64(μ), Int(cap))
@@ -42,7 +42,7 @@ The count cap for a dataset: its largest observed transcript count plus 20
 bridge_cap(max_observed::Integer) = Int(max_observed) + 20
 
 "The generator matrix of `bd`, indexed by count + 1."
-function generator(bd::BirthDeath)
+function generator(bd::TranscriptChain)
     n = bd.cap + 1
     Q = zeros(n, n)
     for m in 0:bd.cap
@@ -59,7 +59,7 @@ function generator(bd::BirthDeath)
 end
 
 # The uniformised chain: rate Λ and one-step matrix R = I + Q/Λ.
-function _uniformised(bd::BirthDeath)
+function _uniformised(bd::TranscriptChain)
     Q = generator(bd)
     Λ = maximum(-Q[i, i] for i in axes(Q, 1))
     Λ > 0 || return 0.0, Matrix{Float64}(I, size(Q)...)
@@ -92,7 +92,7 @@ end
 
 `P_τ[a + 1, b + 1] = P(m(τ) = b | m(0) = a)`, by uniformisation.
 """
-function transition_matrix(bd::BirthDeath, τ::Real)
+function transition_matrix(bd::TranscriptChain, τ::Real)
     τ >= 0 || throw(ArgumentError("τ must be non-negative, got $τ"))
     Λ, R = _uniformised(bd)
     w = _poisson_weights(Λ * τ)
@@ -106,7 +106,7 @@ function transition_matrix(bd::BirthDeath, τ::Real)
 end
 
 "`P(m(τ) = b | m(0) = a)`, as [`transition_matrix`](@ref) gives it."
-transition_probability(bd::BirthDeath, τ::Real, a::Integer, b::Integer) =
+transition_probability(bd::TranscriptChain, τ::Real, a::Integer, b::Integer) =
     transition_matrix(bd, τ)[a + 1, b + 1]
 
 """
@@ -117,7 +117,7 @@ that the chain, with the cap made absorbing, has reached it by `τ`. Under the
 untruncated chain that is the probability of ever reaching the cap within the
 interval, and every path the truncation changes does.
 """
-function truncation_mass(bd::BirthDeath, τ::Real, a::Integer)
+function truncation_mass(bd::TranscriptChain, τ::Real, a::Integer)
     Q = generator(bd)
     Q[end, :] .= 0.0
     return (exp(Q * τ))[a + 1, end]
@@ -132,7 +132,7 @@ Poisson weights of the jump count, and `v[n + 1] = R^n e_b`, the probability
 that `n` uniformised steps take each count to `b`.
 """
 struct BridgeTable
-    bd::BirthDeath
+    bd::TranscriptChain
     τ::Float64
     b::Int
     R::Matrix{Float64}
@@ -140,7 +140,7 @@ struct BridgeTable
     v::Vector{Vector{Float64}}
 end
 
-function BridgeTable(bd::BirthDeath, τ::Real, b::Integer)
+function BridgeTable(bd::TranscriptChain, τ::Real, b::Integer)
     0 <= b <= bd.cap || throw(ArgumentError("endpoint $b must lie in 0:$(bd.cap)"))
     Λ, R = _uniformised(bd)
     w = _poisson_weights(Λ * τ)
@@ -169,7 +169,7 @@ transcription and `-1` for a decay. By uniformisation:
 Virtual jumps are dropped. Throws if `b` cannot be reached from `a` in `τ`. The
 second form reuses a [`BridgeTable`](@ref).
 """
-sample_bridge(rng::AbstractRNG, bd::BirthDeath, τ::Real, a::Integer, b::Integer) =
+sample_bridge(rng::AbstractRNG, bd::TranscriptChain, τ::Real, a::Integer, b::Integer) =
     sample_bridge(rng, BridgeTable(bd, τ, b), a)
 
 function sample_bridge(rng::AbstractRNG, t::BridgeTable, a::Integer)
@@ -220,7 +220,7 @@ a birth counter. It is independent of [`sample_bridge`](@ref), which is what it
 exists to check (spec/phases/16-recovery.md task 16a.3). The deaths are then
 `j − (b − a)`.
 """
-function bridge_birth_distribution(bd::BirthDeath, τ::Real, a::Integer, b::Integer;
+function bridge_birth_distribution(bd::TranscriptChain, τ::Real, a::Integer, b::Integer;
                                    jmax::Integer = 60)
     nm = bd.cap + 1
     idx(m, j) = j * nm + m + 1
@@ -240,5 +240,5 @@ function bridge_birth_distribution(bd::BirthDeath, τ::Real, a::Integer, b::Inte
     return p ./ sum(p)
 end
 
-export BirthDeath, bridge_cap, transition_matrix, transition_probability,
+export TranscriptChain, bridge_cap, transition_matrix, transition_probability,
        truncation_mass, BridgeTable, sample_bridge, bridge_birth_distribution
