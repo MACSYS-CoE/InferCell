@@ -48,7 +48,13 @@ end
 
     @testset "the truncation mass is below 1e-12 at the dataset cap" begin
         @test truncation_mass(typical, 60.0, 2) < 1e-12
-        @test truncation_mass(amplified, 20.0, 10) < 1e-12
+        # The dataset rule is a floor, not a guarantee: at amplified rates it
+        # drops more than 1e-12, and adequate_cap grows it until it does not.
+        @test truncation_mass(amplified, 20.0, 10) > 1e-12
+        cap = adequate_cap(1.0, 0.2, 20.0, 10; floor = bridge_cap(10))
+        @test cap > bridge_cap(10)
+        @test truncation_mass(TranscriptChain(1.0, 0.2, cap), 20.0, 10) < 1e-12
+        @test adequate_cap(0.02, 0.009, 60.0, 2; floor = bridge_cap(2)) == bridge_cap(2)
         # It discriminates: a cap near the counts reached drops real mass.
         @test truncation_mass(TranscriptChain(1.0, 0.2, 8), 20.0, 5) > 1e-3
     end

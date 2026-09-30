@@ -9,9 +9,10 @@ save point, the path in between is a bridge of that chain, sampled here exactly
 by uniformisation (Hobolth and Stone 2009). The transition probabilities the
 particle weights need (D16.3) come from the same uniformisation.
 
-The count space is truncated at `cap`, where births stop. The cap is set per
-dataset as the largest observed count plus 20 ([`bridge_cap`](@ref)), and
-[`truncation_mass`](@ref) bounds what the truncation drops.
+The count space is truncated at `cap`, where births stop. The cap starts at the
+dataset's largest observed count plus 20 ([`bridge_cap`](@ref)) and grows until
+[`truncation_mass`](@ref), which bounds what the truncation drops, is below
+1e-12 ([`adequate_cap`](@ref)).
 """
 
 """
@@ -40,6 +41,24 @@ The count cap for a dataset: its largest observed transcript count plus 20
 (spec/phases/16-recovery.md D16.3).
 """
 bridge_cap(max_observed::Integer) = Int(max_observed) + 20
+
+"""
+    adequate_cap(k, μ, τ, a; floor, tol = 1e-12) -> Int
+
+The smallest cap at or above `floor` at which [`truncation_mass`](@ref) from
+count `a` over `τ` is below `tol`. The dataset rule, [`bridge_cap`](@ref), is
+the floor. It is not always enough: at k = 1/s and μ = 0.2/s over 20 s from a
+count of 10, a cap of 30 drops 7.6e-12 (job 17758372). So the cap grows until
+the bound holds (spec/phases/16-recovery.md D16.3).
+"""
+function adequate_cap(k::Real, μ::Real, τ::Real, a::Integer; floor::Integer, tol::Real = 1e-12)
+    cap = max(Int(floor), a + 1)
+    while truncation_mass(TranscriptChain(k, μ, cap), τ, a) >= tol
+        cap += 5
+        cap > 10_000 && error("no cap below 10,000 holds the truncation mass under $tol")
+    end
+    return cap
+end
 
 "The generator matrix of `bd`, indexed by count + 1."
 function generator(bd::TranscriptChain)
@@ -240,5 +259,5 @@ function bridge_birth_distribution(bd::TranscriptChain, τ::Real, a::Integer, b:
     return p ./ sum(p)
 end
 
-export TranscriptChain, bridge_cap, transition_matrix, transition_probability,
+export TranscriptChain, bridge_cap, adequate_cap, transition_matrix, transition_probability,
        truncation_mass, BridgeTable, sample_bridge, bridge_birth_distribution

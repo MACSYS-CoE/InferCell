@@ -8,7 +8,7 @@ Within one interval of constant rate constants, a gene's transcript count is a b
 
 - **Transition probabilities.** `transition_matrix(chain, τ)` and `transition_probability(chain, τ, a, b)` come from the uniformised series. They are checked against a matrix exponential to 1e-12.
 - **Bridges.** `sample_bridge(rng, chain, τ, a, b)` draws one exact bridge by uniformisation (Hobolth and Stone 2009) and returns its event times and ±1 changes. `BridgeTable(chain, τ, b)` precomputes what every bridge to `b` shares, for repeated draws.
-- **The cap.** `bridge_cap(max_observed)` is the largest observed count plus 20. `truncation_mass(chain, τ, a)` bounds what the cap drops.
+- **The cap.** `bridge_cap(max_observed)` is the largest observed count plus 20, and it is a floor rather than a guarantee. `truncation_mass(chain, τ, a)` bounds what the cap drops, and `adequate_cap(k, μ, τ, a; floor)` grows the cap until that is below 1e-12.
 - **The independent check.** `bridge_birth_distribution` is the exact distribution of a bridge's birth count, from a matrix exponential of the chain augmented with a birth counter. It is what the sampled bridges are tested against.
 
 ## One-dimensional updates (task 16a.4)
