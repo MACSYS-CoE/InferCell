@@ -68,7 +68,15 @@ _label_index(d, l) = findfirst(==(l), d.events.labels)
     @testset "importance identity, suite size" begin
         # E_{X ~ p(·|θ0)}[p(X|θ1) / p(X|θ0)] = 1, for a CME-only shift and an
         # ODE-only shift. 10⁴ paths are the Slurm run; 400 here.
-        models() = [toy_slow_pool(), ToyRebuiltExpression()]
+        # The declared k_tx must equal the rebuild law at the initial pool.
+        # set_parameters! recomputes a module's rebuilt constants from the
+        # initial pools when any of its parameters changes, so with the default
+        # declared 2.0 against the law's 5.71 a decay shift would also move
+        # transcription over [0, 59), and the two densities would describe two
+        # different models. Core A′'s constructors compute their initial
+        # constants from the same law.
+        k0 = toy_rebuilt_k(ToyRebuiltExpression(), [toy_slow_pool().params[4].value])
+        models() = [toy_slow_pool(), ToyRebuiltExpression(k_tx = k0)]
         H = 180.0
         function logp(path, values)
             ms = models()
