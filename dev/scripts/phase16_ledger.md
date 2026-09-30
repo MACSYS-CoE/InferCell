@@ -12,4 +12,8 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 17756205 | 16a.2 | 16a tests, identity failed (toy) | 1 | 0:04:21 | 0.07 |
 | 17756874 | 16a.2 | 16a tests (of record) | 1 | 0:04:03 | 0.07 |
 
-**16a total: 0.54 CPU-h.**
+| 17758130 | 16a.3 | 16a tests, name clash | 1 | 0:04:07 | 0.07 |
+| 17758372 | 16a.3/4 | 16a tests, cap bound failed | 1 | 0:04:29 | 0.07 |
+| 17758553 | 16a.3/4 | 16a tests (of record) | 1 | 0:05:27 | 0.09 |
+
+**16a total: 0.77 CPU-h.**
