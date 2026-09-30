@@ -67,3 +67,4 @@ __pycache__/
 
 # Documenter resolves the docs environment fresh on every build.
 docs/Manifest.toml
+/dev/scripts/density_16a2_m0/
