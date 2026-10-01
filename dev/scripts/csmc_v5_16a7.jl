@@ -45,7 +45,7 @@ const K_SWEEPS = 5
 # Sizes, overridable for a smoke run (V5_SMOKE=1 shrinks every stage).
 const SMOKE = get(ENV, "V5_SMOKE", "0") == "1"
 const REJECT_TASKS = SMOKE ? 1 : 100
-const RUNS_PER_TASK = SMOKE ? 300 : (CASE == "m0" ? 1000 : 20_000)
+const RUNS_PER_TASK = SMOKE ? 300 : 1000      # m0 keeps ~9%, the toy ~23%
 const KERNEL_TASKS = SMOKE ? 1 : 50
 const CHAINS_PER_TASK = SMOKE ? 2 : 40
 const SIGMA0 = 0.1
@@ -154,6 +154,7 @@ elseif STAGE == "prep"
     # is at least 1,000.
     σ, ess = SIGMA0, 0.0
     while true
+        global σ, ess
         lw = [metloglik(k.lat, σ) for k in kept]
         w = exp.(lw .- maximum(lw))
         ess = sum(w)^2 / sum(w .^ 2)
