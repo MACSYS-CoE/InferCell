@@ -195,6 +195,22 @@ elseif STAGE == "chain"
     end
     serialize(joinpath(DIR, "chain_$(task).jls"), (task = task, draws = draws, seconds = t))
     @printf("chain %d: %d sweeps in %.0f s\n", task, SWEEPS, t)
+elseif STAGE == "check"
+    # Block 1's target against the grid's independent log posterior at the same
+    # points, at the truth's σ: they must differ by a constant. A spread in the
+    # difference beyond roundoff means one of the two is wrong.
+    ex = deserialize(joinpath(DIR, "exact_final.jls"))
+    b = Block1(ms, [Block1Cell(snapshot(S.base), S.paths[c], S.obs[c]) for c in 1:NCELLS];
+               forwards = FW, panel = M0_PANEL)
+    (cE, sE), (cF, sF) = ex.moments
+    pts = [[cE + a * sE, cF + f * sF] for a in (-2.0, 0.0, 2.0) for f in (-3.0, -1.0, 0.0, 1.0, 3.0)]
+    diffs = map(pts) do u
+        g = grid_logpost(u)
+        t = block1_logtarget(b, u, S.ds.sigma)
+        @printf("  ln ENO %.4f, ln FBA %.4f: grid %.6f, block 1 %.6f, difference %.9f\n", u..., g, t, t - g)
+        t - g
+    end
+    @printf("difference spread (max − min) over %d points: %.3e\n", length(diffs), maximum(diffs) - minimum(diffs))
 elseif STAGE == "final"
     ex = deserialize(joinpath(DIR, "exact_final.jls"))
     @printf("exact quantiles from grid stage %d; edge mass %.1e, %.1e\n", ex.stage, ex.edge...)
