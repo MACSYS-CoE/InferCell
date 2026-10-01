@@ -22,5 +22,9 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 17801857 | 16a.6 | 16a tests with 16a.6 | 1 | 0:05:34 | 0.09 |
 | 17801858, 17802079, 17802347 | 16a.6 | Core A′ clip scans (ENO) | 1 | | 0.29 |
 | 17801684–17801688, 17802939–17802941, 17814376 | 16a.5 | V4 grids 1 to 3, merges, 20 chains | 1 | | 29.77 |
+| 17814374, 17814375, 17830703 | 16a.6 | Core A′ clip scans (FBA, PGK3) | 1 | | 0.65 |
+| 17814555, 17814556, 17814572, 17830702, 17830938 | 16a.5 | V4 grid 4, merge, finals, target check | 1 | | 4.77 |
+| 17839207–17839209 | 16a.5 | V4 FBA-fine grid, merge, final (of record) | 1 | | 10.00 |
+| 17839362, 17839571 | 16a.7 | 16a tests with CSMC | 1 | | 0.20 |
 
-**16a total: about 65.9 CPU-h** (V4's grid 4, final, and the FBA and PGK3 scans are still running).
+**16a total: about 81.6 CPU-h.**
