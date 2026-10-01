@@ -40,8 +40,8 @@ for k in 1:round(Int, COREA_CYCLE_S)
     n = d.n_clipped
     handshake_step!(d)
     if d.n_clipped > n
-        nstar = k
-        kstar = findfirst(b -> b.clipped, d.debits)
+        global nstar = k
+        global kstar = findfirst(b -> b.clipped, d.debits)
         break
     end
 end
