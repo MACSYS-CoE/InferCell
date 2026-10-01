@@ -16,9 +16,12 @@
 #   merge 2        marginal CDFs, exact quantiles, and 20 chain starts drawn from it
 #   chain <task>   one chain of SWEEPS sweeps from its start, σ held
 #   grid s, merge s, for s ≥ 3: only if merge s − 1 found mass at a box edge (above
-#                  1e-8 of the peak). That axis is widened 3× about its mean, at 81
-#                  points, and the grid is redone. The ENO posterior is narrower
-#                  than the coarse step, so the coarse moments misjudge it.
+#                  1e-8 of the peak). The ENO posterior is narrower than the coarse
+#                  step, so the coarse moments misjudge it. If that axis's step is
+#                  coarser than a quarter of its SD, it is widened 3× about its mean
+#                  at 81 points. Otherwise it is extended at the same step to ±8 SD,
+#                  and only the new rows are computed: merge s − 1 writes their
+#                  indices to rows<s>.txt, and the rest are read from grid s − 1.
 #   final          pool the chains, less BURN sweeps each, and test against the
 #                  last merge's exact quantiles
 #
@@ -105,6 +108,14 @@ prior_box() = [(params(p)[1] - 4.5params(p)[2], params(p)[1] + 4.5params(p)[2]) 
 axes_for(stage) = stage == 1 ?
     [range(lo, hi; length = 21) for (lo, hi) in prior_box()] :
     deserialize(joinpath(DIR, "box$(stage).jls"))
+# A row of grid `stage`: its own file, or the previous stage's row at the same
+# ln ENO when the axis was extended rather than rebuilt.
+function grid_row(stage, r)
+    f = joinpath(DIR, "grid$(stage)_row$(r).jls")
+    isfile(f) && return deserialize(f).vals
+    off = deserialize(joinpath(DIR, "offset$(stage).jls"))
+    return grid_row(stage - 1, r - off)
+end
 
 if STAGE == "grid"
     stage, row = parse(Int, ARGS[2]), parse(Int, ARGS[3])
@@ -115,8 +126,7 @@ if STAGE == "grid"
 elseif STAGE == "merge"
     stage = parse(Int, ARGS[2])
     ax = axes_for(stage)
-    lp = reduce(vcat, [deserialize(joinpath(DIR, "grid$(stage)_row$(r).jls")).vals'
-                       for r in 0:(length(ax[1]) - 1)])
+    lp = reduce(vcat, [grid_row(stage, r)' for r in 0:(length(ax[1]) - 1)])
     w = exp.(lp .- maximum(lp))
     mE, mF = vec(sum(w; dims = 2)), vec(sum(w; dims = 1))
     mom(u, m) = (c = sum(u .* m) / sum(m); (c, sqrt(sum((u .- c) .^ 2 .* m) / sum(m))))
@@ -128,9 +138,21 @@ elseif STAGE == "merge"
     else
         edge = maximum([mE[1], mE[end]]) / maximum(mE), maximum([mF[1], mF[end]]) / maximum(mF)
         if maximum(edge) > 1e-8
-            widen(ax, e, c) = e > 1e-8 ?
-                range(c - 3 * (last(ax) - first(ax)) / 2, c + 3 * (last(ax) - first(ax)) / 2; length = 81) : ax
-            box = [widen(ax[1], edge[1], cE), widen(ax[2], edge[2], cF)]
+            edge[2] > 1e-8 && error("FBA's axis truncates too; extend this script to widen it")
+            a = ax[1]
+            if step(a) > sE / 4
+                box = [range(cE - 3 * (last(a) - first(a)) / 2, cE + 3 * (last(a) - first(a)) / 2;
+                             length = 81), ax[2]]
+                rows = collect(0:80)
+            else
+                klo = max(0, ceil(Int, (first(a) - (cE - 8sE)) / step(a)))
+                khi = max(0, ceil(Int, ((cE + 8sE) - last(a)) / step(a)))
+                n = length(a) + klo + khi
+                box = [range(first(a) - klo * step(a); step = step(a), length = n), ax[2]]
+                serialize(joinpath(DIR, "offset$(stage + 1).jls"), klo)
+                rows = vcat(collect(0:(klo - 1)), collect((klo + length(a)):(n - 1)))
+            end
+            open(io -> println(io, join(rows, ",")), joinpath(DIR, "rows$(stage + 1).txt"), "w")
             serialize(joinpath(DIR, "box$(stage + 1).jls"), box)
             @printf("stage %d: mass at the box edge (%.1e, %.1e); grid %d widens it to ln ENO %.4f to %.4f, ln FBA %.4f to %.4f\n",
                     stage, edge..., stage + 1, first(box[1]), last(box[1]), first(box[2]), last(box[2]))

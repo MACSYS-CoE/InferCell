@@ -14,10 +14,20 @@ using InferCell
 using Random
 using Printf
 
-const SEEDS = 30_001:30_200
-const θNAME = :kcatF_R_ENO
-models = d11_models()
-smodels = d11_models(smoothing = COREA_SAMPLER.smoothing)
+const SEEDS = parse(Int, get(ENV, "FIRST_SEED", "30001")):30_200
+const θNAME = Symbol(get(ENV, "THETA", "kcatF_R_ENO"))
+# d11_models frees ENO and FBA. Any other forward constant is freed, with its
+# reverse, in its own module: PGK3, the GDP-phosphorylating step 14c.7 scanned,
+# makes GTP directly.
+function scan_models(; smoothing = nothing)
+    ms = d11_models(; smoothing)
+    if θNAME === :kcatF_R_PGK3
+        ms[3] = NucleotideRecycling(enzymes = :translated, free = [:kcatF_R_PGK3, :kcatR_R_PGK3])
+    end
+    return ms
+end
+models = scan_models()
+smodels = scan_models(smoothing = COREA_SAMPLER.smoothing)
 truth = draw_truth(Xoshiro(1507), models; purpose = :recovery)
 tv = Dict(truth.values)
 
@@ -80,7 +90,7 @@ function after(θ, v)
     end
     return e.ode.u[ipool] * e.factor, e.debits[kstar].clipped
 end
-θ0 = tv[θNAME]
+θ0 = get(tv, θNAME, nominal_parameter_values(models)[θNAME])   # PGK3 is not a target: nominal
 last(after(θ0, :published)) || error("the replay did not reproduce the clip")
 c0 = last(after(θ0, :kink))
 @printf("At the truth's %s = %.6g the clamp on continuous pools %s at that drain.\n",
@@ -103,8 +113,8 @@ for f in (2.0, 0.5)
     end
     found && break
 end
-found || (println("No ENO constant within 2^±20 of the truth flips that drain's clip: ",
-                  "ENO does not reach this pool strongly enough. Reported, not scanned."); exit(0))
+found || (println("No $θNAME within 2^±20 of the truth flips that drain's clip: ",
+                  "it does not reach this pool strongly enough. Reported, not scanned."); exit(0))
 clo = last(after(lo, :kink))
 for _ in 1:60
     global lo, hi
