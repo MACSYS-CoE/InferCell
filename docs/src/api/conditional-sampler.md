@@ -26,9 +26,18 @@ Block 1 samples the free forward constants and the metabolite σ given every cel
 - **`block1_logtarget(b, u, σ)`** is the log target. The prior is on the forward constants only, as `Normal(u; μ, s)`, and a reverse constant contributes nothing (`block1_log_prior`).
 - **`block1_update!(rng, b, state)`** is one sweep: a slice step per `u` coordinate, then one on `ln σ` from its conditional given the residuals (`sigma_log_conditional`), which needs no replay.
 
+## Block 3: the path update (task 16a.7)
+
+`csmc_sweep(rng, base, spec, data, ref; N, lag)` is one conditional SMC sweep over a cell's 60 s observation windows (D16.3). A particle is a driver snapshot, and every proposal is built outside the SSA, then replayed:
+- **Transcripts** are exact bridges between the observed counts: the window's first 59 s at its starting constants, then the last second at the constants rebuilt at 60m − 1.
+- **Every other reaction** is simulated exactly given those transcripts (`propose_events`).
+- **The incremental weight** is the metabolite likelihood times each gene's transition-probability factor (`window_log_weight`, D16.3's formula). Those transition probabilities differ between particles.
+
+`lag = 0` is particle Gibbs. `lag = L` is ancestor sampling truncated at `L` windows, exact only at `L ≥ T`. Each particle draws from its own generator, seeded from the sweep's. `TranscriptMap`, `CellData`, `CSMCSpec`, `WindowEvents`, `window_events` and `join_path` are its bookkeeping, and `advance_window!` moves one particle across one window.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl"]
+Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl", "csmc.jl"]
 ```

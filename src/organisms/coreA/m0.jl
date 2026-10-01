@@ -70,19 +70,23 @@ _catalytic_species(models) = unique(e.species for m in models for e in coupling(
                                     if e isa CatalyticEdge)
 
 """
-    m0_models(; smoothing = nothing) -> Vector{AbstractSubModel}
+    m0_models(; smoothing = nothing, genes = M0_GENES) -> Vector{AbstractSubModel}
 
 M0 as composed (spec/phases/16-recovery.md D16.4). It is [`d11_models`](@ref)'s
 composition with the three stochastic modules cut to [`M0_GENES`](@ref), and a
 [`HeldEnzymeCounts`](@ref) for every catalytic count those genes do not make.
 The ENO and FBA forward and reverse constants are free, as in `d11_models`.
+`genes` cuts further, as V5's one-gene case does; it must include ptsG, which
+translation needs.
 """
-function m0_models(; smoothing::Union{Nothing, Real} = nothing)
+function m0_models(; smoothing::Union{Nothing, Real} = nothing,
+                   genes::AbstractVector{Symbol} = M0_GENES)
+    loci = genes
     drain = smoothing === nothing ? (clip = :clamped_deficit_carried, smoothing = nothing) :
                                     (clip = :smoothed, smoothing = Float64(smoothing))
     all_genes = read_transcription_genes()
-    genes = [g for g in all_genes if g.locus in M0_GENES]
-    length(genes) == length(M0_GENES) || error("M0's genes are not all in the extract")
+    genes = [g for g in all_genes if g.locus in loci]
+    length(genes) == length(loci) || error("M0's genes are not all in the extract")
     ode = AbstractSubModel[
         CentralGlycolysis(enzymes = :translated,
                           free = [:kcatF_R_ENO, :kcatR_R_ENO, :kcatF_R_FBA, :kcatR_R_FBA]),
@@ -90,7 +94,7 @@ function m0_models(; smoothing::Union{Nothing, Real} = nothing)
         NucleotideRecycling(enzymes = :translated),
         TrnaCharging(),
     ]
-    made = Set(protein_state(l) for l in M0_GENES)
+    made = Set(protein_state(l) for l in loci)
     held = [Symbol(String(s)[3:end]) for s in _catalytic_species(ode) if !(s in made)]
     return AbstractSubModel[
         ode...,
@@ -107,8 +111,8 @@ end
 Build M0 in completeness mode, as [`build_corea`](@ref) builds Core A′.
 """
 build_m0(; tspan = (0.0, M0_HORIZON_S), smoothing::Union{Nothing, Real} = nothing,
-         kwargs...) =
-    build_problem(m0_models(; smoothing); tspan, complete = true, kwargs...)
+         genes::AbstractVector{Symbol} = M0_GENES, kwargs...) =
+    build_problem(m0_models(; smoothing, genes); tspan, complete = true, kwargs...)
 
 """
     M0_PANEL

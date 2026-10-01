@@ -16,7 +16,7 @@ for f in ("corea_test_models.jl", "contribution_test_models.jl", "jump_test_mode
           "hybrid_test_models.jl", "test_path_replay.jl", "test_path_density.jl",
           "test_transcript_bridge.jl", "test_block2.jl",
           "test_m0.jl", "test_block1.jl",
-          "test_fixed_path_kink.jl")
+          "test_fixed_path_kink.jl", "test_csmc.jl")
     include(joinpath("test", f))
 end'
 status=$?
