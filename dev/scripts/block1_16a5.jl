@@ -22,8 +22,14 @@
 #                  at 81 points. Otherwise it is extended at the same step to ±8 SD,
 #                  and only the new rows are computed: merge s − 1 writes their
 #                  indices to rows<s>.txt, and the rest are read from grid s − 1.
+#   fba <row>      a grid fine in FBA (161 points over ±8 SD, ten per SD) and coarse
+#                  in ENO (41 points over ±8 SD), one ENO row per task. The main
+#                  grid's FBA axis kept the coarse stage's width at 41 points, about
+#                  2.4 per SD, which biased FBA's exact quantiles by up to 0.010 in
+#                  CDF units. Integrating over ENO by trapezoid needs no fine ENO.
+#   fbamerge       FBA's exact quantiles from that grid
 #   final          pool the chains, less BURN sweeps each, and test against the
-#                  last merge's exact quantiles
+#                  last merge's exact quantiles, with FBA's from fbamerge if present
 #
 # Usage: julia --project dev/scripts/block1_16a5.jl <stage> [<n>] [<task>]
 # Regenerate: dev/scripts/block1_16a5.sh submits the stages with dependencies.
@@ -195,6 +201,31 @@ elseif STAGE == "chain"
     end
     serialize(joinpath(DIR, "chain_$(task).jls"), (task = task, draws = draws, seconds = t))
     @printf("chain %d: %d sweeps in %.0f s\n", task, SWEEPS, t)
+elseif STAGE == "fba" || STAGE == "fbamerge"
+    (cE, sE), (cF, sF) = deserialize(joinpath(DIR, "exact_final.jls")).moments
+    axf = [range(cE - 8sE, cE + 8sE; length = 41), range(cF - 8sF, cF + 8sF; length = 161)]
+    if STAGE == "fba"
+        row = parse(Int, ARGS[2])
+        vals = [grid_logpost([axf[1][row + 1], b]) for b in axf[2]]
+        serialize(joinpath(DIR, "fba_row$(row).jls"), (row = row, vals = vals))
+        println("fba row $row done")
+    else
+        lp = reduce(vcat, [deserialize(joinpath(DIR, "fba_row$(r).jls")).vals' for r in 0:40])
+        w = exp.(lp .- maximum(lp))
+        mE, mF = vec(sum(w; dims = 2)), vec(sum(w; dims = 1))
+        edge = maximum([mE[1], mE[end]]) / maximum(mE), maximum([mF[1], mF[end]]) / maximum(mF)
+        u = axf[2]
+        c = [0.0; cumsum([(mF[i] + mF[i + 1]) / 2 * step(u) for i in 1:length(u) - 1])]
+        c ./= c[end]
+        quant(p) = (i = findfirst(>=(p), c); u[i - 1] + (p - c[i - 1]) / (c[i] - c[i - 1]) * step(u))
+        ps = [0.05, 0.25, 0.5, 0.75, 0.95]
+        q = [quant(p) for p in ps]
+        serialize(joinpath(DIR, "exact_fba.jls"), (quantiles = q, ps = ps, edge = edge))
+        @printf("FBA-fine grid: step %.4f in ln FBA; edge mass %.1e (ENO), %.1e (FBA)\n", step(u), edge...)
+        for (p, x) in zip(ps, q)
+            @printf("  ln FBA %.2f quantile %.4f\n", p, x)
+        end
+    end
 elseif STAGE == "check"
     # Block 1's target against the grid's independent log posterior at the same
     # points, at the truth's σ: they must differ by a constant. A spread in the
@@ -214,6 +245,13 @@ elseif STAGE == "check"
 elseif STAGE == "final"
     ex = deserialize(joinpath(DIR, "exact_final.jls"))
     @printf("exact quantiles from grid stage %d; edge mass %.1e, %.1e\n", ex.stage, ex.edge...)
+    fba = joinpath(DIR, "exact_fba.jls")
+    if isfile(fba)
+        ef = deserialize(fba)
+        ef.ps == ex.ps || error("the FBA-fine grid's levels differ")
+        ex = (; ex..., quantiles = [ex.quantiles[1], ef.quantiles])
+        @printf("FBA's exact quantiles from the FBA-fine grid; edge mass %.1e, %.1e\n", ef.edge...)
+    end
     chains = [deserialize(joinpath(DIR, "chain_$(k).jls")).draws[(BURN + 1):end, :]
               for k in 0:(NCHAINS - 1)]
     @printf("V4 on M0: replicate %d, %d cells, σ = %.4f held; %d chains × %d sweeps\n",
