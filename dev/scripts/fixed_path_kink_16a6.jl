@@ -1,8 +1,8 @@
 # spec/phases/16-recovery.md task 16a.6 (parent 16.3) on Core A′: under a fixed
 # recorded path, a clipped drain still puts a kink in the ODE state as a
 # function of an ODE parameter, here ENO's forward constant (block 1's), with its
-# reverse constant derived. Check 7's census finds the clip. The cell is 15.7's
-# 30001 at its truth. Variants, all replaying that one path:
+# reverse constant derived. Check 7's census finds the clip. The cell is the
+# first of 15.7's cells, in seed order, at its truth, whose run clips at all. Variants, all replaying that one path:
 # - :published, the clamp under fractional carry;
 # - :kink, the clamp on continuous pools;
 # - :sampler, 14c.5's smoothed drain on continuous pools.
@@ -14,7 +14,7 @@ using InferCell
 using Random
 using Printf
 
-const SEED = 30_001
+const SEEDS = 30_001:30_200
 const θNAME = :kcatF_R_ENO
 models = d11_models()
 smodels = d11_models(smoothing = COREA_SAMPLER.smoothing)
@@ -28,24 +28,41 @@ function build(v; horizon)
     return ms, d
 end
 
-# Record the path, and find the first handshake at which any consumer drain
-# clipped (check 7's predicate), and which drain it was.
-ms, d = build(:published; horizon = COREA_CYCLE_S)
-Random.seed!(SEED)
-set_parameters!(d, ms, truth.values)
-Random.seed!(SEED)
-record_path!(d)
-nstar, kstar = 0, 0
-for k in 1:round(Int, COREA_CYCLE_S)
-    n = d.n_clipped
-    handshake_step!(d)
-    if d.n_clipped > n
-        global nstar = k
-        global kstar = findfirst(b -> b.clipped, d.debits)
+# Record each cell's path in seed order until one clips: the first handshake at
+# which any consumer drain clipped (check 7's predicate), and which drain.
+SEED, nstar, kstar = 0, 0, 0
+nchecked = 0
+local_d = nothing
+for seed in SEEDS
+    global SEED, nstar, kstar, nchecked, local_d
+    ms0, d0 = build(:published; horizon = COREA_CYCLE_S)
+    Random.seed!(seed)
+    set_parameters!(d0, ms0, truth.values)
+    Random.seed!(seed)
+    record_path!(d0)
+    nchecked += 1
+    for k in 1:round(Int, COREA_CYCLE_S)
+        n = d0.n_clipped
+        handshake_step!(d0)
+        if d0.n_clipped > n
+            global SEED, nstar = seed, k
+            global kstar = findfirst(b -> b.clipped, d0.debits)
+            break
+        end
+    end
+    if nstar > 0
+        local_d = d0
         break
     end
 end
-nstar > 0 || (println("cell $SEED did not clip within the cycle; no scan"); exit(0))
+if nstar == 0
+    println("None of the $nchecked cells of 15.7 clips within the cycle at its truth: ",
+            "check 7's census is zero across the dataset, so no scan.")
+    exit(0)
+end
+println("$nchecked cell(s) checked in seed order; the first to clip is $SEED.")
+d = local_d
+ms = models
 path = recorded_path(d)
 b = d.debits[kstar]
 @printf("Cell %d at 15.7's truth: the first clip in check 7's census is %s on %s at handshake %d.\n",
