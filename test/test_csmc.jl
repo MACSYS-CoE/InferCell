@@ -51,7 +51,8 @@ end
         for k in (0.8, 1.6), (a, b, τ) in ((2, 4, 60.0), (3, 2, 1.0), (2, 3, 1.0))
             d.jump.p[slot] = k
             kk, μ = InferCell._birth_death(d, tm, 1, u)
-            @test kk == k && μ ≈ γ rtol = 1e-14
+            @test kk == k
+            @test μ ≈ γ rtol = 1e-14
             cap = adequate_cap(k, γ, τ, a; floor = spec.cap_floor)
             exact = log(exp(InferCell.generator(TranscriptChain(k, γ, cap)) * τ)[a + 1, b + 1])
             @test abs(InferCell._log_transitions(d, spec, u, [a], [b], τ) - exact) <= 1e-12
