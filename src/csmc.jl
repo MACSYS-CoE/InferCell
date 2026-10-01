@@ -279,6 +279,9 @@ function advance_window!(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
     u0 = copy(d.jump.u)
     [u0[s] for s in tm.states] == y_prev || error("the particle's transcripts are not y_{m−1}")
     lp60 = _log_transitions(d, spec, u0, y_prev, y_end, W * d.interval)
+    # A proposal cannot reach y_end at these constants: its target density is
+    # zero, so it gets weight zero and is not advanced. It is never resampled.
+    fixed === nothing && lp60 == -Inf && return -Inf, WindowEvents(Float64[], Int[])
 
     if fixed === nothing
         imposed, _ = _bridge_genes(rng, d, spec, u0, y_end, t0, W * d.interval,
@@ -295,7 +298,9 @@ function advance_window!(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
     lp1_new = Ref(0.0)
     last = _last_step!(d, e -> begin
         lp1_new[] = _log_transitions(e, spec, e.jump.u, c, y_end, e.interval)   # R_m
-        if fixed === nothing
+        if fixed === nothing && lp1_new[] == -Inf
+            WindowEvents(Float64[], Int[])      # weight zero, as above
+        elseif fixed === nothing
             imp, _ = _bridge_genes(rng, e, spec, e.jump.u, y_end, tlast, e.interval, e.interval)
             propose_events(rng, e, spec, imp, tlast, tlast + e.interval)
         else
@@ -303,6 +308,7 @@ function advance_window!(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
             WindowEvents(fixed.times[cut:end], fixed.reactions[cut:end])
         end
     end)
+    lp1_new[] == -Inf && fixed === nothing && return -Inf, WindowEvents(Float64[], Int[])
     [d.jump.u[s] for s in tm.states] == y_end || error(
         "the window ended at transcripts $([d.jump.u[s] for s in tm.states]), not $y_end")
     lw = window_log_weight(lp60, lp1_new[], lp1_prev, _metabolite_loglik(d, spec, ymet))

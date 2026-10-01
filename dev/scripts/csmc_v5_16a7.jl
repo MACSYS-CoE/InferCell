@@ -67,14 +67,19 @@ elseif CASE == "toy"
     include(joinpath(@__DIR__, "..", "..", "test", "contribution_test_models.jl"))
     include(joinpath(@__DIR__, "..", "..", "test", "jump_test_models.jl"))
     include(joinpath(@__DIR__, "..", "..", "test", "hybrid_test_models.jl"))
-    # A small pool, drained hard by translation, so the rebuilt constant falls
-    # by large factors across rebuilds and differs between particles.
+    # ATP decays first order, at a rate set by the live protein count through the
+    # catalytic edge, so it never empties. Transcription's constant, nearly
+    # linear in ATP since km_tx is far above it, falls about 2.5× a minute, and
+    # differs between particles because their protein counts do. A drain by
+    # translation cost emptied the pool in the first smoke run (job 17853650).
     const F = corea_particles_per_mM()
-    const ATP0 = 3000 / F
-    const MODELS = [ToyPool(kcat = 0.0, atp0 = ATP0),
-                    ToyRebuiltExpression(k_tx_max = 2.0, km_tx = ATP0, gamma_m = 0.5,
-                                         k_tl = 1.0, cost = 20,
-                                         k_tx = 2.0 * ATP0 / (ATP0 + ATP0))]
+    const ATP0 = 2000 / F
+    const KM_TX = 100 * ATP0
+    const KMAX = 1.0 * (KM_TX + ATP0) / ATP0          # k = 1 /s at the start
+    const MODELS = [ToyPool(kcat = 0.015 * F / 100, km = 1.0, atp0 = ATP0),
+                    ToyRebuiltExpression(k_tx_max = KMAX, km_tx = KM_TX, gamma_m = 0.5,
+                                         k_tl = 1.0, cost = 0, protein0 = 10,
+                                         k_tx = KMAX * ATP0 / (KM_TX + ATP0))]
     build() = build_problem(MODELS; tspan = (0.0, 60.0 * T))
     const TRUTH = Pair{Symbol, Float64}[]
     const PANEL = [:M_atp_c]
@@ -171,9 +176,11 @@ elseif STAGE == "prep"
         ks = reduce(hcat, [vcat(k0, kk.k) for kk in kept])          # (T + 1) × runs
         q(x, p) = quantile(x, p)
         for m in 1:T
+            any(<=(0), ks[m + 1, :]) && @printf("  %d matching runs have a zero constant from %d s\n",
+                                                 count(<=(0), ks[m + 1, :]), 60m - 1)
             @printf("  constant from %d s: 90th/10th percentile across matching runs %.2f; max/min %.2f\n",
                     60m - 1, q(ks[m + 1, :], 0.9) / q(ks[m + 1, :], 0.1),
-                    maximum(ks[m + 1, :]) / max(minimum(ks[m + 1, :]), 1e-300))
+                    maximum(ks[m + 1, :]) / minimum(ks[m + 1, :]))
             jumps = ks[m, :] ./ max.(ks[m + 1, :], 1e-300)
             @printf("    each run's drop across that rebuild: median %.2f×, 10th percentile %.2f×\n",
                     median(jumps), q(jumps, 0.1))
