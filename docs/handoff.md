@@ -1,9 +1,59 @@
 # Handoff
 
-**Session date:** 2026-09-30
-**Branches:** `spec-phase-16-subspec` (PR #80, spec only, open).
+**Session date:** 2026-10-01
+**Branches:** `phase-16a-sampler` (local, not pushed; no PR yet). #80, the phase
+16 sub-spec, merged 2026-09-30.
 
-## Latest: phase 16 specified as a sub-spec (2026-09-30)
+## Latest: phase 16a, tasks 16a.1 to 16a.8 built; 16a.7's variant choice next (2026-10-01)
+
+Working `spec/phases/16-recovery.md`'s 16a on `phase-16a-sampler`. Two
+amendments were approved and are in the sub-spec's §12:
+- **2026-09-30:** V2b's SSA clause. The SSA's stream is global, and its cached
+  next jump is dead at a boundary, so per-particle streams moved to 16a.7.
+- **2026-10-01:** the bridge cap's +20 is a floor that `adequate_cap` grows, and
+  M0 (16a.8) is built before block 1 (16a.5).
+
+Each task has a result file in `dev/scripts/`, and `dev/scripts/phase16_ledger.md`
+has the CPU-h. 16a stands at about 130 of its 5k.
+- **16a.1, replay and snapshots.** Bitwise on three 15.7 cells at every handshake,
+  and V2b restores bitwise at all 104 boundaries. Replay is only about 11% cheaper
+  than simulation.
+- **16a.2, the path density (V1).** Two hand checks to 1e-12. The 10⁴-path
+  importance identity on M0 passes at 1.22 and 1.07 SE.
+- **16a.3, the bridges.** Exact against matrix exponentials and an augmented
+  chain.
+- **16a.4, block 2 (V3).** Matches a one-gene exact posterior within 3 MC SE.
+- **16a.8, M0.** GAPD and ptsG over 600 s, with the other 12 enzyme counts held.
+  4.2 s per cycle.
+- **16a.5, block 1 (V4).** Passes against an independent grid, which matches the
+  block 1 target to 7e-13. **Watch item:** FBA's chain fractions sit +1.2 to
+  +2.3 SE high at four of five quantiles. The first final failed on coarse FBA
+  quantiles, and the diagnosis found the grid, not the sampler. Carry it to
+  16a.9's V6 and V7.
+- **16a.6, a clip under a fixed path still kinks.** The toy test passes. The Core A′
+  scan is **open by decision:**
+  - cells 30001 and 30002 never clip;
+  - ENO and FBA cannot move cell 30003's first clip;
+  - PGK3 flips it, but its slope there reads zero, which is unexplained.
+- **16a.7, the CSMC path update.** Built, with 40/40 unit tests.
+  - **V5 passes** on M0 cut to ptsG and on an amplified toy: 2,000 kernel draws
+    from exact starts against rejection, every χ² p ≥ 0.058 and every z within 3.
+  - **The toy meets the 2× rate conditions only from its second rebuild.**
+  - **Watch item:** the toy's metabolite-on window 3 reads z = 2.11 and 2.23.
+  - A proposal that cannot reach the observed count now gets weight zero.
+
+**Next:**
+1. **16a.7's variant choice.** Per-window update rates and cost per sweep, on M0
+   and on one full-scale cell, for PG, PGAS and truncated PGAS at
+   N ∈ {5, 10, 20, 50}, recorded in the sub-spec's §4.
+2. Then 16a.9 (the M0 reference, V6 and V7), 16a.10 (F10), and 16a.11 (cost, K1's
+   bound, and the budget, which is your decision).
+3. Then the PR and `/check-PR`.
+
+**Housekeeping:** `.worktrees/` holds about 20 run-of-record worktrees from this
+phase. Their logs are gitignored.
+
+## Earlier: phase 16 specified as a sub-spec (2026-09-30)
 
 `/implement-spec phase 16` found the phase unclear rather than long, so it is now
 specified in `spec/phases/16-recovery.md`. It splits into 16a, the sampler and the
