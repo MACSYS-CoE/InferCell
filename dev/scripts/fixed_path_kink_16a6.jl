@@ -124,7 +124,10 @@ end
 θc = sqrt(lo * hi)
 side = clo ? hi : lo                                  # the paying side
 slope(θ, v, δ) = (first(after(θ * exp(δ), v)) - first(after(θ * exp(-δ), v))) / 2δ
-dP = slope(side * (side > θc ? 1.5 : 1 / 1.5), :kink, 1e-3)
+# The pool's sensitivity just past the clip, on the paying side. Further out
+# the drain can clip again, which reads as zero.
+dP = slope(θc * (side > θc ? 1.02 : 1 / 1.02), :kink, 1e-3)
+dP == 0 && error("the paying side's sensitivity is zero 2% past the clip")
 δ = 0.01 / abs(dP)
 jump(k, v) = abs(slope(θc * exp(k * δ), v, δ) - slope(θc * exp(-k * δ), v, δ)) / abs(dP)
 @printf("That drain's clip flips at %s = %.6g (%.4g × the truth). The pool's sensitivity on the paying side is %.5g particles per unit ln θ; step %.3g in ln θ.\n\n",

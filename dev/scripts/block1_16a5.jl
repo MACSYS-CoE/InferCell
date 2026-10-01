@@ -208,7 +208,7 @@ elseif STAGE == "final"
             per_chain = [mean(c[:, j] .<= q) for c in chains]
             m, se = mean(per_chain), std(per_chain) / sqrt(length(per_chain))
             pass = abs(m - p) <= 3se
-            ok &= pass
+            global ok &= pass
             @printf("  %s at p = %.2f: exact quantile %.4f, chain fraction below %.4f ± %.4f (%s)\n",
                     name, p, q, m, se, pass ? "within 3 SE" : "OUTSIDE 3 SE")
         end
