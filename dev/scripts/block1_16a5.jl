@@ -15,7 +15,12 @@
 #   grid 2 <row>   fine 41 × 41 over −6 to +6 posterior SD, one row per task
 #   merge 2        marginal CDFs, exact quantiles, and 20 chain starts drawn from it
 #   chain <task>   one chain of SWEEPS sweeps from its start, σ held
-#   final          pool the chains and test
+#   grid s, merge s, for s ≥ 3: only if merge s − 1 found mass at a box edge (above
+#                  1e-8 of the peak). That axis is widened 3× about its mean, at 81
+#                  points, and the grid is redone. The ENO posterior is narrower
+#                  than the coarse step, so the coarse moments misjudge it.
+#   final          pool the chains, less BURN sweeps each, and test against the
+#                  last merge's exact quantiles
 #
 # Usage: julia --project dev/scripts/block1_16a5.jl <stage> [<n>] [<task>]
 # Regenerate: dev/scripts/block1_16a5.sh submits the stages with dependencies.
@@ -33,6 +38,7 @@ const REPLICATE = 16085
 const NCELLS = 3
 const NCHAINS = 20
 const SWEEPS = parse(Int, get(ENV, "SWEEPS", "50"))
+const BURN = 5          # chains start from a grid draw; drop their first sweeps
 const FW = [:kcatF_R_ENO, :kcatF_R_FBA]
 const ODE_NAMES = Set([:kcatF_R_ENO, :kcatR_R_ENO, :kcatF_R_FBA, :kcatR_R_FBA])
 mkpath(DIR)
@@ -98,7 +104,7 @@ end
 prior_box() = [(params(p)[1] - 4.5params(p)[2], params(p)[1] + 4.5params(p)[2]) for p in priors]
 axes_for(stage) = stage == 1 ?
     [range(lo, hi; length = 21) for (lo, hi) in prior_box()] :
-    deserialize(joinpath(DIR, "box2.jls"))
+    deserialize(joinpath(DIR, "box$(stage).jls"))
 
 if STAGE == "grid"
     stage, row = parse(Int, ARGS[2]), parse(Int, ARGS[3])
@@ -121,6 +127,15 @@ elseif STAGE == "merge"
         @printf("coarse: ln ENO %.4f ± %.4f, ln FBA %.4f ± %.4f\n", cE, sE, cF, sF)
     else
         edge = maximum([mE[1], mE[end]]) / maximum(mE), maximum([mF[1], mF[end]]) / maximum(mF)
+        if maximum(edge) > 1e-8
+            widen(ax, e, c) = e > 1e-8 ?
+                range(c - 3 * (last(ax) - first(ax)) / 2, c + 3 * (last(ax) - first(ax)) / 2; length = 81) : ax
+            box = [widen(ax[1], edge[1], cE), widen(ax[2], edge[2], cF)]
+            serialize(joinpath(DIR, "box$(stage + 1).jls"), box)
+            @printf("stage %d: mass at the box edge (%.1e, %.1e); grid %d widens it to ln ENO %.4f to %.4f, ln FBA %.4f to %.4f\n",
+                    stage, edge..., stage + 1, first(box[1]), last(box[1]), first(box[2]), last(box[2]))
+            exit(0)
+        end
         tcdf(u, f) = (c = [0.0; cumsum([(f[i] + f[i + 1]) / 2 * step(u) for i in 1:length(u) - 1])];
                       c ./ c[end])
         quant(cdf, u, p) = (i = findfirst(>=(p), cdf);
@@ -136,8 +151,11 @@ elseif STAGE == "merge"
             i = cells[findfirst(>=(rand(rng)), cumsum(mass))]
             [ax[1][i[1]] + (rand(rng) - 0.5) * step(ax[1]), ax[2][i[2]] + (rand(rng) - 0.5) * step(ax[2])]
         end
-        serialize(joinpath(DIR, "exact.jls"), (quantiles = q, ps = ps, starts = starts,
-                                               moments = ((cE, sE), (cF, sF)), edge = edge))
+        isfile(joinpath(DIR, "exact.jls")) ||
+            serialize(joinpath(DIR, "exact.jls"), (quantiles = q, ps = ps, starts = starts,
+                                                   moments = ((cE, sE), (cF, sF)), edge = edge))
+        serialize(joinpath(DIR, "exact_final.jls"), (quantiles = q, ps = ps, stage = stage,
+                                                     moments = ((cE, sE), (cF, sF)), edge = edge))
         @printf("fine: ln ENO %.4f ± %.4f, ln FBA %.4f ± %.4f; edge mass %.1e, %.1e\n",
                 cE, sE, cF, sF, edge...)
     end
@@ -156,8 +174,10 @@ elseif STAGE == "chain"
     serialize(joinpath(DIR, "chain_$(task).jls"), (task = task, draws = draws, seconds = t))
     @printf("chain %d: %d sweeps in %.0f s\n", task, SWEEPS, t)
 elseif STAGE == "final"
-    ex = deserialize(joinpath(DIR, "exact.jls"))
-    chains = [deserialize(joinpath(DIR, "chain_$(k).jls")).draws for k in 0:(NCHAINS - 1)]
+    ex = deserialize(joinpath(DIR, "exact_final.jls"))
+    @printf("exact quantiles from grid stage %d; edge mass %.1e, %.1e\n", ex.stage, ex.edge...)
+    chains = [deserialize(joinpath(DIR, "chain_$(k).jls")).draws[(BURN + 1):end, :]
+              for k in 0:(NCHAINS - 1)]
     @printf("V4 on M0: replicate %d, %d cells, σ = %.4f held; %d chains × %d sweeps\n",
             REPLICATE, NCELLS, S.ds.sigma, NCHAINS, size(chains[1], 1))
     ok = true
