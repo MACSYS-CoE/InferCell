@@ -96,7 +96,7 @@ end
         x.debits[1].deficit = 5.0
         x.jump.u .+= 1
         x.rounding.remainders .+= 0.25
-        x.ode.u[iatp] *= 2
+        InferCell._set_ode_state!(x.ode, iatp, 2 * x.ode.u[iatp])
         @test y.debits[1].deficit == base.debits[1].deficit
         @test y.jump.u == base.jump.u && y.rounding.remainders == base.rounding.remainders
         @test y.ode.u == base.ode.u
