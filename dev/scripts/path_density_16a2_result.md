@@ -31,3 +31,21 @@ Run of record: job 17756874 at `262e662` (`dev/scripts/phase16a_tests.slurm`),
   different models: every weight was about 0.
 - The fix declares the toy's constant at its law. Core A′'s constructors compute
   their initial constants from the same law as the rebuild, so it is not exposed.
+
+## The 10⁴-path identity on M0 (job 17801682, at `e1841e7`)
+
+`dev/scripts/path_density_16a2_m0.jl`, 100 tasks, merged by
+`path_density_16a2_m0_merge.jl`.
+- θ0 is a truth over `M0_TARGETS` drawn with `Xoshiro(1609)`.
+- Each path is simulated at θ0 and recorded, then replayed with its density at θ0
+  and at each shift.
+- Paths have a median of 594 firings (167 to 1,004) over 600 s.
+
+| Shift | Mean of p(X\|θ1)/p(X\|θ0) | SE | \|mean − 1\| / SE | Weight SD | Largest share | ESS |
+|---|---|---|---|---|---|---|
+| CME: GAPD's promoter ×1.1 | 1.00297 | 0.00243 | 1.22 | 0.2430 | 2.9e-4 | 9,445 |
+| ODE: ENO's forward and reverse ×1.2 | 0.99981 | 0.00017 | 1.07 | 0.0175 | 1.6e-4 | 9,997 |
+
+**Both are within 3 SE, so V1's identity holds on M0.** The ODE-only shift moves
+the density through the pools alone, with a weight SD of 1.75%. That is the case
+the toy could barely test. A two-path smoke run preceded it (job 17801198).
