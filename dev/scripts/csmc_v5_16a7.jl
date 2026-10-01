@@ -45,7 +45,9 @@ const K_SWEEPS = 5
 # Sizes, overridable for a smoke run (V5_SMOKE=1 shrinks every stage).
 const SMOKE = get(ENV, "V5_SMOKE", "0") == "1"
 const REJECT_TASKS = SMOKE ? 1 : 100
-const RUNS_PER_TASK = SMOKE ? 300 : 1000      # m0 keeps ~9%, the toy ~23%
+# m0 keeps about 9% of runs, the toy about 3%, so the toy runs more to keep its
+# start pool larger than the 2,000 chains.
+const RUNS_PER_TASK = SMOKE ? 300 : (CASE == "m0" ? 1000 : 5000)
 const KERNEL_TASKS = SMOKE ? 1 : 50
 const CHAINS_PER_TASK = SMOKE ? 2 : 40
 const SIGMA0 = 0.1
@@ -197,6 +199,8 @@ elseif STAGE == "kernel"
     if mode == "off"
         spec = CSMCSpec(TM, Int[]; sigma = 1.0, cap_floor = bridge_cap(maximum(DATA_TX)))
         pool = kept[1:pr.half]
+        length(pool) >= KERNEL_TASKS * CHAINS_PER_TASK ||
+            @warn "the start pool ($(length(pool))) is smaller than the chain count; starts repeat"
         starts = [pool[mod1(task * CHAINS_PER_TASK + c, length(pool))].ws for c in 1:CHAINS_PER_TASK]
     else
         spec = CSMCSpec(TM, ROWS; sigma = pr.sigma, cap_floor = bridge_cap(maximum(DATA_TX)))
@@ -273,7 +277,9 @@ elseif STAGE == "merge"
         se_ref = sqrt(sum(w .* (x .- m_ref) .^ 2) / ess)
         a = [o.f[j] for o in on]
         m_k, se_k = mean(a), std(a) / sqrt(length(a))
-        z = (m_k - m_ref) / sqrt(se_ref^2 + se_k^2)
+        den = sqrt(se_ref^2 + se_k^2)
+        # A functional with no spread on either side passes only if the means agree.
+        z = den > 0 ? (m_k - m_ref) / den : (m_k == m_ref ? 0.0 : Inf)
         global ok &= abs(z) <= 3
         @printf("  %s: kernel %.3f ± %.3f, reference %.3f ± %.3f; z = %.2f%s\n",
                 name, m_k, se_k, m_ref, se_ref, z, abs(z) <= 3 ? "" : "  FAIL")
