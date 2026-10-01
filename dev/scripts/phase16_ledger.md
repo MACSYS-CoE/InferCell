@@ -26,5 +26,9 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 17814555, 17814556, 17814572, 17830702, 17830938 | 16a.5 | V4 grid 4, merge, finals, target check | 1 | | 4.77 |
 | 17839207–17839209 | 16a.5 | V4 FBA-fine grid, merge, final (of record) | 1 | | 10.00 |
 | 17839362, 17839571 | 16a.7 | 16a tests with CSMC | 1 | | 0.20 |
+| 17839362–17854107 (5 runs) | 16a.7 | 16a tests with CSMC | 1 | | 0.71 |
+| v5s_* (two smoke rounds) | 16a.7 | V5 smoke, both cases | 1 | | 0.67 |
+| 17854476–17854480 | 16a.7 | V5, M0 (of record) | 1 | | 41.52 |
+| 17854481–17854485 | 16a.7 | V5, toy (of record) | 1 | | 5.30 |
 
-**16a total: about 81.6 CPU-h.**
+**16a total: about 129.8 CPU-h.**
