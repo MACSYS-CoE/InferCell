@@ -35,6 +35,8 @@ Block 1 samples the free forward constants and the metabolite σ given every cel
 
 `lag = 0` is particle Gibbs. `lag = L` is ancestor sampling truncated at `L` windows, exact only at `L ≥ T`. Each particle draws from its own generator, seeded from the sweep's. `TranscriptMap`, `CellData`, `CSMCSpec`, `WindowEvents`, `window_events` and `join_path` are its bookkeeping, and `advance_window!` moves one particle across one window.
 
+**Annealed windows** (amended 2026-10-02). Without annealing, the metabolite likelihood puts fresh proposals hundreds of nats below the reference within one window, and no variant mixes. With `schedule` (for example `geometric_schedule(K)`), each particle's window is annealed importance sampling, by `annealed_window`. The tempered targets are π_β ∝ q · w^β. Each stage keeps the path before a uniform cut and redraws the rest from the proposal's own conditional (`advance_window!` with `head`), accepted at min(1, (w′/w)^β). The particle's weight is the AIS weight. The reference keeps its path, and its auxiliary chain is drawn backwards through the same moves. It runs under particle Gibbs only, and costs about N(K + 1) cycles per sweep.
+
 ## Reference
 
 ```@autodocs

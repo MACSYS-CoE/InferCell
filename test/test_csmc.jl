@@ -5,6 +5,7 @@
 using Random
 using Test
 using InferCell
+using Statistics
 using Distributions: Normal, logpdf
 
 # The toy of phase 4: one gene whose transcription constant is rebuilt from ATP.
@@ -115,6 +116,82 @@ end
                 end
                 @test h.jump.u[tm.states[1]] == data.transcripts[1, m]
             end
+        end
+    end
+
+    @testset "annealing (§12 2026-10-02): the schedule" begin
+        β = geometric_schedule(5; β1 = 1e-3)
+        @test length(β) == 5 && β[1] ≈ 1e-3 && β[end] == 1.0 && issorted(β)
+        @test geometric_schedule(1) == [1.0]
+        y0 = [base.jump.u[tm.states[1]]]
+        args = (Xoshiro(1), restore(base), spec, y0, data.transcripts[:, 1], data.metabolites[:, 1])
+        @test_throws ArgumentError annealed_window(args..., [0.5, 0.4, 1.0])
+        @test_throws ArgumentError annealed_window(args..., [0.5, 0.9])
+        @test_throws ArgumentError csmc_sweep(Xoshiro(1), base, spec, data, ref; N = 2, lag = 1,
+                                              schedule = [1.0])
+    end
+
+    @testset "annealing: a head keeps the path before its cut and redraws the rest" begin
+        y0 = [base.jump.u[tm.states[1]]]
+        s = 25.0
+        for seed in 1:5
+            e = restore(base)
+            lw, ev = advance_window!(Xoshiro(seed), e, spec, y0, data.transcripts[:, 1],
+                                     data.metabolites[:, 1]; head = (ref[1], s))
+            k = searchsortedfirst(ref[1].times, s)
+            @test ev.times[1:(k - 1)] == ref[1].times[1:(k - 1)]
+            @test ev.reactions[1:(k - 1)] == ref[1].reactions[1:(k - 1)]
+            @test all(>=(s), ev.times[k:end])
+            @test isfinite(lw) && e.jump.u[tm.states[1]] == data.transcripts[1, 1]
+            # Its weight is the weight of its own path, replayed.
+            lw2, _ = advance_window!(Xoshiro(0), restore(base), spec, y0, data.transcripts[:, 1],
+                                     data.metabolites[:, 1]; fixed = ev)
+            @test lw == lw2
+        end
+        @test_throws ArgumentError advance_window!(Xoshiro(1), restore(base), spec, y0,
+                                                   data.transcripts[:, 1], data.metabolites[:, 1];
+                                                   head = (ref[1], 59.5))
+    end
+
+    @testset "annealing: the reference keeps its path and its replayed state" begin
+        y0 = [base.jump.u[tm.states[1]]]
+        lw, ev, e = annealed_window(Xoshiro(4), base, spec, y0, data.transcripts[:, 1],
+                                    data.metabolites[:, 1], geometric_schedule(4); fixed = ref[1])
+        f = restore(base)
+        replay!(f, path, 60)
+        @test ev === ref[1] && isfinite(lw)
+        @test e.ode.u == f.ode.u && e.jump.u == f.jump.u
+        # The start is not changed.
+        @test base.jump.t == 0.0
+    end
+
+    @testset "annealing: the AIS weight is unbiased for ∫ q·w (3 SE)" begin
+        # Window 1 of the toy at σ = 0.3, where plain importance sampling is
+        # precise enough to compare against.
+        sp = CSMCSpec(tm, [iatp]; sigma = 0.3, cap_floor = spec.cap_floor)
+        y0 = [base.jump.u[tm.states[1]]]
+        n = 300
+        plain = [advance_window!(Xoshiro(20_000 + i), restore(base), sp, y0, data.transcripts[:, 1],
+                                 data.metabolites[:, 1])[1] for i in 1:n]
+        ais = [annealed_window(Xoshiro(30_000 + i), base, sp, y0, data.transcripts[:, 1],
+                               data.metabolites[:, 1], geometric_schedule(3; β1 = 0.1))[1] for i in 1:n]
+        c = max(maximum(plain), maximum(ais))
+        a, b = exp.(plain .- c), exp.(ais .- c)
+        se = sqrt(var(a) / n + var(b) / n)
+        @test abs(mean(a) - mean(b)) <= 3se
+    end
+
+    @testset "annealing: a sweep returns a path that reproduces the data" begin
+        new, changed = csmc_sweep(Xoshiro(16074), base, spec, data, ref; N = 3,
+                                  schedule = geometric_schedule(3))
+        @test length(new) == T && length(changed) == T
+        h = restore(base)
+        r = PathReplay(join_path(new, h.events.labels), h)
+        for m in 1:T
+            for _ in 1:60
+                replay_step!(h, r)
+            end
+            @test h.jump.u[tm.states[1]] == data.transcripts[1, m]
         end
     end
 
