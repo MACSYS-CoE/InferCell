@@ -30,5 +30,13 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | v5s_* (two smoke rounds) | 16a.7 | V5 smoke, both cases | 1 | | 0.67 |
 | 17854476–17854480 | 16a.7 | V5, M0 (of record) | 1 | | 41.52 |
 | 17854481–17854485 | 16a.7 | V5, toy (of record) | 1 | | 5.30 |
+| 17877524–17877529 | 16a.7 | Variant smoke, N = 5, three windows | 1 | | 0.42 |
+| 17877760, 17877761, 17877922, 17877923 | 16a.7 | Weight-collapse diagnostic (scratch) | 1 | | 0.26 |
+| 17878615, 17878616, 17879029, 17879030 | 16a.7 | Collapse attribution, two passes (of record) | 1 | | 0.42 |
+| 17879419, 17879420, 17880205, 17880206 | 16a.7 | Rank check, one failed run and the run of record | 1 | | 0.82 |
+| 17878617–17878622 | 16a.7 | KP measurement at N = 50 (cell 4 failed under ancestor sampling) | 1 | | 11.00 |
+| 17882299 | 16a.7 | 16a tests with the impossible-firing fix (of record) | 1 | 0:06:16 | 0.10 |
+| 17882309–17882311 | 16a.7 | KP, cell 4 under ancestor sampling, rerun | 1 | | 2.30 |
+| 17884470 | 16a.7 | KP merge (of record) | 1 | 0:01:22 | 0.02 |
 
-**16a total: about 129.8 CPU-h.**
+**16a total: about 145.1 CPU-h.**
