@@ -42,6 +42,12 @@ mkpath(DIR)
 const T = 3
 const N_PART = 5
 const K_SWEEPS = 5
+# V5_ANNEAL=K runs the kernel with each window annealed over K geometric stages
+# from β1 = 1e-4 (task 16a.7a, §12 2026-10-02). Its kernel files carry the K, and
+# it reuses the unannealed run's rejection draws, which no kernel changes.
+const ANNEAL = parse(Int, get(ENV, "V5_ANNEAL", "0"))
+const SCHEDULE = ANNEAL > 0 ? geometric_schedule(ANNEAL; β1 = 1e-4) : nothing
+const KTAG = ANNEAL > 0 ? "_a$(ANNEAL)" : ""
 # Sizes, overridable for a smoke run (V5_SMOKE=1 shrinks every stage).
 const SMOKE = get(ENV, "V5_SMOKE", "0") == "1"
 const REJECT_TASKS = SMOKE ? 1 : 100
@@ -195,7 +201,7 @@ elseif STAGE == "kernel"
     mode, task = ARGS[3], parse(Int, ARGS[4])
     kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
     pr = deserialize(joinpath(DIR, "prep.jls"))
-    rng = Xoshiro(16_072_000 + 1000 * (mode == "on") + task)
+    rng = Xoshiro(16_072_000 + 1_000_000 * ANNEAL + 1000 * (mode == "on") + task)
     if mode == "off"
         spec = CSMCSpec(TM, Int[]; sigma = 1.0, cap_floor = bridge_cap(maximum(DATA_TX)))
         pool = kept[1:pr.half]
@@ -214,20 +220,21 @@ elseif STAGE == "kernel"
     out = map(starts) do ref
         changed = falses(T)
         for _ in 1:K_SWEEPS
-            ref, ch = csmc_sweep(rng, BASE, spec, data, ref; N = N_PART)
+            ref, ch = csmc_sweep(rng, BASE, spec, data, ref; N = N_PART, schedule = SCHEDULE)
             changed .|= ch
         end
         (f = functionals(ref), changed = collect(changed))
     end
-    serialize(joinpath(DIR, "kernel_$(mode)_$(task).jls"), out)
+    serialize(joinpath(DIR, "kernel_$(mode)$(KTAG)_$(task).jls"), out)
     @printf("kernel %s %s task %d: %d chains\n", CASE, mode, task, length(out))
 elseif STAGE == "merge"
     kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
     pr = deserialize(joinpath(DIR, "prep.jls"))
     @printf("V5, case %s: %d kept runs from %d; N = %d particles, %d sweeps per chain from an exact start\n",
             CASE, pr.n, REJECT_TASKS * RUNS_PER_TASK, N_PART, K_SWEEPS)
+    ANNEAL > 0 && @printf("each window annealed over %d stages from β1 = 1e-4\n", ANNEAL)
     # Metabolite off: two-sample χ² per functional against the second half.
-    off = reduce(vcat, [deserialize(joinpath(DIR, "kernel_off_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+    off = reduce(vcat, [deserialize(joinpath(DIR, "kernel_off$(KTAG)_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
     refset = kept[(pr.half + 1):end]
     ok = true
     @printf("metabolite likelihood off: %d kernel draws against %d rejection draws; %d χ² tests at p > 0.01\n",
@@ -265,7 +272,7 @@ elseif STAGE == "merge"
                 name, mean(a), mean(b), stat, length(tab) - 1, p, p > 0.01 ? "" : "  FAIL")
     end
     # Metabolite on: weighted reference expectations within 3 SE.
-    on = reduce(vcat, [deserialize(joinpath(DIR, "kernel_on_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+    on = reduce(vcat, [deserialize(joinpath(DIR, "kernel_on$(KTAG)_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
     lw = [metloglik(k.lat, pr.sigma) for k in kept]
     w = exp.(lw .- maximum(lw))
     w ./= sum(w)

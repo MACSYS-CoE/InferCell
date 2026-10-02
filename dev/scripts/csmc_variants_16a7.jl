@@ -1,7 +1,8 @@
 # spec/phases/16-recovery.md task 16a.7, the variant choice: per-window update
 # rates and cost per sweep of the conditional SMC path update, for particle Gibbs,
 # ancestor sampling truncated at lag 1 and 5, and full ancestor sampling, at
-# N ∈ {5, 10, 20, 50}, on M0 and on one full-scale cell (D16.3).
+# N ∈ {5, 10, 20, 50}, on M0 and on one full-scale cell (D16.3); and, after KP
+# fired (§12 2026-10-02), annealed windows at N ∈ {2, 5} on M0 (16a.7a).
 #
 # The cells:
 # - m0: cells 1 to 5 of M0 replicate 16085, the replicate block 1's V4 used, at
@@ -24,7 +25,8 @@
 # compiles, so its time is dropped from the cost.
 #
 # Stages: run <scale> <variant> <N> <task> <sweeps>, and merge.
-# Variants: pg (lag 0), l1, l5, full (lag T).
+# Variants: pg (lag 0), l1, l5, full (lag T), and a20, a50, a100 (16a.7a: particle
+# Gibbs with each window annealed over K stages).
 # Regenerate: dev/scripts/csmc_variants_16a7.sh, from a worktree at a pushed commit.
 # CSMC_SMOKE=1 shrinks both cells to three windows.
 
@@ -44,10 +46,15 @@ const FULL_CELL = 30_001
 const FULL_SIGMA = 0.1
 const FULL_NOISE_SEED = 1508
 const THRESHOLD = 0.10            # D16.3's update-rate threshold, ⚠️ DRAFT
-const VARIANTS = ["pg", "l1", "l5", "full"]
-const NS = [5, 10, 20, 50]
+# The annealed variants, aK, are particle Gibbs with each window annealed over K
+# geometric stages from β1 = 1e-4 (§12 2026-10-02, task 16a.7a).
+const VARIANTS = ["pg", "l1", "l5", "full", "a20", "a50", "a100"]
+const NS = [5, 10, 20, 50, 2]
+const BETA1 = 1e-4
 
-lag(variant, T) = variant == "pg" ? 0 : variant == "l1" ? 1 : variant == "l5" ? 5 :
+schedule(variant) = startswith(variant, "a") ?
+    geometric_schedule(parse(Int, variant[2:end]); β1 = BETA1) : nothing
+lag(variant, T) = startswith(variant, "a") || variant == "pg" ? 0 : variant == "l1" ? 1 : variant == "l5" ? 5 :
                   variant == "full" ? T : error("unknown variant $variant")
 
 # Record a run from `seed` window by window: returns its path, its transcripts in
@@ -125,7 +132,8 @@ function run_task(scale, variant, N, task, sweeps)
     secs = Float64[]
     for s in 1:sweeps
         t = @elapsed begin
-            ref, ch = csmc_sweep(rng, x.base, x.spec, x.data, ref; N, lag = L)
+            ref, ch = csmc_sweep(rng, x.base, x.spec, x.data, ref; N, lag = L,
+                                 schedule = schedule(variant))
         end
         changed = hcat(changed, ch)
         push!(secs, t)
