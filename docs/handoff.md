@@ -4,7 +4,38 @@
 **Branches:** `phase-16a-sampler`, pushed 2026-10-02 (no PR yet). #80, the phase
 16 sub-spec, merged 2026-09-30.
 
-## Latest: 16a.7's variant measurement fires KP; an amendment awaits your decision (2026-10-02)
+## Latest: annealed windows pass V5 but miss the threshold; KP fires again (2026-10-02, evening)
+
+You chose option 1 below. It is §12 2026-10-02 in the sub-spec, with tasks
+16a.7a and 16a.7b. `dev/scripts/csmc_variants_16a7_result.md` has every number.
+- **16a.7b passes.** The window proposal is right at full scale: ranks are uniform
+  over 525 windows on cells 30001 to 30005 (smallest KS p 0.057). The morning's
+  cell-30001 watch item was chance.
+- **The annealed proposal is built and correct.** `annealed_window` and
+  `csmc_sweep(...; schedule)` are at `2e5f7e9`. 16a tests 199 of 199 (job
+  17904432). V5 at K = 5 passes on M0 (p ≥ 0.086) and on the toy (p ≥ 0.166).
+- **It does not mix at an affordable K.** At K ≤ 100 and N ≤ 5 on M0, no window
+  changes in more than 5% of sweeps.
+- **Inside one window** (job 17905489), K ≥ 200 makes windows 2 and 3 exchangeable,
+  at a replacement chance of 0.35 to 0.77. Window 1 resists K = 1,000: the chains
+  reach the right log weight, but the AIS weight carries an 8-nat penalty. K = 200
+  costs about 42k CPU-h per M0 posterior.
+- 16a stands at about 293 of its 5k CPU-h.
+
+**Next: your decision.** 16a.7 and 16a.7a stay unticked.
+1. **Test the observation floor first** (recommended, about 1 CPU-h). The knife-edge
+   comes from near-empty pools measured at 7% relative precision, which no assay
+   achieves. That gives a scientific reason to revisit the floor, independent of the
+   sampler. The floor's value must come from a cited detection limit, not be tuned
+   until the sampler mixes. Rerun `csmc_collapse_16a7.jl` with that floor, and see
+   whether the gap collapses.
+2. **The spec's named fallback:** condition the path on transcripts only, with the
+   metabolites in block 1 only, labelled as an approximation in T3. V5's
+   metabolite-off half shows it mixes (97 to 100% of windows changed).
+3. **More exact-sampler research on M0:** an inner SMC with resampling, or adaptive
+   schedules. Expect tens of thousands of CPU-h per posterior.
+
+## Earlier: 16a.7's variant measurement fires KP; an amendment awaits your decision (2026-10-02)
 
 `dev/scripts/csmc_variants_16a7_result.md` has the numbers.
 - **KP fires.** At N = 50 on M0's five cells (40 sweeps each), every variant (PG,
@@ -26,7 +57,7 @@
   0.03. V5 has never run at full scale. M0's ranks are uniform.
 - 16a stands at about 145 of its 5k CPU-h.
 
-**Next:** your call on the §8 KP amendment. 16a.7 stays unticked until it is
+**Then:** your call on the §8 KP amendment. 16a.7 stays unticked until it is
 resolved. The options put to you:
 1. **A guided path proposal inside each window.** For example, temper the
    metabolite likelihood over stages, with MCMC moves on the window's path. It is

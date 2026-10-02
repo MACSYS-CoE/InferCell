@@ -109,3 +109,72 @@ alone, so the ranks are uniform when the proposal and weight are right.
 
 About 15.3 CPU-h in all (`phase16_ledger.md`), which puts 16a at about 145 of its
 5k.
+
+# After the amendment (§12 2026-10-02)
+
+## 16a.7b: the window proposal at full scale passes (jobs 17904315 and 17904316 at `8c66944`)
+
+The rank check, on five independent cells (30001 to 30005) at 15.7's truth, over
+525 windows with 50 proposals each:
+- **Every pool's ranks are uniform.** The smallest unadjusted KS p is 0.057
+  (`M_2pg_c`), and every Bonferroni p is 0.97 or more.
+- **Cell 30001's earlier p = 0.02 to 0.03 was chance.**
+
+## 16a.7a: annealed windows pass V5, and miss the threshold
+
+**The code** is `annealed_window`, with `csmc_sweep(...; schedule)`, at `2e5f7e9`.
+The 16a tests pass, 199 of 199 (job 17904432). They include:
+- the backward chain keeping the reference's path and state;
+- a head move keeping the path before its cut;
+- the AIS weight matching plain importance sampling within 3 SE on the toy.
+
+**V5 at K = 5 passes on both cases.** It reuses the rejection draws of `644c140`'s
+run.
+
+| Case | Jobs | Off: χ² p | On: z |
+|---|---|---|---|
+| M0 | 17905037 to 17905039 | ≥ 0.086 | within ±1.97 |
+| Toy | 17905042 to 17905044 | ≥ 0.166 | within ±1.49 |
+
+**The update rates miss the threshold everywhere** (jobs 17905020 to 17905026,
+M0's five cells, 40 sweeps each, geometric schedules from β1 = 1e-4).
+
+| K | N | Cycles per sweep | Windows below 10% | Highest window rate |
+|---|---|---|---|---|
+| 20 | 2 | 42.1 | 10 of 10 | 0.00 |
+| 20 | 5 | 106.3 | 10 of 10 | 0.03 |
+| 50 | 2 | 101.9 | 10 of 10 | 0.00 |
+| 50 | 5 | 261.8 | 10 of 10 | 0.05 |
+| 100 | 2 | 202.6 | 10 of 10 | 0.03 |
+| 100 | 5 | 519.6 | 10 of 10 | 0.05 |
+
+### Inside one annealed window (job 17905489 at `e7560ab`)
+
+The setup: M0 cell 1, windows 1 to 3, from the true path's state, with 5 forward
+chains per K and the reference's backward chain. "Replacement" is the chance that
+a fresh particle displaces the reference at N = 5.
+
+| Window | K | Acceptance, last fifth | Final log w − reference's, median | AIS log weight − reference's, median | Replacement at N = 5 |
+|---|---|---|---|---|---|
+| 1 | 50 | 0.14 | −15.5 | −16.2 | 0.001 |
+| 1 | 200 | 0.10 | −19.2 | −18.1 | 0.000 |
+| 1 | 1,000 | 0.08 | −1.6 | −8.4 | 0.003 |
+| 2 | 50 | 0.10 | −15.7 | −21.8 | 0.117 |
+| 2 | 200 | 0.03 | −3.7 | −1.6 | 0.601 |
+| 2 | 1,000 | 0.07 | −3.0 | −2.0 | 0.771 |
+| 3 | 50 | 0.18 | −25.7 | −38.7 | 0.000 |
+| 3 | 200 | 0.11 | −0.6 | −8.0 | 0.496 |
+| 3 | 1,000 | 0.10 | −0.4 | −3.1 | 0.345 |
+
+- **Annealing closes the gap.** Unannealed proposals sat hundreds of nats below the
+  reference. With K ≥ 200, the chains end within a few nats of it.
+- **Windows 2 and 3 become exchangeable from K = 200,** at a replacement chance of
+  0.35 to 0.77.
+- **Window 1 does not, even at K = 1,000.** The chains reach the right log weight,
+  but the AIS weight carries an 8-nat penalty built up along the schedule.
+- **The late stages mix slowly,** at 3% to 14% acceptance.
+- **Cost.** K = 200 at N = 5 is about 1,000 M0 cycles per sweep. That is about 42k
+  CPU-h for one M0 posterior of 50 cells × 2,000 sweeps, and K = 1,000 about five
+  times that. Both are above 16a's cap and near or above the phase's.
+
+**KP fires again on M0 within the cap.** This needs your decision; see the handoff.

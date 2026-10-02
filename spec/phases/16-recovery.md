@@ -600,9 +600,10 @@ How the parent's criteria are placed here:
   16a.7's measurement.~~ — resolved 2026-10-02: completely degenerate. Fifty
   particles do not suffice. `M_pi_c`, `M_3pg_c` and `M_2pg_c` near depletion put
   proposals hundreds of nats below the reference (§12 2026-10-02).
-- [NEEDS CLARIFICATION: is the window proposal right at full scale?] On cell 30001,
+- ~~[NEEDS CLARIFICATION: is the window proposal right at full scale?] On cell 30001,
   7 of 17 pools' ranks sit at KS p = 0.02 to 0.03, over windows of one trajectory.
-  M0's ranks are uniform. Task 16a.7b decides it on independent cells.
+  M0's ranks are uniform. Task 16a.7b decides it on independent cells.~~ —
+  resolved 2026-10-02: it is. 16a.7b passes on five cells.
 - [NEEDS CLARIFICATION: which of PYK's upstream reactions are the "seven"?]
   Enumerated in 16b.6.
 - ~~[NEEDS CLARIFICATION: is the initial transcript count fixed or drawn in 15.7's
@@ -693,10 +694,21 @@ and against a long reference where it is not. Then measure what one posterior co
   - per-window update rates and cost per sweep on M0's five cells, at N ∈ {2, 5} and
     K ∈ {20, 50, 100};
   - the choice, or KP, recorded in §4.
-- [ ] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
+
+  **Measured 2026-10-02; KP fires again, and it is open for your decision.**
+  - V5 passes on both cases, and the tests pass.
+  - No setting reaches the threshold: at K ≤ 100, no window changes in more than 5%
+    of sweeps.
+  - Inside one window, K ≥ 200 makes windows 2 and 3 exchangeable, and window 1
+    resists K = 1,000. At about 42k CPU-h per M0 posterior from K = 200, that is
+    above the cap.
+  - `dev/scripts/csmc_variants_16a7_result.md`.
+- [x] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
   transcript-weighted rank of the true path's panel pools among proposals from its
   own state, on five independent 15.7-truth cells (30001 to 30005), with each pool's
   ranks uniform by KS at p > 0.01 after Bonferroni over the 17 pools.
+  **Passed 2026-10-02** (jobs 17904315 and 17904316): over 525 windows, the smallest
+  KS p is 0.057, and every Bonferroni p is ≥ 0.97.
 - [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:

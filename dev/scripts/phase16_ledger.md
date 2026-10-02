@@ -39,4 +39,11 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 17882309–17882311 | 16a.7 | KP, cell 4 under ancestor sampling, rerun | 1 | | 2.30 |
 | 17884470 | 16a.7 | KP merge (of record) | 1 | 0:01:22 | 0.02 |
 
-**16a total: about 145.1 CPU-h.**
+| 17904315, 17904316 | 16a.7b | Rank check, five full-scale cells, and merge (of record) | 1 | | 2.56 |
+| 17904432 | 16a.7a | 16a tests with annealing (of record) | 1 | 0:13:27 | 0.22 |
+| 17905020–17905026 | 16a.7a | Annealed windows on M0, K ∈ {20, 50, 100}, N ∈ {2, 5} (of record) | 1 | | 22.01 |
+| 17905037–17905039 | 16a.7a | V5 with annealing at K = 5, M0 (of record) | 1 | | 109.17 |
+| 17905042–17905044 | 16a.7a | V5 with annealing at K = 5, toy (of record) | 1 | | 12.54 |
+| 17905489 | 16a.7a | Inside one annealed window, K up to 1,000 (of record) | 1 | 1:20:57 | 1.35 |
+
+**16a total: about 293.0 CPU-h.**
