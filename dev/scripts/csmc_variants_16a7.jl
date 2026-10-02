@@ -7,10 +7,12 @@
 # - m0: cells 1 to 5 of M0 replicate 16085, the replicate block 1's V4 used, at
 #   the replicate's truth and σ. Each cell's path is re-recorded from its seed
 #   and checked against the dataset's latent.
-# - full: Core A′ cell 30001 at 15.7's truth (`Xoshiro(1507)`), its path recorded.
+# - full: Core A′ cell 30000 + c at 15.7's truth (`Xoshiro(1507)`), its path
+#   recorded; the variant runs use c = 1, cell 30001.
 #   The 15.7 observations are not tracked, so the panel is observed afresh,
 #   lognormal at 15.7's σ = 0.1 with a one-particle floor, from `Xoshiro(1508)`
-#   on this cell alone. It is drawn as 15.7's was, but it is not 15.7's draw.
+#   on cell 30001 alone, and from `Xoshiro(1508 + 1000(c − 1))` on the others. It
+#   is drawn as 15.7's was, but it is not 15.7's draw.
 #
 # Every chain starts from the cell's true path at the true θ. That path is an
 # exact draw from p(X | data, θ), so the kernel is stationary from the first
@@ -80,7 +82,7 @@ function cell(scale, c)
         truth = draw_truth(Xoshiro(FULL_TRUTH_SEED), ms; purpose = :recovery)
         fresh = () -> (d = build_problem(ms; tspan = (0.0, horizon), complete = true);
                        set_parameters!(d, ms, truth.values); d)
-        seed, σ = FULL_CELL, FULL_SIGMA
+        seed, σ = FULL_CELL + c - 1, FULL_SIGMA
     end
     T = round(Int, horizon) ÷ 60
     Random.seed!(seed)
@@ -94,7 +96,8 @@ function cell(scale, c)
         lat == ds.latent[c, lrows, :] || error("cell $seed: the recorded run is not the dataset's")
         met = ds.observed[c, orows, :]
     else
-        met = max.(lat, 1.0) .* exp.(FULL_SIGMA .* randn(Xoshiro(FULL_NOISE_SEED), size(lat)))
+        noise = Xoshiro(FULL_NOISE_SEED + 1000 * (c - 1))      # cell 30001 keeps 1508
+        met = max.(lat, 1.0) .* exp.(FULL_SIGMA .* randn(noise, size(lat)))
     end
     spec = CSMCSpec(tm, rows; sigma = σ, cap_floor = bridge_cap(maximum(tx)))
     return (; base, spec, data = CellData(tx, met), ref = window_events(path, T), T, seed, σ, ms)
