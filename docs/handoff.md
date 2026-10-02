@@ -1,10 +1,45 @@
 # Handoff
 
-**Session date:** 2026-10-01
-**Branches:** `phase-16a-sampler` (local, not pushed; no PR yet). #80, the phase
+**Session date:** 2026-10-02
+**Branches:** `phase-16a-sampler`, pushed 2026-10-02 (no PR yet). #80, the phase
 16 sub-spec, merged 2026-09-30.
 
-## Latest: phase 16a, tasks 16a.1 to 16a.8 built; 16a.7's variant choice next (2026-10-01)
+## Latest: 16a.7's variant measurement fires KP; an amendment awaits your decision (2026-10-02)
+
+`dev/scripts/csmc_variants_16a7_result.md` has the numbers.
+- **KP fires.** At N = 50 on M0's five cells (40 sweeps each), every variant (PG,
+  ancestor sampling at lag 1 and 5, full PGAS) has a window that never changed.
+  On the full-scale cell 30001, PG changed none of 840 window-sweeps. The costs
+  match D16.6: PG about N cycles per sweep, full PGAS on M0 about 4.6N.
+- **The cause is the metabolite likelihood, not the bridges.** Proposals from the
+  translation prior land a mean 570 to 1,870 nats below the reference on M0, and
+  40 to 400 at full scale, within one window. `M_pi_c`, `M_3pg_c` and `M_2pg_c`
+  carry it. They drain toward empty, and at σ ≈ 0.07 an 18-particle pool is
+  pinned to about ±1.3 particles.
+- **The pools' response to the path is nonlinear.** Protein counts and
+  translation exposure explain little. Every reaction's count and exposure
+  explain 50 to 59% on M0, so a linear tilt would close only part of the gap.
+- **Bug fixed at `2566e79`:** ancestor sampling's future replay threw on a firing
+  with zero propensity. That firing now gives density zero. 16a tests: 160 of 160
+  (job 17882299).
+- **Watch item:** the full-scale rank check puts 7 of 17 pools at KS p = 0.02 to
+  0.03. V5 has never run at full scale. M0's ranks are uniform.
+- 16a stands at about 145 of its 5k CPU-h.
+
+**Next:** your call on the §8 KP amendment. 16a.7 stays unticked until it is
+resolved. The options put to you:
+1. **A guided path proposal inside each window.** For example, temper the
+   metabolite likelihood over stages, with MCMC moves on the window's path. It is
+   exact, but it is research work, and its cost multiplies the per-window cost.
+   Prototype it on M0 first.
+2. **Revisit the observation model's floor.** A one-particle floor under σ = 0.1
+   makes an 18-particle pool hyper-informative. An additive detection floor is a
+   defensible model choice, but it changes 15.7's data model, so it needs its own
+   justification and must not be adopted only to rescue the sampler.
+3. **Accept KP.** Block 3 then conditions on transcripts only, with the metabolites
+   in block 1 alone, as an approximation labelled in T3. Or 16b is scored KP.
+
+## Earlier: phase 16a, tasks 16a.1 to 16a.8 built; 16a.7's variant choice next (2026-10-01)
 
 Working `spec/phases/16-recovery.md`'s 16a on `phase-16a-sampler`. Two
 amendments were approved and are in the sub-spec's §12:
