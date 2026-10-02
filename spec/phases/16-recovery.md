@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** draft
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-01
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-02
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -377,6 +377,35 @@ V2b tests that restoring this reproduces an uninterrupted run.
 - One integrator is reused, and a particle is restored into it by copying state, so
   no solver object is shared across particles. V9 asserts this.
 
+**Amended 2026-10-02 (§12): each window's proposal is annealed.** 16a.7's
+measurement fired KP. The metabolite likelihood puts proposals from the
+translation prior hundreds of nats below the reference within one window, so no
+variant at N = 50 updates every window. The proposal for window m, per particle,
+is now annealed importance sampling (AIS) inside the window:
+- **The tempered targets.** π_β ∝ q · w^β over the window's path, where q is the
+  proposal above and w its incremental weight. β runs over a fixed schedule
+  0 = β_0 < β_1 < … < β_K = 1. ⚠️ DRAFT: geometric from β_1 = 1e-4.
+- **The move at stage k** is Metropolis–Hastings at β_k. It draws s uniformly in
+  the window's first 59 s, keeps the path before s, and redraws the rest from q's
+  own conditional: each gene's bridge from its count at s to y_m at R_{m−1}, the
+  other reactions forward from the state at s, then the last second as above. q
+  cancels, so the acceptance is min(1, (w′/w)^β). The move is π_β-reversible.
+- **The particle's weight** is the AIS weight, Π_k w(x_{k−1})^{β_k − β_{k−1}}, an
+  unbiased estimate of ∫ q·w. It replaces w as the incremental weight. Its path is
+  the chain's final state.
+- **The reference particle** gets its auxiliary chain conditionally. From its path
+  x_K, it draws x_{k−1} by the stage-k move from x_k, for k = K down to 1. Each move
+  is its own reversal, so this is the extended target's conditional. Its weight is
+  computed the same way, and its path stays the reference's.
+- **Particle Gibbs only** (lag 0). Ancestor sampling would have to score the
+  reference's future on the extended space, and 16a.7's measurement shows it did
+  not help.
+- **Cost.** About K + 1 window replays per particle per window, so about N(K + 1)
+  cycles per sweep. At N = 5 and K = 50 that is about 255 cycles per cell per
+  sweep, which projects to about 0.9M CPU-h per full-scale posterior on D16.6's
+  assumptions. **The annealed sampler is affordable on M0, not at full scale
+  under the cap.**
+
 **Alternatives considered:**
 - Single-site Metropolis-within-Gibbs on one gene's window segment. Every proposal
   needs a replay from that window to the end, about half a cycle.
@@ -552,16 +581,28 @@ How the parent's criteria are placed here:
   window's update rate stays below the D16.3 threshold for every variant. Stop and
   amend. The fallbacks are a shorter window, a guided translation proposal, or K1's
   ladder.
+  - **Fired 2026-10-02** on PG, PGAS and truncated PGAS at N = 50
+    (`dev/scripts/csmc_variants_16a7_result.md`). The amendment takes the guided
+    proposal, as D16.3's annealed window proposal (§12 2026-10-02).
+  - **If the annealed proposal also misses the threshold on M0 within the cap,** KP
+    fires again. The remaining fallback is then to condition the path on transcripts
+    alone, with the metabolites used in block 1 only. That is an approximation,
+    labelled in T3.
 
 ## 9. Open questions
 
 - [NEEDS CLARIFICATION: is a replay cheaper than a simulation?] 13.7's 5.11 ms per
   handshake includes the SSA. Replay drops it but keeps the stiff solve. 16a.1
   measures this, and it moves every row of D16.6's projection.
-- [NEEDS CLARIFICATION: how degenerate are the particle weights?] GTP's 200-cell
+- ~~[NEEDS CLARIFICATION: how degenerate are the particle weights?] GTP's 200-cell
   resolution of 4.5% (14c.5) implies a per-cell coefficient of variation near 64%, so
   metabolite panels discriminate paths strongly. Whether 50 particles suffice is
-  16a.7's measurement.
+  16a.7's measurement.~~ — resolved 2026-10-02: completely degenerate. Fifty
+  particles do not suffice. `M_pi_c`, `M_3pg_c` and `M_2pg_c` near depletion put
+  proposals hundreds of nats below the reference (§12 2026-10-02).
+- [NEEDS CLARIFICATION: is the window proposal right at full scale?] On cell 30001,
+  7 of 17 pools' ranks sit at KS p = 0.02 to 0.03, over windows of one trajectory.
+  M0's ranks are uniform. Task 16a.7b decides it on independent cells.
 - [NEEDS CLARIFICATION: which of PYK's upstream reactions are the "seven"?]
   Enumerated in 16b.6.
 - ~~[NEEDS CLARIFICATION: is the initial transcript count fixed or drawn in 15.7's
@@ -579,6 +620,7 @@ How the parent's criteria are placed here:
 | R16.4 | A reverse constant gets a prior term, or is sampled freely | V4's `assert_haldane`, and V7 failing on ENO and FBA alone | D16.1's forward-only prior and derived reverse constants |
 | R16.5 | F10 reads zero because the reference is too short | V8's floor | Lengthen the reference. Never report a divergence below its floor as agreement |
 | R16.6 | 16a overruns its 5k cap on pilots | The ledger | Stop, and report at 16a.11 with what was measured |
+| R16.7 | The annealed proposal mixes, but only at a K no rung can fund | 16a.7a's cost per sweep | M0 only; full-scale rungs drop down K1's ladder or are scored budget-bound |
 
 ## 11. Task list
 
@@ -635,6 +677,26 @@ and against a long reference where it is not. Then measure what one posterior co
     each variant at N ∈ {5, 10, 20, 50};
   - the choice recorded in §4 against 13.4, D13 and 14c.4's gradient report, with the
     two installed traps addressed as D16.3 states.
+
+  **Measured 2026-10-02; KP fired (§12 2026-10-02).** The rates and costs are in
+  `dev/scripts/csmc_variants_16a7_result.md`, at N = 50, the largest. The smaller
+  N were not run, since N = 50 decides KP. The choice moves to 16a.7a, and the
+  full-scale check to 16a.7b.
+- [ ] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
+  Gibbs, and measure it on M0. Verify by:
+  - a unit test that the reference's backward chain uses the stage moves in reverse
+    and returns its own path;
+  - a unit test that the AIS weight is unbiased: on the toy, its mean matches plain
+    importance sampling's within 3 SE;
+  - V5 in both cases with the annealed kernel, at a short schedule (K = 5), since the
+    construction's correctness does not depend on K;
+  - per-window update rates and cost per sweep on M0's five cells, at N ∈ {2, 5} and
+    K ∈ {20, 50, 100};
+  - the choice, or KP, recorded in §4.
+- [ ] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
+  transcript-weighted rank of the true path's panel pools among proposals from its
+  own state, on five independent 15.7-truth cells (30001 to 30005), with each pool's
+  ranks uniform by KS at p > 0.01 after Bonferroni over the 17 pools.
 - [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
@@ -721,6 +783,49 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-02 — KP fired; each window's proposal is annealed
+
+**Status: approved 2026-10-02.** You chose this over revisiting the observation
+floor or conditioning the path on transcripts alone.
+
+**Trigger:** task 16a.7's variant measurement (jobs 17878617 to 17878621, 17882309
+to 17882311 and merge 17884470; `dev/scripts/csmc_variants_16a7_result.md`).
+- **The rates.** At N = 50 on M0's five cells over 40 sweeps, PG, ancestor sampling
+  at lag 1 and 5, and full PGAS each leave a window that never changed. On
+  full-scale cell 30001, PG changed none of 840 window-sweeps.
+- **The cause** (jobs 17879029 and 17879030). The transcript part of the weight is
+  the same across particles. The metabolite part puts proposals a mean 570 to
+  1,870 nats below the reference on M0, and 40 to 400 at full scale, within one
+  window. `M_pi_c`, `M_3pg_c` and `M_2pg_c` carry it: they drain toward empty, and
+  their response to the path is nonlinear. Every reaction's count and exposure
+  explain 50 to 59% of it on M0, and protein counts at most 16%.
+- **Not a proposal error on M0.** The true path's ranks among proposals are uniform
+  over 50 windows (job 17880206). At full scale they are a watch item (job
+  17880205).
+- **A bug, fixed at `2566e79`.** Ancestor sampling's future replay threw on a firing
+  with zero propensity. That firing now gives density zero.
+
+**Change.**
+- **D16.3:** each window's proposal is AIS over π_β ∝ q · w^β, with resample-the-tail
+  MH moves and a conditional backward chain for the reference, under particle
+  Gibbs. Its cost, about N(K + 1) cycles per sweep, is stated, and is unfundable at
+  full scale under the cap.
+- **§8 KP:** annotated as fired, with the remaining fallback named.
+- **§9:** the weight-degeneracy question is resolved, and a full-scale proposal
+  question is added.
+- **§10:** R16.7.
+- **§11:** 16a.7 is annotated, and 16a.7a and 16a.7b are added.
+
+**Rejected:**
+- **More particles or ancestor sampling.** The gap is hundreds of nats inside one
+  window.
+- **A shorter window.** The data arrive every 60 s.
+- **K1's ladder.** M0 fails in window 1.
+- **A linear tilt toward the observed pools.** It explains at most about half the
+  variance on M0.
+
+*Sections:* D16.3, §8, §9, §10, §11 16a.7, 16a.7a and 16a.7b.
 
 ### 2026-10-01 — the bridge cap's +20 is a floor, and M0 is built before block 1
 
