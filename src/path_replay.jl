@@ -116,6 +116,9 @@ Requires a replay built with `density = true`.
 function path_logdensity(r::PathReplay)
     r.density || throw(ArgumentError(
         "this replay was built without density = true, so it accumulated nothing"))
+    # Once a firing was impossible the density is zero, whatever the
+    # exposures accrued from the negative counts that followed.
+    r.logsum == -Inf && return -Inf
     return r.logsum - sum(r.exposure)
 end
 
@@ -155,7 +158,11 @@ function replay_step!(d::HandshakeDriver, r::PathReplay)
         if r.density
             τ = p.times[r.next]
             _accrue_exposure!(r, d, t, τ)
-            r.logsum += log(d.events.rates[k](d.jump.u, d.jump.p, τ))
+            # A firing with zero propensity cannot happen from this state, so the
+            # path has density zero. Applying it anyway can leave a count
+            # negative and later propensities below zero, so none is logged.
+            λ = d.events.rates[k](d.jump.u, d.jump.p, τ)
+            r.logsum += λ > 0 ? log(λ) : -Inf
             r.counts[k] += 1
             t = τ
         end

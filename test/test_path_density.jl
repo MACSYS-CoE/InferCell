@@ -26,6 +26,19 @@ _label_index(d, l) = findfirst(==(l), d.events.labels)
         @test r.exposure[tx] ≈ 5k atol = 1e-12
     end
 
+    @testset "an impossible path has density zero, not an error" begin
+        # Ancestor sampling replays the reference's future from another
+        # particle's state, where a recorded firing can be impossible. Decay at
+        # zero transcripts leaves the count at −1, and translation's propensity
+        # then reads below zero (16a.7, job 17878618 task 4).
+        m = ToyExpression()
+        d = build_problem([ToyPool(kcat = 0.0), m]; tspan = (0.0, 2.0))
+        dec, tl = _label_index(d, :ToyExpression_2), _label_index(d, :ToyExpression_3)
+        path = JumpPath([0.5, 1.0], [dec, tl], d.events.labels)
+        r = replay!(d, path, 2; density = true)
+        @test path_logdensity(r) == -Inf
+    end
+
     @testset "hand check: rates 2× apart across a rebuild at 60 − 1 s" begin
         m = ToyRebuiltExpression()                # k_tx rebuilt every 60 s from ATP
         d = build_problem([toy_slow_pool(), m]; tspan = (0.0, 120.0))
