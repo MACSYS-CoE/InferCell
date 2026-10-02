@@ -34,7 +34,7 @@ function ks(u)
 end
 
 function ranks(scale, ncells, K)
-    out = Vector{Vector{Float64}}[]          # per window, per pool rank
+    out = Vector{Float64}[]                  # per window, per pool rank
     for c in 1:ncells
         x = cell(scale, c)
         rows = x.spec.panel_rows
