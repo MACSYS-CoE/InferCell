@@ -48,4 +48,6 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 17933661, 17933662 | 16a.7a | Collapse attribution at the cited detection floor (of record) | 1 | | 0.28 |
 
-**16a total: about 293.3 CPU-h.**
+| 17934962 | 16a.7 | Bulk identifiability from 15.8's run (of record) | 1 | 0:03:31 | 0.06 |
+
+**16a total: about 293.4 CPU-h.**

@@ -4,7 +4,34 @@
 **Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
 sub-spec, merged 2026-09-30.
 
-## Latest: option 1, the detection floor, makes the panel uninformative (2026-10-03)
+## Latest: population-average metabolites keep F6's ptsG cell; the ENO cell was never resolved (2026-10-03)
+
+**The route so far today.**
+- The detection floor (below) made the per-cell panel uninformative.
+- A cut posterior at the history was considered and rejected. It blocks
+  metabolites → gene expression by construction, so F6's ptsG cell would be zero.
+  The parent's Amendment 4 dropped the cut for the same reason. The metabolic
+  constants also sit in both modules (block 1's path density).
+- So the recommendation is population-average (bulk) metabolites, inferred jointly.
+  You asked for the identifiability check first.
+
+**The check** (`dev/scripts/bulk_identifiability_16a7_result.md`, job 17934962)
+reuses 15.8's run, with the metabolite rows floored at a bulk assay CV.
+- **ptsG's promoter from metabolites only shrinks** at a realistic CV: 0.10 (noise
+  bracket 0.19) at 10%, and 0.19 (0.36) at 20%. It holds on 7 save points.
+- **ENO from transcripts only does not resolve, at any CV.** Its ratio is 0.17,
+  against a bracket of 0.18. That was already true in 15.8's run, which tested the
+  joint rank only. It is unresolved rather than refuted: ensemble means drop what
+  per-cell counts carry, and the run's transcript noise is as large as the signal.
+
+**Next: your decision.**
+1. Amend the parent spec and the sub-spec to bulk metabolites: 15.6 to 15.8's
+   observation model, phase 16's target, and block 3 conditioned on transcripts
+   plus the cells' share of the bulk likelihood.
+2. Decide how F6's ENO cell is tested: per-cell transcripts in the posterior
+   itself (16b), or a dedicated check first.
+
+## Earlier: option 1, the detection floor, makes the panel uninformative (2026-10-03)
 
 You chose option 1 below. Its result is in
 `dev/scripts/csmc_variants_16a7_result.md`, under "Option 1".
