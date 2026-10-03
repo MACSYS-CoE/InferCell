@@ -51,6 +51,12 @@ const THRESHOLD = 0.10            # D16.3's update-rate threshold, ⚠️ DRAFT
 const VARIANTS = ["pg", "l1", "l5", "full", "a20", "a50", "a100"]
 const NS = [5, 10, 20, 50, 2]
 const BETA1 = 1e-4
+# CSMC_FLOOR=F re-observes the panel with its floor at F particles instead of
+# one, keeping each observation's own noise draw: y_F = max(x, F) · y / max(x, 1).
+# The likelihood's floor moves with it. The floor a cited single-cell detection
+# limit implies is about 1.2e5 molecules (0.2 amol of NAD⁺; Lin et al., Anal.
+# Chem. 2011), which is option 1 of the KP decision (handoff 2026-10-02).
+const OBS_FLOOR = parse(Float64, get(ENV, "CSMC_FLOOR", "1.0"))
 
 schedule(variant) = startswith(variant, "a") ?
     geometric_schedule(parse(Int, variant[2:end]); β1 = BETA1) : nothing
@@ -106,7 +112,8 @@ function cell(scale, c)
         noise = Xoshiro(FULL_NOISE_SEED + 1000 * (c - 1))      # cell 30001 keeps 1508
         met = max.(lat, 1.0) .* exp.(FULL_SIGMA .* randn(noise, size(lat)))
     end
-    spec = CSMCSpec(tm, rows; sigma = σ, cap_floor = bridge_cap(maximum(tx)))
+    OBS_FLOOR == 1 || (met = max.(lat, OBS_FLOOR) .* met ./ max.(lat, 1.0))
+    spec = CSMCSpec(tm, rows; sigma = σ, floor = OBS_FLOOR, cap_floor = bridge_cap(maximum(tx)))
     return (; base, spec, data = CellData(tx, met), ref = window_events(path, T), T, seed, σ, ms)
 end
 
