@@ -1,10 +1,35 @@
 # Handoff
 
-**Session date:** 2026-10-02
 **Branches:** `phase-16a-sampler`, pushed 2026-10-02 (no PR yet). #80, the phase
 16 sub-spec, merged 2026-09-30.
 
-## Latest: annealed windows pass V5 but miss the threshold; KP fires again (2026-10-02, evening)
+**Session date:** 2026-10-03
+
+## Latest: option 1, the detection floor, makes the panel uninformative (2026-10-03)
+
+You chose option 1 below. Its result is in
+`dev/scripts/csmc_variants_16a7_result.md`, under "Option 1".
+- **The cited single-cell limit** is about 1.2 × 10⁵ molecules (0.2 amol of NAD⁺;
+  Lin et al., *Anal. Chem.* 2011). 16 of the 17 panel pools in a syn3A cell sit
+  below it. Only `M_fdp_c` (about 400k) is above.
+- **At that floor the weight gap vanishes,** to 0.00 ± 0.02 nats (jobs 17933661 and
+  17933662). The sampler would mix only because the panel says nothing about the
+  path.
+- **So the one-particle floor at σ = 0.1 is an idealisation no assay meets,** and it
+  is what makes exact path inference infeasible. 15.6's panel and 15.8's
+  identifiability were measured under it.
+- 16a stands at about 293 of its 5k CPU-h.
+
+**Next: your decision, now about the claim, not the sampler.**
+1. **Keep the idealised panel as a stated idealisation.** Then 16a.7 has no
+   affordable exact sampler, and the path is conditioned on transcripts alone,
+   labelled in T3.
+2. **Adopt a realistic observation model** (the cited floor, or bulk metabolite
+   averages). That is a parent-spec amendment to 15.6, 15.7 and 15.8. 15.8's
+   identifiability would need re-measuring, and ENO and FBA would rest on FDP.
+3. **Something else you have in mind.**
+
+## Earlier: annealed windows pass V5 but miss the threshold; KP fires again (2026-10-02, evening)
 
 You chose option 1 below. It is §12 2026-10-02 in the sub-spec, with tasks
 16a.7a and 16a.7b. `dev/scripts/csmc_variants_16a7_result.md` has every number.

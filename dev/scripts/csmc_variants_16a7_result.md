@@ -178,3 +178,35 @@ a fresh particle displaces the reference at N = 5.
   times that. Both are above 16a's cap and near or above the phase's.
 
 **KP fires again on M0 within the cap.** This needs your decision; see the handoff.
+
+## Option 1: the observation floor at a cited detection limit (jobs 17933661 and 17933662 at `10cf581`, 2026-10-03)
+
+**The cited limit.** The most sensitive single-cell metabolite detection limit
+found is 0.2 amol of NAD⁺, by capillary electrophoresis with enzymatic cycling
+(Lin, Trouillon, Safina and Ewing, "Chemical Analysis of Single Cells", *Anal. Chem.*
+2011). That is about 1.2 × 10⁵ molecules. Single-cell mass spectrometry reports
+limits of order an attomole (6 × 10⁵ molecules) and above.
+
+**The panel against it.** In a syn3A cell the 17 panel pools hold from about 4
+(`M_lac__L_e`) to about 400,000 (`M_fdp_c`) particles. Only `M_fdp_c` is above
+1.2 × 10⁵; the next largest, `M_atp_c`, holds about 39,000.
+
+**The run.** The collapse attribution reran with the panel re-observed at a floor
+of 1.2 × 10⁵ particles, keeping each observation's own noise draw
+(`CSMC_FLOOR=120000`).
+- **The metabolite log-likelihood gap vanishes.** Proposal minus reference is
+  0.00 ± 0.02 nats in every window, on M0 and at full scale, against 40 to 1,870
+  nats at the one-particle floor.
+- **The pools still move as before,** for example 3PG and 2PG on M0. The panel can
+  no longer see them.
+
+**What it means.**
+- **At a cited detection limit, the per-cell panel carries almost no information
+  about a syn3A cell's path.** The sampler would then mix, as V5's metabolite-off
+  half does, but because the data say nothing, not because the sampler improved.
+- **The panel at a one-particle floor and σ = 0.1 is an idealisation that no
+  existing single-cell assay achieves.** It is the idealisation that makes exact
+  path inference infeasible.
+- **This reaches past 16a.7.** 15.6's panel choice and 15.8's rank-6 identifiability
+  were measured at the one-particle floor. At this floor, ENO's and FBA's per-cell
+  identifiability would rest on `M_fdp_c` alone. That has not been measured.
