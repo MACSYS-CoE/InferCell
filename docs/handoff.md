@@ -1,9 +1,8 @@
 # Handoff
 
-**Branches:** `phase-16a-sampler`, pushed 2026-10-02 (no PR yet). #80, the phase
-16 sub-spec, merged 2026-09-30.
-
 **Session date:** 2026-10-03
+**Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
+sub-spec, merged 2026-09-30.
 
 ## Latest: option 1, the detection floor, makes the panel uninformative (2026-10-03)
 
