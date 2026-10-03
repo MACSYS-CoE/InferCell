@@ -50,4 +50,6 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 17934962 | 16a.7 | Bulk identifiability from 15.8's run (of record) | 1 | 0:03:31 | 0.06 |
 
-**16a total: about 293.4 CPU-h.**
+| 17938700–17938702 | 16a.7 | F6 ENO cell: full-path information bound, 40 cells (of record) | 1 | | 5.07 |
+
+**16a total: about 298.5 CPU-h.**

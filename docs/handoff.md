@@ -4,7 +4,27 @@
 **Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
 sub-spec, merged 2026-09-30.
 
-## Latest: population-average metabolites keep F6's ptsG cell; the ENO cell was never resolved (2026-10-03)
+## Latest: F6's ENO cell is refuted; the seam carries information one way (2026-10-03, evening)
+
+`dev/scripts/eno_path_information_16a7_result.md` (jobs 17938700 to 17938702):
+- **The bound.** Even a cell's full path, every event and its time, carries almost
+  no information about ENO. Over 200 cells, the posterior SD stays at 99.9% of the
+  prior (bootstrap 0.998 to 1.000). Transcripts, a function of the path, carry no
+  more. So F6's "ENO under transcripts only" cell fails at 15.7's truth, whatever
+  the observation model or sampler.
+- **Why.** A 20% change in ENO moves a whole cell's path log-density by about 0.003
+  nats. The pools reach the stochastic block only through rate constants rebuilt
+  once a minute.
+- **The other direction holds.** Metabolites → ptsG survives even bulk data (the
+  check below).
+
+**Next: your decision on the amendment**, which now has two parts:
+1. Bulk metabolites, inferred jointly (below).
+2. The parent's claim (§0, §1, §6 F6, C3): the seam is shown to carry information
+   one way. The ENO cell is reported as refuted by this bound, a negative result
+   stated as such, not dropped or rescued.
+
+## Earlier: population-average metabolites keep F6's ptsG cell; the ENO cell was never resolved (2026-10-03)
 
 **The route so far today.**
 - The detection floor (below) made the per-cell panel uninformative.
