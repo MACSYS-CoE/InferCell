@@ -31,6 +31,12 @@
 #   final          pool the chains, less BURN sweeps each, and test against the
 #                  last merge's exact quantiles, with FBA's from fbamerge if present
 #
+# V4_BULK=1 runs V4 on block 1's bulk form (task 16a.7c, §12 2026-10-05): the
+# three cells' panel is observed in bulk, one measurement per pool per save of
+# their mean, at the replicate's σ (`m0_dataset`'s `bulk`). The grid's
+# likelihood averages the three replays and scores the mean directly, sharing no
+# code with block 1's bulk term. Its files go to block1_16a5_bulk/.
+#
 # Usage: julia --project dev/scripts/block1_16a5.jl <stage> [<n>] [<task>]
 # Regenerate: dev/scripts/block1_16a5.sh submits the stages with dependencies.
 
@@ -39,10 +45,11 @@ using Random
 using Serialization
 using Statistics
 using Printf
-using Distributions: LogNormal, logpdf, params
+using Distributions: LogNormal, Normal, logpdf, params
 
 const STAGE = ARGS[1]
-const DIR = joinpath(@__DIR__, "block1_16a5")
+const BULK = get(ENV, "V4_BULK", "0") == "1"
+const DIR = joinpath(@__DIR__, BULK ? "block1_16a5_bulk" : "block1_16a5")
 const REPLICATE = 16085
 const NCELLS = 3
 const NCHAINS = 20
@@ -93,7 +100,7 @@ function grid_logpost(u)
     writes = derived_ode_values(ms, [f => exp(x) for (f, x) in zip(FW, u)])
     names = InferCell._block_names(ms, :ode)
     rows = [findfirst(==(s), names) for s in M0_PANEL]
-    for c in 1:NCELLS
+    preds = map(1:NCELLS) do c
         d = build_m0()
         set_parameters!(d, ms, vcat(S.cme, writes))
         r = PathReplay(S.paths[c], d; density = true)
@@ -104,8 +111,19 @@ function grid_logpost(u)
             end
             push!(pred, [d.ode.u[i] * d.factor + d.rounding.remainders[i] for i in rows])
         end
-        data = ObservedData(S.ds.times, S.obs[c], M0_PANEL)
-        lp += path_logdensity(r) + observation_loglik(noise, data, i -> pred[i], [S.ds.sigma])
+        lp += path_logdensity(r)
+        if !BULK
+            data = ObservedData(S.ds.times, S.obs[c], M0_PANEL)
+            lp += observation_loglik(noise, data, i -> pred[i], [S.ds.sigma])
+        end
+        pred
+    end
+    if BULK
+        # The mean over cells at each save, scored lognormally at σ, floored at one.
+        for k in 1:(N ÷ 60), j in eachindex(M0_PANEL)
+            xbar = sum(preds[c][k][j] for c in 1:NCELLS) / NCELLS
+            lp += logpdf(Normal(log(max(xbar, 1.0)), S.ds.sigma), log(S.ds.bulk[j, k]))
+        end
     end
     return lp
 end
@@ -191,7 +209,7 @@ elseif STAGE == "chain"
     task = parse(Int, ARGS[2])
     ex = deserialize(joinpath(DIR, "exact.jls"))
     b = Block1(ms, [Block1Cell(snapshot(S.base), S.paths[c], S.obs[c]) for c in 1:NCELLS];
-               forwards = FW, panel = M0_PANEL)
+               forwards = FW, panel = M0_PANEL, bulk = BULK ? S.ds.bulk : nothing)
     st = Block1State(b, ex.starts[task + 1], S.ds.sigma)
     rng = Xoshiro(160_860 + task)
     draws = zeros(SWEEPS, 2)
@@ -232,7 +250,7 @@ elseif STAGE == "check"
     # difference beyond roundoff means one of the two is wrong.
     ex = deserialize(joinpath(DIR, "exact_final.jls"))
     b = Block1(ms, [Block1Cell(snapshot(S.base), S.paths[c], S.obs[c]) for c in 1:NCELLS];
-               forwards = FW, panel = M0_PANEL)
+               forwards = FW, panel = M0_PANEL, bulk = BULK ? S.ds.bulk : nothing)
     (cE, sE), (cF, sF) = ex.moments
     pts = [[cE + a * sE, cF + f * sF] for a in (-2.0, 0.0, 2.0) for f in (-3.0, -1.0, 0.0, 1.0, 3.0)]
     diffs = map(pts) do u
@@ -254,8 +272,8 @@ elseif STAGE == "final"
     end
     chains = [deserialize(joinpath(DIR, "chain_$(k).jls")).draws[(BURN + 1):end, :]
               for k in 0:(NCHAINS - 1)]
-    @printf("V4 on M0: replicate %d, %d cells, σ = %.4f held; %d chains × %d sweeps\n",
-            REPLICATE, NCELLS, S.ds.sigma, NCHAINS, size(chains[1], 1))
+    @printf("V4 on M0%s: replicate %d, %d cells, σ = %.4f held; %d chains × %d sweeps\n",
+            BULK ? " (bulk metabolites)" : "", REPLICATE, NCELLS, S.ds.sigma, NCHAINS, size(chains[1], 1))
     ok = true
     for (j, name) in enumerate(("ln kcatF_ENO", "ln kcatF_FBA"))
         for (p, q) in zip(ex.ps, ex.quantiles[j])

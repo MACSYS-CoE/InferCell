@@ -37,7 +37,14 @@ using Printf
 using Distributions: Chisq, cdf, Normal, logpdf
 
 const STAGE, CASE = ARGS[1], ARGS[2]
-const DIR = joinpath(@__DIR__, "csmc_v5_16a7", CASE)
+# V5_FRESH=1: a second, independent rejection reference, from seeds offset by
+# 50,000,000, in its own directory (task 16a.7c's watch item on M0's window-2
+# births, which every comparison so far made against one reference set). The
+# `refcheck` stage tests earlier kernel draws, which do not depend on the
+# reference, against it.
+const FRESH = get(ENV, "V5_FRESH", "0") == "1"
+const DIR = joinpath(@__DIR__, "csmc_v5_16a7", FRESH ? CASE * "_fresh" : CASE)
+const SEED_OFFSET = FRESH ? 50_000_000 : 0
 mkpath(DIR)
 const T = 3
 const N_PART = 5
@@ -241,11 +248,88 @@ function bulk_stage(stage, args)
     end
 end
 
+# The fresh reference against the kernel draws in `olddir` (an earlier run's
+# csmc_v5_16a7/<case>): the off half's χ², the per-cell on half's and the bulk
+# half's z, each at the σ that run's prep chose. Every functional is reported,
+# with window 2's births the one in question.
+function chi2_p(a, b)
+    vals = sort(unique(vcat(a, b)))
+    ca = [count(==(v), a) for v in vals]
+    cb = [count(==(v), b) for v in vals]
+    na, nb = length(a), length(b)
+    tab = Tuple{Int, Int}[]
+    oa, ob = 0, 0
+    for (x, y) in zip(ca, cb)
+        oa += x
+        ob += y
+        if (oa + ob) * min(na, nb) / (na + nb) >= 5
+            push!(tab, (oa, ob))
+            oa, ob = 0, 0
+        end
+    end
+    isempty(tab) || (tab[end] = (tab[end][1] + oa, tab[end][2] + ob))
+    stat = 0.0
+    for (x, y) in tab
+        e1, e2 = (x + y) * na / (na + nb), (x + y) * nb / (na + nb)
+        stat += (x - e1)^2 / e1 + (y - e2)^2 / e2
+    end
+    return length(tab) >= 2 ? 1 - cdf(Chisq(length(tab) - 1), stat) : 1.0
+end
+
+function refcheck(olddir)
+    kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
+    @printf("V5 reference check, case %s: %d fresh kept runs from %d (seed offset %d)\n",
+            CASE, length(kept), REJECT_TASKS * RUNS_PER_TASK, SEED_OFFSET)
+    zfun(a, x, w) = begin
+        ess = 1 / sum(w .^ 2)
+        m = sum(w .* x)
+        se = sqrt(sum(w .* (x .- m) .^ 2) / ess)
+        (mean(a) - m) / sqrt(se^2 + var(a) / length(a)), m
+    end
+    for tag in ("", "_a5")
+        f0 = joinpath(olddir, "kernel_off$(tag)_0.jls")
+        isfile(f0) || continue
+        off = reduce(vcat, [deserialize(joinpath(olddir, "kernel_off$(tag)_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+        on = reduce(vcat, [deserialize(joinpath(olddir, "kernel_on$(tag)_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+        σ = deserialize(joinpath(olddir, "prep.jls")).sigma
+        lw = [metloglik(k.lat, σ) for k in kept]
+        w = exp.(lw .- maximum(lw))
+        w ./= sum(w)
+        @printf("kernel%s: off, %d draws against %d fresh runs; on at σ = %.3g, fresh ESS %.0f\n",
+                tag == "" ? "" : " (annealed, K = 5)", length(off), length(kept), σ, 1 / sum(w .^ 2))
+        for (j, name) in enumerate(FNAMES)
+            a = [o.f[j] for o in off]
+            b = [k.f[j] for k in kept]
+            z, m = zfun([o.f[j] for o in on], [k.f[j] for k in kept], w)
+            @printf("  %s: off kernel %.4f, fresh %.4f, χ² p = %.3f; on kernel %.4f, fresh %.4f, z = %.2f\n",
+                    name, mean(a), mean(b), chi2_p(a, b), mean(o.f[j] for o in on), m, z)
+        end
+    end
+    bp = joinpath(olddir, "bulkprep.jls")
+    if isfile(bp)
+        pr = deserialize(bp)
+        bk = reduce(vcat, [deserialize(joinpath(olddir, "bulkkernel_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+        rng = Xoshiro(16_092)
+        triples = [rand(rng, 1:length(kept), BULK_C) for _ in 1:BULK_TRIPLES]
+        lw = [bulkloglik([kept[i].lat for i in t], pr.z, pr.sigma) for t in triples]
+        w = exp.(lw .- maximum(lw))
+        w ./= sum(w)
+        @printf("bulk: %d kernel draws; fresh triples %d, σ_b = %.3g, ESS %.0f\n",
+                length(bk), length(triples), pr.sigma, 1 / sum(w .^ 2))
+        for (j, name) in enumerate(FNAMES)
+            x = [mean(kept[i].f[j] for i in t) for t in triples]
+            z, m = zfun([o.f[j] for o in bk], x, w)
+            @printf("  %s (mean over cells): kernel %.4f, fresh %.4f, z = %.2f\n",
+                    name, mean(o.f[j] for o in bk), m, z)
+        end
+    end
+end
+
 if STAGE == "reject"
     task = parse(Int, ARGS[3])
     kept = []
     for r in 1:RUNS_PER_TASK
-        seed = 1_607_000_000 + task * RUNS_PER_TASK + r
+        seed = 1_607_000_000 + SEED_OFFSET + task * RUNS_PER_TASK + r
         ws, tx, lat, k = simulate(seed)
         tx == DATA_TX && push!(kept, (seed = seed, ws = ws, lat = lat, f = functionals(ws), k = k))
     end
@@ -389,4 +473,6 @@ elseif STAGE == "merge"
     println(ok ? "V5 ($CASE) passes" : "V5 ($CASE) FAILS")
 elseif STAGE in ("bulkprep", "bulkkernel", "bulkmerge")
     bulk_stage(STAGE, ARGS)
+elseif STAGE == "refcheck"
+    refcheck(ARGS[3])
 end
