@@ -4,7 +4,31 @@
 **Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
 sub-spec, merged 2026-09-30.
 
-## Latest: the amendment is applied, and bulk metabolites make the path update mix (2026-10-05)
+## Latest: 16a.7c is met; PG at N = 10 under bulk metabolites (2026-10-05, evening)
+
+All three follow-ups are done (`dev/scripts/csmc_bulk_16a7c_result.md`):
+- **The window-2 watch item was the reference.** A fresh rejection set (8,884 M0
+  runs) and the pooled set (17,594) put the production bulk kernel at |z| ≤ 1.79.
+  - My first bulk merge's SE ignored that triples share runs, which overstated its
+    z-scores. It now bootstraps over runs.
+  - New watch item, annealed kernel only (off by default): M0's window-2
+    translation reads low against every reference (z = −2.90 pooled).
+- **V4 passes on block 1's bulk form,** with all ten quantiles within 3 SE.
+  - FBA's posterior has a long right tail under bulk data. The V4 script now
+    extends a truncated FBA axis, and has an ENO-fine grid.
+- **15.7b is done.** Two cells resimulate to the 15.7 record. The bulk data is in
+  `dev/data/corea_dataset_15/meta.md`.
+- **16a.7c is ticked. Chosen: PG, lag 0, N = 10.** 16a stands at about 404 of its
+  5k CPU-h.
+
+**Next:**
+1. **Open a draft PR for `phase-16a-sampler`** and run `/check-PR` before 16a.9.
+   The branch now holds 16a.1 to 16a.8 plus two amendments.
+2. **Then 16a.9:** the M0 reference run (V6) and SBC (V7), under bulk metabolites,
+   with PG at N = 10.
+3. Prune the run worktrees under `.worktrees/`, and `scancel 17853654`.
+
+## Earlier: the amendment is applied, and bulk metabolites make the path update mix (2026-10-05)
 
 **Amendment applied.** Bulk metabolites, and the seam's ENO cell as a measured
 null, are in the parent spec's §12 and the sub-spec's §12 of 2026-10-05. The

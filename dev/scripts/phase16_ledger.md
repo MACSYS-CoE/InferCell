@@ -60,4 +60,6 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18060205–18060213, 18061130–18061135 | 16a.7c | Fresh V5 references, M0 and toy, and the reference checks (of record) | 1 | | 25.01 |
 
-**16a total: about 359.1 CPU-h.**
+| 18060214–18060217, 18061281, 18061355–18061363 | 16a.7c | V4 on block 1's bulk form: grids 1 to 3, FBA- and ENO-fine grids, chains, check, final (of record) | 1 | | 45.01 |
+
+**16a total: about 404.1 CPU-h.**

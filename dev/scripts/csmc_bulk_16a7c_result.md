@@ -105,3 +105,48 @@ combined: 17,594 M0 runs and 22,156 toy runs.
   window 2 reads low against every reference: −1.97, −3.14 fresh and −2.90 pooled.
   The annealed window is off by default and not used in production. It must be
   investigated before it is ever switched on.
+
+## V4 on block 1's bulk form: passes (jobs 18060214 to 18060217, 18061281, 18061355 to 18061363)
+
+**The setup:** M0 replicate 16085, three cells. Their panel is observed in bulk, one
+measurement per pool per save of their mean, at σ = 0.0727, held. The grid's
+likelihood averages the three replays and scores the mean by its own code (`V4_BULK=1`).
+
+**What the grids needed:**
+- **Grids 1 and 2** ran at `cfd41dd`.
+- **Merge 2 found mass at both axes' upper edges** (ENO 7.1e-6, FBA 1.5e-5). FBA's
+  posterior has a long right tail under bulk data. The script refused a truncated
+  FBA axis, so it was generalised at `5c40835`: grid 3 is recomputed whole, 81 × 81,
+  on ln ENO 3.80 to 4.63 and ln FBA 1.08 to 6.92.
+- **Merge 3** (`4e4a9b6`): ln ENO 4.2147 ± 0.0264 and ln FBA 4.0007 ± 0.1562, with
+  edge mass 6e-47 and 5e-17.
+- **The widened grid has about two points per ENO SD.** So ENO's exact quantiles come
+  from a new ENO-fine grid (161 × 41, edge mass at most 1.9e-7), as FBA's come from
+  the FBA-fine grid.
+
+**The target check:** block 1's bulk target and the grid's log posterior differ by a
+constant to 1.7e-12 over 15 points.
+
+**The final test:** 20 chains × 45 sweeps after burn-in, σ held. Chain fraction below
+each exact quantile:
+
+| Constant | 5% | 25% | 50% | 75% | 95% |
+|---|---|---|---|---|---|
+| ln ENO | 0.042 ± 0.007 | 0.262 ± 0.014 | 0.491 ± 0.018 | 0.742 ± 0.014 | 0.941 ± 0.010 |
+| ln FBA | 0.062 ± 0.009 | 0.281 ± 0.012 | 0.490 ± 0.016 | 0.742 ± 0.013 | 0.934 ± 0.008 |
+
+**All ten are within 3 SE. V4 passes.** The largest deviation is FBA's 95% quantile,
+at −1.95 SE. About 45 CPU-h.
+
+## 16a.7c: met
+
+| Item | Result |
+|---|---|
+| M0 bulk datasets | `m0_dataset` |
+| Full-scale bulk dataset | parent 15.7b |
+| B1's bulk form | V4 passes |
+| B3's bulk weight | unit-tested |
+| V5, both cases | passes against the pooled reference |
+| Update rates | every window above 10% from N = 10 |
+
+**Chosen: PG, lag 0, N = 10.** N = 20 is the fallback if V6 shows slow early windows.

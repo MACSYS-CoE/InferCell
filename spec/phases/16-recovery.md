@@ -427,6 +427,12 @@ is now annealed importance sampling (AIS) inside the window:
   assumptions. **The annealed sampler is affordable on M0, not at full scale
   under the cap.**
 
+**Chosen 2026-10-05 (16a.7c): PG, lag 0, N = 10, under bulk metabolites.** Every
+window updates in at least 28% of sweeps on M0 at about 8.4 cycles per cell-sweep.
+N = 20 is the fallback if V6 shows slow early windows. Against 13.4, D13 and 14c.4:
+the path stays exact, at the published drain granularity, with no gradient
+needed.
+
 **Amended 2026-10-05 (§12): under bulk metabolites, the window weight's metabolite
 term is the bulk likelihood with this cell's particle substituted.**
 - **The weight.** For cell c, `g_m` becomes the bulk likelihood at
@@ -753,7 +759,7 @@ and against a long reference where it is not. Then measure what one posterior co
   ranks uniform by KS at p > 0.01 after Bonferroni over the 17 pools.
   **Passed 2026-10-02** (jobs 17904315 and 17904316): over 525 windows, the smallest
   KS p is 0.057, and every Bonferroni p is ≥ 0.97.
-- [ ] 16a.7c (§12 2026-10-05) Implement bulk metabolites in the sampler, and choose
+- [x] 16a.7c (§12 2026-10-05) Implement bulk metabolites in the sampler, and choose
   N. Verify by:
   - M0 datasets with the bulk modality (parent 15.7b);
   - B1 scoring `x̄`, with V4 rerun on its bulk form;
@@ -769,8 +775,17 @@ and against a long reference where it is not. Then measure what one posterior co
     cycles per cell-sweep. **N = 10 is proposed**, with N = 20 as the fallback.
   - V5's bulk half passes on both cases. **Watch item:** births in window 2 on M0
     read high in every comparison against the one shared rejection reference.
-  - V4 on the bulk form and the full-scale 15.7b are still open, so this task stays
-    unticked.
+  - V4 on the bulk form and the full-scale 15.7b were still open at that point.
+
+  **Met 2026-10-05** (`dev/scripts/csmc_bulk_16a7c_result.md`).
+  - **V4 on the bulk form passes**, with all ten quantiles within 3 SE (jobs
+    18061355 to 18061363). The block 1 target check agrees to 1.7e-12.
+  - **15.7b is done.**
+  - **The window-2 watch item is resolved** by a fresh, independent reference. The
+    production bulk kernel passes V5 at |z| ≤ 1.79 against the pooled reference.
+  - **The first bulk V5 merge understated its reference SE** (shared runs). That is
+    fixed with a bootstrap.
+  - **Chosen: PG, lag 0, N = 10.**
 - [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
