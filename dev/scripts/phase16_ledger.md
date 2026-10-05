@@ -58,4 +58,6 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18060223 | 15.7b | Bulk observations for 15.7, two cells resimulated (of record) | 1 | 0:03:22 | 0.06 |
 
-**16a total: about 334.1 CPU-h.**
+| 18060205–18060213, 18061130–18061135 | 16a.7c | Fresh V5 references, M0 and toy, and the reference checks (of record) | 1 | | 25.01 |
+
+**16a total: about 359.1 CPU-h.**

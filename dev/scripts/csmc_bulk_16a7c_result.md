@@ -69,3 +69,39 @@ kernel puts more births in window 2 than the reference does.
   but the grid check has not been rerun.
 - **The full-scale half of parent 15.7b.** 15.7's bulk observations need the latent
   record regenerated, about 1.8 CPU-h.
+
+## The watch item resolved: a fresh, independent V5 reference (2026-10-05)
+
+**The fresh reference** (`V5_FRESH=1`, jobs 18060205 and 18060210 at `cfd41dd`):
+a second rejection set from seeds offset by 50,000,000. M0 kept 8,884 runs of
+100,000, and the toy 11,232 of 500,000.
+
+**The checks** (`refcheck`, jobs 18060206 to 18060213) tested the earlier kernel
+draws, which do not depend on the reference. The pooled checks (`V5_POOL`, jobs
+18061130 to 18061135 at `1190cdc`) then ran against the fresh and original sets
+combined: 17,594 M0 runs and 22,156 toy runs.
+
+**A flaw in the first bulk merge, fixed at `1190cdc`.**
+- **The flaw:** its reference SE was ESS-based over 200,000 triples drawn from
+  about 4,400 runs. The triples share runs, so that SE was far too small. The first
+  reference read window-2 births at 0.009 with an SE under 0.0005; the fresh one
+  read 0.013.
+- **So the first bulk z-scores were overstated,** including 2.85 and −2.81.
+- **The fix:** the reference SE is now a bootstrap over runs.
+
+**Against the pooled reference:**
+
+| Sampler | M0 | Toy |
+|---|---|---|
+| PG per cell, metabolites off | χ² p ≥ 0.049 | χ² p ≥ 0.058 |
+| PG per cell, metabolites on (σ inflated as before) | \|z\| ≤ 1.22 | \|z\| ≤ 1.89 |
+| **PG bulk, the production kernel** (bootstrap SE) | \|z\| ≤ 1.79 | \|z\| ≤ 1.16 |
+| Annealed, K = 5 (off by default) | \|z\| ≤ 1.48, except translation w2 on at **−2.90** | \|z\| ≤ 1.05 |
+
+- **Window-2 births on M0 agree with the pooled reference:** z = 0.09 per cell and
+  0.81 bulk. The watch item was the first reference set coming out low.
+- **The production kernels pass V5 cleanly** on both cases.
+- **New watch item, annealed kernel only:** M0's metabolite-on translation in
+  window 2 reads low against every reference: −1.97, −3.14 fresh and −2.90 pooled.
+  The annealed window is off by default and not used in production. It must be
+  investigated before it is ever switched on.
