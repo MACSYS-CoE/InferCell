@@ -149,6 +149,98 @@ const FNAMES = vcat(["births w$m" for m in 1:T], ["translation w$m" for m in 1:T
 
 metloglik(lat, σ) = sum(logpdf(Normal(log(max(x, 1.0)), σ), log(y)) for (x, y) in zip(lat, DATA_MET))
 
+# --- V5's bulk "on" half (task 16a.7c, §12 2026-10-05) ----------------------
+#
+# A population of three cells, each with the data's transcripts, so each cell's
+# exact draws are the kept runs and draws of different cells are independent.
+# The data's three true cells are kept runs drawn from a fixed seed, and the
+# bulk observation is their mean latent, lognormal at σ0. The reference is
+# random triples of kept runs (the second half), weighted by the bulk likelihood
+# of their mean, with σ_b doubled from σ0 until the weighted ESS is at least
+# 1,000. The kernel scans the three cells in turn, K_SWEEPS times, each
+# conditioned on the other two, from a triple resampled from the weighted first
+# half. Each cell's functionals are averaged over the three cells, which are
+# exchangeable. Expectations must agree within 3 SE.
+const BULK_C = 3
+const BULK_TRIPLES = SMOKE ? 2_000 : 200_000
+
+bulkloglik(lats, z, σ) = sum(logpdf(Normal(log(max(x, 1.0)), σ), log(y))
+                             for (x, y) in zip(sum(lats) ./ BULK_C, z))
+
+function bulk_stage(stage, args)
+    kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
+    n = length(kept)
+    half = n ÷ 2
+    if stage == "bulkprep"
+        rng = Xoshiro(16_090)
+        truth = [kept[rand(rng, 1:n)] for _ in 1:BULK_C]
+        z = sum(t.lat for t in truth) ./ BULK_C
+        z = max.(z, 1.0) .* exp.(SIGMA0 .* randn(rng, size(z)))
+        second = (half + 1):n
+        triples = [rand(rng, second, BULK_C) for _ in 1:BULK_TRIPLES]
+        σ, ess = SIGMA0, 0.0
+        while true
+            lw = [bulkloglik([kept[i].lat for i in t], z, σ) for t in triples]
+            w = exp.(lw .- maximum(lw))
+            ess = sum(w)^2 / sum(w .^ 2)
+            ess >= (SMOKE ? 5 : 1000) && break
+            σ *= 2
+            σ > 100 && error("no σ_b up to 100 gives an ESS of 1,000")
+        end
+        serialize(joinpath(DIR, "bulkprep.jls"), (; z, sigma = σ, ess, triples))
+        @printf("bulk prep %s: %d triples from %d second-half runs; σ_b = %.3g (ESS %.0f)\n",
+                CASE, length(triples), n - half, σ, ess)
+    elseif stage == "bulkkernel"
+        task = parse(Int, args[3])
+        pr = deserialize(joinpath(DIR, "bulkprep.jls"))
+        rng = Xoshiro(16_091_000 + task)
+        spec = CSMCSpec(TM, ROWS; sigma = pr.sigma, cap_floor = bridge_cap(maximum(DATA_TX)))
+        data = CellData(DATA_TX, pr.z)
+        # Exact starts: triples from the first half, resampled by weight.
+        first_half = 1:half
+        starts_pool = [rand(rng, first_half, BULK_C) for _ in 1:(10 * CHAINS_PER_TASK * 50)]
+        lw = [bulkloglik([kept[i].lat for i in t], pr.z, pr.sigma) for t in starts_pool]
+        w = exp.(lw .- maximum(lw))
+        cw = cumsum(w ./ sum(w))
+        out = map(1:CHAINS_PER_TASK) do _
+            t = starts_pool[min(searchsortedfirst(cw, rand(rng)), length(cw))]
+            refs = [kept[i].ws for i in t]
+            lats = [kept[i].lat for i in t]
+            for _ in 1:K_SWEEPS, c in 1:BULK_C
+                others = sum(lats[j] for j in 1:BULK_C if j != c)
+                bulk = bulk_window_observations(pr.z, others, BULK_C)
+                refs[c], _, lats[c] = csmc_sweep(rng, BASE, spec, data, refs[c]; N = N_PART, bulk)
+            end
+            (f = mean(functionals.(refs)),)
+        end
+        serialize(joinpath(DIR, "bulkkernel_$(task).jls"), out)
+        @printf("bulk kernel %s task %d: %d chains\n", CASE, task, length(out))
+    else
+        pr = deserialize(joinpath(DIR, "bulkprep.jls"))
+        on = reduce(vcat, [deserialize(joinpath(DIR, "bulkkernel_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
+        lw = [bulkloglik([kept[i].lat for i in t], pr.z, pr.sigma) for t in pr.triples]
+        w = exp.(lw .- maximum(lw))
+        w ./= sum(w)
+        ess = 1 / sum(w .^ 2)
+        @printf("V5 bulk, case %s: %d cells; σ_b = %.3g, reference ESS %.0f over %d triples; %d kernel draws, N = %d, %d scans\n",
+                CASE, BULK_C, pr.sigma, ess, length(pr.triples), length(on), N_PART, K_SWEEPS)
+        ok = true
+        for (j, name) in enumerate(FNAMES)
+            x = [mean(kept[i].f[j] for i in t) for t in pr.triples]
+            m_ref = sum(w .* x)
+            se_ref = sqrt(sum(w .* (x .- m_ref) .^ 2) / ess)
+            a = [o.f[j] for o in on]
+            m_k, se_k = mean(a), std(a) / sqrt(length(a))
+            den = sqrt(se_ref^2 + se_k^2)
+            z = den > 0 ? (m_k - m_ref) / den : (m_k == m_ref ? 0.0 : Inf)
+            ok &= abs(z) <= 3
+            @printf("  %s (mean over cells): kernel %.3f ± %.3f, reference %.3f ± %.3f; z = %.2f%s\n",
+                    name, m_k, se_k, m_ref, se_ref, z, abs(z) <= 3 ? "" : "  FAIL")
+        end
+        println(ok ? "V5 bulk ($CASE) passes" : "V5 bulk ($CASE) FAILS")
+    end
+end
+
 if STAGE == "reject"
     task = parse(Int, ARGS[3])
     kept = []
@@ -295,4 +387,6 @@ elseif STAGE == "merge"
     @printf("windows changed within %d sweeps (metabolite off): %s\n", K_SWEEPS,
             join([@sprintf("%.2f", x) for x in upd], ", "))
     println(ok ? "V5 ($CASE) passes" : "V5 ($CASE) FAILS")
+elseif STAGE in ("bulkprep", "bulkkernel", "bulkmerge")
+    bulk_stage(STAGE, ARGS)
 end
