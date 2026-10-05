@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, are in PR #81; 16a.9 to 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-05
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a is in flight; 16a.9b to 16a.11 and 16b remain
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-06
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -523,7 +523,8 @@ metabolites.**
   sweep, about 1.7 times the N = 10 row above.
 - **So M0 is feasible in wall-clock, and a full-scale posterior needs
   particle-parallel sweeps at least** (R16.8). 16a.11 measures the real figure.
-- **16a is capped at 5k CPU-h.** Its last task, 16a.11, does four things:
+- **16a is capped at 5k CPU-h** (annotated 2026-10-06, §12: 16a.9 is recorded
+  against it but not held to it). Its last task, 16a.11, does four things:
   - measures the cost of one M0 posterior, and of one sweep on a full-scale cell,
     per variant;
   - sets K1's bound, with T3 recording that it was set after the measurement;
@@ -709,8 +710,8 @@ and against a long reference where it is not. Then measure what one posterior co
 - F10 is reported against its floor.
 - K1's bound is set, and the reopened budget and 16b allocation are approved.
 
-**PR:** #81 carries 16a.1 to 16a.8, with 16a.7a to 16a.7c and parent 15.7b.
-16a.9 to 16a.11 follow in a later PR.
+**PR:** #81 (merged 2026-10-05) carries 16a.1 to 16a.8, with 16a.7a to 16a.7c and
+parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
 
 - [x] 16a.1 Drive the published hybrid from a recorded jump path, and snapshot and
   restore the driver's full state (D16.3's list). Record the path during generation.
@@ -832,9 +833,25 @@ and against a long reference where it is not. Then measure what one posterior co
   - each dataset carrying its truth (σ included), seeds and report;
   - two runs at one seed being identical.
   **Met** (m0_16a8_result.md: 21 of 21; job 17800819).
-- [ ] 16a.9 (parent 16.1, run) Run the M0 reference long — verify by V6, which
+- [ ] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
+- [ ] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
+  and pilot it. Verify by:
+  - B2 being exact on the hybrid: its conditional's difference between two values
+    of each promoter and of `krnadeg` equals the replay's path log-density
+    difference plus the prior difference, to 1e-10;
+  - a cell's base rebuilt by writing θ onto a pristine driver replaying bitwise
+    as one written incrementally;
+  - the threaded B3 sweep and B1 replay being bitwise equal to serial at one seed;
+  - a chain resumed from a checkpoint being bitwise equal to an uninterrupted one;
+  - a pilot of 4 chains from overdispersed starts on one M0 replicate (C = 50, PG,
+    N = 20), reporting the cost per sweep per block, bulk and tail ESS per sweep
+    and R̂ per parameter, per-window update rates, and a CPU-h and wall-clock
+    projection for V6 and V7.
+- [ ] 16a.9b (§12 2026-10-06) Run the M0 reference long — verify by V6, which
+  justifies the length, and by V7 at production settings on R ≥ 50 datasets, with
+  R stated. Sized from 16a.9a's pilot.
 - [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5
@@ -914,6 +931,28 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-06 — 16a.9 splits: the Gibbs driver and a pilot first, then the reference
+
+**Status: approved 2026-10-06.**
+
+**Trigger:** planning 16a.9. The three blocks exist and are validated one at a
+time (V3, V4, V5), but nothing composes them into a chain, and the chain's ESS per
+sweep is unmeasured. A projection from unit costs puts V7 alone at about 11,000
+CPU-h and a serial 200-sweep chain at about 5.5 days, both resting on a guessed
+ESS per sweep.
+
+**Change.**
+- **§11:** 16a.9 is annotated in place and split. 16a.9a builds the driver, its
+  exactness tests, threads in B3's particles and B1's cells, and a pilot that
+  measures mixing and cost. 16a.9b runs V6 and V7 at the size the pilot sets.
+- **D16.6:** 16a.9's CPU-h are recorded in the ledger but not held to 16a's 5k
+  cap, by your decision. Multi-day waits are flagged before submission.
+- Handoff follow-ups 1 and 3 (`_poisson_weights`' stop, `_draw_index` in the
+  fallbacks) land in 16a.9a, since the pilot measures cost.
+
+*Sections:* §11 16a.9, 16a.9a and 16a.9b; D16.6.
+
 
 ### 2026-10-05 — bulk metabolites, and the seam's ENO cell as a measured null
 
