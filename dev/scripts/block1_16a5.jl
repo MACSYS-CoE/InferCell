@@ -161,8 +161,33 @@ elseif STAGE == "merge"
         @printf("coarse: ln ENO %.4f ± %.4f, ln FBA %.4f ± %.4f\n", cE, sE, cF, sF)
     else
         edge = maximum([mE[1], mE[end]]) / maximum(mE), maximum([mF[1], mF[end]]) / maximum(mF)
+        if maximum(edge) > 1e-8 && edge[2] > 1e-8
+            # FBA's axis truncates (first met on the bulk form, whose posterior has
+            # a long right tail in FBA). FBA is every row's inner axis, so any
+            # change to it recomputes the whole grid. Each truncated axis is
+            # widened 3× about its mean when its step is coarser than a quarter of
+            # its SD, or else extended at the same step to cover ±8 SD of the
+            # (truncated, so understated) moments, keeping the old range.
+            newax = map(((ax[1], cE, sE, edge[1]), (ax[2], cF, sF, edge[2]))) do (a, c, sd, e)
+                e > 1e-8 || return a
+                step(a) > sd / 4 &&
+                    return range(c - 3 * (last(a) - first(a)) / 2, c + 3 * (last(a) - first(a)) / 2; length = 81)
+                lo = min(first(a), c - 8sd)
+                hi = max(last(a), c + 8sd)
+                klo = ceil(Int, (first(a) - lo) / step(a))
+                khi = ceil(Int, (hi - last(a)) / step(a))
+                range(first(a) - klo * step(a); step = step(a), length = length(a) + klo + khi)
+            end
+            box = collect(newax)
+            open(io -> println(io, join(0:(length(box[1]) - 1), ",")),
+                 joinpath(DIR, "rows$(stage + 1).txt"), "w")
+            serialize(joinpath(DIR, "box$(stage + 1).jls"), box)
+            @printf("stage %d: mass at the box edge (%.1e, %.1e); grid %d is recomputed whole on ln ENO %.4f to %.4f (%d), ln FBA %.4f to %.4f (%d)\n",
+                    stage, edge..., stage + 1, first(box[1]), last(box[1]), length(box[1]),
+                    first(box[2]), last(box[2]), length(box[2]))
+            exit(0)
+        end
         if maximum(edge) > 1e-8
-            edge[2] > 1e-8 && error("FBA's axis truncates too; extend this script to widen it")
             a = ax[1]
             if step(a) > sE / 4
                 box = [range(cE - 3 * (last(a) - first(a)) / 2, cE + 3 * (last(a) - first(a)) / 2;
