@@ -174,6 +174,23 @@ const BULK_TRIPLES = SMOKE ? 2_000 : 200_000
 bulkloglik(lats, z, σ) = sum(logpdf(Normal(log(max(x, 1.0)), σ), log(y))
                              for (x, y) in zip(sum(lats) ./ BULK_C, z))
 
+# The bulk reference's weighted mean of functional `j` over `triples` of runs,
+# and its standard error by a bootstrap over the runs themselves: the triples
+# reuse a finite pool of runs, so they are not independent, and an ESS-based SE
+# understates the error. (The first bulk merge used the ESS-based SE; the
+# fresh-reference check of 2026-10-05 found it too small.)
+function bulk_reference(kept, triples, z, σ, j; B = 100, rng = Xoshiro(16_093))
+    lw = [bulkloglik([kept[i].lat for i in t], z, σ) for t in triples]
+    fx(map) = begin
+        l = [bulkloglik([kept[map[i]].lat for i in t], z, σ) for t in triples]
+        w = exp.(l .- maximum(l))
+        sum(w .* [mean(kept[map[i]].f[j] for i in t) for t in triples]) / sum(w)
+    end
+    m = fx(1:length(kept))
+    boots = [fx(rand(rng, 1:length(kept), length(kept))) for _ in 1:B]
+    return m, std(boots)
+end
+
 function bulk_stage(stage, args)
     kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
     n = length(kept)
@@ -280,6 +297,14 @@ function refcheck(olddir)
     kept = reduce(vcat, [deserialize(joinpath(DIR, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
     @printf("V5 reference check, case %s: %d fresh kept runs from %d (seed offset %d)\n",
             CASE, length(kept), REJECT_TASKS * RUNS_PER_TASK, SEED_OFFSET)
+    # V5_POOL=<dir>: pool another rejection set (an earlier run's) into the
+    # reference, which is still exact, and halves its variance.
+    pool = get(ENV, "V5_POOL", "")
+    if !isempty(pool)
+        extra = reduce(vcat, [deserialize(joinpath(pool, "reject_$(t).jls")) for t in 0:(REJECT_TASKS - 1)])
+        kept = vcat(kept, extra)
+        @printf("pooled with %d runs from %s: %d in all\n", length(extra), pool, length(kept))
+    end
     zfun(a, x, w) = begin
         ess = 1 / sum(w .^ 2)
         m = sum(w .* x)
@@ -310,17 +335,15 @@ function refcheck(olddir)
         pr = deserialize(bp)
         bk = reduce(vcat, [deserialize(joinpath(olddir, "bulkkernel_$(t).jls")) for t in 0:(KERNEL_TASKS - 1)])
         rng = Xoshiro(16_092)
-        triples = [rand(rng, 1:length(kept), BULK_C) for _ in 1:BULK_TRIPLES]
-        lw = [bulkloglik([kept[i].lat for i in t], pr.z, pr.sigma) for t in triples]
-        w = exp.(lw .- maximum(lw))
-        w ./= sum(w)
-        @printf("bulk: %d kernel draws; fresh triples %d, σ_b = %.3g, ESS %.0f\n",
-                length(bk), length(triples), pr.sigma, 1 / sum(w .^ 2))
+        triples = [rand(rng, 1:length(kept), BULK_C) for _ in 1:(BULK_TRIPLES ÷ 4)]
+        @printf("bulk: %d kernel draws; %d triples over %d runs, σ_b = %.3g; reference SE by a bootstrap over runs\n",
+                length(bk), length(triples), length(kept), pr.sigma)
         for (j, name) in enumerate(FNAMES)
-            x = [mean(kept[i].f[j] for i in t) for t in triples]
-            z, m = zfun([o.f[j] for o in bk], x, w)
-            @printf("  %s (mean over cells): kernel %.4f, fresh %.4f, z = %.2f\n",
-                    name, mean(o.f[j] for o in bk), m, z)
+            m, se = bulk_reference(kept, triples, pr.z, pr.sigma, j)
+            a = [o.f[j] for o in bk]
+            z = (mean(a) - m) / sqrt(se^2 + var(a) / length(a))
+            @printf("  %s (mean over cells): kernel %.4f ± %.4f, reference %.4f ± %.4f, z = %.2f\n",
+                    name, mean(a), std(a) / sqrt(length(a)), m, se, z)
         end
     end
 end
