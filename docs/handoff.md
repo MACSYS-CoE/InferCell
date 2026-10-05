@@ -1,10 +1,33 @@
 # Handoff
 
-**Session date:** 2026-10-03
+**Session date:** 2026-10-05
 **Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
 sub-spec, merged 2026-09-30.
 
-## Latest: F6's ENO cell is refuted; the seam carries information one way (2026-10-03, evening)
+## Latest: the amendment is applied, and bulk metabolites make the path update mix (2026-10-05)
+
+**Amendment applied.** Bulk metabolites, and the seam's ENO cell as a measured
+null, are in the parent spec's §12 and the sub-spec's §12 of 2026-10-05. The
+reviewed text is `spec/amendment-draft-2026-10-05.md`.
+
+**16a.7c** (`dev/scripts/csmc_bulk_16a7c_result.md`):
+- **Code:** `observe_bulk`, `m0_dataset`'s bulk record, block 1's bulk term, and
+  B3's `BulkObservation` weight with cells updated in turn. The tests pass, 211 of
+  211.
+- **Mixing:** PG on M0 clears every window from N = 10 (lowest rate 0.28), at about
+  0.84N cycles per cell-sweep. N = 10 is proposed.
+- **V5's bulk half passes on both cases.** **Watch item:** M0's window-2 births read
+  high in all five comparisons (z up to 2.85). They share one rejection
+  reference, so it may be that reference.
+- 16a stands at about 334 of its 5k CPU-h.
+
+**Next:**
+1. **A fresh rejection reference for M0's window-2 births** (about 30 CPU-h), to
+   settle the watch item before 16a.9 relies on the kernel.
+2. **V4 on block 1's bulk form,** and **15.7b's full-scale bulk record.**
+3. **Then 16a.7c ticks,** and 16a.9 starts.
+
+## Earlier: F6's ENO cell is refuted; the seam carries information one way (2026-10-03, evening)
 
 `dev/scripts/eno_path_information_16a7_result.md` (jobs 17938700 to 17938702):
 - **The bound.** Even a cell's full path, every event and its time, carries almost

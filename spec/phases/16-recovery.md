@@ -763,6 +763,14 @@ and against a long reference where it is not. Then measure what one posterior co
   - V5 in both cases, with the bulk "on" half on C = 3 cells (§3);
   - per-window update rates and cost per sweep on M0 at N ∈ {5, 10, 20, 50};
   - **the choice of N, or KP,** recorded in §4. The variant is PG, lag 0.
+
+  **Measured 2026-10-05; KP does not fire** (`dev/scripts/csmc_bulk_16a7c_result.md`).
+  - Every window clears 10% from N = 10, whose lowest rate is 0.28, at about 0.84N
+    cycles per cell-sweep. **N = 10 is proposed**, with N = 20 as the fallback.
+  - V5's bulk half passes on both cases. **Watch item:** births in window 2 on M0
+    read high in every comparison against the one shared rejection reference.
+  - V4 on the bulk form and the full-scale 15.7b are still open, so this task stays
+    unticked.
 - [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:

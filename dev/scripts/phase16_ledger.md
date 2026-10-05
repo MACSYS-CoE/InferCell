@@ -52,4 +52,8 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 17938700–17938702 | 16a.7 | F6 ENO cell: full-path information bound, 40 cells (of record) | 1 | | 5.07 |
 
-**16a total: about 298.5 CPU-h.**
+| 18049605 | 16a.7c | 16a tests with bulk metabolites (of record) | 1 | | 0.10 |
+| 18052532–18052536 | 16a.7c | Bulk update rates on M0, N ∈ {5, 10, 20, 50} (of record) | 1 | | 35.36 |
+| 18052537–18052542 | 16a.7c | V5 bulk half, M0 and toy (of record) | 1 | | (in the line above) |
+
+**16a total: about 334.0 CPU-h.**
