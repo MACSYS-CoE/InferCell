@@ -195,6 +195,38 @@ end
         end
     end
 
+    @testset "bulk (§12 2026-10-05): the weight scores the population mean with this particle in it" begin
+        y0 = [base.jump.u[tm.states[1]]]
+        others = [1234.5, 2000.0]            # two windows' other-cell sums of ATP
+        z = [700.0, 650.0]
+        bulk = bulk_window_observations(reshape(z, 1, 2), reshape(others, 1, 2), 3)
+        e = restore(base)
+        lw_b, _ = advance_window!(Xoshiro(1), e, spec, y0, data.transcripts[:, 1], bulk[1];
+                                  fixed = ref[1])
+        f = restore(base)
+        lw_p, _ = advance_window!(Xoshiro(1), f, spec, y0, data.transcripts[:, 1],
+                                  data.metabolites[:, 1]; fixed = ref[1])
+        x = f.ode.u[iatp] * f.factor + f.rounding.remainders[iatp]
+        met_p = logpdf(Normal(log(max(x, 1.0)), σ), log(data.metabolites[1, 1]))
+        met_b = logpdf(Normal(log(max((others[1] + x) / 3, 1.0)), σ), log(z[1]))
+        @test lw_b - lw_p ≈ met_b - met_p rtol = 1e-12
+        # A sweep returns the chosen path's latent, which a replay reproduces.
+        zz = reshape([700.0, 650.0, 600.0], 1, 3)
+        oo = reshape([1234.5, 2000.0, 1500.0], 1, 3)
+        new, changed, lat = csmc_sweep(Xoshiro(16075), base, spec, data, ref; N = 3,
+                                       bulk = bulk_window_observations(zz, oo, 3))
+        h = restore(base)
+        r = PathReplay(join_path(new, h.events.labels), h)
+        for m in 1:T
+            for _ in 1:60
+                replay_step!(h, r)
+            end
+            @test lat[1, m] == h.ode.u[iatp] * h.factor + h.rounding.remainders[iatp]
+        end
+        @test_throws ArgumentError csmc_sweep(Xoshiro(1), base, spec, data, ref; N = 2, lag = 1,
+                                              bulk = bulk_window_observations(zz, oo, 3))
+    end
+
     @testset "M0: transcript map and one window" begin
         mm = m0_models()
         dm = build_m0(tspan = (0.0, 120.0))

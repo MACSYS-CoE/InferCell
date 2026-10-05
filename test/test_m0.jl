@@ -53,4 +53,16 @@ using InferCell
         c = m0_dataset(16082; ncells = 1, horizon = 60.0)
         @test c.sigma != a.sigma && c.truth.values != a.truth.values
     end
+
+    @testset "bulk observations (§12 2026-10-05): the population mean, from a recorded seed" begin
+        a = m0_dataset(16081; ncells = 2, horizon = 120.0)
+        @test size(a.bulk) == (length(M0_PANEL), 2)
+        @test a.bulk == observe_bulk(a.latent, a.species, M0_PANEL; sigma = a.sigma,
+                                     noise_seed = a.bulk_seed)
+        # The noise is lognormal about the floored mean.
+        rows = [findfirst(==(s), a.species) for s in M0_PANEL]
+        xbar = dropdims(sum(a.latent[:, rows, :]; dims = 1); dims = 1) ./ 2
+        ε = (log.(a.bulk) .- log.(max.(xbar, 1.0))) ./ a.sigma
+        @test ε ≈ randn(Xoshiro(a.bulk_seed), size(xbar)) rtol = 1e-10
+    end
 end

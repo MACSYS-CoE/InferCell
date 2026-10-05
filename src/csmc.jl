@@ -98,6 +98,29 @@ CSMCSpec(tmap::TranscriptMap, panel_rows::AbstractVector{Int}; sigma::Real, floo
     CSMCSpec(tmap, collect(panel_rows), Float64(sigma), Float64(floor), Int(window), Int(cap_floor))
 
 """
+    BulkObservation(z, others, ncells)
+
+One save's bulk metabolite term, as one cell's update sees it
+(spec/phases/16-recovery.md §3 and D16.3, §12 2026-10-05). `z` is the observed bulk
+value per panel pool, `others` the other cells' summed latent at that save, and
+`ncells` the population size C. A particle with latent `x` is scored at the
+population mean `(others + x)/C`.
+"""
+struct BulkObservation
+    z::Vector{Float64}
+    others::Vector{Float64}
+    ncells::Int
+end
+
+"""
+    bulk_window_observations(z, others, ncells) -> Vector{BulkObservation}
+
+One [`BulkObservation`](@ref) per window from `z` and `others`, both panel × windows.
+"""
+bulk_window_observations(z::AbstractMatrix, others::AbstractMatrix, ncells::Integer) =
+    [BulkObservation(z[:, m], others[:, m], Int(ncells)) for m in axes(z, 2)]
+
+"""
     WindowEvents(times, reactions)
 
 One window's events for one particle, in order, by composed reaction index.
@@ -220,6 +243,19 @@ log-likelihood.
 window_log_weight(lp60_prev, lp1_new, lp1_prev, loglik_met) =
     lp60_prev + lp1_new - lp1_prev + loglik_met
 
+_panel_latent(d::HandshakeDriver, spec::CSMCSpec) =
+    [d.ode.u[i] * d.factor + d.rounding.remainders[i] for i in spec.panel_rows]
+
+# The bulk log-likelihood with this particle's latent in the population mean.
+function _metabolite_loglik(d::HandshakeDriver, spec::CSMCSpec, y::BulkObservation)
+    s = 0.0
+    for (j, x) in enumerate(_panel_latent(d, spec))
+        xbar = (y.others[j] + x) / y.ncells
+        s += logpdf(Normal(log(max(xbar, spec.floor)), spec.sigma), log(y.z[j]))
+    end
+    return s
+end
+
 # The panel's lognormal log-likelihood at the driver's live state.
 function _metabolite_loglik(d::HandshakeDriver, spec::CSMCSpec, y::AbstractVector)
     s = 0.0
@@ -277,7 +313,7 @@ transcripts are checked against `y_end`.
 """
 function advance_window!(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
                          y_prev::AbstractVector{<:Integer}, y_end::AbstractVector{<:Integer},
-                         ymet::AbstractVector; fixed::Union{Nothing, WindowEvents} = nothing,
+                         ymet; fixed::Union{Nothing, WindowEvents} = nothing,
                          head::Union{Nothing, Tuple{WindowEvents, Float64}} = nothing)
     fixed === nothing || head === nothing ||
         throw(ArgumentError("a window is either replayed or proposed from a head, not both"))
@@ -428,7 +464,7 @@ proposal that cannot reach `y_end` has log weight −Inf.
 """
 function annealed_window(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
                          y_prev::AbstractVector{<:Integer}, y_end::AbstractVector{<:Integer},
-                         ymet::AbstractVector, schedule::AbstractVector{<:Real};
+                         ymet, schedule::AbstractVector{<:Real};
                          fixed::Union{Nothing, WindowEvents} = nothing)
     _check_schedule(schedule)
     K = length(schedule)
@@ -459,7 +495,8 @@ function annealed_window(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
 end
 
 """
-    csmc_sweep(rng, base, spec, data, ref; N, lag = 0, schedule = nothing) -> (path, changed)
+    csmc_sweep(rng, base, spec, data, ref; N, lag = 0, schedule = nothing, bulk = nothing)
+        -> (path, changed, latent)
 
 One conditional SMC sweep for one cell (spec/phases/16-recovery.md D16.3).
 `base` is the cell's driver at t = 0 at the current θ, `ref` the current path as
@@ -477,11 +514,23 @@ included. Returns the new path and, per window, whether its events changed.
 
 Each particle draws from its own generator, seeded from `rng`, so a sweep is
 reproducible from one seed and uses no global stream.
+
+`bulk` (one [`BulkObservation`](@ref) per window) replaces the per-cell panel in
+`data.metabolites` with the bulk likelihood at the population mean, this cell's
+particle substituted (§12 2026-10-05). `latent` is the returned path's panel
+latent at each window's end, panel × windows, so a caller updating cells in turn
+can refresh the others' sums without a replay.
 """
 function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, data::CellData,
                     ref::Vector{WindowEvents}; N::Integer, lag::Integer = 0,
-                    schedule::Union{Nothing, AbstractVector{<:Real}} = nothing)
+                    schedule::Union{Nothing, AbstractVector{<:Real}} = nothing,
+                    bulk::Union{Nothing, AbstractVector{BulkObservation}} = nothing)
     T = size(data.transcripts, 2)
+    bulk === nothing || length(bulk) == T ||
+        throw(ArgumentError("$(length(bulk)) bulk observations for $T windows"))
+    lag > 0 && bulk !== nothing &&
+        throw(ArgumentError("ancestor sampling's future density does not score bulk data"))
+    obs(m) = bulk === nothing ? view(data.metabolites, :, m) : bulk[m]
     if schedule !== nothing
         lag == 0 || throw(ArgumentError("an annealed window runs under particle Gibbs only (lag = 0)"))
         _check_schedule(schedule)
@@ -493,6 +542,7 @@ function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, dat
     events = Matrix{WindowEvents}(undef, N, T)
     ancestors = zeros(Int, N, T)
     lw = zeros(N)
+    lat = Matrix{Vector{Float64}}(undef, N, T)
     for m in 1:T
         yprev = m == 1 ? y0 : data.transcripts[:, m - 1]
         if m > 1
@@ -516,23 +566,25 @@ function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, dat
             fixed = i == 1 ? ref[m] : nothing
             if schedule === nothing
                 lw[i], events[i, m] = advance_window!(prng, particles[i], spec, yprev,
-                                                      data.transcripts[:, m],
-                                                      view(data.metabolites, :, m); fixed)
+                                                      data.transcripts[:, m], obs(m); fixed)
             else
                 lw[i], events[i, m], particles[i] =
                     annealed_window(prng, particles[i], spec, yprev, data.transcripts[:, m],
-                                    view(data.metabolites, :, m), schedule; fixed)
+                                    obs(m), schedule; fixed)
             end
+            lat[i, m] = _panel_latent(particles[i], spec)
         end
     end
     k = _categorical(rng, _normalise(lw))
     path = Vector{WindowEvents}(undef, T)
+    latent = zeros(length(spec.panel_rows), T)
     for m in T:-1:1
         path[m] = events[k, m]
+        latent[:, m] = lat[k, m]
         k = ancestors[k, m]
     end
     changed = [path[m].times != ref[m].times || path[m].reactions != ref[m].reactions for m in 1:T]
-    return path, changed
+    return path, changed, latent
 end
 
 """
@@ -555,4 +607,4 @@ join_path(ws::AbstractVector{WindowEvents}, labels) =
 
 export TranscriptMap, transcript_map, CellData, CSMCSpec, WindowEvents, propose_events,
        window_log_weight, advance_window!, csmc_sweep, window_events, join_path,
-       geometric_schedule, annealed_window
+       geometric_schedule, annealed_window, BulkObservation, bulk_window_observations

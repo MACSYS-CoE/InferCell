@@ -141,6 +141,11 @@ The cells are the published model, clamped under fractional carry. The
 particle, and M0's two transcripts exactly. The t = 0 save, the fixed initial
 condition, is dropped. Returns [`generate_dataset`](@ref)'s record without t = 0,
 with `sigma`, `replicate_seed` and `noise` added.
+
+**Amended 2026-10-05 (spec §12):** the record also carries `bulk`, the panel's
+bulk observations (panel × times, [`observe_bulk`](@ref)) at σ_b = `sigma`, and
+their `bulk_seed`. The per-cell `observed` panel is kept as the superseded
+observation model.
 """
 function m0_dataset(replicate_seed::Integer; ncells::Integer = 50,
                     horizon::Real = M0_HORIZON_S)
@@ -151,6 +156,9 @@ function m0_dataset(replicate_seed::Integer; ncells::Integer = 50,
     cells = Int.(rand(rng, UInt32, ncells))
     allunique(cells) || error("replicate $replicate_seed drew a repeated cell seed")
     noise_seed = Int(rand(rng, UInt32))
+    # Drawn last, so every earlier draw, and every replicate's truth, is unchanged
+    # (§12 2026-10-05).
+    bulk_seed = Int(rand(rng, UInt32))
     noise = NoiseModel(Modality(:metabolite, :lognormal, M0_PANEL; floor = 1.0,
                                 prior = SIGMA_MET_PRIOR),
                        Modality(:transcript, :poisson,
@@ -158,9 +166,12 @@ function m0_dataset(replicate_seed::Integer; ncells::Integer = 50,
     ds = generate_dataset(truth, cells; models, horizon, noise, noise_seed,
                           scales = Dict(:sigma_metabolite => σ), names = M0_TARGETS)
     keep = findall(>(0), ds.times)
-    return (; ds..., times = ds.times[keep], latent = ds.latent[:, :, keep],
+    latent = ds.latent[:, :, keep]
+    bulk = observe_bulk(latent, ds.species, M0_PANEL; sigma = σ, noise_seed = bulk_seed)
+    return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
-            sigma = σ, replicate_seed = Int(replicate_seed), noise = noise)
+            sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
+            bulk, bulk_seed)
 end
 
 export M0_GENES, M0_HORIZON_S, M0_TARGETS, M0_PANEL, SIGMA_MET_PRIOR, HeldEnzymeCounts,

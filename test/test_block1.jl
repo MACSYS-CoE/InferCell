@@ -58,6 +58,18 @@ _batch_se(x; nb = 50) = (L = length(x) ÷ nb;
     b = Block1(ms, cells; forwards = fw, panel = M0_PANEL)
     u_true = [log(tv[f]) for f in fw]
 
+    @testset "bulk metabolites (§12 2026-10-05): the panel is scored at the cells' mean" begin
+        xbar = (rec[1].latent .+ rec[2].latent) ./ 2
+        z = xbar .* exp.(0.1 .* randn(Xoshiro(16053), size(xbar)))
+        bb = Block1(ms, cells; forwards = fw, panel = M0_PANEL, bulk = z)
+        lp, ss, n = block1_replay(bb, u_true)
+        @test n == length(z)
+        @test ss ≈ sum(abs2, log.(z) .- log.(max.(xbar, 1.0))) rtol = 1e-12
+        @test lp == block1_replay(b, u_true)[1]
+        @test_throws DimensionMismatch Block1(ms, cells; forwards = fw, panel = M0_PANEL,
+                                              bulk = z[1:3, :])
+    end
+
     @testset "the prior is on the forward constants only, with its Jacobian" begin
         @test_throws ArgumentError Block1(ms, cells; forwards = [:kcatF_R_ENO, :kcatR_R_ENO],
                                           panel = M0_PANEL)

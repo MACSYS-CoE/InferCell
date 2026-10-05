@@ -435,6 +435,23 @@ function observe_latent(latent::AbstractArray{<:Real, 3}, species::AbstractVecto
 end
 
 """
+    observe_bulk(latent, species, panel; sigma, noise_seed, floor = 1.0) -> Matrix{Float64}
+
+Bulk metabolite observations (spec §12 2026-10-05): for each `panel` pool at each
+save, one measurement of the mean over the `latent` record's cells (cells ×
+species × times), lognormal at `sigma`, `max(x̄, floor)·exp(sigma·ε)`, from a
+generator seeded by `noise_seed`. Returns panel × times. The mean is of particle
+counts over the same cells at every save; both are stated idealisations.
+"""
+function observe_bulk(latent::AbstractArray{<:Real, 3}, species::AbstractVector{Symbol},
+                      panel::AbstractVector{Symbol}; sigma::Real, noise_seed::Integer,
+                      floor::Real = 1.0)
+    rows = state_rows(collect(panel), collect(species))
+    xbar = dropdims(sum(latent[:, rows, :]; dims = 1); dims = 1) ./ size(latent, 1)
+    return max.(xbar, floor) .* exp.(sigma .* randn(Xoshiro(noise_seed), size(xbar)))
+end
+
+"""
     generate_dataset(truth, seeds; models = d11_models(), horizon = COREA_CYCLE_S,
                      every = 60, noise = nothing, scales = Dict(), noise_seed = 0,
                      names = D11_TARGETS)
@@ -488,4 +505,4 @@ export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble
 export POLYMERASE_DIRECTION, perturbed_values, ensemble_jacobian
-export generate_dataset, observe_latent
+export generate_dataset, observe_latent, observe_bulk

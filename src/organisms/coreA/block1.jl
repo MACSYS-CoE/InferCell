@@ -17,6 +17,11 @@ log p(θF) + log p(σ) + Σ_c [ log p(X_c | θ) + Σ_k Σ_j log N(log y_cjk; log
   through the nominal equilibrium constant, as the truth was
   ([`derived_ode_values`](@ref)), and carries no prior term and no Jacobian.
 - Every step is on `u = ln θ`, so each prior enters as `Normal(u; μ, s)`.
+
+**Amended 2026-10-05 (spec §12): bulk metabolites.** With `bulk` (panel × saves),
+the metabolite term is `Σ_k Σ_j log N(log z_jk; log max(x̄_jk, 1), σ_b)`, where
+`x̄` is the cells' mean latent. The squared residuals and their count feed the
+same σ conditional, so σ_b is updated as σ was.
 """
 
 """
@@ -50,11 +55,13 @@ end
 
 """
     Block1(models, cells; forwards, panel, save_every = 60, floor = 1.0,
-           sigma_prior = SIGMA_MET_PRIOR)
+           sigma_prior = SIGMA_MET_PRIOR, bulk = nothing)
 
 Block 1's fixed ingredients: the composition, the cells, the free forward
 constants' names in order, the observed panel and how often it is saved, in
-handshakes, and the one-particle floor of the lognormal observation.
+handshakes, and the one-particle floor of the lognormal observation. With `bulk`
+(panel × saves, §12 2026-10-05) the panel is scored at the cells' mean, and each
+cell's own `observed` is not read.
 """
 struct Block1
     models::Vector{AbstractSubModel}
@@ -65,12 +72,14 @@ struct Block1
     save_every::Int
     floor::Float64
     sigma_prior::Normal{Float64}
+    bulk::Union{Nothing, Matrix{Float64}}
 end
 
 function Block1(models::AbstractVector{<:AbstractSubModel}, cells::AbstractVector{Block1Cell};
                 forwards::AbstractVector{Symbol}, panel::AbstractVector{Symbol},
                 save_every::Integer = 60, floor::Real = 1.0,
-                sigma_prior::LogNormal = SIGMA_MET_PRIOR)
+                sigma_prior::LogNormal = SIGMA_MET_PRIOR,
+                bulk::Union{Nothing, AbstractMatrix} = nothing)
     reverses = Set(r.reverse for r in haldane_relations(models))
     bad = [f for f in forwards if f in reverses]
     isempty(bad) || throw(ArgumentError(
@@ -81,12 +90,18 @@ function Block1(models::AbstractVector{<:AbstractSubModel}, cells::AbstractVecto
         Normal(params(p)...)
     end
     rows = state_rows(collect(panel), _block_names(models, :ode))
-    for c in cells
-        size(c.observed, 1) == length(rows) || throw(DimensionMismatch(
-            "a cell observes $(size(c.observed, 1)) rows for a $(length(rows))-pool panel"))
+    if bulk === nothing
+        for c in cells
+            size(c.observed, 1) == length(rows) || throw(DimensionMismatch(
+                "a cell observes $(size(c.observed, 1)) rows for a $(length(rows))-pool panel"))
+        end
+    else
+        size(bulk, 1) == length(rows) || throw(DimensionMismatch(
+            "the bulk record has $(size(bulk, 1)) rows for a $(length(rows))-pool panel"))
     end
     return Block1(collect(models), collect(cells), collect(forwards), priors, rows,
-                  Int(save_every), Float64(floor), Normal(params(sigma_prior)...))
+                  Int(save_every), Float64(floor), Normal(params(sigma_prior)...),
+                  bulk === nothing ? nothing : Matrix{Float64}(bulk))
 end
 
 """
@@ -111,22 +126,34 @@ function block1_replay(b::Block1, u::AbstractVector)
     logpath = 0.0
     sumsq = 0.0
     n = 0
+    xsum = b.bulk === nothing ? nothing : zeros(size(b.bulk))
     for c in b.cells
         d = restore(c.base)
         set_parameters!(d, b.models, writes)
         r = PathReplay(c.path, d; density = true)
-        nsave = size(c.observed, 2)
+        nsave = b.bulk === nothing ? size(c.observed, 2) : size(b.bulk, 2)
         for k in 1:nsave
             for _ in 1:b.save_every
                 replay_step!(d, r)
             end
             for (j, i) in enumerate(b.rows)
                 x = d.ode.u[i] * d.factor + d.rounding.remainders[i]
-                sumsq += (log(c.observed[j, k]) - log(max(x, b.floor)))^2
-                n += 1
+                if b.bulk === nothing
+                    sumsq += (log(c.observed[j, k]) - log(max(x, b.floor)))^2
+                    n += 1
+                else
+                    xsum[j, k] += x
+                end
             end
         end
         logpath += path_logdensity(r)
+    end
+    if b.bulk !== nothing
+        C = length(b.cells)
+        for k in axes(b.bulk, 2), j in axes(b.bulk, 1)
+            sumsq += (log(b.bulk[j, k]) - log(max(xsum[j, k] / C, b.floor)))^2
+            n += 1
+        end
     end
     return logpath, sumsq, n
 end
