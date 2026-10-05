@@ -133,3 +133,16 @@ Panel: `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`
     - the deferred counters are debited at every 1.0 s handshake, the published model's granularity. A coarser drain would be a labelled reduction, and on the assembled Core A′ none is affordable: task 13.4 measured the final paired difference at up to 53% for a 5 s drain and 288% for 60 s, against spec §4 D10's one percent (job 17298253)
     - counts are written back under fractional carry, this project's policy (spec §3 check 0) and the only one whose round trip is exact
 ```
+
+## Bulk observations (parent task 15.7b, §12 2026-10-05)
+
+Written by `dev/scripts/corea_dataset_15_bulk.jl` at cfd41dd, Julia 1.10.5, from the latent record of the cells above (commit 309c1c4, job 17703841). Cells 30001 and 30200 were resimulated, and each equals the record at every save.
+
+**Observation model.** For each of the 17 panel metabolites at each of the 105 saves, one bulk measurement of the mean over the 200 cells, lognormal at σ_b = 0.1 with the prediction floored at one particle, from `Xoshiro(15072)` (`observe_bulk`). σ_b is ours, a typical bulk assay CV, and is the truth for σ_b, whose prior is `LogNormal(log 0.2, 1)`. The transcripts are unchanged: exact per-cell counts. The per-cell panel above is the superseded observation model, kept for reference.
+
+**Stated idealisations.**
+- The same 200 cells are averaged at every save. A real bulk assay samples a fresh cohort.
+- The mean is of particle counts, not concentrations. The volume grows about 1.07× over the cycle, so the two differ by under 7%.
+- The transcripts are exact per-cell counts every 60 s from the same living cell.
+
+`bulk.tsv` (t_s, observable, mean_latent, observed) is regenerable and not tracked. Its SHA-256 is `f16d9b03ab4da24dcff5ddd98c385062118fc9e86ece960123210b79d810ffd1`; it depends on this Julia version's random streams.

@@ -4201,7 +4201,7 @@ and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
     transcript rows' Monte Carlo noise (about 55), not by lost information.
   - Transcripts-only rank is 4 of 6 at every CV, with ENO and FBA unresolved,
     consistent with the information bound.
-- [ ] 15.7b (§12 2026-10-05) Add bulk metabolite observations to the 15.7 dataset
+- [x] 15.7b (§12 2026-10-05) Add bulk metabolite observations to the 15.7 dataset
   and to `m0_dataset`. For each panel pool at each save, one measurement of the
   C-cell mean particle count, lognormal at σ_b, from a recorded noise seed. 15.7's
   truth has σ_b = 0.10, and σ_b's prior is `LogNormal(log 0.2, 1)`. The per-cell
@@ -4211,6 +4211,11 @@ and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
   - two runs at one seed being identical;
   - the meta file stating the three idealisations: the same cells at every save,
     particle counts not concentrations, and exact per-cell transcripts.
+  **Done 2026-10-05.**
+  - **Full scale:** job 18060223 at `cfd41dd`. Cells 30001 and 30200 resimulate to
+    the record at every save. `bulk.tsv` has SHA-256 `f16d9b03…`, and the section
+    is in `dev/data/corea_dataset_15/meta.md`.
+  - **M0:** `m0_dataset`'s `bulk`, tested in `test/test_m0.jl` (job 18049605).
 - [x] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
