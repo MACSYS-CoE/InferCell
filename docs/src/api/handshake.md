@@ -120,9 +120,17 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 
 A clamped edge's held value otherwise travels as a fixed parameter; the one place the driver reads it is a rebuild whose pool is a registry chemostat. Nor does the driver plug into the inference entry points, which build a single SciML problem and call `remake` on it — and note that a `param_slot` filled by the driver is nonetheless a *free* parameter, so a homogeneous composition's inference samples it and the handshake then overwrites the draw. `driver_written_params(driver)` enumerates every such slot across the catalytic, inbound-volume and rate-constant channels; excluding them from the sampled set belongs to the inference phases 15 to 17 (spec §11 task 5b.10), not to task 13.3, which is hybrid dispatch.
 
+## Path replay and snapshots
+
+The phase 16 sampler holds a cell's stochastic path fixed and replays the ODE block under it (spec/phases/16-recovery.md task 16a.1). `record_path!(driver)` logs every firing of the stochastic block, its time and its index in the composed jump list, and draws no random numbers, so a recorded run is the same run. `recorded_path(driver)` returns the log as a `JumpPath`, labelled by `<module>_<local index>` so it cannot be replayed on a different composition.
+
+`replay_step!(driver, PathReplay(path, driver))` runs one handshake with the stochastic block advanced by the path instead of the SSA: steps 0 to 3b are `handshake_step!`'s own, then every recorded firing before the end of the interval is applied through the affect the SSA would have called. `replay!(driver, path, n)` runs `n` of them. A replayed driver must not be stepped by the SSA afterwards, since its cached propensities are stale. Built with `density = true`, the replay also accumulates the path's log-density under the rate constants it rebuilds (task 16a.2): `path_logdensity(replay)` is Σ log λ at the firings minus every propensity's integral, which is an exact sum because propensities are constant between firings and rate constants change only at a rebuild, at 60m − 1 s on the jump clock. The replay's `counts` and `exposure` are the per-reaction firing counts and integrated propensities.
+
+`snapshot(driver)` and `restore(snapshot)` are deep copies, so a particle carries every counter, deficit, remainder, growth field and integrator state of its own. The random stream is not among them: the SSA draws from the task's global generator.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["handshake.jl"]
+Pages = ["handshake.jl", "path_replay.jl"]
 ```

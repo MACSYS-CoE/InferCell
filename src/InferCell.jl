@@ -29,6 +29,9 @@ include("loader.jl")
 include("likelihoods.jl")
 include("orchestrator.jl")
 include("handshake.jl")
+include("path_replay.jl")
+include("transcript_bridge.jl")
+include("conditional_updates.jl")
 # The Core A′ modules. Unlike the files above these must come after
 # interface.jl: a sub-model's `<: AbstractSubModel` is resolved when the
 # struct is defined, not when a method is called. Each exports its own
@@ -57,8 +60,11 @@ include("organisms/coreA/translation.jl")
 include("organisms/coreA/assembly.jl")
 # Prior draws read glycolysis's and recycling's rate laws and the assembly.
 include("organisms/coreA/prior_draws.jl")
+include("organisms/coreA/m0.jl")
 include("organisms/coreA/validation.jl")
 include("organisms/coreA/observables.jl")
+include("organisms/coreA/block1.jl")
+include("csmc.jl")
 include("control_analysis.jl")
 include("organisms/coreA/control_variant.jl")
 include("models/transcription_translation.jl")

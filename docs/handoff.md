@@ -1,9 +1,275 @@
 # Handoff
 
-**Session date:** 2026-09-30
-**Branches:** `spec-phase-16-subspec` (PR #80, spec only, open).
+**Session date:** 2026-10-06
+**Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
+sub-spec, merged 2026-09-30.
 
-## Latest: phase 16 specified as a sub-spec (2026-09-30)
+## Latest: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
+
+**The review.** `/check-PR` on #81 found no error in the library code, and the
+evidence held. It returned MERGE AFTER FIXES, for eight items about claims and
+reproducibility, all fixed on the branch:
+- **The ENO null is now scoped:** one truth, linearised, 40 cells scaled to 200.
+- **"One way" is narrowed to ENO.** FBA is open: its curvature upper-2σ ratio is
+  about 0.72. K2 is annotated as anticipated, not decided, and stays with 16b.5.
+- **The sub-spec's stale two-cell text is fixed.**
+- **The update rate was pooled over cells. Per cell, N = 10's lowest live rate is
+  0.12 from 16 sweeps, so N moves to 20** (lowest 0.50). The windows that never
+  change all have empty true paths.
+- **`bulkmerge` now bootstraps its SE,** and the pooled V5 checks have a recorded
+  command (`POOL=` in `csmc_v5_fresh_16a7c.sh`).
+- **D16.6 gains the wall-clock of updating cells in turn.** At N = 20 a full-scale
+  sweep is about 30 h serially, or 1.5 h with particles in parallel, and M0 is about
+  1.5 to 29 days per posterior. R16.8 is added.
+- **CI's unit tests passed before the merge.**
+
+**Recorded follow-ups, not done:**
+1. `_poisson_weights`' stop almost never fires: about 211 terms where about 20 are
+   needed. It is correct but slow, and it inflates the measured cycles per sweep.
+   Fix it before 16a.11 measures cost.
+2. The backward-chain unit test does not check the move order.
+3. Two rounding fallbacks could pick a zero-weight particle or a zero-propensity
+   reaction, at ulp odds. Use `_draw_index`.
+4. The annealed kernel's window-2 translation reads low against every reference.
+5. Agent E's simplifications.
+
+**Next:** 16a.9, the M0 reference (V6) and SBC (V7), under bulk metabolites, with PG
+at N = 20, on a new branch from main. 16a stands at about 404 of its 5k CPU-h.
+
+## Earlier: 16a.7c is met; PG at N = 10 under bulk metabolites (2026-10-05, evening)
+
+All three follow-ups are done (`dev/scripts/csmc_bulk_16a7c_result.md`):
+- **The window-2 watch item was the reference.** A fresh rejection set (8,884 M0
+  runs) and the pooled set (17,594) put the production bulk kernel at |z| ≤ 1.79.
+  - My first bulk merge's SE ignored that triples share runs, which overstated its
+    z-scores. It now bootstraps over runs.
+  - New watch item, annealed kernel only (off by default): M0's window-2
+    translation reads low against every reference (z = −2.90 pooled).
+- **V4 passes on block 1's bulk form,** with all ten quantiles within 3 SE.
+  - FBA's posterior has a long right tail under bulk data. The V4 script now
+    extends a truncated FBA axis, and has an ENO-fine grid.
+- **15.7b is done.** Two cells resimulate to the 15.7 record. The bulk data is in
+  `dev/data/corea_dataset_15/meta.md`.
+- **16a.7c is ticked. Chosen: PG, lag 0, N = 10.** 16a stands at about 404 of its
+  5k CPU-h.
+
+**Next:**
+1. **Open a draft PR for `phase-16a-sampler`** and run `/check-PR` before 16a.9.
+   The branch now holds 16a.1 to 16a.8 plus two amendments.
+2. **Then 16a.9:** the M0 reference run (V6) and SBC (V7), under bulk metabolites,
+   with PG at N = 10.
+3. Prune the run worktrees under `.worktrees/`, and `scancel 17853654`.
+
+## Earlier: the amendment is applied, and bulk metabolites make the path update mix (2026-10-05)
+
+**Amendment applied.** Bulk metabolites, and the seam's ENO cell as a measured
+null, are in the parent spec's §12 and the sub-spec's §12 of 2026-10-05. The
+reviewed text is `spec/amendment-draft-2026-10-05.md`.
+
+**16a.7c** (`dev/scripts/csmc_bulk_16a7c_result.md`):
+- **Code:** `observe_bulk`, `m0_dataset`'s bulk record, block 1's bulk term, and
+  B3's `BulkObservation` weight with cells updated in turn. The tests pass, 211 of
+  211.
+- **Mixing:** PG on M0 clears every window from N = 10 (lowest rate 0.28), at about
+  0.84N cycles per cell-sweep. N = 10 is proposed.
+- **V5's bulk half passes on both cases.** **Watch item:** M0's window-2 births read
+  high in all five comparisons (z up to 2.85). They share one rejection
+  reference, so it may be that reference.
+- 16a stands at about 334 of its 5k CPU-h.
+
+**Next:**
+1. **A fresh rejection reference for M0's window-2 births** (about 30 CPU-h), to
+   settle the watch item before 16a.9 relies on the kernel.
+2. **V4 on block 1's bulk form,** and **15.7b's full-scale bulk record.**
+3. **Then 16a.7c ticks,** and 16a.9 starts.
+
+## Earlier: F6's ENO cell is refuted; the seam carries information one way (2026-10-03, evening)
+
+`dev/scripts/eno_path_information_16a7_result.md` (jobs 17938700 to 17938702):
+- **The bound.** Even a cell's full path, every event and its time, carries almost
+  no information about ENO. Over 200 cells, the posterior SD stays at 99.9% of the
+  prior (bootstrap 0.998 to 1.000). Transcripts, a function of the path, carry no
+  more. So F6's "ENO under transcripts only" cell fails at 15.7's truth, whatever
+  the observation model or sampler.
+- **Why.** A 20% change in ENO moves a whole cell's path log-density by about 0.003
+  nats. The pools reach the stochastic block only through rate constants rebuilt
+  once a minute.
+- **The other direction holds.** Metabolites → ptsG survives even bulk data (the
+  check below).
+
+**Next: your decision on the amendment**, which now has two parts:
+1. Bulk metabolites, inferred jointly (below).
+2. The parent's claim (§0, §1, §6 F6, C3): the seam is shown to carry information
+   one way. The ENO cell is reported as refuted by this bound, a negative result
+   stated as such, not dropped or rescued.
+
+## Earlier: population-average metabolites keep F6's ptsG cell; the ENO cell was never resolved (2026-10-03)
+
+**The route so far today.**
+- The detection floor (below) made the per-cell panel uninformative.
+- A cut posterior at the history was considered and rejected. It blocks
+  metabolites → gene expression by construction, so F6's ptsG cell would be zero.
+  The parent's Amendment 4 dropped the cut for the same reason. The metabolic
+  constants also sit in both modules (block 1's path density).
+- So the recommendation is population-average (bulk) metabolites, inferred jointly.
+  You asked for the identifiability check first.
+
+**The check** (`dev/scripts/bulk_identifiability_16a7_result.md`, job 17934962)
+reuses 15.8's run, with the metabolite rows floored at a bulk assay CV.
+- **ptsG's promoter from metabolites only shrinks** at a realistic CV: 0.10 (noise
+  bracket 0.19) at 10%, and 0.19 (0.36) at 20%. It holds on 7 save points.
+- **ENO from transcripts only does not resolve, at any CV.** Its ratio is 0.17,
+  against a bracket of 0.18. That was already true in 15.8's run, which tested the
+  joint rank only. It is unresolved rather than refuted: ensemble means drop what
+  per-cell counts carry, and the run's transcript noise is as large as the signal.
+
+**Next: your decision.**
+1. Amend the parent spec and the sub-spec to bulk metabolites: 15.6 to 15.8's
+   observation model, phase 16's target, and block 3 conditioned on transcripts
+   plus the cells' share of the bulk likelihood.
+2. Decide how F6's ENO cell is tested: per-cell transcripts in the posterior
+   itself (16b), or a dedicated check first.
+
+## Earlier: option 1, the detection floor, makes the panel uninformative (2026-10-03)
+
+You chose option 1 below. Its result is in
+`dev/scripts/csmc_variants_16a7_result.md`, under "Option 1".
+- **The cited single-cell limit** is about 1.2 × 10⁵ molecules (0.2 amol of NAD⁺;
+  Lin et al., *Anal. Chem.* 2011). 16 of the 17 panel pools in a syn3A cell sit
+  below it. Only `M_fdp_c` (about 400k) is above.
+- **At that floor the weight gap vanishes,** to 0.00 ± 0.02 nats (jobs 17933661 and
+  17933662). The sampler would mix only because the panel says nothing about the
+  path.
+- **So the one-particle floor at σ = 0.1 is an idealisation no assay meets,** and it
+  is what makes exact path inference infeasible. 15.6's panel and 15.8's
+  identifiability were measured under it.
+- 16a stands at about 293 of its 5k CPU-h.
+
+**Next: your decision, now about the claim, not the sampler.**
+1. **Keep the idealised panel as a stated idealisation.** Then 16a.7 has no
+   affordable exact sampler, and the path is conditioned on transcripts alone,
+   labelled in T3.
+2. **Adopt a realistic observation model** (the cited floor, or bulk metabolite
+   averages). That is a parent-spec amendment to 15.6, 15.7 and 15.8. 15.8's
+   identifiability would need re-measuring, and ENO and FBA would rest on FDP.
+3. **Something else you have in mind.**
+
+## Earlier: annealed windows pass V5 but miss the threshold; KP fires again (2026-10-02, evening)
+
+You chose option 1 below. It is §12 2026-10-02 in the sub-spec, with tasks
+16a.7a and 16a.7b. `dev/scripts/csmc_variants_16a7_result.md` has every number.
+- **16a.7b passes.** The window proposal is right at full scale: ranks are uniform
+  over 525 windows on cells 30001 to 30005 (smallest KS p 0.057). The morning's
+  cell-30001 watch item was chance.
+- **The annealed proposal is built and correct.** `annealed_window` and
+  `csmc_sweep(...; schedule)` are at `2e5f7e9`. 16a tests 199 of 199 (job
+  17904432). V5 at K = 5 passes on M0 (p ≥ 0.086) and on the toy (p ≥ 0.166).
+- **It does not mix at an affordable K.** At K ≤ 100 and N ≤ 5 on M0, no window
+  changes in more than 5% of sweeps.
+- **Inside one window** (job 17905489), K ≥ 200 makes windows 2 and 3 exchangeable,
+  at a replacement chance of 0.35 to 0.77. Window 1 resists K = 1,000: the chains
+  reach the right log weight, but the AIS weight carries an 8-nat penalty. K = 200
+  costs about 42k CPU-h per M0 posterior.
+- 16a stands at about 293 of its 5k CPU-h.
+
+**Next: your decision.** 16a.7 and 16a.7a stay unticked.
+1. **Test the observation floor first** (recommended, about 1 CPU-h). The knife-edge
+   comes from near-empty pools measured at 7% relative precision, which no assay
+   achieves. That gives a scientific reason to revisit the floor, independent of the
+   sampler. The floor's value must come from a cited detection limit, not be tuned
+   until the sampler mixes. Rerun `csmc_collapse_16a7.jl` with that floor, and see
+   whether the gap collapses.
+2. **The spec's named fallback:** condition the path on transcripts only, with the
+   metabolites in block 1 only, labelled as an approximation in T3. V5's
+   metabolite-off half shows it mixes (97 to 100% of windows changed).
+3. **More exact-sampler research on M0:** an inner SMC with resampling, or adaptive
+   schedules. Expect tens of thousands of CPU-h per posterior.
+
+## Earlier: 16a.7's variant measurement fires KP; an amendment awaits your decision (2026-10-02)
+
+`dev/scripts/csmc_variants_16a7_result.md` has the numbers.
+- **KP fires.** At N = 50 on M0's five cells (40 sweeps each), every variant (PG,
+  ancestor sampling at lag 1 and 5, full PGAS) has a window that never changed.
+  On the full-scale cell 30001, PG changed none of 840 window-sweeps. The costs
+  match D16.6: PG about N cycles per sweep, full PGAS on M0 about 4.6N.
+- **The cause is the metabolite likelihood, not the bridges.** Proposals from the
+  translation prior land a mean 570 to 1,870 nats below the reference on M0, and
+  40 to 400 at full scale, within one window. `M_pi_c`, `M_3pg_c` and `M_2pg_c`
+  carry it. They drain toward empty, and at σ ≈ 0.07 an 18-particle pool is
+  pinned to about ±1.3 particles.
+- **The pools' response to the path is nonlinear.** Protein counts and
+  translation exposure explain little. Every reaction's count and exposure
+  explain 50 to 59% on M0, so a linear tilt would close only part of the gap.
+- **Bug fixed at `2566e79`:** ancestor sampling's future replay threw on a firing
+  with zero propensity. That firing now gives density zero. 16a tests: 160 of 160
+  (job 17882299).
+- **Watch item:** the full-scale rank check puts 7 of 17 pools at KS p = 0.02 to
+  0.03. V5 has never run at full scale. M0's ranks are uniform.
+- 16a stands at about 145 of its 5k CPU-h.
+
+**Then:** your call on the §8 KP amendment. 16a.7 stays unticked until it is
+resolved. The options put to you:
+1. **A guided path proposal inside each window.** For example, temper the
+   metabolite likelihood over stages, with MCMC moves on the window's path. It is
+   exact, but it is research work, and its cost multiplies the per-window cost.
+   Prototype it on M0 first.
+2. **Revisit the observation model's floor.** A one-particle floor under σ = 0.1
+   makes an 18-particle pool hyper-informative. An additive detection floor is a
+   defensible model choice, but it changes 15.7's data model, so it needs its own
+   justification and must not be adopted only to rescue the sampler.
+3. **Accept KP.** Block 3 then conditions on transcripts only, with the metabolites
+   in block 1 alone, as an approximation labelled in T3. Or 16b is scored KP.
+
+## Earlier: phase 16a, tasks 16a.1 to 16a.8 built; 16a.7's variant choice next (2026-10-01)
+
+Working `spec/phases/16-recovery.md`'s 16a on `phase-16a-sampler`. Two
+amendments were approved and are in the sub-spec's §12:
+- **2026-09-30:** V2b's SSA clause. The SSA's stream is global, and its cached
+  next jump is dead at a boundary, so per-particle streams moved to 16a.7.
+- **2026-10-01:** the bridge cap's +20 is a floor that `adequate_cap` grows, and
+  M0 (16a.8) is built before block 1 (16a.5).
+
+Each task has a result file in `dev/scripts/`, and `dev/scripts/phase16_ledger.md`
+has the CPU-h. 16a stands at about 130 of its 5k.
+- **16a.1, replay and snapshots.** Bitwise on three 15.7 cells at every handshake,
+  and V2b restores bitwise at all 104 boundaries. Replay is only about 11% cheaper
+  than simulation.
+- **16a.2, the path density (V1).** Two hand checks to 1e-12. The 10⁴-path
+  importance identity on M0 passes at 1.22 and 1.07 SE.
+- **16a.3, the bridges.** Exact against matrix exponentials and an augmented
+  chain.
+- **16a.4, block 2 (V3).** Matches a one-gene exact posterior within 3 MC SE.
+- **16a.8, M0.** GAPD and ptsG over 600 s, with the other 12 enzyme counts held.
+  4.2 s per cycle.
+- **16a.5, block 1 (V4).** Passes against an independent grid, which matches the
+  block 1 target to 7e-13. **Watch item:** FBA's chain fractions sit +1.2 to
+  +2.3 SE high at four of five quantiles. The first final failed on coarse FBA
+  quantiles, and the diagnosis found the grid, not the sampler. Carry it to
+  16a.9's V6 and V7.
+- **16a.6, a clip under a fixed path still kinks.** The toy test passes. The Core A′
+  scan is **open by decision:**
+  - cells 30001 and 30002 never clip;
+  - ENO and FBA cannot move cell 30003's first clip;
+  - PGK3 flips it, but its slope there reads zero, which is unexplained.
+- **16a.7, the CSMC path update.** Built, with 40/40 unit tests.
+  - **V5 passes** on M0 cut to ptsG and on an amplified toy: 2,000 kernel draws
+    from exact starts against rejection, every χ² p ≥ 0.058 and every z within 3.
+  - **The toy meets the 2× rate conditions only from its second rebuild.**
+  - **Watch item:** the toy's metabolite-on window 3 reads z = 2.11 and 2.23.
+  - A proposal that cannot reach the observed count now gets weight zero.
+
+**Next:**
+1. **16a.7's variant choice.** Per-window update rates and cost per sweep, on M0
+   and on one full-scale cell, for PG, PGAS and truncated PGAS at
+   N ∈ {5, 10, 20, 50}, recorded in the sub-spec's §4.
+2. Then 16a.9 (the M0 reference, V6 and V7), 16a.10 (F10), and 16a.11 (cost, K1's
+   bound, and the budget, which is your decision).
+3. Then the PR and `/check-PR`.
+
+**Housekeeping:** `.worktrees/` holds about 20 run-of-record worktrees from this
+phase. Their logs are gitignored.
+
+## Earlier: phase 16 specified as a sub-spec (2026-09-30)
 
 `/implement-spec phase 16` found the phase unclear rather than long, so it is now
 specified in `spec/phases/16-recovery.md`. It splits into 16a, the sampler and the

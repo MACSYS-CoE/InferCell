@@ -141,8 +141,35 @@ function _validate_shared_params(models::Vector{<:AbstractSubModel})
     return nothing
 end
 
+"""
+    JumpEventLog()
+
+Every jump firing of a hybrid driver's stochastic block, as it happens: its time
+and its index in the composed jump list. It is the record a path replay needs
+(spec/phases/16-recovery.md task 16a.1). `affects` and `rates` hold each composed
+jump's affect and propensity `rate(u, p, t)` by the same index, and `labels`
+names it `<module>_<local index>`, so a path recorded on one composition cannot
+be replayed on another. Nothing is
+logged unless `recording` is set; see [`record_path!`](@ref).
+"""
+mutable struct JumpEventLog
+    recording::Bool
+    times::Vector{Float64}
+    reactions::Vector{Int}
+    affects::Vector{Any}
+    rates::Vector{Any}
+    labels::Vector{Symbol}
+end
+JumpEventLog() = JumpEventLog(false, Float64[], Int[], Any[], Any[], Symbol[])
+
+function _log_event!(e::JumpEventLog, t, k::Int)
+    push!(e.times, t)
+    push!(e.reactions, k)
+    return nothing
+end
+
 function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100.0),
-                            validate=true)
+                            validate=true, events::Union{Nothing, JumpEventLog}=nothing)
     validate && _validate_shared_params(models)
     contexts = _build_contexts(models)
     _resolve_coupling(models, contexts; validate=validate)
@@ -158,8 +185,16 @@ function _build_jump_problem(models::Vector{<:AbstractSubModel}; tspan=(0.0, 100
     jumps = ConstantRateJump[]
     for (m, ctx) in zip(models, contexts)
         slot = _jump_slot(m, ctx)
-        for r in reactions(m)
-            push!(jumps, _global_jump(r, slot))
+        for (j, r) in enumerate(reactions(m))
+            if events === nothing
+                push!(jumps, _global_jump(r, slot))
+            else
+                k = length(jumps) + 1
+                push!(jumps, _global_jump(r, slot, events, k))
+                push!(events.affects, _global_affect(r, slot))
+                push!(events.rates, jumps[end].rate)
+                push!(events.labels, Symbol(module_id(m), :_, j))
+            end
         end
     end
 
@@ -228,10 +263,29 @@ function _global_jump(r::Reaction, sl::_JumpSlot)
     return ConstantRateJump(rate, affect!)
 end
 
+# The same jump, logging each firing's time and composed index into `events`
+# while it is recording (spec/phases/16-recovery.md task 16a.1). Logging reads
+# `integrator.t` and draws nothing, so a recorded run consumes the same random
+# numbers as an unrecorded one.
+function _global_jump(r::Reaction, sl::_JumpSlot, events::JumpEventLog, k::Int)
+    rate = (u, p, t) -> r.rate(view(u, sl.sidx), view(p, sl.pidx), t, PeerView(u, sl))
+    affect! = integrator -> begin
+        events.recording && _log_event!(events, integrator.t, k)
+        r.affect!(view(integrator.u, sl.sidx), PeerView(integrator.u, sl))
+        nothing
+    end
+    return ConstantRateJump(rate, affect!)
+end
+
+# The affect alone, on anything with a `u`, which is how a replay applies a
+# recorded event without the SSA.
+_global_affect(r::Reaction, sl::_JumpSlot) =
+    integrator -> (r.affect!(view(integrator.u, sl.sidx), PeerView(integrator.u, sl)); nothing)
+
 # Anything else — a `ConstantRateJump`, the pre-phase-2 contract — is refused
 # by name rather than composed: its closures index the global vectors, which
 # is the aliasing bug this path exists to prevent (spec §2, G3).
-_global_jump(r, sl::_JumpSlot) = throw(ArgumentError(
+_global_jump(r, sl::_JumpSlot, _...) = throw(ArgumentError(
     "Module $(sl.mod) returned a $(nameof(typeof(r))) from reactions(). " *
     "Its rate and affect closures index the composed state and parameter " *
     "vectors at this module's local positions, so a second jump module in " *

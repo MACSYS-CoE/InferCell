@@ -518,6 +518,7 @@ mutable struct HandshakeDriver{OI, JI}
     n_handshakes::Int
     n_drains::Int
     n_clipped::Int
+    events::JumpEventLog                  # the stochastic block's firings, when recording
 end
 
 """
@@ -1500,7 +1501,8 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
     # builders must not resolve it again on their own module subset: from one
     # side a boundary crossing looks like an edge naming an absent peer.
     ode_prob = _build_ode_problem(ode_models; tspan = tspan, validate = false)
-    jump_prob = _build_jump_problem(jump_models; tspan = tspan, validate = false)
+    events = JumpEventLog()
+    jump_prob = _build_jump_problem(jump_models; tspan = tspan, validate = false, events)
 
     ode_integ = init(ode_prob, ode_solver; abstol = abstol, reltol = reltol,
                      save_everystep = false)
@@ -1515,7 +1517,7 @@ function _build_hybrid_problem(models::Vector{<:AbstractSubModel};
                         0.0, footprint,
                         corea_volume_cap_litres(volume0),
                         area0, radius0, volume0, area0, volume0,
-                        Float64(tspan[2]), 0, 0, 0)
+                        Float64(tspan[2]), 0, 0, 0, events)
 
     # The baseline is derived, never typed: it is whatever makes this
     # composition's own initial counts come to the declared initial area. For
@@ -1762,6 +1764,36 @@ makes it deferred: the cost accrued during one stochastic interval is paid at
 the next hook, exactly as `hookSimulation` does it.
 """
 function handshake_step!(d::HandshakeDriver)
+    rebuilt, drained, clipped = _exchange!(d)
+
+    # 4. Advance the stochastic block one interval.
+    #
+    # The hook cleared the counters, and `Direct` caches propensities and their
+    # total between events. Nothing in the phase-3 toy's rate laws reads a
+    # counter, so the cache would happen to stay correct — but that is a
+    # property of the toy, not of the mechanism, and a module whose propensity
+    # reads a state the hook touches would be silently wrong. A rebuild is not
+    # a matter of luck at all: it rewrites the parameters every propensity is
+    # computed from. Rebuild the aggregation whenever either happened.
+    if rebuilt || (drained && !isempty(d.debits))
+        reset_aggregated_jumps!(d.jump)
+    end
+    step!(d.jump, d.interval, true)
+    _close_handshake!(d, drained, clipped)
+    return d
+end
+
+function _close_handshake!(d::HandshakeDriver, drained::Bool, clipped::Bool)
+    d.n_handshakes += 1
+    drained && (d.n_drains += 1)
+    clipped && (d.n_clipped += 1)
+    return nothing
+end
+
+# Steps 0 to 3b of a handshake: everything but the stochastic block's advance,
+# which a replay supplies from a recorded path instead of the SSA. Returns
+# whether a rebuild ran, whether a drain ran, and whether any drain clipped.
+function _exchange!(d::HandshakeDriver)
     step = d.n_handshakes + 1
 
     # 0. Growth. It runs first so that every conversion in this exchange — the
@@ -1892,25 +1924,7 @@ function handshake_step!(d::HandshakeDriver)
         r.n_refreshes += 1
         rebuilt = true
     end
-
-    # 4. Advance the stochastic block one interval.
-    #
-    # The hook cleared the counters, and `Direct` caches propensities and their
-    # total between events. Nothing in the phase-3 toy's rate laws reads a
-    # counter, so the cache would happen to stay correct — but that is a
-    # property of the toy, not of the mechanism, and a module whose propensity
-    # reads a state the hook touches would be silently wrong. A rebuild is not
-    # a matter of luck at all: it rewrites the parameters every propensity is
-    # computed from. Rebuild the aggregation whenever either happened.
-    if rebuilt || (drained && !isempty(d.debits))
-        reset_aggregated_jumps!(d.jump)
-    end
-    step!(d.jump, d.interval, true)
-
-    d.n_handshakes += 1
-    drained && (d.n_drains += 1)
-    clipped && (d.n_clipped += 1)
-    return d
+    return rebuilt, drained, clipped
 end
 
 # One rebuild: the module's rate constants from the live pools, written into the

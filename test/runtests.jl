@@ -114,6 +114,15 @@ using Aqua
     include("test_corea_smoothed_drain.jl")
     # Phase 15: observables and synthetic data.
     include("test_corea_observables.jl")
+    # Phase 16a: path replay and snapshots.
+    include("test_path_replay.jl")
+    include("test_path_density.jl")
+    include("test_transcript_bridge.jl")
+    include("test_block2.jl")
+    include("test_m0.jl")
+    include("test_block1.jl")
+    include("test_fixed_path_kink.jl")
+    include("test_csmc.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

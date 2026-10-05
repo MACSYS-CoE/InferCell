@@ -290,7 +290,9 @@ function emit_ensemble(build, seeds::AbstractVector{<:Integer}; every::Integer =
         runs) || error("replicates disagree on their species, reactions or save times")
     stack3(f) = permutedims(cat((f(r) for r in runs)...; dims = 3), (3, 1, 2))
     counts = stack3(r -> r.counts)
-    genes = [g.locus for g in read_transcription_genes()]
+    # The genes the composition transcribes: all seventeen in Core A′, two in M0.
+    genes = [g.locus for g in read_transcription_genes()
+             if transcript_state(g.locus) in r1.species]
     rows = state_rows([transcript_state(g) for g in genes], r1.species)
     tx = counts[:, rows, :]
     all(isinteger, tx) || error("a transcript count is not an integer")
@@ -433,14 +435,33 @@ function observe_latent(latent::AbstractArray{<:Real, 3}, species::AbstractVecto
 end
 
 """
+    observe_bulk(latent, species, panel; sigma, noise_seed, floor = 1.0) -> Matrix{Float64}
+
+Bulk metabolite observations (spec §12 2026-10-05): for each `panel` pool at each
+save, one measurement of the mean over the `latent` record's cells (cells ×
+species × times), lognormal at `sigma`, `max(x̄, floor)·exp(sigma·ε)`, from a
+generator seeded by `noise_seed`. Returns panel × times. The mean is of particle
+counts over the same cells at every save; both are stated idealisations.
+"""
+function observe_bulk(latent::AbstractArray{<:Real, 3}, species::AbstractVector{Symbol},
+                      panel::AbstractVector{Symbol}; sigma::Real, noise_seed::Integer,
+                      floor::Real = 1.0)
+    rows = state_rows(collect(panel), collect(species))
+    xbar = dropdims(sum(latent[:, rows, :]; dims = 1); dims = 1) ./ size(latent, 1)
+    return max.(xbar, floor) .* exp.(sigma .* randn(Xoshiro(noise_seed), size(xbar)))
+end
+
+"""
     generate_dataset(truth, seeds; models = d11_models(), horizon = COREA_CYCLE_S,
-                     every = 60, noise = nothing, scales = Dict(), noise_seed = 0)
+                     every = 60, noise = nothing, scales = Dict(), noise_seed = 0,
+                     names = D11_TARGETS)
         -> NamedTuple
 
 Spec §11 task 15.7: a synthetic dataset from the **published** model (clamped
 drain, fractional carry), with `truth` written by [`set_parameters!`](@ref),
-one cell per seed. The truth must pass [`check_truth`](@ref), so a nominal
-truth is refused unless it is labelled a smoke test (§4 D8).
+one cell per seed. The truth must pass [`check_truth`](@ref) over `names`, so a
+nominal truth is refused unless it is labelled a smoke test (§4 D8). M0 passes
+its own [`M0_TARGETS`](@ref).
 
 Each cell is run by [`emit_ensemble`](@ref). The latent record keeps every
 candidate observable except protein counts ([`assert_no_circularity`](@ref)).
@@ -457,8 +478,9 @@ function generate_dataset(truth::NamedTuple, seeds::AbstractVector{<:Integer};
                           models = d11_models(), horizon::Real = COREA_CYCLE_S,
                           every::Integer = 60, noise::Union{Nothing, NoiseModel} = nothing,
                           scales::AbstractDict = Dict{Symbol, Float64}(),
-                          noise_seed::Integer = 0)
-    check_truth(models, truth)
+                          noise_seed::Integer = 0,
+                          names::AbstractVector{Symbol} = D11_TARGETS)
+    check_truth(models, truth; names)
     function build()
         d = build_problem(models; tspan = (0.0, Float64(horizon)), complete = true)
         set_parameters!(d, models, truth.values)
@@ -483,4 +505,4 @@ export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble
 export POLYMERASE_DIRECTION, perturbed_values, ensemble_jacobian
-export generate_dataset, observe_latent
+export generate_dataset, observe_latent, observe_bulk
