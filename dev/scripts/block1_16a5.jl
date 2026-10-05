@@ -28,6 +28,10 @@
 #                  2.4 per SD, which biased FBA's exact quantiles by up to 0.010 in
 #                  CDF units. Integrating over ENO by trapezoid needs no fine ENO.
 #   fbamerge       FBA's exact quantiles from that grid
+#   eno <row>, enomerge  the same with the axes' roles swapped: fine in ENO (161
+#                  points over ±8 SD), coarse in FBA (41), one FBA row per task.
+#                  Added for the bulk form, whose widened main grid has about two
+#                  points per ENO SD
 #   final          pool the chains, less BURN sweeps each, and test against the
 #                  last merge's exact quantiles, with FBA's from fbamerge if present
 #
@@ -269,6 +273,31 @@ elseif STAGE == "fba" || STAGE == "fbamerge"
             @printf("  ln FBA %.2f quantile %.4f\n", p, x)
         end
     end
+elseif STAGE == "eno" || STAGE == "enomerge"
+    (cE, sE), (cF, sF) = deserialize(joinpath(DIR, "exact_final.jls")).moments
+    axe = [range(cE - 8sE, cE + 8sE; length = 161), range(cF - 8sF, cF + 8sF; length = 41)]
+    if STAGE == "eno"
+        row = parse(Int, ARGS[2])
+        vals = [grid_logpost([a, axe[2][row + 1]]) for a in axe[1]]
+        serialize(joinpath(DIR, "eno_row$(row).jls"), (row = row, vals = vals))
+        println("eno row $row done")
+    else
+        lp = reduce(hcat, [deserialize(joinpath(DIR, "eno_row$(r).jls")).vals for r in 0:40])
+        w = exp.(lp .- maximum(lp))           # ENO × FBA
+        mE, mF = vec(sum(w; dims = 2)), vec(sum(w; dims = 1))
+        edge = maximum([mE[1], mE[end]]) / maximum(mE), maximum([mF[1], mF[end]]) / maximum(mF)
+        u = axe[1]
+        c = [0.0; cumsum([(mE[i] + mE[i + 1]) / 2 * step(u) for i in 1:length(u) - 1])]
+        c ./= c[end]
+        quant(p) = (i = findfirst(>=(p), c); u[i - 1] + (p - c[i - 1]) / (c[i] - c[i - 1]) * step(u))
+        ps = [0.05, 0.25, 0.5, 0.75, 0.95]
+        q = [quant(p) for p in ps]
+        serialize(joinpath(DIR, "exact_eno.jls"), (quantiles = q, ps = ps, edge = edge))
+        @printf("ENO-fine grid: step %.5f in ln ENO; edge mass %.1e (ENO), %.1e (FBA)\n", step(u), edge...)
+        for (p, x) in zip(ps, q)
+            @printf("  ln ENO %.2f quantile %.4f\n", p, x)
+        end
+    end
 elseif STAGE == "check"
     # Block 1's target against the grid's independent log posterior at the same
     # points, at the truth's σ: they must differ by a constant. A spread in the
@@ -294,6 +323,13 @@ elseif STAGE == "final"
         ef.ps == ex.ps || error("the FBA-fine grid's levels differ")
         ex = (; ex..., quantiles = [ex.quantiles[1], ef.quantiles])
         @printf("FBA's exact quantiles from the FBA-fine grid; edge mass %.1e, %.1e\n", ef.edge...)
+    end
+    eno = joinpath(DIR, "exact_eno.jls")
+    if isfile(eno)
+        ee = deserialize(eno)
+        ee.ps == ex.ps || error("the ENO-fine grid's levels differ")
+        ex = (; ex..., quantiles = [ee.quantiles, ex.quantiles[2]])
+        @printf("ENO's exact quantiles from the ENO-fine grid; edge mass %.1e, %.1e\n", ee.edge...)
     end
     chains = [deserialize(joinpath(DIR, "chain_$(k).jls")).draws[(BURN + 1):end, :]
               for k in 0:(NCHAINS - 1)]
