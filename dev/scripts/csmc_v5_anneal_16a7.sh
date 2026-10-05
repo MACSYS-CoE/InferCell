@@ -9,7 +9,10 @@ case=$1
 src=$2
 K=${3:-5}
 mkdir -p dev/scripts/csmc_v5_16a7/$case
-cp "$src"/$case/reject_*.jls "$src"/$case/prep.jls dev/scripts/csmc_v5_16a7/$case/
+# In a single clone the source can be this tree; then there is nothing to copy.
+if [ "$(cd "$src" && pwd -P)" != "$(cd dev/scripts/csmc_v5_16a7 && pwd -P)" ]; then
+    cp "$src"/$case/reject_*.jls "$src"/$case/prep.jls dev/scripts/csmc_v5_16a7/$case/
+fi
 S=dev/scripts/csmc_v5_16a7.slurm
 koff=$(V5_ANNEAL=$K sbatch --parsable --export=ALL,V5_ANNEAL=$K --time=08:00:00 --array=0-49 -J v5a_${case}_off $S kernel $case off)
 kon=$(V5_ANNEAL=$K sbatch --parsable --export=ALL,V5_ANNEAL=$K --time=08:00:00 --array=0-49 -J v5a_${case}_on $S kernel $case on)

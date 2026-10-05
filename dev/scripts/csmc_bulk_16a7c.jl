@@ -98,18 +98,38 @@ end
 
 function merge()
     files = sort(filter(f -> occursin(r"^N\d+\.jls$", f), readdir(DIR)); by = f -> parse(Int, f[2:end-4]))
-    println("| N | Cell-sweeps | Cycles per cell-sweep | Min window rate | Windows below $(THRESHOLD) | Per-window rate, pooled over cells |")
+    # The true paths' events per window, per updated cell. A window whose true
+    # path has no events and whose transcripts stay put (0 → 0) has a posterior
+    # concentrated on the empty path, so its update rate is near zero by
+    # construction, not for want of mixing (PR #81 review). Such windows are
+    # reported, and D16.3's criterion is applied to the rest.
+    S = setup()
+    live = reduce(hcat, [[length(w.times) > 0 for w in c.ref] for c in S.cells])     # windows × cells
+    println("Windows whose true path is empty (cell: windows): ",
+            join(["$(c): " * join(findall(.!live[:, k]), ",") for (k, c) in enumerate(UPDATED)], "; "))
+    println()
+    println("| N | Cell-sweeps | Cycles per cell-sweep | Pooled: min window rate | Per cell: min rate over live windows | Live cell-windows below $(THRESHOLD) |")
     println("|---|---|---|---|---|---|")
     for f in files
         r = deserialize(joinpath(DIR, f))
         ch = reduce(hcat, r.changed)
-        rate = vec(mean(ch; dims = 2))
+        pooled = vec(mean(ch; dims = 2))
         n = length(r.updated)
         # The first scan compiles; its sweeps are dropped from the cost.
         cps = mean(r.secs[(n + 1):end]) / r.cycle
-        @printf("| %d | %d | %.1f | %.2f (window %d) | %d of %d | %s |\n", r.N, size(ch, 2), cps,
-                minimum(rate), argmin(rate), count(<(THRESHOLD), rate), length(rate),
-                join([@sprintf("%.2f", x) for x in rate], " "))
+        percell = reduce(hcat, [vec(mean(r.changed[k]; dims = 2)) for k in 1:n])   # windows × cells
+        lv = percell[live]
+        @printf("| %d | %d | %.1f | %.2f | %.2f | %d of %d |\n", r.N, size(ch, 2), cps,
+                minimum(pooled), minimum(lv), count(<(THRESHOLD), lv), length(lv))
+    end
+    for f in files
+        r = deserialize(joinpath(DIR, f))
+        println("\nN = $(r.N), per-window rate by cell (an asterisk marks an empty true path):")
+        for k in 1:length(r.updated)
+            rate = vec(mean(r.changed[k]; dims = 2))
+            println("  cell $(r.updated[k]): ", join([@sprintf("%.2f%s", x, live[m, k] ? " " : "*")
+                                                   for (m, x) in enumerate(rate)], " "))
+        end
     end
 end
 

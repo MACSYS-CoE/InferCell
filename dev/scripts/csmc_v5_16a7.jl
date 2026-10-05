@@ -177,10 +177,10 @@ bulkloglik(lats, z, σ) = sum(logpdf(Normal(log(max(x, 1.0)), σ), log(y))
 # The bulk reference's weighted mean of functional `j` over `triples` of runs,
 # and its standard error by a bootstrap over the runs themselves: the triples
 # reuse a finite pool of runs, so they are not independent, and an ESS-based SE
-# understates the error. (The first bulk merge used the ESS-based SE; the
-# fresh-reference check of 2026-10-05 found it too small.)
+# understates the error. (The first bulk merge, jobs 18052539 and 18052542, used
+# the ESS-based SE; the fresh-reference check of 2026-10-05 found it too small.
+# The merge now uses this, on a quarter of the prep's triples.)
 function bulk_reference(kept, triples, z, σ, j; B = 100, rng = Xoshiro(16_093))
-    lw = [bulkloglik([kept[i].lat for i in t], z, σ) for t in triples]
     fx(map) = begin
         l = [bulkloglik([kept[map[i]].lat for i in t], z, σ) for t in triples]
         w = exp.(l .- maximum(l))
@@ -246,13 +246,12 @@ function bulk_stage(stage, args)
         w = exp.(lw .- maximum(lw))
         w ./= sum(w)
         ess = 1 / sum(w .^ 2)
-        @printf("V5 bulk, case %s: %d cells; σ_b = %.3g, reference ESS %.0f over %d triples; %d kernel draws, N = %d, %d scans\n",
-                CASE, BULK_C, pr.sigma, ess, length(pr.triples), length(on), N_PART, K_SWEEPS)
+        triples = pr.triples[1:(length(pr.triples) ÷ 4)]
+        @printf("V5 bulk, case %s: %d cells; σ_b = %.3g, reference ESS %.0f over %d triples; %d kernel draws, N = %d, %d scans; reference SE by a bootstrap over runs on %d triples\n",
+                CASE, BULK_C, pr.sigma, ess, length(pr.triples), length(on), N_PART, K_SWEEPS, length(triples))
         ok = true
         for (j, name) in enumerate(FNAMES)
-            x = [mean(kept[i].f[j] for i in t) for t in pr.triples]
-            m_ref = sum(w .* x)
-            se_ref = sqrt(sum(w .* (x .- m_ref) .^ 2) / ess)
+            m_ref, se_ref = bulk_reference(kept, triples, pr.z, pr.sigma, j)
             a = [o.f[j] for o in on]
             m_k, se_k = mean(a), std(a) / sqrt(length(a))
             den = sqrt(se_ref^2 + se_k^2)
