@@ -12,7 +12,7 @@ with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
 coupled half failed and carried as a measured cost (§12, #77). Phase 15,
 observables and synthetic data, is done (#78). Phase 16 is next, specified in
 `spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30).
-**Created:** 2026-09-03  ·  **Last amended:** 2026-09-30
+**Created:** 2026-09-03  ·  **Last amended:** 2026-10-05
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -69,11 +69,15 @@ spec wins, because the note does not address either.
 
 - **The result the work exists for.** A table of how much each of six target
   parameters' uncertainty shrinks under three data regimes: transcripts only,
-  metabolites only, and both. Two cells carry the claim. A gene-expression
-  parameter (the ptsG promoter strength) must shrink when only metabolite data
-  is supplied, and a metabolic parameter (an enolase catalytic constant) must
-  shrink when only transcript data is supplied. Each shows information crossing
-  the seam in one direction (§6 F6).
+  metabolites only, and both. **Amended 2026-10-05 (§12):** one cell carries the
+  claim, and one is a measured null.
+  - **The claim:** a gene-expression parameter (the ptsG promoter strength) must
+    shrink when only metabolite data is supplied. That is information crossing
+    the seam from the metabolic side.
+  - **The null:** a metabolic parameter (an enolase catalytic constant) cannot
+    shrink when only transcript data is supplied. A complete-data information
+    bound shows it, so the seam carries information one way at this scale, and
+    that is reported (§6 F6).
 
 - **What it is not.** It does not reproduce syn3A's 105-minute doubling time, its
   metabolite concentrations or its proteome, and no result is to be compared to
@@ -133,9 +137,14 @@ published model rather than chosen by us. So the claim is not that one quantity
 appears in both blocks' rate laws and is informed by both data streams. It is
 that a parameter local to one block has its posterior moved by the *other*
 block's data, through the state coupling. That is a harder claim and a narrower
-one, and §6 F6 is where it is cashed out: the ptsG promoter strength shrinking
-under metabolite-only data, and the tight-prior catalytic constant shrinking
-under transcript-only data.
+one, and §6 F6 is where it is cashed out.
+- **Metabolites → gene expression:** the ptsG promoter strength shrinking under
+  metabolite-only data.
+- **The other direction is shown not to carry information** (amended 2026-10-05,
+  §12). For the enolase constant under transcript-only data, a complete-data
+  information bound leaves its posterior SD at 99.9% of its prior over 200 cells.
+  The pools reach the stochastic block only through rate constants rebuilt once a
+  minute. That direction is reported as a measured null, not omitted.
 
 **What this claim deliberately excludes.** Core A′ removes roughly 92% of the
 cell. It will not reproduce syn3A's 105-minute doubling time, its metabolite
@@ -149,7 +158,7 @@ bar this work is held to is in the table below, and the left column is not it.
 | Reproduces the 105 min doubling time | Parameters recover from synthetic data with nominal coverage |
 | Matches syn3A metabolite concentrations | Posteriors are calibrated, checked per module and jointly |
 | Predicts the observed proteome | Identifiability is characterised: we know what the data constrains |
-| Forward trajectories look biological | Uncertainty crosses the boundary correctly, and the gain in each direction is measured |
+| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05) |
 
 ---
 
@@ -1386,7 +1395,7 @@ is the enabler.
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
 | F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
-| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** | Two load-bearing cells: the ptsG promoter under *metabolites only* (shrinks ⟹ uncertainty crossed toward the ODE block) and the ENO constant under *transcripts only* (shrinks ⟹ crossed the other way) |
+| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** | **Amended 2026-10-05 (§12):** one load-bearing cell and one measured null. The ptsG promoter under *metabolites only* shrinks: information crossed from the ODE block's data into the stochastic block's parameter. ENO under *transcripts only* cannot shrink, by the complete-data information bound (§12 2026-10-05). A shrinkage there would mean a sampler error, so it is a check, not a hope |
 | F7 | Leave-one-stream-out: refit dropping each transcript stream and each metabolite stream, reporting the change per target | C3 | Identifies load-bearing single points of failure, and streams that never informed anything |
 | **F8** | **Rank-ECDF difference plots with simultaneous bands**, per target, at the largest affordable replication count | C4 | Primary calibration evidence. Histograms are secondary |
 | F9 | Coverage curve: nominal against empirical at 50, 80, 90, 95 and 99 percent, per target, with binomial intervals | C4 | The two controls are the diagnostic rows, with the kill-criterion band drawn on |
@@ -1402,9 +1411,10 @@ is the enabler.
 **Scalars that must appear in any abstract:** wall-clock per trajectory; the
 reverse-channel gain range; the achieved replication count; 95% coverage per
 target; and the shrinkage of the ptsG promoter under metabolite-only data
-together with the tight-prior control's shrinkage under transcript-only data.
-Those last two are what "uncertainty crosses the boundary" reduces to once D13
-establishes there is no shared parameter to point at.
+together with the information bound on ENO from transcript-only data (amended
+2026-10-05). Those last two are what "uncertainty crosses the boundary" reduces
+to once D13 establishes there is no shared parameter to point at: one direction
+carries information, and the other is measured not to.
 
 ---
 
@@ -4184,6 +4194,23 @@ and the dataset (job 17703841, `dev/data/corea_dataset_15/meta.md`).
   **Annotated 2026-09-28 (§12):** the Jacobian is taken on 14c's
   smoothed model, since at a clip the clipped model's has no value. That is
   the sampler model, smoothed drain and continuous pools (§12, 2026-09-28).
+  **Annotated 2026-10-05 (§12):** re-measured under bulk metabolites
+  (`dev/scripts/bulk_identifiability_16a7_result.md`, job 17934962).
+  - At a bulk assay CV of 5 to 20%, metabolites-only rank is 6 of 6.
+  - Joint rank is 6, 5 and 4 at 5, 10 and 20%. The noise floor there is set by the
+    transcript rows' Monte Carlo noise (about 55), not by lost information.
+  - Transcripts-only rank is 4 of 6 at every CV, with ENO and FBA unresolved,
+    consistent with the information bound.
+- [ ] 15.7b (§12 2026-10-05) Add bulk metabolite observations to the 15.7 dataset
+  and to `m0_dataset`. For each panel pool at each save, one measurement of the
+  C-cell mean particle count, lognormal at σ_b, from a recorded noise seed. 15.7's
+  truth has σ_b = 0.10, and σ_b's prior is `LogNormal(log 0.2, 1)`. The per-cell
+  panel stays in the record as the superseded observation model. Verify by:
+  - the latent record regenerating 15.7's (`same latent`, as 16a.1 checks);
+  - the bulk z recomputing from the latent and the seed;
+  - two runs at one seed being identical;
+  - the meta file stating the three idealisations: the same cells at every save,
+    particle counts not concentrations, and exact per-cell transcripts.
 - [x] 15.9 Map observations to states by species name, and keep ensemble spread
   in the ABC summary (§12, 2026-09-23 G) — verify by permuting the observed
   species leaving the log-density unchanged, by a subset of states building and
@@ -4315,6 +4342,57 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-10-05 — bulk metabolites, and a one-way seam
+
+**Status: approved 2026-10-05**, with the defaults for σ_b, the averaged cells and
+counts (`spec/amendment-draft-2026-10-05.md`, kept as the reviewed text).
+
+**Trigger.** Phase 16a.7, on `phase-16a-sampler`; every number is in `dev/scripts/`.
+1. **KP fired twice.**
+   - No path-update variant mixes at the data's σ: PG, PGAS and truncated PGAS at
+     N = 50, and annealed windows at K ≤ 100.
+   - The per-cell panel's near-empty pools (Pi, 3PG, 2PG) at σ ≈ 0.1 pin a cell's
+     history to a sliver.
+   - Annealing that reaches it needs K ≥ 200, about 42k CPU-h per M0 posterior.
+     (`csmc_variants_16a7_result.md`)
+2. **The per-cell panel is not measurable.** At the best cited single-cell
+   detection limit, about 1.2 × 10⁵ molecules (Lin et al., *Anal. Chem.* 2011), 16
+   of the 17 pools in a syn3A cell are below detection. At that floor the panel's
+   information about a history is 0.00 ± 0.02 nats.
+3. **A cut posterior at the history was rejected.** It forbids metabolites → gene
+   expression by construction, as Amendment 4 (2026-09-03) found for the cut. The
+   metabolic constants also sit in both modules, through the path density.
+4. **Bulk metabolites keep the ptsG cell.** From metabolites alone, posterior over
+   prior SD is 0.10 at a 10% assay CV (noise bracket 0.19) and 0.19 (0.36) at
+   20%, on all save points and on 7. (`bulk_identifiability_16a7_result.md`, job
+   17934962)
+5. **ENO from transcripts is refuted.** Over 200 cells, the full path leaves ENO's
+   posterior SD at 99.9% of its prior (bootstrap 0.998 to 1.000). A 20% change in
+   ENO moves a cell's path log-density by about 0.003 nats.
+   (`eno_path_information_16a7_result.md`, jobs 17938700 to 17938702)
+
+**Change.**
+- **The claim** (§0, §1, §6 F6 and the abstract scalars) keeps one load-bearing cell,
+  ptsG under metabolites only, and reports ENO under transcripts only as a measured
+  null.
+- **The metabolite observation model** becomes bulk: one lognormal measurement per
+  pool per save of the C-cell mean, at an assay CV σ_b. Transcripts are unchanged.
+  Inference stays joint and exact.
+- **15.8** is annotated with the bulk re-measure.
+- **15.7b** adds the bulk observations.
+- **The sub-spec** carries the target, the blocks, V5 and the tasks (its §12
+  2026-10-05).
+
+**Unchanged:** K4, the tight-prior control, which tests recovery rather than
+transcript-only shrinkage.
+
+**Rejected:**
+- the per-cell panel, which is unmeasurable and makes exact inference unaffordable;
+- a detection-floor panel, which carries no path information;
+- the cut at the history, which removes the ptsG cell.
+
+*Sections:* §0, §1, §6 F6 and the abstract scalars, §11 15.8 and 15.7b.
 
 ### 2026-09-30 — phase 16 moves to a sub-spec; block 1 goes gradient-free; the phase is budgeted at 50k CPU-h
 

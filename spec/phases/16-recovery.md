@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** draft
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-02
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-05
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -35,7 +35,7 @@ the parent's sub-claims (§6).
 
 **The three-block conditional scheme of D10 samples the joint posterior of D11's
 six targets, and that posterior is calibrated.** The data are 200 cells of the
-published model, with exact transcript counts and lognormal metabolite panels. The
+published model, with exact transcript counts and bulk metabolite measurements, one per pool per save, of the population mean (amended 2026-10-05, §12). The
 sampler is validated against an exact long-run reference on a two-gene system (M0).
 So a calibration result can be attributed to the method rather than to a converged
 wrong answer (R4). On Core A′ it delivers F6's two load-bearing cells, the tight-prior
@@ -125,13 +125,24 @@ Write `c` for a cell. The free parameters are:
 The reverse constants are deterministic functions of θ_ODE (D16.1). The target is
 
 ```
-p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ m(X_c, t_k) = y^tx_c,k  ∀k ]
-                                        · Π_k Π_j  N( log y^met_c,j,k ; log max(x_j(θ, X_c, t_k), 1), σ )
+p(θ, σ_b, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ_b) · Π_c  p(X_c | θ) · 1[ m(X_c, t_k) = y^tx_c,k  ∀k ]
+                                          · Π_k Π_j  N( log z_j,k ; log max( x̄_j,k , 1 ), σ_b )
+
+x̄_j,k = (1/C) Σ_c x_j(θ, X_c, t_k)
 ```
+
+**Amended 2026-10-05 (§12):**
+- The metabolites are **bulk**: one measurement `z_j,k` per pool per save, of the
+  C-cell mean particle count, at an assay CV `σ_b`. This replaces the per-cell panel
+  `y^met_c,j,k` at σ.
+- The cells averaged are the same C cells at every save, and the mean is of counts,
+  not concentrations. Both are stated idealisations.
+- **The cells are no longer independent given θ.** They couple through `x̄`.
 
 - **The priors.**
   - `p(θ_ODE)` is the product of the two forward-constant priors only.
-  - `p(σ) = LogNormal(log 0.2, 1.0)`.
+  - `p(σ_b) = LogNormal(log 0.2, 1.0)`, the prior σ had. 15.7's truth has
+    σ_b = 0.10.
 - **`X_c`** is every transcription, translation, decay and translocation event with
   its time.
 - **`x_j(θ, X_c, t)`** is what the generator observes: the **carry-inclusive
@@ -153,9 +164,9 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
 
 | Block | Conditional | Cost per update |
 |---|---|---|
-| B1 | `θ_ODE, σ \| X, y`: the prior, plus Σ_c [log p(X_c \| θ) + metabolite log-likelihood]. A new θ_ODE needs every cell replayed. σ alone needs no replay | C replays per θ_ODE evaluation |
+| B1 | `θ_ODE, σ_b \| X, y`: the prior, plus Σ_c log p(X_c \| θ), plus the bulk log-likelihood of `x̄`. A new θ_ODE needs every cell replayed. σ_b alone needs no replay | C replays per θ_ODE evaluation |
 | B2 | `θ_CME \| X, θ_ODE`: each promoter and `krnadeg` enters only its own propensities. With the pool trajectory fixed, the likelihood is `k^n exp(−k·A)`, where `n` counts events and `A` is exposure summed over cells. The prior is lognormal, so this is not gamma. It is a one-dimensional log-concave density | Negligible: sufficient statistics only |
-| B3 | `X_c \| θ, y_c`, per cell and independent across cells | The path update of D16.3 |
+| B3 | `X_c \| θ, X_−c, y`, per cell, **in turn** (amended 2026-10-05): the bulk likelihood couples the cells, so each conditions on the others' current histories | The path update of D16.3, with cells sequential |
 
 ### Assumptions, each with its regime
 
@@ -165,7 +176,7 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
 | Rate constants change at 60m − 1 s on the jump clock | The handshake order above | Nothing to fix: the path update is written for it (D16.3), and V1 tests that boundary |
 | A particle is its driver's full mutable state | The snapshot covers every field `handshake_step!` reads or writes (D16.3) | A missed field makes a restored particle run a different model. Asserted by V2b |
 | The turnover ceiling never binds | `RNAPOL_KCAT·S_g < 180`, that is S below about 153 | B2's form becomes truncated. Asserted per proposal, and a violation throws |
-| Cells are independent given θ | Separate seeds and separate cells, as generated | Nothing here: true by construction |
+| ~~Cells are independent given θ~~ | ~~Separate seeds and separate cells, as generated~~ | Amended 2026-10-05: true of the transcripts, not of the bulk metabolites, which couple the cells through `x̄`. B3 updates cells in turn |
 | Block 1's step needs no gradient | Two free ODE constants plus σ | Freeing many more ODE parameters would bring the gradient, and 14c's sampler model, back. §7 |
 
 ### Verification checks, each with a tolerance
@@ -179,7 +190,7 @@ p(θ, σ, X_1:C | y)  ∝  p(θ_CME) p(θ_ODE) p(σ) · Π_c  p(X_c | θ) · 1[ 
 | V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior. The grid density is evaluated on the θ scale, or on the ln θ scale with the Jacobian, and never as the same code path the sampler uses. Quantiles must agree within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
-| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ from `p(σ)`, each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows) | 16a.9 |
+| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows) | 16a.9 |
 | V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
 | V9 | Snapshot independence | Mutating one particle's snapshot leaves every other unchanged. This is the installed trap of solver objects shared across particles, tested directly | 16a.7 |
 
@@ -207,6 +218,16 @@ alone. Two cases.
     expectations of the same functionals must match within 3 SE. The reference's
     weighted ESS is reported and must be at least 1,000. If it is not, σ is inflated
     for this check until it is, and the value is stated.
+  - **Amended 2026-10-05 (§12): under bulk metabolites, the "on" half runs on a
+    population of C = 3 cells.**
+    - The rejection reference simulates the three jointly. It keeps runs whose
+      transcripts match all three cells' data, and weights them by the bulk
+      likelihood of their mean.
+    - The kernel is a sweep that updates the three cells in turn, each conditioned
+      on the other two.
+    - Expectations must match within 3 SE, with σ_b inflated only if the ESS needs
+      it, and the value stated.
+    - The toy case runs the same way.
 - **An amplified case for the weight.** In M0 the transition factor varies by only
   about 0.07% between particles, too little for the χ² to see. So the same
   comparison also runs on a test composition built so the rates really differ
@@ -406,6 +427,20 @@ is now annealed importance sampling (AIS) inside the window:
   assumptions. **The annealed sampler is affordable on M0, not at full scale
   under the cap.**
 
+**Amended 2026-10-05 (§12): under bulk metabolites, the window weight's metabolite
+term is the bulk likelihood with this cell's particle substituted.**
+- **The weight.** For cell c, `g_m` becomes the bulk likelihood at
+  `x̄_k = (S_−c,k + x_c,k)/C`. `S_−c,k` is the other cells' summed latent at save k,
+  from their current histories, and `x_c,k` is the particle's own.
+- **Order.** Cells are updated in turn within a sweep, each after the previous
+  cell's update, which is a valid Gibbs scan. It costs wall-clock, not CPU-h. After
+  a cell's update, `S` is refreshed from its new history.
+- **Expected effect.** One cell moves `x̄` by about 1/C of its deviation, so the
+  weights are gentle, and PG is expected to mix as the metabolite-off runs did
+  (97 to 100% of windows changed). 16a.7c checks this, not assumes it.
+- **The annealed window stays in the code,** V5-validated and off by default. It is
+  the fallback if 16a.7c fails.
+
 **Alternatives considered:**
 - Single-site Metropolis-within-Gibbs on one gene's window segment. Every proposal
   needs a replay from that window to the end, about half a cycle.
@@ -588,6 +623,10 @@ How the parent's criteria are placed here:
     fires again. The remaining fallback is then to condition the path on transcripts
     alone, with the metabolites used in block 1 only. That is an approximation,
     labelled in T3.
+  - **Fired again 2026-10-02** on the annealed proposal at K ≤ 100.
+  - **Resolved 2026-10-05 by changing the observation model, not the sampler**
+    (§12). The per-cell panel was unmeasurable, and the fallback above, a cut, would
+    remove F6's ptsG cell. Under bulk metabolites, KP is re-scored by 16a.7c.
 
 ## 9. Open questions
 
@@ -683,6 +722,8 @@ and against a long reference where it is not. Then measure what one posterior co
   `dev/scripts/csmc_variants_16a7_result.md`, at N = 50, the largest. The smaller
   N were not run, since N = 50 decides KP. The choice moves to 16a.7a, and the
   full-scale check to 16a.7b.
+  **Annotated 2026-10-05 (§12):** the variant is PG (lag 0) under bulk metabolites,
+  at an N 16a.7c sets.
 - [ ] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
   Gibbs, and measure it on M0. Verify by:
   - a unit test that the reference's backward chain uses the stage moves in reverse
@@ -703,12 +744,25 @@ and against a long reference where it is not. Then measure what one posterior co
     resists K = 1,000. At about 42k CPU-h per M0 posterior from K = 200, that is
     above the cap.
   - `dev/scripts/csmc_variants_16a7_result.md`.
+
+  **Superseded for production 2026-10-05 (§12)** by the bulk observation model. The
+  code and its V5 pass stand, with the annealing off by default.
 - [x] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
   transcript-weighted rank of the true path's panel pools among proposals from its
   own state, on five independent 15.7-truth cells (30001 to 30005), with each pool's
   ranks uniform by KS at p > 0.01 after Bonferroni over the 17 pools.
   **Passed 2026-10-02** (jobs 17904315 and 17904316): over 525 windows, the smallest
   KS p is 0.057, and every Bonferroni p is ≥ 0.97.
+- [ ] 16a.7c (§12 2026-10-05) Implement bulk metabolites in the sampler, and choose
+  N. Verify by:
+  - M0 datasets with the bulk modality (parent 15.7b);
+  - B1 scoring `x̄`, with V4 rerun on its bulk form;
+  - B3 updating cells in turn with the substituted-mean weight, with a unit test
+    that the weight equals the bulk likelihood of the population with that cell's
+    particle in place;
+  - V5 in both cases, with the bulk "on" half on C = 3 cells (§3);
+  - per-window update rates and cost per sweep on M0 at N ∈ {5, 10, 20, 50};
+  - **the choice of N, or KP,** recorded in §4. The variant is PG, lag 0.
 - [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
@@ -768,7 +822,10 @@ parent's phase 16 stays unticked. It does not count as done.
 - [ ] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
   transcripts-only, metabolites-only and joint data, with the two load-bearing cells
   present: ptsG under metabolites only and ENO under transcripts only. Any cell 16a.11
-  did not fund is shown as not run.
+  did not fund is shown as not run. **Amended 2026-10-05 (§12):** ENO under
+  transcripts only is reported against its information bound
+  (`dev/scripts/eno_path_information_16a7_result.md`) as a measured null. A
+  shrinkage there is a sampler error to investigate, not a result.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -795,6 +852,34 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-05 — bulk metabolites, and the seam's ENO cell as a measured null
+
+**Status: approved 2026-10-05**, with the parent's amendment of the same date,
+which carries the trigger in full. The reviewed text is
+`spec/amendment-draft-2026-10-05.md`.
+
+**Trigger, in short:**
+- KP fired twice. The per-cell panel is unmeasurable at any cited single-cell
+  detection limit.
+- A cut at the history would remove F6's ptsG cell.
+- Bulk metabolites keep it: posterior over prior SD 0.10 at a 10% CV.
+- A full-path information bound refutes the ENO cell: 99.9% of the prior over 200
+  cells.
+
+**Change.**
+- **§1:** the data are bulk metabolites.
+- **§3:** the target uses `x̄` and σ_b. B1 scores `x̄`, and B3 updates cells in turn.
+  The independence assumption is struck.
+- **V5:** the "on" half is on C = 3 cells.
+- **V7:** draws σ_b.
+- **D16.3:** the substituted-mean weight and the sequential scan; annealing is kept,
+  off.
+- **§8 KP:** annotated as resolved by the observation model.
+- **§11:** 16a.7a is superseded for production, 16a.7c is added, and 16b.4 reports
+  ENO against its bound.
+
+*Sections:* §1, §3, §8, D16.3, §11 16a.7a, 16a.7c and 16b.4.
 
 ### 2026-10-02 — KP fired; each window's proposal is annealed
 

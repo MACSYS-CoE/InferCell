@@ -1,6 +1,8 @@
 # DRAFT amendment, 2026-10-05: bulk metabolites, and a one-way seam
 
-**Status: draft for review. Nothing here is applied.** On approval, each change
+**Status: approved and applied 2026-10-05**, with every ⚠️ default taken. This file
+is kept as the reviewed text. The record is each spec's §12 entry of 2026-10-05.
+(It was drafted as: "draft for review. Nothing here is applied.") On approval, each change
 below is made in place in `spec/spec.md` or `spec/phases/16-recovery.md`. Each
 file gets a dated §12 entry, built from the "Trigger" section, and the "Last
 amended" date moves. Items marked ⚠️ are choices for you; the default is stated.
