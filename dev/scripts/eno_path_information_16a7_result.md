@@ -41,8 +41,32 @@ ln θ).
   sensitive. It is linearised at the truth, from 40 cells scaled to 200, and on the
   published (clamped) model.
 
-**What it means.** Information crosses the seam in one direction only. Metabolite
-data inform the gene-expression parameters (the bulk check: ptsG shrinks to about
-half its noise bracket). Gene-expression data say essentially nothing about the
-metabolic constants. The rate constants that read the pools are rebuilt once a
-minute, so they damp the effect.
+**The curvature, with its uncertainty** (PR #81 review). This was recomputed on the
+login node from the 40 cell files of jobs 17938700 to 17938702. The table gives the
+mean observed information per cell, ± SE over cells, and the 200-cell posterior
+over prior SD ratio at the mean and at the mean + 2 SE:
+
+| Constant, δ | Per cell | Ratio at mean | Ratio at mean + 2 SE |
+|---|---|---|---|
+| ENO, 0.05 | 0.0052 ± 0.0400 | 0.987 | 0.839 |
+| ENO, 0.2 | 0.0015 ± 0.0038 | 0.996 | 0.978 |
+| FBA, 0.05 | 0.0274 ± 0.0360 | 0.608 | 0.373 |
+| FBA, 0.2 | 0.0066 ± 0.0041 | 0.842 | 0.722 |
+
+- **At δ = 0.05 the curvature is too noisy to inform either constant.** Differences
+  of order 1e-3 nats are divided by δ².
+- **At δ = 0.2, ENO's refutation holds under both estimators:** at most about 2%
+  shrinkage at the upper 2σ.
+- **FBA is not shown null.** Its curvature allows up to about 28% shrinkage at the
+  upper 2σ, against 0.5% from the expected information. Under a kink at a clip
+  (16a.6) the information identity need not hold, so the expected figure alone does
+  not settle FBA.
+
+**What it means.**
+- **For ENO, at 15.7's truth, information crosses the seam in one direction only.**
+  Metabolite data inform the gene-expression parameters (the bulk check: ptsG
+  shrinks to about half its noise bracket). Transcript data say essentially
+  nothing about ENO.
+- **For FBA the question is open,** and K2 decides it at 1,000 cells.
+- **A likely reason, not tested:** the rate constants that read the pools are
+  rebuilt once a minute, which would damp the effect.

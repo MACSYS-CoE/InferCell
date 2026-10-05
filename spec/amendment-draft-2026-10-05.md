@@ -1,11 +1,16 @@
-# DRAFT amendment, 2026-10-05: bulk metabolites, and a one-way seam
+# Amendment, 2026-10-05: bulk metabolites, and a one-way seam (the reviewed text)
 
 **Status: approved and applied 2026-10-05**, with every ⚠️ default taken. This file
 is kept as the reviewed text. The record is each spec's §12 entry of 2026-10-05.
 (It was drafted as: "draft for review. Nothing here is applied.") On approval, each change
 below is made in place in `spec/spec.md` or `spec/phases/16-recovery.md`. Each
 file gets a dated §12 entry, built from the "Trigger" section, and the "Last
-amended" date moves. Items marked ⚠️ are choices for you; the default is stated.
+amended" date moves. Items marked ⚠️ were choices, all taken at their defaults. After the #81 review,
+the applied text also scopes the ENO null (one truth, linearised, 40 cells scaled
+to 200), narrows "one way" to ENO with FBA open, states K2's relation, and moves N
+from 10 to 20. See each spec's §12. Part B's "15.6 and 15.8 are re-measured" was
+applied to 15.8 only. 15.6's panel choice stands, since the bulk check finds all
+six targets identifiable from bulk metabolites.
 
 ## Trigger (the evidence, in order)
 

@@ -28,14 +28,16 @@ Block 1 samples the free forward constants and the metabolite σ given every cel
 
 ## Block 3: the path update (task 16a.7)
 
-`csmc_sweep(rng, base, spec, data, ref; N, lag)` is one conditional SMC sweep over a cell's 60 s observation windows (D16.3). A particle is a driver snapshot, and every proposal is built outside the SSA, then replayed:
+`csmc_sweep(rng, base, spec, data, ref; N, lag, schedule, bulk)` is one conditional SMC sweep over a cell's 60 s observation windows (D16.3). A particle is a driver snapshot, and every proposal is built outside the SSA, then replayed:
 - **Transcripts** are exact bridges between the observed counts: the window's first 59 s at its starting constants, then the last second at the constants rebuilt at 60m − 1.
 - **Every other reaction** is simulated exactly given those transcripts (`propose_events`).
 - **The incremental weight** is the metabolite likelihood times each gene's transition-probability factor (`window_log_weight`, D16.3's formula). Those transition probabilities differ between particles.
 
 `lag = 0` is particle Gibbs. `lag = L` is ancestor sampling truncated at `L` windows, exact only at `L ≥ T`. Each particle draws from its own generator, seeded from the sweep's. `TranscriptMap`, `CellData`, `CSMCSpec`, `WindowEvents`, `window_events` and `join_path` are its bookkeeping, and `advance_window!` moves one particle across one window.
 
-**Annealed windows** (amended 2026-10-02). Without annealing, the metabolite likelihood puts fresh proposals hundreds of nats below the reference within one window, and no variant mixes. With `schedule` (for example `geometric_schedule(K)`), each particle's window is annealed importance sampling, by `annealed_window`. The tempered targets are π_β ∝ q · w^β. Each stage keeps the path before a uniform cut and redraws the rest from the proposal's own conditional (`advance_window!` with `head`), accepted at min(1, (w′/w)^β). The particle's weight is the AIS weight. The reference keeps its path, and its auxiliary chain is drawn backwards through the same moves. It runs under particle Gibbs only, and costs about N(K + 1) cycles per sweep.
+**Bulk metabolites** (amended 2026-10-05; the production model). Metabolites are observed as one bulk measurement per pool per save, of the population's mean particle count (`observe_bulk`). Block 1 scores the cells' mean (`Block1(...; bulk)`). In block 3, `csmc_sweep(...; bulk)` takes one `BulkObservation` per window, made by `bulk_window_observations` from the bulk record and the other cells' summed latent. The particle is scored at the mean with its own latent in place. The bulk likelihood couples the cells, so a caller updates them in turn, refreshing the others' sum from the `latent` each sweep returns. The chosen setting is particle Gibbs at N = 20.
+
+**Annealed windows** (amended 2026-10-02; superseded for production, off by default). Without annealing, the metabolite likelihood puts fresh proposals hundreds of nats below the reference within one window, and no variant mixes. With `schedule` (for example `geometric_schedule(K)`), each particle's window is annealed importance sampling, by `annealed_window`. The tempered targets are π_β ∝ q · w^β. Each stage keeps the path before a uniform cut and redraws the rest from the proposal's own conditional (`advance_window!` with `head`), accepted at min(1, (w′/w)^β). The particle's weight is the AIS weight. The reference keeps its path, and its auxiliary chain is drawn backwards through the same moves. It runs under particle Gibbs only, and costs about N(K + 1) cycles per sweep.
 
 ## Reference
 

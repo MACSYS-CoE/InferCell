@@ -8,28 +8,35 @@ Code at `50e5af4`, with runs at `22d1f3e`.
 - the CSMC bulk weight equalling the bulk likelihood with the particle in place;
 - a sweep's returned latent equalling its path's replay.
 
-## Update rates: KP no longer fires (jobs 18052532 to 18052536)
+## Update rates: KP no longer fires (jobs 18052532 to 18052536; per-cell merge 18098390 at `516b3b5`)
 
 **The setup:**
 - **The population:** M0 replicate 16085's 50 cells, observed in bulk at the
   replicate's σ = 0.0727 as σ_b.
 - **The update:** cells 1 to 5 are updated in turn by PG, each conditioned on the
   other 49. The rest are held at their true paths.
-- **The run:** 16 scans, so 80 cell-sweeps per N, from the true paths.
+- **The run:** 16 scans, so 16 sweeps per cell and 80 cell-sweeps per N, from the
+  true paths.
 - **Cost** is per cell-sweep, in plain M0 cycles timed in the same job, with the
   first scan dropped.
 
-| N | Cycles per cell-sweep | Lowest window rate | Windows below 10% | Per-window rate, windows 1 to 10 |
-|---|---|---|---|---|
-| 5 | 4.2 | 0.05 (window 1) | 3 of 10 | 0.05 0.06 0.07 0.12 0.19 0.25 0.24 0.29 0.46 0.56 |
-| 10 | 8.4 | 0.28 (window 1) | 0 of 10 | 0.28 0.31 0.36 0.28 0.31 0.38 0.40 0.41 0.66 0.71 |
-| 20 | 16.5 | 0.55 (window 7) | 0 of 10 | 0.61 0.65 0.70 0.69 0.70 0.70 0.55 0.57 0.74 0.78 |
-| 50 | 40.3 | 0.59 (window 8) | 0 of 10 | 0.78 0.79 0.82 0.72 0.75 0.74 0.60 0.59 0.80 0.86 |
+**Corrected after the #81 review.** The first table pooled the rate over the five
+cells. The per-cell rates show windows that never change: cell 2's windows 7 to
+10, and cell 5's windows 4 to 8.
+- **Each of those has an empty true path,** transcripts 0 → 0, whose posterior sits
+  on the empty path, so a near-zero rate is expected there.
+- **D16.3's criterion is applied per cell, over the other 41 cell-windows.**
 
-- **Every window clears the 10% threshold from N = 10.**
-- **Cost is about 0.84N cycles per cell-sweep,** in line with D16.6's PG row.
-- **Proposed: N = 10.** Its lowest window rate is 2.8 times the threshold, at half
-  N = 20's cost. N = 20 is the fallback if V6 shows slow mixing in early windows.
+| N | Cycles per cell-sweep | Pooled: lowest window rate | Per cell: lowest rate over live windows | Live cell-windows below 10% |
+|---|---|---|---|---|
+| 5 | 4.2 | 0.05 | 0.00 | 12 of 41 |
+| 10 | 8.4 | 0.28 | 0.12 | 0 of 41 |
+| 20 | 16.5 | 0.55 | 0.50 | 0 of 41 |
+| 50 | 40.3 | 0.59 | 0.62 | 0 of 41 |
+
+**Chosen: N = 20.** N = 10's lowest live rate, 0.12 from 16 sweeps (SE about 0.08),
+does not robustly clear 10%. N = 20's, 0.50, does. Cost is about 0.84N cycles per
+cell-sweep. The per-cell, per-window rates are in the merge log.
 
 ## V5's bulk "on" half: passes, with a watch item (prep, kernel and merge jobs 18052537 to 18052542)
 
@@ -43,7 +50,9 @@ over the three cells.
 | Toy | 0.1 (the data's) | 23,353 | 2.51, 0.02, 0.33 | −0.19, −0.19, 1.60 |
 | M0 | 0.8 (inflated 8×) | 11,588 | 0.89, **2.85**, **−2.81** | −0.81, 2.29, −0.79 |
 
-**Both pass at 3 SE.**
+**Both pass at 3 SE.** These z-scores used an ESS-based reference SE, which the
+fresh-reference check below found too small. `bulkmerge` now bootstraps over runs,
+from `516b3b5`.
 
 **Watch item: births in window 2 on M0.** In every M0 V5 comparison so far, the
 kernel puts more births in window 2 than the reference does.
@@ -101,6 +110,16 @@ combined: 17,594 M0 runs and 22,156 toy runs.
 - **Window-2 births on M0 agree with the pooled reference:** z = 0.09 per cell and
   0.81 bulk. The watch item was the first reference set coming out low.
 - **The production kernels pass V5 cleanly** on both cases.
+- **The pooled reference contains the original kept set,** whose first half supplied
+  the kernel's starts. So the pooled checks are not fully independent; z is
+  understated by about 10% at most.
+- **The fresh-only checks of the production kernels (PG per cell and bulk) are fully independent** (jobs 18060206, 18060209, 18060211 and 18060213):
+  - M0: off χ² p ≥ 0.032, per-cell on |z| ≤ 1.64, bulk |z| ≤ 2.07 (ESS-based SE);
+  - toy: off χ² p ≥ 0.047, per-cell on |z| ≤ 1.28, bulk |z| ≤ 1.78.
+- **To regenerate the pooled checks:**
+  `POOL=<original run>/csmc_v5_16a7/m0 dev/scripts/csmc_v5_fresh_16a7c.sh m0 <original>/m0 <annealed>/m0 <bulk>/m0`.
+  The same for toy, from `516b3b5`. The three directories are the kernel runs of
+  `csmc_v5_16a7.sh`, `csmc_v5_anneal_16a7.sh` and `csmc_v5_bulk_16a7c.sh`.
 - **New watch item, annealed kernel only:** M0's metabolite-on translation in
   window 2 reads low against every reference: −1.97, −3.14 fresh and −2.90 pooled.
   The annealed window is off by default and not used in production. It must be
@@ -135,8 +154,12 @@ each exact quantile:
 | ln ENO | 0.042 ± 0.007 | 0.262 ± 0.014 | 0.491 ± 0.018 | 0.742 ± 0.014 | 0.941 ± 0.010 |
 | ln FBA | 0.062 ± 0.009 | 0.281 ± 0.012 | 0.490 ± 0.016 | 0.742 ± 0.013 | 0.934 ± 0.008 |
 
-**All ten are within 3 SE. V4 passes.** The largest deviation is FBA's 95% quantile,
-at −1.95 SE. About 45 CPU-h.
+**All ten are within 3 SE. V4 passes.**
+- **The largest deviation is FBA at its 25% point, +2.57 SE.** It was misquoted at
+  first as the 95% point's −1.95.
+- **FBA's chain fractions sit above their levels at 5% and 25%,** as in the per-cell
+  V4. That watch item carries to V6 and V7.
+- About 45 CPU-h.
 
 ## 16a.7c: met
 
@@ -149,4 +172,4 @@ at −1.95 SE. About 45 CPU-h.
 | V5, both cases | passes against the pooled reference |
 | Update rates | every window above 10% from N = 10 |
 
-**Chosen: PG, lag 0, N = 10.** N = 20 is the fallback if V6 shows slow early windows.
+**Chosen: PG, lag 0, N = 20** (corrected from N = 10 after the #81 review).

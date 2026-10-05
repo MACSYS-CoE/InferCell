@@ -1,10 +1,42 @@
 # Handoff
 
-**Session date:** 2026-10-05
+**Session date:** 2026-10-06
 **Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
 sub-spec, merged 2026-09-30.
 
-## Latest: 16a.7c is met; PG at N = 10 under bulk metabolites (2026-10-05, evening)
+## Latest: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
+
+**The review.** `/check-PR` on #81 found no error in the library code, and the
+evidence held. It returned MERGE AFTER FIXES, for eight items about claims and
+reproducibility, all fixed on the branch:
+- **The ENO null is now scoped:** one truth, linearised, 40 cells scaled to 200.
+- **"One way" is narrowed to ENO.** FBA is open: its curvature upper-2σ ratio is
+  about 0.72. K2 is annotated as anticipated, not decided, and stays with 16b.5.
+- **The sub-spec's stale two-cell text is fixed.**
+- **The update rate was pooled over cells. Per cell, N = 10's lowest live rate is
+  0.12 from 16 sweeps, so N moves to 20** (lowest 0.50). The windows that never
+  change all have empty true paths.
+- **`bulkmerge` now bootstraps its SE,** and the pooled V5 checks have a recorded
+  command (`POOL=` in `csmc_v5_fresh_16a7c.sh`).
+- **D16.6 gains the wall-clock of updating cells in turn.** At N = 20 a full-scale
+  sweep is about 30 h serially, or 1.5 h with particles in parallel, and M0 is about
+  1.5 to 29 days per posterior. R16.8 is added.
+- **CI's unit tests passed before the merge.**
+
+**Recorded follow-ups, not done:**
+1. `_poisson_weights`' stop almost never fires: about 211 terms where about 20 are
+   needed. It is correct but slow, and it inflates the measured cycles per sweep.
+   Fix it before 16a.11 measures cost.
+2. The backward-chain unit test does not check the move order.
+3. Two rounding fallbacks could pick a zero-weight particle or a zero-propensity
+   reaction, at ulp odds. Use `_draw_index`.
+4. The annealed kernel's window-2 translation reads low against every reference.
+5. Agent E's simplifications.
+
+**Next:** 16a.9, the M0 reference (V6) and SBC (V7), under bulk metabolites, with PG
+at N = 20, on a new branch from main. 16a stands at about 404 of its 5k CPU-h.
+
+## Earlier: 16a.7c is met; PG at N = 10 under bulk metabolites (2026-10-05, evening)
 
 All three follow-ups are done (`dev/scripts/csmc_bulk_16a7c_result.md`):
 - **The window-2 watch item was the reference.** A fresh rejection set (8,884 M0

@@ -1,6 +1,6 @@
 # The 15.7 synthetic dataset
 
-Cells run at commit 309c1c4, job 17703841, by `dev/scripts/corea_dataset_15.jl`; merged at 67792ad by `corea_dataset_15_merge.jl`, Julia 1.10.5. The panel comes from the sensitivity run at commit 7835c20, job 17704779, 1470 seeds, merged at 67792ad. `observations.tsv` is regenerable and not tracked. Its SHA-256 is `5e6382da1b07fb3c5023cc64d3b145e7704c232d929cb54688f0a87afa10d59a`; the SHA depends on this Julia version's random streams. Regeneration order: the sensitivity run and its merge, then `sbatch dev/scripts/corea_dataset_15.slurm`, then `corea_dataset_15_merge.jl`.
+Cells run at commit 309c1c4, job 17703841, by `dev/scripts/corea_dataset_15.jl`; merged at 67792ad by `corea_dataset_15_merge.jl`, Julia 1.10.5. The panel comes from the sensitivity run at commit 7835c20, job 17704779, 1470 seeds, merged at 67792ad. `observations.tsv` is regenerable and not tracked. Its SHA-256 is `5e6382da1b07fb3c5023cc64d3b145e7704c232d929cb54688f0a87afa10d59a`; the SHA depends on this Julia version's random streams. Regeneration order: the sensitivity run and its merge, then `sbatch dev/scripts/corea_dataset_15.slurm`, then `corea_dataset_15_merge.jl`; then, for the bulk observations (15.7b), `sbatch dev/scripts/corea_dataset_15_bulk.slurm dev/scripts/dataset_15`.
 
 **Model.** The published model: clamped drain, fractional carry, with D11's six freed (`d11_models()`). 200 cells, seeds 30001 to 30200, each a 6300 s cycle. Observations are at the 105 save points from 60 s to 6300 s, every 60 s; t = 0 is the fixed initial condition and is left out. Values are in particles, as are the latent states.
 
@@ -136,7 +136,7 @@ Panel: `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_trna_chg_c`
 
 ## Bulk observations (parent task 15.7b, §12 2026-10-05)
 
-Written by `dev/scripts/corea_dataset_15_bulk.jl` at cfd41dd, Julia 1.10.5, from the latent record of the cells above (commit 309c1c4, job 17703841). Cells 30001 and 30200 were resimulated, and each equals the record at every save.
+Written by `dev/scripts/corea_dataset_15_bulk.jl` at cfd41dd, job 18060223, Julia 1.10.5, from the latent record of the cells above (commit 309c1c4, job 17703841). Cells 30001 and 30200 were resimulated, and each equals the record at every save.
 
 **Observation model.** For each of the 17 panel metabolites at each of the 105 saves, one bulk measurement of the mean over the 200 cells, lognormal at σ_b = 0.1 with the prediction floored at one particle, from `Xoshiro(15072)` (`observe_bulk`). σ_b is ours, a typical bulk assay CV, and is the truth for σ_b, whose prior is `LogNormal(log 0.2, 1)`. The transcripts are unchanged: exact per-cell counts. The per-cell panel above is the superseded observation model, kept for reference.
 

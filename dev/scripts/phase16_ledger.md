@@ -25,8 +25,7 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 17814374, 17814375, 17830703 | 16a.6 | Core A′ clip scans (FBA, PGK3) | 1 | | 0.65 |
 | 17814555, 17814556, 17814572, 17830702, 17830938 | 16a.5 | V4 grid 4, merge, finals, target check | 1 | | 4.77 |
 | 17839207–17839209 | 16a.5 | V4 FBA-fine grid, merge, final (of record) | 1 | | 10.00 |
-| 17839362, 17839571 | 16a.7 | 16a tests with CSMC | 1 | | 0.20 |
-| 17839362–17854107 (5 runs) | 16a.7 | 16a tests with CSMC | 1 | | 0.71 |
+| 17839362, 17839571, 17840103, 17854107 | 16a.7 | 16a tests with CSMC (corrected after the #81 review: the two earlier rows overlapped) | 1 | | 0.41 |
 | v5s_* (two smoke rounds) | 16a.7 | V5 smoke, both cases | 1 | | 0.67 |
 | 17854476–17854480 | 16a.7 | V5, M0 (of record) | 1 | | 41.52 |
 | 17854481–17854485 | 16a.7 | V5, toy (of record) | 1 | | 5.30 |
@@ -52,7 +51,7 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 17938700–17938702 | 16a.7 | F6 ENO cell: full-path information bound, 40 cells (of record) | 1 | | 5.07 |
 
-| 18049605 | 16a.7c | 16a tests with bulk metabolites (of record) | 1 | | 0.10 |
+| 18049605 | 16a.7c | 16a tests with bulk metabolites (of record) | 1 | 0:12:28 | 0.21 |
 | 18052532–18052536 | 16a.7c | Bulk update rates on M0, N ∈ {5, 10, 20, 50} (of record) | 1 | | 35.36 |
 | 18052537–18052542 | 16a.7c | V5 bulk half, M0 and toy (of record) | 1 | | (in the line above) |
 
@@ -62,4 +61,7 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18060214–18060217, 18061281, 18061355–18061363 | 16a.7c | V4 on block 1's bulk form: grids 1 to 3, FBA- and ENO-fine grids, chains, check, final (of record) | 1 | | 45.01 |
 
-**16a total: about 404.1 CPU-h.**
+| 18098390 | 16a.7c | Per-cell update-rate merge (of record) | 1 | | 0.08 |
+
+**16a total: about 403.6 CPU-h** (the rows' sum, recomputed after the #81 review,
+which found the running total had drifted).

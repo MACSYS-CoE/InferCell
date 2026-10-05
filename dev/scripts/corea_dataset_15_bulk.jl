@@ -75,7 +75,8 @@ function main()
     occursin(marker, text) && (text = first(split(text, marker)))
     io = IOBuffer()
     print(io, rstrip(text), "\n", marker, "\n")
-    println(io, "Written by `dev/scripts/corea_dataset_15_bulk.jl` at $head, Julia $VERSION, from the ",
+    job = get(ENV, "SLURM_JOB_ID", "not under Slurm")
+    println(io, "Written by `dev/scripts/corea_dataset_15_bulk.jl` at $head, job $job, Julia $VERSION, from the ",
             "latent record of the cells above (commit $(p1.commit), job $(p1.job)). Cells $(seeds[1]) ",
             "and $(seeds[end]) were resimulated, and each equals the record at every save.")
     println(io)

@@ -1,6 +1,6 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** draft
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, are in PR #81; 16a.9 to 16a.11 and 16b remain
 **Created:** 2026-09-30  ·  **Last amended:** 2026-10-05
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
@@ -38,8 +38,9 @@ six targets, and that posterior is calibrated.** The data are 200 cells of the
 published model, with exact transcript counts and bulk metabolite measurements, one per pool per save, of the population mean (amended 2026-10-05, §12). The
 sampler is validated against an exact long-run reference on a two-gene system (M0).
 So a calibration result can be attributed to the method rather than to a converged
-wrong answer (R4). On Core A′ it delivers F6's two load-bearing cells, the tight-prior
-control, K2's verdict and coverage. Each is delivered at a scale set by a measured
+wrong answer (R4). On Core A′ it delivers F6's load-bearing cell (ptsG under
+metabolites only) and its measured null (ENO under transcripts only, at 15.7's
+truth; amended 2026-10-05, §12), the tight-prior control, K2's verdict and coverage. Each is delivered at a scale set by a measured
 cost, and the scale is stated beside every number. **The claim is only as large as
 the rung it was measured on.** A coverage result on M0 is reported as M0's, never as
 Core A′'s.
@@ -119,7 +120,7 @@ Write `c` for a cell. The free parameters are:
 ```
 θ_CME = (S_0607, S_0445, S_0779, krnadeg)
 θ_ODE = (kcatF_R_ENO, kcatF_R_FBA)
-σ     = the metabolite noise scale
+σ_b   = the bulk metabolite noise scale (σ, the per-cell panel's, before 2026-10-05)
 ```
 
 The reverse constants are deterministic functions of θ_ODE (D16.1). The target is
@@ -427,9 +428,17 @@ is now annealed importance sampling (AIS) inside the window:
   assumptions. **The annealed sampler is affordable on M0, not at full scale
   under the cap.**
 
-**Chosen 2026-10-05 (16a.7c): PG, lag 0, N = 10, under bulk metabolites.** Every
-window updates in at least 28% of sweeps on M0 at about 8.4 cycles per cell-sweep.
-N = 20 is the fallback if V6 shows slow early windows. Against 13.4, D13 and 14c.4:
+**Chosen 2026-10-05 (16a.7c): PG, lag 0, N = 20, under bulk metabolites** (corrected
+after the #81 review from N = 10).
+- **Per cell, over the windows whose true path has events,** the lowest update rate
+  is 0.50 at N = 20 and 0.12 at N = 10, from 16 sweeps per cell (SE about 0.08). So
+  N = 10 does not robustly clear 10%.
+- **Windows with an empty true path** (transcripts 0 → 0) have posteriors that sit
+  on the empty path. Their low rate is expected and is not counted.
+- **Cost:** about 16.5 cycles per cell-sweep.
+- **The measurement is on M0 only:** 5 of 50 cells updated, the rest held at their
+  true paths, from true starts. A full-scale cell under bulk data is measured in
+  16a.11. Against 13.4, D13 and 14c.4:
 the path stays exact, at the published drain granularity, with no gradient
 needed.
 
@@ -468,7 +477,8 @@ ptsG (`JCVISYN3A_0779`, the headline, the only membrane protein) and GAPD
   precision argument, and it is stated beside every M0 result.
 
 **Why:** It is small enough that a very long run is defensible, per D10. It still
-crosses the boundary in both directions and runs all three blocks.
+couples the two blocks in both directions and runs all three blocks. Amended
+2026-10-05: information is shown to cross only one way for ENO at 15.7's truth.
 **Alternatives considered:** one gene. That cannot exercise B2 across genes. V3 and
 V5 already use one-gene cases.
 
@@ -496,6 +506,23 @@ with E block-1 evaluations per sweep. E is between 5 and 15.
 | Full PGAS, N = 10 | about 525 + E | about 1.9M |
 
 **So the cap cannot fund one full-scale posterior at any variant.**
+
+**Amended 2026-10-05 (§12, after the #81 review): wall-clock under bulk
+metabolites.**
+- **Why it matters:** B3 updates cells in turn (D16.3). The CPU-h above are
+  unchanged, but a sweep's B3 can no longer run its cells in parallel.
+- **The measured cost:** 16.5 cycles per cell-sweep at the chosen N = 20 on M0
+  (16a.7c).
+- **Full scale:** 200 cells × 16.5 cycles × 32.2 s ≈ 30 h per sweep on one core,
+  or about 1.5 h with the 20 particles of each cell-sweep in parallel. Over 2,000
+  sweeps that is about 60,000 h serially, or about 3,000 h, some four months, in
+  parallel.
+- **M0:** 50 cells × 16.5 × about 1.5 s ≈ 21 min per sweep, so about 29 days
+  serially, or about 1.5 days in parallel.
+- **The CPU-h projection** rises with N: PG at N = 20 is 20 + E cycles per cell per
+  sweep, about 1.7 times the N = 10 row above.
+- **So M0 is feasible in wall-clock, and a full-scale posterior needs
+  particle-parallel sweeps at least** (R16.8). 16a.11 measures the real figure.
 - **16a is capped at 5k CPU-h.** Its last task, 16a.11, does four things:
   - measures the cost of one M0 posterior, and of one sweep on a full-scale cell,
     per variant;
@@ -506,8 +533,8 @@ with E block-1 evaluations per sweep. E is between 5 and 15.
 - **The priority order for the allocation.** ⚠️ DRAFT, and yours to reorder:
   1. 16b.1, the tight-prior control. This is K4's stop gate.
   2. 16b.2, the six-parameter recovery.
-  3. F6's two load-bearing cells: ptsG under metabolites only, and ENO under
-     transcripts only.
+  3. F6's load-bearing cell, ptsG under metabolites only, and its measured null,
+     ENO under transcripts only (amended 2026-10-05, §12).
   4. 16b.3, coverage.
   5. 16b.5, K2 at 1,000 cells.
   6. 16b.6, K7's two fits.
@@ -554,8 +581,8 @@ only for 16b.5's transcript-only fit. It stays subject to D16.6's allocation.
   - coverage datasets (16b.3).
 
   Every replicate truth draws all the free quantities of its rung from their priors:
-  `draw_truth(...; names = <the rung's targets>, purpose = :coverage)`, plus σ from
-  `p(σ)`, each seed recorded. Each dataset follows 15.7's convention: truth, seeds,
+  `draw_truth(...; names = <the rung's targets>, purpose = :coverage)`, plus σ_b from
+  `p(σ_b)` (σ before 2026-10-05), each seed recorded. Each dataset follows 15.7's convention: truth, seeds,
   noise seed, T2 row, `reduction_report` and Julia version in a tracked `meta.md`.
   Observations are regenerable and ignored, with a SHA-256.
 - **Chains** are saved with their sampler seeds, settings and commit. Every quoted
@@ -667,6 +694,7 @@ How the parent's criteria are placed here:
 | R16.5 | F10 reads zero because the reference is too short | V8's floor | Lengthen the reference. Never report a divergence below its floor as agreement |
 | R16.6 | 16a overruns its 5k cap on pilots | The ledger | Stop, and report at 16a.11 with what was measured |
 | R16.7 | The annealed proposal mixes, but only at a K no rung can fund | 16a.7a's cost per sweep | M0 only; full-scale rungs drop down K1's ladder or are scored budget-bound |
+| R16.8 | Updating cells in turn makes a full-scale posterior take months of wall-clock (D16.6, amended 2026-10-05) | 16a.11's measured sweep time | Run each cell-sweep's particles in parallel. A parallel scan over cells would need its own exactness argument; otherwise full-scale rungs drop down K1's ladder |
 
 ## 11. Task list
 
@@ -681,17 +709,20 @@ and against a long reference where it is not. Then measure what one posterior co
 - F10 is reported against its floor.
 - K1's bound is set, and the reopened budget and 16b allocation are approved.
 
-**PR:** _not started_
+**PR:** #81 carries 16a.1 to 16a.8, with 16a.7a to 16a.7c and parent 15.7b.
+16a.9 to 16a.11 follow in a later PR.
 
-- [ ] 16a.1 Drive the published hybrid from a recorded jump path, and snapshot and
+- [x] 16a.1 Drive the published hybrid from a recorded jump path, and snapshot and
   restore the driver's full state (D16.3's list). Record the path during generation.
   — verify by V2 on 3 dataset cells (bitwise at every handshake), by V2b and its
   mutation, and by the replay's wall-clock per cycle reported against 13.7's 32.2 s.
-- [ ] 16a.2 Implement `log p(X | θ)` from the replayed rate constants, on the jump
+  **Met** (path_replay_16a1_result.md: V2 bitwise on three cells at every handshake, V2b at all 104 boundaries; jobs 17755845 and 17755846).
+- [x] 16a.2 Implement `log p(X | θ)` from the replayed rate constants, on the jump
   clock's [60m − 1, 60m + 59) intervals — verify by V1, including both hand checks
   and all three mutations. **Annotated 2026-10-01 (§12):** the importance identity
   ran at suite size on the phase 4 toy. Its 10⁴-path run on M0 follows 16a.8.
-- [ ] 16a.3 Implement the per-gene transcript bridges (60 s and 1 s, by FFBS with
+  **Met** (path_density_16a2_result.md: hand checks to 1e-12, the mutations caught, and the 10⁴-path identity on M0 within 1.22 and 1.07 SE).
+- [x] 16a.3 Implement the per-gene transcript bridges (60 s and 1 s, by FFBS with
   uniformisation) and their transition probabilities, with the per-dataset cap —
   verify by:
   - sampled bridges always hitting both endpoints;
@@ -700,11 +731,14 @@ and against a long reference where it is not. Then measure what one posterior co
   - the transition probabilities matching a matrix exponential to 1e-12;
   - the truncation mass asserted below 1e-12. **Amended 2026-10-01 (§12):** the
     +20 floor fails that at amplified rates, and `adequate_cap` grows it.
-- [ ] 16a.4 Implement block 2 from sufficient statistics, with the ceiling asserted per
+  **Met** (bridge_block2_16a34_result.md: exact against matrix exponentials and an augmented chain, 27 of 27; job 17758553).
+- [x] 16a.4 Implement block 2 from sufficient statistics, with the ceiling asserted per
   proposal — verify by V3.
-- [ ] 16a.5 (worked after 16a.8, since V4 runs on M0; §12 2026-10-01) Implement block 1: gradient-free, forward-only prior, reverse constants
+  **Met** (bridge_block2_16a34_result.md: V3 within 3 MC SE, 16 of 16; job 17758553).
+- [x] 16a.5 (worked after 16a.8, since V4 runs on M0; §12 2026-10-01) Implement block 1: gradient-free, forward-only prior, reverse constants
   derived, σ updated separately — verify by V4, and by a test that the log-prior
   contains no `kcatR` term.
+  **Met** (block1_16a5_result.md: V4 passes (job 17839209), and again on the bulk form (csmc_bulk_16a7c_result.md); FBA reading high is a watch item for V6 and V7).
 - [ ] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
   discontinuous derivative in an ODE parameter — verify by a test, as the parent's
   annotation specifies:
@@ -771,28 +805,33 @@ and against a long reference where it is not. Then measure what one posterior co
   - **the choice of N, or KP,** recorded in §4. The variant is PG, lag 0.
 
   **Measured 2026-10-05; KP does not fire** (`dev/scripts/csmc_bulk_16a7c_result.md`).
-  - Every window clears 10% from N = 10, whose lowest rate is 0.28, at about 0.84N
-    cycles per cell-sweep. **N = 10 is proposed**, with N = 20 as the fallback.
-  - V5's bulk half passes on both cases. **Watch item:** births in window 2 on M0
-    read high in every comparison against the one shared rejection reference.
-  - V4 on the bulk form and the full-scale 15.7b were still open at that point.
+  - **Per cell, over windows whose true path has events,** the lowest rate is 0.50
+    at N = 20 and 0.12 at N = 10 (16 sweeps per cell). Corrected after the #81
+    review, which found the first figure pooled over cells.
+  - The cost is about 0.84N cycles per cell-sweep.
+  - **The conditions:** M0 only; cells 1 to 5 of 50 updated, the rest held at their
+    true paths; true starts.
+  - **V5's bulk half passes on both cases** against the pooled reference
+    (|z| ≤ 1.79). The fresh-only, fully independent checks give off χ² p ≥ 0.032
+    and |z| ≤ 2.07. M0's bulk half ran at σ_b inflated 8× (0.8).
 
-  **Met 2026-10-05** (`dev/scripts/csmc_bulk_16a7c_result.md`).
+  **Met 2026-10-05.**
   - **V4 on the bulk form passes**, with all ten quantiles within 3 SE (jobs
-    18061355 to 18061363). The block 1 target check agrees to 1.7e-12.
+    18061355 to 18061363). The largest deviation is FBA at its 25% point, +2.57 SE.
+    The block 1 target check agrees to 1.7e-12.
   - **15.7b is done.**
-  - **The window-2 watch item is resolved** by a fresh, independent reference. The
-    production bulk kernel passes V5 at |z| ≤ 1.79 against the pooled reference.
-  - **The first bulk V5 merge understated its reference SE** (shared runs). That is
-    fixed with a bootstrap.
-  - **Chosen: PG, lag 0, N = 10.**
-- [ ] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
+  - **The window-2 watch item is resolved** by a fresh, independent reference.
+  - **The first bulk V5 merge understated its reference SE** (shared runs). It now
+    bootstraps over runs.
+  - **Chosen: PG, lag 0, N = 20** (D16.3).
+- [x] 16a.8 (worked before 16a.5; §12 2026-10-01) (parent 16.1, build) Build M0 and generate its datasets, with σ drawn per
   replicate. `generate_dataset` gains a `names` pass-through to `check_truth`, which
   defaults to `D11_TARGETS` and would refuse an M0 truth — verify by:
   - the build passing completeness mode;
   - `reduction_report` naming the 15 held enzymes;
   - each dataset carrying its truth (σ included), seeds and report;
   - two runs at one seed being identical.
+  **Met** (m0_16a8_result.md: 21 of 21; job 17800819).
 - [ ] 16a.9 (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
@@ -843,8 +882,8 @@ parent's phase 16 stays unticked. It does not count as done.
     is run through a §12 amendment, never silently;
   - K4's third trigger (equal widths for ENO and FBA) checked.
 - [ ] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
-  transcripts-only, metabolites-only and joint data, with the two load-bearing cells
-  present: ptsG under metabolites only and ENO under transcripts only. Any cell 16a.11
+  transcripts-only, metabolites-only and joint data, with ptsG under metabolites only
+  (load-bearing) and ENO under transcripts only (the measured null) present. Any cell 16a.11
   did not fund is shown as not run. **Amended 2026-10-05 (§12):** ENO under
   transcripts only is reported against its information bound
   (`dev/scripts/eno_path_information_16a7_result.md`) as a measured null. A
@@ -902,7 +941,17 @@ which carries the trigger in full. The reviewed text is
 - **§11:** 16a.7a is superseded for production, 16a.7c is added, and 16b.4 reports
   ENO against its bound.
 
-*Sections:* §1, §3, §8, D16.3, §11 16a.7a, 16a.7c and 16b.4.
+**Corrected after the #81 review** (2026-10-05/06):
+- **N = 10 → N = 20.** The update rate quoted first was pooled over cells. Per cell,
+  over windows whose true path has events, N = 10's lowest rate is 0.12 from 16
+  sweeps, which is not robust.
+- **D16.6** gains the wall-clock of updating cells in turn, and **R16.8** is added.
+- **§1, D16.4, D16.6's allocation and 16b.4** carry the one-way claim.
+- **σ_b replaces σ** where it remained.
+- **16a.1 to 16a.5 and 16a.8 are ticked** with their evidence.
+
+*Sections:* §1, §3, §8, D16.3, D16.4, D16.6, §10 R16.8, §11 16a.1 to 16a.8, 16a.7a,
+16a.7c and 16b.4.
 
 ### 2026-10-02 — KP fired; each window's proposal is annealed
 
