@@ -63,5 +63,12 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18098390 | 16a.7c | Per-cell update-rate merge (of record) | 1 | | 0.08 |
 
-**16a total: about 403.6 CPU-h** (the rows' sum, recomputed after the #81 review,
-which found the running total had drifted).
+| 18105666 | 16a.9a | Full suite with the Gibbs chain (Aqua compat failed) | 4 | 0:50:42 | 3.38 |
+| 18109288 | 16a.9a | Full suite with the Gibbs chain (of record) | 4 | 0:54:07 | 3.61 |
+| 18108335–18108339 | 16a.9a | Gibbs pilot, 4 chains × 200 sweeps on M0, and merge (of record) | 20 | ~11 h each | 896.33 |
+
+**16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
+the #81 review, which found the running total had drifted).
+
+**16a.9 so far: about 903.3 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 1,306.9 CPU-h** of 50k.

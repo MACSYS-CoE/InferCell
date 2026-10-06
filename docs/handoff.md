@@ -1,10 +1,46 @@
 # Handoff
 
-**Session date:** 2026-10-06
-**Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
-sub-spec, merged 2026-09-30.
+**Session date:** 2026-10-07
+**Branches:** `phase-16a9a-gibbs`, pushed, with a PR for 16a.9a. #81 merged
+2026-10-06.
 
-## Latest: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
+## Latest: 16a.9a is met; 16a.9b as written exceeds the phase cap (2026-10-07)
+
+**Done on the branch** (from 6 Oct):
+- **The spec split** 16a.9 into 16a.9a and 16a.9b (§12 2026-10-06).
+- **#81 follow-ups 1 and 3:** `_poisson_weights` stops on a tail bound, and the
+  fallbacks skip zero-weight entries.
+- **The Gibbs driver** composes B1, B2 and B3, with checkpoint and resume, and
+  threads B3's particles and B1's cells.
+- **The pilot script**, and a compat bound for Serialization.
+- **Tests of record:** 28,658 of 28,658 (job 18109288 at `b030512`).
+
+**The pilot** (jobs 18108335 to 18108339 at `6f8bcbc`, worktree
+`.worktrees/pilot-16a9a`) finished at 00:04 on 7 Oct, before OzStar's reboot at
+about 03:35. Nothing was lost. Its numbers are in
+`dev/scripts/gibbs_pilot_16a9a_result.md`:
+- **The ptsG promoter mixes slowest,** at bulk ESS 0.108 per sweep, with R̂ 1.09
+  over 100 kept sweeps per chain.
+- **The lowest live update rate is 0.34.**
+- **One sweep is 1.11 CPU-h,** 199 s at 20 threads. B3 takes 126 s, and core use
+  is 62%.
+- **V6 projects to 11.4k CPU-h** and 6 days. **V7 at R = 50 projects to 57k.**
+
+**The ledger:** 16a.9 is 903 CPU-h so far, and phase 16 about 1.3k of 50k.
+
+**Open, and yours:** §12 2026-10-07 is *proposed*. V6 plus V7 comes to about 68k
+CPU-h, over the 50k phase cap. The proposal is to:
+1. stage V6, with 500 sweeps per chain first (about 2.2k CPU-h) and then a
+   re-projection;
+2. profile the sweep, where B3 is the target;
+3. defer V7's resizing, which has its options listed.
+
+**Housekeeping:** job 17853654 (`v5s_toy_`) is stuck on
+`DependencyNeverSatisfied` and can be cancelled.
+
+**Next:** your decision on §12 2026-10-07, then 16a.9b.
+
+## Earlier: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
 
 **The review.** `/check-PR` on #81 found no error in the library code, and the
 evidence held. It returned MERGE AFTER FIXES, for eight items about claims and

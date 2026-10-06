@@ -849,9 +849,14 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
     N = 20), reporting the cost per sweep per block, bulk and tail ESS per sweep
     and R̂ per parameter, per-window update rates, and a CPU-h and wall-clock
     projection for V6 and V7.
-- [ ] 16a.9b (§12 2026-10-06) Run the M0 reference long — verify by V6, which
-  justifies the length, and by V7 at production settings on R ≥ 50 datasets, with
-  R stated. Sized from 16a.9a's pilot.
+  **Met** (gibbs_pilot_16a9a_result.md: tests 28,658 of 28,658, job 18109288 at
+  `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
+  is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
+  0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
+- [ ] 16a.9b (§12 2026-10-06; sizing proposed in §12 2026-10-07) Run the M0
+  reference long — verify by V6, which justifies the length, and by V7 at
+  production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
+  pilot.
 - [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5
@@ -931,6 +936,44 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-07 — 16a.9b as written costs more than the phase cap
+
+**Status: proposed 2026-10-07, awaiting your decision.**
+
+**Trigger:** 16a.9a's pilot (jobs 18108335 to 18108339;
+`dev/scripts/gibbs_pilot_16a9a_result.md`).
+- **The rate.** The ptsG promoter mixes slowest, at bulk ESS 0.108 per sweep.
+  It rests on a bulk ESS of 43, so it is rough.
+- **The cost.** One sweep takes 199 s at 20 threads, or 1.11 CPU-h. B3 is 126 s
+  of that, and core use is 62%.
+- **V6 at N_ref = 20** needs about 10,300 sweeps over 4 chains, set by the
+  quantile MCSE. That is **11.4k CPU-h and 6.0 days**.
+- **V7 at R = 50** needs 1,028 sweeps per replicate, so **57k CPU-h**. R = 100 is
+  114k.
+- **Together, about 68k CPU-h.** The phase cap is 50k (D16.6), and phase 16 has
+  spent about 1.3k. 16a.9's hours are not held to 16a's 5k (§12 2026-10-06), but
+  the phase cap still applies.
+
+**Options:**
+1. **Stage V6.** Submit the 4 resumable chains for 500 sweeps each, about 2.2k
+   CPU-h and 1.2 days. Then re-project from the measured rate and extend. V6's
+   criteria are unchanged.
+2. **Speed the sweep first.** Profile B3 and B1. Any gain scales V6 and V7 alike.
+   The size of the gain is unknown until measured.
+3. **Resize V7.** Each of these is a decision about what V7 certifies:
+   - **Fewer effective draws per replicate.** At 50 rather than 100, R = 50 costs
+     about 31k CPU-h.
+   - **Fewer cells per replicate.** Cost falls roughly with C, but V7 would then
+     not calibrate the sampler at M0's C = 50.
+   - **Raise the phase cap,** at 16a.11 or now.
+   - **Defer V7's sizing** until the refined V6 rate and any speed-up are in.
+
+**Proposed:** options 1 and 2 now. Option 3 waits until the V6 rate is refined
+and any speed-up is measured, and that choice comes back to you.
+
+*Sections:* §11 16a.9a and 16a.9b; D16.6 (not yet changed).
+
 
 ### 2026-10-06 — 16a.9 splits: the Gibbs driver and a pilot first, then the reference
 
