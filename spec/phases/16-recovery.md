@@ -853,7 +853,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
   is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
   0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
-- [ ] 16a.9b (§12 2026-10-06; sizing proposed in §12 2026-10-07) Run the M0
+- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07) Run the M0
   reference long — verify by V6, which justifies the length, and by V7 at
   production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
   pilot.
@@ -939,7 +939,11 @@ parent's phase 16 stays unticked. It does not count as done.
 
 ### 2026-10-07 — 16a.9b as written costs more than the phase cap
 
-**Status: proposed 2026-10-07, awaiting your decision.**
+**Status: approved 2026-10-07** (options 1 and 2 now, option 3 deferred). Option 1
+runs as the pilot's 4 chains extended from 200 to 700 sweeps each. That is the
+same chains from the same overdispersed starts, so the 500 new sweeps cost about
+2.2k CPU-h. The code is unchanged since `6f8bcbc` outside the test extras'
+compat.
 
 **Trigger:** 16a.9a's pilot (jobs 18108335 to 18108339;
 `dev/scripts/gibbs_pilot_16a9a_result.md`).

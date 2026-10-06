@@ -28,17 +28,19 @@ about 03:35. Nothing was lost. Its numbers are in
 
 **The ledger:** 16a.9 is 903 CPU-h so far, and phase 16 about 1.3k of 50k.
 
-**Open, and yours:** §12 2026-10-07 is *proposed*. V6 plus V7 comes to about 68k
+**Approved 2026-10-07:** §12 2026-10-07. V6 plus V7 comes to about 68k
 CPU-h, over the 50k phase cap. The proposal is to:
 1. stage V6, with 500 sweeps per chain first (about 2.2k CPU-h) and then a
    re-projection;
 2. profile the sweep, where B3 is the target;
 3. defer V7's resizing, which has its options listed.
 
-**Housekeeping:** job 17853654 (`v5s_toy_`) is stuck on
-`DependencyNeverSatisfied` and can be cancelled.
+Job 17853654 (`v5s_toy_`, stuck on a dependency) is cancelled.
 
-**Next:** your decision on §12 2026-10-07, then 16a.9b.
+**Next:** stage 1 of V6 is submitted. It extends the pilot's chains to 700 sweeps
+(chains 18157561 to 18157564, merge 18157565, from `.worktrees/v6-16a9b` at
+`281d548`, with the pilot's checkpoints copied in). That is about 28 h. When it
+lands, add the ledger rows, read the merge, re-project V6, and profile B3.
 
 ## Earlier: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
 
