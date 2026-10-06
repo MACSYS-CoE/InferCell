@@ -92,13 +92,14 @@ function _poisson_weights(λ::Float64; tol = 1e-17)
     w = Float64[]
     logp = -λ
     n = 0
-    total = 0.0
     while true
         p = exp(logp)
         push!(w, p)
-        total += p
-        # Past the mode, stop once the remaining mass is negligible.
-        n > λ && 1 - total < tol && break
+        # Past the mode the terms fall at least geometrically, by r = λ/(n + 1)
+        # from here on, so the tail beyond n is at most p·r/(1 − r). Testing
+        # 1 − Σp against `tol` instead never fires, since `tol` is below eps.
+        r = λ / (n + 1)
+        n > λ && p * r / (1 - r) < tol && break
         n += 1
         logp += log(λ) - log(n)
         n > 10λ + 200 && break

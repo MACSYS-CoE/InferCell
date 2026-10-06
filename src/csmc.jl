@@ -184,7 +184,9 @@ function propose_events(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
         elseif tnext < t1
             c = rand(rng) * total
             i = findfirst(>=(c), cumsum(λ))
-            i === nothing && (i = length(free))
+            # Rounding can leave c above the cumulative sum: take the last
+            # reaction that can fire, never one with zero propensity.
+            i === nothing && (i = findlast(>(0), λ))
             affects[free[i]](w)
             push!(times, tnext)
             push!(rxns, free[i])
@@ -383,7 +385,9 @@ function _categorical(rng::AbstractRNG, w)
         c += w[i]
         u < c && return i
     end
-    return lastindex(w)
+    # Rounding can leave u above the sum: the last particle with weight, never
+    # one with weight zero.
+    return findlast(>(0), w)
 end
 
 # The log density of `ref`'s windows m..m+L−1 given a particle's state at the
