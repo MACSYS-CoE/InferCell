@@ -1,10 +1,57 @@
 # Handoff
 
-**Session date:** 2026-10-07
+**Session date:** 2026-10-08
 **Branches:** `phase-16a9a-gibbs`, pushed, with a PR for 16a.9a. #81 merged
 2026-10-06.
 
-## Latest: 16a.9a is met; 16a.9b as written exceeds the phase cap (2026-10-07)
+## Latest: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
+
+**V6 stage 1** (chains 18157561 to 18157564, merges 18157565 and 18271545;
+`dev/scripts/v6_stage1_16a9b_result.md`). The pilot's four chains ran from
+sweep 200 to 700.
+- **Burn-in:** with 100 sweeps, R̂ is at most 1.012 (the ptsG promoter and
+  `krnadeg`), and the means agree with the burn-in-350 merge to 0.04 SD.
+- **What V6 still needs:** the quantile MCSE binds, so V6 needs **852 more
+  sweeps per chain**.
+
+**The profile of B3** (job 18255035; `profile_b3_16a9b_result.md`):
+- **Efficiency at 20 threads is 40 to 51%.** The time goes to the per-window
+  barrier, the serial resampling copies (about 12%) and GC, at 10 to 14%.
+- **A particle's own time is 97% the Rodas5P step:** the ForwardDiff Jacobian
+  takes about 39% and a LAPACK-fallback LU on the 32 × 32 `SMatrix` about 13%.
+
+**Thread scaling** (jobs 18256436, 18256437, 18258719 and 18258720;
+`thread_scaling_16a9b_result.md`). The final state is bitwise equal at 1, 5, 10
+and 20 threads. CPU-h per sweep:
+- 1 thread: 0.80;
+- 5 threads: **0.78**;
+- 10 threads: 1.00;
+- 20 threads: 1.22.
+
+**So, at 5 threads:**
+- **V7 at R = 50 is 25.6k CPU-h** and 4.3 days.
+- **V6's remainder is 2.7k CPU-h and 5.5 days.** At 20 threads it would be 4.1k
+  and 2.2 days.
+- **The phase total** would then be about 32 to 33k of the 50k.
+
+**The ledger:** 16a.9 is at 3,230 CPU-h, and phase 16 at 3,634.
+
+**Open, and yours:**
+- **V6's thread count.** It trades 1.5k CPU-h against 3.3 days.
+- **V7's configuration:** 5 threads per replicate, and R = 50.
+
+Option 3 of §12 2026-10-07 is decided by these choices.
+
+**Code levers not taken yet.** Neither changes results:
+- the resampling copies inside the parallel region;
+- less allocation in the ODE step, though this one needs a bitwise check.
+
+**Next:**
+1. your call on the thread counts;
+2. extend V6's chains to 1,552 sweeps;
+3. write V7's driver: replicate truths from `draw_truth`, one chain each.
+
+## Earlier: 16a.9a is met; 16a.9b as written exceeds the phase cap (2026-10-07)
 
 **Done on the branch** (from 6 Oct):
 - **The spec split** 16a.9 into 16a.9a and 16a.9b (§12 2026-10-06).

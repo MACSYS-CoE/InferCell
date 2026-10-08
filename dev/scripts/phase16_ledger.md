@@ -69,8 +69,13 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18157561–18157565 | 16a.9b | V6 stage 1: the pilot's 4 chains, 200 → 700 sweeps, and merge (of record) | 20 | ~28 h each | 2,308.28 |
 
+| 18255035 | 16a.9b | B3 profile, chain 1 at sweep 700 (of record) | 20 | 0:12:10 | 4.06 |
+| 18256434–18256437, 18258719, 18258720 | 16a.9b | Thread scaling at 1, 5, 10, 20 threads; the first 1- and 5-thread jobs cancelled by root (of record) | 1–20 | | 14.28 |
+
+| 18271545 | 16a.9b | V6 stage 1 merged with 100 sweeps of burn-in (of record) | 1 | 0:04:09 | 0.07 |
+
 **16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
 the #81 review, which found the running total had drifted).
 
-**16a.9 so far: about 3,211.6 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). **Phase 16 total: about 3,615.2 CPU-h** of 50k.
+**16a.9 so far: about 3,230.0 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 3,633.6 CPU-h** of 50k.
