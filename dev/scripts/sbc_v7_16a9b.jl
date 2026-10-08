@@ -132,7 +132,7 @@ function merge_replicates()
         @printf("| %d | %d | %.0f | %s |\n", x.meta.replicate, x.meta.seed, ess_min[j],
                 join(ranks[j, :], ", "))
     end
-    nlow = count(<(L), ess_min)
+    nlow = count(e -> !(e >= L), ess_min)                    # NaN (too few draws) counts as low
     println("\nReplicates whose smallest bulk ESS over the kept sweeps is below L = $L: $nlow of $R ",
             "(their thinned draws are autocorrelated, which widens the rank distribution).")
 
