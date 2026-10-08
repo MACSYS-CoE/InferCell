@@ -74,8 +74,10 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18271545 | 16a.9b | V6 stage 1 merged with 100 sweeps of burn-in (of record) | 1 | 0:04:09 | 0.07 |
 
+| 18276616, 18276617 | 16a.9b | V7 smoke: 3 replicates, 3 cells, 2 windows, 6 sweeps, and merge | 5 | ~0:06 each | 1.47 |
+
 **16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
 the #81 review, which found the running total had drifted).
 
-**16a.9 so far: about 3,230.0 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). **Phase 16 total: about 3,633.6 CPU-h** of 50k.
+**16a.9 so far: about 3,231.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 3,635.1 CPU-h** of 50k.

@@ -36,20 +36,36 @@ and 20 threads. CPU-h per sweep:
 
 **The ledger:** 16a.9 is at 3,230 CPU-h, and phase 16 at 3,634.
 
-**Open, and yours:**
-- **V6's thread count.** It trades 1.5k CPU-h against 3.3 days.
-- **V7's configuration:** 5 threads per replicate, and R = 50.
+**Decided 2026-10-08** (§12 2026-10-08):
+- **V6** at 20 threads, to 1,552 sweeps, with 100 sweeps of burn-in.
+- **V7** at R = 50, 5 threads per replicate, 656 sweeps each.
 
-Option 3 of §12 2026-10-07 is decided by these choices.
+**Running** (submitted 2026-10-08 at about 22:50):
+- **V6 stage 2:** chains 18276511 to 18276514 from `.worktrees/v6-16a9b` at
+  `281d548`, merge 18276515 (`merge 100`). About 2.2 days once they start.
+- **V7:** array 18276794_[1-50] from `.worktrees/v7-16a9b` at `dfe570a`, merge
+  18276795. About 4.3 days per replicate, and 25.6k CPU-h.
+  - The driver is `dev/scripts/sbc_v7_16a9b.{jl,slurm,sh}`. Replicate r is
+    `m0_dataset(16_200_000 + r)`, and its start is drawn from the prior with
+    `Xoshiro(16_300_000 + r)`.
+  - The merge thins to L = 100 draws and checks the rank-ECDF against 95%
+    simultaneous bands. The bands' coverage on uniform ranks is 0.948 (login
+    node check).
+  - The smoke run passed (jobs 18276616 and 18276617; logs in that worktree's
+    `dev/scripts/sbc_v7_smoke/`).
+  - A replicate that hits its 6-day limit resumes with
+    `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`.
 
 **Code levers not taken yet.** Neither changes results:
 - the resampling copies inside the parallel region;
 - less allocation in the ODE step, though this one needs a bitwise check.
 
 **Next:**
-1. your call on the thread counts;
-2. extend V6's chains to 1,552 sweeps;
-3. write V7's driver: replicate truths from `draw_truth`, one chain each.
+1. When V6's merge lands, check V6's criteria: R̂ < 1.01, ESS ≥ 1,000, and
+   quantile MCSE ≤ 0.05 SD. If it falls short, re-project and extend.
+2. When V7's merge lands, read the bands. Name any replicate with ESS below
+   100. Then write F8's rank-ECDF plots and tick 16a.9b.
+3. `/check-PR` on #82 can run meanwhile.
 
 ## Earlier: 16a.9a is met; 16a.9b as written exceeds the phase cap (2026-10-07)
 
