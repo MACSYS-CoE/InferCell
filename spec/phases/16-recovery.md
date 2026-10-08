@@ -853,7 +853,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
   is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
   0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
-- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07) Run the M0
+- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
   reference long — verify by V6, which justifies the length, and by V7 at
   production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
   pilot.
@@ -936,6 +936,38 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-08 — 16a.9b's size: V6 at 20 threads, V7 at 5, both with 100 sweeps of burn-in
+
+**Status: approved 2026-10-08.** This decides option 3 of §12 2026-10-07.
+
+**Trigger:** V6 stage 1 and option 2's measurements.
+- **The files:** `dev/scripts/v6_stage1_16a9b_result.md`,
+  `profile_b3_16a9b_result.md` and `thread_scaling_16a9b_result.md`.
+- **The jobs:** 18157561 to 18157565, 18271545, 18255035, 18256436, 18256437,
+  18258719 and 18258720.
+
+The measurements:
+- **Burn-in.** With 100 sweeps dropped, R̂ is at most 1.012, and the posterior
+  means agree with a 350-sweep burn-in to 0.04 SD.
+- **What V6 still needs.** The quantile MCSE binds, at 5,807 kept sweeps.
+- **The cost of a sweep falls with fewer threads,** and the chain is bitwise
+  the same at 1, 5, 10 and 20 threads. Per sweep it is 1.22 CPU-h at 20 threads,
+  1.00 at 10, 0.78 at 5 and 0.80 at 1. Block 3's parallel efficiency at 20
+  threads is 40 to 51%.
+
+**Change.**
+- **V6:** the four chains continue at 20 threads to 1,552 sweeps each, with 100
+  sweeps of burn-in. That is about 4.1k CPU-h and 2.2 days.
+- **V7:** R = 50 replicates. Each is one chain from a prior-drawn start, at 5
+  threads, with 100 sweeps of burn-in plus at least 100 effective draws. That is
+  about 656 sweeps per replicate, at the slowest ESS rate of 0.180 per sweep, and
+  about 25.6k CPU-h.
+- **Projected phase total:** about 33.4k of the 50k.
+- **D16.6 is unchanged.**
+
+*Sections:* §11 16a.9b.
+
 
 ### 2026-10-07 — 16a.9b as written costs more than the phase cap
 
