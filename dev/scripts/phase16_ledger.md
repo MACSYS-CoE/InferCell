@@ -67,8 +67,10 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 18109288 | 16a.9a | Full suite with the Gibbs chain (of record) | 4 | 0:54:07 | 3.61 |
 | 18108335–18108339 | 16a.9a | Gibbs pilot, 4 chains × 200 sweeps on M0, and merge (of record) | 20 | ~11 h each | 896.33 |
 
+| 18157561–18157565 | 16a.9b | V6 stage 1: the pilot's 4 chains, 200 → 700 sweeps, and merge (of record) | 20 | ~28 h each | 2,308.28 |
+
 **16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
 the #81 review, which found the running total had drifted).
 
-**16a.9 so far: about 903.3 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). **Phase 16 total: about 1,306.9 CPU-h** of 50k.
+**16a.9 so far: about 3,211.6 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 3,615.2 CPU-h** of 50k.
