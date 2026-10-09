@@ -966,6 +966,19 @@ The measurements:
 - **Projected phase total:** about 33.4k of the 50k.
 - **D16.6 is unchanged.**
 
+**Annotated 2026-10-09: V7 runs slower than sized, and continues.** You decided
+to let both V6 and V7 run.
+- **The rate.** After 55 to 130 sweeps per replicate (array 18276794), the mean
+  sweep takes about 784 s at 5 threads, against the 562 s of
+  `thread_scaling_16a9b_result.md`. Across replicates it ranges from about 450 to
+  980 s.
+- **The cost.** V7 now projects to about **35.7k CPU-h**, against 25.6k, and the
+  phase to about 43k of the 50k.
+- **The time limit.** About half the replicates will reach the 6-day limit, and
+  each is resubmitted once from its checkpoint.
+- **The cause is untested.** Every node is fully loaded, and each replicate's
+  dataset differs.
+
 *Sections:* §11 16a.9b.
 
 

@@ -60,6 +60,16 @@ and 20 threads. CPU-h per sweep:
 - the resampling copies inside the parallel region;
 - less allocation in the ODE step, though this one needs a bitwise check.
 
+**V7 overrun, accepted 2026-10-09** (§12 2026-10-08, annotated):
+- **Rate and cost:** sweeps take about 784 s, not 562, so V7 projects to about
+  35.7k CPU-h and the phase to about 43k of 50k.
+- **Timeouts:** about 26 replicates will hit the 6-day limit, around 14–15 Oct.
+  Resubmit them from the v7 worktree with
+  `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`. That also resubmits a merge,
+  so cancel the first merge (18276795) if it would run on partial results. It
+  names incomplete replicates in either case.
+- **V6 stage 2** is due to finish about 03:00–06:00 on 11 Oct.
+
 **Next:**
 1. When V6's merge lands, check V6's criteria: R̂ < 1.01, ESS ≥ 1,000, and
    quantile MCSE ≤ 0.05 SD. If it falls short, re-project and extend.
