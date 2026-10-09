@@ -4244,7 +4244,7 @@ rates, and validate the production sampler against an exact reference.
 **Done when:** coverage over repeated synthetic datasets is within Monte Carlo
 error of nominal for every target, the tight-prior control shrinks and recovers,
 the loose-prior control is visibly wider, and the reference comparison exists.
-**PR:** _not started_
+**PR:** 16a.1 to 16a.8 in #81 (merged 2026-10-05); the rest per the sub-spec
 
 **Specified in a sub-spec: [`spec/phases/16-recovery.md`](phases/16-recovery.md)
 (§12 2026-09-30).** It splits the phase into 16a, the sampler and the reference, and

@@ -63,5 +63,21 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18098390 | 16a.7c | Per-cell update-rate merge (of record) | 1 | | 0.08 |
 
-**16a total: about 403.6 CPU-h** (the rows' sum, recomputed after the #81 review,
-which found the running total had drifted).
+| 18105666 | 16a.9a | Full suite with the Gibbs chain (Aqua compat failed) | 4 | 0:50:42 | 3.38 |
+| 18109288 | 16a.9a | Full suite with the Gibbs chain (of record) | 4 | 0:54:07 | 3.61 |
+| 18108335–18108339 | 16a.9a | Gibbs pilot, 4 chains × 200 sweeps on M0, and merge (of record) | 20 | ~11 h each | 896.33 |
+
+| 18157561–18157565 | 16a.9b | V6 stage 1: the pilot's 4 chains, 200 → 700 sweeps, and merge (of record) | 20 | ~28 h each | 2,308.28 |
+
+| 18255035 | 16a.9b | B3 profile, chain 1 at sweep 700 (of record) | 20 | 0:12:10 | 4.06 |
+| 18256434–18256437, 18258719, 18258720 | 16a.9b | Thread scaling at 1, 5, 10, 20 threads; the first 1- and 5-thread jobs cancelled by root (of record) | 1–20 | | 14.28 |
+
+| 18271545 | 16a.9b | V6 stage 1 merged with 100 sweeps of burn-in (of record) | 1 | 0:04:09 | 0.07 |
+
+| 18276616, 18276617 | 16a.9b | V7 smoke: 3 replicates, 3 cells, 2 windows, 6 sweeps, and merge | 5 | ~0:06 each | 1.47 |
+
+**16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
+the #81 review, which found the running total had drifted).
+
+**16a.9 so far: about 3,231.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 3,635.1 CPU-h** of 50k.

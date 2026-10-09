@@ -1,10 +1,121 @@
 # Handoff
 
-**Session date:** 2026-10-06
-**Branches:** `phase-16a-sampler`, pushed (no PR yet). #80, the phase 16
-sub-spec, merged 2026-09-30.
+**Session date:** 2026-10-08
+**Branches:** `phase-16a9a-gibbs`, pushed, with a PR for 16a.9a. #81 merged
+2026-10-06.
 
-## Latest: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
+## Latest: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
+
+**V6 stage 1** (chains 18157561 to 18157564, merges 18157565 and 18271545;
+`dev/scripts/v6_stage1_16a9b_result.md`). The pilot's four chains ran from
+sweep 200 to 700.
+- **Burn-in:** with 100 sweeps, R̂ is at most 1.012 (the ptsG promoter and
+  `krnadeg`), and the means agree with the burn-in-350 merge to 0.04 SD.
+- **What V6 still needs:** the quantile MCSE binds, so V6 needs **852 more
+  sweeps per chain**.
+
+**The profile of B3** (job 18255035; `profile_b3_16a9b_result.md`):
+- **Efficiency at 20 threads is 40 to 51%.** The time goes to the per-window
+  barrier, the serial resampling copies (about 12%) and GC, at 10 to 14%.
+- **A particle's own time is 97% the Rodas5P step:** the ForwardDiff Jacobian
+  takes about 39% and a LAPACK-fallback LU on the 32 × 32 `SMatrix` about 13%.
+
+**Thread scaling** (jobs 18256436, 18256437, 18258719 and 18258720;
+`thread_scaling_16a9b_result.md`). The final state is bitwise equal at 1, 5, 10
+and 20 threads. CPU-h per sweep:
+- 1 thread: 0.80;
+- 5 threads: **0.78**;
+- 10 threads: 1.00;
+- 20 threads: 1.22.
+
+**So, at 5 threads:**
+- **V7 at R = 50 is 25.6k CPU-h** and 4.3 days.
+- **V6's remainder is 2.7k CPU-h and 5.5 days.** At 20 threads it would be 4.1k
+  and 2.2 days.
+- **The phase total** would then be about 32 to 33k of the 50k.
+
+**The ledger:** 16a.9 is at 3,230 CPU-h, and phase 16 at 3,634.
+
+**Decided 2026-10-08** (§12 2026-10-08):
+- **V6** at 20 threads, to 1,552 sweeps, with 100 sweeps of burn-in.
+- **V7** at R = 50, 5 threads per replicate, 656 sweeps each.
+
+**Running** (submitted 2026-10-08 at about 22:50):
+- **V6 stage 2:** chains 18276511 to 18276514 from `.worktrees/v6-16a9b` at
+  `281d548`, merge 18276515 (`merge 100`). About 2.2 days once they start.
+- **V7:** array 18276794_[1-50] from `.worktrees/v7-16a9b` at `dfe570a`, merge
+  18276795. About 4.3 days per replicate, and 25.6k CPU-h.
+  - The driver is `dev/scripts/sbc_v7_16a9b.{jl,slurm,sh}`. Replicate r is
+    `m0_dataset(16_200_000 + r)`, and its start is drawn from the prior with
+    `Xoshiro(16_300_000 + r)`.
+  - The merge thins to L = 100 draws and checks the rank-ECDF against 95%
+    simultaneous bands. The bands' coverage on uniform ranks is 0.948 (login
+    node check).
+  - The smoke run passed (jobs 18276616 and 18276617; logs in that worktree's
+    `dev/scripts/sbc_v7_smoke/`).
+  - A replicate that hits its 6-day limit resumes with
+    `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`.
+
+**Code levers not taken yet.** Neither changes results:
+- the resampling copies inside the parallel region;
+- less allocation in the ODE step, though this one needs a bitwise check.
+
+**V7 overrun, accepted 2026-10-09** (§12 2026-10-08, annotated):
+- **Rate and cost:** sweeps take about 784 s, not 562, so V7 projects to about
+  35.7k CPU-h and the phase to about 43k of 50k.
+- **Timeouts:** about 26 replicates will hit the 6-day limit, around 14–15 Oct.
+  Resubmit them from the v7 worktree with
+  `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`. That also resubmits a merge,
+  so cancel the first merge (18276795) if it would run on partial results. It
+  names incomplete replicates in either case.
+- **V6 stage 2** is due to finish about 03:00–06:00 on 11 Oct.
+
+**Next:**
+1. When V6's merge lands, check V6's criteria: R̂ < 1.01, ESS ≥ 1,000, and
+   quantile MCSE ≤ 0.05 SD. If it falls short, re-project and extend.
+2. When V7's merge lands, read the bands. Name any replicate with ESS below
+   100. Then write F8's rank-ECDF plots and tick 16a.9b.
+3. `/check-PR` on #82 can run meanwhile.
+
+## Earlier: 16a.9a is met; 16a.9b as written exceeds the phase cap (2026-10-07)
+
+**Done on the branch** (from 6 Oct):
+- **The spec split** 16a.9 into 16a.9a and 16a.9b (§12 2026-10-06).
+- **#81 follow-ups 1 and 3:** `_poisson_weights` stops on a tail bound, and the
+  fallbacks skip zero-weight entries.
+- **The Gibbs driver** composes B1, B2 and B3, with checkpoint and resume, and
+  threads B3's particles and B1's cells.
+- **The pilot script**, and a compat bound for Serialization.
+- **Tests of record:** 28,658 of 28,658 (job 18109288 at `b030512`).
+
+**The pilot** (jobs 18108335 to 18108339 at `6f8bcbc`, worktree
+`.worktrees/pilot-16a9a`) finished at 00:04 on 7 Oct, before OzStar's reboot at
+about 03:35. Nothing was lost. Its numbers are in
+`dev/scripts/gibbs_pilot_16a9a_result.md`:
+- **The ptsG promoter mixes slowest,** at bulk ESS 0.108 per sweep, with R̂ 1.09
+  over 100 kept sweeps per chain.
+- **The lowest live update rate is 0.34.**
+- **One sweep is 1.11 CPU-h,** 199 s at 20 threads. B3 takes 126 s, and core use
+  is 62%.
+- **V6 projects to 11.4k CPU-h** and 6 days. **V7 at R = 50 projects to 57k.**
+
+**The ledger:** 16a.9 is 903 CPU-h so far, and phase 16 about 1.3k of 50k.
+
+**Approved 2026-10-07:** §12 2026-10-07. V6 plus V7 comes to about 68k
+CPU-h, over the 50k phase cap. The proposal is to:
+1. stage V6, with 500 sweeps per chain first (about 2.2k CPU-h) and then a
+   re-projection;
+2. profile the sweep, where B3 is the target;
+3. defer V7's resizing, which has its options listed.
+
+Job 17853654 (`v5s_toy_`, stuck on a dependency) is cancelled.
+
+**Next:** stage 1 of V6 is submitted. It extends the pilot's chains to 700 sweeps
+(chains 18157561 to 18157564, merge 18157565, from `.worktrees/v6-16a9b` at
+`281d548`, with the pilot's checkpoints copied in). That is about 28 h. When it
+lands, add the ledger rows, read the merge, re-project V6, and profile B3.
+
+## Earlier: #81 reviewed, fixed and merged; the path update is PG at N = 20 (2026-10-06)
 
 **The review.** `/check-PR` on #81 found no error in the library code, and the
 evidence held. It returned MERGE AFTER FIXES, for eight items about claims and

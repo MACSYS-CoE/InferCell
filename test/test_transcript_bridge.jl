@@ -46,6 +46,19 @@ end
         end
     end
 
+    @testset "the Poisson weights stop once the tail is negligible" begin
+        # The stop once ran to 10λ + 200 terms whatever λ was (the #81 review):
+        # about 211 at λ near 1, where about 20 carry everything.
+        for λ in (0.5, 1.0, 20.0, 600.0)
+            w = InferCell._poisson_weights(λ)
+            @test length(w) <= λ + 10sqrt(λ) + 25
+            # The dropped tail, summed far past the stop, is below the tolerance.
+            n0 = length(w)
+            tail = sum(exp(-λ + n * log(λ) - sum(log, 1:n; init = 0.0)) for n in n0:(n0 + 500))
+            @test tail < 1e-17
+        end
+    end
+
     @testset "the truncation mass is below 1e-12 at the dataset cap" begin
         @test truncation_mass(typical, 60.0, 2) < 1e-12
         # The dataset rule is a floor, not a guarantee: at amplified rates it

@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, are in PR #81; 16a.9 to 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-05
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a is in flight; 16a.9b to 16a.11 and 16b remain
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-06
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -523,7 +523,8 @@ metabolites.**
   sweep, about 1.7 times the N = 10 row above.
 - **So M0 is feasible in wall-clock, and a full-scale posterior needs
   particle-parallel sweeps at least** (R16.8). 16a.11 measures the real figure.
-- **16a is capped at 5k CPU-h.** Its last task, 16a.11, does four things:
+- **16a is capped at 5k CPU-h** (annotated 2026-10-06, §12: 16a.9 is recorded
+  against it but not held to it). Its last task, 16a.11, does four things:
   - measures the cost of one M0 posterior, and of one sweep on a full-scale cell,
     per variant;
   - sets K1's bound, with T3 recording that it was set after the measurement;
@@ -709,8 +710,8 @@ and against a long reference where it is not. Then measure what one posterior co
 - F10 is reported against its floor.
 - K1's bound is set, and the reopened budget and 16b allocation are approved.
 
-**PR:** #81 carries 16a.1 to 16a.8, with 16a.7a to 16a.7c and parent 15.7b.
-16a.9 to 16a.11 follow in a later PR.
+**PR:** #81 (merged 2026-10-05) carries 16a.1 to 16a.8, with 16a.7a to 16a.7c and
+parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
 
 - [x] 16a.1 Drive the published hybrid from a recorded jump path, and snapshot and
   restore the driver's full state (D16.3's list). Record the path during generation.
@@ -832,9 +833,30 @@ and against a long reference where it is not. Then measure what one posterior co
   - each dataset carrying its truth (σ included), seeds and report;
   - two runs at one seed being identical.
   **Met** (m0_16a8_result.md: 21 of 21; job 17800819).
-- [ ] 16a.9 (parent 16.1, run) Run the M0 reference long — verify by V6, which
+- [ ] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
+- [ ] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
+  and pilot it. Verify by:
+  - B2 being exact on the hybrid: its conditional's difference between two values
+    of each promoter and of `krnadeg` equals the replay's path log-density
+    difference plus the prior difference, to 1e-10;
+  - a cell's base rebuilt by writing θ onto a pristine driver replaying bitwise
+    as one written incrementally;
+  - the threaded B3 sweep and B1 replay being bitwise equal to serial at one seed;
+  - a chain resumed from a checkpoint being bitwise equal to an uninterrupted one;
+  - a pilot of 4 chains from overdispersed starts on one M0 replicate (C = 50, PG,
+    N = 20), reporting the cost per sweep per block, bulk and tail ESS per sweep
+    and R̂ per parameter, per-window update rates, and a CPU-h and wall-clock
+    projection for V6 and V7.
+  **Met** (gibbs_pilot_16a9a_result.md: tests 28,658 of 28,658, job 18109288 at
+  `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
+  is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
+  0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
+- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
+  reference long — verify by V6, which justifies the length, and by V7 at
+  production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
+  pilot.
 - [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5
@@ -914,6 +936,115 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-08 — 16a.9b's size: V6 at 20 threads, V7 at 5, both with 100 sweeps of burn-in
+
+**Status: approved 2026-10-08.** This decides option 3 of §12 2026-10-07.
+
+**Trigger:** V6 stage 1 and option 2's measurements.
+- **The files:** `dev/scripts/v6_stage1_16a9b_result.md`,
+  `profile_b3_16a9b_result.md` and `thread_scaling_16a9b_result.md`.
+- **The jobs:** 18157561 to 18157565, 18271545, 18255035, 18256436, 18256437,
+  18258719 and 18258720.
+
+The measurements:
+- **Burn-in.** With 100 sweeps dropped, R̂ is at most 1.012, and the posterior
+  means agree with a 350-sweep burn-in to 0.04 SD.
+- **What V6 still needs.** The quantile MCSE binds, at 5,807 kept sweeps.
+- **The cost of a sweep falls with fewer threads,** and the chain is bitwise
+  the same at 1, 5, 10 and 20 threads. Per sweep it is 1.22 CPU-h at 20 threads,
+  1.00 at 10, 0.78 at 5 and 0.80 at 1. Block 3's parallel efficiency at 20
+  threads is 40 to 51%.
+
+**Change.**
+- **V6:** the four chains continue at 20 threads to 1,552 sweeps each, with 100
+  sweeps of burn-in. That is about 4.1k CPU-h and 2.2 days.
+- **V7:** R = 50 replicates. Each is one chain from a prior-drawn start, at 5
+  threads, with 100 sweeps of burn-in plus at least 100 effective draws. That is
+  about 656 sweeps per replicate, at the slowest ESS rate of 0.180 per sweep, and
+  about 25.6k CPU-h.
+- **Projected phase total:** about 33.4k of the 50k.
+- **D16.6 is unchanged.**
+
+**Annotated 2026-10-09: V7 runs slower than sized, and continues.** You decided
+to let both V6 and V7 run.
+- **The rate.** After 55 to 130 sweeps per replicate (array 18276794), the mean
+  sweep takes about 784 s at 5 threads, against the 562 s of
+  `thread_scaling_16a9b_result.md`. Across replicates it ranges from about 450 to
+  980 s.
+- **The cost.** V7 now projects to about **35.7k CPU-h**, against 25.6k, and the
+  phase to about 43k of the 50k.
+- **The time limit.** About half the replicates will reach the 6-day limit, and
+  each is resubmitted once from its checkpoint.
+- **The cause is untested.** Every node is fully loaded, and each replicate's
+  dataset differs.
+
+*Sections:* §11 16a.9b.
+
+
+### 2026-10-07 — 16a.9b as written costs more than the phase cap
+
+**Status: approved 2026-10-07** (options 1 and 2 now, option 3 deferred). Option 1
+runs as the pilot's 4 chains extended from 200 to 700 sweeps each. That is the
+same chains from the same overdispersed starts, so the 500 new sweeps cost about
+2.2k CPU-h. The code is unchanged since `6f8bcbc` outside the test extras'
+compat.
+
+**Trigger:** 16a.9a's pilot (jobs 18108335 to 18108339;
+`dev/scripts/gibbs_pilot_16a9a_result.md`).
+- **The rate.** The ptsG promoter mixes slowest, at bulk ESS 0.108 per sweep.
+  It rests on a bulk ESS of 43, so it is rough.
+- **The cost.** One sweep takes 199 s at 20 threads, or 1.11 CPU-h. B3 is 126 s
+  of that, and core use is 62%.
+- **V6 at N_ref = 20** needs about 10,300 sweeps over 4 chains, set by the
+  quantile MCSE. That is **11.4k CPU-h and 6.0 days**.
+- **V7 at R = 50** needs 1,028 sweeps per replicate, so **57k CPU-h**. R = 100 is
+  114k.
+- **Together, about 68k CPU-h.** The phase cap is 50k (D16.6), and phase 16 has
+  spent about 1.3k. 16a.9's hours are not held to 16a's 5k (§12 2026-10-06), but
+  the phase cap still applies.
+
+**Options:**
+1. **Stage V6.** Submit the 4 resumable chains for 500 sweeps each, about 2.2k
+   CPU-h and 1.2 days. Then re-project from the measured rate and extend. V6's
+   criteria are unchanged.
+2. **Speed the sweep first.** Profile B3 and B1. Any gain scales V6 and V7 alike.
+   The size of the gain is unknown until measured.
+3. **Resize V7.** Each of these is a decision about what V7 certifies:
+   - **Fewer effective draws per replicate.** At 50 rather than 100, R = 50 costs
+     about 31k CPU-h.
+   - **Fewer cells per replicate.** Cost falls roughly with C, but V7 would then
+     not calibrate the sampler at M0's C = 50.
+   - **Raise the phase cap,** at 16a.11 or now.
+   - **Defer V7's sizing** until the refined V6 rate and any speed-up are in.
+
+**Proposed:** options 1 and 2 now. Option 3 waits until the V6 rate is refined
+and any speed-up is measured, and that choice comes back to you.
+
+*Sections:* §11 16a.9a and 16a.9b; D16.6 (not yet changed).
+
+
+### 2026-10-06 — 16a.9 splits: the Gibbs driver and a pilot first, then the reference
+
+**Status: approved 2026-10-06.**
+
+**Trigger:** planning 16a.9. The three blocks exist and are validated one at a
+time (V3, V4, V5), but nothing composes them into a chain, and the chain's ESS per
+sweep is unmeasured. A projection from unit costs puts V7 alone at about 11,000
+CPU-h and a serial 200-sweep chain at about 5.5 days, both resting on a guessed
+ESS per sweep.
+
+**Change.**
+- **§11:** 16a.9 is annotated in place and split. 16a.9a builds the driver, its
+  exactness tests, threads in B3's particles and B1's cells, and a pilot that
+  measures mixing and cost. 16a.9b runs V6 and V7 at the size the pilot sets.
+- **D16.6:** 16a.9's CPU-h are recorded in the ledger but not held to 16a's 5k
+  cap, by your decision. Multi-day waits are flagged before submission.
+- Handoff follow-ups 1 and 3 (`_poisson_weights`' stop, `_draw_index` in the
+  fallbacks) land in 16a.9a, since the pilot measures cost.
+
+*Sections:* §11 16a.9, 16a.9a and 16a.9b; D16.6.
+
 
 ### 2026-10-05 — bulk metabolites, and the seam's ENO cell as a measured null
 
