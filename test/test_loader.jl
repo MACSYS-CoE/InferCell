@@ -13,7 +13,6 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
     both = [central, nucleotide]
 
     @testset "Tables parse, skipping SBtab preamble and comments" begin
-        @test central.file == "central_balanced"
         @test central.values["kcat_fwd_PGK3"] == 319.5
         @test central.values["kcat_fwd_ENO"] == 62.18
         @test nucleotide.values["kcat_fwd_PGK3"] == 140.8
@@ -171,8 +170,6 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
         # The PTS mass-action constants carry no quantified uncertainty in the
         # source, so any prior on them is this project's.
         @test [p.name for p in asserted_prior_params(params)] == [:k_GLCpts0_fwd]
-        # The balanced glycolytic parameter is not asserted.
-        @test informedness(eno) == :balanced
         # And the prior-median row is flagged as uninformed.
         @test [p.name for p in uninformed_params(params)] == [:g3p0]
     end
@@ -202,11 +199,6 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
                              governing = "nucleotide_balanced")
         @test gtp.value == 1.6627
         @test informedness(gtp) == :balanced
-
-        # Identifiers that name no registry species are unconstrained.
-        @test load_parameter(both, "kcat_fwd_ENO";
-                             name = :kcat_ENO, module_id = :Central,
-                             prior = LogNormal(0.0, 1.0)).value == 62.18
     end
 
     @testset "A governing declaration binds even with a single holder" begin

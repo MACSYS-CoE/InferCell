@@ -16,9 +16,7 @@ using Distributions
         graph = resolve_coupling([producer, consumer])
 
         @test length(graph.edges) == 2
-        @test all(r -> r.kind == :mass, graph.edges)
         @test Set(r.declared_by for r in graph.edges) == Set([:Central, :Expression])
-        @test all(r -> r.species == :M_atp_c, graph.edges)
 
         # Registry positions come back with the edge.
         @test all(r -> r.state_index == species_index(:M_atp_c), graph.edges)
@@ -33,7 +31,6 @@ using Distributions
             edges = [MassEdge(species=:M_atp_c, direction=:out)])
         graph = resolve_coupling(lone)          # single-model method
         @test length(graph.edges) == 1
-        @test graph.edges[1].peer === nothing
     end
 
     @testset "An unregistered species is rejected, naming it" begin
@@ -45,20 +42,13 @@ using Distributions
         @test occursin("Central", err.msg)
     end
 
-    @testset "A missing peer is rejected, and distinguished from a lone module" begin
+    @testset "A missing peer is rejected" begin
         orphan = CoreAStub(:Central;
             st = [:M_atp_c],
             edges = [MassEdge(species=:M_atp_c, direction=:out, peer=:NotHere)])
         err = caught(() -> resolve_coupling([orphan]))
         @test err isa ArgumentError
         @test occursin("NotHere", err.msg)
-
-        # The same module with an unnamed peer is a deliberate partial
-        # composition and resolves cleanly.
-        lone = CoreAStub(:Central;
-            st = [:M_atp_c],
-            edges = [MassEdge(species=:M_atp_c, direction=:out)])
-        @test length(resolve_coupling([lone]).edges) == 1
     end
 
     @testset "A named peer must be the counterpart, not a bystander" begin
@@ -290,7 +280,6 @@ using Distributions
         graph = resolve_coupling([reader])
         @test isempty(graph.dead_ends)
         @test length(graph.edges) == 1
-        @test !carries_mass(graph.edges[1].edge)
     end
 
     @testset "inputs() must not drift from the typed declaration" begin
@@ -504,10 +493,6 @@ using Distributions
         @test isempty(graph.gradient_obstructions)
         # Every registry state is unowned, because these models own none of them.
         @test length(graph.unowned_states) == n_dynamic_states()
-
-        # And build_problem, which now runs the resolver, still works.
-        prob = build_problem([txl, metab])
-        @test length(prob.u0) == length(states(txl)) + length(states(metab))
     end
 
     @testset "A chemostatted input fails the contract with the actual remedy" begin

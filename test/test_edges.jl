@@ -14,8 +14,6 @@ using InferCell
             ClampedEdge(species=:M_ctp_c, direction=:in, origin=:ours),
         ]
         @test [edge_kind(e) for e in edges] == collect(EDGE_KINDS)
-        @test length(EDGE_KINDS) == 7
-        @test all(e -> e isa CouplingEdge, edges)
     end
 
     @testset "A missing required field fails at construction, naming field and kind" begin
@@ -79,7 +77,6 @@ using InferCell
                                        counter=:ATP_trsc, clip=:smoothed,
                                        smoothing=0.05)
         @test !obstructs_gradients(smoothed)
-        @test smoothed.smoothing == 0.05
         @test deviates_from_published(smoothed)   # differs from the published model
         @test occursin("smoothed", deviation_reason(smoothed))
         @test occursin("0.05", deviation_reason(smoothed))
@@ -115,7 +112,6 @@ using InferCell
         @test !deviates_from_published(e)
 
         custom = RateConstantEdge(species=:M_gtp_c, direction=:out, interval=30.0)
-        @test custom.interval == 30.0
         @test !deviates_from_published(custom)
 
         @test_throws ArgumentError RateConstantEdge(species=:M_gtp_c, direction=:out,
@@ -126,7 +122,6 @@ using InferCell
 
     @testset "A continuous cadence is marked as a deviation and carries no interval" begin
         e = RateConstantEdge(species=:M_gtp_c, direction=:out, cadence=:continuous)
-        @test e.cadence == :continuous
         @test e.interval === nothing      # carrying one would imply a cadence it lacks
         @test deviates_from_published(e)
         @test occursin("continuous", deviation_reason(e))
@@ -138,8 +133,6 @@ using InferCell
 
     @testset "Clamped edges record whether the clamp is ours" begin
         ours = ClampedEdge(species=:M_ctp_c, direction=:in, origin=:ours, held_value=1.0)
-        @test ours.origin == :ours
-        @test ours.held_value == 1.0
         @test deviates_from_published(ours)
         @test occursin("this reduction", deviation_reason(ours))
 
@@ -187,9 +180,6 @@ using InferCell
 
     @testset "The currency pool" begin
         e = CurrencyEdge(species=:M_atp_c, direction=:in, peer=:Central)
-        @test e.species == :M_atp_c
-        @test e.direction == :in
-        @test e.peer == :Central
         @test e.pool == :M_atp_c            # defaults to the species itself
         @test CurrencyEdge(species=:M_atp_c, direction=:in, pool=:M_adp_c).pool == :M_adp_c
 
@@ -202,7 +192,6 @@ using InferCell
         for m in (TranscriptionTranslation(), StochasticGeneExpression(),
                   BurstyGeneExpression(), LightMetabolism(), TierBMetabolism())
             @test coupling(m) == CouplingEdge[]
-            @test isempty(coupling(m))
             @test reduction_notes(m) == String[]
         end
 

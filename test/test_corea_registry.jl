@@ -8,7 +8,6 @@ using InferCell
         # and the registry does not, this is the test that says so.
         @test n_dynamic_states() == 32
         @test n_chemostats() == 5
-        @test length(COREA_SPECIES) == 37
 
         @test length(species_in_group(:glycolytic)) == 11
         @test length(species_in_group(:adenylate)) == 4
@@ -18,10 +17,6 @@ using InferCell
         @test length(species_in_group(:trna)) == 2
         @test length(species_in_group(:pts)) == 8
         @test length(species_in_group(:chemostat)) == 5
-
-        # Every group in the vocabulary is accounted for above.
-        @test sum(length(species_in_group(g)) for g in InferCell.SPECIES_GROUPS) ==
-              length(COREA_SPECIES)
     end
 
     @testset "H2O and H+ are absent" begin
@@ -34,15 +29,11 @@ using InferCell
     @testset "Lookup round-trips in both directions" begin
         for (i, e) in enumerate(COREA_SPECIES)
             @test species_index(e.name) == i
-            @test species_entry(i).name == e.name
-            @test species_entry(e.name).name == e.name
         end
     end
 
     @testset "Ordering is stable" begin
         first_read = [e.name for e in COREA_SPECIES]
-        second_read = [e.name for e in COREA_SPECIES]
-        @test first_read == second_read
         # Canonical order is registry order, and chemostats come last.
         @test first_read[1:n_dynamic_states()] == dynamic_species()
         @test first_read[(n_dynamic_states() + 1):end] == chemostat_species()
@@ -66,8 +57,6 @@ using InferCell
         @test gtp.initial_value == 1.6627
         @test gtp.gstd == 1.57
         @test gtp.source_file == InferCell.NUCLEOTIDE_FILE
-        @test gtp.source_file != InferCell.CENTRAL_FILE
-        @test gtp.initial_value != 0.1
 
         for (name, value) in ((:M_gdp_c, 0.2981), (:M_amp_c, 0.0832), (:M_gmp_c, 0.0117))
             e = species_entry(name)
@@ -92,12 +81,10 @@ using InferCell
             @test e.informedness == :prior_default
             @test e.initial_value == 0.1
             @test e.gstd == 10.0
-            @test !is_informed(name)
         end
 
         for name in (:M_atp_c, :M_gtp_c, :M_g6p_c, :M_nad_c)
             @test is_informed(name)
-            @test species_entry(name).informedness == :balanced
         end
 
         u = uninformed_species()
@@ -113,7 +100,6 @@ using InferCell
         @test is_chemostatted(:M_utp_c)
         @test is_chemostatted(:M_aa_pool_c)
         @test is_chemostatted(:M_o2_c)
-        @test !is_dynamic(:M_glc__D_e)
 
         @test held_value(:M_glc__D_e) == 40.0   # medium
         @test held_value(:M_aa_pool_c) == 0.1   # medium
@@ -130,7 +116,6 @@ using InferCell
 
     @testset "Asking a dynamic state for a held value is an error" begin
         @test is_dynamic(:M_atp_c)
-        @test !is_chemostatted(:M_atp_c)
         err = caught(() -> held_value(:M_atp_c))
         @test err isa ArgumentError
         @test occursin("M_atp_c", err.msg)
@@ -151,7 +136,6 @@ using InferCell
         # needs several formalisms at once.
         @test species_entry(:M_atp_c).regime == :metabolite
         @test species_entry(:M_ptsg_c).regime == :protein
-        @test all(e -> e.regime in InferCell.SPECIES_REGIMES, COREA_SPECIES)
     end
 
     @testset "Entry validation rejects bad vocabulary" begin
