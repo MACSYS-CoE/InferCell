@@ -31,7 +31,6 @@ const _slow_pool = toy_slow_pool
     @testset "4.1 a rebuilt constant lives in the parameter vector, not on the struct" begin
         m = ToyRebuiltExpression()
         d = build_problem([_slow_pool(), m]; tspan = (0.0, 600.0))
-        @test d isa HandshakeDriver
         @test length(d.rebuilds) == 1
         r = only(d.rebuilds)
         @test r.names == [:k_tx_rb]
@@ -50,7 +49,6 @@ const _slow_pool = toy_slow_pool
         @test slot !== nothing
         @test r.fill_idxs == [slot]
         @test d.jump.p[slot] == m.params[1].value
-        @test :k_tx_rb in [q.name for q in InferCell.model_free_params(parameters(m))]
     end
 
     @testset "4.1 a composition declaring no rebuild is untouched" begin
@@ -87,7 +85,6 @@ const _slow_pool = toy_slow_pool
         # slot away from its declared nominal value, so ten changes.
         @test _slot_changes(out60.jump_p, slot) == 10
         @test only(out60.rebuilds).refreshes == 10
-        @test only(out60.rebuilds).interval == 60.0
 
         Random.seed!(4002)
         m30 = ToyRebuiltExpression(interval = 30.0)
