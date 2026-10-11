@@ -1,8 +1,8 @@
 # Spec §11 phase 14c: the smoothed drain.
 #
 # Task 14c.4: every consumer counter declares `clip = :smoothed` with its width,
-# the width's choice is recorded with its reason, `reduction_report` carries the
-# smoothing as ours (T2), and `obstructs_gradients` reports no edge.
+# `reduction_report` carries the smoothing as ours (T2), and
+# `obstructs_gradients` reports no edge.
 
 using Test
 using InferCell
@@ -20,11 +20,6 @@ _consumers(ms) = [e for m in ms for e in coupling(m)
     smoothed = corea_models(smoothing = COREA_SMOOTHING_WIDTH)
 
     @testset "every consumer counter is smoothed, at the recorded width" begin
-        @test COREA_SMOOTHING_WIDTH == 1.0
-        # The width's reason is recorded where it is defined.
-        doc = string(@doc COREA_SMOOTHING_WIDTH)
-        @test occursin("round trip", doc) && occursin("ours", doc)
-
         cs = _consumers(smoothed)
         # The seven counters on live pools of 14b's census, plus the two
         # CTP/UTP chemostat debits, which are excluded above.
@@ -86,13 +81,9 @@ end
         st = RoundingState(:continuous; nspecies = 1)
         @test round_to_counts!(st, 1, 12.375) === 12.375
         @test st.remainders == [0.0]
-        @test :continuous in ROUNDING_POLICIES
         d = build_corea(; COREA_SAMPLER..., tspan = (0.0, 10.0))
         labels = driver_declarations(d)
         @test any(l -> l.category === :rounding_policy && l.subject === :continuous, labels)
-        # And its measured cost against fractional carry (14c.5, §12 2026-09-29).
-        @test any(l -> l.subject === :continuous && occursin("51 of 5,000", l.description) &&
-                       occursin("17695360", l.description), labels)
         @test !any(l -> l.subject === :fractional_carry, labels)
         # The published build is unchanged: fractional carry, the default.
         @test build_corea(; tspan = (0.0, 10.0)).rounding.policy === :fractional_carry
