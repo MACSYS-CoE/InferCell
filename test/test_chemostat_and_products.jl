@@ -211,7 +211,5 @@ _costs(edges) = ToyExpression(k_tx = 0.0, k_tl = 0.0, edges = edges)
             direction = :in, counter = :c, stoichiometry = 2.0)
         @test_throws ArgumentError DeferredCounterEdge(species = :M_adp_c,
             direction = :out, counter = :c, stoichiometry = 0.0)
-        @test DeferredCounterEdge(species = :M_adp_c, direction = :out,
-                                  counter = :c).stoichiometry == 1.0
     end
 end

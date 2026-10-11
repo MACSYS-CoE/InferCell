@@ -64,13 +64,9 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         @test length(d.rebuilds) == 2 && length(d.growth) == 2
         @test length(d.geometry) == 1
 
-        # Task 13.5: the solver and tolerances are recorded on the model, and
-        # the assembly runs. The full 6,300 s cycle is the Slurm driver's
-        # (dev/scripts/corea_full_cycle.jl); this is the smoke test.
+        # Task 13.5: the solver and tolerances are recorded on the model. That
+        # the assembly runs is 13.5's full cycle below.
         @test solver_settings(d) == (solver = :Rodas5P, abstol = 1e-10, reltol = 1e-8)
-        run_handshake!(d, 60)
-        @test d.ode.t == 60.0
-        @test d.n_handshakes == 60
 
         # Task 13.10's last clause: every product edge the four product-bearing
         # counters declare is credited by the driver.
@@ -90,7 +86,6 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         # rather than behind a gate (task 13.8). The hook throws on any
         # non-success solver retcode, so completing is the no-failure check.
         d = build_corea()
-        @test solver_settings(d) == (solver = :Rodas5P, abstol = 1e-10, reltol = 1e-8)
         out = run_handshake!(d, round(Int, COREA_CYCLE_S))
         @test d.ode.t == COREA_CYCLE_S
         @test last(out.t) == COREA_CYCLE_S
@@ -116,7 +111,6 @@ _without(id) = AbstractSubModel[m for m in corea_models() if module_id(m) !== id
         # The fourteen asserted priors an inference might free (spec §4 D7).
         fourteen = [Symbol(k, :_glcpts, i) for i in 0:4 for k in (:kf, :kr)]
         append!(fourteen, [:p_lact2r, :k_chg, :trna_pool_mM, :trna_charged_fraction])
-        @test length(fourteen) == 14
         @test issubset(fourteen, [l.subject for l in of(:asserted_prior)])
 
         # Asserted priors on slots the driver overwrites, reported apart: the
