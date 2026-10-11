@@ -39,9 +39,19 @@ Block 1 samples the free forward constants and the metabolite σ given every cel
 
 **Annealed windows** (amended 2026-10-02; superseded for production, off by default). Without annealing, the metabolite likelihood puts fresh proposals hundreds of nats below the reference within one window, and no variant mixes. With `schedule` (for example `geometric_schedule(K)`), each particle's window is annealed importance sampling, by `annealed_window`. The tempered targets are π_β ∝ q · w^β. Each stage keeps the path before a uniform cut and redraws the rest from the proposal's own conditional (`advance_window!` with `head`), accepted at min(1, (w′/w)^β). The particle's weight is the AIS weight. The reference keeps its path, and its auxiliary chain is drawn backwards through the same moves. It runs under particle Gibbs only, and costs about N(K + 1) cycles per sweep.
 
+## The Gibbs chain (task 16a.9a)
+
+The three blocks composed into one chain on M0. `gibbs_setup(ds; N)` holds what the chain keeps fixed for a dataset (`GibbsSetup`), and `gibbs_init(rng, g; cme, u, σ)` starts a chain (`GibbsState`) from paths drawn by plain SMC with transcript weights only. `gibbs_sweep!(s, g)` is one systematic scan:
+1. block 3, cell by cell, each given the others' latents through the bulk term;
+2. block 1;
+3. block 2, from block 1's accepted replay;
+4. each cell's t = 0 driver rebuilt at the new θ by writing all of θ onto a pristine snapshot (`gibbs_writes`).
+
+The threaded sweep is bitwise equal to the serial one at one seed. `gibbs_checkpoint(s)` saves the state as plain data, and `gibbs_resume(saved, g)` rebuilds the drivers from θ. A resumed chain is bitwise equal to an uninterrupted one.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl", "csmc.jl"]
+Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl", "csmc.jl", "organisms/coreA/gibbs.jl"]
 ```

@@ -123,6 +123,7 @@ using Aqua
     include("test_block1.jl")
     include("test_fixed_path_kink.jl")
     include("test_csmc.jl")
+    include("test_gibbs.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

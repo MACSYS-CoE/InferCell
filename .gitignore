@@ -74,3 +74,8 @@ docs/Manifest.toml
 /dev/scripts/eno_path_information_16a7/
 /dev/scripts/csmc_bulk_16a7c/
 /dev/scripts/block1_16a5_bulk/
+/dev/scripts/gibbs_pilot_16a9a/
+/dev/scripts/sbc_v7_16a9b/
+/dev/scripts/sbc_v7_smoke/
+/dev/scripts/profile_b3_16a9b/
+/dev/scripts/thread_scaling_16a9b/

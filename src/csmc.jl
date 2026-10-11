@@ -184,7 +184,9 @@ function propose_events(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
         elseif tnext < t1
             c = rand(rng) * total
             i = findfirst(>=(c), cumsum(λ))
-            i === nothing && (i = length(free))
+            # Rounding can leave c above the cumulative sum: take the last
+            # reaction that can fire, never one with zero propensity.
+            i === nothing && (i = findlast(>(0), λ))
             affects[free[i]](w)
             push!(times, tnext)
             push!(rxns, free[i])
@@ -255,6 +257,9 @@ function _metabolite_loglik(d::HandshakeDriver, spec::CSMCSpec, y::BulkObservati
     end
     return s
 end
+
+# No metabolite term: the transcripts alone weight the particles.
+_metabolite_loglik(::HandshakeDriver, ::CSMCSpec, ::Nothing) = 0.0
 
 # The panel's lognormal log-likelihood at the driver's live state.
 function _metabolite_loglik(d::HandshakeDriver, spec::CSMCSpec, y::AbstractVector)
@@ -376,6 +381,19 @@ end
 
 _normalise(lw) = (w = exp.(lw .- maximum(lw)); w ./ sum(w))
 
+# f(i) for i in 1:n, on Julia's threads when `threads` is set. Each call must
+# write only its own slots.
+function _each(f, n::Integer, threads::Bool)
+    if threads
+        Threads.@threads for i in 1:n
+            f(i)
+        end
+    else
+        foreach(f, 1:n)
+    end
+    return nothing
+end
+
 function _categorical(rng::AbstractRNG, w)
     u = rand(rng)
     c = 0.0
@@ -383,7 +401,9 @@ function _categorical(rng::AbstractRNG, w)
         c += w[i]
         u < c && return i
     end
-    return lastindex(w)
+    # Rounding can leave u above the sum: the last particle with weight, never
+    # one with weight zero.
+    return findlast(>(0), w)
 end
 
 # The log density of `ref`'s windows m..m+L−1 given a particle's state at the
@@ -495,8 +515,8 @@ function annealed_window(rng::AbstractRNG, d::HandshakeDriver, spec::CSMCSpec,
 end
 
 """
-    csmc_sweep(rng, base, spec, data, ref; N, lag = 0, schedule = nothing, bulk = nothing)
-        -> (path, changed, latent)
+    csmc_sweep(rng, base, spec, data, ref; N, lag = 0, schedule = nothing, bulk = nothing,
+               threads = Threads.nthreads() > 1) -> (path, changed, latent)
 
 One conditional SMC sweep for one cell (spec/phases/16-recovery.md D16.3).
 `base` is the cell's driver at t = 0 at the current θ, `ref` the current path as
@@ -520,22 +540,33 @@ reproducible from one seed and uses no global stream.
 particle substituted (§12 2026-10-05). `latent` is the returned path's panel
 latent at each window's end, panel × windows, so a caller updating cells in turn
 can refresh the others' sums without a replay.
+
+`threads` runs each window's particles on Julia's threads. The result is
+bitwise the same either way.
+
+With `ref = nothing` no particle is pinned: the sweep is a plain SMC, and its
+draw a fresh path, which is how a chain starts (16a.9a). `metabolites = false`
+drops the metabolite term from the weight, so only the transcripts weigh.
 """
 function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, data::CellData,
-                    ref::Vector{WindowEvents}; N::Integer, lag::Integer = 0,
+                    ref::Union{Nothing, Vector{WindowEvents}}; N::Integer, lag::Integer = 0,
                     schedule::Union{Nothing, AbstractVector{<:Real}} = nothing,
-                    bulk::Union{Nothing, AbstractVector{BulkObservation}} = nothing)
+                    bulk::Union{Nothing, AbstractVector{BulkObservation}} = nothing,
+                    threads::Bool = Threads.nthreads() > 1, metabolites::Bool = true)
     T = size(data.transcripts, 2)
+    pinned = ref !== nothing
+    pinned || lag == 0 || throw(ArgumentError("ancestor sampling needs a reference"))
     bulk === nothing || length(bulk) == T ||
         throw(ArgumentError("$(length(bulk)) bulk observations for $T windows"))
     lag > 0 && bulk !== nothing &&
         throw(ArgumentError("ancestor sampling's future density does not score bulk data"))
-    obs(m) = bulk === nothing ? view(data.metabolites, :, m) : bulk[m]
+    obs(m) = !metabolites ? nothing : bulk === nothing ? view(data.metabolites, :, m) : bulk[m]
     if schedule !== nothing
         lag == 0 || throw(ArgumentError("an annealed window runs under particle Gibbs only (lag = 0)"))
         _check_schedule(schedule)
     end
-    length(ref) == T || throw(ArgumentError("the reference has $(length(ref)) windows, not $T"))
+    !pinned || length(ref) == T ||
+        throw(ArgumentError("the reference has $(length(ref)) windows, not $T"))
     N >= 2 || throw(ArgumentError("need at least two particles"))
     y0 = [base.jump.u[s] for s in spec.tmap.states]
     particles = [restore(base) for _ in 1:N]
@@ -552,18 +583,21 @@ function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, dat
                 la = [log(w[i]) + _future_logdensity(particles[i], spec, data, ref, m, lag)
                       for i in 1:N]
                 a[1] = _categorical(rng, _normalise(la))
-            else
+            elseif pinned
                 a[1] = 1
             end
-            particles = [restore(particles[a[i]]) for i in 1:N]
+            particles .= [restore(particles[a[i]]) for i in 1:N]
             ancestors[:, m] = a
         else
             ancestors[:, 1] = 1:N
         end
         seeds = rand(rng, UInt64, N)
-        for i in 1:N
+        # Each particle owns its driver, its generator and its output slots, so
+        # the particles of a window run in parallel and the sweep does not
+        # depend on the schedule. Resampling stays on this task.
+        _each(N, threads) do i
             prng = Xoshiro(seeds[i])
-            fixed = i == 1 ? ref[m] : nothing
+            fixed = pinned && i == 1 ? ref[m] : nothing
             if schedule === nothing
                 lw[i], events[i, m] = advance_window!(prng, particles[i], spec, yprev,
                                                       data.transcripts[:, m], obs(m); fixed)
@@ -583,7 +617,9 @@ function csmc_sweep(rng::AbstractRNG, base::HandshakeDriver, spec::CSMCSpec, dat
         latent[:, m] = lat[k, m]
         k = ancestors[k, m]
     end
-    changed = [path[m].times != ref[m].times || path[m].reactions != ref[m].reactions for m in 1:T]
+    changed = pinned ?
+        [path[m].times != ref[m].times || path[m].reactions != ref[m].reactions for m in 1:T] :
+        trues(T)
     return path, changed, latent
 end
 
