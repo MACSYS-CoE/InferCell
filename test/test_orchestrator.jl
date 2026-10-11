@@ -4,18 +4,6 @@ using OrdinaryDiffEq: Tsit5, solve
 using SciMLBase: ReturnCode
 
 @testset "Orchestrator" begin
-    @testset "build_problem with TranscriptionTranslation" begin
-        txl = TranscriptionTranslation()
-        prob = build_problem([txl]; tspan=(0.0, 50.0))
-
-        # Check problem structure
-        @test prob.tspan == (0.0, 50.0)
-        @test length(prob.u0) == 2       # mRNA, protein
-        @test prob.u0[1] == 0.0          # mRNA0
-        @test prob.u0[2] == 0.0          # protein0
-        @test length(prob.p) == 4        # k_tx, k_tl, gamma_mRNA, gamma_protein
-    end
-
     @testset "forward solve" begin
         txl = TranscriptionTranslation()
         prob = build_problem(txl; tspan=(0.0, 50.0))

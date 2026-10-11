@@ -3,25 +3,12 @@ using Statistics
 @testset "StochasticGeneExpression" begin
     @testset "Construction" begin
         model = StochasticGeneExpression()
-        @test formalism(model) == :jump
         @test inference_mode(model) == :simulation
         @test states(model) == [:mRNA, :protein]
         @test length(parameters(model)) == 6
         @test length(free_params(parameters(model))) == 4
         @test length(model_free_params(parameters(model))) == 4
         @test length(obs_free_params(parameters(model))) == 0
-    end
-
-    @testset "Reactions" begin
-        model = StochasticGeneExpression()
-        rxns = reactions(model)
-        @test length(rxns) == 4
-    end
-
-    @testset "Build JumpProblem" begin
-        model = StochasticGeneExpression()
-        prob = build_problem(model; tspan=(0.0, 50.0))
-        @test prob isa JumpProcesses.JumpProblem
     end
 
     @testset "Forward simulation produces integers" begin

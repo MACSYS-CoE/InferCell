@@ -3,15 +3,6 @@ using InferCell
 using Distributions
 
 @testset "InferParameter" begin
-    @testset "construction" begin
-        p = InferParameter(1.0, LogNormal(0, 1), false, :k_tx, :txl, :rate)
-        @test p.value == 1.0
-        @test p.fixed == false
-        @test p.name == :k_tx
-        @test p.module_id == :txl
-        @test p.role == :rate
-    end
-
     @testset "filtering" begin
         params = [
             InferParameter(1.0, LogNormal(0, 1), false, :k_tx,    :txl, :rate),

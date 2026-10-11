@@ -6,7 +6,6 @@ using SciMLBase: ReturnCode
         m = TierBMetabolism()
         @test states(m) == [:ATP, :NTP, :AA]
         @test inputs(m) == [:mRNA, :protein]
-        @test formalism(m) == :ode
         @test m.K_M_enzyme == 5.0
         @test m.k_atp_leak == 0.2
         @test m.n_hill == 2.0

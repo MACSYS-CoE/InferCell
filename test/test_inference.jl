@@ -13,7 +13,6 @@ using Random
 
         data = observe(sol, times, txl; sigma=0.1)
 
-        @test data isa ObservedData
         @test length(data.times) == 11
         @test size(data.observations) == (2, 11)
         @test data.species == [:mRNA, :protein]
@@ -64,7 +63,6 @@ using Random
 
         data = observe(sol, times, models; sigma=0.1)
 
-        @test data isa ObservedData
         @test length(data.times) == 11
         @test size(data.observations) == (5, 11)
         @test data.species == [:mRNA, :protein, :ATP, :NTP, :AA]

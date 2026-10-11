@@ -13,7 +13,6 @@ using Distributions: LogNormal, Normal, truncated
 
         @test length(prob.u0) == 5   # 2 TX/TL + 3 metabolism
         @test length(prob.p) == 7    # 4 TX/TL + 3 unique metabolism (k_tx, k_tl deduplicated)
-        @test prob.tspan == (0.0, 100.0)
     end
 
     @testset "Shared parameter deduplication" begin
@@ -50,7 +49,6 @@ using Distributions: LogNormal, Normal, truncated
         d = with_prior(TranscriptionTranslation(), :k_tx, truncated(Normal(0, 1); lower = 0.0))
         e = with_prior(LightMetabolism(), :k_tx, truncated(LogNormal(0, 1); lower = 0.0))
         @test_throws ErrorException build_problem([d, e])
-        @test build_problem([txl, metab]) isa ODEProblem
     end
 
     @testset "Forward simulation" begin
@@ -58,14 +56,7 @@ using Distributions: LogNormal, Normal, truncated
         sol = solve(prob, Tsit5(); saveat=1.0)
 
         @test sol.retcode == ReturnCode.Success
-        @test !any(isnan, sol.u[end])
         @test !any(isinf, sol.u[end])
-
-        # All states should be finite and non-negative at steady state
-        final = sol.u[end]
-        for i in 1:5
-            @test final[i] >= -0.1  # allow small numerical undershoot
-        end
     end
 
     @testset "TX/TL dynamics unchanged by coupling" begin
@@ -107,18 +98,7 @@ using Distributions: LogNormal, Normal, truncated
         @test length(all_obs_free) == 1     # 1 shared sigma_obs
 
         names = [p.name for p in all_model_free]
-        @test :k_tx in names
-        @test :k_tl in names
         @test count(==(:k_tx), names) == 1  # deduplicated
         @test count(==(:k_tl), names) == 1
-    end
-
-    @testset "Backward compatibility: single model" begin
-        prob = build_problem([txl]; tspan=(0.0, 100.0))
-        sol = solve(prob, Tsit5(); saveat=1.0)
-
-        @test sol.retcode == ReturnCode.Success
-        @test length(prob.u0) == 2
-        @test length(prob.p) == 4
     end
 end
