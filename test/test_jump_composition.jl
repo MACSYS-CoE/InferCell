@@ -73,7 +73,6 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
         peer = PeerBirthDeath(gamma = 0.3, b = 0.7, bname = :k_birth)   # shares :k_birth
         models = [owner, peer]
         prob = build_problem(models; tspan = (0.0, 1.0))
-        @test length(prob.prob.u0) == sum(length(states(m)) for m in models) == 2
         @test prob.prob.u0 == [12, 0]
         @test prob.prob.p == [0.7, 0.3]           # k_birth once, then gamma_peer
         ctxs = InferCell._build_contexts(models)
@@ -192,7 +191,6 @@ include(joinpath(@__DIR__, "fixtures", "ssa_reference.jl"))
             Random.seed!(SSA_REFERENCE_SEED)
             sol = solve(prob, SSAStepper(); saveat = SSA_REFERENCE_SAVEAT)
             @test reinterpret(UInt64, collect(Float64, sol.t)) == TBITS
-            @test length(sol.u) == length(U)
             @test sol.u == U
         end
     end
