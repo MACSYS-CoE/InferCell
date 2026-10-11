@@ -8,7 +8,7 @@
 #
 # Stages:
 #   run <chain> <sweeps>   resumable: it checkpoints after every sweep
-#   merge [burn]           diagnostics on the sweeps after `burn` (default: half)
+#   merge [burn] [upto]    diagnostics on sweeps burn+1 to upto (default: half, and all)
 # Regenerate: gibbs_pilot_16a9a.sh, from a worktree at a pushed commit.
 
 using InferCell
@@ -86,11 +86,14 @@ function run_chain(k, sweeps)
     end
 end
 
-function merge_chains(burn_arg)
+# `upto` caps the sweeps read. A chain extended in place keeps its earlier
+# sweeps bitwise (resume is exact), so an earlier stage's table is regenerated
+# from the current checkpoints by capping at that stage's length.
+function merge_chains(burn_arg, upto = typemax(Int))
     files = sort(filter(f -> occursin(r"^chain\d+\.jls$", f), readdir(DIR)))
     saved = [deserialize(joinpath(DIR, f)) for f in files]
     meta = first(saved).meta
-    S = minimum(length(r.state.trace) for r in saved)
+    S = min(minimum(length(r.state.trace) for r in saved), upto)
     burn = burn_arg === nothing ? S ÷ 2 : burn_arg
     kept = S - burn
     kept >= 4 || error("only $kept sweeps after burn-in")
@@ -189,7 +192,8 @@ end
 if ARGS[1] == "run"
     run_chain(parse(Int, ARGS[2]), parse(Int, ARGS[3]))
 elseif ARGS[1] == "merge"
-    merge_chains(length(ARGS) >= 2 ? parse(Int, ARGS[2]) : nothing)
+    merge_chains(length(ARGS) >= 2 ? parse(Int, ARGS[2]) : nothing,
+                 length(ARGS) >= 3 ? parse(Int, ARGS[3]) : typemax(Int))
 else
     error("stage must be run or merge")
 end

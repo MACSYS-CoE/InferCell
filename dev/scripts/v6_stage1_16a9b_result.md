@@ -4,6 +4,13 @@ Staged by §12 2026-10-07 (approved). Runs at `281d548`, from
 `.worktrees/v6-16a9b` with the pilot's sweep-200 checkpoints copied in. The code
 is the pilot's (`6f8bcbc`) apart from the test extras' compat.
 
+**Regenerating.** V6 stage 2 extended these checkpoints in place. Resume is
+bitwise, so their first 700 sweeps are stage 1's, and `merge 100 700` on them
+gives this note's burn-in-100 table exactly (job 18421022, on copies of the
+sweep-1,552 checkpoints). The one line that differs is the plain-cycle time,
+which is read from the latest run's metadata. The sweep-200 starts are kept,
+untracked, in the V6 worktree's `dev/scripts/gibbs_pilot_16a9a/pilot_200/`.
+
 **The jobs:** chains 18157561 to 18157564 resumed at sweep 200 and ran to 700,
 each for 27.5 to 29.8 h. The merge, 18157565, took sweeps 351 to 700, the
 script's default of dropping half. The script prints "Pilot of 16a.9a" in its
@@ -68,8 +75,8 @@ This keeps sweeps 101 to 700, which is 2,400 draws.
 | sigma_b | 1.003 | 1726 | 1728 | 0.719 | 0.048 | 0.033 | -2.624 ± 0.059 |
 
 **The posterior means move by at most 0.005,** which is 0.04 SD, against the
-burn-in-350 merge. The ESS per sweep is about the same or higher; the largest drop is ENO's, from
-0.278 to 0.272. Nothing indicates the chains
+burn-in-350 merge. The ESS per sweep mostly holds: the largest drop is S_0779's, from
+0.684 to 0.608, with ENO's from 0.278 to 0.272 and σ_b's from 0.726 to 0.719. Nothing indicates the chains
 were still moving after sweep 100, so **100 sweeps of burn-in is taken as
 adequate**. The pilot's chains started from prior draws, so this also bears on
 V7's fresh chains.

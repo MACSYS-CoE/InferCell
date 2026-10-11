@@ -34,7 +34,7 @@ and 20 threads. CPU-h per sweep:
   and 2.2 days.
 - **The phase total** would then be about 32 to 33k of the 50k.
 
-**The ledger:** 16a.9 is at 3,230 CPU-h, and phase 16 at 3,634.
+**The ledger:** 16a.9 is at 3,231 CPU-h, and phase 16 at 3,635.
 
 **Decided 2026-10-08** (§12 2026-10-08):
 - **V6** at 20 threads, to 1,552 sweeps, with 100 sweeps of burn-in.
@@ -51,8 +51,10 @@ and 20 threads. CPU-h per sweep:
   - The merge thins to L = 100 draws and checks the rank-ECDF against 95%
     simultaneous bands. The bands' coverage on uniform ranks is 0.948 (login
     node check).
-  - The smoke run passed (jobs 18276616 and 18276617; logs in that worktree's
-    `dev/scripts/sbc_v7_smoke/`).
+  - The smoke run (jobs 18276616 and 18276617 at `a6f3adf`; logs in that
+    worktree's `dev/scripts/sbc_v7_smoke/`) ran end to end, and exposed the merge
+    counting a NaN ESS as not low. `dfe570a` fixes that, and the fixed merge path
+    has not been smoke-run.
   - A replicate that hits its 6-day limit resumes with
     `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`.
 

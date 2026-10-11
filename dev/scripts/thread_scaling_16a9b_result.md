@@ -4,6 +4,13 @@
 chain 1's state at sweep 700 of V6 stage 1. Each job ran one warm-up sweep (701)
 and two timed sweeps (702 and 703).
 
+**Regenerating the input.** V6 stage 2 later extended chain 1's checkpoint in
+place, so the sweep-700 state no longer exists as a file. Resume is bitwise, so
+it can be rebuilt: copy the pilot's sweep-200 checkpoints (kept, untracked, in
+the V6 worktree's `dev/scripts/gibbs_pilot_16a9a/pilot_200/`) into a fresh
+`PILOT_DIR`, then run `sbatch gibbs_pilot_16a9a.slurm run 1 700` at `281d548`.
+That is 500 sweeps, about 600 CPU-h.
+
 **The jobs:**
 - 1 thread: job 18258719.
 - 5 threads: job 18258720.

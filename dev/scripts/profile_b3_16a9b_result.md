@@ -4,6 +4,13 @@
 700 of V6 stage 1, at 20 threads. N = 20, and M0 has 10 windows. A plain cycle
 takes 1.835 s, and one `restore` (a deep copy of a driver) takes 2.03 ms.
 
+**Regenerating the input.** V6 stage 2 later extended chain 1's checkpoint in
+place, so the sweep-700 state no longer exists as a file. Resume is bitwise, so
+it can be rebuilt: copy the pilot's sweep-200 checkpoints (kept, untracked, in
+the V6 worktree's `dev/scripts/gibbs_pilot_16a9a/pilot_200/`) into a fresh
+`PILOT_DIR`, then run `sbatch gibbs_pilot_16a9a.slurm run 1 700` at `281d548`.
+That is 500 sweeps, about 600 CPU-h.
+
 ## 1. Whole cell sweeps: parallel efficiency is 40 to 51%
 
 These are medians of 3 runs each.

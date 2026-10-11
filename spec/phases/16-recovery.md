@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a is in flight; 16a.9b to 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-06
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b running; 16a.10, 16a.11 and 16b remain
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-09
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -836,7 +836,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
 - [ ] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
-- [ ] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
+- [x] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
   and pilot it. Verify by:
   - B2 being exact on the hybrid: its conditional's difference between two values
     of each promoter and of `krnadeg` equals the replay's path log-density
