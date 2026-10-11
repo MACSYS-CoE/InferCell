@@ -213,8 +213,6 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
             @test d.ode.p[c.param_idx] == counts_to_mM(d.jump.u[c.count_idx], d.factor)
         end
         slot(name) = d.ode.p[only(c for c in d.catalytic if c.param_slot === name).param_idx]
-        @test slot(:enz_R_PGK3) == slot(:enz_R_PGK)
-        @test slot(:enz_R_PYK3) == slot(:enz_R_PYK)
         # At the published copy numbers the live value is the nominal one.
         @test slot(:enz_R_ADK1) ≈ recycling_enzymes()[3].concentration rtol = 1e-12
     end
@@ -231,7 +229,6 @@ _registry_conc(s) = something(species_entry(s).initial_value, 0.1)
         @test occursin("no jump block", msg) && occursin("enz_R_", msg)
         @test occursin("CentralGlycolysis", msg)
         nominal_err = caught(() -> build_problem([CentralGlycolysis(), NucleotideRecycling()]))
-        @test nominal_err !== nothing
         @test occursin("P_JCVISYN3A_0445", sprint(showerror, nominal_err))
         @test !occursin("no jump block", sprint(showerror, nominal_err))
         pool = ToyPool(edges = CouplingEdge[

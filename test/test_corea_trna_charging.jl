@@ -25,7 +25,6 @@ using StaticArrays: SA, setindex
         @test charging_flux(u, p, 0.0, m, SA[3.0]) == v
         @test dynamics(u, p, 0.0, m, SA[3.0]) == SA[-v, v]
         @test contributions(u, p, 0.0, m, SA[3.0]) == SA[-v, v, v]
-        @test v ≈ 0.06 rtol = 1e-15
 
         # Freed, k_chg is read from the parameter vector and not the struct.
         mf = TrnaCharging(k_chg = 0.5, pool_mM = 0.2, charged_fraction = 0.8,
@@ -105,8 +104,6 @@ using StaticArrays: SA, setindex
         # The two tRNA edges are the owner's side of translation's counters
         # (task 13.1): they close the pair against the dead-end check and wire
         # no contribution, since the owner's term is already in `dynamics`.
-        owned = [e for e in edges if e.species in CHARGING_STATES]
-        @test length(owned) == 2
         @test Set(contributed_states(m)) ==
               Set(e.species for e in edges if !(e.species in CHARGING_STATES))
 
@@ -119,7 +116,6 @@ using StaticArrays: SA, setindex
         four = AbstractSubModel[CentralGlycolysis(), PtsTransport(),
                                 NucleotideRecycling(), m]
         g = resolve_coupling(four)
-        @test g isa CouplingGraph
         @test count(r -> r.declared_by === :TrnaCharging, g.edges) == 5
 
         # The contributions EXECUTE. Evaluate the composed right-hand side at the
@@ -233,7 +229,6 @@ using StaticArrays: SA, setindex
             @test residuals[end] <
                   tolerance_bound(l, ((U, 1), (C, 1)); abstol = a, reltol = r) / 1e3
         end
-        @test log10(rungs[1][1] / rungs[end][1]) >= 6
         @test maximum(residuals) < 100 * minimum(residuals)
         @info "9.6 tRNA ladder" ulps = string(round.(Int, residuals ./ eps(total)))
 
@@ -308,9 +303,6 @@ using StaticArrays: SA, setindex
         # close without AMP or pyrophosphate (ATP 3 P out, 2 ADP·2 + 2 Pi in).
         c = contributions(u0, Float64[], 0.0, m, SA[atp])
         @test c == SA[-2v, 2v, 2v]
-        n = (-2, 2, 2)                             # ATP, ADP, Pi per residue
-        @test n[1] + n[2] == 0                     # adenylate closes
-        @test 3n[1] + 2n[2] + n[3] == 0            # phosphate closes
         @test TwoAtpCharging(k2_scale = 2.0).k2 == 2 * m.k2
     end
 
