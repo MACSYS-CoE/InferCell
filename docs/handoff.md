@@ -1,10 +1,80 @@
 # Handoff
 
-**Session date:** 2026-10-08
-**Branches:** `phase-16a9a-gibbs`, pushed, with a PR for 16a.9a. #81 merged
-2026-10-06.
+**Session date:** 2026-10-11
+**Branches:** `phase-16a9b-reference`, local, from main at `843e05c`. #82 (16a.9a,
+with 16a.9b's sizing and drivers) merged 2026-10-11 as a merge commit;
+`phase-16a9a-gibbs` is kept until V7 is done, since V6 and V7 run from its commits.
 
-## Latest: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
+## Latest: #82 merged; V6 is 0.001 short and topping up; V7 needs two decisions (2026-10-11)
+
+**V6 stage 2** (chains 18276511 to 18276514, merge 18276515 at `281d548`, 1,552
+sweeps, burn-in 100) missed by one value:
+- R̂ is at most 1.008 and bulk ESS at least 1006, so both pass.
+- MCSE(q05)/SD on the ptsG promoter (S_0607) is **0.051**, against 0.05. Every
+  other quantile passes.
+- The merge projects 1,604 sweeps per chain.
+
+**The V6 top-up is running:** chains 18420986 to 18420989 run to **1,650** sweeps
+(about 98 more, about 455 CPU-h), with merge 18420990 (`merge 100`). They run from
+`.worktrees/v6-16a9b` at `281d548`. The checkpoints at 1,552 are archived in
+`stage2_1552/` and the pilot's sweep-200 starts in `pilot_200/`, both under that
+worktree's `dev/scripts/gibbs_pilot_16a9a/`.
+
+**V7** (array 18276794, 50 replicates) is about 2.5 days in. About 26 replicates
+will hit the 6-day limit around 14 to 15 Oct.
+
+**/check-PR on #82** passed, and its fixes went into the PR before the merge:
+- The docs had 8 Gibbs exports missing.
+- The pilot merge now takes `merge [burn] [upto]`. Job 18421022 used it to
+  regenerate V6 stage 1's table exactly from the extended checkpoints.
+- The stale records were fixed.
+
+The report is not in the repo. Its open findings are below.
+
+**Open, and both must be settled before V7's merge runs:**
+1. **V7's pass rule has a multiplicity problem. This is your decision, and it
+   goes in §12.** There are six per-parameter 95% bands, and V7 passes only if all
+   six are within. A calibrated sampler then fails up to about 26% of the time, and
+   under KR a failure stops the phase. Options:
+   - a 95% band split as α/6 per parameter (recommended);
+   - a joint band;
+   - keeping the rule and stating the false-fail rate.
+   Record the choice before seeing any ranks.
+2. **The automatic merge 18276795 must not run as is.** Its dependency is
+   `afterany`, so it fires when the array ends and ranks only the replicates that
+   finished. Which ones finish depends on speed, and speed depends on θ, so that
+   set is not a sample from the prior. Hold or cancel it (`scontrol hold
+   18276795`; auto mode cannot). Then change `merge_replicates` in
+   `dev/scripts/sbc_v7_16a9b.jl` to refuse while `short` is non-empty, and rerun
+   the merge from a new commit after the timed-out replicates are resubmitted with
+   `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh` from the v7 worktree. That
+   resubmission also submits a fresh merge.
+3. **Slow-mixing replicates (minor).** A replicate whose ESS is far below L = 100
+   is counted but not acted on. An AR(1) simulation is harmless down to about 30
+   effective draws, with an 18% false alarm at about 8. Name such replicates and
+   exclude them.
+
+**Minor, left over from the review:**
+- `profile_b3_16a9b.slurm` and `thread_scaling_16a9b.slurm` need their `--output`
+  directories made by hand.
+- `thread_scaling_16a9b.slurm` has no `--time`.
+- Agent E suggested 7 simplifications, all optional, none touching results.
+  Examples: a `_gibbs_block1` helper; dropping the redundant `logpaths` in
+  block1.jl; a `gibbs_prior_start` helper, to add after V7.
+
+**Next:**
+1. When merge 18420990 lands (late on 11 Oct): check V6's criteria (R̂ < 1.01,
+   ESS ≥ 1,000, quantile MCSE ≤ 0.05 SD) and write `v6_16a9b_result.md`. Add the
+   ledger rows for stage 2 and the top-up, from sacct.
+2. Settle V7 items 1 and 2 above before about 14 Oct.
+3. Meanwhile: **16a.6** (the clipped-drain derivative test), which is not
+   blocked. Then **16a.10** (F10), which needs only V6. Then a draft of
+   **16a.11**.
+4. When V7 is complete: read the bands under the rule chosen in item 1, name any
+   replicates with low ESS, make F8's rank-ECDF plots, tick 16a.9b, and open the
+   16a.9b PR from this branch.
+
+## Earlier: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
 
 **V6 stage 1** (chains 18157561 to 18157564, merges 18157565 and 18271545;
 `dev/scripts/v6_stage1_16a9b_result.md`). The pilot's four chains ran from
