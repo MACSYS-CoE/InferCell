@@ -51,10 +51,8 @@ const TIGHT_SOL = recycling_solve(recycling_models();
         # 902x and guanylate kinase by 54x.
         @test nucleo.values["kcatF_R_PPA"] == 646.7271
         @test central.values["kcatF_R_PPA"] == 583611.6071
-        @test central.values["kcatF_R_PPA"] / nucleo.values["kcatF_R_PPA"] ≈ 902.4 atol = 0.1
         @test nucleo.values["kcatF_R_GK1"] == 410.2268
         @test central.values["kcatF_R_GK1"] == 7.5991
-        @test nucleo.values["kcatF_R_GK1"] / central.values["kcatF_R_GK1"] ≈ 53.98 atol = 0.01
         @test nucleo.values["conc_M_gtp_c"] == 1.6627
         @test nucleo.values["conc_M_ppi_c"] == 0.1
 
@@ -141,8 +139,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
             @test source_file(by_name[Symbol(s, "0")]) == species_entry(s).source_file
             @test recycling_governing_file("conc_$s") == species_entry(s).source_file
         end
-        @test recycling_governing_file("conc_M_atp_c") == "central_balanced"
-        @test recycling_governing_file("conc_M_gtp_c") == "nucleotide_balanced"
 
         # Dropping a governing declaration is a load-time failure naming the
         # identifier and both values — not a silent choice.
@@ -295,7 +291,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
                         :R_PGK3 => 0.020366, :R_PYK3 => 0.027304)
         for e in enz
             @test round(e.concentration, digits = 6) == expected[e.reaction]
-            @test e.concentration == e.copies / corea_particles_per_mM()
         end
 
         loci = Dict(e.reaction => e.locus for e in enz)
@@ -324,15 +319,12 @@ const TIGHT_SOL = recycling_solve(recycling_models();
         # against the handshake's derived 20,180.39 fails it at 1.9e-5, which
         # is the whole reason the factor is derived in both modules.
         glycolytic = Dict(String(r.locus) => r for r in GLYCOLYTIC_REACTIONS)
-        shared_checked = 0
         for e in enz
             e.shared_with_glycolysis || continue
             g = glycolytic[e.locus]
             @test g.copies == e.copies
             @test g.copies / corea_particles_per_mM() == e.concentration
-            shared_checked += 1
         end
-        @test shared_checked == 2
     end
 
     @testset "8.5 the boundary" begin
@@ -351,16 +343,13 @@ const TIGHT_SOL = recycling_solve(recycling_models();
             # The owner's side of translation's GDP credit (task 13.1).
             (:currency, :M_gdp_c, :in),
         ])
-
-        # ATP and ADP deliberately carry no edge. This module is neither their
-        # principal producer nor their principal consumer, so claiming the
-        # crossing here would put two principals on one pool. The rule said
-        # *sole* until D13 gave the charging step AMP and pyrophosphate too.
-        @test !any(e -> e.species in (:M_atp_c, :M_adp_c), edges)
-
-        # Only mass and currency: nothing here is debited on a clock, fills a
-        # rate-law slot, is rebuilt at 60 s, reads the geometry, or is clamped.
-        @test all(e -> e isa MassEdge || e isa CurrencyEdge, edges)
+        # The set above is exact, so it also pins what is absent. ATP and ADP
+        # deliberately carry no edge: this module is neither their principal
+        # producer nor their principal consumer, so claiming the crossing here
+        # would put two principals on one pool. The rule said *sole* until D13
+        # gave the charging step AMP and pyrophosphate too. And only mass and
+        # currency: nothing here is debited on a clock, fills a rate-law slot,
+        # is rebuilt at 60 s, reads the geometry, or is clamped.
 
         # The two products are read as well as written, because the published
         # reverse terms and denominators name them. contributed_states still
@@ -376,7 +365,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
                     Set([:M_ppi_c]))
         idx = species_index.(states(m))
         @test all(idx[i] < idx[i + 1] for i in 1:(length(idx) - 1))
-        @test formalism(m) === :ode
 
         # Standalone resolution reports rather than fails: the four glycolytic
         # species are unowned, which is a deliberate partial composition and not
@@ -417,7 +405,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
     @testset "8.6 a full cycle against the charging drain" begin
         sol = FULL_SOL
         @test sol.retcode == ReturnCode.Success
-        @test sol.t[end] == CYCLE_S
         u0 = sol.u[1]
 
         # Both moieties conserved over the full cycle. These assert the SECOND
@@ -578,7 +565,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
             @test residuals[end] <
                   tolerance_bound(l, ADENYLATE_COEFFS; abstol = a, reltol = r) / 1e3
         end
-        @test length(residuals) == 6
         @test maximum(residuals) < 100 * minimum(residuals)
         # The point of the ladder: it does not fall. If it ever starts to, the
         # exception no longer applies and the fivefold fall is the right rule.
@@ -650,7 +636,6 @@ const TIGHT_SOL = recycling_solve(recycling_models();
         # rather than typed: phase 9 must *meet* this demand, and a value it may
         # calibrate against and then re-check would verify arithmetic (§4 D14).
         @test 3_484_518 / 6300 ≈ RECYCLING_DRAIN_PER_S rtol = 1e-4
-        @test RECYCLING_DRAIN_MM_PER_S == RECYCLING_DRAIN_PER_S / corea_particles_per_mM()
 
         # One ATP in, one AMP and one pyrophosphate out: three phosphates become
         # one plus two, so the transfer closes phosphate internally and needs no

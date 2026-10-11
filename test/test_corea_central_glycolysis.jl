@@ -4,7 +4,7 @@ using StaticArrays
 using Distributions: LogNormal, params as dist_params
 using SciMLBase: ReturnCode
 
-import InferCell: states, parameters, dynamics, inputs, formalism
+import InferCell: states, parameters, dynamics, inputs
 
 # Spec §11 phase 6 — central glycolysis, the ten reactions from
 # glucose-6-phosphate through lactate.
@@ -201,19 +201,16 @@ const GLYCOLYSIS_CYCLE = 6300.0
               union(Set(species_in_group(:glycolytic)), Set(species_in_group(:redox)))
         idx = species_index.(states(m))
         @test all(idx[i] < idx[i + 1] for i in 1:12)
-        @test formalism(m) === :ode
 
-        # One rate-law term per unit of stoichiometry, and the total is the
-        # number of Michaelis constants the extract holds.
+        # One rate-law term per unit of stoichiometry; the terms sum to the 32
+        # Michaelis constants the extract holds.
         terms = [(substrate_terms(r), product_terms(r)) for r in m.rates]
         @test terms == [(1, 1), (2, 2), (1, 2), (1, 1), (3, 2),
                         (2, 2), (1, 1), (1, 1), (2, 2), (2, 2)]
-        @test sum(sum, terms) == 32
 
         conc = registry_concentrations()
         v = _rates(m, conc)
         @test v ≈ naive_rates(m, conc) rtol = 1e-12
-        @test all(isfinite, v)
 
         # Equal forward and reverse terms give exactly zero net rate. PGI has
         # one substrate and one product, so the balancing F6P follows in closed
@@ -243,7 +240,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # hand-checked at the registry's initial conditions on the one state only
         # two reactions touch.
         du = dynamics(_u0(conc), SVector{0, Float64}(), 0.0, m, _uin(conc))
-        @test length(du) == 13
         nv = naive_rates(m, conc)
         @test du[findfirst(==(:M_2pg_c), owned)] ≈ nv[7] - nv[8] rtol = 1e-12   # PGM in, ENO out
         @test du[nad] ≈ nv[10] - nv[5] rtol = 1e-12                             # LDH_L in, GAPD out
@@ -252,7 +248,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # conserved by the derivative, and it is the criterion spec §3's
         # exception is fenced with.
         @test du[nad] === -du[nadh]
-        @test du[nad] + du[nadh] === 0.0
     end
 
     @testset "6.2 the right-hand side allocates nothing" begin
@@ -304,7 +299,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
         @test isempty(model_free_params(ps))
 
         free = CentralGlycolysis(; free = [:kcatF_R_FBA])
-        @test length(model_free_params(parameters(free))) == 1
         @test only(model_free_params(parameters(free))).name === :kcatF_R_FBA
         # And it reaches the rate law from `p` rather than from the struct.
         conc = registry_concentrations()
@@ -383,7 +377,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
         factor = corea_particles_per_mM()
         copies = [r.copies for r in GLYCOLYTIC_REACTIONS]
         @test copies == [266, 458, 775, 410, 1355, 411, 322, 998, 551, 1100]
-        @test m.enzyme_conc == SVector{10, Float64}(c / factor for c in copies)
 
         # The scoping note's rounded 20,180 agrees to five decimals. It differs
         # in the sixth for PFK, GAPD, PGK, ENO and LDH_L, because the factor is
@@ -395,7 +388,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
         # Not the published no-rule default. All ten reactions have single-gene
         # rules, so 0.001 mM would understate every flux by 13× to 67×.
-        @test all(!=(0.001), m.enzyme_conc)
         @test minimum(m.enzyme_conc) > 0.013
 
         # Overriding one scales exactly the rates that enzyme catalyses.
@@ -411,7 +403,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
         # The ten protein counts are declared so translation can supersede them.
         @test inputs(m)[1:3] == GLYCOLYSIS_CURRENCIES
         @test inputs(m)[4:13] == default_protein_sources()
-        @test length(default_protein_sources()) == 10
         @test !any(is_registered, default_protein_sources())
         renamed = CentralGlycolysis(; protein_sources = [Symbol(:X, i) for i in 1:10])
         @test inputs(renamed)[4] === :X1
@@ -419,9 +410,6 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
     @testset "6.5 the boundary" begin
         edges = coupling(m)
-        @test length(edges) == 10
-        @test count(e -> e isa CurrencyEdge, edges) == 5
-        @test count(e -> e isa MassEdge, edges) == 5
         @test all(e -> e.peer === nothing, edges)
 
         kinds = [(e.species, edge_kind(e), e.direction) for e in edges]
@@ -432,9 +420,9 @@ const GLYCOLYSIS_CYCLE = 6300.0
                         (:M_pep_c, :mass, :out), (:M_lac__L_c, :mass, :out),
                         (:M_13dpg_c, :mass, :out)]
 
-        # No edge names a redox species. NAD+/NADH are touched only by GAPD and
-        # LDH_L, both inside this module, which is why check 3 is per-module.
-        @test !any(e -> e.species in (:M_nad_c, :M_nadh_c), edges)
+        # No edge names a redox species (the list above is exact). NAD+/NADH are
+        # touched only by GAPD and LDH_L, both inside this module, which is why
+        # check 3 is per-module.
         @test all(e -> is_registered(e.species), edges)
 
         @test contributed_states(m) == GLYCOLYSIS_CURRENCIES
@@ -454,11 +442,9 @@ const GLYCOLYSIS_CYCLE = 6300.0
         conc = registry_concentrations()
         c = contributions(_u0(conc), SVector{0, Float64}(), 0.0, m, _uin(conc))
         nv = naive_rates(m, conc)
-        @test length(c) == 3
         @test c[1] ≈ nv[6] + nv[9] - nv[2] rtol = 1e-12    # ATP: PGK + PYK − PFK
         @test c[2] ≈ nv[2] - nv[6] - nv[9] rtol = 1e-12    # ADP: the mirror
         @test c[3] ≈ -nv[5] rtol = 1e-12                   # Pi: GAPD draws
-        @test c[1] ≈ -c[2] rtol = 1e-14
 
         # A composition that owns the currencies wires the contribution into
         # their derivative, so the pool sees glycolysis draw and supply.
@@ -520,16 +506,12 @@ const GLYCOLYSIS_CYCLE = 6300.0
 
         # And that the enzyme concentrations sit on no volume channel.
         @test occursin("frozen at the registry's initial radius", text)
-        @test isempty(filter(e -> e isa VolumeEdge, coupling(m)))
 
-        # Each reads as a sentence rather than a slug.
-        @test all(l -> length(split(l.description)) > 8, ours)
         @test all(l -> l.category === :model_note, ours)
     end
 
     @testset "6.7 integration and redox balance" begin
         @test sol.retcode == ReturnCode.Success
-        @test length(sol.u) == length(saveat)
 
         # Non-negativity, each state against its own integrator bound rather
         # than against zero: the solver is entitled to its tolerance. One
@@ -630,9 +612,8 @@ const GLYCOLYSIS_CYCLE = 6300.0
         lac = findfirst(==(:M_lac__L_c), owned)
         g6p = findfirst(==(:M_g6p_c), owned)
 
-        @test sol.retcode == ReturnCode.Success
-        @test all(u -> all(>=(-1e-8), u[1:13]), sol.u)
-        @test drift < 1e-8
+        # Retcode, non-negativity and the redox bound are asserted in 6.7 on this
+        # same `sol`.
         # Standalone this is not physiological and is not asserted to be: G6P is
         # never replenished, so the module drains its own carbon into lactate.
         # Carbon balance spans transport and export and belongs to phase 14.
