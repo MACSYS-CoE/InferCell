@@ -2,7 +2,8 @@
 
 ## Installation
 
-InferCell is a Julia package targeting Julia ≥ 1.10. Clone the repository and instantiate the project:
+InferCell is a Julia package targeting Julia 1.10. Clone the repository and
+instantiate the project:
 
 ```bash
 git clone https://github.com/MACSYS-CoE/InferCell.git
@@ -10,51 +11,67 @@ cd InferCell
 julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
-## Quick start
+## Run the reduced syn3A model
 
-The same four steps work for both differentiable (ODE) and simulation-based (SSA) models — `infer()` dispatches to the right backend based on the sub-model's declared formalism.
-
-### ODE model → NUTS (gradient-based)
-
-```julia
-using InferCell
-
-model = TranscriptionTranslation()
-prob  = build_problem(model; tspan=(0.0, 50.0))
-sol   = solve(prob, Tsit5(); saveat=0:2.5:50)
-data  = observe(sol, 0:2.5:50, model; sigma=0.3)
-chain = infer(model, data; n_samples=1000)
-```
-
-### SSA model → ABC-SMC (likelihood-free)
+[`build_corea`](@ref) composes all seven modules and checks the composition is
+complete: every state has an owner and no moiety is stranded. It returns a
+[`HandshakeDriver`](@ref), which [`run_handshake!`](@ref) steps one simulated
+second at a time.
 
 ```julia
-using InferCell
+using InferCell, Random
 
-model  = StochasticGeneExpression()
-prob   = build_problem(model; tspan=(0.0, 50.0))
-trajs  = [solve(prob, SSAStepper(); saveat=0:2.5:50) for _ in 1:200]
-data   = observe(trajs, 0:2.5:50, model)
-result = infer(model, data; n_samples=300, n_populations=5,
-               tspan=(0.0, 50.0))
+Random.seed!(1)
+d = build_corea(; tspan = (0.0, 180.0))
+rec = run_handshake!(d, 180)
+rec.t[end], size(rec.jump)
 ```
 
-Same four steps, same `infer()` call. The framework dispatches to the right backend based on the model's formalism — there's no separate "ABC API" or "NUTS API" exposed to the user.
+`rec` holds both blocks' states and parameters at every handshake, with the
+cell's geometry, the clipping census and the rate-constant rebuilds. Seeding the
+global generator before the build fixes the cell.
 
-## Running tests
+## Fit a synthetic dataset
+
+The sampler is validated on M0, a two-gene reference system cut from the same
+model. [`m0_dataset`](@ref) draws a truth from the prior and simulates a
+population of cells under it. [`gibbs_setup`](@ref) holds what a chain keeps
+fixed, and [`gibbs_sweep!`](@ref) is one sweep of the three-block sampler.
+
+```julia
+ds = m0_dataset(16085; ncells = 3, horizon = 180)
+g = gibbs_setup(ds; N = 4, horizon = 180)
+
+rng = Xoshiro(2)
+start = Dict(draw_truth(rng, g.models; names = M0_TARGETS, purpose = :calibration).values)
+s = gibbs_init(rng, g; cme = [start[n] for n in g.cme],
+               u = [log(start[f]) for f in g.forwards], σ = rand(rng, SIGMA_MET_PRIOR))
+for _ in 1:5
+    gibbs_sweep!(s, g)
+end
+s.trace[end]
+```
+
+The chain's free parameters are the two promoter strengths and the transcript
+decay constant (`g.cme`), the log enolase and aldolase forward constants
+(`g.forwards`), and the metabolite noise scale σ. This example is small enough to
+run in minutes. A production chain uses 50 cells over 600 s with `N = 20`
+particles, and one sweep takes about 13 minutes on five threads. See
+[the conditional sampler](api/conditional-sampler.md).
+
+## Running the tests
 
 ```bash
 julia --project -e 'using Pkg; Pkg.test()'
-
-# Include integration tests (~2 min, NUTS sampling):
-INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
 
-The full test suite — including the iterative-boundary integration test — is typically run on a Slurm cluster via `sbatch test/run_tests.slurm` (~2.5 min) and `sbatch test/run_integ_iterative.slurm` (~30 min).
+The suite takes about an hour on four cores. On a Slurm cluster, run
+`sbatch test/run_tests.slurm`.
 
 ## Next steps
 
-- [User guide → ODE inference](user-guide/ode-inference.md) walks through the NUTS path in detail.
-- [User guide → SSA inference](user-guide/ssa-inference.md) covers the ABC-SMC path.
-- [User guide → Boundary protocol](user-guide/boundary-protocol.md) explains how posteriors cross block boundaries.
-- [API reference](api/index.md) lists every exported symbol.
+- [The reduced syn3A model](user-guide/reduced-syn3a.md): what it contains and
+  what it leaves out.
+- [The conditional sampler](api/conditional-sampler.md): how the three
+  blocks fit together.
+- [API reference](api/index.md): every exported symbol.

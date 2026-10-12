@@ -4,8 +4,8 @@ CurrentModule = InferCell
 
 # ODE inference (NUTS)
 
-!!! note "Stub page"
-    This tutorial is a placeholder for v0.0.1. The narrative will fill out as the framework stabilises; for now, the runnable example below mirrors the [Getting started](../getting-started.md) ODE path.
+!!! note "Toy model"
+    This page covers one of the toy models InferCell started from, not the reduced syn3A model.
 
 InferCell dispatches sub-models with `inference_mode = :differentiable` to the No-U-Turn Sampler (NUTS) via [Turing.jl](https://turing.ml). Gradients flow through DifferentialEquations.jl via `ForwardDiffSensitivity`.
 
