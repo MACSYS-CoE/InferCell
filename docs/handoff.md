@@ -1,16 +1,77 @@
 # Handoff
 
-**Session date:** 2026-10-11
-**Branches:** `phase-16a9b-reference`, local, from main at `843e05c`. #82 (16a.9a,
-with 16a.9b's sizing and drivers) merged 2026-10-11 as a merge commit;
-`phase-16a9a-gibbs` is kept until V7 is done, since V6 and V7 run from its commits.
+**Session date:** 2026-10-12
+**Branches:** `phase-16a9b-reference`, local and pushed, from main at `843e05c`.
+Main has since moved on to `15d43dd` (v0.2.0). `phase-16a9a-gibbs` is kept until
+V7 is done, since V6 and V7 run from its commits.
 
-## Latest: #82 merged; V6 is 0.001 short and topping up; V7 needs two decisions (2026-10-11)
+## Latest: v0.2.0 released, V6 met, V7's pass rule fixed (2026-10-12)
+
+**Released v0.2.0** (tag at `15d43dd`; release notes on GitHub).
+- **#83 merged:** redundant test assertions dropped.
+- **#84 merged:** the README and the docs now lead with the reduced syn3A model.
+  - Docstrings say "the reduced syn3A model", not "Core A′". Identifiers,
+    comments and doc filenames are unchanged, and the user chose to keep
+    `build_corea` and the other `corea` names.
+  - The flaky bursty ON-fraction test is seeded, and bounded at 4 SE.
+  - The suite passed 28,352 of 28,352 (job 18461739). The README's quick start
+    ran end to end (job 18461692).
+- **#85 merged:** the version is now 0.2.0.
+- **Docs:** https://macsys-coe.github.io/InferCell/stable/ now serves v0.2.0.
+  - `dev/` builds from main.
+  - The JuliaFormatter check is advisory. It has failed or been cancelled on
+    every PR since #82.
+
+**V6 is met** (`dev/scripts/v6_16a9b_result.md`, merge 18420990 at 1,650
+sweeps). Worst values: R̂ 1.007, bulk ESS 1,081, quantile MCSE 0.049. All three
+are on the **GAPD** promoter, `S_JCVISYN3A_0607`. The earlier handoffs called it
+the ptsG promoter, which is wrong: ptsG is `S_JCVISYN3A_0779`.
+
+**V7's pass rule** is in §12 2026-10-12, approved before any rank was computed:
+- **Bands:** each parameter's band is at 1 − 0.05/6. V7 passes when all six are
+  within.
+- **A complete set only.** The merge refuses while any replicate is missing or
+  short.
+- **Slow mixing:** replicates with ESS below 30 are named and read again as a
+  sensitivity check. The verdict stays on all R.
+- **Code:** in `dev/scripts/sbc_v7_16a9b.jl` (merge path only).
+- **Checks:** band coverage was checked by simulation (0.9915 per parameter,
+  0.9515 for six). The patched merge was smoke-run on the earlier smoke
+  checkpoints: job 18475428 found an empty sensitivity set reported as a pass, and job 18475516 is of record after the fix.
+- **The automatic merge 18276795 was cancelled** by the user. `scontrol hold` is
+  not available on this cluster, and auto mode may not `scancel`.
+
+**V7's array** (18276794): replicates 33 and 40 completed, and the other 48 are
+running. About half will hit the 6-day limit around 14–15 Oct.
+
+**Ledger:** 16a.9 is at about 7.7k CPU-h, and phase 16 at about 8.1k of 50k,
+before V7.
+
+**Next:**
+1. **When V7's replicates time out (14–15 Oct):** resubmit them from the v7
+   worktree at `dfe570a` with `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`.
+   - That also submits a merge from `dfe570a`, which has the old merge path.
+     Cancel it.
+   - Then run the merge from a worktree at this branch's pushed commit:
+     `V7_DIR=<v7 worktree>/dev/scripts/sbc_v7_16a9b sbatch dev/scripts/sbc_v7_16a9b.slurm merge`.
+2. **Meanwhile:**
+   - 16a.6 closeout: the toy test passed on 1 Oct; the Core A′ scan is open by
+     decision.
+   - Tick 16a.7 and 16a.7a, which are done or superseded.
+   - 16a.10 (F10), which needs only V6. Settle one question first. D16.5 asks
+     the reference for N_ref ≫ N and for chains far longer than V6 needs. V6 ran
+     PG at N = 20, production's own setting, and stopped just past V6. So F10
+     would compare the sampler with itself, which needs a decision or a §12
+     entry.
+3. **When V7 is merged:** apply the rule above, make F8's plots, tick 16a.9b,
+   and open the 16a.9b PR from this branch.
+
+## Earlier: #82 merged; V6 is 0.001 short and topping up; V7 needs two decisions (2026-10-11)
 
 **V6 stage 2** (chains 18276511 to 18276514, merge 18276515 at `281d548`, 1,552
 sweeps, burn-in 100) missed by one value:
 - R̂ is at most 1.008 and bulk ESS at least 1006, so both pass.
-- MCSE(q05)/SD on the ptsG promoter (S_0607) is **0.051**, against 0.05. Every
+- MCSE(q05)/SD on the GAPD promoter (S_0607; the note said ptsG, wrongly) is **0.051**, against 0.05. Every
   other quantile passes.
 - The merge projects 1,604 sweeps per chain.
 

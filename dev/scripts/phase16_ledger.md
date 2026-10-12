@@ -76,8 +76,15 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18276616, 18276617 | 16a.9b | V7 smoke: 3 replicates, 3 cells, 2 windows, 6 sweeps, and merge | 5 | ~0:06 each | 1.47 |
 
+| 18276511–18276515 | 16a.9b | V6 stage 2: 4 chains, 700 → 1,552 sweeps, and merge | 20 | ~50 h each | 4,038.65 |
+| 18420986–18420990 | 16a.9b | V6 top-up: 4 chains, 1,552 → 1,650 sweeps, and merge (of record) | 20 | 5.4–6.9 h each | 462.55 |
+| 18421022 | 16a.9b | V6 stage 1's table regenerated from the extended checkpoints | 1 | 0:04:15 | 0.07 |
+| 18475428, 18475516 | 16a.9b | V7's patched merge smoked on the smoke checkpoints; the second of record | 1 | 0:02:37, 0:01:23 | 0.07 |
+
 **16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
 the #81 review, which found the running total had drifted).
 
-**16a.9 so far: about 3,231.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). **Phase 16 total: about 3,635.1 CPU-h** of 50k.
+**16a.9 so far: about 7,732.9 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). **Phase 16 total: about 8,136.5 CPU-h** of 50k. V7's array
+(18276794) is running and is not yet counted; it projects to about 35.7k (§12
+2026-10-08, annotated).
