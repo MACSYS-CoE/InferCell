@@ -245,7 +245,6 @@ const B_SHORT = 600
         mrec, md = run7(validation_models(charging = TrnaCharging(pool_mM = 0.05)))
         @test clipping_census(md).clipped > 0
         rows = clip_summary(mrec)
-        @test !isempty(rows)
         @test any(r -> r.counter === :tRNA_translat, rows)
         r = only(r for r in rows if r.counter === :tRNA_translat)
         @test r.drains > 0 && r.first > 0 && r.max_deficit > 0

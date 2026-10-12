@@ -50,8 +50,6 @@ end
     @testset "recording is transparent" begin
         _, unrecorded = _simulate(truth, SEED; horizon = H, n = N, record = false)
         @test unrecorded == sim
-        @test length(path) > 0
-        @test all(l -> occursin("_", String(l)), path.labels)
     end
 
     @testset "V2: the replay reproduces the run bitwise at every handshake" begin

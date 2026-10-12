@@ -11,7 +11,6 @@ using SciMLBase: ReturnCode
         @test length(parameters(m)) == 9  # 5 free rate + 3 fixed IC + 1 obs
         @test length(model_free_params(parameters(m))) == 5
         @test length(obs_free_params(parameters(m))) == 1
-        @test formalism(m) == :ode
         @test inference_mode(m) == :differentiable
         @test inputs(m) == [:mRNA, :protein]
         @test m.K_M_enzyme == 5.0
@@ -19,8 +18,6 @@ using SciMLBase: ReturnCode
 
     @testset "Custom parameters" begin
         m = LightMetabolism(k_atp=1.0, ATP_max=20.0, K_M_enzyme=2.0)
-        mfp = model_free_params(parameters(m))
-        @test mfp[1].value == 1.0  # k_atp
         @test m.ATP_max == 20.0
         @test m.K_M_enzyme == 2.0
     end

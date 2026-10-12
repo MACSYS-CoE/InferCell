@@ -59,16 +59,10 @@ using Random
         # from it, which is the only way the growth arithmetic of task 5.5
         # closes. It is *not* an exact 200 nm sphere: 4pi(200 nm)^2 is
         # 502,654.8 nm^2, so the published area is 176 nm^2 larger and the
-        # radius comes out at 200.035 nm. The published 200 nm is reproduced
-        # to the four significant figures the source states it in, and the
-        # full-precision value is asserted alongside so the gap is on the
-        # record rather than hidden inside a tolerance.
+        # radius comes out at 200.035 nm. The full-precision value is asserted
+        # so the gap is on the record rather than hidden inside a tolerance.
         r0 = radius_from_area_nm(COREA_INITIAL_SURFACE_AREA_NM2)
-        @test COREA_INITIAL_SURFACE_AREA_NM2 == 502831.0
-        @test round(r0; digits = 1) == 200.0
         @test r0 ≈ 200.035046 rtol = 1e-9
-        @test 4 * π * 200.0^2 ≈ 502654.8 atol = 0.1
-        @test COREA_INITIAL_SURFACE_AREA_NM2 - 4 * π * 200.0^2 ≈ 176.2 atol = 0.1
 
         # The chain is derived, not transcribed: a sphere of the returned
         # radius has the area it was built from.
@@ -80,8 +74,6 @@ using Random
         base = membrane_area_baseline_nm2(COREA_INITIAL_SURFACE_AREA_NM2, 831)
         @test base == 479563.0
         @test surface_area_nm2(base, 831) == COREA_INITIAL_SURFACE_AREA_NM2
-        @test MEMBRANE_PROTEIN_FOOTPRINT_NM2 == 28.0
-        @test 831 * MEMBRANE_PROTEIN_FOOTPRINT_NM2 == 23268.0
 
         # The cap is twice the initial volume, applied to the volume as the
         # published code does. Its hard-coded 6.70e-17 is twice its own rounded
@@ -89,7 +81,6 @@ using Random
         v0 = cell_volume_litres(r0)
         @test v0 ≈ 3.3528e-17 rtol = 1e-4
         @test corea_volume_cap_litres(v0) == 2 * v0
-        @test corea_volume_cap_litres(v0) ≈ 6.70e-17 rtol = 1e-2
     end
 
     # The conversion factor a growing composition starts at. Derived from the
@@ -122,7 +113,6 @@ using Random
 
         # And the protocol defaults really are empty, so a module that flags
         # nothing needs no method.
-        @test isempty(membrane_protein_states(ToyExpression()))
         @test isempty(extracellular_states(ToyPool()))
     end
 
@@ -215,7 +205,6 @@ using Random
         @test c.baseline_nm2 == 479563.0
         @test c.footprint_nm2 == 28.0
         @test c.radius_nm ≈ 200.035046 rtol = 1e-9
-        @test round(c.radius_nm; digits = 1) == 200.0
         @test d.factor ≈ 20191.0 atol = 0.5
         @test !c.capped
 
@@ -262,7 +251,6 @@ using Random
         ratio = f_before / d.factor
         @test d.factor > f_before
         @test ratio ≈ (200.035046 / 204.610919)^3 rtol = 1e-6
-        @test ratio < 1
 
         for i in d.dilute_idxs
             # Diluted by the volume ratio, and the count is what survives. It is

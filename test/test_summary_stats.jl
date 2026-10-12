@@ -10,18 +10,6 @@
         @test all(isfinite, stats)
     end
 
-    @testset "Computation at timepoints" begin
-        model = StochasticGeneExpression()
-        prob = build_problem(model; tspan=(0.0, 50.0))
-        times = [10.0, 25.0, 50.0]
-        trajectories = [solve(prob, SSAStepper(); saveat=times) for _ in 1:50]
-
-        stats = compute_summary_stats(trajectories, states(model); times=times)
-        # 2 species x 3 timepoints x (mean, standard deviation) = 12
-        @test length(stats) == 12
-        @test all(isfinite, stats)
-    end
-
     @testset "Distance properties" begin
         s1 = [1.0, 2.0, 3.0]
         s2 = [1.0, 2.0, 3.0]

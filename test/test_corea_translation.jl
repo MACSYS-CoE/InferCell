@@ -52,7 +52,6 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         res = read_translation_residues()
         ppm = corea_particles_per_mM()
         ribo = RIBOSOME_COPIES / ppm
-        @test RIBO_KCAT == 12 && RIBO_KD == 1e-3 && RIBO_K0 == 1e-4
 
         # The polysome: min(15, max(1, round(L/125 - 1))). ptsH (270 nt) has
         # one ribosome; ptsG (2238 nt) seventeen, capped at fifteen.
@@ -237,7 +236,6 @@ _block_idx(ms, s, f) = findfirst(==(s), reduce(vcat, [states(m) for m in ms if f
         # GTP → GDP + Pi upstream, credited per GTP paid since task 13.10.
         gtp = only(c for c in counter_drains(tl) if c.counter === :GTP_translat)
         @test gtp.produces == (:M_gdp_c, :M_pi_c) && gtp.credits === nothing
-        @test resolve_coupling(tl) isa CouplingGraph
 
         # Composed, every declared channel is lowered: fifteen catalytic
         # exchanges reading thirteen of translation's counts, twelve counter

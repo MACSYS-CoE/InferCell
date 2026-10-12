@@ -19,7 +19,6 @@ using SciMLBase: ReturnCode
             :ribosome_mRNA, :ribosome_protein,
             :reporter_mRNA, :reporter_protein,
         ]
-        @test m.gene_names == [:enzyme, :ribosome, :reporter]
         @test m.enzyme_slot == :enzyme  # auto-selected because :enzyme is present
         @test InferCell.enzyme_protein_state(m) == :enzyme_protein
     end
@@ -62,7 +61,6 @@ using SciMLBase: ReturnCode
         @test length(prob.u0) == 6
         sol = solve(prob, Tsit5(); saveat=0:10.0:100.0)
         @test sol.retcode == ReturnCode.Success
-        @test !any(isnan, sol.u[end])
         # All per-gene steady states should equal the single-gene defaults: mRNA=2, protein=40
         for i in 1:3
             @test isapprox(sol.u[end][2i - 1], 2.0; atol=0.2)

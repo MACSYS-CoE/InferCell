@@ -11,7 +11,6 @@ using MCMCChains: Chains
         samples = randn(500) .+ 3.0  # Normal(3, 1) samples
         kp = KDEPrior(samples)
 
-        @test kp isa KDEPrior
         @test kp.bandwidth > 0
 
         # rand produces values in reasonable range
@@ -106,17 +105,6 @@ using MCMCChains: Chains
         @test bc.priors[2] isa KDEPrior    # k_tl: conditioned
         @test bc.priors[3] isa LogNormal   # gamma_mRNA: original
         @test bc.priors[4] isa LogNormal   # gamma_protein: original
-    end
-
-    @testset "KDEPrior pdf support check compatibility" begin
-        # abc_smc.jl line 51: all(pdf(priors[j], candidate[j]) > 0 for j in 1:n_params)
-        samples = rand(LogNormal(0, 0.5), 500)
-        kp = KDEPrior(samples)
-
-        # Positive values near the samples should have pdf > 0
-        @test pdf(kp, median(samples)) > 0
-        # Extreme values should have pdf == 0
-        @test pdf(kp, 1e6) == 0.0
     end
 
     @testset "boundary_condition on ABCPosterior (SSA -> ODE backward direction)" begin

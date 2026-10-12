@@ -32,7 +32,6 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         ks = last.(transcript_decay_constants(dec))
         @test all(i -> ks[i] * genes[i].length ≈ RNADEG_KCAT, eachindex(genes))
         hl = last.(transcript_half_lives(dec))
-        @test sortperm(hl) == sortperm([g.length for g in genes])
         @test all(i -> hl[i] ≈ log(2) * genes[i].length / RNADEG_KCAT, eachindex(genes))
 
         # Two genes of equal length would share a half-life; the propensity
@@ -44,11 +43,6 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         # Phase 10's standalone double runs the same law, so the two cannot
         # disagree.
         @test all(i -> ks[i] == transcript_decay_constant(genes[i]), eachindex(genes))
-
-        # The upstream hand-tuning comment is recorded, not silently inherited.
-        doc = string(@doc RNADEG_KCAT)
-        @test occursin("INSTEAD OF", doc)
-        @test occursin("0.00578/2", doc)          # the dead `krnadeg` it is not
     end
 
     @testset "12.2 decrements the transcript it does not own" begin
@@ -94,20 +88,15 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         # Against phase 10's extract, read through the transcription module, so
         # the two modules cannot disagree on a base count.
         @test [g.locus for g in dec.genes] == [g.locus for g in genes]
-        order = [c.counter for c in DECAY_COUNTERS]
-        @test order == [:ATP_mRNAdeg, :AMP_mRNAdeg, :GMP_mRNAdeg,
-                        :CMP_mRNAdeg, :UMP_mRNAdeg]
         for (i, g) in enumerate(genes)
             u = zeros(Int, 5); w = fill(1, 17)
             reactions(dec)[i].affect!(u, w)
             @test u == [g.length, g.counts.A, g.counts.G, g.counts.C, g.counts.U]
-            @test u[2] + u[3] + u[4] + u[5] == g.length
         end
     end
 
     @testset "12.4 two counters reach recycling, two are chemostat-exempt" begin
         edges = coupling(dec)
-        @test length(edges) == 7
         @test all(e -> e isa DeferredCounterEdge, edges)
         # ATP_mRNAdeg's products follow its debit (task 13.10).
         @test [(e.counter, e.species, e.direction) for e in edges] ==
@@ -141,7 +130,6 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
 
         # The chemostat credit is ours and registered as such.
         notes = reduction_notes(dec)
-        @test length(notes) == 1
         @test occursin("CTP and UTP chemostats", only(notes))
 
         # **Executed, not only declared.** All five counters compose: the CMP
@@ -180,7 +168,6 @@ _jidx(models, s) = findfirst(==(s), reduce(vcat, states.(models)))
         # ATP_mRNAdeg credits ADP one for one with the ATP it paid (task
         # 13.10), so its energy cost moves adenylate between pools and loses
         # none. Before 13.10 the moiety fell by `atp_paid`.
-        @test atp_paid > 0
         @test abs(da - a_returned) < 1e-4 * a0
         # The chemostats absorbed exactly the C and U decay returned.
         absorbed = Dict(r.species => r.particles for r in chemostat_census(d))

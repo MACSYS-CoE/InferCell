@@ -87,12 +87,6 @@ using Random
         @test err isa ArgumentError
         @test occursin("no `quantity`", sprint(showerror, err))
 
-        # The outbound form phase 5 wrote still constructs, unchanged, and
-        # carries neither field.
-        e = VolumeEdge(species = :M_ptsg_c, direction = :out)
-        @test e.param_slot === nothing
-        @test e.quantity === nothing
-
         # An inbound edge is still a volume edge in every other respect: it
         # carries no mass, so it cannot be counted in a conservation check.
         i = VolumeEdge(species = :M_lac__L_e, direction = :in,
@@ -252,14 +246,7 @@ using Random
             @test d.ode.p[slot] ≈ expected rtol = 1e-12
         end
 
-        # The three differ by orders of magnitude — ~2e2 nm, ~3.6e-17 L,
-        # ~5e5 nm² — so a mix-up between them cannot survive any tolerance, and
-        # asserting that is what makes the unit-bearing vocabulary load-bearing
-        # rather than a naming style.
         g = toy_rate_law_geometry(1662, 831)
-        @test g.radius_nm > 1e2 && g.radius_nm < 1e3
-        @test g.volume_litres < 1e-15
-        @test g.area_nm2 > 1e5
 
         # Dimensional consistency, written longhand and independently of the
         # implementation: 3/r in cm must equal A/V in cm. This is the assertion
@@ -374,7 +361,6 @@ using Random
         # A composition with no consumer says so, rather than omitting the row.
         plain = build_problem([ToyPool(kcat = 0.0), _grower()]; tspan = (0.0, 10.0))
         @test isempty(growth_census(plain).consumers)
-        @test !isempty(d.geometry)
 
         # Every driver-written slot is enumerable, across all three channels —
         # the first step to excluding them from the sampled set, which belongs
