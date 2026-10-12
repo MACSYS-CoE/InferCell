@@ -1,8 +1,8 @@
 """
-Core A′ transcript decay: seventeen first-order reactions, one per transcript.
+Transcript decay: seventeen first-order reactions, one per transcript.
 Spec §11 phase 12.
 
-The third Core A′ module in the stochastic block. It owns no transcript: the
+The third module in the stochastic block. It owns no transcript: the
 seventeen it decrements belong to [`CoreATranscription`](@ref), and it writes
 them through [`written_states`](@ref) rather than through an edge, because a
 transcript is not a registry species and no edge can name one (§12, amendment
@@ -24,7 +24,7 @@ here as a published value, not as a measured one.
 cost**, as the published hook does (`in_out.py:178-186`): one `ATP_mRNAdeg` per
 nucleotide, and one NMP per base. The NMP counters credit their pools at the
 handshake. AMP and GMP are live pools that nucleotide recycling closes, through
-ADK1 and GK1. CMP and UMP have no Core A′ species, so their counters credit the
+ADK1 and GK1. CMP and UMP have no species in the reduced model, so their counters credit the
 CTP and UTP chemostats, which absorb them. That is ours, and `reduction_notes`
 says so.
 """

@@ -1,5 +1,5 @@
 """
-The balance checks on the assembled Core A′ (spec §3, §11 phase 14a).
+The balance checks on the assembled reduced syn3A model (spec §3, §11 phase 14a).
 
 Every conservation check in the module phases ran on one ODE solve. The
 assembled model is a hybrid that restarts its ODE block at every one of 6,300

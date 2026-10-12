@@ -39,7 +39,7 @@ because each particle's constants are rebuilt from its own pools
 
 Which jump states are the observed transcripts, and which composed reactions
 make and remove each one, by index into the driver's jump state and its event
-log. [`transcript_map`](@ref) builds Core A′'s and M0's.
+log. [`transcript_map`](@ref) builds the reduced model's and M0's.
 """
 struct TranscriptMap
     states::Vector{Int}
@@ -50,7 +50,7 @@ end
 """
     transcript_map(d, models) -> TranscriptMap
 
-The transcripts of a Core A′ composition (Core A′ or M0), in transcription's gene
+The transcripts of a reduced syn3A composition (the full model or M0), in transcription's gene
 order, with transcription's and decay's reactions for each.
 """
 function transcript_map(d::HandshakeDriver, models::AbstractVector{<:AbstractSubModel})

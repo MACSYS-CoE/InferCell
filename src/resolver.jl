@@ -9,7 +9,7 @@ The pass is standalone on purpose. A module author working alone in a worktree
 can call [`resolve_coupling`](@ref) on a single module and get the checks, and a
 report can be produced without building an `ODEProblem` or running a simulation.
 
-It is also deliberately lenient about sub-models that are not part of Core A′.
+It is also deliberately lenient about sub-models that are not part of the reduced syn3A model.
 A module whose states are not registry species — the TX/TL and metabolism blocks
 that predate this contract — declares no coupling edges, so resolution is a
 no-op for it and composition behaves exactly as it did before.
@@ -66,7 +66,7 @@ The resolved boundary of a composition.
 - `dead_ends` — mass-carrying species consumed with no declared producer, or
   produced with no declared consumer.
 - `accumulating` — protein-regime species produced with no declared consumer.
-  Core A′ has no protein degradation (spec §11 task 11.9), so a translated
+  The reduced model has no protein degradation (spec §11 task 11.9), so a translated
   protein's only sink is growth dilution, which moves no mass between modules.
   That is accumulating biomass, not a stranded moiety, and it is kept apart
   from `dead_ends` by a mechanical rule — the registry's `:protein` regime —

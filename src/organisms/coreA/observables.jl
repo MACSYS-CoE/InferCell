@@ -1,5 +1,5 @@
 """
-Observables and synthetic data for Core A′ (spec §11 phase 15).
+Observables and synthetic data for the reduced syn3A model (spec §11 phase 15).
 
 What the likelihood may condition on, and where its ground truth comes from.
 Both rules are in spec §4 D8, and both are enforced here by a check, not left
@@ -172,7 +172,7 @@ truth_label() = ReductionLabel(
     reaction_fluxes(u, p, t, m, u_inputs) -> Vector{Pair{Symbol, Float64}}
 
 One ODE module's net reaction rates, in mM/s, named by reaction. Together the
-four Core A′ ODE modules give all 22: ten glycolytic, five recycling, the five
+four ODE modules give all 22: ten glycolytic, five recycling, the five
 phosphotransferase steps plus lactate export, and charging. Spec §4 D8 keeps
 fluxes as a reported diagnostic and out of the likelihood.
 """

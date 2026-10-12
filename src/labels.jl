@@ -1,7 +1,7 @@
 """
 Labelling what is ours.
 
-Core A′ carries treatments the published model does not make: chemostatted CTP,
+The reduced model carries treatments the published model does not make: chemostatted CTP,
 UTP and amino-acid pools, a lumped tRNA charging step, asserted priors on the
 PTS mass-action constants, and — where an author selects them — a smoothed or
 unclamped expression-cost drain or a continuous rebuild.

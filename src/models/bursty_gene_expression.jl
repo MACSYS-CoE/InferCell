@@ -4,7 +4,7 @@
 Telegraph-promoter stochastic gene expression: a two-state promoter (`:promoter
 ∈ {0, 1}`) gates mRNA production at rate `k_tx_burst`, producing visible
 mRNA-count bursting (Fano factor > 1). States `[:promoter, :mRNA, :protein]`,
-six jump reactions. Used as the v0.0.1 SSA block; complements
+six jump reactions. Used as the toy closed-loop SSA block; complements
 [`StochasticGeneExpression`](@ref) (which is constitutive).
 """
 struct BurstyGeneExpression <: AbstractSubModel
