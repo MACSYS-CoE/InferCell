@@ -4,8 +4,8 @@ CurrentModule = InferCell
 
 # SSA inference (ABC-SMC)
 
-!!! note "Stub page"
-    This tutorial is a placeholder for v0.0.1. The narrative will fill out as the framework stabilises; for now, the runnable example below mirrors the [Getting started](../getting-started.md) SSA path.
+!!! note "Toy model"
+    This page covers one of the toy models InferCell started from, not the reduced syn3A model.
 
 Sub-models with `inference_mode = :simulation` are routed to an Approximate Bayesian Computation Sequential Monte Carlo (ABC-SMC) sampler. Summary statistics are computed across replicate trajectories rather than from a single solve.
 

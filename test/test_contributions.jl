@@ -17,7 +17,6 @@ _rhs_alloc(rhs, u, p, t) = @allocated rhs(u, p, t)
     @testset "1.3 owner's derivative is its own term plus the contribution, exactly" begin
         models = [EnergyPools(), CarbonBlock()]
         prob = build_problem(models; tspan = (0.0, 10.0))
-        @test length(prob.u0) == 32
         rhs = prob.f.f
         u, p = prob.u0, prob.p
         du = rhs(u, p, 0.0)

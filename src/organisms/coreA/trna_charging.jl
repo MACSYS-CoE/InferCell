@@ -34,7 +34,7 @@ const CHARGING_STATES = species_in_group(:trna)
 # against the number it is then checked against (spec §12, 2026-09-11).
 # ----------------------------------------------------------------------
 
-"Residues charged over one cycle: a full proteome doubling of Core A′'s loci."
+"Residues charged over one cycle: a full proteome doubling of the reduced model's loci."
 const CHARGING_RESIDUES_PER_CYCLE = 3_484_518
 "The published cell cycle, in seconds."
 const CHARGING_CYCLE_S = 6300.0
@@ -221,7 +221,7 @@ Two declarations, not one, because two separate things here are ours (spec task
 The first lands under `:lumping` and the second under `:formalism`, so the
 lumping is one declaration a report can count (spec §11 task 13.6). A third,
 plain note records the chemostatted amino-acid pool, which is ours and which
-nothing in Core A′ reads.
+nothing in the reduced model reads.
 """
 reduction_notes(::TrnaCharging) = Any[
     :lumping => "tRNA charging lumped: one reaction M_trna_c + ATP -> M_trna_chg_c + AMP + " *

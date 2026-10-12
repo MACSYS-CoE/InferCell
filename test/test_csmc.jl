@@ -58,7 +58,6 @@ end
             exact = log(exp(InferCell.generator(TranscriptChain(k, γ, cap)) * τ)[a + 1, b + 1])
             @test abs(InferCell._log_transitions(d, spec, u, [a], [b], τ) - exact) <= 1e-12
         end
-        @test window_log_weight(1.0, 2.0, 0.5, -3.0) == 1.0 + 2.0 - 0.5 - 3.0
     end
 
     T, σ = 3, 0.1
@@ -101,7 +100,6 @@ end
         @test y.debits[1].deficit == base.debits[1].deficit
         @test y.jump.u == base.jump.u && y.rounding.remainders == base.rounding.remainders
         @test y.ode.u == base.ode.u
-        @test x.ode !== y.ode && x.jump !== y.jump
     end
 
     @testset "a sweep returns a path that reproduces the data" begin

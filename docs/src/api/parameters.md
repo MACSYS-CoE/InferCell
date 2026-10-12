@@ -12,7 +12,7 @@ Source: [`src/parameters.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/
 
 ## Provenance
 
-`ParameterSource` is carried per value rather than resolved once by hand, because the same cross-file ambiguity has already produced two errors of record in the source model — see [Core A′ interface contract](corea-interface.md) for the loader that produces these.
+`ParameterSource` is carried per value rather than resolved once by hand, because the same cross-file ambiguity has already produced two errors of record in the source model — see the [interface contract](corea-interface.md) for the loader that produces these.
 
 ## Role filtering
 

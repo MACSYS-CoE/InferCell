@@ -19,7 +19,8 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
-        "User guide" => [
+        "The reduced syn3A model" => "user-guide/reduced-syn3a.md",
+        "Toy models" => [
             "ODE inference (NUTS)" => "user-guide/ode-inference.md",
             "SSA inference (ABC-SMC)" => "user-guide/ssa-inference.md",
             "Boundary protocol" => "user-guide/boundary-protocol.md",
@@ -28,15 +29,15 @@ makedocs(;
             "Overview" => "api/index.md",
             "Parameters" => "api/parameters.md",
             "Sub-model interface" => "api/interface.md",
-            "Core A′ interface contract" => "api/corea-interface.md",
-            "Core A′ modules" => "api/corea-modules.md",
-            "Core A′ observables" => "api/corea-observables.md",
+            "Interface contract" => "api/corea-interface.md",
+            "Model modules" => "api/corea-modules.md",
+            "Observables and data" => "api/corea-observables.md",
             "Orchestrator" => "api/orchestrator.md",
             "Handshake driver" => "api/handshake.md",
             "Conditional sampler" => "api/conditional-sampler.md",
-            "Inference" => "api/inference.md",
-            "Boundary" => "api/boundary.md",
-            "Models" => "api/models.md",
+            "Inference (toy models)" => "api/inference.md",
+            "Boundary (toy models)" => "api/boundary.md",
+            "Toy models" => "api/models.md",
         ],
     ],
     # An exported symbol that no `@docs` block includes fails the build. This

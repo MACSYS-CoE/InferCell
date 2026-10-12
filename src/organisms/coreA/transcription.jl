@@ -1,7 +1,7 @@
 """
-Core A′ transcription: seventeen genes, one constitutive reaction each.
+Transcription: seventeen genes, one constitutive reaction each.
 
-The first Core A′ module in the stochastic block, and the only one that reads
+The first module in the stochastic block, and the only one that reads
 the ODE block's pools — through the 60 s rate-constant rebuild rather than
 through `inputs`, because the two blocks hold separate state vectors. Spec §11
 phase 10.
@@ -17,7 +17,7 @@ each is registered rather than absorbed:
     does not appear there. This is the unusual case where the default is the
     labelled one.
   * **CTP and UTP are chemostatted by this reduction**, not by the published
-    model, because the modules that make them are outside Core A′.
+    model, because the modules that make them are outside the reduced model.
   * **Promoter strength is a proxy** — protein copy number over 180 — inherited
     verbatim, and conditioning on proteomics would close a loop through it
     (§4 D5). Registered twice, once as the proxy and once as the circularity.
@@ -29,7 +29,7 @@ non-registry species. That is why decay, in phase 12, writes a transcript
 through [`written_states`](@ref) rather than through an edge (§12, amendment of
 2026-09-04).
 
-**Genes are a fixed quantity, not a state.** Core A′ cuts replication, so
+**Genes are a fixed quantity, not a state.** The reduced model cuts replication, so
 nothing can change a gene's copy number, and seventeen constant states would be
 seventeen wasted dimensions in every stored trajectory. The published model
 carries them as species because it has `rep_start.py`; adding replication later
@@ -149,7 +149,7 @@ end
 """
 The metabolic reaction each locus encodes: ten glycolytic, four
 phosphotransferase, three nucleotide-recycling. Not upstream data — this is
-Core A′'s own scope, and it is what lets task 10.7 report a mismatch against
+the reduced model's own scope, and it is what lets task 10.7 report a mismatch against
 the metabolic modules by reaction name rather than by bare locus.
 """
 const TRANSCRIPTION_LOCI = (

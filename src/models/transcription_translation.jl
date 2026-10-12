@@ -4,7 +4,7 @@
 
 Mean-field ODE block for transcription + translation. The no-arg form is the
 single-gene Phase-1 model with states `[:mRNA, :protein]`. The `genes`-arg form
-is the multi-gene v0.0.1 variant: per-gene state names `[:<gene>_mRNA,
+is the multi-gene toy variant: per-gene state names `[:<gene>_mRNA,
 :<gene>_protein]` and per-gene rate names `[:k_tx_<gene>, :k_tl_<gene>, …]`.
 `enzyme_slot` marks which gene's protein feeds the metabolism block (default
 `:enzyme` if present in `genes`).

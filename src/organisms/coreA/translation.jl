@@ -1,8 +1,8 @@
 """
-Core A′ translation: seventeen reactions, one per transcript, plus the
+Translation: seventeen reactions, one per transcript, plus the
 translocation of ptsG into the membrane. Spec §11 phase 11.
 
-The second Core A′ module in the stochastic block. It reads the transcripts
+The second module in the stochastic block. It reads the transcripts
 [`CoreATranscription`](@ref) owns and publishes the protein counts the rest of
 the model reads: the thirteen enzyme counts fill the metabolic modules' enzyme
 slots through catalytic edges those modules declare (phase 11a), and the four
@@ -88,7 +88,7 @@ const RIBOSOME_COPIES = 503
 The number of per-amino-acid charged-tRNA pools the lumped pool stands in for.
 
 The published law sums `n_aa · riboKd / [aa-tRNA]` over twenty pools and adds
-`riboKd² / [fMet-tRNA]²`. Core A′ has one lumped charged pool, and each of
+`riboKd² / [fMet-tRNA]²`. The reduced model has one lumped charged pool, and each of
 those twenty-one concentrations reads its per-amino-acid share,
 `[M_trna_chg_c] / 20`. That keeps the published law's structure: at the
 nominal 0.2 mM charged pool the share is 0.01 mM against upstream's 150

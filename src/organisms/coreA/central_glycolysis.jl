@@ -25,7 +25,7 @@ also the order its Michaelis constants appear in — so `km_R_GAPD_M_g3p_c` and
 this table cannot drift apart unnoticed.
 
 **NOX is not here.** The published reaction list carries a terminal oxidase
-regenerating NAD⁺ from NADH; Core A′ drops it, and the module registers that as
+regenerating NAD⁺ from NADH; the reduced model drops it, and the module registers that as
 a reduction declaration rather than leaving it as a silent absence.
 
 The coefficients are data rather than literals in a rate law because the redox
@@ -422,7 +422,7 @@ inputs(m::CentralGlycolysis) = all(iszero, m.enzyme_param) ?
 Nine edges, every `peer` unnamed.
 
 The rule that generates them: declare an edge exactly where one of this module's
-reactions touches a registry species another Core A′ module also touches, with
+reactions touches a registry species another module also touches, with
 the direction mass flows relative to this module. Currency rather than mass for
 the three energy species because the published model routes ATP traffic through
 a shared pool node rather than module to module, and the edge kind exists to say

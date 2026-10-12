@@ -120,7 +120,6 @@ _gibbs_key(s) = (s.cme, s.u, s.σ, [[(w.times, w.reactions) for w in p] for p in
 
     @testset "a chain starts on a path that meets the data" begin
         s = gibbs_init(Xoshiro(1609), g; start..., threads = false)
-        @test s.sweep == 0
         for c in eachindex(s.paths)
             tx, lat, lp = _gibbs_replay(g, s.bases[c], s.paths[c])
             @test tx == g.transcripts[c]

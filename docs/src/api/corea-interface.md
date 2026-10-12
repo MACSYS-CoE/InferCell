@@ -2,17 +2,17 @@
 CurrentModule = InferCell
 ```
 
-# Core A′ interface contract
+# Interface contract
 
 Source: [`src/organisms/coreA/registry.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/organisms/coreA/registry.jl), [`src/edges.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/edges.jl), [`src/resolver.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/resolver.jl), [`src/loader.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/loader.jl), [`src/labels.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/labels.jl).
 
-Core A′ is the reduced JCVI-syn3A model scoped in `dev/notes/reduced-syn3a-scoping.md`: glycolysis through lactate, the PTS glucose cascade, lactate export, a live ATP/GTP energy interface, and three moiety-recycling reactions. It will be built by seven independent modules that touch each other only through a coupling boundary.
+The reduced syn3A model is the one scoped in `dev/notes/reduced-syn3a-scoping.md`: glycolysis through lactate, the PTS glucose cascade, lactate export, a live ATP/GTP energy interface, and three moiety-recycling reactions. It will be built by seven independent modules that touch each other only through a coupling boundary.
 
 This page documents the contract that boundary is written in. It exists so that a module author working alone can declare how their block touches the others, and have that declaration checked before anything runs — rather than discovering at the join that two modules meant different things by the same word.
 
 ## The state registry
 
-Every Core A′ species is named once and ordered once. Modules index into the registry; none defines its own species names.
+Every species of the reduced model is named once and ordered once. Modules index into the registry; none defines its own species names.
 
 ```julia
 COREA_SPECIES              # Vector{SpeciesEntry}, 32 dynamic states then 5 chemostats
@@ -108,7 +108,7 @@ Kinds beyond the mass/currency pair are distinct mechanisms, not rival spellings
 
 It **reports** what is merely incomplete: unowned states and dead ends — including a declared cost whose paying state is absent from the composition — which a partial composition is expected to have. A successful resolution is therefore **not** evidence that the boundary is closed; asserting completeness is wave 3's job, made separately.
 
-**Completeness mode** makes that assertion. `resolve_coupling(models; complete = true)`, or `build_problem(models; complete = true)` on a hybrid composition, throws an `IncompleteComposition` naming every unowned state and every dead end, grouped by the moiety each strands (spec §11 task 13.1). A protein-regime species produced with nothing drawing it down is reported in `accumulating` instead: Core A′ has no protein degradation, so a translated protein's only sink is growth dilution, which moves no mass between modules.
+**Completeness mode** makes that assertion. `resolve_coupling(models; complete = true)`, or `build_problem(models; complete = true)` on a hybrid composition, throws an `IncompleteComposition` naming every unowned state and every dead end, grouped by the moiety each strands (spec §11 task 13.1). A protein-regime species produced with nothing drawing it down is reported in `accumulating` instead: The reduced model has no protein degradation, so a translated protein's only sink is growth dilution, which moves no mass between modules.
 
 !!! note "Every declared cost needs a state that can pay it and a reaction that returns it"
     This is the mechanical form of a rule the scoping note derived from two errors of record. The lumped charging step converts ATP to AMP, and without ADK1 nothing returns it — 3.48M charging events against an adenylate pool of ~79,800 particles exhausts it after 2.3% of the cell cycle. Transcription buries GTP as GMP and, without GK1, that GMP is stranded. `dead_end_report` names the conserved moiety of each stranded species, because those two are one class of error, not two.
@@ -143,7 +143,7 @@ How well a value is known is recorded as `:balanced`, `:prior_default`, `:assert
 
 ## Labelling what is ours
 
-Several Core A′ treatments are ours rather than the published model's, and each is a place where a result could depend on our choice. `reduction_declarations` enumerates them so the label can reach any report that depends on one.
+Several of the reduced model's treatments are ours rather than the published model's, and each is a place where a result could depend on our choice. `reduction_declarations` enumerates them so the label can reach any report that depends on one.
 
 ```julia
 reduction_declarations(models)   # Vector{ReductionLabel}

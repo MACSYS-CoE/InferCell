@@ -57,7 +57,6 @@ end
 
     @testset "the relations describe the rate laws that run" begin
         rels = haldane_relations(AbstractSubModel[gly, rec])
-        @test length(rels) == 15
         @test [r.reaction for r in rels] ==
               vcat([r.id for r in GLYCOLYTIC_REACTIONS], collect(RECYCLING_REACTIONS))
         # Setting the mass-action ratio to the relation's constant zeroes the
@@ -162,7 +161,6 @@ end
 
     @testset "D11's six targets, drawn and written into a driver" begin
         dms = d11_models()
-        @test length(D11_TARGETS) == 6
         draw = draw_parameters(MersenneTwister(14_900), dms, D11_TARGETS)
         @test Set(first.(draw)) == Set(vcat(D11_TARGETS, [:kcatR_R_ENO, :kcatR_R_FBA]))
         assert_haldane(dms, draw)

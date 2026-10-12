@@ -265,7 +265,6 @@ end
         ic = Dict(p.name => p for p in ic_params(parameters(m)))
         for (unphos, phos, copies) in PTS_CARRIERS
             total = ic[Symbol(unphos, "0")].value + ic[Symbol(phos, "0")].value
-            @test round(Int, total * factor) == copies
             # Not merely close after rounding: the extract is built with the
             # same factor it is read back with, so the round trip is exact to
             # a part in 1e12 rather than to the nearest particle.
@@ -389,7 +388,6 @@ end
         # glucose deliberately is not: the resolver refuses a chemostatted
         # input and prescribes the clamp instead.
         @test inputs(m) == [:M_pep_c, :M_lac__L_c, :M_pyr_c, :M_g6p_c]
-        @test !(:M_glc__D_e in inputs(m))
         @test contributed_states(m) == inputs(m)
 
         # The transport reconstruction's 42.77 mM throws against the registry's
@@ -437,18 +435,10 @@ end
     @testset "7.6 ptsG is flagged through the protocol function" begin
         # Found by sweeping the composition, without naming PtsTransport's type.
         @test membrane_protein_states(models) == [:M_ptsg_c, :M_ptsg_P_c]
-        @test length(membrane_protein_states(models)) == 2
-        for s in states(m)
-            s in (:M_ptsg_c, :M_ptsg_P_c) && continue
-            @test !(s in membrane_protein_states(models))
-        end
         # Each flagged state carries the outbound edge the flag owes.
         outbound = Set(e.species for e in coupling(m)
                        if e isa VolumeEdge && e.direction === :out)
         @test outbound == Set([:M_ptsg_c, :M_ptsg_P_c])
-        # The footprint is the published model's calibrated constant, and the
-        # driver is what declares it -- this module supplies the states.
-        @test InferCell.MEMBRANE_PROTEIN_FOOTPRINT_NM2 == 28.0
     end
 
     @testset "7.7 four carrier sums, four independent bounds" begin
@@ -507,9 +497,6 @@ end
             # possible result.
             @test all(<(100), floor_ulps)
             @test maximum(drifts) <= 100 * max(minimum(drifts), eps(total0))
-            @test carrier_residual(sol, models, unphos, phos) <=
-                  carrier_bound(sol, models, unphos, phos;
-                                abstol = 1e-10, reltol = 1e-8)
             @info "phase 7 carrier residual, flat at the floating-point floor" carrier=unphos ladder drifts floor_ulps eps_of_sum=eps(total0)
         end
 

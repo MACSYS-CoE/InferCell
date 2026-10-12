@@ -2,7 +2,7 @@
 CurrentModule = InferCell
 ```
 
-# Core A′ observables and synthetic data
+# Observables and synthetic data
 
 What the likelihood may condition on, and the synthetic data it is fitted to
 (spec §11 phase 15). This page covers:

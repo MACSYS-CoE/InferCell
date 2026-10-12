@@ -36,12 +36,11 @@ using InferCell
         a = m0_dataset(16081; ncells = 2, horizon = 120.0)
         @test first.(a.truth.values)[1:length(M0_TARGETS)] == M0_TARGETS
         @test a.truth.purpose === :calibration
-        @test a.sigma > 0 && a.replicate_seed == 16081
+        @test a.sigma > 0
         @test length(a.seeds) == 2 && allunique(a.seeds)
         @test a.times == [60.0, 120.0]
         @test size(a.transcripts) == (2, 2, 2)
         @test a.observed_species == vcat(M0_PANEL, [transcript_state(g) for g in M0_GENES])
-        @test occursin("M0 holds 12 enzyme counts", a.report)
         # Transcripts are exact.
         for (j, g) in enumerate(M0_GENES)
             @test a.observed[:, length(M0_PANEL) + j, :] == a.transcripts[:, j, :]

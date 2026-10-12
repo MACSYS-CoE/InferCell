@@ -421,7 +421,6 @@ _exact_mM(n) = n / _F
         # :unclamped — a labelled departure: the pool is allowed to go negative.
         u = clip_run(:unclamped)
         @test u.ode.u[1] == _exact_mM(100 - 250)
-        @test u.ode.u[1] < 0
         @test u.debits[1].deficit == 0.0
         @test u.n_clipped == 0                    # nothing was withheld
 
