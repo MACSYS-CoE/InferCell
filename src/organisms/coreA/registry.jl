@@ -1,7 +1,7 @@
 """
-Core A′ species registry.
+The reduced syn3A species registry.
 
-The single place the reduced-syn3A species are named and ordered. Every Core A′
+The single place the reduced-syn3A species are named and ordered. Every
 sub-model indexes into this registry; none of them defines its own species names.
 The contents are the state list of `dev/notes/reduced-syn3a-scoping.md` — 32
 dynamic states and 5 chemostats — and the per-group cardinalities are asserted by
@@ -12,7 +12,7 @@ Names are the published model's BiGG-style identifiers (`M_g6p_c`, `M_13dpg_c`,
 the source model, and every one of them is a valid Julia identifier, which the
 display names (`13DPG`, `3PG`) are not.
 
-H2O and H+ are deliberately absent: Core A′ derives from the `NoH2O` model with
+H2O and H+ are deliberately absent: the reduced model derives from the `NoH2O` model with
 hydrogen-ion accounting removed, which is also why inorganic pyrophosphatase is
 carried as `PPi -> 2 Pi`.
 """
@@ -28,7 +28,7 @@ what makes a formalism defensible for a species, so it is registry data rather
 than a modelling choice made later: mRNA sits at 0–2 copies and requires a
 discrete method, protein at 266–1355, metabolites at ~2,000–74,000.
 
-`:mrna` is unused by the current registry — Core A′'s mRNA lives in the
+`:mrna` is unused by the current registry — the reduced model's mRNA lives in the
 stochastic block, not in this state list — and is defined here because the
 transcription and decay modules will index the same vocabulary.
 """
@@ -37,7 +37,7 @@ const SPECIES_REGIMES = (:mrna, :protein, :metabolite)
 """
     SpeciesEntry
 
-One row of the Core A′ species registry.
+One row of the species registry.
 
 # Fields
 
@@ -47,7 +47,7 @@ One row of the Core A′ species registry.
   conserved moiety a dead-end report names.
 - `treatment::Symbol` — `:dynamic` or `:chemostatted`. A module that declares
   dynamics for a chemostat is rejected at composition.
-- `regime::Symbol` — `:mrna`, `:protein` or `:metabolite`. Core A′ spans nearly
+- `regime::Symbol` — `:mrna`, `:protein` or `:metabolite`. The reduced model spans nearly
   five orders of magnitude of copy number, which is why it needs several
   formalisms at once.
 - `initial_value`, `gstd` — the imported value in mM and the geometric standard

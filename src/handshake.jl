@@ -129,7 +129,7 @@ const COREA_INITIAL_SURFACE_AREA_NM2 = 502831.0
 Membrane surface area, in nm²: a frozen baseline plus one footprint per
 membrane protein.
 
-The baseline is everything Core A′ does not integrate — the lipid leaflet and
+The baseline is everything the reduced model does not integrate — the lipid leaflet and
 the 92 membrane-protein loci outside the reduction. Holding it constant is the
 exogenous-membrane-growth reduction of spec §3, and it is why growth reaches
 only ~1.07× rather than the published 2×.
@@ -143,7 +143,7 @@ surface_area_nm2(baseline_nm2, n_membrane, footprint_nm2 = MEMBRANE_PROTEIN_FOOT
 The frozen part of the surface area, derived so that a composition holding
 `n_membrane` membrane proteins starts at exactly `total_nm2`.
 
-Derived rather than written down: for Core A′ it is
+Derived rather than written down: for the reduced syn3A model it is
 502,831 − 831 × 28.0 = 479,563 nm², and typing that number instead would be one
 more place for the three it is derived from to drift apart. Getting the offset
 wrong is the failure that makes doubling ptsG double the whole cell, so it is
@@ -2353,7 +2353,7 @@ end
 
 What this composed model's growth may and may not be reported as.
 
-One entry today: the doubling time. Core A′ removes roughly 92% of the cell, so
+One entry today: the doubling time. The reduced model removes roughly 92% of the cell, so
 it is not built to reproduce the 105-minute figure and any comparison to it
 would be meaningless — a consequence of the reduction rather than a defect in
 it. Growth is reported as fractional growth or time-to-threshold, both of which

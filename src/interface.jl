@@ -51,7 +51,7 @@ the jump-side twin of [`contributed_states`](@ref). Defaults to empty. Every
 name must also appear in [`inputs`](@ref), since the write goes through the same
 `u_inputs` view the read does; the orchestrator refuses a write to an input not
 listed here, naming the module and the state, so removing the declaration makes
-the write fail rather than silently land. Where the state is a Core A′ registry
+the write fail rather than silently land. Where the state is a registry
 species [`resolve_coupling`](@ref) additionally holds the declaration to a mass
 or currency edge in either direction — `:in` where the module consumes the
 pool, `:out` where it produces into it, and an outbound edge alone satisfies
@@ -67,7 +67,7 @@ written_states(::AbstractSubModel) = Symbol[]
 Typed coupling declarations for `m`: not only *which* state crosses a boundary
 but *how*, as one of the seven kinds in [`EDGE_KINDS`](@ref). Defaults to empty,
 so a sub-model with no cross-block coupling — and every sub-model written before
-the Core A′ interface contract — needs no modification.
+the reduced model's interface contract — needs no modification.
 
 [`inputs`](@ref) keeps its own meaning and its own default. A sub-model may
 declare both; where it declares any coupling edge, [`resolve_coupling`](@ref)
@@ -87,7 +87,7 @@ coupling(::AbstractSubModel) = CouplingEdge[]
 Identity of a sub-model, used to name it in coupling errors and to match the
 `peer` of a [`CouplingEdge`](@ref). Defaults to the type name.
 
-Each Core A′ module is a distinct type, so the default is usually right. A
+Each module of the reduced model is a distinct type, so the default is usually right. A
 sub-model override matters when one type is instantiated more than once in a
 composition, where the type name would name both instances identically.
 """
@@ -104,7 +104,7 @@ description` pair naming one of [`REDUCTION_CATEGORIES`](@ref) — which is how
 the lumped charging step is reported as `:lumping` and its deterministic
 integration as `:formalism`, two separate declarations (spec §11 task 13.6).
 
-Core A′ carries several treatments that are ours rather than the source model's
+The reduced model carries several treatments that are ours rather than the source model's
 — the lumped tRNA charging step most of all — and each is a place where a result
 could depend on our choice rather than on the published model. Registering them
 here is what lets [`reduction_declarations`](@ref) enumerate them, so the label
@@ -175,7 +175,7 @@ Where `inputs` lets a module read a state it does not own, this lets it write
 into one: the orchestrator adds each term returned by [`contributions`](@ref)
 to the owner's derivative at the owner's global index, so a shared pool
 receives terms from every module that produces into or draws from it. The
-names must be Core A′ registry species and may not be chemostatted, which
+names must be registry species and may not be chemostatted, which
 [`resolve_coupling`](@ref) checks, and must be owned by some module in the
 composition, which the orchestrator checks at build time; each rejection names
 the species and this module.
@@ -366,7 +366,7 @@ cell's, so that cell growth does not dilute them. Defaults to empty.
 
 The growth chain rescales every ODE concentration when the volume changes,
 holding the particle count fixed — which is right for everything inside the
-cell and wrong for anything outside it. Core A′ integrates external lactate as
+cell and wrong for anything outside it. The reduced model integrates external lactate as
 a dynamic state whose millimolar is a *medium* concentration, scaled by a
 medium-to-cell volume ratio (spec §4 D6); diluting it by the cell's volume
 ratio would destroy lactate that has already left, and carbon balance (check 2)

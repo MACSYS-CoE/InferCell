@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Boundary protocol
 
-!!! note "Stub page"
+!!! note "Toy models"
     This page summarises the boundary-protocol API. For the calibration behaviour of the two levels, see `dev/notes/2026-05-22-calibration-curve.md` in the repo; for the inference design they sit inside, `dev/notes/modular-bayesian-inference-heterogeneous-modules.md`.
 
 NUTS-ODE and ABC-SMC-SSA cannot be jointly composed in a single sampler. InferCell instead **propagates posteriors across the heterogeneous block boundary** as an explicit step.
@@ -39,4 +39,9 @@ For the iterative version, swap `sequential_infer` for `iterative_infer` and add
 
 ## Calibration
 
-A single-seed run of `iterative_infer` was found to over-tighten by a small amount at 95% CI (2/4 ODE parameters miss truth at 95% but cover at 99%). A multi-seed calibration sweep is tracked in [Issue #11](https://github.com/MACSYS-CoE/InferCell/issues/11) and should land before the v0.0.1 publication figure.
+Both levels are proofs of concept of passing a posterior between the two toy
+backends, not calibrated methods. A single-seed run of `iterative_infer`
+over-tightened at 95% (two of four ODE parameters missed truth at 95% and were
+covered at 99%), and no multi-seed calibration has been run. The reduced syn3A
+model has no shared parameter to pass, and uses the
+[conditional sampler](../api/conditional-sampler.md) instead.

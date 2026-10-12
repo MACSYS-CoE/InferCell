@@ -1,7 +1,7 @@
 """
 Coupling edge kinds.
 
-Seven ways state crosses a module boundary in Core A′, one per entry in the
+Seven ways state crosses a module boundary in the reduced syn3A model, one per entry in the
 legend of `dev/notes/figures/reduced-syn3a-coupling/fig1r_state_graph_reduced.pdf`.
 The figure is the source of truth for this list: if the figure and these types
 disagree, one of them is a bug.

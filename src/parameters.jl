@@ -1,5 +1,5 @@
 """
-How well a value is known, shared by [`ParameterSource`](@ref) and the Core A′
+How well a value is known, shared by [`ParameterSource`](@ref) and the reduced model's
 species registry so that a kinetic constant and an initial condition describe
 their provenance the same way.
 
@@ -92,7 +92,7 @@ inference layer uses `role` and `fixed` to decide which parameters are sampled.
 
 `provenance` is an optional [`ParameterSource`](@ref) recording the file the
 value was imported from. It defaults to `nothing`, so a parameter constructed
-directly — as every sub-model predating the Core A′ contract does — reports its
+directly — as every sub-model predating the interface contract does — reports its
 provenance as absent rather than as an incorrect source.
 """
 struct InferParameter

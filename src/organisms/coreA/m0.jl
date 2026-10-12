@@ -1,13 +1,13 @@
 """
 M0, the two-gene reference system (spec/phases/16-recovery.md D16.4, task 16a.8).
 
-Core A′ cut to two genes over 600 s. Transcription, decay and translation run
+The reduced syn3A model cut to two genes over 600 s. Transcription, decay and translation run
 for GAPD (`JCVISYN3A_0607`, the best-determined promoter) and ptsG
-(`JCVISYN3A_0779`, the headline, Core A′'s only membrane protein). Everything
+(`JCVISYN3A_0779`, the headline, the reduced model's only membrane protein). Everything
 else in the model is unchanged.
 - The other twelve enzyme counts the metabolic modules read are held at their
   proteomics copy numbers by [`HeldEnzymeCounts`](@ref), so the catalytic channel
-  runs exactly as it does in Core A′, with one live count.
+  runs exactly as it does in the full reduced model, with one live count.
 - The other three phosphotransferase carriers are neither translated nor
   credited, so their totals are held.
 
@@ -108,7 +108,7 @@ end
 """
     build_m0(; tspan = (0.0, M0_HORIZON_S), smoothing = nothing, kwargs...) -> HandshakeDriver
 
-Build M0 in completeness mode, as [`build_corea`](@ref) builds Core A′.
+Build M0 in completeness mode, as [`build_corea`](@ref) builds the reduced syn3A model.
 """
 build_m0(; tspan = (0.0, M0_HORIZON_S), smoothing::Union{Nothing, Real} = nothing,
          genes::AbstractVector{Symbol} = M0_GENES, kwargs...) =
@@ -118,7 +118,7 @@ build_m0(; tspan = (0.0, M0_HORIZON_S), smoothing::Union{Nothing, Real} = nothin
     M0_PANEL
 
 The metabolites an M0 dataset observes: the 15.7 panel, chosen by 15.6's
-influence audit (spec §12 2026-09-29), so M0 and Core A′ are observed alike.
+influence audit (spec §12 2026-09-29), so M0 and the full reduced model are observed alike.
 """
 const M0_PANEL = [:M_g6p_c, :M_f6p_c, :M_lac__L_c, :M_g3p_c, :M_dhap_c, :M_trna_chg_c,
                   :M_pi_c, :M_3pg_c, :M_2pg_c, :M_gtp_c, :M_fdp_c, :M_atp_c,

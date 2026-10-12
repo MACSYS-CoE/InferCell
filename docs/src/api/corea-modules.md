@@ -2,10 +2,10 @@
 CurrentModule = InferCell
 ```
 
-# Core A′ modules
+# Model modules
 
 The seven sub-models that make up the reduced syn3A organism. Each declares its
-own coupling edges against the [Core A′ interface contract](corea-interface.md)
+own coupling edges against the [interface contract](corea-interface.md)
 and vendors the parameter extract it imports from, so a module can be read,
 tested and composed on its own.
 

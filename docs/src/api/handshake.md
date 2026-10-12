@@ -92,7 +92,7 @@ radius = sqrt(area / 4π)
 volume = (4/3) π radius³,   capped at twice the initial volume
 ```
 
-The baseline is derived at build time, not written down: it is whatever makes the composition's own initial counts come to `initial_surface_area_nm2`. For Core A′ that is 502,831 − 831 × 28.0 = 479,563 nm², and it is **frozen** — the lipid leaflet and the membrane-protein loci outside the reduction are exogenous, which is why growth reaches ~1.07× rather than approaching the cap.
+The baseline is derived at build time, not written down: it is whatever makes the composition's own initial counts come to `initial_surface_area_nm2`. For the reduced syn3A model that is 502,831 − 831 × 28.0 = 479,563 nm², and it is **frozen** — the lipid leaflet and the membrane-protein loci outside the reduction are exogenous, which is why growth reaches ~1.07× rather than approaching the cap.
 
 It runs at **step 0 of every handshake**, on neither the 1 s nor the 60 s clock, so every conversion in that exchange uses one volume. A change in the factor rescales every ODE state at constant particle count, which is what makes growth a coupling channel rather than a reported diagnostic. A state whose millimolar is referred to another volume — external lactate, in the medium — is exempted with `extracellular_states(m)` and is not diluted.
 
@@ -110,7 +110,7 @@ A homogeneous `build_problem` executes no handshake, so standalone the slot keep
 
 `growth_census(driver)` reports the flagged states and which block each is read from, the membrane count, the baseline and footprint, the live area, radius, volume, factor and fractional growth, and `consumers` — one row per inbound edge, with the value its rate law actually receives. `run_handshake!` records the same geometry per handshake, plus `ode_p`, so both halves are read off the trajectory rather than asserted from the counts that produced them.
 
-**Growth may be reported as fractional growth or time-to-threshold, and as nothing else.** `reporting_constraints(driver)` returns that constraint as retrievable data and `doubling_time(driver)` throws: Core A′ removes roughly 92% of the cell, so a comparison to syn3A's 105-minute doubling time would be meaningless, and spec §7 requires the code rather than the prose to refuse it. `growth_report(driver)` and `time_to_threshold(record, x)` are the two admissible reportings.
+**Growth may be reported as fractional growth or time-to-threshold, and as nothing else.** `reporting_constraints(driver)` returns that constraint as retrievable data and `doubling_time(driver)` throws: the reduced model removes roughly 92% of the cell, so a comparison to syn3A's 105-minute doubling time would be meaningless, and spec §7 requires the code rather than the prose to refuse it. `growth_report(driver)` and `time_to_threshold(record, x)` are the two admissible reportings.
 
 ## Driver-level departures
 

@@ -1,5 +1,5 @@
 """
-The assembled Core A′: all seven modules, every counter wired (spec §11 phase 13b).
+The assembled reduced syn3A model: all seven modules, every counter wired (spec §11 phase 13b).
 
 Phase 11's full compositions stripped transcription's and decay's counters,
 because their CTP and UTP debits could not compose until phase 13a gave a
@@ -51,7 +51,7 @@ const COREA_SAMPLER = (smoothing = COREA_SMOOTHING_WIDTH, rounding = :continuous
 """
     corea_models(; metered = false, smoothing = nothing) -> Vector{AbstractSubModel}
 
-The seven Core A′ modules as the assembled model composes them. Glycolysis and
+The seven modules of the reduced syn3A model as the assembled model composes them. Glycolysis and
 recycling read their enzyme concentrations from translated protein counts
 (`enzymes = :translated`, spec §11 phase 11a); transcription, decay and
 translation carry every deferred counter they declare.
@@ -85,7 +85,7 @@ end
     build_corea(; tspan = (0.0, COREA_CYCLE_S), metered = false, smoothing = nothing,
                 kwargs...) -> HandshakeDriver
 
-Build the assembled Core A′ over one full cycle, in completeness mode: the build
+Build the assembled reduced syn3A model over one full cycle, in completeness mode: the build
 fails if any registry dynamic state is unowned or any moiety is stranded (spec
 §11 task 13.1). The remaining keywords are the hybrid driver's
 ([`build_problem`](@ref)); the solver and tolerances default to the pinned

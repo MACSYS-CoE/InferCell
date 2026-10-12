@@ -1,5 +1,5 @@
 """
-Core A′'s phosphotransferase transport module (spec §11 phase 7).
+The reduced model's phosphotransferase transport module (spec §11 phase 7).
 
 Five mass-action steps that import glucose against phosphoenolpyruvate, plus
 passive lactate export. It owns the eight carrier phospho-states and external
@@ -18,7 +18,7 @@ sums rather than a flux ceiling are the invariant this module leans on.
 """
     COREA_DATA_DIR
 
-Where the Core A′ vendored parameter extracts live.
+Where the reduced model's vendored parameter extracts live.
 `src/organisms/coreA/data/README.md` records the upstream files, the commit they
 were taken at, and the command that regenerates each one byte for byte.
 """
@@ -336,9 +336,9 @@ reduction_notes(m::PtsTransport) = [
 Why lactate export is not removable, recorded where the code is rather than only
 in the planning artefacts.
 
-An earlier Core A specification deleted this reaction. That was an error, and it
+An earlier specification deleted this reaction. That was an error, and it
 is recorded here so it is not repeated: glycolysis makes two lactate per
-glucose, so at Core A′'s ~1,106 glucose/s a cycle produces ~13.9 M lactate —
+glucose, so at the reduced model's ~1,106 glucose/s a cycle produces ~13.9 M lactate —
 about 691 mM at initial volume and about 345 mM even at doubled volume, forty
 times the entire measured phosphate pool. Without export the core is not a
 sustained pathway but one that poisons itself in minutes, and carbon balance is
