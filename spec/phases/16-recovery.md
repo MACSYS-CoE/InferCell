@@ -740,7 +740,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   derived, σ updated separately — verify by V4, and by a test that the log-prior
   contains no `kcatR` term.
   **Met** (block1_16a5_result.md: V4 passes (job 17839209), and again on the bulk form (csmc_bulk_16a7c_result.md); FBA reading high is a watch item for V6 and V7).
-- [ ] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
+- [x] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
   discontinuous derivative in an ODE parameter — verify by a test, as the parent's
   annotation specifies:
   - on the clipped model, a finite-difference slope in `ln kcat` that jumps across a
@@ -749,7 +749,16 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - check 7's census cited as the source of the clip, not assumed.
 
   Recorded as the reason for D16.1.
-- [ ] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
+  **Met 2026-10-13 on the toy** (`fixed_path_kink_16a6_result.md`; job 17801857 at
+  `b7da3f0`, `test/test_fixed_path_kink.jl`, 9 of 9).
+  - The clamp's slope jump is 1.265 at 30 steps and 1.267 at 3. It does not shrink.
+  - The smoothed drain's jump falls from 0.236 to 0.024.
+  - Check 7's census places the clip at handshake 3.
+
+  **The Core A′ scan stays open, by decision of 2026-10-01.** It is not part of
+  this clause. ENO and FBA cannot move the first clip, and PGK3's zero slope is
+  unexplained. Block 1 is gradient-free (D16.1), so nothing downstream rests on it.
+- [x] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
   and choose PG, PGAS or truncated PGAS. Verify by:
   - V5 in both cases, its mutations and the weight unit test, and V9;
   - per-particle streams: two restores of one snapshot, seeded alike, give identical
@@ -765,7 +774,13 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   full-scale check to 16a.7b.
   **Annotated 2026-10-05 (§12):** the variant is PG (lag 0) under bulk metabolites,
   at an N 16a.7c sets.
-- [ ] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
+  **Closed 2026-10-13: met in part, and superseded in part.**
+  - **Met:** V5 in both cases, the weight unit test, V9 and the per-particle streams
+    (`test/test_csmc.jl`, in the suite of job 18461739).
+  - **Superseded:** the rates at N < 50, which were not needed once N = 50 fired KP.
+    The choice is made in 16a.7c (PG, lag 0, N = 20), and the full-scale check is
+    16a.7b.
+- [x] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
   Gibbs, and measure it on M0. Verify by:
   - a unit test that the reference's backward chain uses the stage moves in reverse
     and returns its own path;
@@ -788,6 +803,8 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
 
   **Superseded for production 2026-10-05 (§12)** by the bulk observation model. The
   code and its V5 pass stand, with the annealing off by default.
+  **Closed 2026-10-13 as superseded.** KP's second firing was answered by the
+  observation model, not by a choice here.
 - [x] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
   transcript-weighted rank of the true path's panel pools among proposals from its
   own state, on five independent 15.7-truth cells (30001 to 30005), with each pool's
@@ -941,6 +958,41 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-13 — F10 when the reference runs at production's N
+
+**Status: proposed 2026-10-13, awaiting your approval.** No F10 compute runs before
+it is approved.
+
+**Trigger:** V6 is met (`v6_16a9b_result.md`, merge 18420990) with PG at N = 20,
+production's own setting, over 4 chains of 1,650 sweeps. That is just past V6, not
+"far longer". D16.5 asked for N_ref ≫ N and chains far longer than V6 requires.
+Neither holds.
+
+**Why F10 still measures something:**
+- D16.5's own case analysis says that when production is PG, the particle count
+  costs mixing, not bias. F10 then measures only the Monte Carlo and mixing error
+  of production's settings.
+- V6 checks the reference's convergence directly, by R̂, ESS and quantile MCSE. So
+  the reference's accuracy does not rest on N_ref.
+- **What F10 compares is the run length, not the sampler.** A production-length
+  chain is set against the long reference on the same dataset. That is the
+  question 16b's single chains raise.
+
+**Proposed change:**
+- **Production arm:** one fresh chain on V6's dataset, at V7's production length
+  (100 sweeps of burn-in plus at least 100 effective draws, about 656 sweeps), at 5
+  threads. About 500 to 700 CPU-h and about 6 days.
+- **Reference arm:** V6's 4 chains, with V8's floor from their split halves.
+- **D16.5** is annotated: N_ref = N, justified by the PG case, and F10's caption
+  says so.
+- **Alternative, at no cost:** hold out one V6 chain's first 656 sweeps as the
+  production arm against the other three. The chains are independent, but the
+  reference falls to 3 chains and below V6's ESS of 1,000.
+
+**Recommended:** the fresh chain. It is clean, and it fits in the remaining cap.
+
+*Sections:* D16.5, §11 16a.10.
 
 ### 2026-10-12 — V7's pass rule: α/6 per parameter, on a complete set of replicates
 

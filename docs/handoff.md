@@ -1,11 +1,77 @@
 # Handoff
 
-**Session date:** 2026-10-12
-**Branches:** `phase-16a9b-reference`, local and pushed, from main at `843e05c`.
-Main has since moved on to `15d43dd` (v0.2.0). `phase-16a9a-gibbs` is kept until
-V7 is done, since V6 and V7 run from its commits.
+**Session date:** 2026-10-13
+**Branches:** `phase-16a9b-reference`, with main (`15d43dd`, v0.2.0) merged in.
+The branch touches nothing under `src/` or `test/`, so its code is main's, which
+passed 28,352 of 28,352 (job 18461739). `phase-16a9a-gibbs` is kept until V7 is
+done, since V6 and V7 run from its commits.
 
-## Latest: v0.2.0 released, V6 met, V7's pass rule fixed (2026-10-12)
+## Latest: an inference-paths note, a plan to close phase 16 at M0, bookkeeping (2026-10-13)
+
+**The inference-paths note** (`dev/notes/2026-10-13-inference-paths.md`; spec §12
+2026-10-13, recorded and open):
+- **Cost.** One exact full-scale posterior is about 7 to 14 million cell cycles,
+  so about 60k to 150k CPU-h (projected). The cost is the simulation count, not
+  the simulation.
+- **Speed.** syn3a-ensemble runs the *full* syn3A cell at about 1.4× this reduced
+  model's per-second cost. The likely lever is the ODE step: FBDF with KLU and a
+  coloured flux Jacobian, against our Rodas5P with a dense Jacobian (3.2× on their
+  ODE). Not before V7, since it breaks V2's bitwise replay.
+- **The paths weighed:** modular inference, amortised SBI, combining the two per
+  module, and other avenues. It proposes a three-way comparison on M0 (exact,
+  modular, amortised) on V7's datasets.
+- **Read it before 16a.11** (annotated there).
+
+**The plan to close phase 16, at the M0 rung.** Not yet in the spec. It goes into
+16a.11's §12 entry for the user's approval.
+- **Reused, at about 0 compute:**
+  - 16b.3's coverage, read off V7's 50 chains;
+  - 16b.2's recovery, from V6.
+- **New, about 4 to 5 single-chain M0 posteriors** (about 500 to 700 CPU-h each,
+  about 6 days each, run in parallel):
+  - 16b.1's perturbed truth;
+  - F6's transcripts-only and metabolites-only fits;
+  - K7's two fits, if PYK can be freed on M0.
+- **Probably budget-bound:** K2 at 1,000 cells.
+- **Scored "not run, budget-bound":** every full-scale item.
+- **Two calls for the user at 16a.11:**
+  - whether V7 can serve as both the KR gate and 16b.3's result;
+  - whether "closed at M0" satisfies phase 16's done-when.
+
+**Bookkeeping done:**
+- **Ticked:**
+  - 16a.6, met on the toy; the Core A′ scan stays open by decision;
+  - 16a.7, met in part and superseded in part;
+  - 16a.7a, superseded.
+- **F10's question is a proposal** in the sub-spec's §12 2026-10-13, awaiting
+  approval. It proposes:
+  - accepting N_ref = N under D16.5's PG case;
+  - a fresh production-length chain on V6's dataset (about 500 to 700 CPU-h);
+  - V6's 4 chains as the reference.
+- **Housekeeping:**
+  - removed `.worktrees/suite-docs`, `.worktrees/release-v0.2.0` and the local
+    branches `docs-reduced-syn3a` and `release-v0.2.0`;
+  - merged main in.
+  - removed the other 55 worktrees under `.worktrees/` with `--force`, at the
+    user's choice, **including their gitignored raw run outputs** (about 3.0 GB:
+    chain checkpoints, Slurm logs and per-run folders, among them the runs of
+    record in `agree14c5`, `suite14c5`, `sens15`, `ds15` and `pilot-16a9a`). The
+    committed `*_result.md` files stand; their raw data now regenerates only by
+    rerunning. Only `v7-16a9b` (V7 runs from it) and `v6-16a9b` remain.
+  - Left alone: `.worktrees/control14c/` (a plain folder of 14c.5 TSVs, not a
+    worktree), 7 stray Slurm logs in `.worktrees/`, and two worktrees outside it
+    (`~/.treehouse/InferCell-7fa5c6/1/InferCell` on `phase-14b-derivative-checks`,
+    and `wt14c1` in an old session's scratchpad).
+
+**Next:**
+1. **14–15 Oct:** V7's timed-out replicates, as in the 2026-10-12 section below.
+2. **If F10's proposal is approved,** submit the production chain from a worktree at
+   a pushed commit.
+3. **When V7 is merged:** apply the α/6 rule, make F8's plots, tick 16a.9b, and
+   open the 16a.9b PR. If V7 fails, that is KR: stop and diagnose.
+4. **16a.10, then 16a.11** with the M0 close-out allocation above.
+
+## Earlier: v0.2.0 released, V6 met, V7's pass rule fixed (2026-10-12)
 
 **Released v0.2.0** (tag at `15d43dd`; release notes on GitHub).
 - **#83 merged:** redundant test assertions dropped.
