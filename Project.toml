@@ -1,7 +1,7 @@
 name = "InferCell"
 uuid = "5faa9da3-97a3-4d64-9dfe-c21d6c3f57eb"
 authors = ["Tom Kimpson"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
