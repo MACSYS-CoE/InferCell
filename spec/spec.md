@@ -4360,10 +4360,45 @@ fabricated task list.
   defensible.
 - **The two surrogate proposals, and Step 2 against real data.** Neither is
   specifiable from here.
+- **Other inference paths: modular, amortised, and faster exact.** Weighed in
+  `dev/notes/2026-10-13-inference-paths.md` (§12 2026-10-13). Open, and read before
+  16a.11's allocation.
 
 ---
 
 ## 12. Amendment log
+
+### 2026-10-13 — a note on inference paths beyond the exact sampler, recorded and open
+
+**Status: recorded, not decided.** Nothing in §1 to §11 changes yet.
+
+**Trigger:** a discussion of what one full-scale posterior costs, and of
+syn3a-ensemble's speed results.
+- **The exact sampler's cost is the simulation count, not the simulation.** About
+  7 to 14 million cycles per posterior (D16.6, projected), so about 60k to 150k
+  CPU-h. Coverage multiplies that by R ≥ 50.
+- **syn3a-ensemble runs the full syn3A cell at about 1.4× the per-second cost of
+  this reduced model.** The difference is mostly ODE stepping: Rodas5P with a dense
+  Jacobian here, against FBDF with KLU and a sparse coloured Jacobian there, which
+  measured 3.2× faster on the full ODE.
+
+**Recorded:** `dev/notes/2026-10-13-inference-paths.md`. It covers:
+- the cost arithmetic;
+- the speed levers and their constraints (after V7, since they invalidate V2's
+  bitwise replay);
+- Path 1, modular inference, and what the cut loses, which is the ptsG cell;
+- Path 2, amortised SBI, and its dimension limit;
+- combining them per module;
+- other avenues;
+- a three-way comparison on M0 (exact, modular, amortised) on V7's datasets.
+
+**Open for the user:**
+- whether the claim changes;
+- whether the M0 comparison and the solver change come before 16a.11.
+
+**Read before:** 16a.11 proposes 16b's allocation.
+
+*Sections:* §11 Beyond the horizon.
 
 ### 2026-10-05 — bulk metabolites, and a one-way seam
 

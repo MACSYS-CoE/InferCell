@@ -872,6 +872,11 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - a §12 entry;
   - **your approval of the budget and the allocation before 16b starts.**
 
+  **Annotated 2026-10-13 (parent §12):** read
+  `dev/notes/2026-10-13-inference-paths.md` before proposing the allocation. It
+  weighs a faster integrator, modular inference and amortised SBI against this
+  sampler, and none is decided.
+
 ### Phase 16b — Recovery on Core A′, at the rungs 16a.11 funds
 
 **Goal:** the parent's recovery, coverage and shrinkage results, each at a stated
