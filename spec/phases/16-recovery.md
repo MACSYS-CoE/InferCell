@@ -191,7 +191,7 @@ x̄_j,k = (1/C) Σ_c x_j(θ, X_c, t_k)
 | V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior. The grid density is evaluated on the θ scale, or on the ln θ scale with the Jacobian, and never as the same code path the sampler uses. Quantiles must agree within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
-| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows) | 16a.9 |
+| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows). **Amended 2026-10-12 (§12):** each band is at 1 − 0.05/6, so V7 as a whole is at 95%, on a complete set of R replicates | 16a.9 |
 | V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
 | V9 | Snapshot independence | Mutating one particle's snapshot leaves every other unchanged. This is the installed trap of solver objects shared across particles, tested directly | 16a.7 |
 
@@ -936,6 +936,44 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-12 — V7's pass rule: α/6 per parameter, on a complete set of replicates
+
+**Status: approved 2026-10-12, before any rank was computed.** Two of the 50
+replicates (33 and 40) had finished; nothing had been merged or read.
+
+**Trigger:** `/check-PR` on #82.
+- **The rule as written is too strict.** V7 has six parameters, and each gets a
+  95% simultaneous band. If V7 passes only when all six are within, a calibrated
+  sampler fails up to about 26% of the time. Under KR, a failure stops the phase.
+- **The automatic merge would rank a biased set.** Its `afterany` dependency
+  fires when the array ends, and ranks only the replicates that finished. Which
+  replicates finish depends on their speed, and their speed depends on θ. So that
+  set is not a sample from the prior.
+
+**Change.**
+- **The pass rule.** Each parameter's rank-ECDF band is at level
+  1 − 0.05/6 = 0.9917. **V7 passes when all six are within their bands.** By the
+  union bound, a calibrated sampler then fails V7 at most 5% of the time.
+  - Checked by simulation at R = 50 and L = 100, on uniform ranks, from the merge
+    script's own `ecdf_bands`. Per-parameter coverage is 0.9915. With six
+    independent parameters, all six are within 95.15% of the time.
+- **A complete set only.**
+  - The merge refuses to run while any of the R replicates is missing or short of
+    its sweeps.
+  - The automatic merge 18276795 was cancelled.
+  - The replicates that hit the 6-day limit are resubmitted from the v7 worktree
+    at `dfe570a`. Their run path is unchanged.
+  - The merge runs from the commit that carries this entry.
+- **Slow-mixing replicates are named, and the verdict is still on all R.**
+  - A replicate whose smallest bulk ESS over its kept sweeps is below 30 is
+    listed. Below 30, an AR(1) chain's thinned ranks start to widen.
+  - The bands are read again without the listed replicates, as a sensitivity.
+  - That reading is reported beside the verdict but does not decide it.
+  - Excluding a replicate for slow mixing is not done: mixing depends on θ, so
+    exclusion would bias the set as an incomplete set does.
+
+*Sections:* §3 V7, §8 KR, §11 16a.9b.
 
 ### 2026-10-08 — 16a.9b's size: V6 at 20 threads, V7 at 5, both with 100 sweeps of burn-in
 

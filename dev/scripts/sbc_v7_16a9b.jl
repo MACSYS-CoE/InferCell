@@ -10,13 +10,17 @@
 # SWEEPS sweeps and checkpoints after each one.
 #
 # The merge drops BURN sweeps, thins the rest to L draws, and ranks each
-# parameter's truth among them. The ranks then get a rank-ECDF with 95%
-# simultaneous bands (Säilynoja, Bürkner and Vehtari 2022, by simulation).
+# parameter's truth among them. The ranks then get a rank-ECDF with simultaneous
+# bands (Säilynoja, Bürkner and Vehtari 2022, by simulation), each at level
+# 1 − 0.05/P for P parameters, so a calibrated sampler fails V7 at most 5% of the
+# time (§12 2026-10-12). V7 passes when every parameter is within its band.
 #
 # Stages:
 #   run <r>     replicate r, resumable
-#   merge       ranks, bands and per-replicate diagnostics over every replicate
-#               that has a checkpoint; missing or short ones are named
+#   merge       ranks, bands and per-replicate diagnostics. It refuses while any
+#               replicate is missing or short: which replicates finish depends on
+#               their speed, and speed depends on θ, so a partial set is not a
+#               sample from the prior (§12 2026-10-12)
 # Regenerate: sbc_v7_16a9b.sh, from a worktree at a pushed commit.
 
 using InferCell
@@ -38,6 +42,7 @@ const HORIZON = parse(Float64, get(ENV, "V7_HORIZON", string(M0_HORIZON_S)))
 const SWEEPS = parse(Int, get(ENV, "V7_SWEEPS", "656"))      # §12 2026-10-08
 const BURN = parse(Int, get(ENV, "V7_BURN", "100"))
 const L = parse(Int, get(ENV, "V7_L", "100"))                # draws per replicate after thinning
+const ESS_FLOOR = 30                                          # §12 2026-10-12
 const N = 20
 const DATA_SEED0 = 16_200_000
 const START_SEED0 = 16_300_000
@@ -91,7 +96,7 @@ draws(t) = vcat(log.(t.cme), t.u, log(t.σ))
 # Simultaneous 1 − α bands for the ECDF of R ranks uniform on 0:L, on the grid
 # z_i = i / (L + 1): the pointwise level γ is the α quantile, over simulated
 # uniform rank sets, of the smallest two-sided binomial tail probability.
-function ecdf_bands(R, L; α = 0.05, nsim = 10_000, rng = Xoshiro(16_299_999))
+function ecdf_bands(R, L; α = 0.05, nsim = 50_000, rng = Xoshiro(16_299_999))
     z = (1:L) ./ (L + 1)
     tail(k, p) = (d = Binomial(R, p); 2 * min(cdf(d, k), 1 - cdf(d, k - 1)))
     mins = map(1:nsim) do _
@@ -110,12 +115,16 @@ function merge_replicates()
     done = filter(x -> length(x.state.trace) >= SWEEPS, saved)
     short = [(x.meta.replicate, length(x.state.trace)) for x in saved if length(x.state.trace) < SWEEPS]
     isempty(done) && error("no replicate has reached $SWEEPS sweeps")
+    expected = parse(Int, get(ENV, "V7_R", "50"))   # replicates V7 runs
+    missing_r = setdiff(1:expected, [x.meta.replicate for x in saved])
+    isempty(short) && isempty(missing_r) || error(
+        "V7 merges only a complete set (§12 2026-10-12). Short (replicate, sweeps): $short; " *
+        "missing: $missing_r. Resubmit them with ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh")
     names = string.(first(done).meta.names)
     P = length(names)
     R = length(done)
     println("V7: $R replicates at $SWEEPS sweeps, $BURN dropped, thinned to L = $L; ",
             "$(first(done).meta.ncells) cells, N = $N.")
-    isempty(short) || println("Not yet complete (replicate, sweeps): ", short)
 
     ranks = zeros(Int, R, P)
     ess_min = zeros(R)
@@ -135,20 +144,42 @@ function merge_replicates()
     nlow = count(e -> !(e >= L), ess_min)                    # NaN (too few draws) counts as low
     println("\nReplicates whose smallest bulk ESS over the kept sweeps is below L = $L: $nlow of $R ",
             "(their thinned draws are autocorrelated, which widens the rank distribution).")
+    # Below ESS_FLOOR an AR(1) chain's thinned ranks start to show; they are named,
+    # and the bands are read again without them, but the verdict is on all R.
+    slow = [x.meta.replicate for (j, x) in enumerate(done) if !(ess_min[j] >= ESS_FLOOR)]
+    println("Below ESS $ESS_FLOOR: ", isempty(slow) ? "none" : join(slow, ", "), ".")
 
-    z, lo, hi, γ = ecdf_bands(R, L)
-    println("\nRank-ECDF against 95% simultaneous bands (pointwise level γ = $(round(γ; sigdigits = 3))):\n")
+    α = 0.05 / P
+    z, lo, hi, γ = ecdf_bands(R, L; α)
+    println("\nRank-ECDF against simultaneous bands at 1 − 0.05/$P = $(round(1 - α; digits = 4)) ",
+            "per parameter (pointwise level γ = $(round(γ; sigdigits = 3))):\n")
     println("| Parameter (log) | Outside the band at | Largest |ECDF − z| | Verdict |")
     println("|---|---|---|---|")
+    within = falses(P)
     for p in 1:P
         counts = [count(<(i), ranks[:, p]) for i in 1:L]
         out = [i for i in 1:L if !(lo[i] <= counts[i] <= hi[i])]
+        within[p] = isempty(out)
         dev = maximum(abs.(counts ./ R .- z))
         @printf("| %s | %s | %.3f | %s |\n", names[p],
                 isempty(out) ? "nowhere" : join(round.(z[out]; digits = 2), ", "), dev,
                 isempty(out) ? "within" : "OUTSIDE")
     end
-    serialize(joinpath(DIR, "ranks.jls"), (; names, ranks, ess_min, R, L, z, lo, hi, γ,
+    println("\n**V7 ", all(within) ? "passes" : "FAILS", "** on all $R replicates: ",
+            count(within), " of $P parameters within their bands.")
+    if !isempty(slow)
+        keep = [j for (j, x) in enumerate(done) if !(x.meta.replicate in slow)]
+        if isempty(keep)
+            println("Every replicate is below ESS $ESS_FLOOR, so there is no sensitivity reading.")
+        else
+            _, lo2, hi2, _ = ecdf_bands(length(keep), L; α)
+            n2 = count(p -> all(lo2[i] <= count(<(i), ranks[keep, p]) <= hi2[i] for i in 1:L), 1:P)
+            println("Without the $(length(slow)) below ESS $ESS_FLOOR (sensitivity, not the verdict): ",
+                    "$n2 of $P within, on $(length(keep)) replicates.")
+        end
+    end
+    serialize(joinpath(DIR, "ranks.jls"), (; names, ranks, ess_min, R, L, z, lo, hi, γ, α,
+                                          within, slow,
                                           replicates = [x.meta.replicate for x in done]))
 end
 
