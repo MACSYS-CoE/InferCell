@@ -65,6 +65,11 @@ before V7.
      entry.
 3. **When V7 is merged:** apply the rule above, make F8's plots, tick 16a.9b,
    and open the 16a.9b PR from this branch.
+4. **Housekeeping:**
+   - Remove the worktrees `.worktrees/suite-docs` and `.worktrees/release-v0.2.0`,
+     and the merged branches `docs-reduced-syn3a` and `release-v0.2.0`.
+   - Merge main into this branch before the 16a.9b PR. Main has the v0.2.0 docs
+     and the test fixes from #83 and #84.
 
 ## Earlier: #82 merged; V6 is 0.001 short and topping up; V7 needs two decisions (2026-10-11)
 
