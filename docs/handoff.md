@@ -93,8 +93,16 @@ done, since V6 and V7 run from its commits.
   - Rodas5P in place with KLU: 1.7×, at production's accuracy and with no
     allocation.
   - FBDF dropped in out of place is 1.7× *slower*.
-- **The full run awaits the user's go-ahead:** both models, full horizon, 3 reps,
-  16 threads, about 3 h on 16 cores.
+- **Full run done** (job 18512579 at 3970801, 26 min). Results are in
+  `dev/scripts/bench_ode_solver_result.md`.
+  - FBDF with KLU: 3.4× serially, and 3.1 to 3.9× at 16 copies.
+  - Rodas5P with KLU: 1.6 to 2.0×, at production's accuracy.
+  - Both allocate almost nothing.
+  - FBDF is off by up to about 1 particle on M0, where Rodas5P is within
+    1e-5. Over the full cycle even production Rodas5P is off by 1.25 particles
+    against the tight reference.
+  - Adopting either changes task 1.6's decision, so it needs a §12 entry
+    after V7.
 
 **Next:**
 1. **14–15 Oct:** V7's timed-out replicates, as in the 2026-10-12 section below.

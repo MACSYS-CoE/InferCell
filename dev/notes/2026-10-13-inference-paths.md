@@ -78,8 +78,11 @@ full ODE (its `code/ode/README.md`, task 2b.2) and moved away from them:
 | Jacobian | Dense ForwardDiff each step (39% of our time) | Sparse AD on the flux Jacobian, `J = S · ∂V/∂u`, column-coloured | 8 colours against 85; `jac!` about 5× faster |
 | Linear algebra | Out-of-place `SVector`; 32×32 `lu` falls back to LAPACK and allocates (≥ 13%, plus GC) | In place; KLU with a `jac_prototype` including the diagonal | KLU over dense LU, 12% at 146 states |
 
-**Guess, not measured:** 3 to 5× on block 3, from the solver plus less allocation.
-Even then, a full-scale posterior stays above the remaining budget.
+**Measured since** (`dev/scripts/bench_ode_solver_result.md`, job 18512579): with
+KLU and a coloured sparse Jacobian, FBDF is 3.4× Rodas5P serially, and 3.1 to 3.9×
+with 16 copies on a node. Rodas5P with KLU is 1.6 to 2.0×, at production's accuracy.
+Both allocate almost nothing. FBDF swapped in alone, out of place, is slower. Even
+at 3.4×, a full-scale posterior stays above the remaining budget.
 
 **Constraints:**
 - Spec task 1.6 chose static out-of-place at 32 states. Revisiting it needs a §12
