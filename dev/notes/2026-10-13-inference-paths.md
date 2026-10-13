@@ -22,12 +22,15 @@ down so it is not re-derived.
 | Code | Model | 105 min cycle | Source |
 |---|---|---|---|
 | Thornburg et al.'s published code | Full syn3A | about 2.9 h (98.2 s per simulated min) | syn3a-ensemble `results/speed/speed_summary.csv` |
-| syn3a-ensemble port | Full syn3A | about 45 s alone on one core (0.425 s per simulated min); about 85 s per cell in a full 64-thread node | same file; 15,005 twenty-minute cells per node-hour |
+| syn3a-ensemble port | Full syn3A | about 45 s alone on one core (0.425 s per simulated min); about 47 s per cell on a full node run as one worker process per core | same file; 27,473 twenty-minute cells per node-hour (its README, lane 6a, F-B3) |
 | InferCell | Reduced syn3A (32 ODE states, 17 genes) | 32.2 s (5.11 ms per handshake) | spec 13.7, job 17298242 |
 | InferCell | M0 | 1.835 s | `dev/scripts/profile_b3_16a9b_result.md` |
 
-"15k cells per node-hour" counts **20-minute** cells (19 simulated minutes). That is
-about 2,700 full-length cycles per node-hour.
+"27k cells per node-hour" counts **20-minute** cells (19 simulated minutes). That is
+about 4,900 full-length cycles per node-hour. It is one Distributed worker per core;
+one 64-thread process gets 15,316 (about 2,700 full-length cycles), and the gap is
+garbage collection (below, "Shared"). Updated 2026-10-13 from lane 6a; the first
+version of this note quoted the threaded figure.
 
 ### A posterior needs millions of them
 
@@ -71,7 +74,7 @@ full ODE (its `code/ode/README.md`, task 2b.2) and moved away from them:
 
 | | InferCell (`src/handshake.jl:1379`) | syn3a-ensemble | Their measurement |
 |---|---|---|---|
-| Solver | Rodas5P | FBDF | Rodas5P 9.39 against FBDF 2.96 ms per simulated s, 3.2×, at matched tolerance, restarted every 1 s as ours is |
+| Solver | Rodas5P | FBDF | Rodas5P 9.39 against FBDF 2.96 ms per simulated s, 3.2×, at matched tolerance, restarted every 1 s (they rebuild the problem at each hook; we keep one integrator and mark its state modified, which may treat a multistep method differently) |
 | Jacobian | Dense ForwardDiff each step (39% of our time) | Sparse AD on the flux Jacobian, `J = S · ∂V/∂u`, column-coloured | 8 colours against 85; `jac!` about 5× faster |
 | Linear algebra | Out-of-place `SVector`; 32×32 `lu` falls back to LAPACK and allocates (≥ 13%, plus GC) | In place; KLU with a `jac_prototype` including the diagonal | KLU over dense LU, 12% at 146 states |
 
@@ -86,9 +89,16 @@ Even then, a full-scale posterior stays above the remaining budget.
 - A new integrator invalidates V2's bitwise replay, and V4 and V5 need rerunning.
   V6 and V7 belong to the current integrator, so the change comes after V7.
 
-**Shared, unsolved:** both codes slow down per cell on a full node. syn3a-ensemble
-sees 1.85×; InferCell sees about 1.5× contention plus 10 to 14% GC. syn3a-ensemble's
-phase 6a is diagnosing it, and its answer probably transfers. Its 6b (GPU batching
+**Shared, and diagnosed on their side:** both codes slow down per cell on a full
+node. syn3a-ensemble sees 1.85×; InferCell sees about 1.5× contention plus 10 to 14%
+GC. syn3a-ensemble's lane 6a (its README, F-B1 to F-B3) found the cause: Julia's
+stop-the-world garbage collector. Each of its cells allocates 0.63 GB, 92% of it in
+the hook's ODE, and at 64 threads the collector takes 44% of the wall time. Pinning,
+per-NUMA copies and GC threads change little; one worker process per core gives
+1.79× the cells per node-hour, bitwise identical. Cutting the ODE's allocation is
+not done there. For us this points at processes rather than threads for particles,
+and at measuring allocation per handshake alongside wall time
+(`dev/scripts/bench_ode_solver.jl`). syn3a-ensemble's 6b (GPU batching
 with DiffEqGPU) suits our particles too: 20 copies of one small ODE from different
 states.
 

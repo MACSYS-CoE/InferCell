@@ -6,7 +6,7 @@ The branch touches nothing under `src/` or `test/`, so its code is main's, which
 passed 28,352 of 28,352 (job 18461739). `phase-16a9a-gibbs` is kept until V7 is
 done, since V6 and V7 run from its commits.
 
-## Latest: an inference-paths note, a plan to close phase 16 at M0, bookkeeping (2026-10-13)
+## Latest: an inference-paths note, a plan to close phase 16 at M0, bookkeeping, a solver benchmark (2026-10-13)
 
 **The inference-paths note** (`dev/notes/2026-10-13-inference-paths.md`; spec §12
 2026-10-13, recorded and open):
@@ -62,6 +62,39 @@ done, since V6 and V7 run from its commits.
     worktree), 7 stray Slurm logs in `.worktrees/`, and two worktrees outside it
     (`~/.treehouse/InferCell-7fa5c6/1/InferCell` on `phase-14b-derivative-checks`,
     and `wt14c1` in an old session's scratchpad).
+
+**The ODE solver benchmark, drafted** (`dev/scripts/bench_ode_solver.{jl,slurm}`):
+- **Not done before.** syn3a-ensemble's task 2b.2 compared solvers on its full
+  146-state ODE, at its own tolerances, rebuilding the problem every hook. Ours
+  keeps one integrator and marks it modified every 1 s, which may reset FBDF to
+  first order, so its 3.2× need not transfer.
+- **Design.**
+  - One jump path is recorded from the production build at seed 1310. Six
+    integrators replay it: Rodas5P and FBDF, each out of place, in place with
+    dense LU, and in place with KLU and a coloured sparse Jacobian.
+  - Each is compared per handshake, in particles, with a Rodas5P at 1e-14/1e-12
+    on the same path.
+  - Also reported: wall, allocation, GC share and the integrator's step counts
+    per handshake, and an optional THREADS stage (copies at once).
+  - `src/` is unchanged.
+- **The note's syn3a-ensemble figure is updated.** It is now 27,473 cells per
+  node-hour, from lane 6a: one worker per core, where the threaded figure was
+  15k. Lane 6a found the threaded slowdown is the stop-the-world GC.
+- **Smoke runs, four bugs found and fixed:**
+  - this cluster sets `SBATCH_EXPORT=none`, so settings go through `--export`,
+    and VARIANTS is `+`-separated because `--export` splits on commas;
+  - the tight reference ran out of `maxiters` (18510849);
+  - `collect` of an `SVector` is a `SizedVector`, which KLU refuses (18511245);
+  - the in-place wrapper's length was a runtime `Int` and allocated (18512048).
+- **Smoke result** (job 18512335; M0, 60 handshakes, one repetition, indicative only):
+  - FBDF in place with KLU: 1.53 ms per handshake against Rodas5P's 5.08, so
+    3.3×. It allocates 7 KiB per handshake against 1,950 KiB. Its error is
+    2e-4 particles, against Rodas5P's 6e-6.
+  - Rodas5P in place with KLU: 1.7×, at production's accuracy and with no
+    allocation.
+  - FBDF dropped in out of place is 1.7× *slower*.
+- **The full run awaits the user's go-ahead:** both models, full horizon, 3 reps,
+  16 threads, about 3 h on 16 cores.
 
 **Next:**
 1. **14–15 Oct:** V7's timed-out replicates, as in the 2026-10-12 section below.
