@@ -1,6 +1,6 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b running; 16a.10, 16a.11 and 16b remain
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7); 16a.10, 16a.11 and 16b remain
 **Created:** 2026-09-30  ·  **Last amended:** 2026-10-09
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
@@ -850,7 +850,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - each dataset carrying its truth (σ included), seeds and report;
   - two runs at one seed being identical.
   **Met** (m0_16a8_result.md: 21 of 21; job 17800819).
-- [ ] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
+- [x] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
 - [x] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
@@ -870,10 +870,20 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
   is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
   0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
-- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
+- [x] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
   reference long — verify by V6, which justifies the length, and by V7 at
   production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
   pilot.
+  **Met.**
+  - **V6** (v6_16a9b_result.md, merge 18420990): 4 chains at 1,650 sweeps. Worst
+    R̂ 1.007, bulk ESS 1,081, quantile MCSE 0.049 SD, all on the GAPD promoter.
+  - **V7** (v7_16a9b_result.md, merge 18689602 at `0ff6cff`): **R = 50**, under
+    §12 2026-10-12's rule. All six parameters are within their bands at
+    1 − 0.05/6, and also without the four replicates below ESS 30. F8 is in
+    `dev/notes/figures/v7-16a9b/`.
+  - **Caveat:** 23 of the 50 replicates have a smallest bulk ESS below L = 100,
+    so the check is less sensitive than a well-mixed R = 50.
+  - **Cost:** V7 used 33.9k CPU-h, and phase 16 is at about 42k of the 50k.
 - [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5

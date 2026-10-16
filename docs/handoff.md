@@ -1,12 +1,50 @@
 # Handoff
 
-**Session date:** 2026-10-13
-**Branches:** `phase-16a9b-reference`, with main (`15d43dd`, v0.2.0) merged in.
-The branch touches nothing under `src/` or `test/`, so its code is main's, which
-passed 28,352 of 28,352 (job 18461739). `phase-16a9a-gibbs` is kept until V7 is
-done, since V6 and V7 run from its commits.
+**Session date:** 2026-10-17
+**Branches:** `phase-16a9b-reference`, pushed at `0ff6cff` before V7's merge,
+with main (`15d43dd`, v0.2.0) merged in. The branch touches nothing under `src/`
+or `test/`, so its code is main's, which passed 28,352 of 28,352 (job 18461739).
+`phase-16a9a-gibbs` and the worktrees `v7-16a9b` and `v6-16a9b` can go once the
+16a.9b PR merges. They hold the untracked checkpoints, so archive them first if
+you want them kept. `.worktrees/v7merge-0ff6cff` holds the merge log.
 
-## Latest: an inference-paths note, a plan to close phase 16 at M0, bookkeeping, a solver benchmark (2026-10-13)
+## Latest: V7 passes, 16a.9b is met (2026-10-17)
+
+**V7 passes** (`dev/scripts/v7_16a9b_result.md`; merge 18689602 at `0ff6cff`).
+- **The rule was applied as fixed in advance** (§12 2026-10-12), on a complete
+  set of R = 50. All six parameters are within their bands at 1 − 0.05/6, and
+  also without the four replicates below ESS 30 (4, 17, 24, 47).
+- **Largest |ECDF − z|:** 0.164 on `krnadeg`. The others are 0.075 to 0.104.
+- **Caveat, in the result file:** 23 of 50 replicates have a smallest bulk ESS
+  below L = 100 (median 109, minimum 15). The check is therefore less sensitive
+  than a well-mixed R = 50, and the pass does not bound how small a
+  miscalibration it would miss.
+- **Runs:** 34 replicates finished in array 18276794. The other 16 timed out at
+  6 days and resumed as 18628508, which ended at 07:48 on 17 Oct.
+- **Cost:** 33.9k CPU-h. Phase 16 is at about 42k of the 50k.
+
+**F8:** `dev/notes/figures/v7-16a9b/f8_rank_ecdf.*` (the primary plot) and
+`f8_rank_hist.*`.
+- The plots read `dev/scripts/v7_16a9b_{ranks,bands}.tsv`.
+  `dev/scripts/v7_16a9b_export.jl` writes those from the merge's `ranks.jls`.
+- They are drawn by `dev/scripts/plot_v7_16a9b.py` (miniconda python3).
+
+**Ticked:** 16a.9b, and 16a.9 with it.
+
+**Next:**
+1. **The 16a.9b PR** from this branch, then `/check-PR`, then merge.
+2. **F10's proposal is still waiting on your approval** (sub-spec §12
+   2026-10-13). On approval, submit the production chain from a worktree at a
+   pushed commit.
+3. **16a.11:** the M0 close-out plan, written up in the section below. Two calls
+   are yours there:
+   - whether V7 also serves as 16b.3's coverage result, now that it has passed;
+   - whether closing phase 16 at M0 meets its done-when.
+   About 8k CPU-h of the 50k remain.
+4. **The ODE solver benchmark** needs a §12 entry now that V7 is done, if either
+   KLU variant is to be adopted.
+
+## Earlier: an inference-paths note, a plan to close phase 16 at M0, bookkeeping, a solver benchmark (2026-10-13)
 
 **The inference-paths note** (`dev/notes/2026-10-13-inference-paths.md`; spec §12
 2026-10-13, recorded and open):
