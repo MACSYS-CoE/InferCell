@@ -1,10 +1,307 @@
 # Handoff
 
-**Session date:** 2026-10-08
-**Branches:** `phase-16a9a-gibbs`, pushed, with a PR for 16a.9a. #81 merged
-2026-10-06.
+**Session date:** 2026-10-17
+**Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
+commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
+under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
+- **Archive.** V6's and V7's checkpoints and logs, with V7's merge log, are
+  archived at `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/`. The
+  checksums are verified.
+- **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
+  `v7merge-0ff6cff`.
 
-## Latest: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
+## Latest: V7 passes, 16a.9b is met (2026-10-17)
+
+**V7 passes** (`dev/scripts/v7_16a9b_result.md`; merge 18689602 at `0ff6cff`).
+- **The rule was applied as fixed in advance** (§12 2026-10-12), on a complete
+  set of R = 50. All six parameters are within their bands at 1 − 0.05/6, and
+  also without the four replicates below ESS 30 (4, 17, 24, 47).
+- **Largest |ECDF − z|:** 0.164 on `krnadeg`. The others are 0.075 to 0.104.
+- **Caveat, in the result file:** 23 of 50 replicates have a smallest bulk ESS
+  below L = 100 (median 109, minimum 15). The check is therefore less sensitive
+  than a well-mixed R = 50, and the pass does not bound how small a
+  miscalibration it would miss.
+- **Runs:** 34 replicates finished in array 18276794. The other 16 timed out at
+  6 days and resumed as 18628508, which ended at 07:48 on 17 Oct.
+- **Cost:** 33.9k CPU-h. Phase 16 is at about 42k of the 50k.
+
+**F8:** `dev/notes/figures/v7-16a9b/f8_rank_ecdf.*` (the primary plot) and
+`f8_rank_hist.*`.
+- The plots read `dev/scripts/v7_16a9b_{ranks,bands}.tsv`.
+  `dev/scripts/v7_16a9b_export.jl` writes those from the merge's `ranks.jls`.
+- They are drawn by `dev/scripts/plot_v7_16a9b.py` (miniconda python3).
+
+**Ticked:** 16a.9b, and 16a.9 with it.
+
+**`/check-PR` on #86: merge after fixes.** Three reviewers reproduced V7
+independently. The fixes are in the PR:
+- the ledger now carries V7 and the bench jobs, at 42,067.9 of 50k;
+- F10's proposal is corrected to 656 sweeps, about 97 effective draws on V6's
+  dataset, with 700 sweeps as the alternative;
+- §12 2026-10-08 is annotated with the ESS shortfall;
+- the reproduce blocks, plot labels and histogram bins are fixed, and smaller
+  number corrections are made in the note and the benchmark.
+
+**Next:**
+1. **Done:** the 16a.9b PR (#86), reviewed and merged.
+2. **F10's proposal is still waiting on your approval** (sub-spec §12
+   2026-10-13, corrected 2026-10-17). It runs 656 sweeps, or 700 for at least
+   100 effective draws, and may need one resumption past the 6-day limit. On
+   approval, submit the production chain from a worktree at a pushed commit.
+3. **16a.11:** the M0 close-out plan, written up in the section below. Two calls
+   are yours there:
+   - whether V7 also serves as 16b.3's coverage result, now that it has passed.
+     Before saying "about 0 compute", note the known gaps: there is no K4
+     tight-prior control at 100 replications; L = 100 makes 99% intervals
+     close to the min and max; 23 replicates are below ESS 100; and 16b.2's
+     six-parameter set includes S_PGI, which M0 lacks;
+   - whether closing phase 16 at M0 meets its done-when.
+   About 8k CPU-h of the 50k remain.
+4. **The ODE solver benchmark** needs a §12 entry now that V7 is done, if either
+   KLU variant is to be adopted.
+
+## Earlier: an inference-paths note, a plan to close phase 16 at M0, bookkeeping, a solver benchmark (2026-10-13)
+
+**The inference-paths note** (`dev/notes/2026-10-13-inference-paths.md`; spec §12
+2026-10-13, recorded and open):
+- **Cost.** One exact full-scale posterior is about 7 to 14 million cell cycles,
+  so about 60k to 150k CPU-h (projected). The cost is the simulation count, not
+  the simulation.
+- **Speed.** syn3a-ensemble runs the *full* syn3A cell at about 1.4× this reduced
+  model's per-second cost. The likely lever is the ODE step: FBDF with KLU and a
+  coloured flux Jacobian, against our Rodas5P with a dense Jacobian (3.2× on their
+  ODE). Not before V7, since it breaks V2's bitwise replay.
+- **The paths weighed:** modular inference, amortised SBI, combining the two per
+  module, and other avenues. It proposes a three-way comparison on M0 (exact,
+  modular, amortised) on V7's datasets.
+- **Read it before 16a.11** (annotated there).
+
+**The plan to close phase 16, at the M0 rung.** Not yet in the spec. It goes into
+16a.11's §12 entry for the user's approval.
+- **Reused, at about 0 compute:**
+  - 16b.3's coverage, read off V7's 50 chains;
+  - 16b.2's recovery, from V6.
+- **New, about 4 to 5 single-chain M0 posteriors** (about 500 to 700 CPU-h each,
+  about 6 days each, run in parallel):
+  - 16b.1's perturbed truth;
+  - F6's transcripts-only and metabolites-only fits;
+  - K7's two fits, if PYK can be freed on M0.
+- **Probably budget-bound:** K2 at 1,000 cells.
+- **Scored "not run, budget-bound":** every full-scale item.
+- **Two calls for the user at 16a.11:**
+  - whether V7 can serve as both the KR gate and 16b.3's result;
+  - whether "closed at M0" satisfies phase 16's done-when.
+
+**Bookkeeping done:**
+- **Ticked:**
+  - 16a.6, met on the toy; the Core A′ scan stays open by decision;
+  - 16a.7, met in part and superseded in part;
+  - 16a.7a, superseded.
+- **F10's question is a proposal** in the sub-spec's §12 2026-10-13, awaiting
+  approval. It proposes:
+  - accepting N_ref = N under D16.5's PG case;
+  - a fresh production-length chain on V6's dataset (about 500 to 700 CPU-h);
+  - V6's 4 chains as the reference.
+- **Housekeeping:**
+  - removed `.worktrees/suite-docs`, `.worktrees/release-v0.2.0` and the local
+    branches `docs-reduced-syn3a` and `release-v0.2.0`;
+  - merged main in.
+  - removed the other 55 worktrees under `.worktrees/` with `--force`, at the
+    user's choice, **including their gitignored raw run outputs** (about 3.0 GB:
+    chain checkpoints, Slurm logs and per-run folders, among them the runs of
+    record in `agree14c5`, `suite14c5`, `sens15`, `ds15` and `pilot-16a9a`). The
+    committed `*_result.md` files stand; their raw data now regenerates only by
+    rerunning. Only `v7-16a9b` (V7 runs from it) and `v6-16a9b` remain.
+  - Left alone: `.worktrees/control14c/` (a plain folder of 14c.5 TSVs, not a
+    worktree), 7 stray Slurm logs in `.worktrees/`, and two worktrees outside it
+    (`~/.treehouse/InferCell-7fa5c6/1/InferCell` on `phase-14b-derivative-checks`,
+    and `wt14c1` in an old session's scratchpad).
+
+**The ODE solver benchmark, drafted** (`dev/scripts/bench_ode_solver.{jl,slurm}`):
+- **Not done before.** syn3a-ensemble's task 2b.2 compared solvers on its full
+  146-state ODE, at its own tolerances, rebuilding the problem every hook. Ours
+  keeps one integrator and marks it modified every 1 s, which may reset FBDF to
+  first order, so its 3.2× need not transfer.
+- **Design.**
+  - One jump path is recorded from the production build at seed 1310. Six
+    integrators replay it: Rodas5P and FBDF, each out of place, in place with
+    dense LU, and in place with KLU and a coloured sparse Jacobian.
+  - Each is compared per handshake, in particles, with a Rodas5P at 1e-14/1e-12
+    on the same path.
+  - Also reported: wall, allocation, GC share and the integrator's step counts
+    per handshake, and an optional THREADS stage (copies at once).
+  - `src/` is unchanged.
+- **The note's syn3a-ensemble figure is updated.** It is now 27,473 cells per
+  node-hour, from lane 6a: one worker per core, where the threaded figure was
+  15k. Lane 6a found the threaded slowdown is the stop-the-world GC.
+- **Smoke runs, four bugs found and fixed:**
+  - this cluster sets `SBATCH_EXPORT=none`, so settings go through `--export`,
+    and VARIANTS is `+`-separated because `--export` splits on commas;
+  - the tight reference ran out of `maxiters` (18510849);
+  - `collect` of an `SVector` is a `SizedVector`, which KLU refuses (18511245);
+  - the in-place wrapper's length was a runtime `Int` and allocated (18512048).
+- **Smoke result** (job 18512335; M0, 60 handshakes, one repetition, indicative only):
+  - FBDF in place with KLU: 1.53 ms per handshake against Rodas5P's 5.08, so
+    3.3×. It allocates 7 KiB per handshake against 1,950 KiB. Its error is
+    2e-4 particles, against Rodas5P's 6e-6.
+  - Rodas5P in place with KLU: 1.7×, at production's accuracy and with no
+    allocation.
+  - FBDF dropped in out of place is 1.7× *slower*.
+- **Full run done** (job 18512579 at 3970801, 26 min). Results are in
+  `dev/scripts/bench_ode_solver_result.md`.
+  - FBDF with KLU: 3.4× serially, and 3.1 to 3.9× at 16 copies.
+  - Rodas5P with KLU: 1.6 to 2.0×, at production's accuracy.
+  - Both allocate almost nothing.
+  - FBDF is off by up to about 1 particle on M0, where Rodas5P is within
+    1e-5. Over the full cycle even production Rodas5P is off by 1.25 particles
+    against the tight reference.
+  - Adopting either changes task 1.6's decision, so it needs a §12 entry
+    after V7.
+
+**Next:**
+1. **14–15 Oct:** V7's timed-out replicates, as in the 2026-10-12 section below.
+2. **If F10's proposal is approved,** submit the production chain from a worktree at
+   a pushed commit.
+3. **When V7 is merged:** apply the α/6 rule, make F8's plots, tick 16a.9b, and
+   open the 16a.9b PR. If V7 fails, that is KR: stop and diagnose.
+4. **16a.10, then 16a.11** with the M0 close-out allocation above.
+
+## Earlier: v0.2.0 released, V6 met, V7's pass rule fixed (2026-10-12)
+
+**Released v0.2.0** (tag at `15d43dd`; release notes on GitHub).
+- **#83 merged:** redundant test assertions dropped.
+- **#84 merged:** the README and the docs now lead with the reduced syn3A model.
+  - Docstrings say "the reduced syn3A model", not "Core A′". Identifiers,
+    comments and doc filenames are unchanged, and the user chose to keep
+    `build_corea` and the other `corea` names.
+  - The flaky bursty ON-fraction test is seeded, and bounded at 4 SE.
+  - The suite passed 28,352 of 28,352 (job 18461739). The README's quick start
+    ran end to end (job 18461692).
+- **#85 merged:** the version is now 0.2.0.
+- **Docs:** https://macsys-coe.github.io/InferCell/stable/ now serves v0.2.0.
+  - `dev/` builds from main.
+  - The JuliaFormatter check is advisory. It has failed or been cancelled on
+    every PR since #82.
+
+**V6 is met** (`dev/scripts/v6_16a9b_result.md`, merge 18420990 at 1,650
+sweeps). Worst values: R̂ 1.007, bulk ESS 1,081, quantile MCSE 0.049. All three
+are on the **GAPD** promoter, `S_JCVISYN3A_0607`. The earlier handoffs called it
+the ptsG promoter, which is wrong: ptsG is `S_JCVISYN3A_0779`.
+
+**V7's pass rule** is in §12 2026-10-12, approved before any rank was computed:
+- **Bands:** each parameter's band is at 1 − 0.05/6. V7 passes when all six are
+  within.
+- **A complete set only.** The merge refuses while any replicate is missing or
+  short.
+- **Slow mixing:** replicates with ESS below 30 are named and read again as a
+  sensitivity check. The verdict stays on all R.
+- **Code:** in `dev/scripts/sbc_v7_16a9b.jl` (merge path only).
+- **Checks:** band coverage was checked by simulation (0.9915 per parameter,
+  0.9515 for six). The patched merge was smoke-run on the earlier smoke
+  checkpoints: job 18475428 found an empty sensitivity set reported as a pass, and job 18475516 is of record after the fix.
+- **The automatic merge 18276795 was cancelled** by the user. `scontrol hold` is
+  not available on this cluster, and auto mode may not `scancel`.
+
+**V7's array** (18276794): replicates 33 and 40 completed, and the other 48 are
+running. About half will hit the 6-day limit around 14–15 Oct.
+
+**Ledger:** 16a.9 is at about 7.7k CPU-h, and phase 16 at about 8.1k of 50k,
+before V7.
+
+**Next:**
+1. **When V7's replicates time out (14–15 Oct):** resubmit them from the v7
+   worktree at `dfe570a` with `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh`.
+   - That also submits a merge from `dfe570a`, which has the old merge path.
+     Cancel it.
+   - Then run the merge from a worktree at this branch's pushed commit:
+     `V7_DIR=<v7 worktree>/dev/scripts/sbc_v7_16a9b sbatch dev/scripts/sbc_v7_16a9b.slurm merge`.
+2. **Meanwhile:**
+   - 16a.6 closeout: the toy test passed on 1 Oct; the Core A′ scan is open by
+     decision.
+   - Tick 16a.7 and 16a.7a, which are done or superseded.
+   - 16a.10 (F10), which needs only V6. Settle one question first. D16.5 asks
+     the reference for N_ref ≫ N and for chains far longer than V6 needs. V6 ran
+     PG at N = 20, production's own setting, and stopped just past V6. So F10
+     would compare the sampler with itself, which needs a decision or a §12
+     entry.
+3. **When V7 is merged:** apply the rule above, make F8's plots, tick 16a.9b,
+   and open the 16a.9b PR from this branch.
+4. **Housekeeping:**
+   - Remove the worktrees `.worktrees/suite-docs` and `.worktrees/release-v0.2.0`,
+     and the merged branches `docs-reduced-syn3a` and `release-v0.2.0`.
+   - Merge main into this branch before the 16a.9b PR. Main has the v0.2.0 docs
+     and the test fixes from #83 and #84.
+
+## Earlier: #82 merged; V6 is 0.001 short and topping up; V7 needs two decisions (2026-10-11)
+
+**V6 stage 2** (chains 18276511 to 18276514, merge 18276515 at `281d548`, 1,552
+sweeps, burn-in 100) missed by one value:
+- R̂ is at most 1.008 and bulk ESS at least 1006, so both pass.
+- MCSE(q05)/SD on the GAPD promoter (S_0607; the note said ptsG, wrongly) is **0.051**, against 0.05. Every
+  other quantile passes.
+- The merge projects 1,604 sweeps per chain.
+
+**The V6 top-up is running:** chains 18420986 to 18420989 run to **1,650** sweeps
+(about 98 more, about 455 CPU-h), with merge 18420990 (`merge 100`). They run from
+`.worktrees/v6-16a9b` at `281d548`. The checkpoints at 1,552 are archived in
+`stage2_1552/` and the pilot's sweep-200 starts in `pilot_200/`, both under that
+worktree's `dev/scripts/gibbs_pilot_16a9a/`.
+
+**V7** (array 18276794, 50 replicates) is about 2.5 days in. About 26 replicates
+will hit the 6-day limit around 14 to 15 Oct.
+
+**/check-PR on #82** passed, and its fixes went into the PR before the merge:
+- The docs had 8 Gibbs exports missing.
+- The pilot merge now takes `merge [burn] [upto]`. Job 18421022 used it to
+  regenerate V6 stage 1's table exactly from the extended checkpoints.
+- The stale records were fixed.
+
+The report is not in the repo. Its open findings are below.
+
+**Open, and both must be settled before V7's merge runs:**
+1. **V7's pass rule has a multiplicity problem. This is your decision, and it
+   goes in §12.** There are six per-parameter 95% bands, and V7 passes only if all
+   six are within. A calibrated sampler then fails up to about 26% of the time, and
+   under KR a failure stops the phase. Options:
+   - a 95% band split as α/6 per parameter (recommended);
+   - a joint band;
+   - keeping the rule and stating the false-fail rate.
+   Record the choice before seeing any ranks.
+2. **The automatic merge 18276795 must not run as is.** Its dependency is
+   `afterany`, so it fires when the array ends and ranks only the replicates that
+   finished. Which ones finish depends on speed, and speed depends on θ, so that
+   set is not a sample from the prior. Hold or cancel it (`scontrol hold
+   18276795`; auto mode cannot). Then change `merge_replicates` in
+   `dev/scripts/sbc_v7_16a9b.jl` to refuse while `short` is non-empty, and rerun
+   the merge from a new commit after the timed-out replicates are resubmitted with
+   `ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh` from the v7 worktree. That
+   resubmission also submits a fresh merge.
+3. **Slow-mixing replicates (minor).** A replicate whose ESS is far below L = 100
+   is counted but not acted on. An AR(1) simulation is harmless down to about 30
+   effective draws, with an 18% false alarm at about 8. Name such replicates and
+   exclude them.
+
+**Minor, left over from the review:**
+- `profile_b3_16a9b.slurm` and `thread_scaling_16a9b.slurm` need their `--output`
+  directories made by hand.
+- `thread_scaling_16a9b.slurm` has no `--time`.
+- Agent E suggested 7 simplifications, all optional, none touching results.
+  Examples: a `_gibbs_block1` helper; dropping the redundant `logpaths` in
+  block1.jl; a `gibbs_prior_start` helper, to add after V7.
+
+**Next:**
+1. When merge 18420990 lands (late on 11 Oct): check V6's criteria (R̂ < 1.01,
+   ESS ≥ 1,000, quantile MCSE ≤ 0.05 SD) and write `v6_16a9b_result.md`. Add the
+   ledger rows for stage 2 and the top-up, from sacct.
+2. Settle V7 items 1 and 2 above before about 14 Oct.
+3. Meanwhile: **16a.6** (the clipped-drain derivative test), which is not
+   blocked. Then **16a.10** (F10), which needs only V6. Then a draft of
+   **16a.11**.
+4. When V7 is complete: read the bands under the rule chosen in item 1, name any
+   replicates with low ESS, make F8's rank-ECDF plots, tick 16a.9b, and open the
+   16a.9b PR from this branch.
+
+## Earlier: V6 stage 1 done; 5 threads per chain is the cheap setting (2026-10-08)
 
 **V6 stage 1** (chains 18157561 to 18157564, merges 18157565 and 18271545;
 `dev/scripts/v6_stage1_16a9b_result.md`). The pilot's four chains ran from

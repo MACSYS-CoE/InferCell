@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b running; 16a.10, 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-09
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7) in PR #86; 16a.10, 16a.11 and 16b remain
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-17
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -191,7 +191,7 @@ x̄_j,k = (1/C) Σ_c x_j(θ, X_c, t_k)
 | V4 | Block 1 on a fixed path | On M0, 3 cells, path fixed: B1's samples of `(ln kcatF_ENO, ln kcatF_FBA)` match a 2-D grid posterior computed by direct replay under the same forward-only prior. The grid density is evaluated on the θ scale, or on the ln θ scale with the Jacobian, and never as the same code path the sampler uses. Quantiles must agree within 3 MC SE. `assert_haldane` holds at every accepted state | 16a.5 |
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
-| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows) | 16a.9 |
+| V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows). **Amended 2026-10-12 (§12):** each band is at 1 − 0.05/6, so V7 as a whole is at 95%, on a complete set of R replicates | 16a.9 |
 | V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
 | V9 | Snapshot independence | Mutating one particle's snapshot leaves every other unchanged. This is the installed trap of solver objects shared across particles, tested directly | 16a.7 |
 
@@ -740,7 +740,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   derived, σ updated separately — verify by V4, and by a test that the log-prior
   contains no `kcatR` term.
   **Met** (block1_16a5_result.md: V4 passes (job 17839209), and again on the bulk form (csmc_bulk_16a7c_result.md); FBA reading high is a watch item for V6 and V7).
-- [ ] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
+- [x] 16a.6 (parent 16.3) Confirm a clipped drain under a fixed path still has a
   discontinuous derivative in an ODE parameter — verify by a test, as the parent's
   annotation specifies:
   - on the clipped model, a finite-difference slope in `ln kcat` that jumps across a
@@ -749,7 +749,16 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - check 7's census cited as the source of the clip, not assumed.
 
   Recorded as the reason for D16.1.
-- [ ] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
+  **Met 2026-10-13 on the toy** (`fixed_path_kink_16a6_result.md`; job 17801857 at
+  `b7da3f0`, `test/test_fixed_path_kink.jl`, 9 of 9).
+  - The clamp's slope jump is 1.265 at 30 steps and 1.267 at 3. It does not shrink.
+  - The smoothed drain's jump falls from 0.236 to 0.024.
+  - Check 7's census places the clip at handshake 3.
+
+  **The Core A′ scan stays open, by decision of 2026-10-01.** It is not part of
+  this clause. ENO and FBA cannot move the first clip, and PGK3's zero slope is
+  unexplained. Block 1 is gradient-free (D16.1), so nothing downstream rests on it.
+- [x] 16a.7 (parent 16.2) Build the conditional SMC path update, with D16.3's weight,
   and choose PG, PGAS or truncated PGAS. Verify by:
   - V5 in both cases, its mutations and the weight unit test, and V9;
   - per-particle streams: two restores of one snapshot, seeded alike, give identical
@@ -765,7 +774,15 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   full-scale check to 16a.7b.
   **Annotated 2026-10-05 (§12):** the variant is PG (lag 0) under bulk metabolites,
   at an N 16a.7c sets.
-- [ ] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
+  **Closed 2026-10-13: met in part, and superseded in part.**
+  - **Met:** V5 in both cases, the weight unit test, V9 and the per-particle streams
+    (`test/test_csmc.jl`, in the suite of job 18461739).
+  - **Superseded:** the rates at N < 50, which were not needed once N = 50 fired KP.
+    The choice is made in 16a.7c (PG, lag 0, N = 20). The rates and cost on a
+    full-scale cell under bulk data are measured in 16a.11, as 16a.7c says.
+    The clause's "its mutations" has no definition: §3's V5 lists none (the three
+    mutations there are V1's), so nothing further is ticked for it.
+- [x] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
   Gibbs, and measure it on M0. Verify by:
   - a unit test that the reference's backward chain uses the stage moves in reverse
     and returns its own path;
@@ -788,6 +805,8 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
 
   **Superseded for production 2026-10-05 (§12)** by the bulk observation model. The
   code and its V5 pass stand, with the annealing off by default.
+  **Closed 2026-10-13 as superseded.** KP's second firing was answered by the
+  observation model, not by a choice here.
 - [x] 16a.7b (§12 2026-10-02) Check the window proposal at full scale. Verify by the
   transcript-weighted rank of the true path's panel pools among proposals from its
   own state, on five independent 15.7-truth cells (30001 to 30005), with each pool's
@@ -833,7 +852,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - each dataset carrying its truth (σ included), seeds and report;
   - two runs at one seed being identical.
   **Met** (m0_16a8_result.md: 21 of 21; job 17800819).
-- [ ] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
+- [x] 16a.9 (split into 16a.9a and 16a.9b — see amendment 2026-10-06) (parent 16.1, run) Run the M0 reference long — verify by V6, which
   justifies the length, and by V7 at production settings on R ≥ 50 datasets, with R
   stated.
 - [x] 16a.9a (§12 2026-10-06) Compose the three blocks into one Gibbs chain on M0,
@@ -853,10 +872,20 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   `b030512`; pilot jobs 18108335 to 18108339 at `6f8bcbc`. The slowest bulk ESS
   is 0.108 per sweep, on the ptsG promoter, and the lowest live update rate is
   0.34. V6 projects to 11.4k CPU-h and V7 at R = 50 to 57k).
-- [ ] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
+- [x] 16a.9b (§12 2026-10-06; staged by §12 2026-10-07, sized by §12 2026-10-08) Run the M0
   reference long — verify by V6, which justifies the length, and by V7 at
   production settings on R ≥ 50 datasets, with R stated. Sized from 16a.9a's
   pilot.
+  **Met.**
+  - **V6** (v6_16a9b_result.md, merge 18420990): 4 chains at 1,650 sweeps. Worst
+    R̂ 1.007, bulk ESS 1,081, quantile MCSE 0.049 SD, all on the GAPD promoter.
+  - **V7** (v7_16a9b_result.md, merge 18689602 at `0ff6cff`): **R = 50**, under
+    §12 2026-10-12's rule. All six parameters are within their bands at
+    1 − 0.05/6, and also without the four replicates below ESS 30. F8 is in
+    `dev/notes/figures/v7-16a9b/`.
+  - **Caveat:** 23 of the 50 replicates have a smallest bulk ESS below L = 100,
+    so the check is less sensitive than a well-mixed R = 50.
+  - **Cost:** V7 used 33.9k CPU-h, and phase 16 is at about 42k of the 50k.
 - [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5
@@ -871,6 +900,11 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
     budget-bound item named;
   - a §12 entry;
   - **your approval of the budget and the allocation before 16b starts.**
+
+  **Annotated 2026-10-13 (parent §12):** read
+  `dev/notes/2026-10-13-inference-paths.md` before proposing the allocation. It
+  weighs a faster integrator, modular inference and amortised SBI against this
+  sampler, and none is decided.
 
 ### Phase 16b — Recovery on Core A′, at the rungs 16a.11 funds
 
@@ -937,6 +971,90 @@ parent's phase 16 stays unticked. It does not count as done.
 
 ## 12. Amendment log
 
+### 2026-10-13 — F10 when the reference runs at production's N
+
+**Status: proposed 2026-10-13, awaiting your approval.** No F10 compute runs before
+it is approved.
+
+**Trigger:** V6 is met (`v6_16a9b_result.md`, merge 18420990) with PG at N = 20,
+production's own setting, over 4 chains of 1,650 sweeps. That is just past V6, not
+"far longer". D16.5 asked for N_ref ≫ N and chains far longer than V6 requires.
+Neither holds.
+
+**Why F10 still measures something:**
+- D16.5's own case analysis says that when production is PG, the particle count
+  costs mixing, not bias. F10 then measures only the Monte Carlo and mixing error
+  of production's settings.
+- V6 checks the reference's convergence directly, by R̂, ESS and quantile MCSE. So
+  the reference's accuracy does not rest on N_ref.
+- **What F10 compares is the run length, not the sampler.** A production-length
+  chain is set against the long reference on the same dataset. That is the
+  question 16b's single chains raise.
+
+**Proposed change:**
+- **Production arm:** one fresh chain on V6's dataset, at V7's production length
+  (100 sweeps of burn-in plus at least 100 effective draws, about 656 sweeps), at 5
+  threads. About 500 to 700 CPU-h and about 6 days.
+  - **Corrected 2026-10-17, before approval (#86 review).** 656 sweeps does not
+    give 100 effective draws. On V6's dataset the slowest bulk rate is 0.174 per
+    sweep (the GAPD promoter), so 556 kept sweeps give about 97. In V7, 23 of 50
+    replicates fell short of 100 at 656 sweeps (`v7_16a9b_result.md`).
+  - **The proposal is now 656 sweeps, stated as such.** That is the length
+    production runs, which is what F10 compares. It gives about 97 effective
+    draws on the slowest parameter.
+  - **The cost** is about 510 CPU-h at 0.78 CPU-h per sweep. V7's sweeps took 450
+    to 1,100 s, so the wall time is 3.4 to 8.4 days, and the chain may need one
+    resumption past the 6-day limit.
+  - **Alternative:** 700 sweeps for at least 100 effective draws, about 550 CPU-h.
+- **Reference arm:** V6's 4 chains, with V8's floor from their split halves.
+- **D16.5** is annotated: N_ref = N, justified by the PG case, and F10's caption
+  says so.
+- **Alternative, at no cost:** hold out one V6 chain's first 656 sweeps as the
+  production arm against the other three. The chains are independent, but the
+  reference falls to 3 chains and below V6's ESS of 1,000.
+
+**Recommended:** the fresh chain. It is clean, and it fits in the remaining cap.
+
+*Sections:* D16.5, §11 16a.10.
+
+### 2026-10-12 — V7's pass rule: α/6 per parameter, on a complete set of replicates
+
+**Status: approved 2026-10-12, before any rank was computed.** Two of the 50
+replicates (33 and 40) had finished; nothing had been merged or read.
+
+**Trigger:** `/check-PR` on #82.
+- **The rule as written is too strict.** V7 has six parameters, and each gets a
+  95% simultaneous band. If V7 passes only when all six are within, a calibrated
+  sampler fails up to about 26% of the time. Under KR, a failure stops the phase.
+- **The automatic merge would rank a biased set.** Its `afterany` dependency
+  fires when the array ends, and ranks only the replicates that finished. Which
+  replicates finish depends on their speed, and their speed depends on θ. So that
+  set is not a sample from the prior.
+
+**Change.**
+- **The pass rule.** Each parameter's rank-ECDF band is at level
+  1 − 0.05/6 = 0.9917. **V7 passes when all six are within their bands.** By the
+  union bound, a calibrated sampler then fails V7 at most 5% of the time.
+  - Checked by simulation at R = 50 and L = 100, on uniform ranks, from the merge
+    script's own `ecdf_bands`. Per-parameter coverage is 0.9915. With six
+    independent parameters, all six are within 95.15% of the time.
+- **A complete set only.**
+  - The merge refuses to run while any of the R replicates is missing or short of
+    its sweeps.
+  - The automatic merge 18276795 was cancelled.
+  - The replicates that hit the 6-day limit are resubmitted from the v7 worktree
+    at `dfe570a`. Their run path is unchanged.
+  - The merge runs from the commit that carries this entry.
+- **Slow-mixing replicates are named, and the verdict is still on all R.**
+  - A replicate whose smallest bulk ESS over its kept sweeps is below 30 is
+    listed. Below 30, an AR(1) chain's thinned ranks start to widen.
+  - The bands are read again without the listed replicates, as a sensitivity.
+  - That reading is reported beside the verdict but does not decide it.
+  - Excluding a replicate for slow mixing is not done: mixing depends on θ, so
+    exclusion would bias the set as an incomplete set does.
+
+*Sections:* §3 V7, §8 KR, §11 16a.9b.
+
 ### 2026-10-08 — 16a.9b's size: V6 at 20 threads, V7 at 5, both with 100 sweeps of burn-in
 
 **Status: approved 2026-10-08.** This decides option 3 of §12 2026-10-07.
@@ -978,6 +1096,17 @@ to let both V6 and V7 run.
   each is resubmitted once from its checkpoint.
 - **The cause is untested.** Every node is fully loaded, and each replicate's
   dataset differs.
+
+**Annotated 2026-10-17: V7 is done, and 23 of 50 replicates fell short of 100
+effective draws.**
+- **The shortfall.** The smallest bulk ESS over the kept sweeps ranges from 15 to
+  325, median 109. The 656 sweeps came from V6's one dataset. Across prior-drawn
+  θ, some replicates mix more slowly than that.
+- **The verdict is unaffected.** The verify clause asks for R ≥ 50 at production
+  settings, not a per-replicate ESS. §12 2026-10-12's rule passes on all 50.
+- **The check is less sensitive.** The loss is recorded in
+  `v7_16a9b_result.md`.
+- **The cost:** 33.9k CPU-h, against the 35.7k projected above.
 
 *Sections:* §11 16a.9b.
 

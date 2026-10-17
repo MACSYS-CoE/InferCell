@@ -8,6 +8,7 @@ set -euo pipefail
 mkdir -p dev/scripts/sbc_v7_16a9b
 S=dev/scripts/sbc_v7_16a9b.slurm
 R=${R:-50}
+export V7_R=$R   # the merge's complete-set guard expects R replicates
 ARRAY=${ARRAY:-1-$R}
 TIME=${TIME:-6-00:00:00}
 a=$(sbatch --parsable --export=ALL --time=$TIME --array=$ARRAY $S)

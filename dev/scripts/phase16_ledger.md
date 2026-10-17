@@ -76,8 +76,22 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18276616, 18276617 | 16a.9b | V7 smoke: 3 replicates, 3 cells, 2 windows, 6 sweeps, and merge | 5 | ~0:06 each | 1.47 |
 
-**16a total, excluding 16a.9: about 403.6 CPU-h** (the rows' sum, recomputed after
-the #81 review, which found the running total had drifted).
+| 18276511–18276515 | 16a.9b | V6 stage 2: 4 chains, 700 → 1,552 sweeps, and merge | 20 | ~50 h each | 4,038.65 |
+| 18420986–18420990 | 16a.9b | V6 top-up: 4 chains, 1,552 → 1,650 sweeps, and merge (of record) | 20 | 5.4–6.9 h each | 462.55 |
+| 18421022 | 16a.9b | V6 stage 1's table regenerated from the extended checkpoints | 1 | 0:04:15 | 0.07 |
+| 18475428, 18475516 | 16a.9b | V7's patched merge smoked on the smoke checkpoints; the second of record | 1 | 0:02:37, 0:01:23 | 0.07 |
+| 18276794 (50 tasks) | 16a.9b | V7: 50 replicates, 34 to 656 sweeps and 16 to the 6-day limit | 5 | 4.5–6.0 d each | 33,296.72 |
+| 18628508 (16 tasks) | 16a.9b | V7: the 16 timed-out replicates resumed to 656 sweeps | 5 | 0:29–18:01 each | 626.85 |
+| 18689602 | 16a.9b | V7 merge on the complete set (of record) | 1 | 0:01:43 | 0.03 |
 
-**16a.9 so far: about 3,231.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). **Phase 16 total: about 3,635.1 CPU-h** of 50k.
+| 18510849, 18511245, 18511832, 18512048, 18512335 | 16a.11 | ODE solver benchmark, smoke runs | 2 | 0:04–0:09 each | 0.96 |
+| 18512579 | 16a.11 | ODE solver benchmark (of record) | 16 | 0:25:45 | 6.87 |
+
+**16a total, excluding 16a.9: about 411.4 CPU-h** (the rows' sum, recomputed after
+the #81 review, which found the running total had drifted; 403.6 before the ODE
+solver benchmark's 7.8).
+
+**16a.9: about 41,656.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
+2026-10-08, annotated). **Phase 16 total: about 42,067.9 CPU-h** of 50k, so about
+7.9k remain.
