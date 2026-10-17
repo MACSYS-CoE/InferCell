@@ -79,3 +79,4 @@ docs/Manifest.toml
 /dev/scripts/sbc_v7_smoke/
 /dev/scripts/profile_b3_16a9b/
 /dev/scripts/thread_scaling_16a9b/
+dev/scripts/bench_ode_solver_smoke.md

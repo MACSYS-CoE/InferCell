@@ -73,23 +73,32 @@ replicates.
 ```
 # replicates (run path), from a worktree at dfe570a:
 ARRAY=1-50 bash dev/scripts/sbc_v7_16a9b.sh            # then cancel its merge
+# replicates that hit the 6-day limit resume from their checkpoints with the
+# same command, ARRAY=<ids> bash dev/scripts/sbc_v7_16a9b.sh (cancel its merge too)
 # merge, from a worktree at 0ff6cff:
+mkdir -p dev/scripts/sbc_v7_16a9b                     # the log dir is gitignored
 V7_DIR=<v7 worktree>/dev/scripts/sbc_v7_16a9b \
   sbatch --export=ALL --time=01:00:00 --cpus-per-task=1 --mem=16G -J v7_merge \
   dev/scripts/sbc_v7_16a9b.slurm merge
-# F8:
+# F8 (export: stdlib only; plot: numpy, scipy, matplotlib, e.g. the cluster's
+# /fred/oz022/tkimpson/miniconda3/bin/python3 with matplotlib 3.10.5, scipy 1.15.3,
+# numpy 2.2.6; the system python3 has no matplotlib):
 julia dev/scripts/v7_16a9b_export.jl <v7 worktree>/dev/scripts/sbc_v7_16a9b
 python3 dev/scripts/plot_v7_16a9b.py
 ```
 
-The checkpoints (`replicate*.jls`, `ranks.jls`) are untracked under
-`.worktrees/v7-16a9b/dev/scripts/sbc_v7_16a9b/`. The ranks, per-replicate ESS
+The checkpoints (`replicate*.jls`, `ranks.jls`), the replicate logs and the merge
+log are archived, untracked, at
+`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/` (checksums verified
+against the originals in `.worktrees/v7-16a9b/`). The ranks, per-replicate ESS
 and bands that the plots read are committed as `v7_16a9b_ranks.tsv` and
 `v7_16a9b_bands.tsv`.
 
 ## Per replicate (merge 18689602)
 
-Ranks are in the order of the table above.
+Ranks are in the order of the table above. The merge prints ESS rounded to an
+integer. The counts above use the unrounded values (in `v7_16a9b_ranks.tsv`), so
+replicate 15's "100" is 99.7 and counts as below 100.
 
 | Replicate | Seed | Min bulk ESS (kept) | Ranks (of 100) |
 |---|---|---|---|

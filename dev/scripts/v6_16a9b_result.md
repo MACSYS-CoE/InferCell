@@ -64,3 +64,24 @@ From Slurm's CPUTimeRAW (`phase16_ledger.md`):
 - job 18421022, which regenerated stage 1's table: 0.07 CPU-h.
 
 **V6 in all, with stage 1 (2,308.3 and 0.07):** about 6,809.7 CPU-h.
+
+## Reproduce
+
+From a worktree at `281d548`. A chain resumes bitwise from its checkpoint, so each
+stage is the same command with a larger `SWEEPS`. Repeat it until all four chains
+reach that length. Each `.sh` call also queues a merge with no burn-in, which is
+not the merge of record, so cancel it.
+
+```
+SWEEPS=200  TIME=2-00:00:00 bash dev/scripts/gibbs_pilot_16a9a.sh   # 16a.9a pilot
+SWEEPS=700  TIME=6-00:00:00 bash dev/scripts/gibbs_pilot_16a9a.sh   # stage 1
+SWEEPS=1552 TIME=6-00:00:00 bash dev/scripts/gibbs_pilot_16a9a.sh   # stage 2
+SWEEPS=1650 TIME=14:00:00   bash dev/scripts/gibbs_pilot_16a9a.sh   # top-up
+sbatch --time=00:45:00 --cpus-per-task=1 --mem=16G -J v6_merge100 \
+  dev/scripts/gibbs_pilot_16a9a.slurm merge 100                      # of record
+```
+
+The chains run at 20 threads (the `.slurm` file's `--cpus-per-task`). The
+checkpoints at 1,650 sweeps, the archives `stage2_1552/` and `pilot_200/`, and
+every chain and merge log are archived, untracked, at
+`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v6/gibbs_pilot_16a9a/`.

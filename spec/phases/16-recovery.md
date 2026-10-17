@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7); 16a.10, 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-09
+**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7) in PR #86; 16a.10, 16a.11 and 16b remain
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-17
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -778,8 +778,10 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - **Met:** V5 in both cases, the weight unit test, V9 and the per-particle streams
     (`test/test_csmc.jl`, in the suite of job 18461739).
   - **Superseded:** the rates at N < 50, which were not needed once N = 50 fired KP.
-    The choice is made in 16a.7c (PG, lag 0, N = 20), and the full-scale check is
-    16a.7b.
+    The choice is made in 16a.7c (PG, lag 0, N = 20). The rates and cost on a
+    full-scale cell under bulk data are measured in 16a.11, as 16a.7c says.
+    The clause's "its mutations" has no definition: §3's V5 lists none (the three
+    mutations there are V1's), so nothing further is ticked for it.
 - [x] 16a.7a (§12 2026-10-02) Build D16.3's annealed window proposal, under particle
   Gibbs, and measure it on M0. Verify by:
   - a unit test that the reference's backward chain uses the stage moves in reverse
@@ -993,6 +995,17 @@ Neither holds.
 - **Production arm:** one fresh chain on V6's dataset, at V7's production length
   (100 sweeps of burn-in plus at least 100 effective draws, about 656 sweeps), at 5
   threads. About 500 to 700 CPU-h and about 6 days.
+  - **Corrected 2026-10-17, before approval (#86 review).** 656 sweeps does not
+    give 100 effective draws. On V6's dataset the slowest bulk rate is 0.174 per
+    sweep (the GAPD promoter), so 556 kept sweeps give about 97. In V7, 23 of 50
+    replicates fell short of 100 at 656 sweeps (`v7_16a9b_result.md`).
+  - **The proposal is now 656 sweeps, stated as such.** That is the length
+    production runs, which is what F10 compares. It gives about 97 effective
+    draws on the slowest parameter.
+  - **The cost** is about 510 CPU-h at 0.78 CPU-h per sweep. V7's sweeps took 450
+    to 1,100 s, so the wall time is 3.4 to 8.4 days, and the chain may need one
+    resumption past the 6-day limit.
+  - **Alternative:** 700 sweeps for at least 100 effective draws, about 550 CPU-h.
 - **Reference arm:** V6's 4 chains, with V8's floor from their split halves.
 - **D16.5** is annotated: N_ref = N, justified by the PG case, and F10's caption
   says so.
@@ -1083,6 +1096,17 @@ to let both V6 and V7 run.
   each is resubmitted once from its checkpoint.
 - **The cause is untested.** Every node is fully loaded, and each replicate's
   dataset differs.
+
+**Annotated 2026-10-17: V7 is done, and 23 of 50 replicates fell short of 100
+effective draws.**
+- **The shortfall.** The smallest bulk ESS over the kept sweeps ranges from 15 to
+  325, median 109. The 656 sweeps came from V6's one dataset. Across prior-drawn
+  θ, some replicates mix more slowly than that.
+- **The verdict is unaffected.** The verify clause asks for R ≥ 50 at production
+  settings, not a per-replicate ESS. §12 2026-10-12's rule passes on all 50.
+- **The check is less sensitive.** The loss is recorded in
+  `v7_16a9b_result.md`.
+- **The cost:** 33.9k CPU-h, against the 35.7k projected above.
 
 *Sections:* §11 16a.9b.
 

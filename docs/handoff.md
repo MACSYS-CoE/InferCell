@@ -1,12 +1,14 @@
 # Handoff
 
 **Session date:** 2026-10-17
-**Branches:** `phase-16a9b-reference`, pushed at `0ff6cff` before V7's merge,
-with main (`15d43dd`, v0.2.0) merged in. The branch touches nothing under `src/`
-or `test/`, so its code is main's, which passed 28,352 of 28,352 (job 18461739).
-`phase-16a9a-gibbs` and the worktrees `v7-16a9b` and `v6-16a9b` can go once the
-16a.9b PR merges. They hold the untracked checkpoints, so archive them first if
-you want them kept. `.worktrees/v7merge-0ff6cff` holds the merge log.
+**Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
+commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
+under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
+- **Archive.** V6's and V7's checkpoints and logs, with V7's merge log, are
+  archived at `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/`. The
+  checksums are verified.
+- **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
+  `v7merge-0ff6cff`.
 
 ## Latest: V7 passes, 16a.9b is met (2026-10-17)
 
@@ -31,14 +33,28 @@ you want them kept. `.worktrees/v7merge-0ff6cff` holds the merge log.
 
 **Ticked:** 16a.9b, and 16a.9 with it.
 
+**`/check-PR` on #86: merge after fixes.** Three reviewers reproduced V7
+independently. The fixes are in the PR:
+- the ledger now carries V7 and the bench jobs, at 42,067.9 of 50k;
+- F10's proposal is corrected to 656 sweeps, about 97 effective draws on V6's
+  dataset, with 700 sweeps as the alternative;
+- §12 2026-10-08 is annotated with the ESS shortfall;
+- the reproduce blocks, plot labels and histogram bins are fixed, and smaller
+  number corrections are made in the note and the benchmark.
+
 **Next:**
-1. **The 16a.9b PR** from this branch, then `/check-PR`, then merge.
+1. **Done:** the 16a.9b PR (#86), reviewed and merged.
 2. **F10's proposal is still waiting on your approval** (sub-spec §12
-   2026-10-13). On approval, submit the production chain from a worktree at a
-   pushed commit.
+   2026-10-13, corrected 2026-10-17). It runs 656 sweeps, or 700 for at least
+   100 effective draws, and may need one resumption past the 6-day limit. On
+   approval, submit the production chain from a worktree at a pushed commit.
 3. **16a.11:** the M0 close-out plan, written up in the section below. Two calls
    are yours there:
-   - whether V7 also serves as 16b.3's coverage result, now that it has passed;
+   - whether V7 also serves as 16b.3's coverage result, now that it has passed.
+     Before saying "about 0 compute", note the known gaps: there is no K4
+     tight-prior control at 100 replications; L = 100 makes 99% intervals
+     close to the min and max; 23 replicates are below ESS 100; and 16b.2's
+     six-parameter set includes S_PGI, which M0 lacks;
    - whether closing phase 16 at M0 meets its done-when.
    About 8k CPU-h of the 50k remain.
 4. **The ODE solver benchmark** needs a §12 entry now that V7 is done, if either

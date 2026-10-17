@@ -10,7 +10,7 @@ parameter).
 ## 1. Why this note
 
 One exact posterior on the reduced syn3A model is projected to cost about 60k to
-150k CPU-h. The phase 16 cap is 50k, and V7 alone takes about 36k of it. Coverage
+150k CPU-h. The phase 16 cap is 50k, and V7 alone took about 34k of it (33.9k measured; 36k projected when this was written). Coverage
 needs at least 50 posteriors. So the current route cannot deliver phase 16's claim
 at full scale. It was a question of which path to take next, and it is written
 down so it is not re-derived.
@@ -58,8 +58,8 @@ time. Each replicate draws its own truth and dataset and needs its own posterior
 The covered count is binomial. At R = 50 and 90% nominal, a calibrated sampler
 covers about 41 to 49 times, so R = 50 detects only gross miscalibration. 16b.3
 asks for R ≥ 50; K4 asks for 100 on the tight-prior control. With the exact
-sampler, coverage costs R posteriors. V7 is this check on M0 (R = 50, about 36k
-CPU-h projected).
+sampler, coverage costs R posteriors. V7 is this check on M0 (R = 50, 33.9k
+CPU-h measured, against about 36k projected).
 
 ## 3. Speed: what syn3a-ensemble shows
 
@@ -196,7 +196,10 @@ practical route is simulations in Julia and training in Python's `sbi`.
 ## 7. A first experiment: three posteriors on M0
 
 On V7's 50 M0 datasets, compare:
-1. **Exact:** V7's chains.
+1. **Exact:** V7's chains. *Added 2026-10-17:* their smallest ESS runs from 15
+   to 325 (`v7_16a9b_result.md`), so a gap measured against single V7 chains is
+   largely their Monte Carlo error. V8's floor comes from V6's split halves, so the
+   two are not directly comparable. Size the yardstick before using it.
 2. **Modular:** block-wise fits with the interface given.
 3. **Amortised:** NPE trained on M0 simulations.
 
