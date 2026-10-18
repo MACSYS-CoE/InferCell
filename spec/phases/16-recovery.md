@@ -991,7 +991,8 @@ floor is read as "not resolved at production's length".
 own setup (replicate 16085, 50 cells, N = 20) as a fifth chain, started from the
 prior with `Xoshiro(16_090_005)`, at 5 threads, in its own directory so that no V6
 merge reads it. `src/` changed only in docstrings between V6's commit `281d548` and
-this run. The chain's recorded truth and σ_b are checked against V6's.
+this run. Job 18751635 at `a0060de` runs it. Its first checkpoint records the same
+replicate, cells, N, truth and σ_b as V6's `chain1.jls`, and a different start.
 
 **Trigger:** V6 is met (`v6_16a9b_result.md`, merge 18420990) with PG at N = 20,
 production's own setting, over 4 chains of 1,650 sweeps. That is just past V6, not

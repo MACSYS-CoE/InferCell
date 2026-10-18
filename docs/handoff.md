@@ -8,7 +8,7 @@
 status now records the alternatives weighed and why each was set aside. D16.5 is
 annotated with N_ref = N under the PG case.
 
-**The run:** smoke job 18751515 (3 cells, 2 sweeps) passed; `dev/scripts/f10_16a10.sh` submits `gibbs_pilot_16a9a.jl run 5 656`.
+**Running:** job 18751635, from `.worktrees/f10-16a10` at `a0060de`, submitted 11:37 on 18 Oct. Smoke job 18751515 (3 cells, 2 sweeps) passed first. `dev/scripts/f10_16a10.sh` submits `gibbs_pilot_16a9a.jl run 5 656`.
 - That is V6's setup run as a fifth chain, started with `Xoshiro(16_090_005)`, at 5
   threads, 6 days.
 - It writes to `dev/scripts/f10_16a10/` (gitignored). That is its own directory, so
@@ -18,9 +18,8 @@ annotated with N_ref = N under the PG case.
   unchanged.
 
 **Next:**
-1. **After the first checkpoint:** check the chain's `meta.truth` and
-   `meta.sigma_true` against V6's `chain1.jls`, which is in `.worktrees/v6-16a9b`
-   and the archive.
+1. **Done:** the first checkpoint's replicate, cells, N, truth and σ_b match V6's
+   `chain1.jls`.
 2. **If the chain hits 6 days:** rerun `f10_16a10.sh` from the same worktree. It
    resumes from the checkpoint.
 3. **While it runs:** write the F10 comparison script. It needs:
