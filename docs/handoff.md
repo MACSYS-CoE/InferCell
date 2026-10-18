@@ -1,5 +1,40 @@
 # Handoff
 
+## Latest: F10 approved at 656 sweeps; the production chain is submitted (2026-10-18)
+
+**Branch:** `phase-16a10-f10`.
+
+**Approved:** the sub-spec's §12 2026-10-13 proposal, at 656 sweeps. The entry's
+status now records the alternatives weighed and why each was set aside. D16.5 is
+annotated with N_ref = N under the PG case.
+
+**The run:** smoke job 18751515 (3 cells, 2 sweeps) passed; `dev/scripts/f10_16a10.sh` submits `gibbs_pilot_16a9a.jl run 5 656`.
+- That is V6's setup run as a fifth chain, started with `Xoshiro(16_090_005)`, at 5
+  threads, 6 days.
+- It writes to `dev/scripts/f10_16a10/` (gitignored). That is its own directory, so
+  no V6 merge globs it.
+- No merge job is chained after it.
+- `src/` changed only in docstrings since V6's `281d548`, and the Manifest is
+  unchanged.
+
+**Next:**
+1. **After the first checkpoint:** check the chain's `meta.truth` and
+   `meta.sigma_true` against V6's `chain1.jls`, which is in `.worktrees/v6-16a9b`
+   and the archive.
+2. **If the chain hits 6 days:** rerun `f10_16a10.sh` from the same worktree. It
+   resumes from the checkpoint.
+3. **While it runs:** write the F10 comparison script. It needs:
+   - overlaid marginals;
+   - the ptsG × ENO contour;
+   - a per-marginal divergence beside V8's floor, taken from V6's split halves.
+   Then draft 16a.11's §12 entry, with your two calls.
+4. **When it lands:** add the ledger row from sacct, archive the checkpoint aside,
+   run F10 and tick 16a.10.
+
+**Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
+EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
+are candidates to clear, but that's the user's call.
+
 **Session date:** 2026-10-17
 **Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
 commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing

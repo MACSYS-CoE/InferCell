@@ -492,6 +492,10 @@ and what F10 measures depends on the variant 16a.7 picks.**
 - **If production is truncated PGAS,** it is a structural approximation whose bias
   does not vanish with chain length. F10 then measures that bias too.
 - F10's caption states which case holds.
+- *Amended 2026-10-18 (§12 2026-10-13):* the reference runs at N_ref = N = 20, as
+  V6's 4 chains of 1,650 sweeps. Production is PG, so the particle count costs mixing,
+  not bias, and V6 checks the reference's convergence directly. F10 compares a
+  production-length chain with that reference on the same dataset.
 
 **D16.6. A 50k CPU-h cap, labelled, and reopened at 16a.11** (parent §8's opening,
 amended 2026-09-30).
@@ -973,8 +977,21 @@ parent's phase 16 stays unticked. It does not count as done.
 
 ### 2026-10-13 — F10 when the reference runs at production's N
 
-**Status: proposed 2026-10-13, awaiting your approval.** No F10 compute runs before
-it is approved.
+**Status: approved 2026-10-18, at 656 sweeps.** The alternatives weighed at approval:
+- 700 sweeps, rejected because 16b's chains run 656, and F10 should measure the
+  length production uses;
+- the zero-cost hold-out, rejected because it leaves the reference below V6;
+- several fresh chains (about 2k CPU-h), left out of the remaining cap;
+- a true N_ref ≫ N reference, which is unaffordable.
+
+One production chain gives one draw of the divergence. A divergence inside V8's
+floor is read as "not resolved at production's length".
+
+**The run:** `gibbs_pilot_16a9a.jl run 5 656` from `f10_16a10.sh`. That is V6's
+own setup (replicate 16085, 50 cells, N = 20) as a fifth chain, started from the
+prior with `Xoshiro(16_090_005)`, at 5 threads, in its own directory so that no V6
+merge reads it. `src/` changed only in docstrings between V6's commit `281d548` and
+this run. The chain's recorded truth and σ_b are checked against V6's.
 
 **Trigger:** V6 is met (`v6_16a9b_result.md`, merge 18420990) with PG at N = 20,
 production's own setting, over 4 chains of 1,650 sweeps. That is just past V6, not
