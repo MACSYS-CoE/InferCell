@@ -105,7 +105,10 @@ solver benchmark's 7.8).
 | 18821440, 18821441 | #88 A1 | M0 ensemble sensitivity, 1470 seeds over 49 tasks, and merge (of record) | 1 | ~0:14 each | 11.10 |
 | 18821442, 18821443 | #88 A2 | Core A′ ensemble sensitivity (15.8 rerun), 1470 seeds over 294 tasks, and merge (of record) | 1 | up to 0:37 each | 165.85 |
 | 18825531–18825547 | #88 A3 | Reverse-feedback arms: 8 ensembles of 200 cells, 8 path arrays of 40 cells, and merge (of record) | 1 | up to 0:19 each | 86.97 |
+| 18836336 | #88 | Test suite after the #92 review (of record, 28362 of 28362 at `2b039a0`) | 4 | 0:50:06 | 3.34 |
+| 18836373, 18836375, 18836376 | #88 | A1, A2 and A3 re-merged after the #92 review: every number identical | 1 | ~0:02 each | 0.10 |
+| 18836377, 18836378, 18836380–18836396 | #88 | A1 and A3 smoke reruns after the #92 review: A1's task files bitwise equal to the first smoke's | 1 | ~0:03 each | 2.57 |
 
-**#88 total: about 273.2 CPU-h**, against about 320 projected on the issue.
-**Phase 16 total, still without F10 (running): about 42,341.1 CPU-h** of 50k, so
-about 7.66k remain.
+**#88 total: about 279.2 CPU-h**, against about 320 projected on the issue.
+**Phase 16 total, still without F10 (running): about 42,347.1 CPU-h** of 50k, so
+about 7.65k remain.

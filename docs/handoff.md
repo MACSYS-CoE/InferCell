@@ -33,18 +33,31 @@ The raw outputs and logs are in `/fred/oz022/tkimpson/infercell-88-a{1,2,3}-arch
 `6da2398` (job 18821310). The override takes effect at the next rebuild. With none
 set, the rebuild is bitwise unchanged.
 
-**Compute:** about 273.2 CPU-h, now in the ledger. Phase 16 stands at about 42.3k
+**Compute:** about 279.2 CPU-h, now in the ledger. Phase 16 stands at about 42.3k
 without F10.
 
+**Reviewed:** `/check-PR` on #92 gave "merge after fixes". There were no code bugs that
+changed a number. The fixes:
+- `popmean`'s path-stage wording: those are frozen pools, not mean field.
+- A1's "a fifth of the information": it is 4%.
+- A provenance guard in A3's merge.
+- Minor wording, and 7 simplifications.
+All are applied at `2b039a0`. The checks after them:
+- The suite passed 28362 of 28362 (job 18836336).
+- All three re-merges give identical numbers.
+- The A1 smoke's task files are bitwise equal to the first smoke's.
+
 **Next:**
-1. Review #92 with `/check-PR`. Tick #88's boxes once the PR merges.
+1. Merge #92 after F10's branch, merging `docs/handoff.md` by hand. Tick #88's boxes
+   once it merges.
 2. **A3's truth dependence matters for #89:** mean field may be the wrong second
    description where ptsG is low (note §14 step 4).
    - Cheap checks first: `rate_constant_elasticity` at truth 2, to test the
      desaturation reading.
    - Then `popmean` across V7's datasets, to map where it breaks.
-3. The worktree `.worktrees/88-8813dca` was only for submitting. Remove it once #92
-   merges.
+3. The worktrees `.worktrees/88-8813dca` and `.worktrees/88-2b039a0` were only for
+   submitting. Remove them once #92 merges, along with
+   `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
 
 ## Latest: F10 approved at 656 sweeps; the production chain is submitted (2026-10-18)
 

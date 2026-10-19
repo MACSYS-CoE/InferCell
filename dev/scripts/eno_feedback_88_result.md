@@ -5,10 +5,15 @@ submitted from a detached worktree at that pushed commit. The `src` hook they us
 `override_rebuild_pools!`, passed the full suite at `6da2398` (job 18821310, 28361
 of 28361), and `src` and `test` are unchanged from there to `8813dca`.
 **Script:** `dev/scripts/eno_feedback_88.jl`.
-**Cost:** 86.97 CPU-h: 17.4 for the ensembles, 69.6 for the path replays, 0.01 for
-the merge.
+**Re-merged** after the #92 review, by job 18836376 at `2b039a0`. The merge now also checks
+that every input file comes from one commit (`8813dca`, confirmed) and one kind of run.
+Every number is identical; only the header and a caption line changed. The original
+merge's output is kept as `merged_8813dca.md`.
+**Cost:** 86.97 CPU-h: 17.4 for the ensembles, 69.6 for the path replays, 0.015
+for the merge.
 **Raw outputs:** `/fred/oz022/tkimpson/infercell-88-a3-archive-2026-10-19/`: one
-directory per stage, arm and truth, plus `merged.md`, `merged.jls` and the Slurm logs.
+directory per stage, arm and truth (400 files, `MD5SUMS`), plus `merged.md`,
+`merged.jls` and the Slurm logs.
 **Regenerate:** `dev/scripts/eno_feedback_88.sh <outdir outside the worktrees>`.
 
 ## Setup
@@ -19,7 +24,7 @@ Reduced syn3A model (`d11_models`, published drains). Four arms:
 |---|---|
 | `live60` | the live pools every 60 s (the published model) |
 | `nominal` | the initial ATP, GTP and charged tRNA, every 60 s |
-| `popmean` | the 200-cell mean of those pools under the same truth, from `live60`'s ensemble, at each 60 s rebuild |
+| `popmean` | the 200-cell mean of those pools at the truth, from `live60`'s ensemble, at each 60 s rebuild. A fixed trajectory: mean field's reverse edge in the ensembles, which run at the truth, but frozen pools in the path replays at ln θ ± δ, where a mean-field loop would move the mean with θ |
 | `live6` | the live pools every 6 s (spec R11). Checked separately on the login node at `a934e98`'s `src`: 20 refreshes in 120 s |
 
 Two truths:
@@ -89,7 +94,7 @@ statistic scales as 1/σ_b², so divide by 4 for σ_b = 20%:
 
 - **`popmean` (population-mean pools, note §7's proposal):**
   - **Truth 1:** indistinguishable from the full model. It is below the noise in
-    every pool.
+    the total and in every pool but external lactate (0.69 against 0.60, marginal).
   - **Truth 2:** about 140 nats above the noise at σ_b = 10%, or about 35 at 20%.
   - The shift is concentrated in G6P and F6P (31 and 33 against noise 1.6 each),
     charged tRNA (22.5 against 3.1), lactate (24.5 against 5.0) and Pi (26.9
@@ -102,8 +107,10 @@ statistic scales as 1/σ_b², so divide by 4 for σ_b = 20%:
     shift.
   - About 650 at truth 2.
   - Cutting the loop at fixed pools is not acceptable for the bulk metabolites.
-- **Path information for the promoters barely moves under either reduction**
-  (expected-information ratio, δ = 0.05):
+- **Path information for the promoters barely moves under frozen pools**
+  (expected-information ratio, δ = 0.05). For `popmean` these are frozen-pool
+  numbers, not mean field's: a mean-field path would add a promoter → mean pool →
+  rate constant channel, which neither reduced arm has.
 
   | Truth | Arm | GAPD | PGI | ptsG |
   |---|---|---|---|---|
@@ -114,19 +121,28 @@ statistic scales as 1/σ_b², so divide by 4 for σ_b = 20%:
   | 2 | `nominal` | 0.017 | 0.035 | 0.049 (0.042–0.066) |
   | 2 | `popmean` | 0.017 | 0.034 | 0.061 (0.050–0.085) |
 
-  - Truth 1's are all inside each other's bootstrap intervals.
-  - At truth 2, `nominal` changes ptsG's information. `popmean` stays within the
-    interval.
-- **What a reduced arm loses outright:** under either reference-pool arm, ENO and FBA
-  no longer reach the path, so their ratio is exactly 1.000, as the check expected.
-  At truth 2 that discards whatever ENO information the path had (0.90 by the
-  outer-product estimator, not confirmed by the curvature). The metabolites identify ENO anyway (A2: 0.13 at 10%).
+  - **Truth 1:** GAPD and PGI agree within their bootstrap intervals.
+    - ptsG under `popmean` (0.024) falls just below `live60`'s interval
+      (0.026–0.040), though `live60`'s 0.030 lies inside `popmean`'s (0.019–0.034).
+  - **Truth 2:** the same holds for ptsG.
+    - `popmean`'s 0.061 is just below `live60`'s interval (0.063–0.101), and
+      `live60`'s 0.075 is inside `popmean`'s (0.050–0.085).
+    - `nominal`'s 0.049 (0.042–0.066) moves further.
+- **What frozen pools lose outright:** under `nominal` or `popmean`, ENO and FBA no
+  longer reach the path, so their ratio is exactly 1.000.
+  - This holds by construction and is the expected check.
+  - At truth 2 it discards whatever ENO information the path had (0.90 by the
+    outer-product estimator, not confirmed by the curvature).
+  - It is not what mean field would lose. A mean-field loop keeps ENO reaching the
+    rebuild through the θ-dependent mean pools, and this run does not measure that.
+  - The metabolites identify ENO anyway (A2: 0.13 at 10%).
 
 **Implication for track B (#89):**
 - **Verdict 2 rests on the bulk score**, not on the uncertain truth-2 path
   information.
-- **`popmean` is the mean-field description of the reverse edge.** A mean-field
-  gene-expression module can only feed back population-mean pools.
+- **In the ensembles, run at the truth, `popmean` is the mean-field description of
+  the reverse edge.** A mean-field gene-expression module can only feed back
+  population-mean pools.
 - **It costs nothing at truth 1 and about 140 nats at truth 2.** Note §14 step 4 asks
   this question, together with R and the Jensen gap (B3): is mean field the wrong
   second description? This says it is, at least at a low-ptsG truth.
@@ -145,8 +161,15 @@ statistic scales as 1/σ_b², so divide by 4 for σ_b = 20%:
   rebuilds change how the jump block consumes random numbers.
 - `popmean`'s mean pools come from a 200-cell ensemble, so they carry that
   ensemble's sampling noise.
-- An observed-information cell is NaN where the mean curvature over 40 cells is
-  negative, which is noise. It is reported but not used.
+- **The noise column's split halves and the bootstrap draws follow the input files'
+  sorted order.** Regenerating with other than 10 ensemble tasks per arm gives
+  other halves, so the noise column changes within its own noise.
+- **An observed-information cell is NaN where the mean curvature over 40 cells is
+  negative,** which is noise.
+  - Its bracket, for example "NaN (0.271)" for ENO at truth 2, assumes the
+    curvature is 2 SE more positive than measured. It is not evidence of
+    information.
+  - It is reported but not used.
 
 ## The full merge output
 

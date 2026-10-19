@@ -4,6 +4,8 @@
 a detached worktree at that pushed commit. Driver `dev/scripts/sensitivity_88.jl m0`,
 merge `dev/scripts/sensitivity_88_merge.jl`.
 **Cost:** 11.08 CPU-h for the array, 0.02 for the merge.
+**Re-merged** after the #92 review's simplifications, by job 18836373 at `2b039a0`: every
+number is identical. The original merge's output is kept as `merged_8813dca.md`.
 **Raw outputs:** `/fred/oz022/tkimpson/infercell-88-a1-archive-2026-10-19/`: 49 task
 files (`MD5SUMS`), `merged.md`, `merged.jls` and the Slurm logs.
 **Regenerate:**
@@ -38,8 +40,10 @@ only, at σ_b = 10%.
   against a bracket of 0.68 at 10%. It is below its bracket at every σ_b and under
   either floor.
 - **It is much weaker than on Core A′.** At 10% it shrinks to 0.47 of the prior SD
-  against D9's 0.10, so 50 cells over 600 s keep about a fifth of the full-scale
-  information in this cell. The margin over the noise also narrows as σ_b grows.
+  against D9's 0.10.
+  - In information, 1/r² − 1 in prior units is 3.5 against 99, so 50 cells over
+    600 s keep about 4% (1/28) of the full-scale information in this cell.
+  - The margin over the noise also narrows as σ_b grows.
 - **No larger M0 dataset is needed** for paper section 5.2 on this measurement. That
   holds only if the exact sampler realises the bound. It is an upper bound; F10
   measures the realised value.
@@ -65,9 +69,11 @@ R ≈ Σ Var(log x̄₅₀)/σ_b², over the 17 panel pools × 10 saves:
   - 2–6% of their cell-saves are below one particle, so they are the non-Gaussian
     pools the note warned of.
   - Without them, R is about 15 at 10%.
-- **V7 draws σ_b from LogNormal(log 0.2, 1),** so its datasets span R ≈ 4 to 250 or
-  more at M0. Discussion §7's table guessed 3.4 to 340, and the measurement falls
-  inside it.
+- **R scales as 0.64/σ_b² at M0.** V7 draws σ_b from LogNormal(log 0.2, 1).
+  - Its median of 0.2 gives R ≈ 16.
+  - Its central 68% (σ_b 0.074–0.54) gives R ≈ 2 to 117.
+- **Discussion §7's table** ranged over per-cell CV at σ_b = 0.1 and guessed 3.4 to
+  340. The measured 64 at 0.1 falls inside it.
 
 ## The full merge output
 

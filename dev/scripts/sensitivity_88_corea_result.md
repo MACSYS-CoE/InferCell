@@ -4,8 +4,10 @@
 submitted from a detached worktree at that pushed commit. Driver
 `dev/scripts/sensitivity_88.jl corea`, merge `dev/scripts/sensitivity_88_merge.jl`.
 **Cost:** 165.83 CPU-h for the array (the longest task 37 min), 0.02 for the merge.
+**Re-merged** after the #92 review's simplifications, by job 18836375 at `2b039a0`: every
+number is identical. The original merge's output is kept as `merged_8813dca.md`.
 **Raw outputs:** `/fred/oz022/tkimpson/infercell-88-a2-archive-2026-10-19/`.
-- 294 task files with `MD5SUMS`, 432 MB.
+- 294 task files with `MD5SUMS`, 421 MiB on disk.
 - `merged.md`, `merged.jls` and the Slurm logs.
 - Every run's full species × times matrix, so 15.8's raw outputs, deleted in the
   2026-10-13 cleanup, exist again outside every worktree.
