@@ -6,9 +6,12 @@
 # - `live60`: the rebuild reads the live pools every 60 s (the published model);
 # - `nominal`: it reads the build's initial ATP, GTP and charged tRNA, so the
 #   reverse edge is cut at fixed reference pools (`override_rebuild_pools!`);
-# - `popmean`: it reads the population mean of those pools under the same truth,
-#   from `live60`'s 200-cell ensemble, so the loop stays at population level and
-#   only the cell-to-cell part of the feedback is dropped (note §7);
+# - `popmean`: it reads the population mean of those pools at the truth, from
+#   `live60`'s 200-cell ensemble, a fixed trajectory. In the ensembles, run at the
+#   truth, that is mean field's reverse edge: only the cell-to-cell part of the
+#   feedback is dropped (note §7). In the path replays at ln θ ± δ the pools stay
+#   frozen at the truth's mean, where a mean-field loop would move them with θ, so
+#   there it is a frozen reference like `nominal`;
 # - `live6`: live pools, rebuilt every 6 s (spec R11's comparison).
 # CTP and UTP are chemostats, read as before in every arm.
 #
@@ -18,9 +21,10 @@
 #    promoters; complete-data Fisher information of 200 cells, expected and
 #    observed, as posterior over prior SD. Cells are seeds 30000 + k.
 #    `live60` against `live6` tests the cadence; `nominal` and `popmean` against
-#    `live60` give the reduction's cost for the promoters (ENO and FBA reach the
-#    path only through the live pools, so under a reference pool their ratio
-#    should be 1, a check).
+#    `live60` give frozen pools' cost for the promoters (ENO and FBA reach the
+#    path only through the pools, so under frozen pools their ratio should be 1,
+#    a check; a mean-field path would keep a θ → mean pool → rate constant
+#    channel that neither arm has).
 # 2. The bulk metabolite likelihood: the 200-cell mean of each M0_PANEL pool at
 #    each 60 s save, per arm, against `live60`'s. Rebuilds change how the jump
 #    block consumes random numbers, so arms are not paired path by path; the
@@ -40,7 +44,7 @@ using Statistics
 using Printf
 using LinearAlgebra
 using Dates
-using Distributions: LogNormal, params
+using Distributions: params
 
 const ARMS = (:live60, :nominal, :popmean, :live6)
 const TRUTHS = Dict(1 => 1507, 2 => 8802)
@@ -70,21 +74,25 @@ truth_of(ms, t) = draw_truth(Xoshiro(TRUTHS[t]), ms; purpose = :recovery).values
 ensemble_dir(out, arm, t) = joinpath(out, "ensemble_$(arm)_truth$(t)")
 path_dir(out, arm, t) = joinpath(out, "path_$(arm)_truth$(t)")
 
+# An arm's ensemble: every cell's matrix, the species and the save times.
+function load_ensemble(out, arm, t)
+    ps = load_parts(ensemble_dir(out, arm, t))
+    return vcat((p.cells for p in ps)...), first(ps).species, first(ps).times
+end
+
 # The population-mean fed pools (mM) at each 60 s save, from live60's ensemble.
 const MEAN_POOLS = Dict{Tuple{String, Int}, Any}()
 mean_pools(out, t) = get!(() -> _mean_pools(out, t), MEAN_POOLS, (out, t))
 function _mean_pools(out, t)
-    parts = load_parts(ensemble_dir(out, :live60, t))
-    p1 = first(parts)
-    cells = vcat((p.cells for p in parts)...)
-    v = findfirst(==(:volume_litres), p1.species)
+    cells, species, times = load_ensemble(out, :live60, t)
+    v = findfirst(==(:volume_litres), species)
     pools = Dict{Symbol, Vector{Float64}}()
     for s in FED
-        i = findfirst(==(s), p1.species)
+        i = findfirst(==(s), species)
         pools[s] = vec(mean(reduce(vcat, [permutedims(c[i, :] ./ particles_per_mM.(c[v, :]))
                                           for c in cells]); dims = 1))
     end
-    return p1.times, pools
+    return times, pools
 end
 
 # A fresh driver at the truth, with the arm's rebuild in place.
@@ -110,7 +118,7 @@ function run_ensemble(arm, t, task, ntask, out)
     ms = models(arm)
     truth = truth_of(ms, t)
     cells = Matrix{Float64}[]; seeds = Int[]
-    species, times = Symbol[], Float64[]
+    species, times, labels = Symbol[], Float64[], Symbol[]
     for k in 1:(SMOKE ? 4 : NENSEMBLE)
         (k - 1) % ntask == task || continue
         seed = 40_000 + k
@@ -119,17 +127,15 @@ function run_ensemble(arm, t, task, ntask, out)
         d = fresh(arm, ms, truth, out, t)
         Random.seed!(seed)
         r = emit_observables!(d, ms; every = 60)
+        labels = [l.category for l in driver_declarations(d)]
         keep = [i for (i, s) in enumerate(r.species) if s in Set(vcat(M0_PANEL, collect(FED)))]
         species, times = vcat(r.species[keep], [:volume_litres]), r.times
         push!(cells, vcat(r.counts[keep, :], permutedims(r.volume))); push!(seeds, seed)
     end
     serialize(joinpath(dir, "task_$(task).jls"),
               (; arm, truth = t, values = truth, commit = COMMIT, smoke = SMOKE, job = slurm_job(),
-               species, times, seeds, cells, labels = driver_labels(arm, ms, truth, out, t)))
+               species, times, seeds, cells, labels))
 end
-
-driver_labels(arm, ms, truth, out, t) =
-    [l.category for l in driver_declarations(fresh(arm, ms, truth, out, t))]
 
 slurm_job() = get(ENV, "SLURM_ARRAY_JOB_ID", get(ENV, "SLURM_JOB_ID", "none"))
 
@@ -174,11 +180,24 @@ function load_parts(dir)
     return [deserialize(joinpath(dir, f)) for f in files]
 end
 
-# The 200-cell (or C-cell) mean of each panel pool at each save after t = 0, floored at 1.
-function bulk(cells, species, times, rows)
+# The mean over `cells` of each panel pool at each save after t = 0, floored at 1.
+function bulk(cells, species, times)
     live = findall(>(0), times)
-    [log(max(mean(c[i, j] for c in cells[rows]), 1.0)) for i in [findfirst(==(o), species)
-                                                               for o in M0_PANEL], j in live]
+    [log(max(mean(c[i, j] for c in cells), 1.0)) for i in [findfirst(==(o), species)
+                                                         for o in M0_PANEL], j in live]
+end
+
+# Every input file must come from one commit and one kind of run, so a moved
+# HEAD or a smoke file left in `out` cannot be merged silently.
+function check_provenance(out)
+    dirs = filter(isdir, [f(out, a, t) for f in (ensemble_dir, path_dir) for a in ARMS
+                          for t in keys(TRUTHS)])
+    parts = [x for d in dirs for x in load_parts(d)]
+    commits, smokes = unique(x.commit for x in parts), unique(x.smoke for x in parts)
+    length(commits) == 1 || error("the input files come from commits $commits")
+    length(smokes) == 1 || error("the input files mix smoke and full runs")
+    jobs = Dict(basename(d) => only(unique(x.job for x in load_parts(d))) for d in dirs)
+    return only(commits), only(smokes), jobs
 end
 
 function merge(out)
@@ -191,9 +210,13 @@ function merge(out)
     # From one parameter's own information alone.
     alone(c, i) = c >= 0 ? 1 / sqrt(1 + NCELLS * c * s0[i]^2) : NaN
     rng = Xoshiro(88_003)
-    p("# Issue #88 A3: the cost of reducing the reverse feedback", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
+    commit, smoke, jobs = check_provenance(out)
+    p("# Issue #88 A3: the cost of reducing the reverse feedback", smoke ? " — SMOKE RUN, NOT A RESULT" : "")
     p()
-    p("Merged at $COMMIT. Prior SD in ln θ: ", join([@sprintf("%s %.3g", n, s) for (n, s) in zip(SHORT, s0)], ", "), ".")
+    p("Runs at $commit, merged at $COMMIT. Jobs: ",
+      join(["$k $(jobs[k])" for k in sort(collect(keys(jobs)))], ", "), ".")
+    p()
+    p("Prior SD in ln θ: ", join([@sprintf("%s %.3g", n, s) for (n, s) in zip(SHORT, s0)], ", "), ".")
     p()
     summary = Dict{Any, Any}()
     for t in sort(collect(keys(TRUTHS)))
@@ -222,8 +245,7 @@ function merge(out)
                 Iexp(rows) = NCELLS .* (S[rows, :]' * S[rows, :]) ./ length(rows)
                 rE, rE2 = ratio(Iexp(1:size(S, 1))), ratio(Iexp(1:size(S, 1)), 1:2)
                 boot = reduce(hcat, [ratio(Iexp(rand(rng, 1:size(S, 1), size(S, 1)))) for _ in 1:2000])
-                lo, hi = [quantile(boot[i, :], 0.025) for i in eachindex(FW)],
-                         [quantile(boot[i, :], 0.975) for i in eachindex(FW)]
+                lo, hi = quantile.(eachrow(boot), 0.025), quantile.(eachrow(boot), 0.975)
                 c̄, se = vec(mean(C; dims = 1)), vec(std(C; dims = 1)) ./ sqrt(size(C, 1))
                 rO = [alone(c, i) for (i, c) in enumerate(c̄)]
                 rOhi = [alone(c + 2s, i) for (i, (c, s)) in enumerate(zip(c̄, se))]
@@ -238,16 +260,16 @@ function merge(out)
         p("Expected-information cells are joint over the five parameters, with a 95% bootstrap over cells. ",
           "\"ENO, FBA alone\" is the same from their 2 × 2 block only, the 16a7 script's quantity. Observed-information ",
           "cells are each parameter's own curvature alone, at the mean and, in brackets, at mean + 2 SE (the most ",
-          "information the cells allow).")
+          "information the cells allow). NaN is a negative mean curvature; its bracket then assumes the curvature ",
+          "is 2 SE more positive than measured, and is not evidence of information.")
         p()
 
         p("### Bulk metabolite likelihood ($NENSEMBLE-cell means, 60 s saves)")
         p()
-        ref = load_parts(ensemble_dir(out, :live60, t))
-        rc = vcat((x.cells for x in ref)...); sp, ts = first(ref).species, first(ref).times
-        Lref = bulk(rc, sp, ts, eachindex(rc))
+        rc, sp, ts = load_ensemble(out, :live60, t)
+        Lref = bulk(rc, sp, ts)
         h = length(rc) ÷ 2
-        noise = bulk(rc, sp, ts, 1:h) .- bulk(rc, sp, ts, (h + 1):(2h))
+        noise = bulk(rc[1:h], sp, ts) .- bulk(rc[(h + 1):(2h)], sp, ts)
         # Two halves differ by twice the variance of one full-size mean's
         # difference from another, so halve the squared half-split difference.
         noise2 = vec(sum(noise .^ 2; dims = 2)) ./ 2
@@ -260,10 +282,8 @@ function merge(out)
         arms = [a for a in ARMS if a !== :live60 && isdir(ensemble_dir(out, a, t))]
         p("| Pool | noise | ", join(string.(arms), " | "), " |")
         p("|---|---|", repeat("---|", length(arms)))
-        shifts = Dict(a => begin
-                          x = load_parts(ensemble_dir(out, a, t)); c = vcat((y.cells for y in x)...)
-                          vec(sum((bulk(c, first(x).species, first(x).times, eachindex(c)) .- Lref) .^ 2; dims = 2))
-                      end for a in arms)
+        shifts = Dict(a => vec(sum((bulk(load_ensemble(out, a, t)...) .- Lref) .^ 2; dims = 2))
+                      for a in arms)
         sb = 0.10
         for (i, o) in enumerate(M0_PANEL)
             p("| `$o` | ", @sprintf("%.3g", noise2[i] / (2sb^2)), " | ",

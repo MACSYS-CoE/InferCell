@@ -42,9 +42,9 @@ const COLUMNS = MODEL === :m0 ? M0_TARGETS : D11_TARGETS
 const CONFIGS = vcat([(:nominal, 0)], [(c, s) for c in COLUMNS for s in (+1, -1)])
 
 models() = MODEL === :m0 ? m0_models() : d11_models(; smoothing = COREA_SAMPLER.smoothing)
-build(ms) = MODEL === :m0 ? build_m0(; tspan = (0.0, HORIZON)) :
-            build_problem(ms; tspan = (0.0, HORIZON), complete = true,
-                          rounding = COREA_SAMPLER.rounding)
+# `build_m0` is this call on `m0_models()` with the default rounding.
+const BUILD_KW = MODEL === :m0 ? (;) : (; rounding = COREA_SAMPLER.rounding)
+build(ms) = build_problem(ms; tspan = (0.0, HORIZON), complete = true, BUILD_KW...)
 
 function run_config(seed, column, sign)
     Random.seed!(seed)

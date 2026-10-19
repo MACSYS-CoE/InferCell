@@ -4,8 +4,11 @@
 # SMOKE=1 runs a 120 s horizon, 4 ensemble cells and 2 path cells per arm.
 # Per truth: the live60, nominal and live6 ensembles and paths start at once;
 # popmean's wait for live60's ensemble, whose mean pools they read. The merge
-# waits for everything (afterany). The 6 s arm's cost per cycle is unmeasured,
-# so its tasks get longer limits (TENS6, TPATH6).
+# waits for everything (afterany). If a live60 ensemble task fails, popmean's
+# afterok never fires and the merge pends: cancel them, rerun the failed task with
+# its array index (sbatch --array=<k> ... ensemble live60 <t> 10 <outdir>), then
+# resubmit popmean's two stages and the merge. The 6 s arm's tasks get longer
+# limits (TENS6, TPATH6).
 # Prints the job ids.
 set -euo pipefail
 outdir=$1
@@ -34,5 +37,7 @@ for t in 1 2; do
     all+=("$(sub --array=1-$ncell --time=$tpath --dependency=afterok:$e60 $job path popmean $t "$outdir")")
 done
 deps=$(IFS=:; echo "${all[*]}")
-m=$(sub --time=00:30:00 --mem=8G --dependency=afterany:$deps $job merge "$outdir")
+# Not through sub(): a single job's log is named by %j, not an array's %A_%a.
+m=$(sbatch --parsable --export=ALL,SMOKE="$smoke" --output="$outdir/logs/%x_merge_%j.log" \
+    --time=00:30:00 --mem=8G --dependency=afterany:$deps $job merge "$outdir")
 echo "stages ${all[*]}, merge $m"

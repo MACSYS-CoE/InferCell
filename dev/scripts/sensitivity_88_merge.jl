@@ -104,16 +104,18 @@ function main()
     # 1. The information bound.
     jac(ss, rel, fl) = ensemble_jacobian([mat(ss, c, +1) for c in cols], [mat(ss, c, -1) for c in cols],
                                          nominal; delta = p1.delta, ncells, rel, floors = fl)
+    # J on every seed and on the two halves, which give the noise matrix.
+    jac3(rel, fl) = (jac(seeds, rel, fl), jac(A, rel, fl), jac(B, rel, fl))
     names = [get(SHORT, c, string(c)) for c in cols]
     m = vec(mean(nominal; dims = 1)); s = vec(std(nominal; dims = 1))
-    J1, NA1, NB1 = jac(seeds, 0.01, floors), jac(A, 0.01, floors), jac(B, 0.01, floors)
+    J1, NA1, NB1 = jac3(0.01, floors)
     bound = Dict{Tuple{Float64, String}, Any}()
     p("## Information bound ($ncells cells)")
     p()
     for (cv, fl, tag) in vcat([(cv, floors, "") for cv in cvs],
                               [(0.10, [istx(sp(r)) || sp(r) === :volume_litres ? floors[r] : 1.0
                                        for r in eachindex(floors)], ", metabolite floor 1 particle")])
-        Jc, NAc, NBc = (jac(seeds, cv, fl), jac(A, cv, fl), jac(B, cv, fl))
+        Jc, NAc, NBc = cv == 0.01 && fl === floors ? (J1, NA1, NB1) : jac3(cv, fl)
         J = vcat(Jc[metrows, :], J1[txrows, :])
         N = vcat((NAc[metrows, :] .- NBc[metrows, :]) ./ 2, (NA1[txrows, :] .- NB1[txrows, :]) ./ 2)
         nm = length(metrows)
@@ -152,23 +154,22 @@ function main()
     # 2. R per pool.
     pools = [o for o in M0_PANEL if o in p1.species]
     tlive = [t for t in 1:nt if p1.times[t] > 0]
-    nom = Dict(k => runs[(k, :nominal, 0)] for k in seeds)
+    Cs = model === :m0 ? (50,) : (200, 50)
     rng = Xoshiro(88)
     Rtab = Dict{Tuple{Symbol, Int}, Vector{Float64}}()   # pool, C => Var(log x̄) per save
     cvcell = Dict{Symbol, Float64}()
     below1 = Dict{Symbol, Float64}()
     for o in pools
         i = findfirst(==(o), p1.species)
-        X = [nom[k][i, t] for k in seeds, t in tlive]     # cells × saves
+        X = [runs[(k, :nominal, 0)][i, t] for k in seeds, t in tlive]     # cells × saves
         cvcell[o] = median(std(X; dims = 1) ./ max.(mean(X; dims = 1), 1e-12))
         below1[o] = mean(X .< 1)
-        for C in (model === :m0 ? (50,) : (200, 50))
+        for C in Cs
             Rtab[(o, C)] = map(axes(X, 2)) do t
                 var([log(max(mean(X[rand(rng, 1:length(seeds), C), t]), 1.0)) for _ in 1:NRESAMPLE])
             end
         end
     end
-    Cs = model === :m0 ? (50,) : (200, 50)
     sbs = (0.05, 0.10, 0.20)
     p("## R per pool")
     p()

@@ -418,6 +418,14 @@ const _slow_pool = toy_slow_pool
         none = run_handshake!(d, 180)
         @test all(i -> none.jump_p[i] == live.jump_p[i], eachindex(live.jump_p))
 
+        # The override is asked at each rebuild, with that rebuild's time: a
+        # time-varying reference (#88's population-mean pools) depends on it.
+        seen = Float64[]
+        d = build()
+        override_rebuild_pools!(d, (s, t) -> (push!(seen, t); nothing))
+        run_handshake!(d, 180)
+        @test seen ≈ [60.0, 120.0, 180.0]
+
         # And removing the override restores the live read.
         d = build()
         override_rebuild_pools!(d, (s, t) -> 2atp0)
