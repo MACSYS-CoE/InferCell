@@ -10,14 +10,15 @@
 set -euo pipefail
 outdir=$1
 case "$outdir" in */.worktrees/*|*/.claude/worktrees/*) echo "outdir is inside a worktree" >&2; exit 1;; esac
-mkdir -p "$outdir"
+mkdir -p "$outdir/logs"
 smoke=${SMOKE:-0}
 if [ "$smoke" = 1 ]; then
     nens=2; ncell=2; tens=00:30:00; tens6=00:30:00; tpath=00:30:00; tpath6=00:30:00
 else
     nens=10; ncell=40; tens=01:00:00; tens6=${TENS6:-04:00:00}; tpath=01:00:00; tpath6=${TPATH6:-04:00:00}
 fi
-sub() { sbatch --parsable --export=ALL,SMOKE="$smoke" "$@"; }
+# Logs go to the archive with the outputs, not to the submitting worktree.
+sub() { sbatch --parsable --export=ALL,SMOKE="$smoke" --output="$outdir/logs/%x_%A_%a.log" "$@"; }
 job=dev/scripts/eno_feedback_88.slurm
 all=()
 for t in 1 2; do

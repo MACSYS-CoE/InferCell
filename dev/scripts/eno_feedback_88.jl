@@ -124,7 +124,7 @@ function run_ensemble(arm, t, task, ntask, out)
         push!(cells, vcat(r.counts[keep, :], permutedims(r.volume))); push!(seeds, seed)
     end
     serialize(joinpath(dir, "task_$(task).jls"),
-              (; arm, truth = t, commit = COMMIT, smoke = SMOKE, job = slurm_job(),
+              (; arm, truth = t, values = truth, commit = COMMIT, smoke = SMOKE, job = slurm_job(),
                species, times, seeds, cells, labels = driver_labels(arm, ms, truth, out, t)))
 end
 
@@ -164,7 +164,7 @@ function run_path(arm, t, cell, out)
         flush(stdout)
     end
     serialize(joinpath(dir, "cell_$(cell).jls"),
-              (; arm, truth = t, seed, lp0, out = res, events = length(path.times),
+              (; arm, truth = t, values = truth, seed, lp0, out = res, events = length(path.times),
                commit = COMMIT, smoke = SMOKE, job = slurm_job()))
 end
 
@@ -198,6 +198,12 @@ function merge(out)
     summary = Dict{Any, Any}()
     for t in sort(collect(keys(TRUTHS)))
         p("## Truth $t (`Xoshiro($(TRUTHS[t]))`)")
+        p()
+        vals = [x.values for a in ARMS for d in (path_dir(out, a, t), ensemble_dir(out, a, t))
+                if isdir(d) for x in load_parts(d)]
+        all(==(first(vals)), vals) || error("truth $t differs across arms or stages")
+        p(join([@sprintf("%s %.4g", k, v) for (k, v) in first(vals)], ", "),
+          " — the same in every arm and stage ($(length(vals)) files).")
         p()
         p("### Path information ($NCELLS cells)")
         p()
