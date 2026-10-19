@@ -20,12 +20,17 @@ Reduced syn3A model (`d11_models`, published drains). Four arms:
 | `live60` | the live pools every 60 s (the published model) |
 | `nominal` | the initial ATP, GTP and charged tRNA, every 60 s |
 | `popmean` | the 200-cell mean of those pools under the same truth, from `live60`'s ensemble, at each 60 s rebuild |
-| `live6` | the live pools every 6 s (spec R11). The 6 s cadence was confirmed: 20 refreshes in 120 s |
+| `live6` | the live pools every 6 s (spec R11). Checked separately on the login node at `a934e98`'s `src`: 20 refreshes in 120 s |
 
 Two truths:
 - **Truth 1:** 15.7's, `Xoshiro(1507)`, with ptsG 4.36, ENO 57.5, FBA 32.1.
 - **Truth 2:** `Xoshiro(8802)`, with ptsG 0.80, ENO 85.5, FBA 73.1.
 - The merge checked that every arm and stage used the same truth.
+
+**`live60` at truth 1 reproduces 16a7 exactly** at δ = 0.2, so the script is a faithful
+extension of it:
+- observed-information ratio, ENO 0.996 (0.978 at mean + 2 SE) and FBA 0.842 (0.722);
+- expected-information ratio, ENO 0.999 and FBA 0.995.
 
 Two scores:
 1. **Path information.** As `eno_path_information_16a7.jl`: 40 cells (seeds
@@ -61,11 +66,16 @@ quantity), δ = 0.05:
   saturated rate laws. Saturation itself was not varied here.
 - **The ENO null is truth-dependent.**
   - Truth 1 reproduces 16a7's null: ENO 0.999 (16a7: 0.999 at the same truth).
-  - At truth 2 the path carries a little ENO and FBA information: 0.90 and 0.75,
-    with 95% bootstrap intervals 0.88–0.97 and 0.68–0.99.
-  - Truth 2 has a low ptsG (0.80 against 4.36), so glucose uptake and the pools
-    are lower, which plausibly desaturates the rate laws. That reading was not
-    measured, for example with `rate_constant_elasticity` at truth 2.
+  - **At truth 2, ENO may carry a little path information.**
+    - The outer-product (expected-information) estimator gives 0.90–0.93,
+      consistent across δ.
+    - The curvature (observed-information) estimator does not confirm it: the
+      mean curvature over 40 cells is negative, which reports as NaN.
+  - **FBA at truth 2 is undetermined.** It reads 0.75 at δ = 0.05 and 0.92 at
+    δ = 0.2, with a bootstrap of 0.68–0.99.
+  - **Desaturation is a hypothesis, not a finding.** Truth 2 has a low ptsG (0.80
+    against 4.36), so glucose uptake and the pools may be lower and the rate laws
+    less saturated. `rate_constant_elasticity` at truth 2 would test it.
 
 ## Verdict 2: the one-way reduction is not uniformly acceptable
 
@@ -109,10 +119,12 @@ statistic scales as 1/σ_b², so divide by 4 for σ_b = 20%:
     interval.
 - **What a reduced arm loses outright:** under either reference-pool arm, ENO and FBA
   no longer reach the path, so their ratio is exactly 1.000, as the check expected.
-  At truth 2 that discards the small transcript information they had (0.90 and
-  0.75). The metabolites identify ENO anyway (A2: 0.13 at 10%).
+  At truth 2 that discards whatever ENO information the path had (0.90 by the
+  outer-product estimator, not confirmed by the curvature). The metabolites identify ENO anyway (A2: 0.13 at 10%).
 
 **Implication for track B (#89):**
+- **Verdict 2 rests on the bulk score**, not on the uncertain truth-2 path
+  information.
 - **`popmean` is the mean-field description of the reverse edge.** A mean-field
   gene-expression module can only feed back population-mean pools.
 - **It costs nothing at truth 1 and about 140 nats at truth 2.** Note §14 step 4 asks

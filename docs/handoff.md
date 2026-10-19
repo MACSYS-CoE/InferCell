@@ -23,8 +23,10 @@ The raw outputs and logs are in `/fred/oz022/tkimpson/infercell-88-a{1,2,3}-arch
   - **Cadence refuted:** a 6 s rebuild changes neither path information nor the bulk
     metabolites, at either truth.
   - **The population-mean reduction (mean field's reverse edge)** is free at 15.7's
-    truth but costs about 140 nats at σ_b = 10% at a low-ptsG truth. There the path
-    also carries some ENO/FBA information. Fixed nominal pools are worse.
+    truth but costs about 140 nats at σ_b = 10% at a low-ptsG truth. Fixed nominal
+    pools are worse.
+  - At that truth ENO may also carry a little path information: 0.90 by the
+    outer-product estimator, not confirmed by the curvature.
 
 **`src` change:** `override_rebuild_pools!` in `src/handshake.jl`, with a new
 `:rebuild_pool_override` label and testset. The suite passed 28361 of 28361 at

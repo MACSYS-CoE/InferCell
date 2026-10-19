@@ -54,6 +54,9 @@ R ≈ Σ Var(log x̄₅₀)/σ_b², over the 17 panel pools × 10 saves:
 
 - **These are upper bounds.** The cells are not conditioned on the transcripts, and
   the note's R is.
+- **They are at the nominal parameter values.** R depends on θ, so this is not a
+  prior-wide number. A3 found the reverse feedback's effect on the bulk metabolites
+  differs strongly between two truths.
 - **M0 sits in the middle regime** (1 ≲ R ≲ n = 170) at 10% and 20%. There one path
   draw per θ is not a usable estimator, and the Gaussian convolution of note §7 is
   the method. At 5%, R exceeds n.

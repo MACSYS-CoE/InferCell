@@ -69,6 +69,9 @@ R ≈ Σ Var(log x̄_C)/σ_b², over the 17 panel pools × 105 saves (n = 1785):
 
 - **These are upper bounds.** The cells are not conditioned on the transcripts, and
   the note's R is.
+- **They are at the nominal parameter values.** R depends on θ, so this is not a
+  prior-wide number. A3 found the reverse feedback's effect on the bulk metabolites
+  differs strongly between two truths.
 - **Every setting is in the middle regime** (1 ≲ R ≲ n): the metabolites constrain
   the paths collectively. So one path draw per θ is not a usable estimator anywhere
   here, and the Gaussian convolution of note §7, with the C-cell covariance S, is
