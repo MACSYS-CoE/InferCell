@@ -30,6 +30,27 @@ annotated with N_ref = N under the PG case.
 4. **When it lands:** add the ledger row from sacct, archive the checkpoint aside,
    run F10 and tick 16a.10.
 
+**Waiting on F10 by decision (2026-10-19).** At 167 of 656 sweeps after 25.7 h
+(about 550 s per sweep), it is due about 22 Oct, inside the 6-day limit. The user
+chose to wait for it before writing the F10 script or 16a.11's entry.
+
+**Direction discussed 2026-10-19, not yet in the spec:**
+1. Close phase 16 at M0: F10, then 16a.11's §12 entry.
+2. Speed up the reduced model with syn3a-ensemble's lessons. Rodas5P with KLU is
+   the clean win, about 2× at the same accuracy. Processes per core is also
+   possible, and FBDF could be added as an option. This needs a §12 entry and
+   reruns of V2, V4 and V5.
+3. A new spec, via `/generate-spec`: InferCell as a playground for inference. The
+   first study is exact against modular against amortised on M0, using V7's
+   datasets, with V6, V7 and F10 as ground truth.
+4. Bring in the full cell as a black-box simulator from syn3a-ensemble (about 45 s
+   per 6,300 s cycle, against our reduced model's 32.2 s) rather than
+   re-implementing it now.
+   - Its GPU and fp32 results were negative.
+   - The inference-paths note's §3 should be corrected on the GPU point.
+   - Exact joint inference stays unaffordable at full scale whatever the solver,
+     because the cost is the number of simulations.
+
 **Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
 EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
 are candidates to clear, but that's the user's call.
