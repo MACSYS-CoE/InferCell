@@ -167,14 +167,114 @@ M0 and Core A′ (the Core A′ exact entry projected).
 
 ## 7. Discussion
 
+### 7.1 What the results mean
+
 - What scales and what does not: exact inference stops at M0; the approximate
   method's limits are R and the Jensen gap.
 - The three graphs as a principle: the observation model sets the inferential
   interface. Single-cell streams stay local; cross-module information travels on
   bulk observables.
-- What is next: the full cell through the syn3a-ensemble port; real data;
-  goal-directed inference; model comparison (tracked, not done).
 - Limits: synthetic data only; one organism; the asserted priors.
+
+### 7.2 Future work
+
+One short paragraph in the paper, in this order. Do not list anything cheap
+enough that a reviewer would ask "why not now?". The generic registry (O3) is
+one: do it before the paper, or narrow the "framework" claim.
+
+1. **The method's own limits,** one sentence each:
+   - condition the metabolite factor on the observed transcripts, the coherent
+     refinement, which matters once R ≳ 1;
+   - pools the Gaussian approximation cannot handle (Pi, 3PG, 2PG at the
+     one-particle floor or the clip), by sampling paths only for those pools;
+   - regimes where the reverse feedback is strong: the one-way reduction rests
+     on elasticities of 0.04–0.09, and a perturbation that drains the NTP pools
+     toward K_d (0.1 mM) removes that basis.
+2. **The full well-stirred syn3A model (Step 2) through the syn3a-ensemble port,
+   then real data.** The obvious next paper, using both projects.
+3. **Comparing model structure, and comparing formalisms,** which the formalism
+   swap makes possible (`model-uncertainty-and-selection.md`).
+4. **Goal-directed inference and experimental design,** framed by the closing
+   question: *which parts of a coupled simulator must be retained, and which
+   latent variables must be inferred, to preserve the information a prediction
+   needs?*
+
+The spatial model (Step 3) and the theory get one line each at most. Spelling
+them out promises more than we want to be held to.
+
+## After v0.3.0: the roadmap (planning, not paper text)
+
+### What paper 1 leaves open
+
+| Item | Where it is decided or done |
+|---|---|
+| Condition the bulk factor on the observed transcripts (R ≳ 1) | v0.4 |
+| Non-Gaussian pools near the floor or a clip: path sampling for those pools only | v0.4 |
+| Strong-feedback regimes, where the one-way reduction fails | Step 1b; perturbation studies |
+| Per-module calibration (phase 17; the modular note's open problem 5) | Phase 17 |
+| The reverse direction for FBA (ENO is a measured null) | K2 at 1,000 cells (16b.5) |
+| An exact posterior on Core A′, if not funded for the paper (O5); exact coverage at that scale stays out of reach | 16a.11 |
+
+### The longer programme
+
+**Up the ladder of models** (spec §2)
+- **Step 1b:** Core A′ plus the RNDR/dNTP branch, which makes the NTP pools live.
+  The rung where the reverse coupling could start to matter.
+- **Step 2:** the full well-stirred syn3A model, with the syn3a-ensemble port as
+  the simulator. Open: the full gene-expression network has assembly, competition
+  and degradation steps. If it is not first order, the means are no longer exact,
+  and the mean-field route needs moment closure or a learned surrogate.
+- **Step 3:** the spatial 4D model. Spatial resolution enters as a testable
+  hypothesis against the well-mixed one (`spatial-dynamics-and-rdme.md`).
+- **A second organism,** which needs the generic registry (spec §7 non-goal).
+
+**Methods** (the modular note's §6 open problems become reachable)
+- Message passing across many modules. With the paths integrated out, parameters
+  appear in several likelihood factors, so EP and semi-modular inference apply.
+- Per-module amortisation for stochastic modules with no closed-form means
+  (bursty promoters, feedback inside a block): a neural likelihood or a learned
+  message operator.
+- Unbiased gradients through the stochastic block (StochasticAD), for
+  structured variational inference.
+- Theory for the three graphs: when modular inference recovers the joint
+  posterior, and whether R and the Jensen gap can be computed in advance.
+
+**Real data** (Step 2's business)
+- Observation models for real assays: bulk metabolomics with unknown cell numbers,
+  and single-cell RNA counts with capture efficiency.
+- Misspecification: posterior predictive checks, and semi-modular inference
+  weights per module. Separate the uncertainty within a model from the
+  uncertainty about whether the model is right.
+
+**Model structure** (`model-uncertainty-and-selection.md`)
+- Structural comparison, such as constitutive against bursty promoters, by
+  predictive score (ELPD, leave-one-stream-out), not Bayes factors.
+- Comparison across formalisms: does the ODE or the stochastic description
+  explain the data better? The normalisation hooks are already tracked.
+
+**Goal-directed inference and experimental design**
+- Generalise paper 1's uncertainty budget: spend inference on the parameters
+  that drive a chosen phenotype.
+- Experimental design: which measurement carries the most information across the
+  boundary.
+- Predictions under intervention. Recompute the information graph for each one,
+  because a weak channel can become strong.
+
+**Performance**
+- The ODE step: FBDF + KLU, one process per core, GPU batching.
+- The exact sampler: joint parameter–path moves, correlated pseudo-marginal
+  methods, particle-parallel sweeps.
+- Surrogates: the spec's two proposals, a learned promoter prior and a
+  differentiable metabolic surrogate.
+
+### Likely order
+
+1. **v0.4:** the coherent refinement and the non-Gaussian pools, plus the generic
+   registry if it is not already done.
+2. **Paper 2:** Step 2 on the full cell through the port. Forward UQ of a
+   phenotype first (is the ~16% PEP collapse robust to the model's own parameter
+   uncertainty?), then inference.
+3. **Then:** real data.
 
 ## Supplementary material
 
