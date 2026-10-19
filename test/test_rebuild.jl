@@ -400,14 +400,15 @@ const _slow_pool = toy_slow_pool
         atp0 = d0.ode.u[only(r0.pool_idxs)]
         slot = r0.fill_idxs[1]
 
-        # Held at the build pool, the rebuilt constant never moves, though the
-        # pool does, and the driver says the edge is cut.
+        # Held at the build pool, the rebuilt constant never moves after the
+        # first refresh, though the pool does, and the driver says the edge is cut.
         Random.seed!(4008)
         d = build()
         override_rebuild_pools!(d, (s, t) -> s === :M_atp_c ? atp0 : nothing)
         out = run_handshake!(d, 180)
         @test length(unique(o[1] for o in out.ode)) > 150
-        @test all(p -> p[slot] == toy_rebuilt_k(m, [atp0]), out.jump_p)
+        @test all(p -> p[slot] == toy_rebuilt_k(m, [atp0]), out.jump_p[60:end])
+        @test out.jump_p[59][slot] == m.params[1].value     # not before it
         @test :rebuild_pool_override in [l.category for l in driver_declarations(d)]
 
         # An override answering `nothing` everywhere is the live rebuild, bitwise.

@@ -1965,8 +1965,9 @@ end
 Make every rate-constant rebuild read reference pools rather than live ones:
 `f(species::Symbol, t::Float64)` returns the pool's concentration in mM at a
 rebuild at time `t`, or `nothing` to read it live. `f = nothing` restores the
-published behaviour. The constants are rebuilt at once at the driver's current
-time, so the override holds from the next jump step on.
+published behaviour. Nothing is rebuilt here: the override takes effect at the
+next rebuild, on the schedule or from [`set_parameters!`](@ref), so an override
+that always answers `nothing` leaves a run bitwise unchanged.
 
 A dynamical reduction of the reverse edge (pools → rate constants), not part of
 the published model: [`driver_declarations`](@ref) labels it. Issue #88 task A3
@@ -1976,9 +1977,7 @@ pools, costs.
 function override_rebuild_pools!(d::HandshakeDriver, f::Union{Nothing, Function})
     for r in d.rebuilds
         r.pool_override = f
-        _apply_rebuild!(d, r)
     end
-    reset_aggregated_jumps!(d.jump)
     return d
 end
 

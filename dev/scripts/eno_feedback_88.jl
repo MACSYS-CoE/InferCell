@@ -189,7 +189,7 @@ function merge(out)
     # Posterior over prior SD from the information I about the parameters `ix`.
     ratio(I, ix = eachindex(FW)) = sqrt.(diag(inv(I[ix, ix] + Diagonal(1 ./ s0[ix] .^ 2)))) ./ s0[ix]
     # From one parameter's own information alone.
-    alone(c, i) = c > 0 ? 1 / sqrt(1 + NCELLS * c * s0[i]^2) : NaN
+    alone(c, i) = c >= 0 ? 1 / sqrt(1 + NCELLS * c * s0[i]^2) : NaN
     rng = Xoshiro(88_003)
     p("# Issue #88 A3: the cost of reducing the reverse feedback", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
     p()
