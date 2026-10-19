@@ -95,3 +95,17 @@ solver benchmark's 7.8).
 2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
 2026-10-08, annotated). **Phase 16 total: about 42,067.9 CPU-h** of 50k, so about
 7.9k remain.
+
+## v0.3.0 track A (#88), charged to phase 16's remaining cap
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 18818909–18818912, 18819650, 18819651, 18819611–18819627 | #88 | A1, A2 and A3 smoke runs and merges (120 s horizon) | 1 | ~0:03 each | 2.20 |
+| 18819106, 18819610, 18821310 | #88 | Test suite: Aqua missing from the depot; one failure in the new rebuild test; passing (of record, 28361 of 28361 at `6da2398`) | 4 | 0:00:20, 0:55:06, 0:50:19 | 7.05 |
+| 18821440, 18821441 | #88 A1 | M0 ensemble sensitivity, 1470 seeds over 49 tasks, and merge (of record) | 1 | ~0:14 each | 11.10 |
+| 18821442, 18821443 | #88 A2 | Core A′ ensemble sensitivity (15.8 rerun), 1470 seeds over 294 tasks, and merge (of record) | 1 | up to 0:37 each | 165.85 |
+| 18825531–18825547 | #88 A3 | Reverse-feedback arms: 8 ensembles of 200 cells, 8 path arrays of 40 cells, and merge (of record) | 1 | up to 0:19 each | 86.97 |
+
+**#88 total: about 273.2 CPU-h**, against about 320 projected on the issue.
+**Phase 16 total, still without F10 (running): about 42,341.1 CPU-h** of 50k, so
+about 7.66k remain.

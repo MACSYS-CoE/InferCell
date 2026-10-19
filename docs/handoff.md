@@ -1,5 +1,49 @@
 # Handoff
 
+## Latest: #88 track A measured — M0's ptsG gate passes, 15.8 reproduces, the population-mean reduction fails at one truth (2026-10-19)
+
+**Branch:** `issue-88-track-a`, draft PR #92. It is based on `phase-16a10-f10`, so the
+PR shows F10's three docs commits until that branch merges. It ran alongside F10 in a
+separate worktree.
+
+**Results.** Each has a `_result.md` with its job ids, commit (`8813dca`) and CPU-h.
+The raw outputs and logs are in `/fred/oz022/tkimpson/infercell-88-a{1,2,3}-archive-2026-10-19/`.
+
+- **A1 (`sensitivity_88_m0_result.md`): the gate passes.**
+  - M0's ptsG, metabolites only, σ_b = 10%: 0.47 against bracket 0.68. Core A′ gets
+    0.10.
+  - So no larger M0 dataset is needed for paper section 5.2.
+  - R at M0 is 64. 3PG, Pi and 2PG carry 49 of it.
+- **A2 (`sensitivity_88_corea_result.md`): 15.8 reproduces exactly** (923…119, floor
+  72.3).
+  - The information bound for D11's six is tabulated for section 5.3.
+  - R at C = 200, σ_b = 10% is about 70, about 8× the note's guess, and in the
+    Gaussian-convolution regime at every setting.
+- **A3 (`eno_feedback_88_result.md`): two verdicts.**
+  - **Cadence refuted:** a 6 s rebuild changes neither path information nor the bulk
+    metabolites, at either truth.
+  - **The population-mean reduction (mean field's reverse edge)** is free at 15.7's
+    truth but costs about 140 nats at σ_b = 10% at a low-ptsG truth. There the path
+    also carries some ENO/FBA information. Fixed nominal pools are worse.
+
+**`src` change:** `override_rebuild_pools!` in `src/handshake.jl`, with a new
+`:rebuild_pool_override` label and testset. The suite passed 28361 of 28361 at
+`6da2398` (job 18821310). The override takes effect at the next rebuild. With none
+set, the rebuild is bitwise unchanged.
+
+**Compute:** about 273.2 CPU-h, now in the ledger. Phase 16 stands at about 42.3k
+without F10.
+
+**Next:**
+1. Review #92 with `/check-PR`. Tick #88's boxes once the PR merges.
+2. **A3's truth dependence matters for #89:** mean field may be the wrong second
+   description where ptsG is low (note §14 step 4).
+   - Cheap checks first: `rate_constant_elasticity` at truth 2, to test the
+     desaturation reading.
+   - Then `popmean` across V7's datasets, to map where it breaks.
+3. The worktree `.worktrees/88-8813dca` was only for submitting. Remove it once #92
+   merges.
+
 ## Latest: F10 approved at 656 sweeps; the production chain is submitted (2026-10-18)
 
 **Branch:** `phase-16a10-f10`.
