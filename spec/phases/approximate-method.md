@@ -209,7 +209,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 ## 6. Outputs
 
 - `src/transcript_factor.jl` (B1).
-- `src/organisms/coreA/mean_field.jl` (B2).
+- `src/mean_field.jl` (B2): a generic `MeanField` over any first-order jump group, and `gene_expression_mean_field` for the reduced syn3A model.
 - `dev/scripts/jensen_gap_89_result.md` (B3), with AV5's verdict.
 - Later PRs: route (ii) in `src/orchestrator.jl`, the sampler, the dispatcher, and
   B7's and B8's result files.

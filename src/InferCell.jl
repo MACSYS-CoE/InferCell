@@ -62,6 +62,7 @@ include("organisms/coreA/assembly.jl")
 # Prior draws read glycolysis's and recycling's rate laws and the assembly.
 include("organisms/coreA/prior_draws.jl")
 include("organisms/coreA/m0.jl")
+include("mean_field.jl")
 include("organisms/coreA/validation.jl")
 include("organisms/coreA/observables.jl")
 include("organisms/coreA/block1.jl")
