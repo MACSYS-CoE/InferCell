@@ -11,6 +11,13 @@ Within one interval of constant rate constants, a gene's transcript count is a b
 - **The cap.** `bridge_cap(max_observed)` is the largest observed count plus 20, and it is a floor rather than a guarantee. `truncation_mass(chain, τ, a)` bounds what the cap drops, and `adequate_cap(k, μ, τ, a; floor)` grows the cap until that is below 1e-12.
 - **The independent check.** `bridge_birth_distribution` is the exact distribution of a bridge's birth count, from a matrix exponential of the chain augmented with a birth counter. It is what the sampled bridges are tested against.
 
+## The transcript factor (track B, task B1)
+
+Track B's approximate likelihood (`spec/phases/approximate-method.md`) scores the transcripts exactly, with the paths between saves summed out rather than sampled. Window m runs its first 59 s at the constants `R_{m−1}` and its last second at `R_m`, the jump clock's rebuild at 60m − 1 s, so each gene's factor is `[P_{R_{m−1}}(59) · P_{R_m}(1)](y_{m−1}, y_m)`. This is the quantity the cSMC's window weight estimates.
+
+- **`TranscriptFactor(y0, y; kmax, μmin)`** holds one cell's counts and fixes each gene's cap once, from the largest birth rate and smallest death rate the prior allows, so the truncation mass is below 1e-12 everywhere in the support.
+- **`transcript_loglik(f, k, μ)`** is the log-likelihood given the birth rates `k` (genes × (windows + 1), one column per rebuild) and the death rates `μ = krnadeg / len_g`. Given a vector of cells, it sums over them. It propagates a row vector through the uniformised chain, with a term count fixed by the primal rate, so it is differentiable with ForwardDiff.
+
 ## One-dimensional updates (task 16a.4)
 
 Every update works on `u = ln θ`, so a `LogNormal(μ, s)` prior enters as `Normal(u; μ, s)`, which is `logpdf(LogNormal, θ) + ln θ`.
@@ -53,5 +60,5 @@ The threaded sweep is bitwise equal to the serial one at one seed. `gibbs_checkp
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["transcript_bridge.jl", "conditional_updates.jl", "organisms/coreA/block1.jl", "csmc.jl", "organisms/coreA/gibbs.jl"]
+Pages = ["transcript_bridge.jl", "transcript_factor.jl", "conditional_updates.jl", "organisms/coreA/block1.jl", "csmc.jl", "organisms/coreA/gibbs.jl"]
 ```

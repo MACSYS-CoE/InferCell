@@ -118,6 +118,7 @@ using Aqua
     include("test_path_replay.jl")
     include("test_path_density.jl")
     include("test_transcript_bridge.jl")
+    include("test_transcript_factor.jl")
     include("test_block2.jl")
     include("test_m0.jl")
     include("test_block1.jl")
