@@ -69,11 +69,21 @@ Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
 - **It is systematic and has one sign.** The mean field's GTP sits 7–17% below the
   population mean at every truth, and GDP sits above it. That is a guanylate
   imbalance, not noise.
-- **It is not the floor or the clip.** No cell-save is below one GTP particle except
-  2% at reduced truth 2, and no mean-field drain clipped. The per-cell CV of GTP is
-  0.24–0.45, the largest in the panel. So this is a Jensen gap in the nucleotide
-  recycling's nonlinearity, fed by fluctuating translation demand, not the
-  `max(0, ·)`.
+- **It is not the one-particle floor.** No cell-save is below one GTP particle except
+  2% at reduced truth 2. No mean-field drain clipped.
+  - **The SSA side's clipping was not captured.** The clip fires when a 1 s drain's
+    accrual exceeds the pool, not when a save is below one particle. Neither this
+    script's ensembles nor A3's saved `clipping_census` per cell. It is cheap to add
+    if the diagnosis is relied on.
+- **The adenylates point at the response, not the demand.**
+  - If the mean field over-drained GTP, ATP would be drained harder too and would sit
+    below the SSA mean. Instead it sits above at four of five truths (+0.05 at M0
+    16085), with AMP below.
+  - GTP down, GDP up and ATP up looks like the nucleotide recycling at a different
+    operating point. That is a Jensen gap in its kinetics, fed by GTP's per-cell CV
+    of 0.24–0.45, the largest in the panel.
+  - This is a hypothesis. It is the strongest internal evidence that the gap is real
+    and not an artefact of the prototype.
 - **It varies with θ by about 2×** across the five truths (GTP −0.075 to −0.17).
 - **Not excluded, and cheap to test:**
   - the rounding policy differs between the two sides (`:continuous` against
@@ -89,9 +99,15 @@ Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
 1. **Correct the mean with an offset measured at a reference θ,** δ(θ_ref) = log x̄_SSA − log x̄_MF.
    - It comes from the same ensemble that already gives S (D-S), and is held fixed
      like S.
-   - **Test it on these outputs:** how much of the gap at each truth does a δ taken
-     at another truth remove? The 2× spread in GTP suggests partly.
-   - A third declared reduction beside a fixed S.
+   - **Tested on these outputs (table below): it does not transfer across prior-wide
+     truths.** A δ from one truth applied to another passes KG at no pair.
+     - Between M0's two nearer truths (13 and 2) it fixes GTP: 0.15 against noise
+       0.19.
+     - Elsewhere it often makes the total worse than no correction (16085 → 13:
+       44.2 against 12.4 uncorrected).
+   - **Still open:** whether δ transfers across a posterior's width, which is far
+     narrower than these truths' spread. That needs truths a posterior SD apart.
+   - It would be a third declared reduction beside a fixed S.
 2. **A second-order description:**
    - moment closure or the linear noise approximation through the metabolism, so
      the mean carries its own Jensen term (D-S's alternative for S);
@@ -102,6 +118,26 @@ Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
    - It would cut out the pools that carry most of R.
 4. **Route (i) instead of (ii):** a stochastic ensemble per θ, with no gradients. The
    sub-spec rules it out on cost.
+
+## Cross-applied offsets (option 1's test)
+
+δ is taken per pool and save from the first truth, added to the second truth's mean
+field, and scored as KG (σ_b = 10%). Computed on the archived outputs, with no new
+compute (`dev/scripts/jensen_gap_89_delta.jl`, run on the login node over the archive).
+
+| Offset from → applied to | Total | Noise | Pools above 3× noise | GTP shift (noise) |
+|---|---|---|---|---|
+| M0 16085 → 13 | 44.2 | 14.9 | 7 | 7.63 (0.136) |
+| M0 16085 → 2 | 63.4 | 17.4 | 11 | 6.75 (0.194) |
+| M0 13 → 16085 | 44.2 | 29.2 | 6 | 7.63 (1.05) |
+| M0 13 → 2 | 19.6 | 17.4 | 4 (G3P, DHAP, FDP, ATP) | 0.153 (0.194) |
+| M0 2 → 16085 | 63.4 | 29.2 | 9 | 6.75 (1.05) |
+| M0 2 → 13 | 19.6 | 14.9 | 6 | 0.153 (0.136) |
+| Reduced 1 → 2 | 161 | 55.7 | 10 | 32.5 (7.88) |
+| Reduced 2 → 1 | 161 | 115 | 5 | 32.5 (2.32) |
+
+The uncorrected totals are 70.8, 12.4 and 25.8 for M0 (16085, 13, 2), and 99.9 and
+202 for the reduced model (1, 2).
 
 ## The full merge output
 

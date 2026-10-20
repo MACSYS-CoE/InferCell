@@ -292,7 +292,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   expectation" fails a gap-free mean field about half the time. A3's statistic is
   twice it. So passing means the gap adds no more than the ensemble's own
   sampling noise, and B3 stays comparable with A3's table.
-- **When:** before any B3 run. Found while writing the merge.
+- **When:** before B3's full run. Two 4-cell smokes had run first, and their gate
+  numbers were not read. Found while writing the merge.
 
 ### 2026-10-20 — B0 agreed
 
