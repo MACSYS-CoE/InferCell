@@ -1,6 +1,6 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 to B3 in progress.
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: KG failed, so B4 waits on a rethink (§8).
 **Created:** 2026-10-20  ·  **Last amended:** 2026-10-20
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
@@ -271,9 +271,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
 ## 11. Task list
 
 - [x] **B0.** This file, agreed 2026-10-20.
-- [ ] **B1.** The transcript factor, AV1–AV3.
-- [ ] **B2.** The mean-field modules, AV3–AV4.
-- [ ] **B3.** The Jensen-gap prototype, AV5. Gates B4.
+- [x] **B1.** The transcript factor, AV1–AV3. Suite 28627 of 28627 at `9a1d10c` (job 18884570).
+- [x] **B2.** The mean-field modules, AV3–AV4. Same suite job.
+- [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **KG fails at all five truths** (`dev/scripts/jensen_gap_89_result.md`). B4 is stopped until the rethink is decided.
 - [ ] **B4.** Route (ii).
 - [ ] **B5.** The mixed likelihood and NUTS.
 - [ ] **B6.** The dispatcher.

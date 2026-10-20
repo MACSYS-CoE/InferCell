@@ -1,0 +1,254 @@
+# Issue #89 B3: the Jensen gap fails KG at every truth
+
+**Run:** ensembles 18886224–18886226 (3 × 10 tasks), mean fields 18886227–18886231,
+merge 18886232, all at `9686014`, submitted from a detached worktree at that pushed
+commit. Smoke 18885264–18885272 at the same commit passed first.
+**Script:** `dev/scripts/jensen_gap_89.jl`. **Gate:** `spec/phases/approximate-method.md`
+§8 KG (AV5), agreed 2026-10-20 and amended for its noise before this run (§12).
+**Cost:** 2.20 CPU-h for the run, 0.86 for the smoke.
+**Raw outputs:** `/fred/oz022/tkimpson/infercell-89-b3-archive-2026-10-20/` (ensembles,
+mean fields, `merged.md`, `merged.jls`, Slurm logs).
+**Reference for the reduced model:** #88 A3's `live60` ensembles (200 cells, jobs
+18825531 and 18825539, at `8813dca`), from
+`/fred/oz022/tkimpson/infercell-88-a3-archive-2026-10-19/`. `src` at `8813dca` differs
+from `main` only by `override_rebuild_pools!`, unset in `live60`. The merge checked
+that each reference was drawn at the same truth as its mean field.
+**Regenerate:** `dev/scripts/jensen_gap_89.sh <outdir outside the worktrees>`.
+
+## Setup
+
+- **The mean-field cell.** This is the full composition with transcription, decay and
+  translation silenced: the states, parameters, edges and rebuilds are kept, and the
+  reactions are removed. B2's `MeanField` mean is advanced over each 1 s jump step at
+  the driver's current rate constants. So the drains (clip included), the catalytic
+  edges, the volume and the 60 s rebuild run as published. The rebuild reads this
+  cell's own pools, which are the mean-field pools under θ. The ODE pools are written
+  back continuously.
+- **Writing the mean into the integer jump state:**
+  - counters with fractional carry, exact in the drained total to one particle;
+  - proteins rounded to the nearest count. At 100 copies or more that is within 0.27%.
+    The worst case is cytosolic ptsG at about one copy, at 0.5, but the driver never
+    reads it; the mean field carries it.
+- **The reference.** The 200-cell mean of the full two-way model at the same truth,
+  under fractional carry, with cells seeded 40000 + k.
+- **Truths:**
+  - M0 (600 s, 10 saves): V6's replicate 16085, and V7's replicates 13 and 2 (ptsG
+    2.75, 1.13 and 33.5).
+  - The reduced model (6,300 s, 105 saves): A3's truths 1 and 2 (ptsG 4.36 and 0.80).
+
+## Verdict: KG fails at all five truths. Stop before B4
+
+| Truth | Total (nats, σ_b = 10%) | Noise | Total ≤ noise | Pools above 3× their noise |
+|---|---|---|---|---|
+| M0, V6's 16085 | 70.8 | 29.2 | no | 8 |
+| M0, V7's 13 (low ptsG) | 12.4 | 14.9 | yes | 7 |
+| M0, V7's 2 (high ptsG) | 25.8 | 17.4 | no | 9 |
+| Reduced model, truth 1 | 99.9 | 115 | yes | 5 |
+| Reduced model, truth 2 (low ptsG) | 202 | 55.7 | no | 9 |
+
+- **The per-pool clause fails everywhere.** The total fails at three of five truths.
+- **The worst gap is never large in σ_b units.** The largest single-save gap is
+  3.6 σ_b (GTP, M0 16085). Most pools stay under 1.5 σ_b. But GTP's gap is systematic
+  across the whole trajectory, so it adds up to many nats.
+- **Per the sub-spec, this stops B4.** Mean field, as built, is not yet the second
+  description, and σ_b is not to be tuned to make it pass.
+
+## What the gap is (diagnosis on the same outputs)
+
+Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
+
+| Pool | M0 16085 | M0 13 | M0 2 | Reduced 1 | Reduced 2 |
+|---|---|---|---|---|---|
+| GTP | −0.17 (−0.36 to 0) | −0.11 | −0.11 | −0.075 | −0.14 (−0.24 to −0.02) |
+| ATP | +0.05 | +0.02 | +0.03 | +0.02 | −0.00 |
+| GDP | +0.13 | +0.04 | +0.06 | +0.03 | +0.02 |
+| AMP | −0.10 | −0.03 | −0.05 | −0.03 | −0.02 |
+| G3P | −0.01 | −0.01 | −0.06 | −0.03 | −0.03 |
+| G6P | −0.01 | −0.00 | −0.01 | −0.01 | +0.02 |
+
+- **It is systematic and has one sign.** The mean field's GTP sits 7–17% below the
+  population mean at every truth, and GDP sits above it. That is a guanylate
+  imbalance, not noise.
+- **It is not the floor or the clip.** No cell-save is below one GTP particle except
+  2% at reduced truth 2, and no mean-field drain clipped. The per-cell CV of GTP is
+  0.24–0.45, the largest in the panel. So this is a Jensen gap in the nucleotide
+  recycling's nonlinearity, fed by fluctuating translation demand, not the
+  `max(0, ·)`.
+- **It varies with θ by about 2×** across the five truths (GTP −0.075 to −0.17).
+- **Not excluded, and cheap to test:**
+  - the rounding policy differs between the two sides (`:continuous` against
+    fractional carry);
+  - the mean field rebuilds translation's constants from the mean charged pool, not
+    per cell.
+
+  Neither is expected to move GTP by 10%, but both should be checked before the
+  diagnosis is relied on.
+
+## Options for the rethink (none taken)
+
+1. **Correct the mean with an offset measured at a reference θ,** δ(θ_ref) = log x̄_SSA − log x̄_MF.
+   - It comes from the same ensemble that already gives S (D-S), and is held fixed
+     like S.
+   - **Test it on these outputs:** how much of the gap at each truth does a δ taken
+     at another truth remove? The 2× spread in GTP suggests partly.
+   - A third declared reduction beside a fixed S.
+2. **A second-order description:**
+   - moment closure or the linear noise approximation through the metabolism, so
+     the mean carries its own Jensen term (D-S's alternative for S);
+   - more framework work, but θ-dependent and differentiable.
+3. **Leave the guanylates out of the Gaussian factor** (GTP, GDP and GMP; possibly
+   AMP).
+   - It changes 5.2's data, so the exact fits would drop them too.
+   - It would cut out the pools that carry most of R.
+4. **Route (i) instead of (ii):** a stochastic ensemble per θ, with no gradients. The
+   sub-spec rules it out on cost.
+
+## The full merge output
+
+Merged at 9686014. σ_b = 10%. Scores in nats; they scale as 1/σ_b².
+
+## m0_v6 (M0, truth seed 16085)
+
+S_JCVISYN3A_0607 4.433, S_JCVISYN3A_0779 2.751, krnadeg 9.424, kcatF_R_ENO 65.48, kcatF_R_FBA 67.13, kcatR_R_FBA 0.6297, kcatR_R_ENO 24.7.
+
+- Reference: 200 cells at 9686014 (job 18886224). Mean field at 9686014 (job 18886227).
+- 10 saves. Protein rounding at most 0.5 relative, in `Pcyto_JCVISYN3A_0779` (0.0006 at ≥ 100 copies). 0 of 600 mean-field drains clipped.
+- **Verdict (KG): FAIL**. Total 70.8 against noise 29.2; above 3× their noise: `M_g3p_c`, `M_dhap_c`, `M_gtp_c`, `M_atp_c`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`.
+
+| Pool | noise | shift | max \|Δ log x̄\| / σ_b |
+|---|---|---|---|
+| `M_g6p_c` | 0.304 | 0.263 | 0.41 |
+| `M_f6p_c` | 0.25 | 0.292 | 0.45 |
+| `M_lac__L_c` | 3.97 | 3.69 | 1.72 |
+| `M_g3p_c` | 0.0337 | **0.126** | 0.25 |
+| `M_dhap_c` | 0.00711 | **0.0329** | 0.13 |
+| `M_trna_chg_c` | 0.0101 | 0.00737 | 0.07 |
+| `M_pi_c` | 7.52 | 5.63 | 1.99 |
+| `M_3pg_c` | 7.08 | 6.23 | 1.85 |
+| `M_2pg_c` | 6.52 | 6.68 | 2.18 |
+| `M_gtp_c` | 1.05 | **22.8** | 3.57 |
+| `M_fdp_c` | 0.00088 | 0.00241 | 0.04 |
+| `M_atp_c` | 0.0373 | **1.73** | 0.76 |
+| `M_lac__L_e` | 0.102 | 0.0225 | 0.12 |
+| `M_amp_c` | 0.122 | **5.75** | 1.37 |
+| `M_gmp_c` | 1.02 | **5.88** | 1.38 |
+| `M_gdp_c` | 1.22 | **11.5** | 2.10 |
+| `M_adp_c` | 0.00437 | **0.139** | 0.24 |
+| **total** | **29.2** | **70.8** | |
+
+## m0_low (M0, truth seed 16200013)
+
+S_JCVISYN3A_0607 12.35, S_JCVISYN3A_0779 1.131, krnadeg 2.356, kcatF_R_ENO 74.58, kcatF_R_FBA 77.55, kcatR_R_FBA 0.7274, kcatR_R_ENO 28.13.
+
+- Reference: 200 cells at 9686014 (job 18886225). Mean field at 9686014 (job 18886228).
+- 10 saves. Protein rounding at most 0.5 relative, in `Pcyto_JCVISYN3A_0779` (0.0006 at ≥ 100 copies). 0 of 600 mean-field drains clipped.
+- **Verdict (KG): FAIL**. Total 12.4 against noise 14.9; above 3× their noise: `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`.
+
+| Pool | noise | shift | max \|Δ log x̄\| / σ_b |
+|---|---|---|---|
+| `M_g6p_c` | 0.311 | 0.0802 | 0.29 |
+| `M_f6p_c` | 0.275 | 0.0684 | 0.27 |
+| `M_lac__L_c` | 1.34 | 0.388 | 0.47 |
+| `M_g3p_c` | 0.0751 | 0.116 | 0.20 |
+| `M_dhap_c` | 0.00987 | 0.0195 | 0.08 |
+| `M_trna_chg_c` | 0.0366 | 0.0117 | 0.10 |
+| `M_pi_c` | 3.46 | 0.512 | 0.65 |
+| `M_3pg_c` | 4.83 | 0.773 | 0.79 |
+| `M_2pg_c` | 4.28 | 0.648 | 0.55 |
+| `M_gtp_c` | 0.136 | **7.46** | 1.80 |
+| `M_fdp_c` | 9.55e-05 | **0.000882** | 0.02 |
+| `M_atp_c` | 0.00358 | **0.14** | 0.27 |
+| `M_lac__L_e` | 0.0257 | 0.00622 | 0.05 |
+| `M_amp_c` | 0.0183 | **0.663** | 0.59 |
+| `M_gmp_c` | 0.0486 | **0.394** | 0.41 |
+| `M_gdp_c` | 0.0681 | **1.09** | 0.70 |
+| `M_adp_c` | 0.00224 | **0.024** | 0.12 |
+| **total** | **14.9** | **12.4** | |
+
+## m0_high (M0, truth seed 16200002)
+
+S_JCVISYN3A_0607 7.613, S_JCVISYN3A_0779 33.52, krnadeg 14.66, kcatF_R_ENO 52.29, kcatF_R_FBA 21.15, kcatR_R_FBA 0.1984, kcatR_R_ENO 19.72.
+
+- Reference: 200 cells at 9686014 (job 18886226). Mean field at 9686014 (job 18886229).
+- 10 saves. Protein rounding at most 0.49 relative, in `Pcyto_JCVISYN3A_0779` (0.00059 at ≥ 100 copies). 0 of 600 mean-field drains clipped.
+- **Verdict (KG): FAIL**. Total 25.8 against noise 17.4; above 3× their noise: `M_g3p_c`, `M_dhap_c`, `M_gtp_c`, `M_fdp_c`, `M_atp_c`, `M_amp_c`, `M_gmp_c`, `M_gdp_c`, `M_adp_c`.
+
+| Pool | noise | shift | max \|Δ log x̄\| / σ_b |
+|---|---|---|---|
+| `M_g6p_c` | 0.608 | 0.103 | 0.29 |
+| `M_f6p_c` | 0.548 | 0.0953 | 0.27 |
+| `M_lac__L_c` | 2.04 | 0.252 | 0.39 |
+| `M_g3p_c` | 0.363 | **2.13** | 0.84 |
+| `M_dhap_c` | 0.142 | **0.964** | 0.55 |
+| `M_trna_chg_c` | 0.0813 | 0.0202 | 0.14 |
+| `M_pi_c` | 4.95 | 2 | 0.86 |
+| `M_3pg_c` | 4.4 | 6.04 | 1.73 |
+| `M_2pg_c` | 3.62 | 2.62 | 1.21 |
+| `M_gtp_c` | 0.194 | **6.98** | 1.46 |
+| `M_fdp_c` | 6.48e-05 | **0.00204** | 0.02 |
+| `M_atp_c` | 0.0187 | **0.354** | 0.34 |
+| `M_lac__L_e` | 0.0255 | 0.0114 | 0.07 |
+| `M_amp_c` | 0.118 | **1.49** | 0.74 |
+| `M_gmp_c` | 0.111 | **0.585** | 0.52 |
+| `M_gdp_c` | 0.201 | **2.13** | 0.92 |
+| `M_adp_c` | 0.0084 | **0.0338** | 0.13 |
+| **total** | **17.4** | **25.8** | |
+
+## corea1 (reduced syn3A, truth seed 1507)
+
+S_JCVISYN3A_0607 2.973, S_JCVISYN3A_0445 0.5672, S_JCVISYN3A_0779 4.364, krnadeg 8.775, kcatF_R_ENO 57.46, kcatF_R_FBA 32.11, kcatR_R_FBA 0.3012, kcatR_R_ENO 21.67.
+
+- Reference: 200 cells at 8813dca (job 18825531), #88 A3's `live60`. Mean field at 9686014 (job 18886230).
+- 105 saves. Protein rounding at most 0.5 relative, in `Pcyto_JCVISYN3A_0779` (0.0027 at ≥ 100 copies). 0 of 6300 mean-field drains clipped.
+- **Verdict (KG): FAIL**. Total 99.9 against noise 115; above 3× their noise: `M_dhap_c`, `M_gtp_c`, `M_atp_c`, `M_amp_c`, `M_gdp_c`.
+
+| Pool | noise | shift | max \|Δ log x̄\| / σ_b |
+|---|---|---|---|
+| `M_g6p_c` | 5.03 | 1.86 | 0.57 |
+| `M_f6p_c` | 4.63 | 1.74 | 0.55 |
+| `M_lac__L_c` | 14.5 | 5.48 | 0.90 |
+| `M_g3p_c` | 2.45 | 6.76 | 0.62 |
+| `M_dhap_c` | 0.788 | **2.45** | 0.36 |
+| `M_trna_chg_c` | 0.62 | 0.273 | 0.19 |
+| `M_pi_c` | 25.4 | 10.4 | 1.39 |
+| `M_3pg_c` | 30.4 | 16 | 1.78 |
+| `M_2pg_c` | 26.8 | 11.1 | 1.43 |
+| `M_gtp_c` | 2.32 | **31** | 1.15 |
+| `M_fdp_c` | 0.0073 | 0.0033 | 0.01 |
+| `M_atp_c` | 0.233 | **1.92** | 0.27 |
+| `M_lac__L_e` | 0.604 | 0.162 | 0.10 |
+| `M_amp_c` | 0.833 | **6.35** | 0.52 |
+| `M_gmp_c` | 0.355 | 0.187 | 0.25 |
+| `M_gdp_c` | 0.225 | **4.2** | 0.49 |
+| `M_adp_c` | 0.0556 | 0.0397 | 0.07 |
+| **total** | **115** | **99.9** | |
+
+## corea2 (reduced syn3A, truth seed 8802)
+
+S_JCVISYN3A_0607 5.455, S_JCVISYN3A_0445 1.931, S_JCVISYN3A_0779 0.7992, krnadeg 2.698, kcatF_R_ENO 85.53, kcatF_R_FBA 73.14, kcatR_R_FBA 0.6861, kcatR_R_ENO 32.26.
+
+- Reference: 200 cells at 8813dca (job 18825539), #88 A3's `live60`. Mean field at 9686014 (job 18886231).
+- 105 saves. Protein rounding at most 0.5 relative, in `Pcyto_JCVISYN3A_0779` (0.0027 at ≥ 100 copies). 0 of 6300 mean-field drains clipped.
+- **Verdict (KG): FAIL**. Total 202 against noise 55.7; above 3× their noise: `M_g6p_c`, `M_f6p_c`, `M_lac__L_c`, `M_g3p_c`, `M_dhap_c`, `M_gtp_c`, `M_fdp_c`, `M_lac__L_e`, `M_gdp_c`.
+
+| Pool | noise | shift | max \|Δ log x̄\| / σ_b |
+|---|---|---|---|
+| `M_g6p_c` | 1.56 | **7.39** | 0.84 |
+| `M_f6p_c` | 1.59 | **7.8** | 0.85 |
+| `M_lac__L_c` | 4.95 | **16** | 1.25 |
+| `M_g3p_c` | 1.22 | **4.83** | 0.59 |
+| `M_dhap_c` | 0.119 | **0.637** | 0.22 |
+| `M_trna_chg_c` | 3.1 | 7.39 | 0.89 |
+| `M_pi_c` | 9.2 | 14.5 | 1.35 |
+| `M_3pg_c` | 11.9 | 9.86 | 1.16 |
+| `M_2pg_c` | 10.2 | 9.72 | 1.28 |
+| `M_gtp_c` | 7.88 | **116** | 2.41 |
+| `M_fdp_c` | 0.00309 | **0.0479** | 0.07 |
+| `M_atp_c` | 0.649 | 0.152 | 0.12 |
+| `M_lac__L_e` | 0.117 | **1.79** | 0.37 |
+| `M_amp_c` | 1.94 | 2.17 | 0.39 |
+| `M_gmp_c` | 0.927 | 0.644 | 0.26 |
+| `M_gdp_c` | 0.19 | **1.99** | 0.34 |
+| `M_adp_c` | 0.0907 | 0.207 | 0.12 |
+| **total** | **55.7** | **202** | |
+
