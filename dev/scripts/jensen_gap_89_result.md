@@ -123,7 +123,8 @@ fraction of cell-saves below one particle):
     reduction alone, with stochastic gene expression but frozen population-mean
     pools (#92, `eno_feedback_88_result.md`). It moves GTP by 1.17 nats at reduced
     truth 1 and 13.2 at truth 2 (noise 2.32 and 7.88), against the mean field's 31
-    and 116. So the feedback, as A3 froze it, does not account for GTP's gap. A
+    and 116. At truth 2 that is above its noise, but far short of the mean field's
+    shift: the feedback, as A3 froze it, does not account for most of GTP's gap. A
     live version of that arm on M0 would test this at all five truths;
   - the SSA side's clipping (above).
 

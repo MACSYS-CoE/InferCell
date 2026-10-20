@@ -244,11 +244,14 @@ function scores(out, t)
     mfr = deserialize(meanfield_file(out, t))
     mfr.smoke == SMOKE || error("$t: the mean field's smoke flag differs from this run's")
     cells, rtimes, prov = reference(out, t)
-    prov.smoke == SMOKE || error("$t: the reference's smoke flag differs from this run's")
+    # Ensembles run here follow this run's smoke flag; A3's are never a smoke.
+    here = TRUTHS[t].ref === :here
+    want = here && SMOKE
+    prov.smoke == want || error("$t: the reference's smoke flag is $(prov.smoke), expected $want")
     prov.values == mfr.values || error("$t: the reference ensemble's truth differs from the mean field's")
     n = length(cells)
-    (SMOKE ? iseven(n) : n == NENSEMBLE) ||
-        error("$t: $n reference cells; the halves need $(SMOKE ? "an even count" : NENSEMBLE)")
+    (want ? iseven(n) : n == NENSEMBLE) ||
+        error("$t: $n reference cells; the halves need $(want ? "an even count" : NENSEMBLE)")
     common = [τ for τ in mfr.times if τ > 0 && τ in rtimes]
     jr = [findfirst(==(τ), rtimes) for τ in common]
     jm = [findfirst(==(τ), mfr.times) for τ in common]
