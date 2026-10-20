@@ -1,6 +1,6 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: KG failed, so B4 waits on a rethink (§8).
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waits on a rethink (§8).
 **Created:** 2026-10-20  ·  **Last amended:** 2026-10-20
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
@@ -59,7 +59,7 @@ What track B starts from, on `main` at `a843bc5`:
 | Exact sampler, V6 and V7 | `src/organisms/coreA/gibbs.jl`, `src/csmc.jl` | Done |
 | Birth–death transition probabilities and bridges | `src/transcript_bridge.jl` | Done. Used only inside the cSMC's particle weights (`_log_transitions`, `src/csmc.jl:227`), never as a function of θ |
 | M0, V7's 50 datasets | `src/organisms/coreA/m0.jl`, `m0_dataset` | Done, regenerable from seeds |
-| Core A′ data generator | `draw_truth`, `generate_dataset`, `observe_bulk` (`src/observables.jl`) | Done |
+| Core A′ data generator | `draw_truth`, `generate_dataset`, `observe_bulk` (`src/organisms/coreA/observables.jl`) | Done |
 | Information bound | `ensemble_jacobian`; A2's tables | Done |
 | Reduction labels | `reduction_notes`, `reduction_declarations` (`src/labels.jl`) | Done. A module declares a reduction by returning `category => text` |
 | Mean-field gene expression | — | Not built (B2) |
@@ -148,11 +148,11 @@ L_tx,g,m = [ P_{k_{g,m−1}, μ_g}(59) · P_{k_{g,m}, μ_g}(1) ] (y_{m−1}, y_m
 
 | # | Check | Asserted | Where |
 |---|---|---|---|
-| AV1 | Transcript factor, identities | With constant k the factor equals `log transition_probability(bd, 60, a, b)` to 1e-12. With a switch at 59 s it equals the per-sub-interval product the cSMC uses (`_log_transitions` at the same constants) to 1e-12. Truncation mass < 1e-12 at the turnover ceiling | B1 |
+| AV1 | Transcript factor, identities | With constant k the factor equals `log transition_probability(bd, 60, a, b)` to 1e-10 absolute. With a switch at 59 s it equals `log [P(59) · P(1)]` from dense transition matrices to 1e-10 absolute. The cSMC's window weight (`window_log_weight`, D16.3), averaged over 20,000 sampled bridges, matches the factor within 3 SE. Truncation mass < 1e-12 at the prior's corner (`kmax`, `μmin`), and the factor refuses rates outside it (amended 2026-10-20, §12) | B1 |
 | AV2 | Transcript factor, independent | Simulate the chain with the rate switching at 59 s: 10⁵ replicates from fixed `y_{m−1}` at two rate pairs differing ≥ 2×. Chi-square against the predicted 60 s distribution, p > 0.001 | B1 |
 | AV3 | Differentiable | ForwardDiff on (log k, log krnadeg) agrees with central finite differences to 1e-6 relative, for both the transcript factor and a mean-field solve | B1, B2 |
 | AV4 | Mean field, pinned constants | With k_tx and k_tl pinned and no rebuild, the mean-field means of every transcript, protein and counter match an SSA ensemble's means within 4 SE at every save. Ensemble: ~2,000 cells × 600 s on M0's two genes | B2 |
-| AV5 | **The Jensen gap (B3's gate)** | See §8 KG. Measured at M0's nominal truth and A3's truths 1 and 2 | B3 |
+| AV5 | **The Jensen gap (B3's gate)** | See §8 KG. Measured at three drawn M0 truths (V6's replicate 16085, V7's replicates 13 and 2) and A3's truths 1 and 2 (amended 2026-10-20, §12) | B3 |
 | AV6 | Approximate vs exact on M0 | V7's 50 datasets refitted. Marginals and the ptsG–ENO pair against V6 and V7, beside a Monte Carlo floor taken from V6's split halves (V8's construction). SBC under V7's rule (α/6 per parameter) | B7 |
 | AV7 | Calibration and efficiency on Core A′ | ≥ 200 injections, truths from the prior, data from the full two-way model. Rank-ECDF at 1 − 0.05/6, and widths against A2's information bound | B8 |
 
@@ -197,7 +197,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 5. Data and reproducibility
 
-- **M0:** V7's 50 datasets, regenerated from their seeds by `m0_dataset`.
+- **M0:** V7's 50 datasets, regenerated from their seeds by `m0_dataset`. B3
+  used three of their truths: V6's replicate 16085 and V7's replicates 13 and 2
+  (ptsG 2.75, 1.13 and 33.5).
 - **Core A′:**
   - A3's truths 1 and 2 for B3;
   - B8's injections from `draw_truth` with recorded seeds.
@@ -238,6 +240,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - **If it fails at truth 2 but passes elsewhere:** mean field is the wrong second
     description where ptsG is low. Stop and rethink before B4 (discussion note §14,
     step 4). Do not tune σ_b to pass.
+  - **If it fails at every truth:** the mean field, as built, is not the second
+    description anywhere. Stop before B4. The result file lists the options, and
+    the user chooses one. Do not tune σ_b to pass (added 2026-10-20, §12).
 - **KS — a fixed S is too crude.** On M0, 5.2's posterior with S fixed differs from
   one with S re-estimated at the posterior mean by more than the Monte Carlo floor.
   The response is the linear noise approximation (§9).
@@ -263,7 +268,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 | # | Risk | Early warning | Response |
 |---|---|---|---|
-| RB1 | The Jensen gap is large at low-ptsG truths | A3's 140 nats at truth 2 | KG |
+| RB1 | The Jensen gap is large | A3's 140 nats at truth 2 (low ptsG). B3 found the gap at every truth, not only at low ptsG: M0's worst total is at ptsG 2.75 (§12) | KG |
 | RB2 | The transcript factor is slow for long genes or high caps | B1's benchmark | Sparse banded products: the generator is tridiagonal |
 | RB3 | Route (ii) changes the hybrid path's numbers | The suite's bitwise replay tests (V2) | Route (ii) is a separate ODE path. The hybrid driver is not edited |
 | RB4 | NUTS on ~110 parameters mixes badly (5.4) | B9's pilot | B9 is optional |
@@ -273,7 +278,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B0.** This file, agreed 2026-10-20.
 - [x] **B1.** The transcript factor, AV1–AV3. Suite 28627 of 28627 at `9a1d10c` (job 18884570).
 - [x] **B2.** The mean-field modules, AV3–AV4. Same suite job.
-- [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **KG fails at all five truths** (`dev/scripts/jensen_gap_89_result.md`). B4 is stopped until the rethink is decided.
+- [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. B4 is stopped until the rethink is decided.
 - [ ] **B4.** Route (ii).
 - [ ] **B5.** The mixed likelihood and NUTS.
 - [ ] **B6.** The dispatcher.
@@ -282,6 +287,25 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-20 — after B3 and the #93 review: AV1 as tested, B3's truths, a branch for failing everywhere
+
+- **AV1:** restated as what the tests assert. They assert the identities to 1e-10
+  absolute; the 1e-12 written here before was never tested. The switch case is checked against dense
+  P(59) · P(1), and the cSMC agreement as a Monte Carlo check of
+  `window_log_weight`'s expectation. `_log_transitions` reads its constants from
+  a live driver's state, so the tests use the products it is built from instead. `transcript_loglik` now refuses rates
+  outside the corner its caps were sized for.
+- **AV5 and §5:** B3 ran three drawn M0 truths, not M0's nominal truth. Nominal
+  values are not a draw from the prior. V6's and V7's replicates are, and they
+  span ptsG from 1.13 to 33.5.
+- **§8:** KG had no branch for failing at every truth, which is what B3 found.
+  The response is the same stop before B4, with the choice of rethink left to the
+  user.
+- **RB1:** its framing (the gap is large at low ptsG) is contradicted. The gap
+  appears at every truth. M0's worst total (70.8 nats) is at ptsG 2.75, not at
+  1.13 (12.4 nats).
+- **Why:** found by the #93 pre-merge review. None changes B3's verdict.
 
 ### 2026-10-20 — KG's noise is A3's split-half statistic, not the no-gap expectation
 
@@ -297,7 +321,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ### 2026-10-20 — B0 agreed
 
-- **What:** the draft agreed as written, with three decisions:
+- **What:** the draft agreed as written, with four decisions:
   - KG's threshold as in §8;
   - a fixed S (D-S);
   - the near-floor pools (Pi, 3PG, 2PG) kept in the Gaussian factor;

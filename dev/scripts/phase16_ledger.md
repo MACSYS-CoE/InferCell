@@ -86,11 +86,12 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18510849, 18511245, 18511832, 18512048, 18512335 | 16a.11 | ODE solver benchmark, smoke runs | 2 | 0:04–0:09 each | 0.96 |
 | 18512579 | 16a.11 | ODE solver benchmark (of record) | 16 | 0:25:45 | 6.87 |
+| 18885264–18885272 | #89 B3 | Jensen-gap smoke: 120 s, 4 cells per M0 truth, mean fields, merge | 1 | 0:01:33–0:08:06 each | 0.86 |
+| 18886224–18886232 | #89 B3 | Jensen gap: three M0 ensembles of 200 cells, five mean-field cells, merge (of record) | 1 | 0:01:05–0:07:58 each | 2.20 |
+| 18888681–18888686 | #89 B3 | Rounding check: five mean-field cells under fractional carry, merge (of record) | 1 | 0:01:09–0:05:40 each | 0.46 |
+| 18892098, 18892099 | #89 B3 | Diagnosis over both archives (of record) | 1 | 0:02:01–0:02:02 each | 0.07 |
 
-| 18885264–18885272 | #89 B3 | Jensen-gap smoke: 120 s, 4 cells per M0 truth, mean fields, merge | 1 | 0:03–0:08 each | 0.86 |
-| 18886224–18886232 | #89 B3 | Jensen gap: three M0 ensembles of 200 cells, five mean-field cells, merge (of record) | 1 | | 2.20 |
-
-**#89 B3: about 3.1 CPU-h**, not yet in the totals below, which #92 (track A) also
+**#89 B3: about 3.6 CPU-h**, not yet in the totals below, which #92 (track A) also
 updates. Fold both in when the two merge.
 
 **16a total, excluding 16a.9: about 411.4 CPU-h** (the rows' sum, recomputed after

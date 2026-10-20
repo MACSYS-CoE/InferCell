@@ -1,18 +1,25 @@
-# Issue #89 B3: the Jensen gap fails KG at every truth
+# Issue #89 B3: the mean field fails KG at every truth
 
 **Run:** ensembles 18886224–18886226 (3 × 10 tasks), mean fields 18886227–18886231,
 merge 18886232, all at `9686014`, submitted from a detached worktree at that pushed
 commit. Smoke 18885264–18885272 at the same commit passed first.
+**Rounding check:** mean fields 18888681–18888685 and merge 18888686 at `2d15e83`,
+with `MF_ROUNDING=fractional_carry`, reusing the M0 ensembles above.
+**Diagnosis:** the `diagnose` stage at `c8c9ceb`, job 18892098 over the run and
+18892099 over the rounding check. It reads the archived outputs and runs nothing new.
 **Script:** `dev/scripts/jensen_gap_89.jl`. **Gate:** `spec/phases/approximate-method.md`
 §8 KG (AV5), agreed 2026-10-20 and amended for its noise before this run (§12).
-**Cost:** 2.20 CPU-h for the run, 0.86 for the smoke.
-**Raw outputs:** `/fred/oz022/tkimpson/infercell-89-b3-archive-2026-10-20/` (ensembles,
-mean fields, `merged.md`, `merged.jls`, Slurm logs).
+**Cost:** 2.20 CPU-h for the run, 0.86 for the smoke, 0.46 for the rounding check.
+**Raw outputs:** `/fred/oz022/tkimpson/infercell-89-b3-archive-2026-10-20/` and
+`/fred/oz022/tkimpson/infercell-89-b3-rounding-archive-2026-10-20/` (mean fields,
+`merged.md`, `merged.jls`, `diagnosis.md`, Slurm logs; ensembles in the first).
 **Reference for the reduced model:** #88 A3's `live60` ensembles (200 cells, jobs
-18825531 and 18825539, at `8813dca`), from
-`/fred/oz022/tkimpson/infercell-88-a3-archive-2026-10-19/`. `src` at `8813dca` differs
-from `main` only by `override_rebuild_pools!`, unset in `live60`. The merge checked
-that each reference was drawn at the same truth as its mean field.
+18825531 and 18825539), made by `dev/scripts/eno_feedback_88.jl` at `8813dca` on
+PR #92's branch, not yet on `main`. Archive:
+`/fred/oz022/tkimpson/infercell-88-a3-archive-2026-10-19/`. `src` at `8813dca`
+differs from `main` only by `override_rebuild_pools!`, unset in `live60`. The merge
+checks that each reference was drawn at the same truth as its mean field. Merge
+#92 and this PR with merge commits, so `8813dca` and `9686014` stay reachable.
 **Regenerate:** `dev/scripts/jensen_gap_89.sh <outdir outside the worktrees>`.
 
 ## Setup
@@ -36,7 +43,7 @@ that each reference was drawn at the same truth as its mean field.
     2.75, 1.13 and 33.5).
   - The reduced model (6,300 s, 105 saves): A3's truths 1 and 2 (ptsG 4.36 and 0.80).
 
-## Verdict: KG fails at all five truths. Stop before B4
+## Verdict: the mean field fails KG at all five truths. Stop before B4
 
 | Truth | Total (nats, σ_b = 10%) | Noise | Total ≤ noise | Pools above 3× their noise |
 |---|---|---|---|---|
@@ -50,49 +57,75 @@ that each reference was drawn at the same truth as its mean field.
 - **The worst gap is never large in σ_b units.** The largest single-save gap is
   3.6 σ_b (GTP, M0 16085). Most pools stay under 1.5 σ_b. But GTP's gap is systematic
   across the whole trajectory, so it adds up to many nats.
-- **Per the sub-spec, this stops B4.** Mean field, as built, is not yet the second
+- **It is not where the sub-spec expected.** RB1 expected the gap at low ptsG. M0's
+  worst total is at ptsG 2.75, and its low-ptsG truth has the smallest.
+- **Per the sub-spec, this stops B4.** The mean field, as built, is not yet the second
   description, and σ_b is not to be tuned to make it pass.
+- **What AV5 measures.** The mean-field cell differs from the population in two
+  declared reductions at once: the Jensen gap, and the mean-field feedback (the
+  rebuild reads mean pools, not each cell's). This run does not separate them.
+
+## The rounding check: no effect
+
+The mean-field cell writes its ODE pools back continuously, and the reference cells
+use fractional carry. Rerun under the reference's policy, every number barely moves,
+and each truth flags the same pools:
+
+| Truth | Total, continuous | Total, fractional carry | GTP shift, continuous → fractional carry |
+|---|---|---|---|
+| M0, 16085 | 70.8 | 70.7 | 22.8 → 22.8 |
+| M0, 13 | 12.4 | 12.3 | 7.46 → 7.39 |
+| M0, 2 | 25.8 | 25.9 | 6.98 → 7.02 |
+| Reduced model, truth 1 | 99.9 | 100 | 31.0 → 31.2 |
+| Reduced model, truth 2 | 202 | 203 | 116 → 117 |
+
+So the rounding policy does not explain the gap.
 
 ## What the gap is (diagnosis on the same outputs)
 
-Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
+Mean of log(x̄_MF / x̄_SSA) over the saves, floored at one particle as KG is, with
+its range (from `diagnosis.md`, which also gives every panel pool's CV and its
+fraction of cell-saves below one particle):
 
 | Pool | M0 16085 | M0 13 | M0 2 | Reduced 1 | Reduced 2 |
 |---|---|---|---|---|---|
 | GTP | −0.17 (−0.36 to 0) | −0.11 | −0.11 | −0.075 | −0.14 (−0.24 to −0.02) |
 | ATP | +0.05 | +0.02 | +0.03 | +0.02 | −0.00 |
 | GDP | +0.13 | +0.04 | +0.06 | +0.03 | +0.02 |
+| GMP | +0.10 | +0.02 | +0.03 | +0.00 | +0.01 |
 | AMP | −0.10 | −0.03 | −0.05 | −0.03 | −0.02 |
 | G3P | −0.01 | −0.01 | −0.06 | −0.03 | −0.03 |
 | G6P | −0.01 | −0.00 | −0.01 | −0.01 | +0.02 |
 
-- **It is systematic and has one sign.** The mean field's GTP sits 7–17% below the
-  population mean at every truth, and GDP sits above it. That is a guanylate
-  imbalance, not noise.
+- **It is systematic and has one sign.** The mean field's GTP sits about 7–16% below
+  the population mean at every truth (exp(−0.075) to exp(−0.172)). GDP sits above it
+  at every truth, and GMP too, though barely on the reduced model. That is a guanylate imbalance, not noise.
 - **It is not the one-particle floor.** No cell-save is below one GTP particle except
   2% at reduced truth 2. No mean-field drain clipped.
   - **The SSA side's clipping was not captured.** The clip fires when a 1 s drain's
     accrual exceeds the pool, not when a save is below one particle. Neither this
-    script's ensembles nor A3's saved `clipping_census` per cell. It is cheap to add
-    if the diagnosis is relied on.
+    script's ensembles nor A3's saved `clipping_census` per cell. It costs about
+    7 CPU-h to add.
 - **The adenylates point at the response, not the demand.**
   - If the mean field over-drained GTP, ATP would be drained harder too and would sit
     below the SSA mean. Instead it sits above at four of five truths (+0.05 at M0
-    16085), with AMP below.
+    16085), with AMP below at all five.
   - GTP down, GDP up and ATP up looks like the nucleotide recycling at a different
-    operating point. That is a Jensen gap in its kinetics, fed by GTP's per-cell CV
-    of 0.24–0.45, the largest in the panel.
-  - This is a hypothesis. It is the strongest internal evidence that the gap is real
-    and not an artefact of the prototype.
+    operating point.
+- **The hypothesis, untested:** a Jensen gap in the nucleotide kinetics, or the
+  mean-field feedback, or both. A pool's own spread does not predict its offset:
+  GTP's per-cell CV is 0.24–0.45, but Pi, 3PG and 2PG reach 1.5 at M0 16085 and
+  carry no consistent offset, and GDP's CV (0.43) is above GTP's (0.36) there.
 - **It varies with θ by about 2×** across the five truths (GTP −0.075 to −0.17).
-- **Not excluded, and cheap to test:**
-  - the rounding policy differs between the two sides (`:continuous` against
-    fractional carry);
-  - the mean field rebuilds translation's constants from the mean charged pool, not
-    per cell.
-
-  Neither is expected to move GTP by 10%, but both should be checked before the
-  diagnosis is relied on.
+- **Not yet excluded:**
+  - the mean-field feedback: the rate constants, translation's included, are
+    rebuilt from the mean pools, not per cell. A3's `popmean` arm has this
+    reduction alone, with stochastic gene expression but frozen population-mean
+    pools (#92, `eno_feedback_88_result.md`). It moves GTP by 1.17 nats at reduced
+    truth 1 and 13.2 at truth 2 (noise 2.32 and 7.88), against the mean field's 31
+    and 116. So the feedback, as A3 froze it, does not account for GTP's gap. A
+    live version of that arm on M0 would test this at all five truths;
+  - the SSA side's clipping (above).
 
 ## Options for the rethink (none taken)
 
@@ -101,8 +134,9 @@ Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
      like S.
    - **Tested on these outputs (table below): it does not transfer across prior-wide
      truths.** A δ from one truth applied to another passes KG at no pair.
-     - Between M0's two nearer truths (13 and 2) it fixes GTP: 0.15 against noise
-       0.19.
+     - Between M0's truths 13 and 2, the farthest apart in ptsG (1.13 and 33.5),
+       it brings GTP within its noise one way only: 0.153 against 0.194 from 13 to
+       2, but 0.153 against 0.136 from 2 to 13.
      - Elsewhere it often makes the total worse than no correction (16085 → 13:
        44.2 against 12.4 uncorrected).
    - **Still open:** whether δ transfers across a posterior's width, which is far
@@ -122,8 +156,8 @@ Mean of log(x̄_MF / x̄_SSA) over the saves, with its range:
 ## Cross-applied offsets (option 1's test)
 
 δ is taken per pool and save from the first truth, added to the second truth's mean
-field, and scored as KG (σ_b = 10%). Computed on the archived outputs, with no new
-compute (`dev/scripts/jensen_gap_89_delta.jl`, run on the login node over the archive).
+field, and scored as KG (σ_b = 10%). From the `diagnose` stage (job 18892098), over
+the archived outputs, with no new simulation.
 
 | Offset from → applied to | Total | Noise | Pools above 3× noise | GTP shift (noise) |
 |---|---|---|---|---|
