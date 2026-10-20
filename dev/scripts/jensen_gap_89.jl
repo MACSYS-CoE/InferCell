@@ -26,6 +26,8 @@
 #   are reused from A3's archive. Its `src` differed from this script's base
 #   only by `override_rebuild_pools!`, unset in `live60`.
 #
+# MF_ROUNDING=fractional_carry runs the mean-field cell under the reference's rounding.
+#
 # Score (§8 KG), per pool and in total over the M0_PANEL, at σ_b = 10%:
 # Σ_t (log x̄_MF − log x̄_SSA)² / (2σ_b²), x̄ floored at one particle, against
 # the noise Σ_t (log x̄_h1 − log x̄_h2)² / 2 / (2σ_b²) of the ensemble's halves,
@@ -49,6 +51,9 @@ const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
 const A3_ARCHIVE = get(ENV, "A3_ARCHIVE", "/fred/oz022/tkimpson/infercell-88-a3-archive-2026-10-19")
 const NENSEMBLE = 200
 const SIGMA_B = 0.10
+# The mean-field cell's rounding policy. `:continuous` is B3's. `fractional_carry`
+# matches the reference cells, to test whether the policy explains the gap.
+const MF_ROUNDING = Symbol(get(ENV, "MF_ROUNDING", "continuous"))
 # Each truth: the model, how its truth is drawn, its horizon, and where its
 # reference ensemble comes from.
 const TRUTHS = Dict(
@@ -130,7 +135,7 @@ function run_meanfield(t, out)
     length(cme) == 3 || error("expected the three gene-expression modules, found $(length(cme))")
     ms = AbstractSubModel[any(T -> m isa T, CME) ? Silent(m) : m for m in full]
     mf = MeanField(cme; edges = :none)
-    d = build_problem(ms; tspan = (0.0, horizon(t)), complete = true, rounding = :continuous)
+    d = build_problem(ms; tspan = (0.0, horizon(t)), complete = true, rounding = MF_ROUNDING)
     set_parameters!(d, ms, truth)
 
     jump_models = [m for m in ms if formalism(m) === :jump]
@@ -184,7 +189,7 @@ function run_meanfield(t, out)
     serialize(meanfield_file(out, t),
               (; truth = t, values = truth, commit = COMMIT, smoke = SMOKE, job = slurm_job(),
                species = M0_PANEL, times, counts = reduce(hcat, counts),
-               worst_round, worst_round_100, worst_state, clipped = census.clipped, drains = census.drains,
+               rounding = MF_ROUNDING, worst_round, worst_round_100, worst_state, clipped = census.clipped, drains = census.drains,
                labels = [l.category for l in driver_declarations(d)]))
     @printf("%s mean field %s done: protein rounding at most %.2g (%s; %.2g at ≥ 100 copies), %d of %d drains clipped\n",
             now(), t, worst_round, worst_state, worst_round_100, census.clipped, census.drains)
@@ -269,7 +274,8 @@ function merge(out)
         p(join([@sprintf("%s %.4g", k, v) for (k, v) in mfr.values], ", "), ".")
         p()
         p("- Reference: $(length(cells)) cells at $(prov.commit) (job $(prov.job))",
-          spec.ref === :a3 ? ", #88 A3's `live60`" : "", ". Mean field at $(mfr.commit) (job $(mfr.job)).")
+          spec.ref === :a3 ? ", #88 A3's `live60`" : "", ". Mean field at $(mfr.commit) (job $(mfr.job)), ",
+          "rounding `:$(get(mfr, :rounding, :continuous))`.")
         p("- $(length(common)) saves. Protein rounding at most ", @sprintf("%.2g", mfr.worst_round),
           " relative, in `$(mfr.worst_state)` (", @sprintf("%.2g", mfr.worst_round_100), " at ≥ 100 copies). ",
           "$(mfr.clipped) of $(mfr.drains) mean-field drains clipped.")
