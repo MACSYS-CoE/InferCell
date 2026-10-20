@@ -154,6 +154,9 @@ end
         @test transcript_loglik([f, f2], k, μ) ≈ transcript_loglik(f, k, μ) + transcript_loglik(f2, k, μ)
         @test_throws DimensionMismatch transcript_loglik(f, k[:, 1:M], μ)
         @test_throws DimensionMismatch transcript_loglik(f, k, μ[1:1])
+        # Rates outside the corner the caps were sized for.
+        @test_throws ArgumentError transcript_loglik(f, k .* [1.0, 2.5], μ)
+        @test_throws ArgumentError transcript_loglik(f, k, μ .* [0.5, 1.0])
         @test_throws DimensionMismatch TranscriptFactor([1], y; kmax = 1.0, μmin = 0.01)
         @test_throws ArgumentError TranscriptFactor(y0, -y; kmax = 1.0, μmin = 0.01)
         @test_throws ArgumentError TranscriptFactor(y0, y; kmax = 1.0, μmin = 0.01, switch = 60.0)

@@ -36,6 +36,7 @@
 # Usage: julia --project dev/scripts/jensen_gap_89.jl ensemble <truth> <task> <ntasks> <outdir>
 #        julia --project dev/scripts/jensen_gap_89.jl meanfield <truth> <outdir>
 #        julia --project dev/scripts/jensen_gap_89.jl merge <outdir>
+#        julia --project dev/scripts/jensen_gap_89.jl diagnose <outdir>
 # Regenerate: dev/scripts/jensen_gap_89.sh <outdir outside the worktrees>
 
 using InferCell
@@ -236,6 +237,34 @@ end
 
 logbulk(cells, j) = [log(max(mean(c[i, j] for c in cells), 1.0)) for i in eachindex(M0_PANEL)]
 
+# Truth `t`'s mean field against its reference on the saves after t = 0 that
+# both have: log bulk means (panel × saves) of the mean field (M), of all the
+# reference cells (L) and of each half (H1, H2), floored at one particle.
+function scores(out, t)
+    mfr = deserialize(meanfield_file(out, t))
+    mfr.smoke == SMOKE || error("$t: the mean field's smoke flag differs from this run's")
+    cells, rtimes, prov = reference(out, t)
+    prov.smoke == SMOKE || error("$t: the reference's smoke flag differs from this run's")
+    prov.values == mfr.values || error("$t: the reference ensemble's truth differs from the mean field's")
+    n = length(cells)
+    (SMOKE ? iseven(n) : n == NENSEMBLE) ||
+        error("$t: $n reference cells; the halves need $(SMOKE ? "an even count" : NENSEMBLE)")
+    common = [τ for τ in mfr.times if τ > 0 && τ in rtimes]
+    jr = [findfirst(==(τ), rtimes) for τ in common]
+    jm = [findfirst(==(τ), mfr.times) for τ in common]
+    h = n ÷ 2
+    L = reduce(hcat, [logbulk(cells, j) for j in jr])
+    H1 = reduce(hcat, [logbulk(cells[1:h], j) for j in jr])
+    H2 = reduce(hcat, [logbulk(cells[(h + 1):n], j) for j in jr])
+    M = log.(max.(mfr.counts[:, jm], 1.0))
+    return (; mfr, cells, prov, common, jr, L, H1, H2, M)
+end
+
+# KG's per-pool statistic for a mean field `M` against `L`, and the noise from
+# the halves (§8).
+kg_shift(M, L) = vec(sum((M .- L) .^ 2; dims = 2)) ./ (2SIGMA_B^2)
+kg_noise(sc) = vec(sum((sc.H1 .- sc.H2) .^ 2; dims = 2)) ./ 2 ./ (2SIGMA_B^2)
+
 function merge(out)
     io = IOBuffer()
     p(args...) = (println(io, args...); println(args...))
@@ -246,21 +275,10 @@ function merge(out)
     summary = Dict{String, Any}()
     for t in ORDER
         isfile(meanfield_file(out, t)) || (p("## $t: mean field missing\n"); continue)
-        mfr = deserialize(meanfield_file(out, t))
-        mfr.smoke == SMOKE || error("$t: the mean field's smoke flag differs from this merge's")
-        cells, rtimes, prov = reference(out, t)
-        prov.values == mfr.values || error("$t: the reference ensemble's truth differs from the mean field's")
-        # Saves after t = 0 that both have.
-        common = [τ for τ in mfr.times if τ > 0 && τ in rtimes]
-        jr = [findfirst(==(τ), rtimes) for τ in common]
-        jm = [findfirst(==(τ), mfr.times) for τ in common]
-        h = length(cells) ÷ 2
-        L = reduce(hcat, [logbulk(cells, j) for j in jr])
-        H1 = reduce(hcat, [logbulk(cells[1:h], j) for j in jr])
-        H2 = reduce(hcat, [logbulk(cells[(h + 1):(2h)], j) for j in jr])
-        M = log.(max.(mfr.counts[:, jm], 1.0))
-        shift = vec(sum((M .- L) .^ 2; dims = 2)) ./ (2SIGMA_B^2)
-        noise = vec(sum((H1 .- H2) .^ 2; dims = 2)) ./ 2 ./ (2SIGMA_B^2)
+        sc = scores(out, t)
+        mfr, cells, prov, common, L, M = sc.mfr, sc.cells, sc.prov, sc.common, sc.L, sc.M
+        shift = kg_shift(M, L)
+        noise = kg_noise(sc)
         worst = vec(maximum(abs.(M .- L); dims = 2)) ./ SIGMA_B
         pass_total = sum(shift) <= sum(noise)
         bad = [M0_PANEL[i] for i in eachindex(M0_PANEL) if shift[i] > 3noise[i]]
@@ -298,6 +316,65 @@ function merge(out)
     println("Wrote ", joinpath(out, "merged.md"))
 end
 
+# What the gap is, on the merged outputs: per pool and truth, the mean field's
+# log offset from the population mean, how often a cell sits below one particle,
+# and the per-cell CV; then option 1's test, a reference-θ offset carried from
+# one truth to another and scored as KG.
+function diagnose(out)
+    io = IOBuffer()
+    p(args...) = (println(io, args...); println(args...))
+    ts = [t for t in ORDER if isfile(meanfield_file(out, t))]
+    sc = Dict(t => scores(out, t) for t in ts)
+    p("# Issue #89 B3: diagnosis", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
+    p()
+    p("At $COMMIT (job $(slurm_job())), over `$out`. Mean field rounding: ",
+      join(unique(string(":", get(sc[t].mfr, :rounding, :continuous)) for t in ts), ", "), ".")
+    p()
+    p("## The mean field against the population mean")
+    p()
+    p("Each entry: the mean over saves of log(x̄_MF / x̄_SSA), floored at one particle as KG is ",
+      "(its range); the fraction of cell-saves below one particle; the per-cell CV, averaged over saves.")
+    p()
+    p("| Pool | ", join(ts, " | "), " |")
+    p("|---|", repeat("---|", length(ts)))
+    for (i, o) in enumerate(M0_PANEL)
+        cols = map(ts) do t
+            s = sc[t]
+            d = s.M[i, :] .- s.L[i, :]
+            low = mean(c[i, j] < 1 for c in s.cells for j in s.jr)
+            cv = mean(std([c[i, j] for c in s.cells]) / max(mean(c[i, j] for c in s.cells), eps())
+                      for j in s.jr)
+            @sprintf("%+.3f (%+.2f to %+.2f) · %.3f · %.2f", mean(d), minimum(d), maximum(d), low, cv)
+        end
+        p("| `$o` | ", join(cols, " | "), " |")
+    end
+    p()
+    p("## Offsets carried across truths (option 1)")
+    p()
+    p("δ = L − M per pool and save at the first truth, added to the second truth's mean field, ",
+      "scored as KG at σ_b = $(Int(100SIGMA_B))%.")
+    p()
+    p("| Offset from → applied to | total | noise | pools > 3× noise | GTP shift (noise) |")
+    p("|---|---|---|---|---|")
+    gtp = findfirst(==(:M_gtp_c), M0_PANEL)
+    for group in (["m0_v6", "m0_low", "m0_high"], ["corea1", "corea2"]), a in group, b in group
+        (a == b || !(a in ts && b in ts)) && continue
+        sc[a].common == sc[b].common || error("$a and $b have different saves")
+        sh = kg_shift(sc[b].M .+ (sc[a].L .- sc[a].M), sc[b].L)
+        n = kg_noise(sc[b])
+        bad = [replace(String(M0_PANEL[i]), "M_" => "") for i in eachindex(sh) if sh[i] > 3n[i]]
+        p(@sprintf("| %s → %s | %.3g | %.3g | %d%s | %.3g (%.3g) |", a, b, sum(sh), sum(n), length(bad),
+                   isempty(bad) ? "" : " (" * join(bad, ", ") * ")", sh[gtp], n[gtp]))
+    end
+    p()
+    for t in ts
+        sh = kg_shift(sc[t].M, sc[t].L)
+        p(@sprintf("- Uncorrected %s: total %.3g, GTP %.3g.", t, sum(sh), sh[gtp]))
+    end
+    write(joinpath(out, "diagnosis.md"), take!(io))
+    println("Wrote ", joinpath(out, "diagnosis.md"))
+end
+
 function main()
     stage = ARGS[1]
     if stage == "ensemble"
@@ -306,8 +383,10 @@ function main()
         run_meanfield(ARGS[2], ARGS[3])
     elseif stage == "merge"
         merge(ARGS[2])
+    elseif stage == "diagnose"
+        diagnose(ARGS[2])
     else
-        error("stage must be ensemble, meanfield or merge")
+        error("stage must be ensemble, meanfield, merge or diagnose")
     end
 end
 

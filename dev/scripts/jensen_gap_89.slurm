@@ -16,6 +16,7 @@ case "$1" in
     ensemble)  julia --project dev/scripts/jensen_gap_89.jl ensemble "$2" "$SLURM_ARRAY_TASK_ID" "$3" "$4" ;;
     meanfield) julia --project dev/scripts/jensen_gap_89.jl meanfield "$2" "$3" ;;
     merge)     julia --project dev/scripts/jensen_gap_89.jl merge "$2" ;;
+    diagnose)  julia --project dev/scripts/jensen_gap_89.jl diagnose "$2" ;;
     *) echo "unknown stage $1"; exit 2 ;;
 esac
 status=$?

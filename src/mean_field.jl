@@ -102,9 +102,12 @@ function MeanField(members::AbstractVector{<:AbstractSubModel};
                 "in written_states"))
             col[sidx[j]] .+= Δu
             col[iidx[j]] .+= Δw
-            _check_affine(r, p, length(sidx[j]), length(iidx[j])) || throw(ArgumentError(
-                "A propensity of $(module_id(mem)) is not affine in the state, so " *
-                "the mean equations do not close and MeanField would not be exact"))
+            # At the declared values and at all ones, so a zero placeholder
+            # cannot hide a nonlinear term.
+            all(q -> _check_affine(r, q, length(sidx[j]), length(iidx[j])), (p, ones(length(p)))) ||
+                throw(ArgumentError(
+                    "A propensity of $(module_id(mem)) is not affine in the state, so " *
+                    "the mean equations do not close and MeanField would not be exact"))
             push!(rates, r.rate)
             push!(member, j)
             push!(cols, col)

@@ -33,12 +33,15 @@ Each gene's cap is fixed here, once, as the smallest at or above
 [`bridge_cap`](@ref) at which [`truncation_mass`](@ref) over `τ` from the
 gene's largest count is below `tol` at birth rate `kmax` and death rate
 `μmin`, the corner of the prior's support where truncation is worst. Either may
-be a scalar or one value per gene.
+be a scalar or one value per gene. [`transcript_loglik`](@ref) refuses rates
+outside that corner, where the cap was not checked.
 """
 struct TranscriptFactor
     y0::Vector{Int}
     y::Matrix{Int}
     caps::Vector{Int}
+    kmax::Vector{Float64}
+    μmin::Vector{Float64}
     τ::Float64
     switch::Float64
 
@@ -57,7 +60,7 @@ struct TranscriptFactor
             top = max(y0[g], maximum(view(y, g, :); init = 0))
             adequate_cap(kmaxs[g], μmins[g], τ, top; floor = bridge_cap(top), tol = tol)
         end
-        new(Vector{Int}(y0), Matrix{Int}(y), caps, Float64(τ), Float64(switch))
+        new(Vector{Int}(y0), Matrix{Int}(y), caps, kmaxs, μmins, Float64(τ), Float64(switch))
     end
 end
 
@@ -77,13 +80,23 @@ The exact log-likelihood of one cell's transcripts `f`, or the sum over cells
 `k` is genes × (windows + 1). Column j holds the constants in effect from the
 start of window j, `R_{j−1}`: window m runs at `k[:, m]` until `switch` before
 its end and at `k[:, m + 1]` after. `μ` has one entry per gene,
-`krnadeg / len_g`, and is constant. Both may be dual numbers.
+`krnadeg / len_g`, and is constant. Both may be dual numbers. A birth rate
+above the factor's `kmax`, or a death rate below its `μmin`, is an error: the
+cap's truncation was checked only inside those bounds.
 """
 function transcript_loglik(f::TranscriptFactor, k::AbstractMatrix, μ::AbstractVector)
     G, M = size(f.y)
     size(k) == (G, M + 1) || throw(DimensionMismatch(
         "k is $(size(k)); it needs one row per gene and windows + 1 = $(M + 1) columns"))
     length(μ) == G || throw(DimensionMismatch("μ has $(length(μ)) entries for $G genes"))
+    for g in 1:G
+        _primal(μ[g]) >= f.μmin[g] || throw(ArgumentError(
+            "gene $g's death rate $(_primal(μ[g])) is below the μmin $(f.μmin[g]) its cap was sized for"))
+        for j in 1:(M + 1)
+            _primal(k[g, j]) <= f.kmax[g] || throw(ArgumentError(
+                "gene $g's birth rate $(_primal(k[g, j])) is above the kmax $(f.kmax[g]) its cap was sized for"))
+        end
+    end
     T = float(promote_type(eltype(k), eltype(μ)))
     s = zero(T)
     for g in 1:G, m in 1:M
@@ -116,7 +129,6 @@ function _propagate(v::AbstractVector, k, μ, cap::Int, t::Float64)
     _primal(Λ) > 0 || return v
     λ = Λ * t
     nterms = _poisson_terms(_primal(λ))
-    T = eltype(v)
     out = exp(-λ) .* v
     cur = v
     logw = -λ

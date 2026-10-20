@@ -20,6 +20,17 @@ InferCell.formalism(::_SquareDecayMF) = :jump
 InferCell.reactions(::_SquareDecayMF) =
     [Reaction((u, p, t, w) -> p[1] * u[1]^2, (u, w) -> (u[1] -= 1))]
 
+# Affine at its declared values only: the quadratic term's coefficient is zero
+# there, so MeanField must also check away from them.
+struct _HiddenSquareMF <: AbstractSubModel end
+InferCell.states(::_HiddenSquareMF) = [:x_hs]
+InferCell.parameters(::_HiddenSquareMF) =
+    [InferParameter(0.1, LogNormal(log(0.1), 1.0), false, :k_hs, :_HiddenSquareMF, :rate),
+     InferParameter(0.0, LogNormal(log(0.1), 1.0), false, :q_hs, :_HiddenSquareMF, :rate)]
+InferCell.formalism(::_HiddenSquareMF) = :jump
+InferCell.reactions(::_HiddenSquareMF) =
+    [Reaction((u, p, t, w) -> p[1] * u[1] + p[2] * u[1]^2, (u, w) -> (u[1] -= 1))]
+
 _mf_value(m, name) = only(p.value for p in parameters(m) if p.name === name)
 
 @testset "B2: mean-field gene expression" begin
@@ -72,7 +83,7 @@ _mf_value(m, name) = only(p.value for p in parameters(m) if p.name === name)
         jnames = reduce(vcat, states.(jump))
         @test jnames == states(mf)
         worst = 0.0
-        for (it, t) in enumerate(saves), s in eachindex(jnames)
+        for t in saves, s in eachindex(jnames)
             x = [r.u[findfirst(==(t), r.t)][s] for r in runs]
             se = std(x) / sqrt(n)
             target = msol.u[findfirst(==(t), msol.t)][s]
@@ -114,6 +125,7 @@ _mf_value(m, name) = only(p.value for p in parameters(m) if p.name === name)
 
     @testset "refusals" begin
         @test_throws ArgumentError MeanField(AbstractSubModel[_SquareDecayMF()])
+        @test_throws ArgumentError MeanField(AbstractSubModel[_HiddenSquareMF()])
         # Decay alone reads transcripts no member owns.
         @test_throws ArgumentError MeanField(AbstractSubModel[CoreATranscriptDecay(; genes)])
         @test_throws ArgumentError MeanField(AbstractSubModel[bare])
