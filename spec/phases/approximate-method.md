@@ -228,8 +228,10 @@ forward ensemble of the full two-way model, and held fixed across θ.
   comparable:
   - `Σ_t (log x̄_MF − log x̄_SSA)² / (2σ_b²)` per pool and in total, at σ_b = 10%;
   - `x̄_SSA` is the 200-cell ensemble mean of the full two-way model at the same θ;
-  - the noise is that sum's expected value with no shift, from the ensemble's split
-    halves.
+  - the noise is A3's: `Σ_t (log x̄_h1 − log x̄_h2)² / 2 / (2σ_b²)` from the
+    ensemble's two halves. For a deterministic mean field against one 200-cell
+    mean that is twice the sum's expected value with no gap, so a gap-free mean
+    field sits at half the noise (amended 2026-10-20, §12).
   - **Pass** at a truth if (agreed 2026-10-20):
     - the total is ≤ the noise;
     - no pool is above 3× its own noise.
@@ -280,6 +282,17 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-20 — KG's noise is A3's split-half statistic, not the no-gap expectation
+
+- **What:** KG's noise is `Σ_t (log x̄_h1 − log x̄_h2)² / 2`, on the bulk scale, as
+  A3 defined it. It replaces "that sum's expected value with no shift".
+- **Why:** the mean-field side is deterministic, so with no gap the sum's expected
+  value is the variance of one 200-cell mean, summed. A gate at "total ≤ that
+  expectation" fails a gap-free mean field about half the time. A3's statistic is
+  twice it. So passing means the gap adds no more than the ensemble's own
+  sampling noise, and B3 stays comparable with A3's table.
+- **When:** before any B3 run. Found while writing the merge.
 
 ### 2026-10-20 — B0 agreed
 
