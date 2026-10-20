@@ -1,8 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** ⚠️ DRAFT, proposed and not agreed (issue #89, task B0). Nothing here binds
-until it is agreed. The gate in §8 has to be agreed before B3 runs.
-**Created:** 2026-10-20
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 to B3 in progress.
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-20
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -231,7 +230,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - `x̄_SSA` is the 200-cell ensemble mean of the full two-way model at the same θ;
   - the noise is that sum's expected value with no shift, from the ensemble's split
     halves.
-  - ⚠️ DRAFT threshold, for the user to set. **Pass** at a truth if:
+  - **Pass** at a truth if (agreed 2026-10-20):
     - the total is ≤ the noise;
     - no pool is above 3× its own noise.
   - **If it fails at truth 2 but passes elsewhere:** mean field is the wrong second
@@ -246,13 +245,13 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 9. Open questions
 
-- [NEEDS CLARIFICATION: KG's threshold.] The draft above is a proposal.
-- [NEEDS CLARIFICATION: fixed S, or the linear noise approximation?] D-S proposes
-  fixed S, with LNA if KS fires.
-- [NEEDS CLARIFICATION: the near-floor pools.] Pi, 3PG and 2PG sit near the
-  one-particle floor on M0 and carry 49 of R's 64 there. Keep them in the Gaussian
-  factor, drop them from the panel, or keep path sampling for them only? Dropping
-  them changes 5.2's data, so the exact fits would have to drop them too.
+- ~~[NEEDS CLARIFICATION: KG's threshold.]~~ — resolved 2026-10-20: as in §8.
+- ~~[NEEDS CLARIFICATION: fixed S, or the linear noise approximation?]~~ — resolved
+  2026-10-20: fixed S (D-S), with the linear noise approximation if KS fires.
+- ~~[NEEDS CLARIFICATION: the near-floor pools.]~~ — resolved 2026-10-20: Pi, 3PG
+  and 2PG stay in the Gaussian factor. The approximate and exact fits then see the
+  same data, and AV6 shows whether the Gaussian breaks there. Dropping them, or
+  path sampling for them only, is the response if it does.
 - [NEEDS CLARIFICATION: the transcript factor's constants.] Each cell's transcripts
   are scored at the population-mean `k̄_tx`. Is per-cell feedback in the transcript
   factor ever worth keeping? It is the only route by which a cell's own pools inform
@@ -269,7 +268,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 11. Task list
 
-- [ ] **B0.** This file, agreed.
+- [x] **B0.** This file, agreed 2026-10-20.
 - [ ] **B1.** The transcript factor, AV1–AV3.
 - [ ] **B2.** The mean-field modules, AV3–AV4.
 - [ ] **B3.** The Jensen-gap prototype, AV5. Gates B4.
@@ -282,4 +281,11 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
-None yet.
+### 2026-10-20 — B0 agreed
+
+- **What:** the draft agreed as written, with three decisions:
+  - KG's threshold as in §8;
+  - a fixed S (D-S);
+  - the near-floor pools (Pi, 3PG, 2PG) kept in the Gaussian factor;
+  - KC's tenth of F10's cost.
+- **Why:** the proposals in the draft, accepted by the user.
