@@ -90,8 +90,9 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 18886224–18886232 | #89 B3 | Jensen gap: three M0 ensembles of 200 cells, five mean-field cells, merge (of record) | 1 | 0:01:05–0:07:58 each | 2.20 |
 | 18888681–18888686 | #89 B3 | Rounding check: five mean-field cells under fractional carry, merge (of record) | 1 | 0:01:09–0:05:40 each | 0.46 |
 | 18892098, 18892099 | #89 B3 | Diagnosis over both archives (of record) | 1 | 0:02:01–0:02:02 each | 0.07 |
+| 18892323–18892332 | #89 B3 | Smoke of the #93 review fixes: every stage, through the diagnosis | 1 | 0:00:46–0:04:14 each | 0.70 |
 
-**#89 B3: about 3.6 CPU-h**, not yet in the totals below, which #92 (track A) also
+**#89 B3: about 4.3 CPU-h**, not yet in the totals below, which #92 (track A) also
 updates. Fold both in when the two merge.
 
 **16a total, excluding 16a.9: about 411.4 CPU-h** (the rows' sum, recomputed after
