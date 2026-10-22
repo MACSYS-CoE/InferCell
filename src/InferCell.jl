@@ -31,6 +31,7 @@ include("orchestrator.jl")
 include("handshake.jl")
 include("path_replay.jl")
 include("transcript_bridge.jl")
+include("transcript_factor.jl")
 include("conditional_updates.jl")
 # The Core A′ modules. Unlike the files above these must come after
 # interface.jl: a sub-model's `<: AbstractSubModel` is resolved when the
@@ -61,6 +62,7 @@ include("organisms/coreA/assembly.jl")
 # Prior draws read glycolysis's and recycling's rate laws and the assembly.
 include("organisms/coreA/prior_draws.jl")
 include("organisms/coreA/m0.jl")
+include("mean_field.jl")
 include("organisms/coreA/validation.jl")
 include("organisms/coreA/observables.jl")
 include("organisms/coreA/block1.jl")
