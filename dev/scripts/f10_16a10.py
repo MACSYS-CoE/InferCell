@@ -7,7 +7,7 @@ beside V8's split-half floor and four null draws matched to production's length
 (each V6 chain's sweeps 101-656 against the other three chains). Prints the
 result tables as markdown and draws F10.
 
-    python3 dev/scripts/f10_16a10.py   # needs numpy, scipy, matplotlib
+    python3 dev/scripts/f10_16a10.py   # needs numpy, scipy, matplotlib, arviz
 """
 import os
 
@@ -15,6 +15,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import arviz as az
 import numpy as np
 from scipy.stats import gaussian_kde, wasserstein_distance
 
@@ -52,20 +53,8 @@ def draws(d, chains, lo, hi):
 
 
 def ess(x):
-    """Single-chain ESS by Geyer's initial monotone sequence (not rank-normalised)."""
-    x = x - x.mean()
-    n = len(x)
-    f = np.fft.rfft(x, 2 * n)
-    acf = np.fft.irfft(f * np.conj(f))[:n] / (n * x.var())
-    pairs = acf[0:n - 1:2] + acf[1:n:2]
-    s, prev = 0.0, np.inf
-    for p in pairs:
-        if p <= 0:
-            break
-        p = min(p, prev)
-        s += p
-        prev = p
-    return n / (2 * s - 1)
+    """Bulk ESS of one chain, rank-normalised and split, as V6 and V7 report it."""
+    return float(az.ess(x[None, :], method="bulk"))
 
 
 def w1(a, b, sd):
@@ -85,17 +74,18 @@ def main():
     print(f"Reference: chains {REF_CHAINS}, sweeps {BURN + 1}-{last}, {len(ref)} draws. "
           f"Production: chain {PROD_CHAIN}, sweeps {BURN + 1}-{PROD_SWEEPS}, {len(prod)} draws.\n")
 
+    segs = {k: draws(d, [k], BURN + 1, PROD_SWEEPS) for k in REF_CHAINS}
+    h1, h2 = draws(d, [1, 2], BURN + 1, last), draws(d, [3, 4], BURN + 1, last)
     prod_w = np.array([w1(prod[:, p], ref[:, p], sd[p]) for p in range(P)])
-    split = np.array([w1(draws(d, [1, 2], BURN + 1, last)[:, p],
-                         draws(d, [3, 4], BURN + 1, last)[:, p], sd[p]) for p in range(P)])
+    split = np.array([w1(h1[:, p], h2[:, p], sd[p]) for p in range(P)])
+    # Each null is read against the other three chains, production against all four.
     null = np.zeros((4, P))
     for i, k in enumerate(REF_CHAINS):
-        seg = draws(d, [k], BURN + 1, PROD_SWEEPS)
         rest = draws(d, [c for c in REF_CHAINS if c != k], BURN + 1, last)
-        null[i] = [w1(seg[:, p], rest[:, p], sd[p]) for p in range(P)]
+        null[i] = [w1(segs[k][:, p], rest[:, p], sd[p]) for p in range(P)]
     rank = 1 + (null < prod_w).sum(axis=0)
     prod_ess = [ess(prod[:, p]) for p in range(P)]
-    null_ess = [[ess(draws(d, [k], BURN + 1, PROD_SWEEPS)[:, p]) for k in REF_CHAINS] for p in range(P)]
+    null_ess = [[ess(segs[k][:, p]) for k in REF_CHAINS] for p in range(P)]
 
     print("| Parameter (log) | Reference mean ± SD | Production mean ± SD | Δmean / SD_ref | SD ratio | "
           "Production ESS | Null chains' ESS |")
@@ -115,12 +105,21 @@ def main():
               f"{split[p]:.3f} | {rank[p]} | {reading} |")
     print(f"\nParameters ranked 5 of 5: {int((rank == 5).sum())} of {P} "
           f"(about {P / 5:.1f} expected by chance if chain 5 is exchangeable with the nulls).")
+    print(f"Nulls above V8's split-half floor: {int((null > split).sum())} of {null.size}; "
+          f"production above it on {int((prod_w > split).sum())} of {P}.")
 
     os.makedirs(OUT, exist_ok=True)
-    plot(names, d, ref, prod, sd, truth, prod_w, null, split, last)
+    plot(names, segs, ref, prod, truth, prod_w, null, split)
 
 
-def plot(names, d, ref, prod, sd, truth, prod_w, null, split, last):
+def save(fig, stem):
+    for ext in ("pdf", "png"):
+        fig.savefig(os.path.join(OUT, f"{stem}.{ext}"), dpi=150,
+                    metadata={"CreationDate": None} if ext == "pdf" else None)
+    plt.close(fig)
+
+
+def plot(names, segs, ref, prod, truth, prod_w, null, split):
     P = len(names)
     fig, axes = plt.subplots(2, 3, figsize=(11, 6.4))
     for p, ax in enumerate(axes.flat):
@@ -128,8 +127,7 @@ def plot(names, d, ref, prod, sd, truth, prod_w, null, split, last):
         hi = max(ref[:, p].max(), prod[:, p].max())
         x = np.linspace(lo, hi, 300)
         for k in REF_CHAINS:
-            seg = draws(d, [k], BURN + 1, PROD_SWEEPS)[:, p]
-            ax.plot(x, gaussian_kde(seg)(x), color="0.7", lw=0.8,
+            ax.plot(x, gaussian_kde(segs[k][:, p])(x), color="0.7", lw=0.8,
                     label="V6 chain, sweeps 101–656" if k == 1 else None)
         ax.fill_between(x, gaussian_kde(ref[:, p])(x), color="C0", alpha=0.3, label="reference (V6)")
         ax.plot(x, gaussian_kde(prod[:, p])(x), color="C3", lw=1.8, label="production (chain 5)")
@@ -142,17 +140,14 @@ def plot(names, d, ref, prod, sd, truth, prod_w, null, split, last):
     fig.suptitle("F10: production-length chain against the M0 reference (PG, N = 20 for both; D16.5's PG case)",
                  fontsize=10)
     fig.tight_layout()
-    for ext in ("pdf", "png"):
-        fig.savefig(os.path.join(OUT, f"f10_marginals.{ext}"), dpi=150)
-    plt.close(fig)
+    save(fig, "f10_marginals")
 
     i, j = names.index(PAIR[0]), names.index(PAIR[1])
     fig, ax = plt.subplots(figsize=(5, 4.5))
+    X, Y = np.meshgrid(np.linspace(ref[:, i].min(), ref[:, i].max(), 120),
+                       np.linspace(ref[:, j].min(), ref[:, j].max(), 120))
     for data, color, label in ((ref, "C0", "reference (V6)"), (prod, "C3", "production (chain 5)")):
         kde = gaussian_kde(data[:, [i, j]].T)
-        gx = np.linspace(ref[:, i].min(), ref[:, i].max(), 120)
-        gy = np.linspace(ref[:, j].min(), ref[:, j].max(), 120)
-        X, Y = np.meshgrid(gx, gy)
         Z = kde(np.vstack([X.ravel(), Y.ravel()])).reshape(X.shape)
         # Contours at the density levels enclosing about 50% and 90% of the draws.
         dens = np.sort(kde(data[:, [i, j]].T))
@@ -165,9 +160,7 @@ def plot(names, d, ref, prod, sd, truth, prod_w, null, split, last):
     ax.set_title("F10: ptsG × ENO, 50% and 90% contours", fontsize=10)
     ax.legend(fontsize=8)
     fig.tight_layout()
-    for ext in ("pdf", "png"):
-        fig.savefig(os.path.join(OUT, f"f10_contour.{ext}"), dpi=150)
-    plt.close(fig)
+    save(fig, "f10_contour")
 
     fig, ax = plt.subplots(figsize=(7, 3.6))
     y = np.arange(P)
@@ -181,9 +174,7 @@ def plot(names, d, ref, prod, sd, truth, prod_w, null, split, last):
     ax.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=3)
     ax.set_title("F10: divergence per marginal, beside its floors", fontsize=10)
     fig.tight_layout()
-    for ext in ("pdf", "png"):
-        fig.savefig(os.path.join(OUT, f"f10_divergence.{ext}"), dpi=150)
-    plt.close(fig)
+    save(fig, "f10_divergence")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 ## Latest: F10 done, 16a.10 ticked (2026-10-22)
 
-**Branch:** `phase-16a10-f10`, with no PR yet.
+**Branch:** `phase-16a10-f10`, PR #94. `/check-PR` said MERGE, and its minor fixes are applied.
 
 **F10's result** (`dev/scripts/f10_16a10_result.md`): **a production-length chain
 is not resolved from the M0 reference on any marginal.**
@@ -14,8 +14,8 @@ is not resolved from the M0 reference on any marginal.**
 - **Mean differences** are at most 0.12 SD.
 - **V8's split-half floor alone would have flagged 5 of 6.** It measures the noise
   of 3,100-draw halves, which is why the matched floor was added.
-- **Production ESS on GAPD:** 66 (Geyer, single chain), within the nulls' 53 to
-  110.
+- **Production bulk ESS (arviz):** 63 on GAPD and 55 on ENO, against the nulls'
+  32 to 177 on the slow three. Chain 5 wanders slowly on ENO.
 - **The chain:** job 18751635 at `a0060de`, 656 sweeps, 4 d 5.5 h, 507.5 CPU-h. It
   is archived with checksums at
   `/fred/oz022/tkimpson/infercell-16a10-archive-2026-10-22/`.
@@ -25,7 +25,7 @@ is not resolved from the M0 reference on any marginal.**
 - **The ledger:** phase 16 is at about 42.6k of 50k, with about 7.4k left.
 
 **Next:**
-1. `/check-PR` on this branch, then merge.
+1. Merge #94 once CI is green.
 2. **16a.11's §12 entry,** to close phase 16 at M0. It covers:
    - the cost per M0 posterior;
    - K1's bound;

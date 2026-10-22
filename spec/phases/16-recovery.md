@@ -192,7 +192,7 @@ x̄_j,k = (1/C) Σ_c x_j(θ, X_c, t_k)
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
 | V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows). **Amended 2026-10-12 (§12):** each band is at 1 − 0.05/6, so V7 as a whole is at 95%, on a complete set of R replicates | 16a.9 |
-| V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. *Amended 2026-10-22 (§12):* the divergence is Wasserstein-1 per marginal in reference SDs, and a floor matched to production's length is added. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
+| V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. *Amended 2026-10-22 (§12):* the divergence is Wasserstein-1 per marginal in reference SDs. A floor matched to production's length is added, and the reading is against that floor: "not resolved" means not above every matched null. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
 | V9 | Snapshot independence | Mutating one particle's snapshot leaves every other unchanged. This is the installed trap of solver objects shared across particles, tested directly | 16a.7 |
 
 **V1 in detail.**
@@ -1041,7 +1041,9 @@ read.
 - a true N_ref ≫ N reference, which is unaffordable.
 
 One production chain gives one draw of the divergence. A divergence inside V8's
-floor is read as "not resolved at production's length".
+floor is read as "not resolved at production's length". *Superseded 2026-10-22
+(§12):* the reading is against four nulls matched to production's length, not V8's
+floor alone.
 
 **The run:** `gibbs_pilot_16a9a.jl run 5 656` from `f10_16a10.sh`. That is V6's
 own setup (replicate 16085, 50 cells, N = 20) as a fifth chain, started from the
