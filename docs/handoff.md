@@ -9,16 +9,17 @@
 and nothing conflicted.
 - **The ledger:** track B's rows moved to their own section after track A's. The
   two B1/B2 suite runs (18884570, 18892097; 4.9 CPU-h) were missing and are added
-  from `sacct`. #89 is about 9.2 CPU-h, so phase 16 stands at about 42,864 of 50k,
-  with about 7.1k left. 16b's 2.6k fits.
+  from `sacct`. #89 is about 12.5 CPU-h, so phase 16 stands at about 42,867 of
+  50k, with about 7.1k left. 16b's 2.6k fits.
+- **The suite passed** 28640 of 28640 at `ec4c219` (job 19002806).
 - **What #93 merges is B0–B3, with B3 failing KG at every truth.** B4 (route (ii))
   stays stopped until you choose a rethink (sub-spec §8 and the result file's four
   options). `MeanField` lands in `src` because AV4 shows it is a correct mean ODE.
   It is not validated as a likelihood approximation.
 
 **Next:**
-1. Rerun the suite on the merged branch, mark #93 ready and merge it with a merge
-   commit (`9686014` and `2d15e83` are cited). Tick #88's and #89's boxes.
+1. Merge #93 with a merge commit once CI passes (`9686014` and `2d15e83` are
+   cited). Tick #88's and #89's boxes.
 2. **16b on a new branch.** First 16b.4's stream check, then submit 16b.1's and
    16b.4's posteriors side by side (about 5 to 6 days).
 3. **Your call, whenever:** track B's rethink. The options are an offset across

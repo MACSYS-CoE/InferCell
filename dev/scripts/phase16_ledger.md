@@ -125,8 +125,9 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 18888681–18888686 | #89 B3 | Rounding check: five mean-field cells under fractional carry, merge (of record) | 1 | 0:01:09–0:05:40 each | 0.46 |
 | 18892098, 18892099 | #89 B3 | Diagnosis over both archives (of record) | 1 | 0:02:01–0:02:02 each | 0.07 |
 | 18892323–18892332 | #89 B3 | Smoke of the #93 review fixes: every stage, through the diagnosis | 1 | 0:00:46–0:04:14 each | 0.70 |
+| 19002806 | #89 | Test suite after merging main with #92 (of record, 28640 of 28640 at `ec4c219`) | 4 | 0:50:08 | 3.34 |
 
-**#89 total: about 9.2 CPU-h**: B3's 4.3 and the two suites' 4.9. The suites were
-missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,864.0 CPU-h** of 50k, so about 7.1k
+**#89 total: about 12.5 CPU-h**: B3's 4.3 and three suites' 8.2. The first two
+suites were missing from #93's rows and are added here from `sacct`.
+**Phase 16 total with both tracks: about 42,867.4 CPU-h** of 50k, so about 7.1k
 remain.
