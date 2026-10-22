@@ -1,6 +1,65 @@
 # Handoff
 
-## Latest: #92 merged; #93 (track B) merged with main (2026-10-22)
+## Latest: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`)
+
+**What ran:** `dev/scripts/jensen_rethink_89.jl` (48.0 CPU-h of the 100 allowed).
+The result is `dev/scripts/jensen_rethink_89_result.md`, and the rules and
+outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
+`/fred/oz022/tkimpson/infercell-89-rethink-archive-2026-10-22/`.
+
+**Findings:**
+- **The GTP gap is cell-to-cell drain variation.** Given the mean field's drains,
+  the 200-cell mean equals the mean field to three figures.
+  - Ruled out for GTP: enzyme counts, the per-cell feedback (a live popmean arm)
+    and the clip (2 of 360k drains). Both arms still move pools other than GTP at
+    m0_v6 (enzymes_mf 59, popmean 56, against noise 25).
+  - **Shot noise is not ruled out:** its share is up to 0.44 at m0_low.
+  - Measured, from an unscripted login-node read: per-cell GTP falls with protein
+    output, which varies about 2-fold.
+  - Interpretation, not measured: GTP is regenerated only by saturable PGK3/PYK3,
+    so the population mean sits above GTP at the mean spend.
+- **δ does not carry far in θ (information only).** δ taken at m0_v6, the
+  dataset's truth, 1–3 posterior SDs from the F10 draws, makes the gap worse at
+  all 8 (KG totals 58–129 against 40–72). Its caveats are shared seeds and a
+  200-cell ensemble. It was missing from the first version of this PR.
+- **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
+  reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
+  uncorrected mean field passes at 0 of 28.
+- **KG fails a right answer about half the time.** A 600-cell mean at the same θ
+  passes at 36–56%; the per-pool 3× clause is the problem. Read against that null,
+  δ behaves like a right description at 26 of 28 targets.
+
+**Decided 2026-10-23 (§12, the user's decision after the results):** the gap is
+a declared reduction, not a stop. The reference is the most detailed composition
+(jump gene expression coupled two ways to ODE metabolism), not the truth. The
+bulk factor is centred on m(θ) + δ, with δ from the same reference ensemble as S.
+KG, KG′ and the implied parameter bias are reported. AV6 (B7) decides whether the
+gap matters.
+
+**Next:**
+1. PR #97 (the rethink plus this decision) was reviewed with `/check-PR`. Its text
+   fixes are in (§12 "corrections from #97's review"), and it is merged with a
+   merge commit.
+2. B3 close-out: the implied-bias report at 2A's 28 targets, no pass line
+   (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles. J
+   comes from central differences through the script's mean field, since AV3's
+   ForwardDiff covers only the gene-expression block. It should also read the
+   m0_v6 result: how far δ can be carried in θ.
+3. B4: route (ii), the ODE path's catalytic, drain and rebuild edges, in `src/`,
+   on a new branch, with the full suite.
+4. B5: the mixed likelihood centred on m(θ) + δ, with the two-pass reference θ
+   (D-S). Then B6, and B7 (AV6), the real test of the gap.
+5. Unchanged from below: 16b on a new branch.
+
+**Can go:** the run worktrees `.worktrees/89re-bf54df3`, `89re-29781f6`,
+`89re-bc71511`, `89re-b2f6b4c`, `89re-b2f6b4c-b` and `89re-538d32d`, and
+`/fred/oz022/tkimpson/infercell-89-rethink-smoke-2026-10-22/`.
+
+**Cluster:** a fresh worktree's first array, spread over dave, gina and turin
+nodes, wrote a precompile cache that milan refused. Precompile once on milan, and
+keep the arrays on `--exclude='dave[148-149]'`.
+
+## Previous: #92 merged; #93 (track B) merged with main (2026-10-22)
 
 **#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,
 `2b039a0` and `6da2398` stay reachable.

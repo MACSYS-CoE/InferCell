@@ -127,7 +127,14 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 18892323–18892332 | #89 B3 | Smoke of the #93 review fixes: every stage, through the diagnosis | 1 | 0:00:46–0:04:14 each | 0.70 |
 | 19002806 | #89 | Test suite after merging main with #92 (of record, 28640 of 28640 at `ec4c219`) | 4 | 0:50:08 | 3.34 |
 
-**#89 total: about 12.5 CPU-h**: B3's 4.3 and three suites' 8.2. The first two
-suites were missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,867.4 CPU-h** of 50k, so about 7.1k
+| 19012789–19012801 | #89 rethink | Smoke of every stage (4 cells, 120 s) | 1 | 0:00:53–0:03:44 each | 1.11 |
+| 19013270–19013346 | #89 rethink | Stage 1 arms, 2A ensembles on shared seeds (superseded), 32 mean fields, score | 1 | up to ~0:10 each | 21.42 |
+| 19014973–19014975 | #89 rethink | Seed-range check at f10_ref, m0_low, m0_high | 1 | 0:04:30–0:05:11 each | 1.21 |
+| 19015472–19015544 | #89 rethink | 2A on independent seeds, twenty posterior-draw cells; 76 tasks failed on a precompile cache from another CPU (excludes foreign tasks 19015474_1563 and 19015507_579 in the id range) | 1 | 0:00:34–0:15:29 each | 18.50 |
+| 19017428, 19017558–19017599 | #89 rethink | Precompile on milan; the missing pieces rerun; transfer (superseded by 19018422), calibrate (of record), score (of record for Stage 1; its 2A tables are the shared-seed run) | 1 | up to ~0:10 each | 5.75 |
+| 19018421, 19018422 | #89 rethink | Precompile; transfer rerun with the floor variant (of record) | 1 | 0:01:24, 0:01:05 | 0.04 |
+
+**#89 total: about 60.5 CPU-h**: B3's 4.3, three suites' 8.2 and the rethink's 48.0.
+The first two suites were missing from #93's rows and are added here from `sacct`.
+**Phase 16 total with both tracks: about 42,915.4 CPU-h** of 50k, so about 7.1k
 remain.
