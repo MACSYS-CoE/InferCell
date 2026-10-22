@@ -18,6 +18,8 @@ case "$1" in
     meanfield) julia --project $s meanfield "$2" "$3" ;;
     popmean)   julia --project $s popmean "$2" "$3" ;;
     score)     julia --project $s score "$2" ;;
+    calibrate) julia --project $s calibrate "$2" ;;
+    transfer)  julia --project $s transfer "$2" ;;
     *) echo "unknown stage $1"; exit 2 ;;
 esac
 status=$?

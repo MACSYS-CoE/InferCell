@@ -30,6 +30,9 @@
 #        julia --project dev/scripts/jensen_rethink_89.jl meanfield <point> <outdir>
 #        julia --project dev/scripts/jensen_rethink_89.jl popmean <point> <outdir>
 #        julia --project dev/scripts/jensen_rethink_89.jl score <outdir>
+#        julia --project dev/scripts/jensen_rethink_89.jl calibrate <outdir>
+#        julia --project dev/scripts/jensen_rethink_89.jl transfer <outdir>
+#        julia --project dev/scripts/jensen_rethink_89.jl seeds   (each transfer ensemble's seed0)
 #        julia --project dev/scripts/jensen_rethink_89.jl points
 # Regenerate: dev/scripts/jensen_rethink_89.sh <outdir outside the worktrees>
 
@@ -90,6 +93,11 @@ function points()
     for k in 1:8
         i = order[clamp(round(Int, (k - 0.5) / 8 * length(order)), 1, length(order))]
         P["f10_d$k"] = with_logs(v6, X[i, :])
+    end
+    # Twenty random posterior draws, for an offset spread over the posterior.
+    rng = Xoshiro(8920)
+    for k in 1:20
+        P["f10_p$k"] = with_logs(v6, X[rand(rng, axes(X, 1)), :])
     end
     for (tag, base) in (("low", low), ("high", high)), (j, n) in enumerate(LOGNAMES), s in (+1, -1)
         l = logs_of(base); l[j] += s * sd[j]
@@ -502,6 +510,202 @@ function score(out)
     println("Wrote ", joinpath(out, "scores.md"))
 end
 
+# Information only, never a verdict (§12 2026-10-23): KG's statistics for a
+# description known to be right. At each point with 800 full cells, `NNULL`
+# random 600/200 partitions score the 600-cell mean (in place of the mean field)
+# against the 200-cell group, as KG scores a mean field against its reference.
+# Each 2A target's statistics are then placed in that null as quantiles: the
+# total over the noise, and the largest pool's shift over its noise. Beside δ
+# from the reference point, δ̄ is the mean offset over the group's other targets
+# (leave one out): an offset estimated from cells spread over the posterior.
+const NNULL = 200
+kg_stats(shift, noise) = (ratio = sum(shift) / sum(noise), pmax = maximum(shift ./ noise),
+                          pass = verdict(shift, noise).pass)
+qof(x, null) = mean(null .<= x)
+
+function calibrate(out)
+    io = IOBuffer()
+    p(args...) = (println(io, args...); println(args...))
+    p("# Issue #89 B3 rethink: KG's null, and offsets placed in it", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
+    p()
+    p("At $COMMIT (job $(slurm_job())) over `$out`. Information only: the verdicts of record are KG's, in `scores.md`.")
+    p()
+    P = points()
+    cellsof(pt, s0) = (let dir = ens_dir(out, pt, "full", s0); isdir(dir) ? load_cells(dir) : nothing end)
+    rng = Xoshiro(89)
+    p("## The null: a 600-cell mean scored as a mean field against 200 other cells at the same θ")
+    p()
+    p("| Point | partitions | KG passes | total/noise: median (90%) | max pool shift/noise: median (90%) |")
+    p("|---|---|---|---|---|")
+    nulls = Dict{String, Any}()
+    for pt in ("f10_ref", "m0_low", "m0_high")
+        r = cellsof(pt, 40_000); r === nothing && continue
+        cs = r[1]; n = length(cs); n >= 8 || continue
+        k = n ÷ 4
+        st = map(1:(SMOKE ? 10 : NNULL)) do _
+            perm = randperm(rng, n)
+            T = cs[perm[1:k]]; R = cs[perm[(k + 1):end]]
+            kg_stats(kg_shift(logbulk_mat(R), logbulk_mat(T)), kg_noise(T))
+        end
+        nulls[pt] = st
+        rs = [s.ratio for s in st]; ms = [s.pmax for s in st]
+        p(@sprintf("| %s | %d | %d (%.0f%%) | %.2f (%.2f) | %.1f (%.1f) |", pt, length(st), count(s -> s.pass, st),
+                   100mean(s.pass for s in st), median(rs), quantile(rs, 0.9), median(ms), quantile(ms, 0.9)))
+    end
+    p()
+    p("## The seed range: δ's GTP entry from the 40001… and 50001… ensembles at the same point")
+    p()
+    for pt in ("f10_ref", "m0_low", "m0_high")
+        isfile(mf_file(out, pt)) || continue
+        M = mf_log(deserialize(mf_file(out, pt)))
+        row = String[]
+        for s0 in (40_000, 50_000)
+            r = cellsof(pt, s0); r === nothing && continue
+            cs = r[1]
+            for a in 1:(length(cs) ÷ 200)
+                push!(row, @sprintf("s%d[%d] %+.3f", s0 + 1, a, mean(logbulk_mat(cs[(200a - 199):(200a)])[GTP, :] .- M[GTP, :])))
+            end
+        end
+        p("- $pt: ", join(row, ", "), ".")
+    end
+    p()
+    p("## 2A's targets in the null")
+    p()
+    p("Quantile of each statistic in the source point's null; ≤ 0.95 is where a right description sits 95% of the time.")
+    p()
+    groups = [("f10_ref", ["f10_d$k" for k in 1:8]),
+              ("m0_low", sort([k for k in keys(P) if startswith(k, "low_")])),
+              ("m0_high", sort([k for k in keys(P) if startswith(k, "high_")]))]
+    for (src, targets) in groups
+        haskey(nulls, src) || continue
+        null = nulls[src]
+        nr = [s.ratio for s in null]; nm = [s.pmax for s in null]
+        rc = cellsof(src, 40_000)[1]
+        δ = logbulk_mat(rc) .- mf_log(deserialize(mf_file(out, src)))
+        T = [t for t in targets if cellsof(t, 50_000) !== nothing && isfile(mf_file(out, t))]
+        Ls = Dict(t => logbulk_mat(cellsof(t, 50_000)[1][1:min(end, NKG)]) for t in T)
+        Ms = Dict(t => mf_log(deserialize(mf_file(out, t))) for t in T)
+        Ns = Dict(t => kg_noise(cellsof(t, 50_000)[1][1:min(end, NKG)]) for t in T)
+        p("### $src")
+        p()
+        p("| Target | uncorrected: ratio (q), max (q) | δ_ref: ratio (q), max (q) | δ̄ leave-one-out: ratio (q), max (q) |")
+        p("|---|---|---|---|")
+        inside = Dict("u" => 0, "r" => 0, "b" => 0)
+        for t in T
+            δbar = mean([Ls[o] .- Ms[o] for o in T if o != t])
+            cols = String[]
+            for (key, M) in (("u", Ms[t]), ("r", Ms[t] .+ δ), ("b", Ms[t] .+ δbar))
+                st = kg_stats(kg_shift(M, Ls[t]), Ns[t])
+                qr, qm = qof(st.ratio, nr), qof(st.pmax, nm)
+                (qr <= 0.95 && qm <= 0.95) && (inside[key] += 1)
+                push!(cols, @sprintf("%.2f (%.2f), %.1f (%.2f)", st.ratio, qr, st.pmax, qm))
+            end
+            p("| $t | ", join(cols, " | "), " |")
+        end
+        p()
+        nT = length(T)
+        p(@sprintf("**%s: both statistics within the null's 95%%: uncorrected %d of %d, δ_ref %d of %d, δ̄ %d of %d.**",
+                   src, inside["u"], nT, inside["r"], nT, inside["b"], nT))
+        p()
+    end
+    p("## enzymes_mf at m0_v6, per pool (shift against the full arm, noise)")
+    p()
+    d = ens_dir(out, "m0_v6", "enzymes_mf", 40_000)
+    r = cellsof("m0_v6", 40_000)
+    if isdir(d) && r !== nothing
+        ref = r[1][1:min(end, NKG)]
+        sh = kg_shift(logbulk_mat(load_cells(d)[1]), logbulk_mat(ref)); n = kg_noise(ref)
+        p(join([@sprintf("%s %.3g (%.3g)", short(M0_PANEL[i]), sh[i], n[i]) for i in eachindex(sh)], "; "), ".")
+    end
+    write(joinpath(out, "calibrate.md"), take!(io))
+    println("Wrote ", joinpath(out, "calibrate.md"))
+end
+
+# Stage 2A with independent seeds (§12 2026-10-23). The first 2A targets shared
+# seeds 50001…, so their ensemble noise was common and they were not independent
+# tests. Here target i (in sorted order) runs at seeds `indep_seed0(t)` + 1…,
+# disjoint from every other ensemble. Two offsets are carried to them:
+# - δ_ref, from f10_ref's (or m0_low's, m0_high's) 800 cells at seeds 40001…;
+# - δ̄ (F10 only), spread over the posterior: 40 cells at each of twenty random
+#   posterior draws f10_p1…f10_p20 (seeds 200000 + 1000k + 1…), as
+#   log mean_k[x̄_k / x_MF(θ_k)].
+# Verdicts are KG's; the null quantiles beside them are information only.
+const TRANSFER_TARGETS = vcat(["f10_d$k" for k in 1:8],
+                              ["$(tag)_$(n)_$(s)" for tag in ("low", "high") for n in LOGNAMES for s in ("+", "-")])
+indep_seed0(t) = 60_000 + 1000 * findfirst(==(t), sort(TRANSFER_TARGETS))
+spread_seed0(k) = 200_000 + 1000k
+
+function transfer(out)
+    io = IOBuffer()
+    p(args...) = (println(io, args...); println(args...))
+    p("# Issue #89 B3 rethink: offsets carried to independent targets", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
+    p()
+    p("At $COMMIT (job $(slurm_job())) over `$out`. σ_b = $(Int(100SIGMA_B))%. Verdicts are KG's as agreed; ",
+      "q is the statistic's quantile in the source point's null (information only, `calibrate.md`'s construction).")
+    p()
+    cellsat(pt, s0) = (let dir = ens_dir(out, pt, "full", s0); isdir(dir) ? load_cells(dir) : nothing end)
+    mfl(pt) = mf_log(deserialize(mf_file(out, pt)))
+    rng = Xoshiro(89)
+    function nullof(cs)
+        k = length(cs) ÷ 4
+        map(1:(SMOKE ? 10 : NNULL)) do _
+            perm = randperm(rng, length(cs))
+            kg_stats(kg_shift(logbulk_mat(cs[perm[(k + 1):end]]), logbulk_mat(cs[perm[1:k]])), kg_noise(cs[perm[1:k]]))
+        end
+    end
+    # δ̄ over the posterior, in the ratio form, floored at one particle as KG is.
+    spread = [(cellsat("f10_p$k", spread_seed0(k)), "f10_p$k") for k in 1:20]
+    spread = [(r[1], pt) for (r, pt) in spread if r !== nothing && isfile(mf_file(out, pt))]
+    δbar = nothing
+    if !isempty(spread)
+        ratios = [reduce(hcat, [[max(mean(c.counts[i, j] for c in cs), 1.0) for i in eachindex(M0_PANEL)]
+                                for j in 2:size(first(cs).counts, 2)]) ./ exp.(mfl(pt)) for (cs, pt) in spread]
+        δbar = log.(mean(ratios))
+        p("δ̄ from $(length(spread)) posterior draws, $(sum(length(cs) for (cs, _) in spread)) cells.")
+        p()
+    end
+    for (src, prefix) in (("f10_ref", "f10_d"), ("m0_low", "low_"), ("m0_high", "high_"))
+        r = cellsat(src, 40_000)
+        (r === nothing || !isfile(mf_file(out, src))) && continue
+        rc = r[1]
+        δ = logbulk_mat(rc) .- mfl(src)
+        null = nullof(rc)
+        nr = [s.ratio for s in null]; nm = [s.pmax for s in null]
+        arms = src == "f10_ref" && δbar !== nothing ? (("uncorrected", nothing), ("δ_ref", δ), ("δ̄", δbar)) :
+                                                     (("uncorrected", nothing), ("δ_ref", δ))
+        p("## δ from $src ($(length(rc)) cells), null passes KG at $(count(s -> s.pass, null)) of $(length(null))")
+        p()
+        p("| Target | seeds | ", join([a for (a, _) in arms], " | "), " |")
+        p("|---|---|", repeat("---|", length(arms)))
+        tally = Dict(a => [0, 0, 0] for (a, _) in arms)       # KG pass, in-null, n
+        for t in sort([t for t in TRANSFER_TARGETS if startswith(t, prefix)])
+            rt = cellsat(t, indep_seed0(t))
+            (rt === nothing || !isfile(mf_file(out, t))) && continue
+            cs = rt[1][1:min(end, NKG)]
+            L = logbulk_mat(cs); noise = kg_noise(cs); M = mfl(t)
+            cols = String[]
+            for (a, off) in arms
+                sh = kg_shift(off === nothing ? M : M .+ off, L)
+                v = verdict(sh, noise); st = kg_stats(sh, noise)
+                qr, qm = qof(st.ratio, nr), qof(st.pmax, nm)
+                tally[a] .+= [v.pass, qr <= 0.95 && qm <= 0.95, 1]
+                push!(cols, @sprintf("%s %.3g/%.3g (q %.2f, %.2f)%s", v.pass ? "pass" : "FAIL", v.total, v.noise, qr, qm,
+                                     isempty(v.bad) ? "" : " " * join(short.(v.bad), ",")))
+            end
+            p("| $t | $(indep_seed0(t) + 1)… | ", join(cols, " | "), " |")
+        end
+        p()
+        for (a, _) in arms
+            n = tally[a][3]
+            p(@sprintf("- **%s:** KG passes at %d of %d; both statistics within the null's 95%% at %d of %d.", a,
+                       tally[a][1], n, tally[a][2], n))
+        end
+        p()
+    end
+    write(joinpath(out, "transfer.md"), take!(io))
+    println("Wrote ", joinpath(out, "transfer.md"))
+end
+
 function main()
     stage = ARGS[1]
     if stage == "ensemble"
@@ -513,12 +717,19 @@ function main()
         run_popmean(ARGS[2], ARGS[3])
     elseif stage == "score"
         score(ARGS[2])
+    elseif stage == "transfer"
+        transfer(ARGS[2])
+    elseif stage == "calibrate"
+        calibrate(ARGS[2])
+    elseif stage == "seeds"
+        for t in sort(TRANSFER_TARGETS); println(t, " ", indep_seed0(t)); end
+        for k in 1:20; println("f10_p$k ", spread_seed0(k)); end
     elseif stage == "points"
         for (k, v) in sort(collect(points()); by = first)
             println(k, "  ", join([@sprintf("%s=%.4g", n, x) for (n, x) in v], " "))
         end
     else
-        error("stage must be ensemble, meanfield, popmean, score or points")
+        error("stage must be ensemble, meanfield, popmean, score, calibrate, transfer, seeds or points")
     end
 end
 
