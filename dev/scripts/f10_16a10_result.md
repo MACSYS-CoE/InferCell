@@ -81,8 +81,9 @@ chains' sweeps 101 to 1,650.
   0.022 on the log scale, which is about 2% in `kcat`.
 
 **What V8's floor alone would have said.** Chain 5 exceeds the split-half floor on
-five of the six parameters; only `krnadeg` is below it. So would three of the four
-matched nulls on the ptsG promoter, and every null on FBA. This is the failure the
+five of the six parameters; only `krnadeg` is below it. So would every
+matched null on the ptsG promoter and on FBA, and three of the four on the GAPD
+promoter. This is the failure the
 §12 entry anticipated: the floor measures the noise of 3,100-draw halves, not of a
 556-draw chain.
 
