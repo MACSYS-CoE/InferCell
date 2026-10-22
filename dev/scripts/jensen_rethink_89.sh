@@ -20,7 +20,7 @@ else
     stage1=(m0_v6 m0_low m0_high)
     refs=(f10_ref)
     targets=($(julia --project dev/scripts/jensen_rethink_89.jl points | awk '{print $1}' | grep -E '^(f10_d|low_|high_)'))
-    per=20; t=01:30:00
+    per=40; t=01:30:00
 fi
 declare -A mfjob
 all=()

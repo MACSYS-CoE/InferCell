@@ -369,7 +369,7 @@ function score(out)
       "KG as agreed; `pass*` is the information-only variant with each pool's noise floored at 0.1 nats.")
     p()
     P = points()
-    refs = Dict{String, Any}()
+    refs = Dict{Tuple{String, Int}, Any}()
     for pt in keys(P), seed0 in (40_000, 50_000)
         dir = ens_dir(out, pt, "full", seed0)
         isdir(dir) || continue
