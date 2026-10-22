@@ -1,5 +1,43 @@
 # Handoff
 
+## Latest: 16b.1 and 16b.4 running at M0 (2026-10-23)
+
+**Branch:** `phase-16b-m0`, worktree `.worktrees/16b-m0`. No PR yet.
+
+**What was built:**
+- `gibbs_setup(ds; streams)`: a chain can see transcripts only (empty panel,
+  σ_b held) or metabolites only (block 3 bridges no gene, so it is bootstrap
+  particle Gibbs on the bulk term; block 2 keeps the full transcript map).
+- `m0_dataset(seed; forwards)`: moves named forward constants of the drawn truth,
+  reverses derived, every other draw the replicate's own. 16b.1's dataset is V6's
+  with ENO × exp(0.1568).
+- Driver `dev/scripts/m0_16b.{jl,sh,slurm}`: stages `run`, `rates` (the early
+  check) and `summary` (16b.1's rule and the F6 table).
+- The suite passed 28684 of 28684 at `fc8b141` (job 19012980).
+
+**§12 "16b.1 and 16b.4 at M0" is approved (2026-10-23).** 16b.1 recovers if
+ENO's shrinkage is below 0.9, the moved truth is in the central 95%, and the mean
+shift ÷ +0.1568 lies in 0.5 to 1.5. Otherwise K4 fires. 16b.4 is a measurement.
+
+**Running:** jobs 19034901 (perturbed), 19034902 (tx_only) and 19034903
+(met_only), 656 sweeps each at `03b4c4f`, submitted from the detached worktree
+`.worktrees/16b-03b4c4f`, writing to
+`/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`. About 4 to 6 days.
+Do not remove that worktree while they run.
+
+**Next:**
+1. **At about sweep 20:** `RUN_MODE=<mode> PILOT_DIR=<run dir> julia --project
+   dev/scripts/m0_16b.jl rates` for each chain. Report to the user any live
+   cell-window below 0.10, especially for met_only.
+2. On a timeout: rerun `ROOT=/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23
+   MODES=<mode> bash dev/scripts/m0_16b.sh` from `.worktrees/16b-03b4c4f`.
+3. At 656 sweeps: `summary` against V6
+   (`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v6/gibbs_pilot_16a9a`),
+   archive with `SHA256SUMS`, write the result files and the F6 figure, add the
+   ledger rows, tick 16b.1 and 16b.4, then open a PR, run `/check-PR` and merge with a
+   merge commit.
+4. Then 16b.5's M0 read-off, 16b.7 and 16b.8 (T3).
+
 ## Latest: #92 merged; #93 (track B) merged with main (2026-10-22)
 
 **#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,

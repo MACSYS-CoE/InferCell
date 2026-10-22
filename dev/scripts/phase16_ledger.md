@@ -131,3 +131,15 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 suites were missing from #93's rows and are added here from `sacct`.
 **Phase 16 total with both tracks: about 42,867.4 CPU-h** of 50k, so about 7.1k
 remain.
+
+## 16b at M0 (§12 "16b.1 and 16b.4 at M0", approved 2026-10-23)
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 19012523 | 16b | The M0 and Gibbs testsets on the stream and truth changes (dev check, uncommitted tree; 109 of 109) | 4 | 0:13:45 | 0.92 |
+| 19012980 | 16b | Test suite (of record, 28684 of 28684 at `fc8b141`) | 4 | 0:58:58 | 3.93 |
+| 19012981–19012983 | 16b.1, 16b.4 | Smoke: each mode, 3 cells, 120 s, 2 sweeps, at `fc8b141` | 5 | ~0:04 each | 0.99 |
+| 19034901–19034903 | 16b.1, 16b.4 | Production: perturbed, tx_only, met_only, 656 sweeps each, at `03b4c4f` | 5 | running | — |
+
+**16b so far: about 5.8 CPU-h,** so phase 16 stands at about 42,873.2 of 50k,
+with the three production chains (about 1.5k projected) still to add.
