@@ -1,6 +1,44 @@
 # Handoff
 
-## Latest: #92 merged; #93 (track B) merged with main (2026-10-22)
+## Latest: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`)
+
+**What ran:** `dev/scripts/jensen_rethink_89.jl` (48.0 CPU-h of the 100 allowed).
+The result is `dev/scripts/jensen_rethink_89_result.md`, and the rules and
+outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
+`/fred/oz022/tkimpson/infercell-89-rethink-archive-2026-10-22/`.
+
+**Findings:**
+- **The GTP gap is cell-to-cell drain variation.** Each cell spends GTP in
+  proportion to the proteins it makes, which varies about 2-fold, and GTP is
+  regenerated only by saturable PGK3/PYK3. Given the mean field's drains, the
+  200-cell mean equals the mean field to three figures. Ruled out: enzyme counts,
+  the per-cell feedback (a live popmean arm), and the clip (2 of 360k drains).
+- **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
+  reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
+  uncorrected mean field passes at 0 of 28.
+- **KG fails a right answer about half the time.** A 600-cell mean at the same θ
+  passes at 36–56%; the per-pool 3× clause is the problem. Read against that null,
+  δ behaves like a right description at 26 of 28 targets.
+
+**Your decision:** approve, edit or reject KG′, the calibrated gate in §12
+2026-10-23. Only if it is approved is δ the second description on M0, and B4 can
+then go ahead with δ as a declared reduction.
+
+**Next:**
+1. The KG′ decision, which needs no compute.
+2. If approved: the reduced model with the independent-seed design (~50 CPU-h),
+   and the two-pass pipeline (δ at the approximate mode) in B5/B7.
+3. Unchanged from below: 16b on a new branch.
+
+**Can go:** the run worktrees `.worktrees/89re-bf54df3`, `89re-29781f6`,
+`89re-bc71511`, `89re-b2f6b4c` and `89re-b2f6b4c-b`, and
+`/fred/oz022/tkimpson/infercell-89-rethink-smoke-2026-10-22/`.
+
+**Cluster:** a fresh worktree's first array, spread over dave, gina and turin
+nodes, wrote a precompile cache that milan refused. Precompile once on milan, and
+keep the arrays on `--exclude='dave[148-149]'`.
+
+## Previous: #92 merged; #93 (track B) merged with main (2026-10-22)
 
 **#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,
 `2b039a0` and `6da2398` stay reachable.

@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waits on a rethink (§8).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-20
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waits on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. A calibrated gate, KG′, is proposed for approval.
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-23
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -287,6 +287,43 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-23 — the rethink's outcome, and a proposal to calibrate KG (proposal only, not applied)
+
+- **Outcome** (`dev/scripts/jensen_rethink_89_result.md`, 48.0 CPU-h):
+  - **The cause is cell-to-cell drain variation.** Driving every cell with the mean
+    field's drains reproduces the mean field to three figures at all three M0
+    truths. Enzyme counts, the per-cell feedback and the clip are ruled out by the
+    rules above. Shot noise is not: its share is up to 0.44.
+  - **2A fails its rule under KG as agreed.** δ_ref passes at 5 of 8, 4 of 10 and 6
+    of 10; the uncorrected mean field at 0 of 28.
+- **Changes to the 2A design during the run.** Both were found before any verdict
+  was read:
+  - **Independent seeds.** The first 2A targets shared seeds, so their ensemble
+    noise was common. f10_ref at the targets' seeds gives a GTP offset of +0.108,
+    against +0.147 at δ's seeds. Each target was rerun on seeds of its own, and
+    those results replace the first.
+  - **An added offset.** δ̄, spread over twenty posterior draws, was added beside
+    δ_ref.
+- **What was found about KG.** A 600-cell mean at the same θ, scored as a mean
+  field against 200 other cells, passes KG at 46%, 36% and 56% of 200 partitions.
+  The per-pool clause fails it:
+  - each pool's noise is one split-half estimate from about ten correlated saves;
+  - FDP, external lactate and ADP have noise near 1e-4 nats.
+
+  So 2A's rule could not be met by a right description.
+- **Proposal, for the user to approve or reject. KG′:**
+  - Keep the statistic.
+  - Read it against a null built per dataset: a 3n/4-cell mean scored against the
+    remaining n/4 cells at the reference θ, over 200 partitions. That is
+    `calibrate.md`'s construction.
+  - **Pass:** the description's total/noise and largest pool shift/noise are both
+    at or below the null's 95% point.
+  - Under KG′, δ_ref would pass at 26 of 28 independent targets and the
+    uncorrected mean field at 5 of 28.
+  - Not applied to any verdict in this run.
+- **Why:** reporting the gate's own calibration is not tuning σ_b. But adopting a
+  new gate after seeing its results is the user's decision, not this run's.
 
 ### 2026-10-22 — the rethink after B3: diagnostics and an offset at a posterior's width (rules fixed before the runs)
 
