@@ -22,8 +22,14 @@ shift ÷ +0.1568 lies in 0.5 to 1.5. Otherwise K4 fires. 16b.4 is a measurement.
 **Running:** jobs 19034901 (perturbed), 19034902 (tx_only) and 19034903
 (met_only), 656 sweeps each at `03b4c4f`, submitted from the detached worktree
 `.worktrees/16b-03b4c4f`, writing to
-`/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`. About 4 to 6 days.
-Do not remove that worktree while they run.
+`/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`. All three started
+2026-10-23 07:40. By sweep 6, sweeps took about 520 to 750 s, so 656 sweeps
+should take about 4 days, inside the 6-day limit. Logs are
+`<run dir>/m0_16b_<mode>/slurm_m0_16b_<mode>_<job>.log`, one line per sweep.
+By sweep 6: tx_only holds σ_b at 0.3101 as designed, and met_only changes
+0.48 to 0.71 of its windows per sweep, the same range as the joint chain.
+Do not remove that worktree while they run. `.worktrees/16b-m0` is left open as
+well. The next stage is to be picked up from a separate worktree on this branch.
 
 **Next:**
 1. **At about sweep 20:** `RUN_MODE=<mode> PILOT_DIR=<run dir> julia --project
