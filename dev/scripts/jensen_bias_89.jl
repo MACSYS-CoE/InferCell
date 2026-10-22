@@ -219,22 +219,35 @@ function main()
     v6 = ens("m0_v6", 40_000)
     δv6 = logbulk(v6) .- mflog("m0_v6")
     δref = logbulk(ens("f10_ref", 40_000)) .- mflog("f10_ref")
-    p("δ from m0_v6's $(length(v6)) Stage 1 cells (seeds 40001…). ‖δ_v6 − δ_ref‖ = ",
-      @sprintf("%.3f", norm(δv6 .- δref)), " over all pools and saves; GTP's mean over saves: ",
-      @sprintf("δ_v6 %+.3f, δ_ref %+.3f.", mean(reshape(δv6, length(M0_PANEL), :)[findfirst(==(:M_gtp_c), M0_PANEL), :]),
-               mean(reshape(δref, length(M0_PANEL), :)[findfirst(==(:M_gtp_c), M0_PANEL), :])))
-    p()
     rc = ens("f10_ref", 40_000)
+    Σv6, Σref = logmean_cov(v6, length(v6)), logmean_cov(rc, length(rc))
+    lv6 = logs_of(mfr("m0_v6").values)
+    μF = vec(mean(X; dims = 1))
+    maha(l) = sqrt(dot(l .- μF, ΣF \ (l .- μF)))
+    dmaha = [maha(X[i, :]) for i in axes(X, 1)]
+    gtp = findfirst(==(:M_gtp_c), M0_PANEL)
+    gtpmean(d) = mean(reshape(d, length(M0_PANEL), :)[gtp, :])
+    p("- m0_v6 in F10's posterior: z = ", join([@sprintf("%s %+.2f", s, v) for (s, v) in zip(SHORTN, (lv6 .- μF) ./ sd)], ", "),
+      @sprintf("; Mahalanobis %.2f, against the draws' median %.2f and 95%% point %.2f.",
+               maha(lv6), quantile(dmaha, 0.5), quantile(dmaha, 0.95)))
+    p("- δ from m0_v6's $(length(v6)) Stage 1 cells (seeds 40001…): ",
+      @sprintf("‖δ_v6 − δ_ref‖ = %.3f over all pools and saves, against %.3f expected from sampling noise alone (√tr of the two δs' covariances). ",
+               norm(δv6 .- δref), sqrt(tr(Σv6 + Σref))),
+      @sprintf("GTP's mean over saves: δ_v6 %+.3f, δ_ref %+.3f.", gtpmean(δv6), gtpmean(δref)))
+    p("- KG's noise is the target's split-half statistic, as in `transfer.md`. With δ from 200 cells, a right δ's expected total is about the noise; with δ from 800, about 0.6 of it.")
+    p()
     W = inv(Symmetric(KG_SIGMA^2 * I + logmean_cov(rc, C)))
     A = Symmetric(Jf' * W * Jf + P) \ (Jf' * W)
-    p("| Target | KG total: uncorrected / δ_ref / δ_v6 | bias with δ_v6 (σ_b = 0.10), ", join(SHORTN, ", "), " |")
+    kg_noise(cs) = (h = length(cs) ÷ 2; sum(abs2, logbulk(cs[1:h]) .- logbulk(cs[(h + 1):(2h)])) / 2 / (2KG_SIGMA^2))
+    p("| Target | KG total: uncorrected / δ_ref / δ_v6 (noise) | bias with δ_v6 (σ_b = 0.10): ", join(SHORTN, ", "), " |")
     p("|---|---|---|")
     for t in targets("f10_d")
         cs = ens(t, own_seed0(t))[1:NKG]
         L, M = logbulk(cs), mflog(t)
         tot = [kg_total(M .+ o, L, KG_SIGMA) for o in (0.0, δref, δv6)]
-        p("| $t | ", @sprintf("%.1f / %.1f / %.1f", tot...), " | ",
-          join([@sprintf("%+.2f", x) for x in A * (L .- (M .+ δv6)) ./ sd], ", "), " |")
+        se = sqrt.(max.(diag(A * (logmean_cov(cs, length(cs)) + Σv6) * A'), 0.0)) ./ sd
+        p("| $t | ", @sprintf("%.1f / %.1f / %.1f (%.1f)", tot..., kg_noise(cs)), " | ",
+          join([@sprintf("%+.2f ± %.2f", x, e) for (x, e) in zip(A * (L .- (M .+ δv6)) ./ sd, se)], ", "), " |")
     end
     p()
     write(joinpath(out, "bias.md"), take!(io))
