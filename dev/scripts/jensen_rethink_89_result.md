@@ -14,6 +14,7 @@ its quantiles are information only (§12 2026-10-23).
 | 19014973–19014975 | `bc71511` | Seed-range check: f10_ref, m0_low and m0_high at seeds 50001… | 1.21 |
 | 19015472–19015544 | `b2f6b4c` | 2A on independent seeds, and twenty posterior-draw mean fields and ensembles. 76 tasks failed to load a precompile cache built for another CPU; 5 ran past the dependent stages | 18.50 |
 | 19017428, 19017558–19017599 | `b2f6b4c` (fresh worktree) | Precompile on a milan node; the missing pieces rerun on milan only; then transfer (19017597), calibrate (19017598) and score (19017599) | 5.75 |
+| 19018421, 19018422 | `538d32d` | Precompile; transfer again, adding the floor variant. The KG counts are unchanged, and this is `transfer.md` of record | 0.04 |
 | **Total** | | | **48.0** of the 100 allowed |
 
 **Raw outputs:** `/fred/oz022/tkimpson/infercell-89-rethink-archive-2026-10-22/`.
@@ -149,14 +150,16 @@ Each target is scored by KG against its own 200 full cells.
   them exposed the fault, and the seed check (19014973–5) confirmed it. The rerun's
   design, δ̄ included, was then fixed before its verdicts were read.
 
-**Results on independent seeds** (`transfer.md`):
+**Results on independent seeds** (`transfer.md`, job 19018422 at `538d32d`). The
+floor variant, pass* (each pool's noise floored at 0.1 nats), is in brackets and is
+information only:
 
 | Source of δ | Targets | KG passes: uncorrected | KG passes: δ_ref | KG passes: δ̄ (posterior spread) | Within the null's 95%: uncorrected / δ_ref / δ̄ |
 |---|---|---|---|---|---|
-| f10_ref (F10's posterior mean, V6's dataset) | 8 posterior draws at Mahalanobis quantiles | 0 | 5 | 4 | 3 / 7 / 7 |
-| m0_low | ±1 posterior SD in one target at a time | 0 | 4 | – | 2 / 9 / – |
-| m0_high | the same | 0 | 6 | – | 0 / 10 / – |
-| **Pre-registered rule** | | | **≥ 7 of 8, ≥ 9 of 10: not met** | | |
+| f10_ref (F10's posterior mean, V6's dataset) | 8 posterior draws at Mahalanobis quantiles | 0 (0) | 5 (6) | 4 (4) | 3 / 7 / 7 |
+| m0_low | ±1 posterior SD in one target at a time | 0 (0) | 4 (5) | – | 2 / 9 / – |
+| m0_high | the same | 0 (0) | 6 (8) | – | 0 / 10 / – |
+| **Pre-registered rule** | | | **≥ 7 of 8, ≥ 9 of 10: not met, with or without the floor** | | |
 
 - **δ̄** is spread over the posterior: 40 cells at each of twenty random F10 draws,
   as log mean_k[x̄_k / x_MF(θ_k)]. It does no better than δ_ref, consistent with δ
@@ -164,9 +167,8 @@ Each target is scored by KG against its own 200 full cells.
 - **The worst target** is f10_d4: total 55 against noise 22.8, with FDP, external
   lactate and ADP above 3× their noise. Its total sits at the null's 0.96 quantile.
 - **The pools that fail under δ** are mostly ones whose split-half noise is tiny:
-  FDP at about 1e-4 nats, external lactate and ADP. `transfer.md` does not report
-  the 0.1-nat floor variant; `scores.md`'s does, but only on the superseded
-  shared-seed targets.
+  FDP at about 1e-4 nats, external lactate and ADP. The 0.1-nat floor rescues 4 of
+  the 13 δ_ref failures.
 
 ## KG's null (information only)
 
