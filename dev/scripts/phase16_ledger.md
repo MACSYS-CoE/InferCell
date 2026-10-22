@@ -134,10 +134,11 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19017428, 19017558–19017599 | #89 rethink | Precompile on milan; the missing pieces rerun; transfer (superseded by 19018422), calibrate (of record), score (of record for Stage 1; its 2A tables are the shared-seed run) | 1 | up to ~0:10 each | 5.75 |
 | 19018421, 19018422 | #89 rethink | Precompile; transfer rerun with the floor variant (of record) | 1 | 0:01:24, 0:01:05 | 0.04 |
 | 19038595 | #89 B3 close-out | Implied-bias report, first run (superseded: m0_v6 section lacked SEs) | 1 | 0:01:42 | 0.03 |
-| 19038794 | #89 B3 close-out | Implied-bias report (of record, `c9184c2`) | 1 | 0:00:54 | 0.02 |
+| 19038794 | #89 B3 close-out | Implied-bias report, second run (superseded: unpaired m0_v6 noise) | 1 | 0:00:54 | 0.02 |
+| 19039511 | #89 B3 close-out | Implied-bias report (of record, `beeb446`) | 1 | 0:01:21 | 0.02 |
 
 **#89 total: about 60.5 CPU-h**: B3's 4.3, three suites' 8.2, the rethink's 48.0 and
-the close-out's 0.04.
+the close-out's 0.07.
 The first two suites were missing from #93's rows and are added here from `sacct`.
 **Phase 16 total with both tracks: about 42,915.4 CPU-h** of 50k, so about 7.1k
 remain.

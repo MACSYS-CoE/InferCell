@@ -205,14 +205,14 @@ information only:
 
 - **δ̄** is spread over the posterior: 40 cells at each of twenty random F10 draws,
   as log mean_k[x̄_k / x_MF(θ_k)]. It does no better than δ_ref, consistent with δ
-  varying little *within* the posterior. The next point suggests it varies more
-  over a few posterior SDs.
-- **Superseded by the B3 close-out (`jensen_bias_89_result.md`, job 19038794):** on
-  the F10 targets' independent seeds, δ_v6 is not distinguishable from δ_ref
-  (‖δ_v6 − δ_ref‖ 0.642 against 0.744 from noise), and m0_v6 is a typical
-  posterior point (Mahalanobis 2.48 against the draws' median 2.06). The
-  shared-seed read below is kept as history; its "1–3 posterior SDs" and "what
-  it suggests" do not stand.
+  varying little *within* the posterior. (A shared-seed read below once suggested
+  more; the B3 close-out withdrew it.)
+- **Superseded by the B3 close-out (`jensen_bias_89_result.md`, job 19039511):** on
+  the F10 targets' independent seeds, δ_v6 differs from δ_ref by about its paired
+  noise (‖δ_v6 − δ_ref‖ 0.642 against 0.620). m0_v6's distance is typical of a
+  posterior draw (Mahalanobis 2.48 against the draws' median 2.06). The
+  shared-seed read below is kept as history. Its "what it suggests" does not
+  stand.
 - **On shared seeds, δ taken at the dataset's truth made the gap worse** (`scores.md`, "δ from
   m0_v6 (200 cells)", job 19017599; information only).
   - What it is: δ from m0_v6's 200 full cells (seeds 40001…), added to each F10

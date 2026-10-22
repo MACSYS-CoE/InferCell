@@ -4,18 +4,21 @@
 
 **#97 is merged** at `0eec5cc`, with a merge commit. Its review fixes are in `28ba4db`.
 
-**B3 close-out:** `dev/scripts/jensen_bias_89_result.md` (job 19038794 at `c9184c2`,
-0.04 CPU-h; outputs in `/fred/oz022/tkimpson/infercell-89-bias-2026-10-23/`). It is a
+**B3 close-out:** `dev/scripts/jensen_bias_89_result.md` (job 19039511 at `beeb446`,
+0.07 CPU-h over three runs; outputs in `/fred/oz022/tkimpson/infercell-89-bias-2026-10-23/`). It is a
 linearised implied bias from the rethink's archive, with no pass line.
-- **Uncorrected:** krnadeg moves by +1.9 to +2.4 posterior SDs at every F10
-  target, even with the transcripts' information, and S_0607 by about 1. The
+- **Uncorrected:** krnadeg moves by +2.4 to +3.1 posterior SDs at every F10
+  target, even with the transcripts' information (at F10's σ_b), and S_0607 by
+  +1.2 to +2.2. The
   spec's bulk-only formula, which leaves out the transcripts, gives RMS values of
   6.0–6.9 SD on krnadeg.
 - **With δ_ref:** the residual is within about 1 SD RMS, with 10 of 140 cells
   above 2 SE. The test resolves only about 1 SD on S_0607 and krnadeg.
   kcatF_ENO at low_kcatF_R_ENO_− keeps −0.80 ± 0.24.
-- **The m0_v6 claim from #97 is withdrawn.** On independent seeds, δ_v6 is within
-  noise of δ_ref, and m0_v6 is a typical posterior point (§12).
+- **The m0_v6 claim from #97 is withdrawn.** On independent seeds, δ_v6 differs
+  from δ_ref by about its paired noise, and m0_v6's distance is typical of a
+  posterior draw (§12). Five low-noise pools hint at a θ-dependence; that is
+  open.
 - **Method:** J comes from the archived mean fields, not ForwardDiff, and m(θ) is
   near-linear over the posterior (R² 0.989). Recorded in §12.
 
@@ -27,7 +30,7 @@ linearised implied bias from the rethink's archive, with no pass line.
    check is due at about sweep 20.
 5. **Can go:** `.worktrees/89-b3-rethink` and the six `89re-*` worktrees.
 
-## Latest: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`)
+## Earlier: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`, merged as #97)
 
 **What ran:** `dev/scripts/jensen_rethink_89.jl` (48.0 CPU-h of the 100 allowed).
 The result is `dev/scripts/jensen_rethink_89_result.md`, and the rules and
@@ -69,8 +72,7 @@ gap matters.
 2. B3 close-out: the implied-bias report at 2A's 28 targets, no pass line
    (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles. J
    comes from central differences through the script's mean field, since AV3's
-   ForwardDiff covers only the gene-expression block. It should also read the
-   m0_v6 result: how far δ can be carried in θ.
+   ForwardDiff covers only the gene-expression block. Done (above).
 3. B4: route (ii), the ODE path's catalytic, drain and rebuild edges, in `src/`,
    on a new branch, with the full suite.
 4. B5: the mixed likelihood centred on m(θ) + δ, with the two-pass reference θ
