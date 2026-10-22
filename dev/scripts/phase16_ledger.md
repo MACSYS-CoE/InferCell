@@ -87,14 +87,17 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 | 18510849, 18511245, 18511832, 18512048, 18512335 | 16a.11 | ODE solver benchmark, smoke runs | 2 | 0:04–0:09 each | 0.96 |
 | 18512579 | 16a.11 | ODE solver benchmark (of record) | 16 | 0:25:45 | 6.87 |
 
-**16a total, excluding 16a.9: about 411.4 CPU-h** (the rows' sum, recomputed after
+| 18751515 | 16a.10 | F10 production chain, smoke: 3 cells, 120 s, 2 sweeps | 5 | 0:03:15 | 0.27 |
+| 18751635 | 16a.10 | F10 production chain 5 on V6's dataset, 656 sweeps (of record) | 5 | 4-05:30:05 | 507.51 |
+
+**16a total, excluding 16a.9: about 919.2 CPU-h** (the rows' sum, recomputed after
 the #81 review, which found the running total had drifted; 403.6 before the ODE
-solver benchmark's 7.8).
+solver benchmark's 7.8, and 411.4 before F10's 507.8).
 
 **16a.9: about 41,656.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
 2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
-2026-10-08, annotated). **Phase 16 total: about 42,067.9 CPU-h** of 50k, so about
-7.9k remain.
+2026-10-08, annotated). **Phase 16 total before the v0.3.0 tracks: about 42,575.7 CPU-h** of 50k, so about
+7.4k remain.
 
 ## v0.3.0 track A (#88), charged to phase 16's remaining cap
 
@@ -110,5 +113,4 @@ solver benchmark's 7.8).
 | 18836377, 18836378, 18836380–18836396 | #88 | A1 and A3 smoke reruns after the #92 review: A1's task files bitwise equal to the first smoke's | 1 | ~0:03 each | 2.57 |
 
 **#88 total: about 279.2 CPU-h**, against about 320 projected on the issue.
-**Phase 16 total, still without F10 (running): about 42,347.1 CPU-h** of 50k, so
-about 7.65k remain.
+**Phase 16 total with #88: about 42,854.9 CPU-h** of 50k, so about 7.1k remain.

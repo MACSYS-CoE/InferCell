@@ -1,6 +1,129 @@
 # Handoff
 
-## Latest: #88 track A measured — M0's ptsG gate passes, 15.8 reproduces, the population-mean reduction fails at one truth (2026-10-19)
+## Latest: #92 (track A) merged with main (2026-10-22)
+
+**Branch:** `issue-88-track-a`, PR #92. Main (16a.11's closeout, #96) is merged into
+it with a merge commit, not a rebase: the result files, the ledger and the archives
+cite `8813dca`, `2b039a0` and `6da2398`, which a rebase would drop from main.
+
+- Only `dev/scripts/phase16_ledger.md` and this file conflicted. No `src` or test
+  code did.
+- **The ledger:** #88's 279.2 CPU-h now sits on top of main's 42,575.7, so phase 16
+  stands at about 42,854.9 of 50k, with about 7.1k left. Track B (#93) is not yet
+  in it.
+
+**Next:**
+1. Merge #92 with a merge commit once CI passes. Tick #88's boxes.
+2. Merge main into #93, fold track B's CPU-h into the ledger total, rerun the suite,
+   mark it ready and merge it with a merge commit.
+3. Then 16b on a new branch, as below.
+
+## Earlier: 16a.11 approved; phase 16 closes at M0 (2026-10-22)
+
+**Branch:** `phase-16a11-closeout`, PR #96. **#94 (F10) is merged** at `baae60a`.
+
+**16a.11 is approved and ticked** (sub-spec §12 "16a.11"). It is #90 C2's O1 and
+O5. Both of your calls were answered "yes":
+1. **V7 serves as 16b.3's coverage,** read off by `dev/scripts/v7_coverage_16a11.py`.
+   - 29 of 30 interval cells are in band; the miss is krnadeg at 99%.
+   - K4's band is restated at R = 50 as 44 to 50, and ENO covers 46.
+2. **Phase 16 closes at M0,** labelled "met at M0; full scale budget-bound", once
+   16b.1 and 16b.4 land.
+
+**Cost and K1:**
+- An M0 posterior costs 507.5 to 678 CPU-h.
+- A full-scale production posterior is projected at about 21k, and coverage at about
+  1.0M.
+- **K1's bound is 1,000 CPU-h per posterior** (parent §8). It fires at full scale,
+  labelled budget-bound, and not at M0.
+
+**16b, funded at M0 (about 2.6k CPU-h):**
+- 16b.1: a perturbed-truth posterior, with ENO +1 prior SD (~700).
+- 16b.4: transcripts-only and metabolites-only fits on V6's dataset (~1.4k). First
+  check that the Gibbs driver can drop a data stream.
+- Contingency (~500).
+- **Reused:** V6 for 16b.2 and V7 for 16b.3.
+- **Budget-bound:** K2 at 1,000 cells, and K7 (not funded).
+- **Not now:** 5.3's injections and an exact Core A′ posterior (O1 part 2, O5). Track
+  B's mean field failed KG.
+
+**Tracks A (#92) and B (#93)** are untouched.
+- #92 already conflicts with `main` in the ledger and handoff since #94, so rebase it
+  before merging.
+- Once both merge, the phase 16 cap has about 7.1k left, and 16b's 2.6k fits.
+
+**Next:**
+1. Merge #96 once CI passes.
+2. **16b on a new branch.** First 16b.4's stream check, then submit 16b.1's and
+   16b.4's posteriors side by side (about 5 to 6 days).
+
+## Earlier: F10 done, 16a.10 ticked (2026-10-22)
+
+**Branch:** `phase-16a10-f10`, PR #94. `/check-PR` said MERGE, and its minor fixes are applied.
+
+**F10's result** (`dev/scripts/f10_16a10_result.md`): **a production-length chain
+is not resolved from the M0 reference on any marginal.**
+- **The rule** (W1 in reference SDs; four matched nulls from V6 chains' sweeps 101
+  to 656) was fixed and pushed in §12 2026-10-22 (`3248031`) before any divergence
+  was computed.
+- **Biggest gap:** chain 5 ranks above all nulls only on FBA, by 0.020 SD. About
+  1.2 of six are expected to by chance.
+- **Mean differences** are at most 0.12 SD.
+- **V8's split-half floor alone would have flagged 5 of 6.** It measures the noise
+  of 3,100-draw halves, which is why the matched floor was added.
+- **Production bulk ESS (arviz):** 63 on GAPD and 55 on ENO, against the nulls'
+  32 to 177 on the slow three. Chain 5 wanders slowly on ENO.
+- **The chain:** job 18751635 at `a0060de`, 656 sweeps, 4 d 5.5 h, 507.5 CPU-h. It
+  is archived with checksums at
+  `/fred/oz022/tkimpson/infercell-16a10-archive-2026-10-22/`.
+- **The scripts:** `f10_16a10_export.jl`, then `f10_16a10.py`. Both run on the
+  login node.
+- **Figures:** `dev/notes/figures/f10-16a10/`.
+- **The ledger:** phase 16 is at about 42.6k of 50k, with about 7.4k left.
+
+**Next:**
+1. Merge #94 once CI is green.
+2. **16a.11's §12 entry,** to close phase 16 at M0. It covers:
+   - the cost per M0 posterior;
+   - K1's bound;
+   - the full-scale projection;
+   - re-scoping 16b with "budget-bound" labels;
+   - your two calls: whether V7 can serve as 16b.3's coverage result, and whether
+     "closed at M0" meets the done-when.
+3. **Can go:** `.worktrees/f10-16a10`, now archived.
+
+**Direction discussed 2026-10-19, not yet in the spec:**
+1. Close phase 16 at M0: F10, then 16a.11's §12 entry.
+2. Speed up the reduced model with syn3a-ensemble's lessons. Rodas5P with KLU is
+   the clean win, about 2× at the same accuracy. Processes per core is also
+   possible, and FBDF could be added as an option. This needs a §12 entry and
+   reruns of V2, V4 and V5.
+3. A new spec, via `/generate-spec`: InferCell as a playground for inference. The
+   first study is exact against modular against amortised on M0, using V7's
+   datasets, with V6, V7 and F10 as ground truth.
+4. Bring in the full cell as a black-box simulator from syn3a-ensemble (about 45 s
+   per 6,300 s cycle, against our reduced model's 32.2 s) rather than
+   re-implementing it now.
+   - Its GPU and fp32 results were negative.
+   - The inference-paths note's §3 should be corrected on the GPU point.
+   - Exact joint inference stays unaffordable at full scale whatever the solver,
+     because the cost is the number of simulations.
+
+**Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
+EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
+are candidates to clear, but that's the user's call.
+
+**Session date:** 2026-10-17
+**Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
+commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
+under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
+- **Archive.** V6's and V7's checkpoints and logs, with V7's merge log, are
+  archived at `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/`. The
+  checksums are verified.
+- **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
+  `v7merge-0ff6cff`.
+
+## Earlier: #88 track A measured — M0's ptsG gate passes, 15.8 reproduces, the population-mean reduction fails at one truth (2026-10-19)
 
 **Branch:** `issue-88-track-a`, draft PR #92. It is based on `phase-16a10-f10`, so the
 PR shows F10's three docs commits until that branch merges. It ran alongside F10 in a
@@ -58,71 +181,6 @@ All are applied at `2b039a0`. The checks after them:
 3. The worktrees `.worktrees/88-8813dca` and `.worktrees/88-2b039a0` were only for
    submitting. Remove them once #92 merges, along with
    `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
-
-## Latest: F10 approved at 656 sweeps; the production chain is submitted (2026-10-18)
-
-**Branch:** `phase-16a10-f10`.
-
-**Approved:** the sub-spec's §12 2026-10-13 proposal, at 656 sweeps. The entry's
-status now records the alternatives weighed and why each was set aside. D16.5 is
-annotated with N_ref = N under the PG case.
-
-**Running:** job 18751635, from `.worktrees/f10-16a10` at `a0060de`, submitted 11:37 on 18 Oct. Smoke job 18751515 (3 cells, 2 sweeps) passed first. `dev/scripts/f10_16a10.sh` submits `gibbs_pilot_16a9a.jl run 5 656`.
-- That is V6's setup run as a fifth chain, started with `Xoshiro(16_090_005)`, at 5
-  threads, 6 days.
-- It writes to `dev/scripts/f10_16a10/` (gitignored). That is its own directory, so
-  no V6 merge globs it.
-- No merge job is chained after it.
-- `src/` changed only in docstrings since V6's `281d548`, and the Manifest is
-  unchanged.
-
-**Next:**
-1. **Done:** the first checkpoint's replicate, cells, N, truth and σ_b match V6's
-   `chain1.jls`.
-2. **If the chain hits 6 days:** rerun `f10_16a10.sh` from the same worktree. It
-   resumes from the checkpoint.
-3. **While it runs:** write the F10 comparison script. It needs:
-   - overlaid marginals;
-   - the ptsG × ENO contour;
-   - a per-marginal divergence beside V8's floor, taken from V6's split halves.
-   Then draft 16a.11's §12 entry, with your two calls.
-4. **When it lands:** add the ledger row from sacct, archive the checkpoint aside,
-   run F10 and tick 16a.10.
-
-**Waiting on F10 by decision (2026-10-19).** At 167 of 656 sweeps after 25.7 h
-(about 550 s per sweep), it is due about 22 Oct, inside the 6-day limit. The user
-chose to wait for it before writing the F10 script or 16a.11's entry.
-
-**Direction discussed 2026-10-19, not yet in the spec:**
-1. Close phase 16 at M0: F10, then 16a.11's §12 entry.
-2. Speed up the reduced model with syn3a-ensemble's lessons. Rodas5P with KLU is
-   the clean win, about 2× at the same accuracy. Processes per core is also
-   possible, and FBDF could be added as an option. This needs a §12 entry and
-   reruns of V2, V4 and V5.
-3. A new spec, via `/generate-spec`: InferCell as a playground for inference. The
-   first study is exact against modular against amortised on M0, using V7's
-   datasets, with V6, V7 and F10 as ground truth.
-4. Bring in the full cell as a black-box simulator from syn3a-ensemble (about 45 s
-   per 6,300 s cycle, against our reduced model's 32.2 s) rather than
-   re-implementing it now.
-   - Its GPU and fp32 results were negative.
-   - The inference-paths note's §3 should be corrected on the GPU point.
-   - Exact joint inference stays unaffordable at full scale whatever the solver,
-     because the cost is the number of simulations.
-
-**Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
-EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
-are candidates to clear, but that's the user's call.
-
-**Session date:** 2026-10-17
-**Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
-commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
-under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
-- **Archive.** V6's and V7's checkpoints and logs, with V7's merge log, are
-  archived at `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/`. The
-  checksums are verified.
-- **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
-  `v7merge-0ff6cff`.
 
 ## Latest: V7 passes, 16a.9b is met (2026-10-17)
 
