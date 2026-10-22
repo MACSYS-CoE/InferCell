@@ -904,6 +904,7 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
     measures the noise of much longer runs.
   - **Figures:** `dev/notes/figures/f10-16a10/`.
 - [ ] 16a.11 Measure cost, set K1's bound, and reopen the budget. Verify by:
+  **Proposed 2026-10-22 (§12 "16a.11"), awaiting approval.**
   - the ledger showing 16a ≤ 5k CPU-h;
   - the cost per posterior on M0, and a full-scale projection per variant from
     measured sweeps;
@@ -983,6 +984,174 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-22 — 16a.11: the measured cost, K1's bound, and closing phase 16 at M0
+
+**Status: proposed 2026-10-22, awaiting your approval.** It contains two calls that
+are yours (below). No 16b compute runs before approval.
+
+**Scope.** This is #90's task C2, "O1 and O5, at 16a.11", in the 2026-10-19
+framing note (on #87's branch; parent §12 will fold it).
+- **Kept separate from tracks A and B.**
+  - It edits only this entry, and changes no ledger row; 16b's runs will add theirs.
+  - Track A (#88, PR #92) and track B (#89, PR #93) keep their own ledger rows and
+    sub-spec (`spec/phases/approximate-method.md`).
+  - This entry funds none of their tasks, and claims none of their results as its
+    own.
+  - It reads two of them as inputs: A1 (`sensitivity_88_m0_result.md`) and B3's KG
+    verdict (`jensen_gap_89_result.md`).
+- **Not decided here:**
+  - O2, the claim;
+  - O6, the solver;
+  - the folding of the 10-19 notes.
+  The rest of #90 C2 owns those.
+
+**1. The measured cost of one M0 posterior (production: PG, N = 20, 50 cells, 600 s).**
+
+| Run | Sweeps | CPU-h | Wall | Source |
+|---|---|---|---|---|
+| F10's chain 5 | 656 | 507.5 | 4.2 d at 5 threads | `f10_16a10_result.md` |
+| V7, mean of 50 replicates | 656 | 678 | 4.5–6+ d at 5 threads (16 resumed) | `v7_16a9b_result.md`, ledger |
+
+- **Per sweep:** about 0.77 to 1.03 CPU-h at 5 threads. The spread comes from θ:
+  draws that make longer paths cost more.
+- **A production posterior holds 30 to 500 effective draws per parameter.** The
+  slowest are the GAPD promoter, `krnadeg` and, in F10, ENO (`f10_16a10_result.md`).
+- **A reference posterior (V6: 4 × 1,650 sweeps, at 20 threads)** cost about
+  7.7k CPU-h, counting its pilot and stages (ledger: 896 + 2,308 + 4,039 + 463).
+
+**2. The full-scale projection.** This multiplies measured parts. It is not a
+measured full-scale sweep.
+- **The parts:**
+  - 16.5 cycles per cell-sweep at N = 20 (16a.7c, on M0 and on full-scale cell
+    30001);
+  - 32.2 s per warm 6,300 s cycle (13.7);
+  - 200 cells, updated in turn.
+- **One sweep:** about 30 CPU-h, or about 1.5 h of wall with each cell's 20
+  particles in parallel (D16.6).
+- **Mixing at full scale is unmeasured.** Taking M0's slowest rate, 0.17 bulk ESS
+  per sweep:
+  - **A production-length posterior** (100 burn-in plus 100 effective draws, about
+    690 sweeps): about **21k CPU-h**, and about 6 weeks of wall.
+  - **A V6-quality reference** (bulk ESS ≥ 1,000 over 4 chains, about 6,300 sweeps):
+    about **190k CPU-h**.
+  - **50 production-length replicates for coverage:** about **1.0M CPU-h**.
+- **The solver changes the size, not the shape.** FBDF + KLU, if adopted (O6, not
+  decided here), cuts each figure by up to 3.4×. The production posterior falls to
+  about 6k, and coverage stays about 300k.
+- **A measured full-scale sweep** would cost about 30 to 60 CPU-h and 2 to 4 h of
+  wall. It is not proposed: it would firm up the 30 CPU-h, not the mixing, and the
+  mixing is the unknown.
+
+**3. K1's bound, set after the measurement** (parent §8, which T3 notes).
+- **Proposed bound:** 50 calibration replications must fit inside phase 16's cap. So
+  K1 fires where one production posterior costs more than 50k / 50 = **1,000 CPU-h**.
+- **At M0:** 510 to 680 CPU-h, so K1 does not fire. V7 ran the 50.
+- **At full scale:** about 21k CPU-h projected, so K1 fires.
+- **K1's ladder** (parent §8): shorten the horizon, then five genes, then calibrate
+  on the reduced reference system only. Phase 16 lands on the **last rung**: calibration
+  on M0.
+  - **Why the middle rungs are skipped:** a shorter horizon or five genes still means
+    200 cells updated in turn. Each cuts the cost by roughly its own factor, about
+    2 to 10×, which is far short of the ~20× needed.
+  - T3 labels the full-scale verdict **budget-bound**.
+- **The headline is not restated** to "coverage at a single truth". The ladder did
+  not bottom out, because V7's coverage is at M0's rung over 50 truths.
+- **Parent §8's K1 text is not edited by this entry.** On approval, a line is added
+  there, citing this entry.
+
+**4. The 16b allocation at the M0 rung.**
+- **Phase 16's remaining cap:** about 7.4k CPU-h on `main`.
+- **If #92 and #93 merge:** about 7.1k. Their rows, 279.2 and 4.3 CPU-h, are
+  charged to phase 16's cap by those PRs, not by this entry.
+
+| 16b task | At M0 | New CPU-h | Status |
+|---|---|---|---|
+| 16b.1, the tight-prior control (K4) | Recovery: V6's posterior, read off. Perturbation: one new M0 dataset with ENO's truth moved by +1 prior SD, and one production posterior on it | ~700 | **Fund** |
+| 16b.2, recovery of the full set | V6's posterior. M0 has five of the six; `S_PGI` is not in M0 | 0 | Reuse |
+| 16b.3, coverage | V7's 50 replicates, at 0 CPU-h (your call 1, below) | 0 | Reuse, if you agree |
+| 16b.4, F6 at M0 | Transcripts-only and metabolites-only fits on V6's dataset; the joint fit is V6 | ~1.4k | **Fund**, after checking that the Gibbs driver can drop a stream (it may need a small code change) |
+| 16b.5, K2 | The 1,000-cell extension is not run. At M0, K2's divergence is read off 16b.4's transcripts-only fit at 50 cells, labelled as M0's, not as K2's verdict | 0 | **Budget-bound** at 1,000 cells |
+| 16b.6, K7 (PYK) | PYK is not in M0. It needs PYK freed and two fits | ~1.4k plus code | **Not run, budget-bound**, unless you fund it |
+| 16b.7, 16b.8 | Labels and T3 | 0 | Writing |
+| Resumes, smoke runs, suite runs | | ~500 | **Fund** |
+
+- **The funded total is about 2.6k CPU-h,** which leaves about 4.5k, or about 3k
+  with K7 funded.
+- **The new posteriors run side by side,** in about 5 to 6 days of wall.
+- **What else could use the remainder, none of it claimed here:**
+  - track C's demo (#90 C1, about 50 to 500 CPU-h);
+  - track B's next step.
+
+**5. O1 and O5, given what tracks A and B have found.**
+- **O1, part 1: close phase 16 at M0.** Proposed, as above.
+- **O1, part 2: reopen the cap for paper section 5.3's injections.** Not proposed now.
+  - Those injections test the approximate method. B3 found the mean-field
+    description fails its Jensen-gap gate (KG) at every truth, and B4 waits on a
+    rethink (`jensen_gap_89_result.md`).
+  - Reopen when an approximate method passes 5.2. That is a later §12 entry.
+- **O5, one exact Core A′ posterior as a full-scale yardstick:** about 21k CPU-h, or
+  about 6k with FBDF + KLU. It exceeds the remaining cap either way.
+  - **Recommended: not now.** Its value is as a yardstick for an approximate method
+    at full scale, and there is no such method yet.
+  - Revisit with O1 part 2.
+- **A1's input:** at M0's size, metabolites carry a ptsG signal: 0.47 against a
+  bracket of 0.68 at σ_b = 10% (`sensitivity_88_m0_result.md`, on PR #92). So 16b.4's
+  metabolites-only fit has something to find. A1 is a linearised bound, not a
+  posterior.
+
+**6. Your two calls.**
+
+**Call 1: does V7 also serve as 16b.3's coverage result?**
+- **The evidence:** coverage read off V7's ranks (`dev/scripts/v7_coverage_16a11.py`;
+  R = 50, L = 100), against the binomial 95% band:
+
+  | Level | GAPD | ptsG | `krnadeg` | ENO | FBA | σ_b | Band |
+  |---|---|---|---|---|---|---|---|
+  | 50% | 23 | 27 | 22 | 31 | 24 | 26 | 18–32 |
+  | 80% | 36 | 41 | 37 | 42 | 40 | 42 | 34–45 |
+  | 90% | 42 | 47 | 45 | 45 | 42 | 48 | 41–49 |
+  | 95% | 46 | 47 | 46 | 46 | 44 | 49 | 44–50 |
+  | 99% | 49 | 48 | **47** | 50 | 49 | 49 | 48–50 |
+
+  - 29 of 30 cells are in band. One or two misses are expected by chance over 30.
+  - The miss, `krnadeg` at 99%, is where L = 100 is coarsest: three truths sit at an
+    extreme rank.
+- **For:**
+  - It meets 16b.3's "≥ 50 replications, with the count and rung stated".
+  - It is the same sampler at production settings.
+  - It costs nothing.
+- **Against, and to be stated with it:**
+  - 23 of the 50 replicates have bulk ESS below 100.
+  - L = 100 makes the 99% level coarse.
+  - It is M0's five parameters plus σ_b, not D11's six.
+  - **K4 asks for the tight-prior control at 100 replications.** V7 has 50. On
+    approval, K4's band is restated at R = 50 here, as 16b.3 requires: 44 to 50 of
+    50 at nominal 95%. ENO covers 46, inside the band.
+- **Recommended: yes,** with those four statements carried into T3.
+
+**Call 2: does "closed at M0" meet phase 16's done-when?**
+- **The parent's condition, read at the M0 rung:**
+  - coverage within Monte Carlo error for every target: V7, call 1;
+  - the tight-prior control shrinks and recovers. V6's posterior SD for ENO is
+    0.042 against a prior SD of 0.157, a ratio of 0.27, below K4's 0.9 and its 0.5.
+    16b.1 adds the perturbation;
+  - the loose-prior control is visibly wider. FBA's posterior SD is 0.184 against
+    ENO's 0.042, and its ratio to its prior is 0.33 (prior SD 0.558).
+- **Proposed:** yes, at the M0 rung, once 16b.1 and 16b.4 land.
+  - The parent's phase 16 is ticked as **"met at M0; full scale budget-bound"**,
+    never as "met".
+  - 16b.7 carries that label on every result.
+- **The alternative:** leave phase 16 open until a full-scale posterior is funded.
+  That ties it to O5.
+
+**On approval:**
+- 16a.11 is ticked.
+- Parent §8 K1 gets its bound line.
+- The 16b tasks are annotated with their rung and funding.
+- 16b's branch starts with 16b.1's perturbed dataset and 16b.4's stream check.
+
+*Sections:* §11 16a.11 and 16b, D16.6, parent §8 K1 and K4.
 
 ### 2026-10-22 — F10's divergence, and a floor matched to production's length
 
