@@ -146,12 +146,25 @@ with `sigma`, `replicate_seed` and `noise` added.
 bulk observations (panel × times, [`observe_bulk`](@ref)) at σ_b = `sigma`, and
 their `bulk_seed`. The per-cell `observed` panel is kept as the superseded
 observation model.
+
+`forwards` (task 16b.1) moves named forward ODE constants of the drawn truth,
+`[name => value]`, each with its reverse constant derived as
+[`derived_ode_values`](@ref) derives it. Every draw is made as without it, so the
+cells, σ and both noise seeds are the replicate's own and only those constants
+differ. The record's `forwards` is what was moved, or `nothing`.
 """
 function m0_dataset(replicate_seed::Integer; ncells::Integer = 50,
-                    horizon::Real = M0_HORIZON_S)
+                    horizon::Real = M0_HORIZON_S, forwards = nothing)
     rng = Xoshiro(replicate_seed)
     models = m0_models()
     truth = draw_truth(rng, models; names = M0_TARGETS, purpose = :calibration)
+    if forwards !== nothing
+        moved = Dict(derived_ode_values(models, forwards))
+        keys(moved) ⊆ Set(first.(truth.values)) ||
+            throw(ArgumentError("forwards moves constants the truth does not set"))
+        truth = (; truth..., values = [n => get(moved, n, v) for (n, v) in truth.values])
+        check_truth(models, truth; names = M0_TARGETS)
+    end
     σ = rand(rng, SIGMA_MET_PRIOR)
     cells = Int.(rand(rng, UInt32, ncells))
     allunique(cells) || error("replicate $replicate_seed drew a repeated cell seed")
@@ -171,7 +184,7 @@ function m0_dataset(replicate_seed::Integer; ncells::Integer = 50,
     return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
             sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
-            bulk, bulk_seed)
+            bulk, bulk_seed, forwards)
 end
 
 export M0_GENES, M0_HORIZON_S, M0_TARGETS, M0_PANEL, SIGMA_MET_PRIOR, HeldEnzymeCounts,

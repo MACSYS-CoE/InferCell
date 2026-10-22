@@ -64,4 +64,25 @@ using InferCell
         ε = (log.(a.bulk) .- log.(max.(xbar, 1.0))) ./ a.sigma
         @test ε ≈ randn(Xoshiro(a.bulk_seed), size(xbar)) rtol = 1e-10
     end
+
+    @testset "16b.1: a replicate with one forward constant moved keeps every other draw" begin
+        a = m0_dataset(16081; ncells = 2, horizon = 120.0)
+        @test a.forwards === nothing
+        v = 1.2 * Dict(a.truth.values)[:kcatF_R_ENO]
+        b = m0_dataset(16081; ncells = 2, horizon = 120.0, forwards = [:kcatF_R_ENO => v])
+        @test b.forwards == [:kcatF_R_ENO => v]
+        @test b.seeds == a.seeds && b.sigma == a.sigma
+        @test b.noise_seed == a.noise_seed && b.bulk_seed == a.bulk_seed
+        @test first.(b.truth.values) == first.(a.truth.values)
+        moved = Dict(derived_ode_values(m0_models(), [:kcatF_R_ENO => v]))
+        @test length(moved) == 2       # ENO's forward constant and its reverse
+        tb = Dict(b.truth.values)
+        for (n, x) in a.truth.values
+            @test tb[n] == get(moved, n, x)
+        end
+        @test all(r -> r.relative <= r.bound, assert_haldane(m0_models(), b.truth.values))
+        @test b.latent != a.latent
+        @test_throws ArgumentError m0_dataset(16081; ncells = 1, horizon = 60.0,
+                                              forwards = [:kcatF_R_PYK => 1.0])
+    end
 end
