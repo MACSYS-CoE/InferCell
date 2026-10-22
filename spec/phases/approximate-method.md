@@ -19,7 +19,8 @@ the reference here, and M0, V6 and V7.
 **Labels.**
 - B0 to B9 are #89's tasks.
 - AV1 to AV7 are this file's verification checks.
-- KG, KS and KC are its local stops.
+- KG, KS and KC are its local checks. KS and KC are stops. KG has been reported,
+  not a stop, since 2026-10-23 (§12).
 - **Not phase 17.** The parent's phase 17 is per-module calibration, so this file
   has no phase number.
 
@@ -226,6 +227,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - `src/transcript_factor.jl` (B1).
 - `src/mean_field.jl` (B2): a generic `MeanField` over any first-order jump group, and `gene_expression_mean_field` for the reduced syn3A model.
 - `dev/scripts/jensen_gap_89_result.md` (B3), with AV5's verdict.
+- `dev/scripts/jensen_rethink_89_result.md` (after B3): the gap's cause, δ, and
+  KG's null.
 - Later PRs: route (ii) in `src/orchestrator.jl`, the sampler, the dispatcher, and
   B7's and B8's result files.
 
@@ -304,6 +307,35 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-23 — corrections from #97's review (no verdict changes)
+
+- **An unreported information-only result.**
+  - What it is: `scores.md`'s "δ from m0_v6 (200 cells)", added at `bc71511` after
+    job 19013346's score had been read.
+  - What it shows: δ taken at the dataset's truth raises the KG total at all 8 F10
+    draws (58–129 against 40–72 uncorrected), and passes at 1 of 8.
+  - Caveats: the targets share seeds, the ensemble is 200 cells, and the truth sits
+    1–3 posterior SDs from the draws.
+  - What it suggests: δ's non-GTP part changes over a few posterior SDs. The
+    result file now reports it, and the B3 close-out should read it.
+  - It should have appeared among the entry below's "changes made after reading".
+- **Wording in the two entries below, corrected here rather than in place:**
+  - "Enzyme counts, the per-cell feedback and the clip are ruled out" means ruled
+    out as causes of the GTP gap, under a GTP-share rule. enzymes_mf and popmean
+    still move other pools at m0_v6 (KG totals 59.2 and 56.3 against 25).
+  - "FDP, external lactate and ADP have noise near 1e-4 nats": the only archived
+    per-pool noise is m0_v6's, at 1.5e-5, 4.8e-4 and 8.7e-4.
+  - "A 10–17% GTP gap": the offsets of −0.107 to −0.172 nats are a mean field
+    10–16% below the population mean.
+  - KG′'s "both statistics at or below the null's 95% point" is a joint test.
+    A login-node check measured its coverage at 0.89–0.93, not 0.95.
+- **Reproducibility.**
+  - The result file now gives the hand-submitted steps: the precompile, the node
+    exclusion, the seed-range ensembles and the resubmits.
+  - The archive gained `SHA256SUMS`.
+  - Stage 0's figures and the mechanism correlations are labelled as unscripted
+    login-node reads.
 
 ### 2026-10-23 — the gap is a declared reduction, reported and not a stop (the user's decision)
 

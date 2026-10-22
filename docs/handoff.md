@@ -8,13 +8,20 @@ outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
 `/fred/oz022/tkimpson/infercell-89-rethink-archive-2026-10-22/`.
 
 **Findings:**
-- **The GTP gap is cell-to-cell drain variation.** Each cell spends GTP in
-  proportion to the proteins it makes, which varies about 2-fold, and GTP is
-  regenerated only by saturable PGK3/PYK3. Given the mean field's drains, the
-  200-cell mean equals the mean field to three figures. Ruled out for GTP:
-  enzyme counts and the per-cell feedback (a live popmean arm). The clip is ruled
-  out too (2 of 360k drains). The popmean arm's total at m0_v6 (56 against noise 25)
-  still moves pools other than GTP.
+- **The GTP gap is cell-to-cell drain variation.** Given the mean field's drains,
+  the 200-cell mean equals the mean field to three figures.
+  - Ruled out for GTP: enzyme counts, the per-cell feedback (a live popmean arm)
+    and the clip (2 of 360k drains). Both arms still move pools other than GTP at
+    m0_v6 (enzymes_mf 59, popmean 56, against noise 25).
+  - **Shot noise is not ruled out:** its share is up to 0.44 at m0_low.
+  - Measured, from an unscripted login-node read: per-cell GTP falls with protein
+    output, which varies about 2-fold.
+  - Interpretation, not measured: GTP is regenerated only by saturable PGK3/PYK3,
+    so the population mean sits above GTP at the mean spend.
+- **δ does not carry far in θ (information only).** δ taken at m0_v6, the
+  dataset's truth, 1–3 posterior SDs from the F10 draws, makes the gap worse at
+  all 8 (KG totals 58–129 against 40–72). Its caveats are shared seeds and a
+  200-cell ensemble. It was missing from the first version of this PR.
 - **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
   reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
   uncorrected mean field passes at 0 of 28.
@@ -30,9 +37,14 @@ KG, KG′ and the implied parameter bias are reported. AV6 (B7) decides whether 
 gap matters.
 
 **Next:**
-1. Review and merge PR #97 (the rethink plus this decision).
+1. PR #97 (the rethink plus this decision) was reviewed with `/check-PR`. Its text
+   fixes are in (§12 "corrections from #97's review"), and it is merged with a
+   merge commit.
 2. B3 close-out: the implied-bias report at 2A's 28 targets, no pass line
-   (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles.
+   (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles. J
+   comes from central differences through the script's mean field, since AV3's
+   ForwardDiff covers only the gene-expression block. It should also read the
+   m0_v6 result: how far δ can be carried in θ.
 3. B4: route (ii), the ODE path's catalytic, drain and rebuild edges, in `src/`,
    on a new branch, with the full suite.
 4. B5: the mixed likelihood centred on m(θ) + δ, with the two-pass reference θ
