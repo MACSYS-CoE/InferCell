@@ -3,6 +3,9 @@
 **Rules:** fixed before the runs in `spec/phases/approximate-method.md` §12
 (2026-10-22). §8 KG is unchanged and gives the verdicts of record. The KG null and
 its quantiles are information only (§12 2026-10-23).
+**Decided after these results (the user, §12 2026-10-23, second entry):** the gap
+is a declared reduction, corrected by δ and reported, not a stop. The verdicts
+below are unchanged. AV6 decides whether the gap moves the posterior.
 **Script:** `dev/scripts/jensen_rethink_89.jl`, with `.slurm`, `.sh` (stages 1 and
 2A) and `_transfer.sh` (2A on independent seeds).
 **Runs:** every job was submitted from a detached worktree at a pushed commit.

@@ -22,18 +22,25 @@ outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
   passes at 36–56%; the per-pool 3× clause is the problem. Read against that null,
   δ behaves like a right description at 26 of 28 targets.
 
-**Your decision:** approve, edit or reject KG′, the calibrated gate in §12
-2026-10-23. Only if it is approved is δ the second description on M0, and B4 can
-then go ahead with δ as a declared reduction.
+**Decided 2026-10-23 (§12, the user's decision after the results):** the gap is
+a declared reduction, not a stop. The reference is the most detailed composition
+(jump gene expression coupled two ways to ODE metabolism), not the truth. The
+bulk factor is centred on m(θ) + δ, with δ from the same reference ensemble as S.
+KG, KG′ and the implied parameter bias are reported. AV6 (B7) decides whether the
+gap matters.
 
 **Next:**
-1. The KG′ decision, which needs no compute.
-2. If approved: the reduced model with the independent-seed design (~50 CPU-h),
-   and the two-pass pipeline (δ at the approximate mode) in B5/B7.
-3. Unchanged from below: 16b on a new branch.
+1. Review and merge PR #97 (the rethink plus this decision).
+2. B3 close-out: the implied-bias report at 2A's 28 targets, no pass line
+   (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles.
+3. B4: route (ii), the ODE path's catalytic, drain and rebuild edges, in `src/`,
+   on a new branch, with the full suite.
+4. B5: the mixed likelihood centred on m(θ) + δ, with the two-pass reference θ
+   (D-S). Then B6, and B7 (AV6), the real test of the gap.
+5. Unchanged from below: 16b on a new branch.
 
 **Can go:** the run worktrees `.worktrees/89re-bf54df3`, `89re-29781f6`,
-`89re-bc71511`, `89re-b2f6b4c` and `89re-b2f6b4c-b`, and
+`89re-bc71511`, `89re-b2f6b4c`, `89re-b2f6b4c-b` and `89re-538d32d`, and
 `/fred/oz022/tkimpson/infercell-89-rethink-smoke-2026-10-22/`.
 
 **Cluster:** a fresh worktree's first array, spread over dave, gina and turin
