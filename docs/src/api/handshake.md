@@ -80,6 +80,8 @@ Note that a rebuilt parameter is a *derived* quantity that the inference entry p
 
 `rebuild_census(driver)` reports one row per rebuilding module: its parameters, its pools, its interval and how many times it has refreshed.
 
+`override_rebuild_pools!(driver, f)` makes every rebuild read reference pools instead of live ones: `f(species, t)` returns a pool's concentration in mM at a rebuild at time `t`, or `nothing` to read that pool live, and `f = nothing` restores the published behaviour. It cuts the reverse edge, pools → rate constants, at nominal or population-mean pools, which is a dynamical reduction rather than the published model, so `driver_declarations` labels it `:rebuild_pool_override`. Issue #88's task A3 uses it to measure what that reduction costs.
+
 ## Growth and volume
 
 A [`VolumeEdge`](corea-interface.md) declares that a state's count sets the cell's membrane surface area. The module owning that state flags it with `membrane_protein_states(m)` and declares one outbound edge per flagged state; `membrane_protein_states(models)` is the sweep that finds them all, so a composition is asked rather than a module type named. Either block may declare it — a jump state is already a count, an ODE state's count is `u * factor` at the factor in force at that hook, which is the published semantics.

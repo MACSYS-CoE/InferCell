@@ -96,5 +96,21 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 
 **16a.9: about 41,656.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
 2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
-2026-10-08, annotated). **Phase 16 total: about 42,575.7 CPU-h** of 50k, so about
+2026-10-08, annotated). **Phase 16 total before the v0.3.0 tracks: about 42,575.7 CPU-h** of 50k, so about
 7.4k remain.
+
+## v0.3.0 track A (#88), charged to phase 16's remaining cap
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 18818909–18818912, 18819650, 18819651, 18819611–18819627 | #88 | A1, A2 and A3 smoke runs and merges (120 s horizon) | 1 | ~0:03 each | 2.20 |
+| 18819106, 18819610, 18821310 | #88 | Test suite: Aqua missing from the depot; one failure in the new rebuild test; passing (of record, 28361 of 28361 at `6da2398`) | 4 | 0:00:20, 0:55:06, 0:50:19 | 7.05 |
+| 18821440, 18821441 | #88 A1 | M0 ensemble sensitivity, 1470 seeds over 49 tasks, and merge (of record) | 1 | ~0:14 each | 11.10 |
+| 18821442, 18821443 | #88 A2 | Core A′ ensemble sensitivity (15.8 rerun), 1470 seeds over 294 tasks, and merge (of record) | 1 | up to 0:37 each | 165.85 |
+| 18825531–18825547 | #88 A3 | Reverse-feedback arms: 8 ensembles of 200 cells, 8 path arrays of 40 cells, and merge (of record) | 1 | up to 0:19 each | 86.97 |
+| 18836336 | #88 | Test suite after the #92 review (of record, 28362 of 28362 at `2b039a0`) | 4 | 0:50:06 | 3.34 |
+| 18836373, 18836375, 18836376 | #88 | A1, A2 and A3 re-merged after the #92 review: every number identical | 1 | ~0:02 each | 0.10 |
+| 18836377, 18836378, 18836380–18836396 | #88 | A1 and A3 smoke reruns after the #92 review: A1's task files bitwise equal to the first smoke's | 1 | ~0:03 each | 2.57 |
+
+**#88 total: about 279.2 CPU-h**, against about 320 projected on the issue.
+**Phase 16 total with #88: about 42,854.9 CPU-h** of 50k, so about 7.1k remain.

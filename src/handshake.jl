@@ -404,6 +404,9 @@ edges name the inputs and the module names the outputs.
 A pool that is a registry chemostat has `pool_idxs` entry `0` and is read from
 `pool_held` instead, the value the composition clamps it at (spec §11 task
 13.9). Transcription's CTP and UTP are the case.
+
+`pool_override` is `nothing` unless [`override_rebuild_pools!`](@ref) set it, in
+which case the rebuild reads reference pools in place of live ones (issue #88).
 """
 mutable struct RateConstantRebuild
     model::AbstractSubModel
@@ -417,6 +420,7 @@ mutable struct RateConstantRebuild
     species::Vector{Symbol}   # the pools, in the same order as `pool_idxs`
     declared_by::Symbol
     n_refreshes::Int
+    pool_override::Union{Nothing, Function}   # (species, t) -> mM or nothing; see override_rebuild_pools!
 end
 
 """
@@ -1160,7 +1164,7 @@ function _lower_rebuilds(ode_models, jump_models, jump_contexts, interval)
 
         push!(rebuilds, RateConstantRebuild(m, collect(Int, ctx.param_idxs), fill_idxs,
                                             pool_idxs, pool_held, steps, Float64(iv), collect(names),
-                                            [e.species for e in edges], id, 0))
+                                            [e.species for e in edges], id, 0, nothing))
     end
 
     # The mirror trap: the pool's owner names the channel, nothing consumes it.
@@ -1944,9 +1948,40 @@ function _apply_rebuild!(d::HandshakeDriver, r::RateConstantRebuild)
 end
 
 # The pools a rebuild reads, in edge order: a live ODE state, or a chemostat's
-# held value.
-_rebuild_pools(d::HandshakeDriver, r::RateConstantRebuild) =
-    [k == 0 ? r.pool_held[j] : d.ode.u[k] for (j, k) in enumerate(r.pool_idxs)]
+# held value — unless an override supplies a reference value for the pool.
+function _rebuild_pools(d::HandshakeDriver, r::RateConstantRebuild)
+    live(j, k) = k == 0 ? r.pool_held[j] : d.ode.u[k]
+    f = r.pool_override
+    f === nothing && return [live(j, k) for (j, k) in enumerate(r.pool_idxs)]
+    return map(enumerate(r.pool_idxs)) do (j, k)
+        v = f(r.species[j], d.ode.t)
+        v === nothing ? live(j, k) : Float64(v)
+    end
+end
+
+"""
+    override_rebuild_pools!(d::HandshakeDriver, f) -> d
+
+Make every rate-constant rebuild read reference pools rather than live ones:
+`f(species::Symbol, t::Float64)` returns the pool's concentration in mM at a
+rebuild at time `t`, or `nothing` to read it live. `f = nothing` restores the
+published behaviour. Nothing is rebuilt here: the override takes effect at the
+next rebuild, on the schedule or from [`set_parameters!`](@ref), so an override
+that always answers `nothing` leaves a run bitwise unchanged.
+
+A dynamical reduction of the reverse edge (pools → rate constants), not part of
+the published model: [`driver_declarations`](@ref) labels it. Issue #88 task A3
+uses it to measure what freezing that edge, at nominal or population-mean
+pools, costs.
+"""
+function override_rebuild_pools!(d::HandshakeDriver, f::Union{Nothing, Function})
+    for r in d.rebuilds
+        r.pool_override = f
+    end
+    return d
+end
+
+export override_rebuild_pools!
 
 # A shortfall this far below the cost is the smoothing's own residue rather
 # than a pool that ran dry. Loose enough to stay right at a smoothing width
@@ -2210,6 +2245,14 @@ function driver_declarations(d::HandshakeDriver)
         "reduction, and on the assembled Core A′ none is affordable: task 13.4 " *
         "measured the final paired difference at up to 53% for a 5 s drain and " *
         "288% for 60 s, against spec §4 D10's one percent (job 17298253)"))
+    for r in d.rebuilds
+        r.pool_override === nothing || push!(labels, ReductionLabel(
+            :rebuild_pool_override, r.declared_by,
+            "$(r.declared_by)'s rate constants are rebuilt from reference pools " *
+            "supplied by `override_rebuild_pools!`, not the live ones, so the reverse " *
+            "edge (pools → rate constants) is cut where the override answers. **Ours**: " *
+            "a dynamical reduction whose cost is to be measured (issue #88 task A3)"))
+    end
     d.rounding.policy === :fractional_carry && push!(labels, ReductionLabel(
         :driver_policy, :fractional_carry,
         "counts are written back under fractional carry, this project's policy " *

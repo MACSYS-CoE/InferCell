@@ -1,6 +1,24 @@
 # Handoff
 
-## Latest: 16a.11 approved; phase 16 closes at M0 (2026-10-22)
+## Latest: #92 (track A) merged with main (2026-10-22)
+
+**Branch:** `issue-88-track-a`, PR #92. Main (16a.11's closeout, #96) is merged into
+it with a merge commit, not a rebase: the result files, the ledger and the archives
+cite `8813dca`, `2b039a0` and `6da2398`, which a rebase would drop from main.
+
+- Only `dev/scripts/phase16_ledger.md` and this file conflicted. No `src` or test
+  code did.
+- **The ledger:** #88's 279.2 CPU-h now sits on top of main's 42,575.7, so phase 16
+  stands at about 42,854.9 of 50k, with about 7.1k left. Track B (#93) is not yet
+  in it.
+
+**Next:**
+1. Merge #92 with a merge commit once CI passes. Tick #88's boxes.
+2. Merge main into #93, fold track B's CPU-h into the ledger total, rerun the suite,
+   mark it ready and merge it with a merge commit.
+3. Then 16b on a new branch, as below.
+
+## Earlier: 16a.11 approved; phase 16 closes at M0 (2026-10-22)
 
 **Branch:** `phase-16a11-closeout`, PR #96. **#94 (F10) is merged** at `baae60a`.
 
@@ -104,6 +122,65 @@ under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
   checksums are verified.
 - **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
   `v7merge-0ff6cff`.
+
+## Earlier: #88 track A measured — M0's ptsG gate passes, 15.8 reproduces, the population-mean reduction fails at one truth (2026-10-19)
+
+**Branch:** `issue-88-track-a`, draft PR #92. It is based on `phase-16a10-f10`, so the
+PR shows F10's three docs commits until that branch merges. It ran alongside F10 in a
+separate worktree.
+
+**Results.** Each has a `_result.md` with its job ids, commit (`8813dca`) and CPU-h.
+The raw outputs and logs are in `/fred/oz022/tkimpson/infercell-88-a{1,2,3}-archive-2026-10-19/`.
+
+- **A1 (`sensitivity_88_m0_result.md`): the gate passes.**
+  - M0's ptsG, metabolites only, σ_b = 10%: 0.47 against bracket 0.68. Core A′ gets
+    0.10.
+  - So no larger M0 dataset is needed for paper section 5.2.
+  - R at M0 is 64. 3PG, Pi and 2PG carry 49 of it.
+- **A2 (`sensitivity_88_corea_result.md`): 15.8 reproduces exactly** (923…119, floor
+  72.3).
+  - The information bound for D11's six is tabulated for section 5.3.
+  - R at C = 200, σ_b = 10% is about 70, about 8× the note's guess, and in the
+    Gaussian-convolution regime at every setting.
+- **A3 (`eno_feedback_88_result.md`): two verdicts.**
+  - **Cadence refuted:** a 6 s rebuild changes neither path information nor the bulk
+    metabolites, at either truth.
+  - **The population-mean reduction (mean field's reverse edge)** is free at 15.7's
+    truth but costs about 140 nats at σ_b = 10% at a low-ptsG truth. Fixed nominal
+    pools are worse.
+  - At that truth ENO may also carry a little path information: 0.90 by the
+    outer-product estimator, not confirmed by the curvature.
+
+**`src` change:** `override_rebuild_pools!` in `src/handshake.jl`, with a new
+`:rebuild_pool_override` label and testset. The suite passed 28361 of 28361 at
+`6da2398` (job 18821310). The override takes effect at the next rebuild. With none
+set, the rebuild is bitwise unchanged.
+
+**Compute:** about 279.2 CPU-h, now in the ledger. Phase 16 stands at about 42.3k
+without F10.
+
+**Reviewed:** `/check-PR` on #92 gave "merge after fixes". There were no code bugs that
+changed a number. The fixes:
+- `popmean`'s path-stage wording: those are frozen pools, not mean field.
+- A1's "a fifth of the information": it is 4%.
+- A provenance guard in A3's merge.
+- Minor wording, and 7 simplifications.
+All are applied at `2b039a0`. The checks after them:
+- The suite passed 28362 of 28362 (job 18836336).
+- All three re-merges give identical numbers.
+- The A1 smoke's task files are bitwise equal to the first smoke's.
+
+**Next:**
+1. Merge #92 after F10's branch, merging `docs/handoff.md` by hand. Tick #88's boxes
+   once it merges.
+2. **A3's truth dependence matters for #89:** mean field may be the wrong second
+   description where ptsG is low (note §14 step 4).
+   - Cheap checks first: `rate_constant_elasticity` at truth 2, to test the
+     desaturation reading.
+   - Then `popmean` across V7's datasets, to map where it breaks.
+3. The worktrees `.worktrees/88-8813dca` and `.worktrees/88-2b039a0` were only for
+   submitting. Remove them once #92 merges, along with
+   `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
 
 ## Latest: V7 passes, 16a.9b is met (2026-10-17)
 

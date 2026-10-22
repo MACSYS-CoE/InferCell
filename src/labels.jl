@@ -34,7 +34,8 @@ const REDUCTION_CATEGORIES = (:clamp, :smoothed_counter, :unclamped_counter,
                               :calibrated_constant, :exogenous_growth,
                               :asserted_prior, :discarded_prior, :lumping,
                               :formalism, :model_note,
-                              :capped_rate_law_geometry, :driver_policy)
+                              :capped_rate_law_geometry, :driver_policy,
+                              :rebuild_pool_override)
 
 # `:driver_policy` records the driver's policy where it is *not* a departure —
 # the published 1 s drain, and fractional carry — so that the drain granularity
