@@ -1,38 +1,39 @@
 # Handoff
 
-## Latest: F10 approved at 656 sweeps; the production chain is submitted (2026-10-18)
+## Latest: F10 done, 16a.10 ticked (2026-10-22)
 
-**Branch:** `phase-16a10-f10`.
+**Branch:** `phase-16a10-f10`, with no PR yet.
 
-**Approved:** the sub-spec's §12 2026-10-13 proposal, at 656 sweeps. The entry's
-status now records the alternatives weighed and why each was set aside. D16.5 is
-annotated with N_ref = N under the PG case.
-
-**Running:** job 18751635, from `.worktrees/f10-16a10` at `a0060de`, submitted 11:37 on 18 Oct. Smoke job 18751515 (3 cells, 2 sweeps) passed first. `dev/scripts/f10_16a10.sh` submits `gibbs_pilot_16a9a.jl run 5 656`.
-- That is V6's setup run as a fifth chain, started with `Xoshiro(16_090_005)`, at 5
-  threads, 6 days.
-- It writes to `dev/scripts/f10_16a10/` (gitignored). That is its own directory, so
-  no V6 merge globs it.
-- No merge job is chained after it.
-- `src/` changed only in docstrings since V6's `281d548`, and the Manifest is
-  unchanged.
+**F10's result** (`dev/scripts/f10_16a10_result.md`): **a production-length chain
+is not resolved from the M0 reference on any marginal.**
+- **The rule** (W1 in reference SDs; four matched nulls from V6 chains' sweeps 101
+  to 656) was fixed and pushed in §12 2026-10-22 (`3248031`) before any divergence
+  was computed.
+- **Biggest gap:** chain 5 ranks above all nulls only on FBA, by 0.020 SD. About
+  1.2 of six are expected to by chance.
+- **Mean differences** are at most 0.12 SD.
+- **V8's split-half floor alone would have flagged 5 of 6.** It measures the noise
+  of 3,100-draw halves, which is why the matched floor was added.
+- **Production ESS on GAPD:** 66 (Geyer, single chain), within the nulls' 53 to
+  110.
+- **The chain:** job 18751635 at `a0060de`, 656 sweeps, 4 d 5.5 h, 507.5 CPU-h. It
+  is archived with checksums at
+  `/fred/oz022/tkimpson/infercell-16a10-archive-2026-10-22/`.
+- **The scripts:** `f10_16a10_export.jl`, then `f10_16a10.py`. Both run on the
+  login node.
+- **Figures:** `dev/notes/figures/f10-16a10/`.
+- **The ledger:** phase 16 is at about 42.6k of 50k, with about 7.4k left.
 
 **Next:**
-1. **Done:** the first checkpoint's replicate, cells, N, truth and σ_b match V6's
-   `chain1.jls`.
-2. **If the chain hits 6 days:** rerun `f10_16a10.sh` from the same worktree. It
-   resumes from the checkpoint.
-3. **While it runs:** write the F10 comparison script. It needs:
-   - overlaid marginals;
-   - the ptsG × ENO contour;
-   - a per-marginal divergence beside V8's floor, taken from V6's split halves.
-   Then draft 16a.11's §12 entry, with your two calls.
-4. **When it lands:** add the ledger row from sacct, archive the checkpoint aside,
-   run F10 and tick 16a.10.
-
-**Waiting on F10 by decision (2026-10-19).** At 167 of 656 sweeps after 25.7 h
-(about 550 s per sweep), it is due about 22 Oct, inside the 6-day limit. The user
-chose to wait for it before writing the F10 script or 16a.11's entry.
+1. `/check-PR` on this branch, then merge.
+2. **16a.11's §12 entry,** to close phase 16 at M0. It covers:
+   - the cost per M0 posterior;
+   - K1's bound;
+   - the full-scale projection;
+   - re-scoping 16b with "budget-bound" labels;
+   - your two calls: whether V7 can serve as 16b.3's coverage result, and whether
+     "closed at M0" meets the done-when.
+3. **Can go:** `.worktrees/f10-16a10`, now archived.
 
 **Direction discussed 2026-10-19, not yet in the spec:**
 1. Close phase 16 at M0: F10, then 16a.11's §12 entry.

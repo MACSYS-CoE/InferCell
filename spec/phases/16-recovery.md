@@ -890,10 +890,19 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - **Caveat:** 23 of the 50 replicates have a smallest bulk ESS below L = 100,
     so the check is less sensitive than a well-mixed R = 50.
   - **Cost:** V7 used 33.9k CPU-h, and phase 16 is at about 42k of the 50k.
-- [ ] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
+- [x] 16a.10 (parent 16.8) Compare production against the reference on M0 — verify
   by F10: overlaid marginals, one 2-D contour for the ptsG and ENO pair, and a
   per-marginal divergence beside V8's floor. The caption states which case of D16.5
   holds.
+  **Done 2026-10-22** (`dev/scripts/f10_16a10_result.md`; job 18751635, 507.5
+  CPU-h). D16.5's PG case holds.
+  - **Result:** a production-length chain is not resolved from the reference on any
+    marginal, under the rule of §12 2026-10-22.
+  - **Biggest gap:** chain 5 ranks above all four matched nulls only on
+    `kcatF_R_FBA`, by 0.020 SD. About 1.2 of six are expected to by chance.
+  - **V8's split-half floor alone** would have flagged five of six, because it
+    measures the noise of much longer runs.
+  - **Figures:** `dev/notes/figures/f10-16a10/`.
 - [ ] 16a.11 Measure cost, set K1's bound, and reopen the budget. Verify by:
   - the ledger showing 16a ≤ 5k CPU-h;
   - the cost per posterior on M0, and a full-scale projection per variant from
