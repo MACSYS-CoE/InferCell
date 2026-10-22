@@ -37,7 +37,7 @@ const REPLICATE = 16085
 const NCELLS = parse(Int, get(ENV, "PILOT_NCELLS", "50"))     # 3 for a smoke run
 const HORIZON = parse(Float64, get(ENV, "PILOT_HORIZON", string(M0_HORIZON_S)))
 const N = 20
-const BURN = 100
+const BURN = parse(Int, get(ENV, "BURN", "100"))       # 0 for a smoke run
 const THRESHOLD = 0.10
 
 "ENO's prior SD on the log scale, ln of its geometric SD (central_glycolysis.tsv)."
@@ -159,6 +159,10 @@ function summary(v6dir, dirs)
     function rows(lab, x, truth)
         ess = bulk_ess(x)
         for p in 1:P
+            if lab == "tx_only" && names[p] == "sigma_b"
+                println("| $lab | sigma_b | held at its start, not inferred | — | — | — | — |")
+                continue
+            end
             v = vec(x[:, :, p])
             @printf("| %s | %s | %.3f ± %.3f | %.3f | %.0f | %.3f | %.2f |\n", lab, names[p],
                     mean(v), std(v), std(v) / prior_sd[p], ess[p], truth[p],
