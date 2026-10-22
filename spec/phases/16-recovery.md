@@ -1007,6 +1007,79 @@ annotated below with its rung and funding.
 
 ## 12. Amendment log
 
+### 2026-10-22 — 16b.1 and 16b.4 at M0: the runs and their reading rules
+
+**Status: proposed 2026-10-22, before any 16b chain has run.** It fixes the runs
+16a.11 funded, and how each is read, before any of their draws exist.
+
+**The runs.** Three production-length chains, side by side, at F10's settings:
+- 50 cells, 600 s, N = 20, 656 sweeps, 5 threads, and 100 sweeps of burn-in;
+- each starts from θ and σ_b drawn from the prior with `Xoshiro(16_400_000 + i)`,
+  i = 1, 2, 3, and from paths drawn by `gibbs_init`;
+- driver: `dev/scripts/m0_16b.{jl,sh,slurm}`, about 3 × 510 CPU-h.
+
+| Mode | Task | Dataset | Streams |
+|---|---|---|---|
+| `perturbed` | 16b.1 | M0 replicate 16085, ENO's forward constant × exp(0.1568), its reverse derived | Both |
+| `tx_only` | 16b.4 | V6's (replicate 16085) | Transcripts |
+| `met_only` | 16b.4 | V6's | Bulk metabolites |
+
+**What changes in `src`.**
+- `m0_dataset(seed; forwards)` moves named forward constants of the drawn truth,
+  each with its reverse derived (`derived_ode_values`). Every draw is the
+  replicate's own, so the perturbed dataset shares V6's cells, σ_b and noise
+  seeds. Only ENO moves, so the comparison is paired.
+- `gibbs_setup(ds; streams)`. With the default, a chain is unchanged.
+  - **Transcripts only:** the panel is empty, so no bulk term enters any block. σ_b
+    is held at its start and is not inferred.
+  - **Metabolites only:** block 3 bridges no gene. It simulates transcription
+    forward with every other reaction and weights each window by the bulk term
+    alone, which makes it a bootstrap particle Gibbs. Block 2 still reads the
+    transcription counts from the path.
+
+**16b.1's rule (K4's gate).** Read off `m0_16b.jl summary` for ENO, against V6
+(sweeps 101 to 1,650). **It recovers if all three hold:**
+1. **Shrinkage:** posterior SD / prior SD (0.157) is below 0.9.
+2. **Coverage of the moved truth:** ln ENO = 4.3386 lies in the posterior's central
+   95%.
+3. **It moves with the truth:** the posterior mean's shift from V6's, divided by the
+   truth's shift (+0.1568), lies in 0.5 to 1.5.
+   - Under a conjugate reading at V6's shrinkage (0.27), the expected ratio is
+     about 1 − 0.27² ≈ 0.93.
+   - It is not exactly 1, because moving ENO changes the pools. That changes the
+     rebuilt transcription rates and the paths, not only the bulk data.
+   - **Why not a Monte Carlo error rule:** the means' MC SEs are about 0.005, far
+     below that systematic difference, so such a rule would fail a correct
+     sampler.
+- V6's truth's quantile under the perturbed posterior is reported beside them.
+- **If any of the three fails, K4 fires:** the phase stops and the cause is
+  diagnosed before anything is rerun.
+
+**16b.4's reading.** A measurement, not a gate.
+- **F6:** the five parameters under transcripts only, metabolites only and joint
+  (V6). Each with mean ± SD, shrinkage, bulk ESS, the truth and its quantile.
+- **The load-bearing cell:** ptsG (`S_JCVISYN3A_0779`) under metabolites only,
+  reported with its shrinkage against A1's linearised 0.47 at σ_b = 10%
+  (`sensitivity_88_m0_result.md`). A1 is a bound under its own settings, not a
+  prediction of this posterior.
+- **The measured null:** ENO under transcripts only. The 2026-10-05 amendment
+  bounds its ratio near 1 (`eno_path_information_16a7_result.md`; Core A′ at 200
+  cells, at 15.7's truth).
+  - A ratio below 1 − 2·SE, with SE = ratio / √(2 · bulk ESS), is flagged as a
+    sampler error to investigate, not reported as a result.
+  - The bound's scope (one truth, Core A′) is stated beside it.
+- **For 16b.5:** M0's transcripts-only prior-to-posterior divergence for ENO and
+  FBA is read off the same chain, labelled as M0's.
+
+**The early check.** At about sweep 20, run `m0_16b.jl rates` on each chain.
+- `met_only`'s bootstrap proposal is the mixing risk.
+- A live cell-window below 0.10 (the pilot's threshold) is reported to you before
+  the chain continues.
+- Otherwise the chains run to 656. A chain that hits its time limit is resubmitted
+  with the same command.
+
+*Sections:* §11 16b.1, 16b.4, 16b.5.
+
 ### 2026-10-22 — 16a.11: the measured cost, K1's bound, and closing phase 16 at M0
 
 **Status: approved 2026-10-22, with both calls answered "yes".** K7 (16b.6) is not
