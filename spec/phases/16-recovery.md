@@ -1009,8 +1009,10 @@ annotated below with its rung and funding.
 
 ### 2026-10-22 — 16b.1 and 16b.4 at M0: the runs and their reading rules
 
-**Status: proposed 2026-10-22, before any 16b chain has run.** It fixes the runs
-16a.11 funded, and how each is read, before any of their draws exist.
+**Status: approved 2026-10-23, before any 16b production chain has run,** with the
+ratio band of 0.5 to 1.5 and all three chains launched side by side. It fixes the
+runs 16a.11 funded, and how each is read, before any of their draws exist. Only
+the smoke runs (3 cells, 120 s, 2 sweeps) had been read.
 
 **The runs.** Three production-length chains, side by side, at F10's settings:
 - 50 cells, 600 s, N = 20, 656 sweeps, 5 threads, and 100 sweeps of burn-in;
