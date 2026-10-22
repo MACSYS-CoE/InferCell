@@ -192,7 +192,7 @@ x̄_j,k = (1/C) Σ_c x_j(θ, X_c, t_k)
 | V5 | Path update against brute force, with the rates varying | See below the table | 16a.7 |
 | V6 | Reference convergence | At least 4 chains from overdispersed starts. Rank-normalised R̂ < 1.01, and bulk and tail ESS ≥ 1,000 per parameter. The Monte Carlo SE of every reported 5% and 95% quantile is ≤ 0.05 posterior SD. This is what "the run's length justified rather than chosen" means | 16a.9 |
 | V7 | Reference calibration | Simulation-based calibration of the M0 sampler at production settings. Each replicate's truth draws **all** free quantities from their priors: M0's targets by `draw_truth(...; names = M0_TARGETS)`, and σ_b from `p(σ_b)` (σ before 2026-10-05), each with a recorded seed. Rank-ECDF within 95% simultaneous bands for every free parameter, at R replications (≥ 50, K1's floor; 100 if the cap allows). **Amended 2026-10-12 (§12):** each band is at 1 − 0.05/6, so V7 as a whole is at 95%, on a complete set of R replicates | 16a.9 |
-| V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
+| V8 | F10's own floor | The divergence between the production and reference posteriors is reported beside the reference-vs-reference divergence of its split chain halves. *Amended 2026-10-22 (§12):* the divergence is Wasserstein-1 per marginal in reference SDs, and a floor matched to production's length is added. A production divergence inside that floor is "not resolved", not "zero" | 16a.10 |
 | V9 | Snapshot independence | Mutating one particle's snapshot leaves every other unchanged. This is the installed trap of solver objects shared across particles, tested directly | 16a.7 |
 
 **V1 in detail.**
@@ -974,6 +974,53 @@ parent's phase 16 stays unticked. It does not count as done.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-22 — F10's divergence, and a floor matched to production's length
+
+**Status: recorded 2026-10-22, before any F10 divergence was computed.** The
+production chain (job 18751635) had finished, and only its sweep log had been
+read.
+
+**Trigger:**
+- V8 says "the divergence" without naming one.
+- V8's floor, the reference's split halves, is too low to read a single
+  production chain against. Each half holds about 540 effective draws on the GAPD
+  promoter. The production chain holds about 97. So that floor sits below the
+  Monte Carlo noise a production chain carries by construction, and V8 alone would
+  read that noise as a difference.
+
+**The divergence.**
+- **Measure:** per marginal, the 1-D Wasserstein-1 distance between the two
+  draw sets, on the log scale, divided by the reference's posterior SD.
+- **Reported beside it,** as description only: the difference in means in
+  reference SDs, and the ratio of SDs.
+- **Production arm:** sweeps 101 to 656 of chain 5.
+- **Reference:** sweeps 101 to 1,650 of V6's chains 1 to 4, as in V6's merge.
+
+**The floors.**
+- **V8, as written:** chains 1 and 2 pooled against chains 3 and 4, each on sweeps
+  101 to 1,650.
+- **Added, matched to production:** sweeps 101 to 656 of each V6 chain against the
+  other three chains' sweeps 101 to 1,650.
+  - Each V6 chain started from the prior in the same way chain 5 did (the pilot's
+    `Xoshiro(16_090_000 + k)`), with the same code path and burn-in. So its first
+    656 sweeps *are* a production-length chain. That gives four null draws of the
+    divergence.
+
+**The reading rule.**
+- **Per parameter,** chain 5's divergence is ranked among the five: itself and the
+  four null draws.
+- **If chain 5 is a production-length chain like the others,** its rank is uniform
+  on 1 to 5. Across six parameters, about 1.2 come out largest by chance alone.
+- **"Not resolved at production length":** the divergence is not above every
+  null draw.
+- **Above all four:** the divergence is reported with its margin. It counts as a
+  finding only if it is large against the nulls' spread, or if several parameters
+  do it. The F10 result file judges this, and states its reasoning.
+- **No gate.** F10 is a figure. A production divergence well beyond the nulls
+  would be raised with the user before 16a.11, not silently absorbed.
+
+*Sections:* V8, §11 16a.10.
 
 ### 2026-10-13 — F10 when the reference runs at production's N
 
