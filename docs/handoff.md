@@ -1,6 +1,45 @@
 # Handoff
 
-## Latest: F10 done, 16a.10 ticked (2026-10-22)
+## Latest: 16a.11 approved; phase 16 closes at M0 (2026-10-22)
+
+**Branch:** `phase-16a11-closeout`, PR #96. **#94 (F10) is merged** at `baae60a`.
+
+**16a.11 is approved and ticked** (sub-spec §12 "16a.11"). It is #90 C2's O1 and
+O5. Both of your calls were answered "yes":
+1. **V7 serves as 16b.3's coverage,** read off by `dev/scripts/v7_coverage_16a11.py`.
+   - 29 of 30 interval cells are in band; the miss is krnadeg at 99%.
+   - K4's band is restated at R = 50 as 44 to 50, and ENO covers 46.
+2. **Phase 16 closes at M0,** labelled "met at M0; full scale budget-bound", once
+   16b.1 and 16b.4 land.
+
+**Cost and K1:**
+- An M0 posterior costs 507.5 to 678 CPU-h.
+- A full-scale production posterior is projected at about 21k, and coverage at about
+  1.0M.
+- **K1's bound is 1,000 CPU-h per posterior** (parent §8). It fires at full scale,
+  labelled budget-bound, and not at M0.
+
+**16b, funded at M0 (about 2.6k CPU-h):**
+- 16b.1: a perturbed-truth posterior, with ENO +1 prior SD (~700).
+- 16b.4: transcripts-only and metabolites-only fits on V6's dataset (~1.4k). First
+  check that the Gibbs driver can drop a data stream.
+- Contingency (~500).
+- **Reused:** V6 for 16b.2 and V7 for 16b.3.
+- **Budget-bound:** K2 at 1,000 cells, and K7 (not funded).
+- **Not now:** 5.3's injections and an exact Core A′ posterior (O1 part 2, O5). Track
+  B's mean field failed KG.
+
+**Tracks A (#92) and B (#93)** are untouched.
+- #92 already conflicts with `main` in the ledger and handoff since #94, so rebase it
+  before merging.
+- Once both merge, the phase 16 cap has about 7.1k left, and 16b's 2.6k fits.
+
+**Next:**
+1. Merge #96 once CI passes.
+2. **16b on a new branch.** First 16b.4's stream check, then submit 16b.1's and
+   16b.4's posteriors side by side (about 5 to 6 days).
+
+## Earlier: F10 done, 16a.10 ticked (2026-10-22)
 
 **Branch:** `phase-16a10-f10`, PR #94. `/check-PR` said MERGE, and its minor fixes are applied.
 
