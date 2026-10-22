@@ -464,9 +464,12 @@ function score(out)
       "ensemble (all its cells, seeds 40001…). Each target is scored against its own ",
       "200-cell full ensemble at seeds 50001…, independent of δ's.")
     p()
+    # The last group is information only: δ from the dataset's truth (200 cells)
+    # rather than the posterior mean, which is 1–3 posterior SDs away in places.
     groups = [("f10_ref", ["f10_d$k" for k in 1:8]),
               ("m0_low", sort([k for k in keys(P) if startswith(k, "low_")])),
-              ("m0_high", sort([k for k in keys(P) if startswith(k, "high_")]))]
+              ("m0_high", sort([k for k in keys(P) if startswith(k, "high_")])),
+              ("m0_v6", ["f10_d$k" for k in 1:8])]
     for (src, targets) in groups
         haskey(refs, (src, 40_000)) && isfile(mf_file(out, src)) || continue
         rc = refs[(src, 40_000)][1]
