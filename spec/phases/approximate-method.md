@@ -298,7 +298,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B1.** The transcript factor, AV1–AV3. Suite 28627 of 28627 at `9a1d10c` (job 18884570).
 - [x] **B2.** The mean-field modules, AV3–AV4. Same suite job.
 - [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. The rethink (2026-10-23, §12; `dev/scripts/jensen_rethink_89_result.md`) names the cause and tests δ. Decided 2026-10-23: the gap is reported, not a stop.
-  - [ ] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line.
+  - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19038794): uncorrected, krnadeg moves by about 2 posterior SDs even with the transcripts' information; with δ_ref the residual is within about 1 SD and mostly within its noise.
 - [ ] **B4.** Route (ii).
 - [ ] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S).
 - [ ] **B6.** The dispatcher.
@@ -307,6 +307,38 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-23 — the B3 close-out, as run (information only; no pass line)
+
+- **How the §12 formula was evaluated** (`dev/scripts/jensen_bias_89_result.md`,
+  job 19038794 at `c9184c2`):
+  - **J** comes from the archived mean fields, not ForwardDiff. The prototype
+    rounds counts inside the driver, so AV3's ForwardDiff does not reach it.
+    - At m0_low and m0_high: central differences over the ±1 SD targets.
+    - At f10_ref: least squares over 28 F10 draws.
+    - Linearity holds: R² 0.989, curvature ≤ 0.12.
+  - **S at C = 50:** by the delta method from the source's 800 cells.
+  - **σ_b:** 0.10 (KG's) and F10's posterior median, 0.072.
+  - **Beside the formula:** the linear response with F10's posterior covariance,
+    which carries the transcripts that (JᵀWJ + P)⁻¹ leaves out.
+- **Outcome:**
+  - Uncorrected, krnadeg moves by +1.9 to +2.4 posterior SDs at every F10 target,
+    even with the transcripts' information, and S_0607 by about 1.
+  - With δ_ref the residual is within about 1 SD (RMS), with 10 of 140
+    target × parameter cells above 2 SE. The test resolves about 1 SD on S_0607
+    and krnadeg, and 0.06 SD on kcatF_FBA.
+  - One resolved residual: kcatF_ENO at low_kcatF_R_ENO_−, −0.80 ± 0.24, the same
+    as uncorrected.
+- **A correction to the entry below.** Its m0_v6 bullet came from shared-seed
+  targets. On independent seeds:
+  - δ_v6 is within noise of δ_ref: ‖δ_v6 − δ_ref‖ 0.642 against 0.744 from noise;
+  - m0_v6 is a typical posterior point (Mahalanobis 2.48 against a median of
+    2.06).
+
+  So whether δ depends on θ across the posterior is neither established nor
+  ruled out. "δ's non-GTP part changes over a few posterior SDs" is withdrawn.
+- **Consequence for B7 (AV6):** watch krnadeg, S_0607 and kcatF_ENO at low-ENO
+  truths.
 
 ### 2026-10-23 — corrections from #97's review (no verdict changes)
 

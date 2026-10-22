@@ -1,5 +1,32 @@
 # Handoff
 
+## Latest: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
+
+**#97 is merged** at `0eec5cc`, with a merge commit. Its review fixes are in `28ba4db`.
+
+**B3 close-out:** `dev/scripts/jensen_bias_89_result.md` (job 19038794 at `c9184c2`,
+0.04 CPU-h; outputs in `/fred/oz022/tkimpson/infercell-89-bias-2026-10-23/`). It is a
+linearised implied bias from the rethink's archive, with no pass line.
+- **Uncorrected:** krnadeg moves by +1.9 to +2.4 posterior SDs at every F10
+  target, even with the transcripts' information, and S_0607 by about 1. The
+  spec's bulk-only formula, which leaves out the transcripts, gives RMS values of
+  6.0–6.9 SD on krnadeg.
+- **With δ_ref:** the residual is within about 1 SD RMS, with 10 of 140 cells
+  above 2 SE. The test resolves only about 1 SD on S_0607 and krnadeg.
+  kcatF_ENO at low_kcatF_R_ENO_− keeps −0.80 ± 0.24.
+- **The m0_v6 claim from #97 is withdrawn.** On independent seeds, δ_v6 is within
+  noise of δ_ref, and m0_v6 is a typical posterior point (§12).
+- **Method:** J comes from the archived mean fields, not ForwardDiff, and m(θ) is
+  near-linear over the posterior (R² 0.989). Recorded in §12.
+
+**Next:**
+1. Review the close-out PR with `/check-PR`, then merge with a merge commit.
+2. B4: route (ii), in `src/`, on a new branch, with the full suite.
+3. B5 to B7. AV6 should watch krnadeg, S_0607 and kcatF_ENO at low-ENO truths.
+4. 16b: the chains are running (see the 16b-m0 branch's handoff). The `rates`
+   check is due at about sweep 20.
+5. **Can go:** `.worktrees/89-b3-rethink` and the six `89re-*` worktrees.
+
 ## Latest: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`)
 
 **What ran:** `dev/scripts/jensen_rethink_89.jl` (48.0 CPU-h of the 100 allowed).
@@ -18,10 +45,9 @@ outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
     output, which varies about 2-fold.
   - Interpretation, not measured: GTP is regenerated only by saturable PGK3/PYK3,
     so the population mean sits above GTP at the mean spend.
-- **δ does not carry far in θ (information only).** δ taken at m0_v6, the
-  dataset's truth, 1–3 posterior SDs from the F10 draws, makes the gap worse at
-  all 8 (KG totals 58–129 against 40–72). Its caveats are shared seeds and a
-  200-cell ensemble. It was missing from the first version of this PR.
+- **δ at m0_v6 (information only).** On shared seeds it made the gap worse at
+  all 8 F10 draws. That read is withdrawn: on independent seeds it is within
+  noise of δ_ref (the B3 close-out, above).
 - **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
   reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
   uncorrected mean field passes at 0 of 28.
