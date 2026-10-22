@@ -641,7 +641,8 @@ function transfer(out)
     p("# Issue #89 B3 rethink: offsets carried to independent targets", SMOKE ? " — SMOKE RUN, NOT A RESULT" : "")
     p()
     p("At $COMMIT (job $(slurm_job())) over `$out`. σ_b = $(Int(100SIGMA_B))%. Verdicts are KG's as agreed; ",
-      "q is the statistic's quantile in the source point's null (information only, `calibrate.md`'s construction).")
+      "q is the statistic's quantile in the source point's null (information only, `calibrate.md`'s construction). ",
+      "A `*` after the verdict marks a failure of pass*, the variant with each pool's noise floored at 0.1 nats (information only).")
     p()
     cellsat(pt, s0) = (let dir = ens_dir(out, pt, "full", s0); isdir(dir) ? load_cells(dir) : nothing end)
     mfl(pt) = mf_log(deserialize(mf_file(out, pt)))
@@ -677,7 +678,7 @@ function transfer(out)
         p()
         p("| Target | seeds | ", join([a for (a, _) in arms], " | "), " |")
         p("|---|---|", repeat("---|", length(arms)))
-        tally = Dict(a => [0, 0, 0] for (a, _) in arms)       # KG pass, in-null, n
+        tally = Dict(a => [0, 0, 0, 0] for (a, _) in arms)    # KG pass, in-null, n, pass*
         for t in sort([t for t in TRANSFER_TARGETS if startswith(t, prefix)])
             rt = cellsat(t, indep_seed0(t))
             (rt === nothing || !isfile(mf_file(out, t))) && continue
@@ -688,8 +689,8 @@ function transfer(out)
                 sh = kg_shift(off === nothing ? M : M .+ off, L)
                 v = verdict(sh, noise); st = kg_stats(sh, noise)
                 qr, qm = qof(st.ratio, nr), qof(st.pmax, nm)
-                tally[a] .+= [v.pass, qr <= 0.95 && qm <= 0.95, 1]
-                push!(cols, @sprintf("%s %.3g/%.3g (q %.2f, %.2f)%s", v.pass ? "pass" : "FAIL", v.total, v.noise, qr, qm,
+                tally[a] .+= [v.pass, qr <= 0.95 && qm <= 0.95, 1, v.passf]
+                push!(cols, @sprintf("%s%s %.3g/%.3g (q %.2f, %.2f)%s", v.pass ? "pass" : "FAIL", v.passf ? "" : "*", v.total, v.noise, qr, qm,
                                      isempty(v.bad) ? "" : " " * join(short.(v.bad), ",")))
             end
             p("| $t | $(indep_seed0(t) + 1)… | ", join(cols, " | "), " |")
@@ -697,8 +698,8 @@ function transfer(out)
         p()
         for (a, _) in arms
             n = tally[a][3]
-            p(@sprintf("- **%s:** KG passes at %d of %d; both statistics within the null's 95%% at %d of %d.", a,
-                       tally[a][1], n, tally[a][2], n))
+            p(@sprintf("- **%s:** KG passes at %d of %d (pass*, noise floored at 0.1 nats: %d of %d); both statistics within the null's 95%% at %d of %d.", a,
+                       tally[a][1], n, tally[a][4], n, tally[a][2], n))
         end
         p()
     end

@@ -46,6 +46,11 @@ field, and the logs.
 4. **Placed in that null (information only), δ behaves like a right description.**
    Both of KG's statistics fall within the null's 95% at 26 of 28 independent
    targets, against 5 of 28 for the uncorrected mean field.
+   - **What a pass in that null means:** the residual gap is below what a 200-cell
+     reference can detect. The null's power grows with the reference's size, so a
+     larger reference would sharpen the test and could fail δ.
+   - **The test does have power at this size:** it fails the uncorrected mean field
+     at 23 of 28 targets.
 
 **Recommendation.**
 - **Nothing is certified under the gate as agreed.** The gate must be recalibrated
@@ -107,8 +112,10 @@ login-node read of the archive):
   with ptsG protein gain is −0.78 at m0_v6, −0.18 at m0_low and −0.48 at m0_high.
 - Protein output varies about 2-fold across cells (gain CV 0.3–0.8), so GTP spend
   does too.
-- GTP's only regeneration is PGK3 and PYK3, which are saturable. So the population
-  mean of GTP sits above GTP at the mean spend: the Jensen gap of a convex response.
+- *Interpretation, not measured:* GTP's only regeneration is PGK3 and PYK3, which
+  are saturable. If GTP is convex in the spend, the population mean sits above GTP
+  at the mean spend. That is the Jensen gap. What is measured is that the drains
+  cause the gap (`drains_mf`), and that per-cell GTP falls with protein output.
 - The rest of the imbalance follows from the same spend. GDP is GTP's partner, and
   ATP, AMP and GMP couple to it through GK1 and ADK1.
 
@@ -137,7 +144,10 @@ Each target is scored by KG against its own 200 full cells.
   `calibrate.md`'s "2A's targets in the null" are **superseded**. The
   leave-one-out δ̄ there also leaks the target's own noise through the shared
   seeds.
-- **The rerun:** each target got seeds of its own (`transfer.md`, job 19017597).
+- **The rerun:** each target got seeds of its own (`transfer.md`).
+- **Order of events:** the shared-seed verdicts above were read first. Diagnosing
+  them exposed the fault, and the seed check (19014973–5) confirmed it. The rerun's
+  design, δ̄ included, was then fixed before its verdicts were read.
 
 **Results on independent seeds** (`transfer.md`):
 

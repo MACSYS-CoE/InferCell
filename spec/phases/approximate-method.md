@@ -297,14 +297,18 @@ forward ensemble of the full two-way model, and held fixed across θ.
     rules above. Shot noise is not: its share is up to 0.44.
   - **2A fails its rule under KG as agreed.** δ_ref passes at 5 of 8, 4 of 10 and 6
     of 10; the uncorrected mean field at 0 of 28.
-- **Changes to the 2A design during the run.** Both were found before any verdict
-  was read:
-  - **Independent seeds.** The first 2A targets shared seeds, so their ensemble
-    noise was common. f10_ref at the targets' seeds gives a GTP offset of +0.108,
-    against +0.147 at δ's seeds. Each target was rerun on seeds of its own, and
-    those results replace the first.
-  - **An added offset.** δ̄, spread over twenty posterior draws, was added beside
-    δ_ref.
+- **Changes to the 2A design during the run.** They were made after the first 2A
+  verdicts had been read:
+  - **What was read.** The first verdicts were δ_ref passing at 2 of 8, 9 of 10
+    and 4 of 10.
+  - **The fault.** Diagnosing them found that every target shared seeds 50001…, so
+    their ensemble noise was common and the eight targets were one test. A seed
+    check confirmed it: f10_ref at the targets' seeds gives a GTP offset of +0.108,
+    against +0.147 at δ's seeds.
+  - **The rerun.** Each target got seeds of its own, and δ̄, spread over twenty
+    posterior draws, was added. This design was fixed before its verdicts were
+    read.
+  - **The first results** are kept and cited as superseded.
 - **What was found about KG.** A 600-cell mean at the same θ, scored as a mean
   field against 200 other cells, passes KG at 46%, 36% and 56% of 200 partitions.
   The per-pool clause fails it:

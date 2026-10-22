@@ -11,8 +11,10 @@ outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
 - **The GTP gap is cell-to-cell drain variation.** Each cell spends GTP in
   proportion to the proteins it makes, which varies about 2-fold, and GTP is
   regenerated only by saturable PGK3/PYK3. Given the mean field's drains, the
-  200-cell mean equals the mean field to three figures. Ruled out: enzyme counts,
-  the per-cell feedback (a live popmean arm), and the clip (2 of 360k drains).
+  200-cell mean equals the mean field to three figures. Ruled out for GTP:
+  enzyme counts and the per-cell feedback (a live popmean arm). The clip is ruled
+  out too (2 of 360k drains). The popmean arm's total at m0_v6 (56 against noise 25)
+  still moves pools other than GTP.
 - **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
   reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
   uncorrected mean field passes at 0 of 28.
