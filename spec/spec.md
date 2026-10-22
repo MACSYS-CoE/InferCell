@@ -1499,6 +1499,15 @@ mechanism and so the evaluation count, from task 13.7's measured wall-clock.
 **No numeric bound is set yet, deliberately** (2026-09-24): the first inference
 on the minimal model comes first, and the bound is set from where that lands,
 before phase 16 scores K1. T3 records that it was set after the measurement.
+**Bound set 2026-10-22 (`spec/phases/16-recovery.md` §12 "16a.11"), after the
+measurement:**
+- **The bound:** K1 fires where one production posterior costs more than 1,000 CPU-h,
+  which is 50 replications inside phase 16's 50k cap.
+- **At M0** a posterior costs 507.5 to 678 CPU-h, so K1 does not fire.
+- **At full scale** it is about 21k CPU-h (projected), so K1 fires, labelled
+  budget-bound.
+- **Calibration runs on the ladder's last rung, M0.** V7 calibrated across 50
+  truths, so the ladder did not bottom out and the headline is not restated.
 **D13 loosened this considerably** by removing about
 350 times the stochastic block's event count, which is the largest single change
 to the budget in this spec.

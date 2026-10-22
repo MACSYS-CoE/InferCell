@@ -903,8 +903,13 @@ parent 15.7b. 16a.9a is its own PR; 16a.9b to 16a.11 follow.
   - **V8's split-half floor alone** would have flagged five of six, because it
     measures the noise of much longer runs.
   - **Figures:** `dev/notes/figures/f10-16a10/`.
-- [ ] 16a.11 Measure cost, set K1's bound, and reopen the budget. Verify by:
-  **Proposed 2026-10-22 (§12 "16a.11"), awaiting approval.**
+- [x] 16a.11 Measure cost, set K1's bound, and reopen the budget. Verify by:
+  **Done 2026-10-22** (§12 "16a.11", approved).
+  - An M0 posterior costs 507.5 to 678 CPU-h.
+  - A full-scale production posterior is projected at about 21k CPU-h.
+  - K1's bound is 1,000 CPU-h per posterior. It fires at full scale (budget-bound)
+    and not at M0.
+  - Phase 16 closes at M0. 16b is funded at about 2.6k CPU-h.
   - the ledger showing 16a ≤ 5k CPU-h;
   - the cost per posterior on M0, and a full-scale projection per variant from
     measured sweeps;
@@ -934,16 +939,25 @@ rung, 16b ends incomplete.** T3 then scores coverage as budget-bound, and the
 parent's phase 16 stays unticked. It does not count as done.
 **PR:** _not started_
 
+**Funded at the M0 rung (§12 "16a.11", approved 2026-10-22).** Each task is
+annotated below with its rung and funding.
+- **The done-when** is read at M0. The parent's phase 16 is ticked as "met at M0;
+  full scale budget-bound".
+- **V7 serves as 16b.3,** with its caveats carried into T3.
+
 - [ ] 16b.1 (parent 16.4) Recover the tight-prior control alone — verify by:
   - the posterior concentrating on truth well inside its prior;
   - a deliberate perturbation of the truth moving the posterior with it;
   - shrinkage below 0.9.
+  **M0, funded (~700 CPU-h).** Recovery is read off V6. The perturbation is one new
+  M0 dataset with ENO's truth moved by +1 prior SD, and one production posterior on it.
 
   **If it does not recover, the machinery is wrong and the phase stops (K4).**
 - [ ] 16b.2 (parent 16.5) Recover the full six-parameter set — verify by:
   - every marginal containing truth;
   - at least one target shrinking below 0.5 (K4);
   - the cost per posterior reported against 16a.11's projection.
+  **M0, reuse V6 (0 CPU-h).** Five of the six; `S_PGI` is not in M0.
 - [ ] 16b.3 (parent 16.6) Compute coverage over repeated datasets — verify by:
   - 50, 80, 90, 95 and 99% intervals covering truth at those rates within binomial
     error, per parameter, at ≥ 50 replications, with the count and rung stated;
@@ -951,6 +965,9 @@ parent's phase 16 stays unticked. It does not count as done.
     of 100 at nominal 95%. If 100 is not funded, K4's band is restated at the R that
     is run through a §12 amendment, never silently;
   - K4's third trigger (equal widths for ENO and FBA) checked.
+  **M0, reuse V7 (0 CPU-h; call 1, approved).** Read off by
+  `dev/scripts/v7_coverage_16a11.py`. K4's band is restated at R = 50 as 44 to 50 at
+  nominal 95%.
 - [ ] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
   transcripts-only, metabolites-only and joint data, with ptsG under metabolites only
   (load-bearing) and ENO under transcripts only (the measured null) present. Any cell 16a.11
@@ -958,17 +975,22 @@ parent's phase 16 stays unticked. It does not count as done.
   transcripts only is reported against its information bound
   (`dev/scripts/eno_path_information_16a7_result.md`) as a measured null. A
   shrinkage there is a sampler error to investigate, not a result.
+  **M0, funded (~1.4k CPU-h).** Transcripts-only and metabolites-only fits on V6's
+  dataset; the joint fit is V6. First check that the Gibbs driver can drop a stream.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
   - the prior-to-posterior divergence under transcript-only data, for every metabolic
     target, against 0.05 nat;
   - the verdict written as a sentence, with its consequence for framing.
+  **Budget-bound at 1,000 cells.** M0's transcripts-only divergence is read off 16b.4
+  and labelled as M0's, not as K2's verdict.
 - [ ] 16b.6 Measure K7 (D16.9). Verify by:
   - PYK's dropped sibling reactions enumerated from upstream at `db048ac`, with the
     count checked against the parent's "seven";
   - the two fits' posterior width ratio on `kcatF_R_PYK`;
   - K7 scored against twofold.
+  **Not run, budget-bound** (not funded at 16a.11).
 - [ ] 16b.7 (parent 16.10) Label what the result does and does not license — verify
   by the report carrying:
   - the scoping note's caveats: best-measured region, enzyme competition partly
@@ -987,8 +1009,8 @@ parent's phase 16 stays unticked. It does not count as done.
 
 ### 2026-10-22 — 16a.11: the measured cost, K1's bound, and closing phase 16 at M0
 
-**Status: proposed 2026-10-22, awaiting your approval.** It contains two calls that
-are yours (below). No 16b compute runs before approval.
+**Status: approved 2026-10-22, with both calls answered "yes".** K7 (16b.6) is not
+funded.
 
 **Scope.** This is #90's task C2, "O1 and O5, at 16a.11", in the 2026-10-19
 framing note (on #87's branch; parent §12 will fold it).
