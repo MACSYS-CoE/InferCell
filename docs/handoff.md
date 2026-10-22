@@ -1,5 +1,61 @@
 # Handoff
 
+## Latest: F10 done, 16a.10 ticked (2026-10-22)
+
+**Branch:** `phase-16a10-f10`, PR #94. `/check-PR` said MERGE, and its minor fixes are applied.
+
+**F10's result** (`dev/scripts/f10_16a10_result.md`): **a production-length chain
+is not resolved from the M0 reference on any marginal.**
+- **The rule** (W1 in reference SDs; four matched nulls from V6 chains' sweeps 101
+  to 656) was fixed and pushed in §12 2026-10-22 (`3248031`) before any divergence
+  was computed.
+- **Biggest gap:** chain 5 ranks above all nulls only on FBA, by 0.020 SD. About
+  1.2 of six are expected to by chance.
+- **Mean differences** are at most 0.12 SD.
+- **V8's split-half floor alone would have flagged 5 of 6.** It measures the noise
+  of 3,100-draw halves, which is why the matched floor was added.
+- **Production bulk ESS (arviz):** 63 on GAPD and 55 on ENO, against the nulls'
+  32 to 177 on the slow three. Chain 5 wanders slowly on ENO.
+- **The chain:** job 18751635 at `a0060de`, 656 sweeps, 4 d 5.5 h, 507.5 CPU-h. It
+  is archived with checksums at
+  `/fred/oz022/tkimpson/infercell-16a10-archive-2026-10-22/`.
+- **The scripts:** `f10_16a10_export.jl`, then `f10_16a10.py`. Both run on the
+  login node.
+- **Figures:** `dev/notes/figures/f10-16a10/`.
+- **The ledger:** phase 16 is at about 42.6k of 50k, with about 7.4k left.
+
+**Next:**
+1. Merge #94 once CI is green.
+2. **16a.11's §12 entry,** to close phase 16 at M0. It covers:
+   - the cost per M0 posterior;
+   - K1's bound;
+   - the full-scale projection;
+   - re-scoping 16b with "budget-bound" labels;
+   - your two calls: whether V7 can serve as 16b.3's coverage result, and whether
+     "closed at M0" meets the done-when.
+3. **Can go:** `.worktrees/f10-16a10`, now archived.
+
+**Direction discussed 2026-10-19, not yet in the spec:**
+1. Close phase 16 at M0: F10, then 16a.11's §12 entry.
+2. Speed up the reduced model with syn3a-ensemble's lessons. Rodas5P with KLU is
+   the clean win, about 2× at the same accuracy. Processes per core is also
+   possible, and FBDF could be added as an option. This needs a §12 entry and
+   reruns of V2, V4 and V5.
+3. A new spec, via `/generate-spec`: InferCell as a playground for inference. The
+   first study is exact against modular against amortised on M0, using V7's
+   datasets, with V6, V7 and F10 as ground truth.
+4. Bring in the full cell as a black-box simulator from syn3a-ensemble (about 45 s
+   per 6,300 s cycle, against our reduced model's 32.2 s) rather than
+   re-implementing it now.
+   - Its GPU and fp32 results were negative.
+   - The inference-paths note's §3 should be corrected on the GPU point.
+   - Exact joint inference stays unaffordable at full scale whatever the solver,
+     because the cost is the number of simulations.
+
+**Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
+EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
+are candidates to clear, but that's the user's call.
+
 **Session date:** 2026-10-17
 **Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
 commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
