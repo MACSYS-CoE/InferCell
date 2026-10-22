@@ -230,10 +230,27 @@ function main()
     p("- m0_v6 in F10's posterior: z = ", join([@sprintf("%s %+.2f", s, v) for (s, v) in zip(SHORTN, (lv6 .- μF) ./ sd)], ", "),
       @sprintf("; Mahalanobis %.2f, against the draws' median %.2f and 95%% point %.2f.",
                maha(lv6), quantile(dmaha, 0.5), quantile(dmaha, 0.95)))
-    p("- δ from m0_v6's $(length(v6)) Stage 1 cells (seeds 40001…): ",
-      @sprintf("‖δ_v6 − δ_ref‖ = %.3f over all pools and saves, against %.3f expected from sampling noise alone (√tr of the two δs' covariances). ",
-               norm(δv6 .- δref), sqrt(tr(Σv6 + Σref))),
+    # δ_v6's cells share their seeds with 200 of δ_ref's 800, so the noise in
+    # δ_v6 − δ_ref is paired: per-seed influence terms of the two log means.
+    Xv, Xr = cellmat(v6), cellmat(rc)
+    x̄v, x̄r = vec(mean(Xv; dims = 1)), vec(mean(Xr; dims = 1))
+    iv = (Xv .- x̄v') ./ x̄v' ./ size(Xv, 1)
+    ir = (Xr .- x̄r') ./ x̄r' ./ size(Xr, 1)
+    rseed = Dict(c.seed => k for (k, c) in enumerate(rc))
+    shared = [rseed[c.seed] for c in v6 if haskey(rseed, c.seed)]
+    length(shared) == length(v6) || error("expected every m0_v6 seed among f10_ref's")
+    U = iv .- ir[shared, :]
+    rest = setdiff(axes(Xr, 1), shared)
+    Σd = U' * U + ir[rest, :]' * ir[rest, :]
+    d = δv6 .- δref
+    z2 = reshape(d .^ 2 ./ diag(Σd), length(M0_PANEL), :)
+    pz = vec(mean(z2; dims = 2))
+    p("- δ from m0_v6's $(length(v6)) Stage 1 cells (seeds 40001…, the same seeds as the first $(length(v6)) of δ_ref's $(length(rc))): ",
+      @sprintf("‖δ_v6 − δ_ref‖ = %.3f over all pools and saves, against %.3f expected from paired sampling noise (√tr; %.3f if the two were independent). ",
+               norm(d), sqrt(tr(Σd)), sqrt(tr(Σv6 + Σref))),
       @sprintf("GTP's mean over saves: δ_v6 %+.3f, δ_ref %+.3f.", gtpmean(δv6), gtpmean(δref)))
+    p(@sprintf("- Per pool, the mean over saves of (δ_v6 − δ_ref)² ÷ its paired variance (about 1 for no difference; saves are correlated, so each pool has few degrees of freedom); overall %.2f: ", mean(pz)),
+      join([@sprintf("%s %.2f", replace(String(s), "M_" => "", "_c" => ""), v) for (s, v) in zip(M0_PANEL, pz)], ", "), ".")
     p("- KG's noise is the target's split-half statistic, as in `transfer.md`. With δ from 200 cells, a right δ's expected total is about the noise; with δ from 800, about 0.6 of it.")
     p()
     W = inv(Symmetric(KG_SIGMA^2 * I + logmean_cov(rc, C)))
