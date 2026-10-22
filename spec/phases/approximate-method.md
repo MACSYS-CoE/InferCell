@@ -288,6 +288,41 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
+### 2026-10-22 — the rethink after B3: diagnostics and an offset at a posterior's width (rules fixed before the runs)
+
+- **What:** the user asked for a working second description, with a budget of
+  ≤100 CPU-h. Either an offset δ or a θ-dependent correction counts, if it passes
+  KG. §8 is unchanged. A variant with each pool's noise floored at 0.1 nats is
+  reported for information only. Script: `dev/scripts/jensen_rethink_89.jl`.
+- **Stage 0 (B3's archive, no new runs):** one GAPD completion debits about 670
+  GTP. M0's GTP pool is 14k–22k particles per cell, so the impulse is 0.03–0.05 of
+  the pool. Yet GTP's per-cell CV grows to about 0.5 over 600 s, and 3PG's
+  exceeds 1. The variation is slow (mRNA and enzyme counts), not shot noise, so
+  the planned Poisson-completion arm was replaced by the arms below.
+- **Stage 1, at B3's three M0 truths, 200 cells per arm.** Each arm takes one
+  source of variation out:
+  - `drains_own`: drain shot noise;
+  - `drains_mf`: all drain variation;
+  - `enzymes_mf`: the variation in the catalytic and volume counts;
+  - `popmean`: the per-cell rebuild feedback, read live from the population mean.
+
+  Each arm's GTP offset from the full model is reported as a share of the mean
+  field's. **Rule:** a share ≥ 0.7 at all three truths names that source as the
+  cause, and < 0.3 rules it out. The full arm also gives the clip census.
+  **Rule:** if GTP_translat clips in more than 1% of cell-drains, the clip is a
+  named cause.
+- **Stage 2A: the offset at a posterior's width.**
+  - δ comes from an 800-cell ensemble at F10's posterior mean (V6's dataset).
+    800 cells, not 200, because δ's own noise adds to KG's expected total.
+  - It is scored by KG at eight F10 posterior draws, at Mahalanobis quantiles,
+    against independent 200-cell ensembles at seeds 50001 and up.
+  - The same test runs at m0_low and m0_high, ±1 posterior SD in one target at a
+    time (ten targets each).
+  - **Pass:** corrected KG at ≥ 7 of 8 targets, and at ≥ 9 of 10.
+- **Why:** B3 left two cheap diagnostics unrun, and option 1's open question
+  (does δ transfer across a posterior's width?) is the cheapest route to a
+  passing description.
+
 ### 2026-10-20 — after B3 and the #93 review: AV1 as tested, B3's truths, a branch for failing everywhere
 
 - **AV1:** restated as what the tests assert. They assert the identities to 1e-10
