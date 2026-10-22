@@ -1,5 +1,145 @@
 # Handoff
 
+## Latest: #92 merged; #93 (track B) merged with main (2026-10-22)
+
+**#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,
+`2b039a0` and `6da2398` stay reachable.
+
+**Branch:** `issue-89-track-b`, PR #93. Main is merged into it with a merge commit,
+and nothing conflicted.
+- **The ledger:** track B's rows moved to their own section after track A's. The
+  two B1/B2 suite runs (18884570, 18892097; 4.9 CPU-h) were missing and are added
+  from `sacct`. #89 is about 9.2 CPU-h, so phase 16 stands at about 42,864 of 50k,
+  with about 7.1k left. 16b's 2.6k fits.
+- **What #93 merges is B0–B3, with B3 failing KG at every truth.** B4 (route (ii))
+  stays stopped until you choose a rethink (sub-spec §8 and the result file's four
+  options). `MeanField` lands in `src` because AV4 shows it is a correct mean ODE.
+  It is not validated as a likelihood approximation.
+
+**Next:**
+1. Rerun the suite on the merged branch, mark #93 ready and merge it with a merge
+   commit (`9686014` and `2d15e83` are cited). Tick #88's and #89's boxes.
+2. **16b on a new branch.** First 16b.4's stream check, then submit 16b.1's and
+   16b.4's posteriors side by side (about 5 to 6 days).
+3. **Your call, whenever:** track B's rethink. The options are an offset across
+   posterior-width truths, LNA or moment closure, dropping the guanylates, or route
+   (i).
+4. **Can go:** `.worktrees/88-8813dca`, `.worktrees/88-2b039a0`,
+   `.claude/worktrees/side-work` and `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
+
+## Earlier: #92 (track A) merged with main (2026-10-22)
+
+**Branch:** `issue-88-track-a`, PR #92. Main (16a.11's closeout, #96) is merged into
+it with a merge commit, not a rebase: the result files, the ledger and the archives
+cite `8813dca`, `2b039a0` and `6da2398`, which a rebase would drop from main.
+
+- Only `dev/scripts/phase16_ledger.md` and this file conflicted. No `src` or test
+  code did.
+- **The ledger:** #88's 279.2 CPU-h now sits on top of main's 42,575.7, so phase 16
+  stands at about 42,854.9 of 50k, with about 7.1k left. Track B (#93) is not yet
+  in it.
+
+**Next:**
+1. Merge #92 with a merge commit once CI passes. Tick #88's boxes.
+2. Merge main into #93, fold track B's CPU-h into the ledger total, rerun the suite,
+   mark it ready and merge it with a merge commit.
+3. Then 16b on a new branch, as below.
+
+## Earlier: 16a.11 approved; phase 16 closes at M0 (2026-10-22)
+
+**Branch:** `phase-16a11-closeout`, PR #96. **#94 (F10) is merged** at `baae60a`.
+
+**16a.11 is approved and ticked** (sub-spec §12 "16a.11"). It is #90 C2's O1 and
+O5. Both of your calls were answered "yes":
+1. **V7 serves as 16b.3's coverage,** read off by `dev/scripts/v7_coverage_16a11.py`.
+   - 29 of 30 interval cells are in band; the miss is krnadeg at 99%.
+   - K4's band is restated at R = 50 as 44 to 50, and ENO covers 46.
+2. **Phase 16 closes at M0,** labelled "met at M0; full scale budget-bound", once
+   16b.1 and 16b.4 land.
+
+**Cost and K1:**
+- An M0 posterior costs 507.5 to 678 CPU-h.
+- A full-scale production posterior is projected at about 21k, and coverage at about
+  1.0M.
+- **K1's bound is 1,000 CPU-h per posterior** (parent §8). It fires at full scale,
+  labelled budget-bound, and not at M0.
+
+**16b, funded at M0 (about 2.6k CPU-h):**
+- 16b.1: a perturbed-truth posterior, with ENO +1 prior SD (~700).
+- 16b.4: transcripts-only and metabolites-only fits on V6's dataset (~1.4k). First
+  check that the Gibbs driver can drop a data stream.
+- Contingency (~500).
+- **Reused:** V6 for 16b.2 and V7 for 16b.3.
+- **Budget-bound:** K2 at 1,000 cells, and K7 (not funded).
+- **Not now:** 5.3's injections and an exact Core A′ posterior (O1 part 2, O5). Track
+  B's mean field failed KG.
+
+**Tracks A (#92) and B (#93)** are untouched.
+- #92 already conflicts with `main` in the ledger and handoff since #94, so rebase it
+  before merging.
+- Once both merge, the phase 16 cap has about 7.1k left, and 16b's 2.6k fits.
+
+**Next:**
+1. Merge #96 once CI passes.
+2. **16b on a new branch.** First 16b.4's stream check, then submit 16b.1's and
+   16b.4's posteriors side by side (about 5 to 6 days).
+
+## Earlier: F10 done, 16a.10 ticked (2026-10-22)
+
+**Branch:** `phase-16a10-f10`, PR #94. `/check-PR` said MERGE, and its minor fixes are applied.
+
+**F10's result** (`dev/scripts/f10_16a10_result.md`): **a production-length chain
+is not resolved from the M0 reference on any marginal.**
+- **The rule** (W1 in reference SDs; four matched nulls from V6 chains' sweeps 101
+  to 656) was fixed and pushed in §12 2026-10-22 (`3248031`) before any divergence
+  was computed.
+- **Biggest gap:** chain 5 ranks above all nulls only on FBA, by 0.020 SD. About
+  1.2 of six are expected to by chance.
+- **Mean differences** are at most 0.12 SD.
+- **V8's split-half floor alone would have flagged 5 of 6.** It measures the noise
+  of 3,100-draw halves, which is why the matched floor was added.
+- **Production bulk ESS (arviz):** 63 on GAPD and 55 on ENO, against the nulls'
+  32 to 177 on the slow three. Chain 5 wanders slowly on ENO.
+- **The chain:** job 18751635 at `a0060de`, 656 sweeps, 4 d 5.5 h, 507.5 CPU-h. It
+  is archived with checksums at
+  `/fred/oz022/tkimpson/infercell-16a10-archive-2026-10-22/`.
+- **The scripts:** `f10_16a10_export.jl`, then `f10_16a10.py`. Both run on the
+  login node.
+- **Figures:** `dev/notes/figures/f10-16a10/`.
+- **The ledger:** phase 16 is at about 42.6k of 50k, with about 7.4k left.
+
+**Next:**
+1. Merge #94 once CI is green.
+2. **16a.11's §12 entry,** to close phase 16 at M0. It covers:
+   - the cost per M0 posterior;
+   - K1's bound;
+   - the full-scale projection;
+   - re-scoping 16b with "budget-bound" labels;
+   - your two calls: whether V7 can serve as 16b.3's coverage result, and whether
+     "closed at M0" meets the done-when.
+3. **Can go:** `.worktrees/f10-16a10`, now archived.
+
+**Direction discussed 2026-10-19, not yet in the spec:**
+1. Close phase 16 at M0: F10, then 16a.11's §12 entry.
+2. Speed up the reduced model with syn3a-ensemble's lessons. Rodas5P with KLU is
+   the clean win, about 2× at the same accuracy. Processes per core is also
+   possible, and FBDF could be added as an option. This needs a §12 entry and
+   reruns of V2, V4 and V5.
+3. A new spec, via `/generate-spec`: InferCell as a playground for inference. The
+   first study is exact against modular against amortised on M0, using V7's
+   datasets, with V6, V7 and F10 as ground truth.
+4. Bring in the full cell as a black-box simulator from syn3a-ensemble (about 45 s
+   per 6,300 s cycle, against our reduced model's 32.2 s) rather than
+   re-implementing it now.
+   - Its GPU and fp32 results were negative.
+   - The inference-paths note's §3 should be corrected on the GPU point.
+   - Exact joint inference stays unaffordable at full scale whatever the solver,
+     because the cost is the number of simulations.
+
+**Housekeeping:** home is at about 17 of 20 GiB. One file write failed today with
+EDQUOT. Other sessions' scratchpads under `~/claude_tmp`, which hold about 3 GB,
+are candidates to clear, but that's the user's call.
+
 **Session date:** 2026-10-17
 **Branches:** `phase-16a9b-reference`, merged into main as PR #86 with a merge
 commit, so `0ff6cff` and `3970801` stay reachable. The branch touched nothing
@@ -9,6 +149,65 @@ under `src/` or `test/`; main's suite passed 28,352 of 28,352 (job 18461739).
   checksums are verified.
 - **Can go:** `phase-16a9a-gibbs` and the worktrees `v7-16a9b`, `v6-16a9b` and
   `v7merge-0ff6cff`.
+
+## Earlier: #88 track A measured — M0's ptsG gate passes, 15.8 reproduces, the population-mean reduction fails at one truth (2026-10-19)
+
+**Branch:** `issue-88-track-a`, draft PR #92. It is based on `phase-16a10-f10`, so the
+PR shows F10's three docs commits until that branch merges. It ran alongside F10 in a
+separate worktree.
+
+**Results.** Each has a `_result.md` with its job ids, commit (`8813dca`) and CPU-h.
+The raw outputs and logs are in `/fred/oz022/tkimpson/infercell-88-a{1,2,3}-archive-2026-10-19/`.
+
+- **A1 (`sensitivity_88_m0_result.md`): the gate passes.**
+  - M0's ptsG, metabolites only, σ_b = 10%: 0.47 against bracket 0.68. Core A′ gets
+    0.10.
+  - So no larger M0 dataset is needed for paper section 5.2.
+  - R at M0 is 64. 3PG, Pi and 2PG carry 49 of it.
+- **A2 (`sensitivity_88_corea_result.md`): 15.8 reproduces exactly** (923…119, floor
+  72.3).
+  - The information bound for D11's six is tabulated for section 5.3.
+  - R at C = 200, σ_b = 10% is about 70, about 8× the note's guess, and in the
+    Gaussian-convolution regime at every setting.
+- **A3 (`eno_feedback_88_result.md`): two verdicts.**
+  - **Cadence refuted:** a 6 s rebuild changes neither path information nor the bulk
+    metabolites, at either truth.
+  - **The population-mean reduction (mean field's reverse edge)** is free at 15.7's
+    truth but costs about 140 nats at σ_b = 10% at a low-ptsG truth. Fixed nominal
+    pools are worse.
+  - At that truth ENO may also carry a little path information: 0.90 by the
+    outer-product estimator, not confirmed by the curvature.
+
+**`src` change:** `override_rebuild_pools!` in `src/handshake.jl`, with a new
+`:rebuild_pool_override` label and testset. The suite passed 28361 of 28361 at
+`6da2398` (job 18821310). The override takes effect at the next rebuild. With none
+set, the rebuild is bitwise unchanged.
+
+**Compute:** about 279.2 CPU-h, now in the ledger. Phase 16 stands at about 42.3k
+without F10.
+
+**Reviewed:** `/check-PR` on #92 gave "merge after fixes". There were no code bugs that
+changed a number. The fixes:
+- `popmean`'s path-stage wording: those are frozen pools, not mean field.
+- A1's "a fifth of the information": it is 4%.
+- A provenance guard in A3's merge.
+- Minor wording, and 7 simplifications.
+All are applied at `2b039a0`. The checks after them:
+- The suite passed 28362 of 28362 (job 18836336).
+- All three re-merges give identical numbers.
+- The A1 smoke's task files are bitwise equal to the first smoke's.
+
+**Next:**
+1. Merge #92 after F10's branch, merging `docs/handoff.md` by hand. Tick #88's boxes
+   once it merges.
+2. **A3's truth dependence matters for #89:** mean field may be the wrong second
+   description where ptsG is low (note §14 step 4).
+   - Cheap checks first: `rate_constant_elasticity` at truth 2, to test the
+     desaturation reading.
+   - Then `popmean` across V7's datasets, to map where it breaks.
+3. The worktrees `.worktrees/88-8813dca` and `.worktrees/88-2b039a0` were only for
+   submitting. Remove them once #92 merges, along with
+   `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
 
 ## Latest: V7 passes, 16a.9b is met (2026-10-17)
 

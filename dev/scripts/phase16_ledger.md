@@ -86,20 +86,47 @@ D16.6). CPU-h is wall time × cores, as reported by Slurm.
 
 | 18510849, 18511245, 18511832, 18512048, 18512335 | 16a.11 | ODE solver benchmark, smoke runs | 2 | 0:04–0:09 each | 0.96 |
 | 18512579 | 16a.11 | ODE solver benchmark (of record) | 16 | 0:25:45 | 6.87 |
+| 18751515 | 16a.10 | F10 production chain, smoke: 3 cells, 120 s, 2 sweeps | 5 | 0:03:15 | 0.27 |
+| 18751635 | 16a.10 | F10 production chain 5 on V6's dataset, 656 sweeps (of record) | 5 | 4-05:30:05 | 507.51 |
+
+**16a total, excluding 16a.9: about 919.2 CPU-h** (the rows' sum, recomputed after
+the #81 review, which found the running total had drifted; 403.6 before the ODE
+solver benchmark's 7.8, and 411.4 before F10's 507.8).
+
+**16a.9: about 41,656.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
+2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
+2026-10-08, annotated). **Phase 16 total before the v0.3.0 tracks: about 42,575.7 CPU-h** of 50k, so about
+7.4k remain.
+
+## v0.3.0 track A (#88), charged to phase 16's remaining cap
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 18818909–18818912, 18819650, 18819651, 18819611–18819627 | #88 | A1, A2 and A3 smoke runs and merges (120 s horizon) | 1 | ~0:03 each | 2.20 |
+| 18819106, 18819610, 18821310 | #88 | Test suite: Aqua missing from the depot; one failure in the new rebuild test; passing (of record, 28361 of 28361 at `6da2398`) | 4 | 0:00:20, 0:55:06, 0:50:19 | 7.05 |
+| 18821440, 18821441 | #88 A1 | M0 ensemble sensitivity, 1470 seeds over 49 tasks, and merge (of record) | 1 | ~0:14 each | 11.10 |
+| 18821442, 18821443 | #88 A2 | Core A′ ensemble sensitivity (15.8 rerun), 1470 seeds over 294 tasks, and merge (of record) | 1 | up to 0:37 each | 165.85 |
+| 18825531–18825547 | #88 A3 | Reverse-feedback arms: 8 ensembles of 200 cells, 8 path arrays of 40 cells, and merge (of record) | 1 | up to 0:19 each | 86.97 |
+| 18836336 | #88 | Test suite after the #92 review (of record, 28362 of 28362 at `2b039a0`) | 4 | 0:50:06 | 3.34 |
+| 18836373, 18836375, 18836376 | #88 | A1, A2 and A3 re-merged after the #92 review: every number identical | 1 | ~0:02 each | 0.10 |
+| 18836377, 18836378, 18836380–18836396 | #88 | A1 and A3 smoke reruns after the #92 review: A1's task files bitwise equal to the first smoke's | 1 | ~0:03 each | 2.57 |
+
+**#88 total: about 279.2 CPU-h**, against about 320 projected on the issue.
+**Phase 16 total with #88: about 42,854.9 CPU-h** of 50k, so about 7.1k remain.
+
+## v0.3.0 track B (#89), charged to phase 16's remaining cap
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 18884570 | #89 B1/B2 | Test suite with the transcript factor and the mean field (28627 of 28627) | 4 | 0:53:33 | 3.57 |
+| 18892097 | #89 B1/B2 | Test suite after the #93 review (of record, 28630 of 28630 at `c8c9ceb`) | 1 | 1:17:25 | 1.29 |
 | 18885264–18885272 | #89 B3 | Jensen-gap smoke: 120 s, 4 cells per M0 truth, mean fields, merge | 1 | 0:01:33–0:08:06 each | 0.86 |
 | 18886224–18886232 | #89 B3 | Jensen gap: three M0 ensembles of 200 cells, five mean-field cells, merge (of record) | 1 | 0:01:05–0:07:58 each | 2.20 |
 | 18888681–18888686 | #89 B3 | Rounding check: five mean-field cells under fractional carry, merge (of record) | 1 | 0:01:09–0:05:40 each | 0.46 |
 | 18892098, 18892099 | #89 B3 | Diagnosis over both archives (of record) | 1 | 0:02:01–0:02:02 each | 0.07 |
 | 18892323–18892332 | #89 B3 | Smoke of the #93 review fixes: every stage, through the diagnosis | 1 | 0:00:46–0:04:14 each | 0.70 |
 
-**#89 B3: about 4.3 CPU-h**, not yet in the totals below, which #92 (track A) also
-updates. Fold both in when the two merge.
-
-**16a total, excluding 16a.9: about 411.4 CPU-h** (the rows' sum, recomputed after
-the #81 review, which found the running total had drifted; 403.6 before the ODE
-solver benchmark's 7.8).
-
-**16a.9: about 41,656.5 CPU-h**, recorded but not held to 16a's 5k cap (§12
-2026-10-06). V7 is 33,923.6 of it, against 25.6k sized and 35.7k projected (§12
-2026-10-08, annotated). **Phase 16 total: about 42,067.9 CPU-h** of 50k, so about
-7.9k remain.
+**#89 total: about 9.2 CPU-h**: B3's 4.3 and the two suites' 4.9. The suites were
+missing from #93's rows and are added here from `sacct`.
+**Phase 16 total with both tracks: about 42,864.0 CPU-h** of 50k, so about 7.1k
+remain.
