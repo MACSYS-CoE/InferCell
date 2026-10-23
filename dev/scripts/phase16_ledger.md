@@ -142,6 +142,11 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19055277–19055298 | #89 B4 | Precompile, route (ii) and three prototype steps at five truths, merge (`5a56836`; of record except the merge, superseded by 19058585, and corea's 0.25 s prototypes 19055293 and 19055297, which stopped on MaxIters) | 1 | 0:01:17–0:04:20 each | 1.02 |
 | 19057735 | #89 B4 | Extrapolated comparison (superseded: corea's 0.25 s missing) | 1 | 0:01:25 | 0.02 |
 | 19058579, 19058580, 19058585, 19058586 | #89 B4 | corea's 0.25 s prototypes with the step cap lifted, merge, extrapolation (of record, `e7fb020`) | 1 | 0:00:51–0:04:44 each | 0.18 |
+| 19076053 | #89 B5 | Full suite at `4fe4022` (28787 of 28787; superseded by 19084578) | 4 | 0:58:54 | 3.93 |
+| 19076054, 19076055 | #89 B5 | Smoke r1: precompile, `theta_ref` (FAILED: the launcher exported NADAPT empty; fixed in `c77f49a`). Its later stages were cancelled before they ran | 1 | 0:02:06, 0:01:05 | 0.05 |
+| 19076298, 19076299 | #89 B5 | Smoke r2: precompile, `theta_ref` (cancelled after 2:05:49: the MAP stepped to an extreme θ where one solve does not return; fixed by the support box, `b101190`, §12) | 1 | 0:01:46, 2:05:49 | 2.13 |
+| 19081750–19081758 | #89 B5 | Smoke r3 at `b101190`: precompile, `theta_ref`, two ensemble chunks, four chains of 10 + 10, merge (all stages ran; numbers not of record) | 1 | 0:01:26–0:44:57 each | 2.69 |
+| 19084578 | #89 B5 | Full suite at `469ca26` (28791 of 28791, of record) | 4 | 0:57:54 | 3.86 |
 
 **#89 total: about 65.5 CPU-h**: B3's 4.3, four suites' 11.9, the rethink's 48.0,
 the close-out's 0.07 and B4's 1.3 besides its suite.
