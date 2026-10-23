@@ -36,8 +36,10 @@ const NCELLS = SMOKE ? 3 : 50
 const HORIZON = SMOKE ? 120.0 : M0_HORIZON_S
 const NREF = SMOKE ? 8 : 800
 const NCHUNK = SMOKE ? 2 : 16
-const NADAPT = parse(Int, get(ENV, "NADAPT", SMOKE ? "10" : "300"))
-const NDRAW = parse(Int, get(ENV, "NDRAW", SMOKE ? "10" : "300"))
+# The launcher always exports NADAPT and NDRAW, empty when unset.
+envint(k, default) = (v = strip(get(ENV, k, "")); isempty(v) ? default : parse(Int, v))
+const NADAPT = envint("NADAPT", SMOKE ? 10 : 300)
+const NDRAW = envint("NDRAW", SMOKE ? 10 : 300)
 const TARGET_ACCEPT = 0.8
 # KC: a tenth of F10's production posterior, 507.5 CPU-h (phase16_ledger.md, 18751635).
 const KC_BOUND_CPUH = 50.75
