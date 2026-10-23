@@ -9,8 +9,8 @@ ForwardDiff through the solve and its callbacks agrees with central differences 
 
 **The check, as written: FAIL at 0 of 5 truths.** **Amended to a check on
 convergence (§12 2026-10-23, after the run): pass at 5 of 5.** Route (ii) is the
-Δt → 0 limit of the hybrid's pinned mean-field path, within max |Δ| 0.0122 and KG
-at most 0.07 of the bound.
+Δt → 0 limit of the hybrid's pinned mean-field path, with max |Δ| at most 0.0122.
+KG is under 5% of its bound at every truth.
 
 ## Runs
 
