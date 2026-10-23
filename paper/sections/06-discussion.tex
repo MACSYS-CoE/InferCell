@@ -1,0 +1,62 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\placeholder{Opening paragraph: restate the main result once B7 and B8 are in.}
+
+\paragraph{What scales and what does not.} Exact inference across the boundary works,
+and it is calibrated, but it stops at M0. The cost of an exact posterior grows with
+the number of genes and the length of the record, and the full reduced model is
+already above our budget. The approximate route removes the stochastic paths from
+the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
+and correct (\cref{sec:jensen}). The second is $R$, the variance of the bulk
+log-likelihood over the paths that the transcripts allow. $R$ is about
+\pn{info.Rmzero} on M0 and \pn{info.Rcorea} on the full reduced model at 10\% assay
+noise. So the metabolites constrain the paths together, and a single draw of paths
+per parameter value is not enough. The Gaussian bulk factor handles this regime.
+\placeholder{Confirm once B7 reports.}
+
+\paragraph{The observation model sets the interface.} The three graphs of
+\cref{sec:seam} give a general rule. Single-cell data inform the parameters of their
+own module. Information between modules travels on bulk observables, and it follows
+the gain of the coupling. A modeller can compute the gains before any inference, and
+in this work the gains predicted the information in each direction before any
+posterior existed.
+
+\paragraph{Reductions as approximations to inference.} A dynamical reduction changes
+the simulator and keeps full Bayesian inference. A statistical cut keeps the
+simulator and changes the target. We prefer the first, because its cost can be
+measured against a more detailed composition. The formalism swap is such a reduction.
+We do not claim that the more detailed composition is the truth about the cell. We
+claim that each choice of description is declared, and that its cost is measured.
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item \emph{Synthetic data only.} The data come from the model itself. Real
+  assays need observation models for unknown cell numbers in bulk metabolomics and
+  for capture efficiency in single-cell RNA counts.
+  \item \emph{One organism, one reduction.} We demonstrate the framework on one
+  reduced model. \placeholder{O3: build the generic registry, or narrow the
+  framework claim to ``demonstrated on one organism''.}
+  \item \emph{Asserted priors.} Many priors have no width in their source, so we set
+  the width. The uncertainty budget (\cref{sec:budget}) reports how much this choice
+  matters. \placeholder{Once built.}
+  \item \emph{Exact calibration at small scale only.} Coverage of the exact sampler
+  at the full reduced model is out of reach at about \pn{cost.fullscale} CPU-hours per
+  posterior.
+  \item \emph{Weak reverse coupling.} The approximate route relies on the small
+  elasticities of the rebuild (\pn{gain.txlo}--\pn{gain.tl}). A perturbation that
+  drains the nucleotide pools toward the half-saturation constant would remove this
+  basis.
+\end{itemize}
+
+\subsection{Future work}
+
+\placeholder{One short paragraph, in this order: (1) the method's own limits:
+condition the bulk factor on the observed transcripts; path sampling only for pools
+near the one-particle floor; strong-feedback regimes. (2) The full well-stirred
+\syn{} model through the syn3a-ensemble port, then real data. (3) Comparing model
+structure and formalisms, which the swap makes possible, by predictive scores rather
+than Bayes factors. (4) Goal-directed inference and experimental design: which parts
+of a coupled simulator must be kept, and which latent variables inferred, to keep
+the information a prediction needs?}

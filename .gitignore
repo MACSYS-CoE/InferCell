@@ -82,3 +82,13 @@ docs/Manifest.toml
 /dev/scripts/f10_16a10/
 /dev/scripts/m0_16b_*/
 dev/scripts/bench_ode_solver_smoke.md
+
+# LaTeX build artefacts in the paper draft
+/paper/*.aux
+/paper/*.bbl
+/paper/*.blg
+/paper/*.out
+/paper/*.fls
+/paper/*.fdb_latexmk
+/paper/*.synctex.gz
+/paper/main.pdf

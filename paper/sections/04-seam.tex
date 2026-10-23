@@ -1,0 +1,91 @@
+\section{How information crosses the boundary}
+\label{sec:seam}
+
+Three problems are often treated as one.
+\begin{itemize}
+  \item \emph{Local inference:} what do a module's own data say about its own
+  parameters?
+  \item \emph{Uncertainty propagation:} given the uncertain output of one module,
+  how uncertain is the next module?
+  \item \emph{Cross-module inference:} do the data of one module inform the
+  parameters of another, when the two share no parameter?
+\end{itemize}
+The third problem is the hard one, and it is the one this paper addresses.
+
+\subsection{Three graphs}
+
+A coupled model has three graphs, and they need not agree
+(\cref{fig:graphs}). The \emph{coupling graph} says which module drives which
+state. The \emph{likelihood graph} says which likelihood factors depend on which
+parameters once the stochastic paths are integrated out. The \emph{information
+graph} says which data streams move which parameters. In the reduced \syn{} model the
+coupling graph is two-way, but the information graph is sparse and points mostly in
+one direction.
+
+\begin{figure}[t]
+\centering
+\placeholderfig{\columnwidth}{4.5cm}{Figure 3: the coupling, likelihood and
+information graphs of the reduced model, side by side. To be drawn.}
+\caption{\textbf{Three graphs of one model.} \placeholder{Caption.}}
+\label{fig:graphs}
+\end{figure}
+
+Write $u$ for the trajectory at the interface: enzyme counts and drains in one
+direction, pools in the other. For a pair of modules $A \to B$ with data $D_A$ and
+$D_B$, the forward message is $p(u \mid D_A)$. The backward message is a likelihood
+over the interface,
+\begin{equation}
+  \lambda_B(u) = \int p(D_B \mid \theta_B, u)\, p(\theta_B)\, \mathrm{d}\theta_B .
+\end{equation}
+The joint posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. A
+\emph{statistical cut} drops $\lambda_B$ \citep{plummer2015cuts}. It changes the
+target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
+reduction} instead removes a weak edge from the simulator and keeps full Bayesian
+inference. For the question we ask, only the second kind keeps the information we
+want: metabolite data that inform a gene-expression parameter.
+
+\subsection{Information follows gain}
+
+The strength of each coupling direction predicts where information flows
+(\cref{tab:gain}). From gene expression to the pools the gain is of order one. The
+pools turn over in seconds to minutes, and the drains from gene expression are a
+large part of that turnover. From the pools back to the rate constants the gain is
+small: an elasticity of \pn{gain.txlo}--\pn{gain.txhi} for transcription and
+\pn{gain.tl} for translation. The gain is small because the published rate laws are
+saturated. The half-saturation constant of RNA polymerase for its nucleotides is
+\pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
+
+\begin{table}[t]
+\caption{Gain and information in each direction across the boundary. Information is
+the ratio of posterior to prior standard deviation from a linearised bound, at
+200 cells and 10\% assay noise; the bracket is the ratio that noise alone gives.}
+\label{tab:gain}
+\centering
+\small
+\begin{tabular}{@{}p{0.3\columnwidth}p{0.25\columnwidth}p{0.33\columnwidth}@{}}
+\toprule
+Direction & Gain & Information \\
+\midrule
+Gene expression $\to$ pools & order one & ptsG from metabolites only: \pn{info.ptsg} (bracket \pn{info.ptsgbracket}) \\
+Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn{gain.tl} (translation) & ENO from transcripts only: \pn{info.enotx} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+So metabolite data can inform the ptsG promoter, a gene-expression parameter that
+they never measure. Transcript data carry almost no information about the enolase
+constant, a metabolic parameter. We report the second result as a measured null, not
+as a failure. \placeholder{FBA under transcripts only is open; K2 at 1,000 cells
+decides it (16b.5).}
+
+\subsection{Why no parameter is shared}
+
+The standard modular methods pass messages through shared parameters: cuts and
+semi-modular inference \citep{plummer2015cuts,carmona2020semimodular}, and Markov
+melding \citep{goudie2019joining}. In the reduced model no parameter is shared, so
+these methods have nothing to pass while we condition on the stochastic path. The
+exact sampler does what is left: it conditions on the path, and it updates the path
+with all the data. In this sense the exact sampler is modular inference with nothing
+dropped. When the paths are integrated out, a gene-expression parameter appears in
+both the transcript factor and the metabolite factor. The approximate route uses
+this structure.
