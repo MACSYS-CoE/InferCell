@@ -230,8 +230,12 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - `dev/scripts/jensen_gap_89_result.md` (B3), with AV5's verdict.
 - `dev/scripts/jensen_rethink_89_result.md` (after B3): the gap's cause, δ, and
   KG's null.
-- Later PRs: route (ii) in `src/orchestrator.jl`, the sampler, the dispatcher, and
-  B7's and B8's result files.
+- `src/mean_field_route.jl` (B4): route (ii).
+- `src/mixed_likelihood.jl` (B5): the mixed likelihood on route (ii)
+  (`mixed_setup`, `mixed_logdensity`, `mixed_model`), the reference θ, the
+  reference ensemble, and δ and S. `dev/scripts/mixed_nuts_89_result.md` is its
+  smoke run.
+- Later PRs: the dispatcher, and B7's and B8's result files.
 
 ## 7. Non-goals
 
@@ -308,6 +312,58 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-23 — B5 as planned: S, δ, the reference θ, the support and the verification clause (the user's decisions; rules fixed before any run)
+
+- **D-S amended: S by the delta method.**
+  - S = Cov(per-cell panel counts) / (x̄ x̄ᵀ · C), with C the dataset's cell count
+    (50 on M0).
+  - It is taken over N = 800 reference cells. That is full rank on M0, since
+    17 pools × 10 saves = 170 < 800, so there is no low-rank truncation.
+  - This replaces D-S's sample covariance over disjoint C-cell replicates. 800
+    cells would give 16 such replicates for a 170-dimensional matrix. The B3
+    close-out already used the delta method.
+  - Core A′'s ~1785 dimensions are B8's question.
+- **δ** = log max(x̄_ens, 1) − log max(x̄_MF(θ_ref), 1), per pool and save, in
+  particles. The floor is the lognormal observation's one particle.
+- **The bulk factor** is N(log z; log max(x̄_MF(θ), 1) + δ, σ_b² I + S), on
+  M0_PANEL at the 60 s saves after t = 0. At δ = 0 and S = 0 it is block 1's
+  lognormal.
+- **The reference θ takes two passes.**
+  - The first is the MAP of the approximate posterior at δ = 0 and S = 0. If it
+    fails, the prior median is used.
+  - The second runs the 800-cell reference ensemble at that θ, which gives δ and
+    S.
+  - θ_ref is recorded per dataset. The ensemble's seeds are a range of the
+    dataset's own, disjoint from its cells.
+- **The support.**
+  - kmax_g = TURNOVER_CEILING / (len_g − 1), an upper bound on the transcription
+    rate constant.
+  - μmin_g = krnadeg's prior quantile at 1e-6, divided by len_g.
+  - These cases give a log density of −∞ rather than an error: a rate outside
+    that support, a route (ii) overdraw, and a solve that does not return
+    Success. Their fraction is reported.
+- **The sampler** is Turing's NUTS on (log θ for M0_TARGETS, log σ_b). The priors
+  are the exact sampler's: a Normal on each log, with each reverse constant
+  derived by Haldane and carrying no prior term. It is not wired into `infer()`,
+  which is B6.
+- **B5's verification clause** (`test/test_mixed_likelihood.jl`):
+  - **Clock identity.** The transcript factor's constants equal `rate_constants`
+    at the route's own pools at 0 and 60m − 1 s, to 1e-12 relative. There are
+    windows + 1 columns.
+  - **Bulk reduction.** At δ = 0 and S = 0 the bulk term equals the summed
+    lognormal of `src/csmc.jl` at the route's x̄, to 1e-10.
+  - **Haldane.** The dual-safe derivation of the reverse constants equals
+    `derived_ode_values` at Float64.
+  - **AV3 on the whole log density.** ForwardDiff agrees with central differences
+    in all six coordinates to 1e-6 relative.
+  - **−∞, not a throw,** outside the support.
+  - **Delta-method S** equals a direct computation on a toy.
+  - **One end-to-end smoke** on m0_v6 (`dev/scripts/mixed_nuts_89_result.md`). It
+    reports θ_ref, δ, S's spectrum, R̂, ESS, divergences, the −∞ fraction, and
+    the cost per gradient against KC's bound (a tenth of F10's 507.5 CPU-h).
+    There is **no pass line on the posterior.** The marginals sit beside F10's
+    as information only, and AV6 (B7) is the test.
 
 ### 2026-10-23 — B4's check judged on convergence (the user's decision, after the run)
 
