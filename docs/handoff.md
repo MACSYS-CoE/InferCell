@@ -17,7 +17,7 @@ callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
 **The check against the hybrid** (`dev/scripts/route_ii_89_result.md`):
 
 - **As written,** it fails at 0 of 5 truths (job 19058585). The difference is the
-  prototype's 1 s step: it halves with the step, and Pi has the largest.
+  prototype's 1 s step: it halves with the step, and Pi has the largest at four of five truths.
 - **The user's decision:** judge it on convergence instead, recorded in §12.
 - **Under that rule,** 5 of 5 truths pass (job 19058586), with max |Δ| ≤ 0.0122.
 - **To get there,** corea's 0.25 s prototype first stopped on the hybrid
@@ -25,7 +25,7 @@ callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
   it. A long hybrid run at a fine step can still reach it.
 
 **KC baseline:** one M0 600 s solve takes about 1.1 s and allocates 1.5 GiB. One
-corea 6300 s solve takes 9–12 s and allocates 17–20 GiB.
+corea 6300 s solve takes 9–12 s and allocates 16.7–19.7 GiB.
 
 **CPU-h:** 5.0 (ledger).
 
@@ -33,7 +33,15 @@ corea 6300 s solve takes 9–12 s and allocates 17–20 GiB.
 1. Open the PR, run `/check-PR` and merge with a merge commit.
 2. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
    `solve_mean_field`.
-3. Maybe: raise or expose the hybrid driver's `maxiters` in `src/handshake.jl`.
+3. **Follow-ups from #99's review** (none block, all in `src`):
+   - raise or expose the hybrid driver's `maxiters` in `src/handshake.jl`;
+   - share the geometry with the hybrid (`_initial_geometry`, `_geometry_at`).
+     Route (ii) copies it, and it skips the hybrid's `area0 > 0` and
+     `footprint > 0` checks;
+   - loosen `driver_written_params` and drop `mean_field_written_params`;
+   - build `MeanFieldRoute` once instead of twice;
+   - count rebuild times from `tspan[1]`, not from 0 (latent: every caller starts
+     at 0).
 
 ## Earlier: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
 

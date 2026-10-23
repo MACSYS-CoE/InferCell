@@ -12,14 +12,18 @@
 #   - max |Δ log x̄| over pools and saves is at most 0.02.
 # x̄ is in particles, floored at one, on M0_PANEL at the 60 s saves after t = 0.
 #
-# Diagnostic (information only): the prototype also runs at handshake intervals of
-# 0.5 and 0.25 s. The splitting reductions (deferred drains, the snapshot shift,
-# per-handshake growth) shrink with the interval; protein rounding does not.
+# The prototype also runs at handshake intervals of 0.5 and 0.25 s. The splitting
+# reductions (deferred drains, the snapshot shift, per-handshake growth) shrink
+# with the interval; protein rounding does not. The amended rule (§12, after the
+# run) judges route (ii) against the extrapolation of those, in
+# route_ii_89_richardson.jl.
 #
 # Usage: julia --project dev/scripts/route_ii_89.jl prototype <truth> <interval> <outdir>
 #        julia --project dev/scripts/route_ii_89.jl route <truth> <outdir>
 #        julia --project dev/scripts/route_ii_89.jl merge <outdir>
-# Regenerate: dev/scripts/route_ii_89.sh <outdir outside the worktrees>
+# Regenerate: dev/scripts/route_ii_89.sh <outdir outside the worktrees>, which also
+# runs route_ii_89_richardson.jl. B3_MERGED below is B3's archive, made by
+# dev/scripts/jensen_gap_89.sh (dev/scripts/jensen_gap_89_result.md).
 
 using InferCell
 using InferCell: AbstractSubModel

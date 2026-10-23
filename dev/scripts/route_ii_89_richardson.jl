@@ -1,6 +1,8 @@
 # Issue #89 B4: route (ii) against the prototype extrapolated to Δt → 0 (§12 2026-10-23,
 # the amended check). The prototype's error is first order in its step h, so
 # 2·proto(h/2) − proto(h) removes it, and route − that = 2·Δ(h/2) − Δ(h) per pool and save.
+# The prototype's limit still reads the pools at 60m, so the difference includes
+# route (ii)'s declared 1 s snapshot shift.
 #   julia --project dev/scripts/route_ii_89_richardson.jl <outdir of route_ii_89.sh>
 using InferCell, Serialization, Printf
 
@@ -23,7 +25,9 @@ function main(out)
     n = 0
     for t in ORDER
         D = d[t].D
-        h = haskey(D, 0.25) ? (0.5, 0.25) : (1.0, 0.5)
+        # A missing step would silently move the extrapolation to a coarser pair.
+        all(haskey(D, s) for s in (1.0, 0.5, 0.25)) || error("$t: a prototype step is missing")
+        h = (0.5, 0.25)
         E = 2 .* D[h[2]] .- D[h[1]]
         bound = TOL_KG_FRACTION * sum(b3[t].shift)
         mx, i = findmax(vec(maximum(abs.(E); dims = 2)))

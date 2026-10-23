@@ -22,4 +22,6 @@ for t in m0_v6 m0_low m0_high corea1 corea2; do
 done
 deps=$(IFS=:; echo "${all[*]}")
 m=$(sub --time=00:30:00 --mem=8G --dependency=afterany:$deps $job merge "$outdir")
-echo "precompile $pre; stages ${all[*]}; merge $m"
+r=$(sub --time=00:30:00 --mem=8G --job-name=infercell_route89_rich --dependency=afterok:$m \
+        --wrap "module load julia/1.10.5; julia --project dev/scripts/route_ii_89_richardson.jl $outdir > $outdir/richardson.md")
+echo "precompile $pre; stages ${all[*]}; merge $m; extrapolation $r"

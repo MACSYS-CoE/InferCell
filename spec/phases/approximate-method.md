@@ -311,7 +311,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ### 2026-10-23 — B4's check judged on convergence (the user's decision, after the run)
 
-- **As written, the check fails at all five truths** (job 19055298, `5a56836`).
+- **As written, the check fails at all five truths** (job 19058585; the 1 s numbers equal the first merge's, 19055298 at `5a56836`).
   - The KG clause passes at m0_v6 only (3.49 against 7.08). The max |Δ| clause
     fails everywhere, at 0.063–0.113, on Pi at four truths and GTP at corea2.
   - The difference is the prototype's 1 s step. Every pool's max |Δ| roughly
@@ -333,6 +333,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - **The MaxIters stop is the integrator's lifetime cap of 1e5 steps,** not
     stiffness. The prototype stage lifts it (`e7fb020`), and corea's 0.25 s
     prototype reran (jobs 19058579, 19058580).
+  - **What the extrapolation includes:** the prototype's limit still reads the pools
+    at 60m, so the difference includes route (ii)'s declared 1 s snapshot shift.
 - **Result:** `dev/scripts/route_ii_89_result.md`.
 
 ### 2026-10-23 — B4 as built: four edges, the clock, and the check against the hybrid (the user's decisions; rules fixed before any run)
@@ -357,7 +359,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   matters for B8 (about 7% dilution over Core A′'s cycle), and it makes growth
   depend on θ, as it does in the reference.
 - **Drains are continuous and unclamped.** The flux is the counter's derivative,
-  divided by the live particles-per-mM factor. A credit equals the debit.
+  divided by the live particles-per-mM factor. A credit equals the debit times its
+  stoichiometry (1 on every Core A′ edge).
   - A debited pool below zero stops the solve with a named error, so a clip
     cannot pass silently. The rethink saw the reference clip on 2 of 360k drains.
   - This replaces `:clamped_deficit_carried` and its one-step deferral. It is a

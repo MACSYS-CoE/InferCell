@@ -14,8 +14,13 @@ KG is under 5% of its bound at every truth.
 
 ## Runs
 
-All runs used commit `5a56836` and are archived in
-`/fred/oz022/tkimpson/infercell-89-b4-archive-2026-10-23/`.
+The runs used commit `5a56836`, except corea's 0.25 s reruns, the merge and the
+extrapolation, which used `e7fb020`. All are archived in
+`/fred/oz022/tkimpson/infercell-89-b4-archive-2026-10-23/`. B3's gap totals are
+read from `/fred/oz022/tkimpson/infercell-89-b3-archive-2026-10-20/merged.jls`,
+made by `dev/scripts/jensen_gap_89.sh`. At the merge commit,
+`dev/scripts/route_ii_89.sh <outdir>` reruns every stage, the merge and the
+extrapolation.
 
 | What | Job |
 |---|---|
@@ -23,7 +28,7 @@ All runs used commit `5a56836` and are archived in
 | Route (ii) at m0_v6, m0_low, m0_high, corea1, corea2 | 19055278, 19055282, 19055286, 19055290, 19055294 |
 | B3's `meanfield` prototype at 1, 0.5, 0.25 s steps | the three ids after each route job; corea's 0.25 s rerun at `e7fb020`: 19058579, 19058580 |
 | Merge (`merged.md`, at `e7fb020`) | 19058585 |
-| Extrapolation (`richardson.md`, at `e7fb020`) | 19058586 |
+| Extrapolation (`richardson.md`, at `e7fb020`): `julia --project dev/scripts/route_ii_89_richardson.jl <outdir> > <outdir>/richardson.md` | 19058586 |
 
 The first submission (precompile 19042449) ran out of memory on the default
 allocation, and its stages never started. Its logs are in
@@ -83,6 +88,10 @@ that ran. The bounds are the same.
 extrapolation overshoots it. The first extrapolation (19057735) shows the size of
 that overshoot. With corea's 0.25 s runs missing, it used the 1/0.5 s pair there,
 which left 0.021 and 0.035 on 3PG and failed both. On the finer pair, both pass.
+
+The prototype's Δt → 0 limit still reads the pools at 60m, while route (ii) reads
+them at 60m − 1 s. So the extrapolated difference includes that declared
+reduction, and the check is conservative for it.
 
 ## KC's baseline: one route (ii) solve
 
