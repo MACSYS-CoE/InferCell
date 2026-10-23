@@ -24,10 +24,21 @@
 \pndef{fw.redcats}{16}% src/labels.jl REDUCTION_CATEGORIES
 \pndef{fw.tests}{28{,}709}% docs/handoff.md, suite job 19042448 at 67c9eef
 
+\pndef{fw.resolvererrors}{twenty}% src/resolver.jl, about 20 classes of error (agent survey)
+\pndef{fw.abstol}{10^{-10}}% src/handshake.jl, Rodas5P abstol
+\pndef{fw.reltol}{10^{-8}}% src/handshake.jl, Rodas5P reltol
+\pndef{fw.adtol}{10^{-6}}% spec/phases/approximate-method.md AV3
+\pndef{fw.trunc}{10^{-12}}% src/transcript_factor.jl truncation mass
+\pndef{lit.karrsub}{28}% Karr et al. 2012
+
 %% --- M0 ---------------------------------------------------------------------
 \pndef{mzero.cells}{50}% spec/phases/16-recovery.md D16.4
 \pndef{mzero.horizon}{600}% M0_HORIZON_S, src/organisms/coreA/m0.jl
 \pndef{mzero.npar}{six}% M0_TARGETS (5) + sigma_b
+\pndef{mzero.N}{20}% particles, dev/scripts/v7_16a9b_result.md
+\pndef{mzero.sweeps}{656}% same
+\pndef{mzero.burn}{100}% same
+\pndef{mzero.L}{100}% same
 
 %% --- Gains (F1) -----------------------------------------------------------
 \pndef{gain.txlo}{0.044}% spec/spec.md ~L3093 (0.043742)
