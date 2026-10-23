@@ -13,8 +13,8 @@ following, in order:
 \begin{enumerate}
   \item update growth and cell geometry from the membrane protein counts;
   \item write the protein counts into the metabolic rate laws (catalytic edges);
-  \item step the ODE block by 1\,s (Rodas5P, absolute tolerance $10^{-10}$, relative
-  tolerance $10^{-8}$);
+  \item step the ODE block by 1\,s (Rodas5P, absolute tolerance $\pn{fw.abstol}$, relative
+  tolerance $\pn{fw.reltol}$);
   \item debit the pools by the costs of the stochastic events of the previous step
   (deferred-cost edges), clipped at zero as in the published model;
   \item every 60\,s, rebuild the stochastic rate constants from the pools;
@@ -47,7 +47,7 @@ We use bulk metabolites because a per-cell metabolite panel cannot be measured.
 The sampler is a three-block Gibbs scan with the stochastic path as a latent variable.
 \begin{enumerate}
   \item \textbf{Paths.} Conditional sequential Monte Carlo over 60\,s windows
-  \citep{andrieu2010particle}, with particle Gibbs at $N = 20$ particles. Each
+  \citep{andrieu2010particle}, with particle Gibbs at $N = \pn{mzero.N}$ particles. Each
   particle is a snapshot of the driver. Transcripts are proposed as exact
   endpoint-conditioned birth--death bridges \citep{hobolth2009simulation}, so every
   proposal agrees with the observed transcript counts. The other reactions are then
@@ -75,7 +75,7 @@ When the paths are integrated out, each gene's transcripts form a birth--death c
 with a piecewise-constant birth rate, observed exactly every 60\,s. The likelihood of
 one cell's record is a product of transition probabilities. We compute them by
 uniformisation with tridiagonal products, truncated where the remaining mass is below
-$10^{-12}$. The cap on the count is fixed per dataset, and the number of terms comes
+$\pn{fw.trunc}$. The cap on the count is fixed per dataset, and the number of terms comes
 from the primal value, so the factor is differentiable in the rates.
 
 \subsection{The mean-field route}
@@ -102,8 +102,8 @@ sampler settings once built.}
 \label{sec:sbc}
 
 For each of $R = \pn{vseven.R}$ replicates we drew a parameter set from the prior,
-simulated a dataset, and ran one chain of 656 sweeps from a prior draw. We dropped
-100 sweeps and thinned the rest to $L = 100$ draws. The rank of the truth among the
+simulated a dataset, and ran one chain of \pn{mzero.sweeps} sweeps from a prior draw. We dropped
+\pn{mzero.burn} sweeps and thinned the rest to $L = \pn{mzero.L}$ draws. The rank of the truth among the
 draws is uniform if the sampler is calibrated \citep{talts2018validating}. We tested
 each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
 \citep{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass

@@ -68,7 +68,7 @@ Clamped & a dependence replaced by a constant & declared only \\
 \end{table}
 
 Before anything runs, a resolver reads all the edges and builds the coupling graph.
-It checks the composition for about twenty kinds of error. Examples are a state that
+It checks the composition for about \pn{fw.resolvererrors} kinds of error. Examples are a state that
 two modules integrate, an edge that names a species no module owns, and a moiety
 that is consumed but never produced. In complete mode it refuses to build a model
 with an unowned state or a stranded moiety. A composition that runs is therefore
@@ -107,7 +107,7 @@ and update rules that the jump modules use, so the two descriptions cannot drift
 apart. With the swap, the whole cell becomes one ODE problem with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
 \citep{revels2016forwardmode} passes through this problem and its callbacks. We test
-the gradients against central differences to a relative error of $10^{-6}$.
+the gradients against central differences to a relative error of $\pn{fw.adtol}$.
 
 \paragraph{What is and is not differentiable.} The exact hybrid is not
 differentiable, because the published model is not. The published model clips a
@@ -122,7 +122,7 @@ The cost of the swap is a declared reduction, and we measure it
 
 A data stream declares its observation model. In this paper there are two streams:
 exact transcript counts per cell, and bulk metabolite measurements of the mean over
-many cells. \IC{} offers two inference routes.
+many cells. \IC{} has two inference routes.
 
 \begin{itemize}
   \item \textbf{The exact route.} A three-block Gibbs sampler conditions on the
@@ -130,10 +130,10 @@ many cells. \IC{} offers two inference routes.
   \citep{andrieu2010particle}, the metabolic constants by slice sampling, and the
   gene-expression constants from exact one-dimensional conditionals
   (\cref{sec:sampler}).
-  \item \textbf{The approximate route.} The paths are integrated out. The
-  transcripts keep an exact likelihood, and the bulk metabolites get a Gaussian
-  likelihood centred on the mean-field model. The No-U-Turn Sampler
-  \citep{hoffman2014nouturn} then uses the gradients of the swap.
+  \item \textbf{The approximate route} (in development). The paths are integrated
+  out. The transcripts keep an exact likelihood, and the bulk metabolites get a
+  Gaussian likelihood centred on the mean-field model. The route is designed to use
+  the gradients of the swap with the No-U-Turn Sampler \citep{hoffman2014nouturn}.
   \placeholder{B5: built and tested; give the interface in one sentence.}
 \end{itemize}
 
