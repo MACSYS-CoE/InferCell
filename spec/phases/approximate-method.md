@@ -313,6 +313,30 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
+### 2026-10-23 — B5's support box and step cap (a fix, made before any B5 result)
+
+- **What happened.** The first smoke run's MAP did not return in two hours
+  (job 19076299). Neither did the first standalone test run, which also reached
+  the MAP.
+- **The cause.** At the prior median the gradient is up to about 109 per
+  coordinate. A unit step along it, which the optimiser's first line search can
+  take, moves log θ by up to 109. One density evaluation there ran for more than
+  28 minutes without returning, because route (ii)'s stiff solve crawls.
+- **For comparison:** an ordinary M0 solve takes 1,134–1,217 accepted steps, in
+  about 2 s, everywhere out to ±4 prior SD from the median.
+- **The fix.**
+  - **The support box.** x outside the prior mean ± 6 prior SD, per log
+    coordinate (log σ_b included), has density −∞ and is not solved. The prior
+    mass outside is about 2e-9 per coordinate, so the target changes by less
+    than that.
+  - **The step cap.** Inside the density, route (ii) solves with
+    `maxiters = 10⁴`, about 8× the most seen. A solve that reaches the cap is
+    not Success, so its density is −∞, as the support rule above already says.
+  - **The MAP** is bounded by the same box.
+- **What it does not change:** δ, S, the reference θ's two passes, the
+  verification clause and the parameterisation. No B5 result existed when this
+  was made.
+
 ### 2026-10-23 — B5 as planned: S, δ, the reference θ, the support and the verification clause (the user's decisions; rules fixed before any run)
 
 - **D-S amended: S by the delta method.**

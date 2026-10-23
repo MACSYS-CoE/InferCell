@@ -52,13 +52,15 @@ struct MixedSetup{R <: MeanFieldRoute}
     sigma_prior::Normal{Float64}
     abstol::Float64
     reltol::Float64
+    maxiters::Int
+    box_sd::Float64
 end
 
 """
     mixed_setup(ds; models = m0_models(), targets = M0_TARGETS, panel = M0_PANEL,
                 delta = nothing, S = nothing, floor = 1.0,
                 sigma_prior = SIGMA_MET_PRIOR, window = 60, abstol = 1e-10,
-                reltol = 1e-8) -> MixedSetup
+                reltol = 1e-8, maxiters = 10^4, box_sd = 6) -> MixedSetup
 
 A fit's fixed ingredients for a dataset `ds` with a bulk record, as
 [`m0_dataset`](@ref) returns. `delta` (panel × saves, or its `vec`) and `S`
@@ -67,14 +69,18 @@ the reference θ (§12 2026-10-23, "B5 as planned").
 
 Each cell's transcripts start from the composition's fixed initial condition,
 since the record drops t = 0. `abstol` and `reltol` are route (ii)'s solve
-tolerances, [`solve_mean_field`](@ref)'s by default. Each gene's factor is sized for the support:
+tolerances, [`solve_mean_field`](@ref)'s by default. `maxiters` caps its steps: an
+ordinary M0 solve takes about 1,200 out to ±4 prior SD. x outside the box
+`prior mean ± box_sd · prior SD`, per coordinate, has density −∞ and is not solved
+(§12 2026-10-23, "B5's support box"). Each gene's factor is sized for the support:
 `kmax = TURNOVER_CEILING / (len − 1)`, which bounds the transcription constant, and
 `μmin` = krnadeg's prior quantile at 1e-6 over `len`.
 """
 function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
                      panel::AbstractVector{Symbol} = M0_PANEL, delta = nothing, S = nothing,
                      floor::Real = 1.0, sigma_prior::LogNormal = SIGMA_MET_PRIOR,
-                     window::Real = 60, abstol::Real = 1e-10, reltol::Real = 1e-8)
+                     window::Real = 60, abstol::Real = 1e-10, reltol::Real = 1e-8,
+                     maxiters::Integer = 10^4, box_sd::Real = 6)
     ms = collect(AbstractSubModel, models)
     times = Float64.(ds.times)
     M = length(times)
@@ -129,7 +135,8 @@ function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
                       collect(Symbol, targets), forwards,
                       [Float64(params(p)[1]) for p in priors],
                       [Float64(params(p)[2]) for p in priors],
-                      Normal(Float64.(params(sigma_prior))...), Float64(abstol), Float64(reltol))
+                      Normal(Float64.(params(sigma_prior))...), Float64(abstol), Float64(reltol),
+                      Int(maxiters), Float64(box_sd))
 end
 
 """
@@ -143,7 +150,8 @@ function with_reference(s::MixedSetup, delta, S)
         throw(DimensionMismatch("δ or S does not match the setup's panel × saves"))
     return MixedSetup(s.models, s.route, s.factors, s.loci, s.lengths, s.tx_slots, s.rows,
                       s.saves, s.switches, s.logz, δ, Σ, s.floor, s.names, s.forwards,
-                      s.prior_mu, s.prior_sd, s.sigma_prior, s.abstol, s.reltol)
+                      s.prior_mu, s.prior_sd, s.sigma_prior, s.abstol, s.reltol,
+                      s.maxiters, s.box_sd)
 end
 
 """
@@ -160,6 +168,16 @@ x at the prior median: each log prior's mean.
 """
 mixed_prior_median(s::MixedSetup) = vcat(s.prior_mu, s.sigma_prior.μ)
 
+"""
+    mixed_box(s) -> (lower, upper)
+
+The support box in x: each coordinate's prior mean ± `box_sd` prior SDs.
+"""
+function mixed_box(s::MixedSetup)
+    sd = vcat(s.prior_sd, s.sigma_prior.σ)
+    return (mixed_prior_median(s) .- s.box_sd .* sd, mixed_prior_median(s) .+ s.box_sd .* sd)
+end
+
 # Every parameter write for θ, each reverse constant derived through Haldane.
 function _mixed_writes(s::MixedSetup, θ::AbstractVector)
     plain = [n => v for (n, v) in zip(s.names, θ) if !(n in s.forwards)]
@@ -173,7 +191,8 @@ function _mixed_solve(s::MixedSetup, θ::AbstractVector)
     p = mean_field_parameters(s.route, _mixed_writes(s, θ))
     saveat = sort(unique(vcat(s.switches, s.saves)))
     sol = try
-        solve_mean_field(s.route; p, saveat, abstol = s.abstol, reltol = s.reltol)
+        solve_mean_field(s.route; p, saveat, abstol = s.abstol, reltol = s.reltol,
+                         maxiters = s.maxiters)
     catch e
         e isa ErrorException && startswith(e.msg, "Route (ii): the pool") && return nothing
         rethrow()
@@ -235,11 +254,14 @@ end
     mixed_loglik(s, x) -> Real
 
 The transcript and bulk factors at x = (log θ, log σ_b), without the prior. −Inf
-where route (ii) cannot run, or a rate leaves the support the factors were sized
-for (§12 2026-10-23, "B5 as planned").
+outside the support box ([`mixed_box`](@ref)), where route (ii) cannot run or
+reaches its step cap, or where a rate leaves the support the factors were sized
+for (§12 2026-10-23, "B5 as planned" and "B5's support box").
 """
 function mixed_loglik(s::MixedSetup, x::AbstractVector)
     n = length(s.names)
+    lo, hi = mixed_box(s)
+    all(i -> lo[i] <= _primal(x[i]) <= hi[i], eachindex(lo)) || return oftype(exp(x[n + 1]), -Inf)
     θ = exp.(x[1:n])
     σ = exp(x[n + 1])
     r = _mixed_solve(s, θ)
@@ -292,15 +314,17 @@ mixed_model(s::MixedSetup) = _mixed_model(s)
     reference_theta(s; x0 = mixed_prior_median(s), maxiters = 200) -> NamedTuple
 
 Pass 1 of the reference θ (§12 2026-10-23, "B5 as planned"): the MAP of
-`mixed_model(s)` from `x0`, where `s` normally has δ = 0 and S = 0. If the
-optimiser fails, stops at `maxiters` without converging, or ends at a
-non-finite density, the prior median is used.
-Returns `(x, method, logdensity)`, with `method` `:map` or `:prior_median`.
+`mixed_model(s)` from `x0`, bounded by the support box ([`mixed_box`](@ref)),
+where `s` normally has δ = 0 and S = 0. If the optimiser fails, stops at
+`maxiters` without converging, or ends at a non-finite density, the prior median
+is used. Returns `(x, method, logdensity)`, with `method` `:map` or `:prior_median`.
 """
 function reference_theta(s::MixedSetup; x0::AbstractVector = mixed_prior_median(s),
                          maxiters::Integer = 200)
     res = try
-        maximum_a_posteriori(mixed_model(s); initial_params = collect(Float64, x0), maxiters)
+        lb, ub = mixed_box(s)
+        maximum_a_posteriori(mixed_model(s); initial_params = collect(Float64, x0), lb, ub,
+                             maxiters)
     catch e
         e isa InterruptException && rethrow()
         @warn "reference_theta: the MAP failed, so the prior median is used" exception = e
@@ -384,6 +408,7 @@ function delta_and_S(cells::AbstractArray{<:Real, 3}, m_ref::AbstractVector; C::
 end
 
 export MixedSetup, mixed_setup, with_reference, mixed_parameter_names, mixed_prior_median,
+       mixed_box,
        route_transcription_rates, mean_field_log_bulk, bulk_loglik, mixed_loglik,
        mixed_log_prior, mixed_logdensity, mixed_model, reference_theta, mixed_theta_values,
        reference_ensemble, reference_seeds, delta_and_S

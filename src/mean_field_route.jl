@@ -428,18 +428,20 @@ end
 
 """
     solve_mean_field(route; p = route.prob.p, saveat = [], solver = Rodas5P(),
-                     abstol = 1e-10, reltol = 1e-8)
+                     abstol = 1e-10, reltol = 1e-8, maxiters = 10^5)
 
 Solve route (ii) at parameters `p`, a copy of which the rebuild writes into, at
 the hybrid's pinned tolerances. The initial state is promoted to `p`'s type, so a
-dual-number `p` differentiates the solve.
+dual-number `p` differentiates the solve. `maxiters` caps the solver's steps, and
+a solve that reaches it returns rather than throws.
 """
 function solve_mean_field(rt::MeanFieldRoute; p = rt.prob.p, saveat = Float64[],
-                          solver = Rodas5P(), abstol = 1e-10, reltol = 1e-8)
+                          solver = Rodas5P(), abstol = 1e-10, reltol = 1e-8,
+                          maxiters::Integer = 10^5)
     q = copy(p)
     u0 = convert(Vector{promote_type(eltype(q), eltype(rt.prob.u0))}, rt.prob.u0)
     prob = remake(rt.prob; u0, p = q)
-    return solve(prob, solver; saveat, abstol, reltol, save_everystep = false)
+    return solve(prob, solver; saveat, abstol, reltol, maxiters, save_everystep = false)
 end
 
 """

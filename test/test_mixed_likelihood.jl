@@ -136,6 +136,16 @@ using Turing: logjoint, sample, NUTS
         @test mixed_logdensity(s, lo) == -Inf
         @test mixed_loglik(s, lo) == -Inf
         @test ForwardDiff.gradient(z -> mixed_logdensity(s, z), lo) isa Vector
+        # The support box: outside it, −∞ without a solve.
+        lb, ub = mixed_box(s)
+        @test lb ≈ mixed_prior_median(s) .- 6 .* vcat(s.prior_sd, s.sigma_prior.σ)
+        far = copy(x)
+        far[4] = ub[4] + 1.0
+        @test (@elapsed(v = mixed_logdensity(s, far))) < 1.0
+        @test v == -Inf
+        # A solve that reaches its step cap is −∞ too.
+        capped = mixed_setup(ds; maxiters = 10)
+        @test mixed_loglik(capped, x) == -Inf
     end
 
     @testset "the Turing model is the same density" begin
