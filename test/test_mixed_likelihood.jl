@@ -141,8 +141,9 @@ using Turing: logjoint, sample, NUTS
         @test lb ≈ mixed_prior_median(s) .- 6 .* vcat(s.prior_sd, s.sigma_prior.σ)
         far = copy(x)
         far[4] = ub[4] + 1.0
-        @test (@elapsed(v = mixed_logdensity(s, far))) < 1.0
-        @test v == -Inf
+        t_far = @elapsed v_far = mixed_logdensity(s, far)
+        @test t_far < 1.0
+        @test v_far == -Inf
         # A solve that reaches its step cap is −∞ too.
         capped = mixed_setup(ds; maxiters = 10)
         @test mixed_loglik(capped, x) == -Inf
