@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH --time=01:00:00
+#SBATCH --time=01:30:00
 #SBATCH --output=test/test_%j.log
 
 module load julia/1.10.5
