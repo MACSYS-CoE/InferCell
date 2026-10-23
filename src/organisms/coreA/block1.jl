@@ -25,15 +25,17 @@ same σ conditional, so σ_b is updated as σ was.
 """
 
 """
-    derived_ode_values(models, forwards) -> Vector{Pair{Symbol, Float64}}
+    derived_ode_values(models, forwards) -> Vector{Pair{Symbol, T}}
 
 The parameter writes for forward constants `forwards` (`name => value`), each with
 its reverse constant derived through the nominal equilibrium constant. That is
-the rule [`draw_truth`](@ref) draws under (spec §11 task 14c.1).
+the rule [`draw_truth`](@ref) draws under (spec §11 task 14c.1). `T` is `Float64`, or
+the values' type when that is wider, such as a dual number.
 """
 function derived_ode_values(models::AbstractVector{<:AbstractSubModel}, forwards)
     nominal = nominal_parameter_values(models)
-    out = Pair{Symbol, Float64}[]
+    # Generic in the values' type, so a dual number passes through (task B5).
+    out = Pair{Symbol, promote_type(Float64, (typeof(last(f)) for f in forwards)...)}[]
     for (name, v) in forwards
         append!(out, perturbed_values(models, name, v / nominal[name]))
     end

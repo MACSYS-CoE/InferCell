@@ -203,15 +203,20 @@ end
     return _write_parts!(du, Base.tail(slots), Base.tail(parts))
 end
 
+# One rebuild's constants from the pools in `u`, in the order of `r.fill_idxs`.
+function _route_rebuilt_values(r, p, u, t)
+    pools = [k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)]
+    vals = rate_constants(view(p, r.p_idxs), t, r.model, pools)
+    length(vals) == length(r.fill_idxs) || error(
+        "rate_constants() for $(r.declared_by) returned $(length(vals)) values " *
+        "but rebuilt_params() names $(length(r.fill_idxs))")
+    return vals
+end
+
 # Every rebuild, from the pools in `u` now, into `p`.
 function _route_rebuild!(p, u, t, rt::MeanFieldRoute)
     for r in rt.rebuilds
-        pools = [k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)]
-        vals = rate_constants(view(p, r.p_idxs), t, r.model, pools)
-        length(vals) == length(r.fill_idxs) || error(
-            "rate_constants() for $(r.declared_by) returned $(length(vals)) values " *
-            "but rebuilt_params() names $(length(r.fill_idxs))")
-        for (k, v) in zip(r.fill_idxs, vals)
+        for (k, v) in zip(r.fill_idxs, _route_rebuilt_values(r, p, u, t))
             p[k] = v
         end
     end
