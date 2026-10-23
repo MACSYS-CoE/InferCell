@@ -81,3 +81,12 @@ docs/Manifest.toml
 /dev/scripts/thread_scaling_16a9b/
 /dev/scripts/f10_16a10/
 dev/scripts/bench_ode_solver_smoke.md
+
+# LaTeX build artefacts in the paper draft
+/paper/*.aux
+/paper/*.bbl
+/paper/*.blg
+/paper/*.out
+/paper/*.fls
+/paper/*.fdb_latexmk
+/paper/*.synctex.gz

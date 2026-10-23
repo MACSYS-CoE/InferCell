@@ -1,0 +1,97 @@
+%% Every number quoted in the text, with its source. Use \pn{key}.
+%% Typed by hand from the result files named on each line (no generator yet).
+%% An undefined key stops the build.
+\makeatletter
+\DeclareRobustCommand{\pn}[1]{\@ifundefined{pn@#1}{\PackageError{numbers}{Undefined paper number `#1'}{Add it to numbers.tex.}\textbf{??}}{\@nameuse{pn@#1}}}
+\providecommand{\pndef}[2]{\@namedef{pn@#1}{#2}}
+\makeatother
+
+%% --- The reduced syn3A model --------------------------------------------
+\pndef{model.rxn}{22}% spec/spec.md §2 table; docs/src/user-guide/reduced-syn3a.md
+\pndef{model.odemodules}{four}% spec/spec.md §0
+\pndef{model.genes}{17}% spec/spec.md §0
+\pndef{model.jumpmodules}{three}% spec/spec.md §0
+\pndef{model.jumprxn}{52}% src/organisms/coreA (agent survey of the registry)
+\pndef{model.species}{32}% COREA_SPECIES dynamic species, src/organisms/coreA/registry.jl
+\pndef{model.chemostats}{5}% COREA_SPECIES chemostats
+\pndef{model.removed}{92\%}% spec/spec.md §0
+\pndef{model.cycle}{6{,}300}% COREA_CYCLE_S, seconds
+\pndef{model.cyclewall}{32.2}% spec task 13.7, job 17298242 (s per cycle, warm)
+\pndef{model.handshake}{5.11}% spec task 13.7 (ms per handshake)
+
+%% --- Framework -------------------------------------------------------------
+\pndef{fw.edgekinds}{seven}% src/edges.jl EDGE_KINDS
+\pndef{fw.redcats}{16}% src/labels.jl REDUCTION_CATEGORIES
+\pndef{fw.tests}{28{,}709}% docs/handoff.md, suite job 19042448 at 67c9eef
+
+\pndef{fw.resolvererrors}{twenty}% src/resolver.jl, about 20 classes of error (agent survey)
+\pndef{fw.abstol}{10^{-10}}% src/handshake.jl, Rodas5P abstol
+\pndef{fw.reltol}{10^{-8}}% src/handshake.jl, Rodas5P reltol
+\pndef{fw.adtol}{10^{-6}}% spec/phases/approximate-method.md AV3
+\pndef{fw.trunc}{10^{-12}}% src/transcript_factor.jl truncation mass
+\pndef{lit.karrsub}{28}% Karr et al. 2012
+
+%% --- M0 ---------------------------------------------------------------------
+\pndef{mzero.cells}{50}% spec/phases/16-recovery.md D16.4
+\pndef{mzero.horizon}{600}% M0_HORIZON_S, src/organisms/coreA/m0.jl
+\pndef{mzero.npar}{six}% M0_TARGETS (5) + sigma_b
+\pndef{mzero.N}{20}% particles, dev/scripts/v7_16a9b_result.md
+\pndef{mzero.sweeps}{656}% same
+\pndef{mzero.burn}{100}% same
+\pndef{mzero.L}{100}% same
+
+%% --- Gains (F1) -----------------------------------------------------------
+\pndef{gain.txlo}{0.044}% spec/spec.md ~L3093 (0.043742)
+\pndef{gain.txhi}{0.051}% spec/spec.md ~L3093 (0.050579)
+\pndef{gain.gtplo}{0.008}% spec/spec.md ~L3093 (0.0078915)
+\pndef{gain.gtphi}{0.012}% spec/spec.md ~L3093 (0.0117062)
+\pndef{gain.tl}{0.091}% dev/scripts/translation_diagnostics_result.md (median 0.0910)
+\pndef{gain.kd}{0.1}% RNAPOL_KD, mM, src/organisms/coreA/transcription.jl:50
+\pndef{gain.atp}{3.65}% ATP, mM, discussion note §6
+
+%% --- Information bounds (track A) ----------------------------------------
+\pndef{info.mzeroptsg}{0.47}% dev/scripts/sensitivity_88_m0_result.md
+\pndef{info.mzerobracket}{0.68}% same
+\pndef{info.ptsg}{0.10}% dev/scripts/sensitivity_88_corea_result.md, C=200, sigma_b 10%
+\pndef{info.ptsgbracket}{0.19}% same
+\pndef{info.eno}{0.13}% same
+\pndef{info.enobracket}{0.75}% same
+\pndef{info.enotx}{0.999}% spec/spec.md §1 (ENO under transcripts only)
+\pndef{info.Rmzero}{64}% sensitivity_88_m0_result.md, sigma_b 10%
+\pndef{info.Rcorea}{70}% sensitivity_88_corea_result.md, C=200, sigma_b 10%
+
+%% --- V6, V7, F10 (the exact reference) -------------------------------------
+\pndef{vsix.chains}{4}% dev/scripts/v6_16a9b_result.md
+\pndef{vsix.sweeps}{1{,}650}% same
+\pndef{vsix.rhat}{1.007}% same
+\pndef{vsix.ess}{1{,}081}% same (bulk)
+\pndef{vsix.cpuh}{6{,}810}% same (6,809.7)
+\pndef{vseven.R}{50}% dev/scripts/v7_16a9b_result.md
+\pndef{vseven.maxdev}{0.164}% same (krnadeg)
+\pndef{vseven.band}{0.244}% same
+\pndef{vseven.cov}{29 of 30}% spec/phases/16-recovery.md §12 2026-10-22
+\pndef{vseven.lowess}{23}% replicates with min bulk ESS < 100
+\pndef{vseven.cpuh}{33{,}900}% v7_16a9b_result.md
+\pndef{ften.cpuh}{507.5}% dev/scripts/f10_16a10_result.md
+\pndef{ften.dmean}{0.12}% same, max |Δmean|/SD_ref
+\pndef{ften.sdlo}{0.91}% same
+\pndef{ften.sdhi}{1.19}% same
+\pndef{ften.fbamargin}{0.020}% same
+\pndef{ften.speedup}{13}% 6,810 / 507.5
+\pndef{cost.fullscale}{21{,}000}% spec/phases/16-recovery.md §12 2026-10-22 (projected)
+\pndef{cost.kone}{1{,}000}% spec §8 K1 bound, CPU-h per posterior
+
+%% --- Track B: the formalism swap --------------------------------------------
+\pndef{jg.gtplo}{10}% dev/scripts/jensen_rethink_89_result.md (% GTP below)
+\pndef{jg.gtphi}{16}% same
+\pndef{jg.deltain}{26 of 28}% same (δ inside KG's null)
+\pndef{jg.mfin}{5 of 28}% same (uncorrected)
+\pndef{jg.kgnulllo}{36}% same (% a right description passes KG)
+\pndef{jg.kgnullhi}{56}% same
+\pndef{jg.biaslo}{2.4}% dev/scripts/jensen_bias_89_result.md (krnadeg, posterior SD)
+\pndef{jg.biashi}{3.1}% same
+\pndef{jg.cpuh}{48}% jensen_rethink_89_result.md
+\pndef{rii.maxdelta}{0.0122}% dev/scripts/route_ii_89_result.md
+\pndef{rii.mzero}{1.1}% docs/handoff.md (s per M0 600 s solve)
+\pndef{rii.corealo}{9}% docs/handoff.md (s per 6,300 s solve)
+\pndef{rii.coreahi}{12}% same
