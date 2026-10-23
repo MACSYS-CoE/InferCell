@@ -1,0 +1,24 @@
+\begin{abstract}
+Whole-cell models simulate a living cell from its molecular parts. They fix every
+parameter to one value, so each prediction is a single sample with no error bar.
+The models cannot say how much of a prediction the data support. Inference is hard
+because the models mix deterministic and stochastic formalisms, the stochastic paths
+are latent, and no parameter is shared across the boundary between the two blocks.
+We present \IC{}, a Julia framework that makes inference a
+first-class operation in whole-cell modelling. Every parameter is a prior
+distribution with a recorded source. Modules couple through typed edges, and the
+framework checks the composition and lists every reduction from the published model.
+The framework can run the same gene-expression interface as an exact stochastic
+process or as a mean-field ODE, so the whole cell compiles to one differentiable ODE
+for gradient-based inference, at a declared and measured cost. We test the framework on a reduced model of the minimal cell
+\syn{}, with four ODE modules and three stochastic modules. An exact sampler passes
+simulation-based calibration on a two-gene reference system over \pn{vseven.R}
+replicate datasets. \placeholder{Approximate method result (B7): agreement with the
+exact posterior on M0, cost ratio.} \placeholder{Full-scale result (B8): calibration
+on the reduced syn3A model; metabolite data shrink a gene-expression parameter they
+do not measure.} \placeholder{Uncertainty-budget sentence: x\% of the uncertainty in
+a prediction comes from parameters that no measurement supports.}
+\end{abstract}
+
+\placeholder{Author summary (PLOS CB, $\le$ 200 words) or Highlights and eTOC blurb
+(Cell Systems): write once the venue is chosen.}

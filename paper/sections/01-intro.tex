@@ -1,0 +1,110 @@
+\section{Introduction}
+\label{sec:intro}
+
+A whole-cell model simulates a cell from its molecular parts. The first such model
+described \textit{Mycoplasma genitalium} with 28 coupled submodels
+\citep{karr2012whole}. Later models covered \textit{Escherichia coli}
+\citep{macklin2020simultaneous} and the minimal cell \syn{}, first well stirred
+\citep{thornburg2022fundamental} and then in space and time over a full cell cycle
+\citep{thornburg2026bringing}. Each one joins
+metabolism, gene expression, growth and division in one simulation, and each
+reproduces measured behaviour of a real cell.
+
+All of these models are forward simulators. Each one takes hundreds or thousands of kinetic
+parameters from the literature, sets each to one value, and integrates forward in
+time. The output is one trajectory. That trajectory is one sample from the
+distribution of trajectories that the parameter knowledge allows. The model does not
+know the width of that distribution. When a model predicts a doubling time, a reader
+cannot tell whether the prediction holds for every plausible parameter set or depends
+on a few uncertain values.
+
+The missing error bar is a gap in the scientific reasoning. Every parameter in a
+whole-cell model is uncertain. A rate measured in one organism, at one temperature,
+in one medium, is then used in another organism under other conditions. The
+uncertainty is real, and it propagates through coupled nonlinear dynamics into every
+prediction. A framework that stores each parameter as a single number has no place
+to put this uncertainty. It cannot ask how uncertain a prediction is, and it cannot
+ask which data would reduce that uncertainty.
+
+\subsection{Why whole-cell models do not do inference}
+
+Bayesian inference answers both questions. It treats each parameter as a
+distribution, updates the distribution with data, and propagates the result into
+predictions. Systems biology argued for this approach long ago
+\citep{babtie2017how}. Whole-cell models still do not use it, for the
+following reasons.
+
+\begin{enumerate}
+  \item \emph{No place for uncertainty.} The frameworks store parameters as
+  floating-point values in a dictionary. The source of each value is in a
+  spreadsheet or a supplement, not in the model. When two sources disagree, the code
+  picks one without a record.
+  \item \emph{Mixed formalisms.} Metabolism is a set of ordinary differential
+  equations (ODEs). Gene expression is a stochastic jump process. The two exchange
+  state on a fixed clock. No single likelihood and no standard sampler covers both.
+  \item \emph{Latent paths.} The stochastic block has a hidden path: the exact
+  times of each transcription and translation event. The likelihood of the data
+  integrates over all such paths, and that integral has no closed form.
+  \item \emph{Cost.} Inference needs many simulations. For a whole-cell model the
+  number of simulations, not the cost of one, sets the budget.
+  \item \emph{No shared parameters.} In the published \syn{} model, no rate
+  constant appears in both blocks. The blocks couple only through state. The
+  standard methods for modular inference pass information through shared
+  parameters \citep{plummer2015cuts,jacob2017better,carmona2020semimodular}.
+  Here they have nothing to pass.
+\end{enumerate}
+
+\Cref{tab:frameworks} compares current whole-cell frameworks on these points.
+Thornburg and coworkers balanced the metabolic parameters of \syn{} against each
+other with a Bayesian method \citep{thornburg2022fundamental}. That step used
+literature values for metabolism only. It did not infer parameters from dynamic
+data through the coupled model.
+
+\begin{table*}[t]
+\caption{Capabilities of whole-cell modelling frameworks. A tick means that the
+framework does this as part of its design. \placeholder{Every cell to be checked
+against each framework's code and papers before submission.}}
+\label{tab:frameworks}
+\centering
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& Priors & Provenance & Inference & Declared \\
+& & in model & on dynamics & reductions \\
+\midrule
+\textit{M.\ genitalium} \citep{karr2012whole} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\textit{E.\ coli} \citep{macklin2020simultaneous} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+Vivarium \citep{agmon2022vivarium} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\syn{} \citep{thornburg2022fundamental,thornburg2026bringing} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\IC{} (this work) & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{This work}
+
+We present \IC{}, a framework that puts inference first. We do not claim that full
+Bayesian inference over every parameter of a whole-cell model is possible today. We
+claim that the framework must support inference as a basic operation, so that a
+modeller can apply it where the data and the budget allow. Our contributions are:
+
+\begin{enumerate}
+  \item \textbf{A design for inference-first composition} (\cref{sec:design}). Every
+  parameter is a prior with a recorded source. Modules couple through
+  \pn{fw.edgekinds} kinds of typed edge. The framework checks that a composition is
+  complete before it runs, and it lists every departure from the published model.
+  \item \textbf{One interface with two descriptions} (\cref{sec:design}). The same
+  gene-expression modules run as an exact stochastic process or as mean-field ODEs.
+  In the second form the whole cell compiles to one ODE problem that automatic
+  differentiation can pass through.
+  \item \textbf{A reduced model of \syn{} with a real boundary} (\cref{sec:model}).
+  It keeps \pn{model.rxn} metabolic reactions and \pn{model.genes} genes from the
+  published model, and it keeps the two-way coupling between them.
+  \item \textbf{A map of how information crosses the boundary}
+  (\cref{sec:seam}), and calibrated inference across it (\cref{sec:results}). An
+  exact sampler gives a calibrated reference. \placeholder{An approximate method
+  agrees with it at a fraction of the cost, and scales to the full reduced model.}
+\end{enumerate}
+
+\placeholder{Last paragraph: a one-sentence statement of the main result, written
+after B7 and B8.}

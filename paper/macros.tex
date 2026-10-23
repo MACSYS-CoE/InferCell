@@ -1,0 +1,15 @@
+% Placeholders. Red text marks anything that is not yet a result or a decision.
+% grep for \placeholder before any submission; check-arxiv-llm-compliance flags leftovers.
+\newcommand{\placeholder}[1]{\textcolor{red}{[#1]}}
+
+% \placeholderfig{width}{height}{text}: a framed box that stands in for a figure.
+\newcommand{\placeholderfig}[3]{%
+  \fbox{\parbox[c][#2][c]{#1}{\centering\textcolor{red}{\small #3}}}}
+
+% Names used often.
+\newcommand{\IC}{\textsc{InferCell}}
+\newcommand{\syn}{JCVI-syn3A}
+\newcommand{\Mzero}{M0}
+\newcommand{\Rhat}{\widehat{R}}
+\newcommand{\sigb}{\sigma_{\mathrm{b}}}
+\newcommand{\code}[1]{\texttt{#1}}
