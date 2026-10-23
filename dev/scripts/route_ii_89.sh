@@ -12,7 +12,7 @@ smoke=${SMOKE:-0}
 sub() { sbatch --parsable --partition=milan --exclude='dave[148-149]' \
                --export=ALL,SMOKE="$smoke" --output="$outdir/logs/%x_%j.log" "$@"; }
 job=dev/scripts/route_ii_89.slurm
-pre=$(sub --time=01:00:00 --wrap 'module load julia/1.10.5; julia --project -e "using InferCell"')
+pre=$(sub --time=01:00:00 --mem=8G --wrap 'module load julia/1.10.5; julia --project -e "using InferCell"')
 all=()
 for t in m0_v6 m0_low m0_high corea1 corea2; do
     all+=("$(sub --dependency=afterok:$pre $job route $t "$outdir")")
