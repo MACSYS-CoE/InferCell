@@ -8,9 +8,9 @@ ForwardDiff through the solve and its callbacks agrees with central differences 
 1e-6 relative on M0's panel.
 
 **The check, as written: FAIL at 0 of 5 truths.** **Amended to a check on
-convergence (§12 2026-10-23, after the run): pass at 3 of 5.** corea1 and corea2 fail
-the amended max |Δ| on 3PG, from a coarse pair of steps. The finer pair, which
-settles it on M0, did not run there.
+convergence (§12 2026-10-23, after the run): pass at 5 of 5.** Route (ii) is the
+Δt → 0 limit of the hybrid's pinned mean-field path, within max |Δ| 0.0122 and KG
+at most 0.07 of the bound.
 
 ## Runs
 
@@ -21,19 +21,28 @@ All runs used commit `5a56836` and are archived in
 |---|---|
 | Precompile | 19055277 |
 | Route (ii) at m0_v6, m0_low, m0_high, corea1, corea2 | 19055278, 19055282, 19055286, 19055290, 19055294 |
-| B3's `meanfield` prototype at 1, 0.5, 0.25 s steps | the three ids after each route job |
-| Merge (`merged.md`) | 19055298 |
-| Extrapolation (`richardson.md`, at `feb5a75`) | 19057735 |
+| B3's `meanfield` prototype at 1, 0.5, 0.25 s steps | the three ids after each route job; corea's 0.25 s rerun at `e7fb020`: 19058579, 19058580 |
+| Merge (`merged.md`, at `e7fb020`) | 19058585 |
+| Extrapolation (`richardson.md`, at `e7fb020`) | 19058586 |
 
 The first submission (precompile 19042449) ran out of memory on the default
 allocation, and its stages never started. Its logs are in
 `logs_failed_precompile_19042449/`.
 
-The prototype clipped no drains at any truth. corea1 and corea2's 0.25 s prototypes
-(19055293, 19055297) stopped on MaxIters in the hybrid's metabolic block at about
-t = 6040 s of 6300.
+The prototype clipped no drains at any truth.
 
-## The rule as written (job 19055298)
+**corea at 0.25 s was rerun.** The first 0.25 s prototypes at corea1 and corea2
+(19055293, 19055297, at `5a56836`) stopped on MaxIters in the hybrid's metabolic
+block, at about t = 6040 s of 6300. The hybrid keeps one integrator for the whole
+run, and its default cap of 1e5 steps counts across handshakes, at about 4 steps
+per handshake. `e7fb020` raises the cap in the prototype stage only, and the rerun
+finished.
+
+The first merge (19055298) and extrapolation (19057735) lacked those two runs. They
+are kept as `merged_5a56836.*` and `richardson_feb5a75.md`. `src/handshake.jl`
+keeps the cap, so a long hybrid run at a fine step can reach it.
+
+## The rule as written (job 19058585)
 
 The rule: KG(route, prototype at 1 s) ≤ 0.1 × B3's uncorrected gap total, and
 max |Δ log x̄| ≤ 0.02, with σ_b = 10%.
@@ -43,8 +52,8 @@ max |Δ log x̄| ≤ 0.02, with σ_b = 10%.
 | m0_v6 | 3.49 | 7.08 | 0.0833 (Pi) | 0.0423 | 0.0210 | FAIL |
 | m0_low | 3.88 | 1.24 | 0.0801 (Pi) | 0.0412 | 0.0204 | FAIL |
 | m0_high | 2.72 | 2.58 | 0.0632 (Pi) | 0.0315 | 0.0161 | FAIL |
-| corea1 | 35.5 | 9.99 | 0.0771 (Pi) | 0.0392 | — | FAIL |
-| corea2 | 132 | 20.2 | 0.1130 (GTP) | 0.0534 | — | FAIL |
+| corea1 | 35.5 | 9.99 | 0.0771 (Pi) | 0.0392 | 0.0195 | FAIL |
+| corea2 | 132 | 20.2 | 0.1130 (GTP) | 0.0534 | 0.0267 | FAIL |
 
 **Diagnosis.** Every pool's difference shrinks as the prototype's step shrinks, and
 the largest ones halve: Pi goes 0.083 → 0.042 → 0.021 at m0_v6. That is a
@@ -57,7 +66,7 @@ first-order splitting error in the prototype's 1 s exchange, and route (ii) is i
 
 Per-pool tables are in `merged.md`.
 
-## The amended rule (job 19057735)
+## The amended rule (job 19058586)
 
 Route (ii) is compared with 2·proto(h/2) − proto(h), at the finest pair of steps
 that ran. The bounds are the same.
@@ -67,14 +76,13 @@ that ran. The bounds are the same.
 | m0_v6 | 0.5, 0.25 | 0.0236 | 7.08 | 0.0085 (Pi) | pass | 0.0316 / 0.0086 / 0.0026 |
 | m0_low | 0.5, 0.25 | 0.0138 | 1.24 | 0.0048 (3PG) | pass | 0.0325 / 0.0102 / 0.0031 |
 | m0_high | 0.5, 0.25 | 0.0144 | 2.58 | 0.0052 (3PG) | pass | 0.0311 / 0.0091 / 0.0028 |
-| corea1 | 1, 0.5 | 3.04 | 9.99 | 0.0211 (3PG) | **FAIL** | 0.0419 / 0.0116 / — |
-| corea2 | 1, 0.5 | 6.16 | 20.2 | 0.0347 (3PG) | **FAIL** | 0.0840 / 0.0262 / — |
+| corea1 | 0.5, 0.25 | 0.423 | 9.99 | 0.0084 (3PG) | pass | 0.0419 / 0.0116 / 0.0035 |
+| corea2 | 0.5, 0.25 | 0.704 | 20.2 | 0.0122 (3PG) | pass | 0.0840 / 0.0262 / 0.0082 |
 
-3PG converges faster than first order: about 3.5× per halving. So extrapolating
-from the 1/0.5 s pair overshoots it. On M0 that pair leaves 0.015–0.019 on 3PG,
-inside 0.02, and the 0.5/0.25 s pair leaves at most 0.005. The corea truths have
-only the coarse pair, so their failure is not settled either way. Settling it needs
-the 0.25 s prototype to finish at corea1 and corea2.
+3PG converges faster than first order, at about 3.5× per halving, so a first-order
+extrapolation overshoots it. The first extrapolation (19057735) shows the size of
+that overshoot. With corea's 0.25 s runs missing, it used the 1/0.5 s pair there,
+which left 0.021 and 0.035 on 3PG and failed both. On the finer pair, both pass.
 
 ## KC's baseline: one route (ii) solve
 

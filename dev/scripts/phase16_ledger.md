@@ -139,11 +139,12 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19042130 | #89 B4 | Route (ii)'s new tests alone (dev check) | 1 | 0:03:15 | 0.05 |
 | 19042448 | #89 B4 | Full suite at `67c9eef` (28709 of 28709) | 4 | 0:55:34 | 3.70 |
 | 19042449 | #89 B4 | Precompile (out of memory; its stages never ran) | 1 | 0:00:38 | 0.01 |
-| 19055277–19055298 | #89 B4 | Precompile, route (ii) and three prototype steps at five truths, merge (of record, `5a56836`) | 1 | 0:01:17–0:04:20 each | 1.03 |
-| 19057735 | #89 B4 | Extrapolated comparison (of record, `feb5a75`) | 1 | 0:01:25 | 0.02 |
+| 19055277–19055298 | #89 B4 | Precompile, route (ii) and three prototype steps at five truths, merge (of record but the merge, `5a56836`; merge superseded by 19058585) | 1 | 0:01:17–0:04:20 each | 1.03 |
+| 19057735 | #89 B4 | Extrapolated comparison (superseded: corea's 0.25 s missing) | 1 | 0:01:25 | 0.02 |
+| 19058579–19058586 | #89 B4 | corea's 0.25 s prototypes with the step cap lifted, merge, extrapolation (of record, `e7fb020`) | 1 | 0:00:51–0:04:44 each | 0.18 |
 
-**#89 total: about 65.3 CPU-h**: B3's 4.3, four suites' 11.9, the rethink's 48.0,
-the close-out's 0.07 and B4's 1.1 besides its suite.
+**#89 total: about 65.5 CPU-h**: B3's 4.3, four suites' 11.9, the rethink's 48.0,
+the close-out's 0.07 and B4's 1.3 besides its suite.
 The first two suites were missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,920.2 CPU-h** of 50k, so about 7.1k
+**Phase 16 total with both tracks: about 42,920.4 CPU-h** of 50k, so about 7.1k
 remain.

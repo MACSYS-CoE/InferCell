@@ -1,6 +1,6 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path on M0; corea is open (§12).
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
 **Created:** 2026-10-20  ·  **Last amended:** 2026-10-23
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
@@ -300,7 +300,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B2.** The mean-field modules, AV3–AV4. Same suite job.
 - [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. The rethink (2026-10-23, §12; `dev/scripts/jensen_rethink_89_result.md`) names the cause and tests δ. Decided 2026-10-23: the gap is reported, not a stop.
   - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19039511): uncorrected, krnadeg moves by 2.4–3.1 posterior SDs even with the transcripts' information; with δ_ref the residual's RMS is within about 1 SD, and it is mostly within its noise.
-- [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at the three M0 truths. corea1 and corea2 are open on 3PG until the 0.25 s prototype runs there.
+- [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [ ] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S).
 - [ ] **B6.** The dispatcher.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
@@ -322,17 +322,17 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - **The amended rule:** route (ii) is compared with the prototype extrapolated to
   a zero step, 2·proto(h/2) − proto(h), at the finest pair of steps that ran. The
   bounds are unchanged: KG ≤ 0.1 × the uncorrected gap's total, and max |Δ| ≤ 0.02.
-- **Under it, 3 of 5 truths pass** (`dev/scripts/route_ii_89_richardson.jl`, job
-  19057735). The three m0 truths pass at the 0.5/0.25 s pair, with max |Δ| at most
-  0.0085 and KG at most 0.024.
-  - corea1 and corea2 pass on KG (3.04 against 9.99, 6.16 against 20.2) and fail
-    on max |Δ| (0.021 and 0.035), on 3PG, from the 1/0.5 s pair. Their 0.25 s
-    prototype stopped on MaxIters in the hybrid's metabolic block (jobs 19055293,
-    19055297).
-  - 3PG's difference falls about 3.5× per halving, not 2×, so the first-order
-    extrapolation overshoots it. On the m0 truths the finer pair takes 3PG's
-    residual from 0.015–0.019 to ≤ 0.005. Whether corea does the same needs the
-    0.25 s prototype to run there.
+- **Under it, all 5 truths pass** at the 0.5/0.25 s pair
+  (`dev/scripts/route_ii_89_richardson.jl`, job 19058586 at `e7fb020`). Max |Δ| is
+  at most 0.0122, on 3PG at corea2, and KG is at most 0.70 against a bound of 20.2.
+  - **The first extrapolation** (job 19057735) passed only the three m0 truths. At
+    that point corea's 0.25 s prototype had stopped on MaxIters (jobs 19055293,
+    19055297), so corea used the 1/0.5 s pair. 3PG then failed at 0.021 and 0.035.
+  - **3PG's difference falls about 3.5× per halving,** not 2×, so the coarse pair
+    overshoots it.
+  - **The MaxIters stop is the integrator's lifetime cap of 1e5 steps,** not
+    stiffness. The prototype stage lifts it (`e7fb020`), and corea's 0.25 s
+    prototype reran (jobs 19058579, 19058580).
 - **Result:** `dev/scripts/route_ii_89_result.md`.
 
 ### 2026-10-23 — B4 as built: four edges, the clock, and the check against the hybrid (the user's decisions; rules fixed before any run)

@@ -16,27 +16,24 @@ callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
 
 **The check against the hybrid** (`dev/scripts/route_ii_89_result.md`):
 
-- **As written,** it fails at 0 of 5 truths (job 19055298). The difference is the
+- **As written,** it fails at 0 of 5 truths (job 19058585). The difference is the
   prototype's 1 s step: it halves with the step, and Pi has the largest.
 - **The user's decision:** judge it on convergence instead, recorded in §12.
-- **Under that rule,** 3 of 5 truths pass (job 19057735): all three M0 truths.
-  corea1 and corea2 pass KG and fail max |Δ| on 3PG, from the coarse 1/0.5 s pair
-  only. Their 0.25 s prototype hit MaxIters in the hybrid's metabolic block.
+- **Under that rule,** 5 of 5 truths pass (job 19058586), with max |Δ| ≤ 0.0122.
+- **To get there,** corea's 0.25 s prototype first stopped on the hybrid
+  integrator's lifetime cap of 1e5 steps. The script lifts the cap; `src` keeps
+  it. A long hybrid run at a fine step can still reach it.
 
 **KC baseline:** one M0 600 s solve takes about 1.1 s and allocates 1.5 GiB. One
 corea 6300 s solve takes 9–12 s and allocates 17–20 GiB.
 
-**CPU-h:** 4.8 (ledger).
+**CPU-h:** 5.0 (ledger).
 
 **Next:**
 1. Open the PR, run `/check-PR` and merge with a merge commit.
-2. Optional: get the corea 0.25 s prototype to run (raise maxiters in
-   `route_ii_89.jl`'s prototype stage), and rerun the extrapolation to settle
-   corea's verdict.
-3. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
+2. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
    `solve_mean_field`.
-4. **Can go:** `/fred/oz022/tkimpson/infercell-89-b4-smoke-2026-10-23/` (a smoke
-   run, not a result).
+3. Maybe: raise or expose the hybrid driver's `maxiters` in `src/handshake.jl`.
 
 ## Earlier: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
 
