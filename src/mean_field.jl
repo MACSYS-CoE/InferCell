@@ -35,7 +35,8 @@ exact only for such a network.
 
 `edges = :declared` carries the members' coupling edges and rebuilt
 parameters over unchanged. `:none` drops them, for a standalone build at
-pinned rate constants. The ODE path does not execute them yet (task B4).
+pinned rate constants. Route (ii), [`build_mean_field_problem`](@ref), executes
+them; the plain [`build_problem`](@ref) does not.
 """
 struct MeanField{N} <: AbstractSubModel
     members::Vector{AbstractSubModel}

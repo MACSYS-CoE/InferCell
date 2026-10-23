@@ -1577,7 +1577,9 @@ end
 
 Every declared edge of the composition that no record on the driver executes,
 each as `(edge, reason)` with `edge` the [`ResolvedEdge`](@ref) (spec §11 task
-13.2). Empty for a composition whose declarations all run.
+13.2). Empty for a composition whose declarations all run. `driver` is a
+[`HandshakeDriver`](@ref) or a [`MeanFieldRoute`](@ref), whose records share
+these field names.
 
 What counts as executed, per kind:
 
@@ -1605,7 +1607,7 @@ What counts as executed, per kind:
   Anything else is a clamp declared beside a value that travels some other way,
   which is the declare-only state spec §2 G2 records.
 """
-function unexecuted_edges(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+function unexecuted_edges(models::Vector{<:AbstractSubModel}, d)
     graph = resolve_coupling(models)
     owner = Dict{Symbol, Symbol}(s => module_id(m) for m in models for s in states(m))
     by_id = Dict{Symbol, AbstractSubModel}(module_id(m) => m for m in models)
@@ -1670,7 +1672,7 @@ Throw if any declared edge of the composition is not executed by the driver,
 naming each one (spec §11 task 13.2). The hybrid build calls this last, so a
 declared-but-inert edge fails the build rather than passing silently.
 """
-function assert_edges_executed(models::Vector{<:AbstractSubModel}, d::HandshakeDriver)
+function assert_edges_executed(models::Vector{<:AbstractSubModel}, d)
     bad = unexecuted_edges(models, d)
     isempty(bad) && return nothing
     lines = ["$(length(bad)) declared edge(s) that nothing in this composition executes:"]

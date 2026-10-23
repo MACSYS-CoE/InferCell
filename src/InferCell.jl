@@ -2,7 +2,8 @@ module InferCell
 
 using OrdinaryDiffEq: Tsit5, solve, ODEProblem, Rodas5P
 using SciMLSensitivity: ForwardDiffSensitivity
-using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!
+using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!,
+                 DiscreteCallback, CallbackSet
 using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
                      reset_aggregated_jumps!
 using Turing
@@ -63,6 +64,7 @@ include("organisms/coreA/assembly.jl")
 include("organisms/coreA/prior_draws.jl")
 include("organisms/coreA/m0.jl")
 include("mean_field.jl")
+include("mean_field_route.jl")
 include("organisms/coreA/validation.jl")
 include("organisms/coreA/observables.jl")
 include("organisms/coreA/block1.jl")

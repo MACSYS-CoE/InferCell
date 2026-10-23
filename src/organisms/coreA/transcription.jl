@@ -522,7 +522,7 @@ the means and the driver does the scheduling".
 function rate_constants(p, t, m::CoreATranscription, pools)
     conc = NamedTuple{TRANSCRIPTION_POOLS}(Tuple(pools))
     n = length(m.genes)
-    return SVector{n, Float64}(ntuple(n) do i
+    return SVector{n, promote_type(Float64, eltype(p), eltype(pools))}(ntuple(n) do i
         g = m.genes[i]
         s = p[i]
         kcat_mod = min(RNAPOL_KCAT * s, TURNOVER_CEILING)

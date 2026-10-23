@@ -1,6 +1,49 @@
 # Handoff
 
-## Latest: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
+## Latest: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
+
+**Built:** `build_mean_field_problem` in `src/mean_field_route.jl`. It is the
+reduced syn3A model with its jump modules swapped for one `MeanField`, run as a
+single ODE. It executes four edges, which are declared reductions:
+
+- catalytic;
+- continuous unclamped drains, where a negative pool stops the solve;
+- the rebuild at 60m − 1 s, plus one at t = 0;
+- continuous growth.
+
+`build_problem` is unchanged. AV3 holds on route (ii), with ForwardDiff through the
+callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
+
+**The check against the hybrid** (`dev/scripts/route_ii_89_result.md`):
+
+- **As written,** it fails at 0 of 5 truths (job 19058585). The difference is the
+  prototype's 1 s step: it halves with the step, and Pi has the largest at four of five truths.
+- **The user's decision:** judge it on convergence instead, recorded in §12.
+- **Under that rule,** 5 of 5 truths pass (job 19058586), with max |Δ| ≤ 0.0122.
+- **To get there,** corea's 0.25 s prototype first stopped on the hybrid
+  integrator's lifetime cap of 1e5 steps. The script lifts the cap; `src` keeps
+  it. A long hybrid run at a fine step can still reach it.
+
+**KC baseline:** one M0 600 s solve takes about 1.1 s and allocates 1.5 GiB. One
+corea 6300 s solve takes 9–12 s and allocates 16.7–19.7 GiB.
+
+**CPU-h:** 5.0 (ledger).
+
+**Next:**
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
+   `solve_mean_field`.
+3. **Follow-ups from #99's review** (none block, all in `src`):
+   - raise or expose the hybrid driver's `maxiters` in `src/handshake.jl`;
+   - share the geometry with the hybrid (`_initial_geometry`, `_geometry_at`).
+     Route (ii) copies it, and it skips the hybrid's `area0 > 0` and
+     `footprint > 0` checks;
+   - loosen `driver_written_params` and drop `mean_field_written_params`;
+   - build `MeanFieldRoute` once instead of twice;
+   - count rebuild times from `tspan[1]`, not from 0 (latent: every caller starts
+     at 0).
+
+## Earlier: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
 
 **#97 is merged** at `0eec5cc`, with a merge commit. Its review fixes are in `28ba4db`.
 

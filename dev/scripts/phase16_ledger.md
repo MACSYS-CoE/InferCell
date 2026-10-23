@@ -136,9 +136,15 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19038595 | #89 B3 close-out | Implied-bias report, first run (superseded: m0_v6 section lacked SEs) | 1 | 0:01:42 | 0.03 |
 | 19038794 | #89 B3 close-out | Implied-bias report, second run (superseded: unpaired m0_v6 noise) | 1 | 0:00:54 | 0.02 |
 | 19039511 | #89 B3 close-out | Implied-bias report (of record, `beeb446`) | 1 | 0:01:21 | 0.02 |
+| 19042130 | #89 B4 | Route (ii)'s new tests alone (dev check; FAILED on one test's wrong save time, fixed before `67c9eef`) | 1 | 0:03:15 | 0.05 |
+| 19042448 | #89 B4 | Full suite at `67c9eef` (28709 of 28709) | 4 | 0:55:34 | 3.70 |
+| 19042449 | #89 B4 | Precompile (out of memory; its stages never ran) | 1 | 0:00:38 | 0.01 |
+| 19055277–19055298 | #89 B4 | Precompile, route (ii) and three prototype steps at five truths, merge (`5a56836`; of record except the merge, superseded by 19058585, and corea's 0.25 s prototypes 19055293 and 19055297, which stopped on MaxIters) | 1 | 0:01:17–0:04:20 each | 1.02 |
+| 19057735 | #89 B4 | Extrapolated comparison (superseded: corea's 0.25 s missing) | 1 | 0:01:25 | 0.02 |
+| 19058579, 19058580, 19058585, 19058586 | #89 B4 | corea's 0.25 s prototypes with the step cap lifted, merge, extrapolation (of record, `e7fb020`) | 1 | 0:00:51–0:04:44 each | 0.18 |
 
-**#89 total: about 60.5 CPU-h**: B3's 4.3, three suites' 8.2, the rethink's 48.0 and
-the close-out's 0.07.
+**#89 total: about 65.5 CPU-h**: B3's 4.3, four suites' 11.9, the rethink's 48.0,
+the close-out's 0.07 and B4's 1.3 besides its suite.
 The first two suites were missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,915.4 CPU-h** of 50k, so about 7.1k
+**Phase 16 total with both tracks: about 42,920.4 CPU-h** of 50k, so about 7.1k
 remain.

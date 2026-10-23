@@ -1,6 +1,6 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
-**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior.
+**Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
 **Created:** 2026-10-20  ·  **Last amended:** 2026-10-23
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
@@ -72,7 +72,7 @@ What track B starts from, on `main` at `a843bc5`:
 | Information bound | `ensemble_jacobian`; A2's tables | Done |
 | Reduction labels | `reduction_notes`, `reduction_declarations` (`src/labels.jl`) | Done. A module declares a reduction by returning `category => text` |
 | Mean-field gene expression | — | Not built (B2) |
-| The ODE path running catalytic, drain and rebuild edges | `_refuse_inert_catalytic` in `build_problem` (`src/orchestrator.jl:39, 63-76`) refuses catalytic edges. Drains and rebuilds run only in the hybrid driver (`src/handshake.jl`, `_exchange!`) | Not built (B4) |
+| The ODE path running catalytic, drain and rebuild edges | `_refuse_inert_catalytic` in `build_problem` (`src/orchestrator.jl:39, 63-76`) refuses catalytic edges. Drains and rebuilds run only in the hybrid driver (`src/handshake.jl`, `_exchange!`) | Not built (B4). Built as `build_mean_field_problem`, with growth as a fourth edge (§12 2026-10-23, B4) |
 | A dispatcher over the three routes | `infer()` (`src/inference.jl:121`) covers all-ODE (NUTS) and all-jump (ABC) compositions, and refuses hybrid ones | Not built (B6) |
 
 **What track A measured:**
@@ -202,7 +202,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
    - catalytic edges read the mean protein states directly, so
      `_refuse_inert_catalytic` passes when an ODE module owns the count;
    - drains become continuous fluxes;
-   - the rebuild becomes a 60 s discrete callback reading the ODE's own pools.
+   - the rebuild becomes a 60 s discrete callback reading the ODE's own pools;
+   - growth runs continuously (added 2026-10-23, §12).
 
    Each is a declared reduction.
 4. **B5:** the mixed likelihood and NUTS (Turing, or AdvancedHMC directly).
@@ -299,7 +300,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B2.** The mean-field modules, AV3–AV4. Same suite job.
 - [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. The rethink (2026-10-23, §12; `dev/scripts/jensen_rethink_89_result.md`) names the cause and tests δ. Decided 2026-10-23: the gap is reported, not a stop.
   - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19039511): uncorrected, krnadeg moves by 2.4–3.1 posterior SDs even with the transcripts' information; with δ_ref the residual's RMS is within about 1 SD, and it is mostly within its noise.
-- [ ] **B4.** Route (ii).
+- [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [ ] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S).
 - [ ] **B6.** The dispatcher.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
@@ -307,6 +308,90 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-23 — B4's check judged on convergence (the user's decision, after the run)
+
+- **As written, the check fails at all five truths** (job 19058585; the 1 s numbers equal the first merge's, 19055298 at `5a56836`).
+  - The KG clause passes at m0_v6 only (3.49 against 7.08). The max |Δ| clause
+    fails everywhere, at 0.063–0.113, on Pi at four truths and GTP at corea2.
+  - The difference is the prototype's 1 s step. Every pool's max |Δ| roughly
+    halves when the prototype's step halves (Pi 0.083 → 0.042 → 0.021 at m0_v6),
+    so route (ii) is that path's Δt → 0 limit. The step's sweep replaced the
+    one-at-a-time toggle the entry above names, since it moves all four 1 s
+    reductions together and already places the cause.
+- **The amended rule:** route (ii) is compared with the prototype extrapolated to
+  a zero step, 2·proto(h/2) − proto(h), at the finest pair of steps that ran. The
+  bounds are unchanged: KG ≤ 0.1 × the uncorrected gap's total, and max |Δ| ≤ 0.02.
+- **Under it, all 5 truths pass** at the 0.5/0.25 s pair
+  (`dev/scripts/route_ii_89_richardson.jl`, job 19058586 at `e7fb020`). Max |Δ| is
+  at most 0.0122, on 3PG at corea2, and KG is at most 0.70 against a bound of 20.2.
+  - **The first extrapolation** (job 19057735) passed only the three m0 truths. At
+    that point corea's 0.25 s prototype had stopped on MaxIters (jobs 19055293,
+    19055297), so corea used the 1/0.5 s pair. 3PG then failed at 0.021 and 0.035.
+  - **3PG's difference falls about 3.5× per halving,** not 2×, so the coarse pair
+    overshoots it.
+  - **The MaxIters stop is the integrator's lifetime cap of 1e5 steps,** not
+    stiffness. The prototype stage lifts it (`e7fb020`), and corea's 0.25 s
+    prototype reran (jobs 19058579, 19058580).
+  - **What the extrapolation includes:** the prototype's limit still reads the pools
+    at 60m, so the difference includes route (ii)'s declared 1 s snapshot shift.
+- **Result:** `dev/scripts/route_ii_89_result.md`.
+
+### 2026-10-23 — B4 as built: four edges, the clock, and the check against the hybrid (the user's decisions; rules fixed before any run)
+
+- **Route (ii) has its own entry point,** `build_mean_field_problem`. The plain
+  all-ODE `build_problem` is unchanged, bitwise. Executing PtsTransport's inbound
+  volume edge there would move existing pure-ODE results (r 200 → 200.035 nm).
+  - Every `:jump` module is swapped for its mean field (`mean_field_swap`).
+    `HeldEnzymeCounts` joins the group with no reactions, so its counts are held.
+  - Every declared edge must be executed, or the build throws, as
+    `assert_edges_executed` requires of the hybrid.
+- **A fourth edge: growth runs continuously.** §4 step 3 listed three edges. The
+  reference and B3's prototype both grow the cell from ptsG's membrane count, so
+  route (ii) does too:
+  - the membrane count N is an extra state, with dN/dt equal to the flagged states'
+    reaction terms in particles;
+  - V(N) uses the hybrid's own law and 2× cap;
+  - the states the hybrid dilutes get a `−c · dV/dt / V` term;
+  - the inbound radius slot reads r(N).
+
+  The hybrid updates the volume every 1 s, so this is a declared reduction. It
+  matters for B8 (about 7% dilution over Core A′'s cycle), and it makes growth
+  depend on θ, as it does in the reference.
+- **Drains are continuous and unclamped.** The flux is the counter's derivative,
+  divided by the live particles-per-mM factor. A credit equals the debit times its
+  stoichiometry (1 on every Core A′ edge).
+  - A debited pool below zero stops the solve with a named error, so a clip
+    cannot pass silently. The rethink saw the reference clip on 2 of 360k drains.
+  - This replaces `:clamped_deficit_carried` and its one-step deferral. It is a
+    declared reduction.
+- **The rebuild's clock.** The constants switch at 60m − 1 s, as B1's factor and
+  the cSMC assume (§3), from a callback that reads the ODE's own pools at that
+  instant.
+  - In the hybrid the ODE runs one second ahead, so the reference reads the pools
+    at 60m. One ODE cannot read its own future. The snapshot moves 1 s earlier,
+    which is a declared reduction.
+  - The rebuilt slots are also recomputed at t = 0 from the initial pools and the
+    current θ, as `set_parameters!` does. So window 1 runs at R₀(θ) under
+    `remake(p = θ)`.
+- **Counts are not rounded.** The catalytic channel reads the mean protein count.
+- **The check "against the hybrid driver at pinned paths" (§3):**
+  - **What is compared:** route (ii) against B3's `meanfield` stage, rerun at
+    B4's commit. That stage is the hybrid running the mean field as a pinned
+    deterministic path, with 1 s deferred clamped drains, rounded proteins, the
+    snapshot at 60m and 1 s growth.
+  - **Where:** at B3's five truths, on M0_PANEL, at the 60 s saves.
+  - **Pass at every truth if:**
+    - the KG statistic of route (ii) against the prototype (σ_b = 10%, summed
+      over pools) is at most 0.1 × the uncorrected Jensen gap's KG total at that
+      truth;
+    - max |Δ log x̄| over pools and saves is at most 0.02, which is 0.2 σ_b.
+  - **On a failure,** diagnose before rerunning. Switch the four reductions on one
+    at a time in the prototype.
+  - **Also recorded:** the per-solve wall time and allocations, as KC's baseline.
+- **AV3 extends to route (ii).** ForwardDiff of the M0 panel's log means in
+  log `M0_TARGETS`, through the solve and its callbacks, agrees with central
+  differences to 1e-6 relative. B5 needs this.
 
 ### 2026-10-23 — the B3 close-out, as run (information only; no pass line)
 
