@@ -1,6 +1,44 @@
 # Handoff
 
-## Latest: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
+## Latest: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
+
+**Built:** `build_mean_field_problem` in `src/mean_field_route.jl`. It is the
+reduced syn3A model with its jump modules swapped for one `MeanField`, run as a
+single ODE. It executes four edges, which are declared reductions:
+
+- catalytic;
+- continuous unclamped drains, where a negative pool stops the solve;
+- the rebuild at 60m − 1 s, plus one at t = 0;
+- continuous growth.
+
+`build_problem` is unchanged. AV3 holds on route (ii), with ForwardDiff through the
+callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
+
+**The check against the hybrid** (`dev/scripts/route_ii_89_result.md`):
+
+- **As written,** it fails at 0 of 5 truths (job 19055298). The difference is the
+  prototype's 1 s step: it halves with the step, and Pi has the largest.
+- **The user's decision:** judge it on convergence instead, recorded in §12.
+- **Under that rule,** 3 of 5 truths pass (job 19057735): all three M0 truths.
+  corea1 and corea2 pass KG and fail max |Δ| on 3PG, from the coarse 1/0.5 s pair
+  only. Their 0.25 s prototype hit MaxIters in the hybrid's metabolic block.
+
+**KC baseline:** one M0 600 s solve takes about 1.1 s and allocates 1.5 GiB. One
+corea 6300 s solve takes 9–12 s and allocates 17–20 GiB.
+
+**CPU-h:** 4.8 (ledger).
+
+**Next:**
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. Optional: get the corea 0.25 s prototype to run (raise maxiters in
+   `route_ii_89.jl`'s prototype stage), and rerun the extrapolation to settle
+   corea's verdict.
+3. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
+   `solve_mean_field`.
+4. **Can go:** `/fred/oz022/tkimpson/infercell-89-b4-smoke-2026-10-23/` (a smoke
+   run, not a result).
+
+## Earlier: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
 
 **#97 is merged** at `0eec5cc`, with a merge commit. Its review fixes are in `28ba4db`.
 
