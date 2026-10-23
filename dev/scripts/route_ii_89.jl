@@ -93,6 +93,9 @@ function run_prototype(t, h, out)
     mf = MeanField(cme; edges = :none)
     d = build_problem(ms; tspan = (0.0, horizon(t)), complete = true, rounding = :continuous,
                       interval = h)
+    # One integrator lives for the whole run, and the default cap of 1e5 steps
+    # counts across handshakes: corea's 6300 s at 0.25 s reached it near 6040 s.
+    d.ode.opts.maxiters = 10^9
     set_parameters!(d, ms, truth)
     jnames = InferCell._block_names(ms, :jump)
     pnames = InferCell._block_param_names([m for m in ms if formalism(m) === :jump])
