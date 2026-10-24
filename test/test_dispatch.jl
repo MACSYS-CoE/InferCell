@@ -33,6 +33,7 @@ using MCMCChains: Chains
         @test occursin("lacks bulk", msg(() -> inference_route(hybrid, short; route = :mixed)))
         # infer refuses before any work, by the same rules.
         @test occursin("one must be named", msg(() -> infer(hybrid, cells)))
+        @test occursin("does not apply here", msg(() -> infer(ode, obs; route = :mixed)))
     end
 
     # The identity checks run each route twice at smoke size, about 5 s per

@@ -117,6 +117,10 @@ refused, because neither backend can run the handshake driver it builds.
 `priors_override::Dict{Symbol,Distribution}` is forwarded to
 [`build_turing_model`](@ref) on the NUTS path and is the hook used by the
 boundary protocol's iterative loop.
+
+The route is [`inference_route`](@ref)'s, so `route`, if given, must be the one this
+data takes. A hybrid composition's routes take a cell and bulk record instead, by
+the method `infer(models, ds; route)`.
 """
 function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                sampler=NUTS(), n_samples=1000,
@@ -124,16 +128,15 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                prob=nothing, tspan=nothing,
                priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
                noise::Union{Nothing, NoiseModel}=nothing,
+               route::Union{Nothing, Symbol}=nothing,
                kwargs...)
-    mode = _composition_inference_mode(models)
-    if mode == :differentiable
+    r = inference_route(models, data; route)
+    if r === :nuts
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
                            priors_override=priors_override, noise=noise)
-    elseif mode == :simulation
-        return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     else
-        error("Unknown inference mode: $mode")
+        return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     end
 end
 
