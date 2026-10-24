@@ -1,6 +1,60 @@
 # Handoff
 
-## Latest: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
+## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, 2026-10-24)
+
+**Built** (`src/inference.jl`):
+- `inference_route(models, data; route = nothing)` names the route. It returns
+  `:nuts` or `:abc` for `ObservedData`, as before, and `:exact` or `:mixed` for a
+  hybrid composition with a cell and bulk record (an `m0_dataset` record). The route
+  must be named, so nothing approximate runs unless asked. Everything else is an
+  `ArgumentError` that names what is wrong.
+- `infer(models, ds; route, rng, …)` runs the route end to end in one process,
+  from the library functions the stage scripts use:
+  - `:exact`: a prior start as V7's, then Gibbs;
+  - `:mixed`: B5's pipeline, from θ_ref through δ and S to NUTS.
+  Both return `Chains` over `log_<M0_TARGETS>…, log_sigma_b`, with the route's
+  state in `info`.
+- `infer(models, ::ObservedData)` now goes through `inference_route`. Before, a
+  `route` keyword fell into `kwargs`: silently dropped on NUTS, a MethodError on
+  ABC (found by the advisor before the PR; `0459c3d`). The hybrid refusal's
+  message points at the cell-data routes, and its matched phrases are unchanged.
+
+**Rules:** §12 2026-10-24 "B6 as planned", committed before any code (`99e672f`).
+
+**Checks:**
+- **Selection** (default suite): 20 of 20 in about 1 s on the login node.
+- **Identity** (gated behind `INFERCELL_INTEGRATION_TESTS`): `infer` equals the
+  route composed by hand, draw for draw (`==`). On the login node (`-t 1`, before
+  `0459c3d`, which does not touch this path), 5 of 5 per route, `:exact` in 4m02s
+  and `:mixed` in 39m33s. Only `:mixed` is past §12's 5-minute guard. Both are
+  gated behind one flag, so the default suite stays near its 57–59 min.
+  `dev/scripts/dispatch_89_b6.slurm` runs them at 4 threads.
+- **Slurm at `0459c3d`:** suite job 19142081 and identity job 19142082, both
+  launched from `.worktrees/89b6-0459c3d`. Results: PENDING, fill in here and in
+  §11/§12 "as built".
+
+**Next:**
+1. Record 19142081/19142082, tick B6, write §12 "B6 as built", open the PR,
+   `/check-PR`, merge with a merge commit.
+2. B7 (AV6): profile the gradient first. Route (ii)'s dual solve is almost all of
+   its ~5–6 s at 3 cells. The order is in E3: dual vs primal `sol.stats`,
+   FullSpecialize, a batched transcript factor, an eigen-form bulk term. B7's 50
+   refits at B5's cost are about 2,000 CPU-h.
+3. **Still open, not in B6** (the user's choice): #101's follow-ups:
+   - a typed overdraw exception;
+   - `reference_theta`'s catch-all fallback;
+   - unit tests for `reference_seeds` and `reference_ensemble`;
+   - jittered chain starts.
+   #99's follow-ups (in the B4 entry below) are also still open.
+4. **Can go:**
+   - the B5 worktrees (`.worktrees/89b5-*`);
+   - the B5 smoke directories r1–r3;
+   - `.worktrees/89re-*`;
+   - `.worktrees/89b6-0459c3d`, once B6 merges.
+5. For paper-1 (not edited from here): STATUS flag 3 can cite
+   `infer(models, ds; route)`.
+
+## Earlier: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
 
 **Built:** `src/mixed_likelihood.jl`.
 - `mixed_setup(ds)` builds route (ii), one `TranscriptFactor` per cell, and the
