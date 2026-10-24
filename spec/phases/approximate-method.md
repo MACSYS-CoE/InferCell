@@ -73,7 +73,7 @@ What track B starts from, on `main` at `a843bc5`:
 | Reduction labels | `reduction_notes`, `reduction_declarations` (`src/labels.jl`) | Done. A module declares a reduction by returning `category => text` |
 | Mean-field gene expression | — | Not built (B2) |
 | The ODE path running catalytic, drain and rebuild edges | `_refuse_inert_catalytic` in `build_problem` (`src/orchestrator.jl:39, 63-76`) refuses catalytic edges. Drains and rebuilds run only in the hybrid driver (`src/handshake.jl`, `_exchange!`) | Not built (B4). Built as `build_mean_field_problem`, with growth as a fourth edge (§12 2026-10-23, B4) |
-| A dispatcher over the three routes | `infer()` (`src/inference.jl:121`) covers all-ODE (NUTS) and all-jump (ABC) compositions, and refuses hybrid ones | Not built (B6) |
+| A dispatcher over the three routes | `infer()` (`src/inference.jl:121`) covers all-ODE (NUTS) and all-jump (ABC) compositions, and refuses hybrid ones | Not built (B6). Built as `inference_route` and `infer(models, ds; route = :exact \| :mixed)` (§12 2026-10-24, B6) |
 
 **What track A measured:**
 - **M0 carries the signal (A1).** ptsG under metabolites only is 0.47 of prior SD,
