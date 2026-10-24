@@ -159,7 +159,10 @@ end
 
 The coordinates of x: `log_<target>` for each target, then `log_sigma_b`.
 """
-mixed_parameter_names(s::MixedSetup) = vcat([Symbol(:log_, n) for n in s.names], :log_sigma_b)
+mixed_parameter_names(s::MixedSetup) = _log_names(s.names)
+
+# The chain coordinates for a list of targets, shared with `infer`'s exact route.
+_log_names(targets) = vcat([Symbol(:log_, n) for n in targets], :log_sigma_b)
 
 """
     mixed_prior_median(s) -> Vector{Float64}
@@ -369,6 +372,8 @@ function reference_ensemble(values, seeds::AbstractVector{<:Integer};
     return e.counts[:, state_rows(collect(panel), e.species), keep]
 end
 
+const REFERENCE_SEED_OFFSET = 89_000_000_000
+
 """
     reference_seeds(ds, n) -> Vector{Int}
 
@@ -377,8 +382,6 @@ drawn from a generator seeded at the dataset's replicate seed plus
 `REFERENCE_SEED_OFFSET`, so each dataset has its own range. They are refused if
 one repeats or meets one of the dataset's cell seeds.
 """
-const REFERENCE_SEED_OFFSET = 89_000_000_000
-
 function reference_seeds(ds, n::Integer)
     seeds = Int.(rand(Xoshiro(REFERENCE_SEED_OFFSET + ds.replicate_seed), UInt32, n))
     allunique(seeds) && isdisjoint(seeds, ds.seeds) || error(

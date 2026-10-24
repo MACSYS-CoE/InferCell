@@ -10,7 +10,7 @@ using Turing
 using Distributions
 using StaticArrays
 using Random
-using MCMCChains: replacenames
+using MCMCChains: replacenames, Chains, setinfo
 using ForwardDiff
 using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
                      Diagonal
@@ -101,7 +101,7 @@ export ObservedData, PosteriorPredictive, ABCPosterior, state_rows
 export Modality, NoiseModel, MODALITY_KINDS, scale_name, noise_scales, observation_loglik
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism
-export build_turing_model, infer, observe, posterior_predictive, check_identifiability
+export build_turing_model, infer, inference_route, observe, posterior_predictive, check_identifiability
 export compute_summary_stats, summary_distance
 export abc_smc
 export KDEPrior, boundary_condition, sequential_infer, iterative_infer, kl_divergence, chain_kl

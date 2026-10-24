@@ -1,6 +1,70 @@
 # Handoff
 
-## Latest: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
+## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
+
+**Built** (`src/inference.jl`, at `8a93475`):
+- **`inference_route(models, data; route = nothing)`** names the route.
+  - It returns `:nuts` or `:abc` for `ObservedData`, as before.
+  - It returns `:exact` or `:mixed` for M0's hybrid (one `CoreATranscription`, one
+    `CoreATranscriptDecay`) with a cell and bulk record (an `m0_dataset` record).
+    The route must be named.
+  - Everything else is an `ArgumentError` that names what is wrong.
+- **`infer(models, ds; route, rng, …)`** runs one chain of the route end to end:
+  - `:exact`: Gibbs from a prior start, as V7's;
+  - `:mixed`: B5's pipeline, θ_ref → δ, S → NUTS.
+
+  Both return `Chains` over `log_<M0_TARGETS>…, log_sigma_b`, with the route's
+  state in `info`. The route draws from a stream forked from `rng`, and the global
+  generator, which the setups reseed per cell, is put back afterwards.
+- **`infer(models, ::ObservedData)`** goes through `inference_route` too.
+
+**Review (#102, `/check-PR`, three rounds):**
+- **Round 1:** two MAJOR findings.
+  - M1: the default rng was overridden by the setups' reseeding, so every call
+    repeated.
+  - M2: any hybrid passed the selector.
+  - Plus six MINOR ones and the simplifications.
+- **Round 2:** M1 was not fully resolved, because consecutive default-rng calls
+  still repeated. It was redone at the source by restoring the global state, and
+  two docs refs and the NUTS argument types were fixed.
+- **Round 3:** clean. The report is `PR_REVIEW_102_2026-10-24.md` (gitignored,
+  in this worktree).
+
+**Checks at `8a93475`:**
+- suite job 19147408: 28813 of 28813;
+- gated identity job 19147409: 34 of 34, at 4 threads, in 21m40s.
+
+Logs: `/fred/oz022/tkimpson/infercell-89-b6-archive-2026-10-24/`, with
+`SHA256SUMS`. §11 B6 is ticked, and §12 2026-10-24 "B6 as built" records all of
+it.
+
+**Docs CI** fails on main as before (a DistributionsAD `@check_args` load error).
+#102 removes its own unresolved refs and lists `mixed_likelihood.jl` and
+`mean_field_route.jl`.
+
+**Next:**
+1. **B7 (AV6).** Profile the gradient first: route (ii)'s dual solve is almost all
+   of its ~5 s at 3 cells. The order (E3) is dual vs primal `sol.stats`, then
+   FullSpecialize, a batched transcript factor, and an eigen-form bulk term. B7's
+   50 refits at B5's cost are about 2,000 CPU-h. `infer(…; route = :mixed)` runs
+   one chain per call; production keeps the stage scripts.
+2. **Still open, not in B6** (the user's choice), from #101's review:
+   - a typed overdraw exception;
+   - `reference_theta`'s catch-all fallback;
+   - unit tests for `reference_seeds` and `reference_ensemble`;
+   - jittered chain starts.
+
+   #99's follow-ups (in the B4 entry below) are also still open.
+3. **Can go:**
+   - the B5 worktrees (`.worktrees/89b5-*`);
+   - the B5 smoke directories r1–r3;
+   - `.worktrees/89re-*`;
+   - `.worktrees/89b6-8a93475` and `.worktrees/89-b6`, once #102 merges (their
+     logs are archived).
+4. **For paper-1** (not edited from here): STATUS flag 3 can cite
+   `infer(models, ds; route)`.
+
+## Earlier: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
 
 **Built:** `src/mixed_likelihood.jl`.
 - `mixed_setup(ds)` builds route (ii), one `TranscriptFactor` per cell, and the
