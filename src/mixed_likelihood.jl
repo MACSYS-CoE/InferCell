@@ -28,8 +28,8 @@ prior term. A θ the route or the factor cannot score has density −∞, not an
 What a fit of the mixed likelihood holds fixed: the original composition, its route
 (ii) build, one [`TranscriptFactor`](@ref) per cell, where each gene's rebuilt
 constant sits, the panel rows, the save and switch times, the log bulk record, δ
-and S, and the parameters with their priors on the log scale. Built by
-[`mixed_setup`](@ref).
+and S, the parameters with their priors on the log scale, and the data streams
+scored. Built by [`mixed_setup`](@ref).
 """
 struct MixedSetup{R <: MeanFieldRoute}
     models::Vector{AbstractSubModel}
@@ -54,13 +54,17 @@ struct MixedSetup{R <: MeanFieldRoute}
     reltol::Float64
     maxiters::Int
     box_sd::Float64
+    streams::Vector{Symbol}
 end
+
+const MIXED_STREAMS = (:tx, :bulk)
 
 """
     mixed_setup(ds; models = m0_models(), targets = M0_TARGETS, panel = M0_PANEL,
                 delta = nothing, S = nothing, floor = 1.0,
                 sigma_prior = SIGMA_MET_PRIOR, window = 60, abstol = 1e-10,
-                reltol = 1e-8, maxiters = 10^4, box_sd = 6) -> MixedSetup
+                reltol = 1e-8, maxiters = 10^4, box_sd = 6,
+                streams = (:tx, :bulk)) -> MixedSetup
 
 A fit's fixed ingredients for a dataset `ds` with a bulk record, as
 [`m0_dataset`](@ref) returns. `delta` (panel × saves, or its `vec`) and `S`
@@ -75,12 +79,20 @@ ordinary M0 solve takes about 1,200 out to ±4 prior SD. x outside the box
 (§12 2026-10-23, "B5's support box"). Each gene's factor is sized for the support:
 `kmax = TURNOVER_CEILING / (len − 1)`, which bounds the transcription constant, and
 `μmin` = krnadeg's prior quantile at 1e-6 over `len`.
+
+`streams` names the data scored (§12 2026-10-24, "B7 as planned"): `:tx`, the
+transcript factors, and `:bulk`, the bulk factor. A fit with one stream keeps
+the other's prior: with `(:tx,)`, σ_b's posterior is its prior. The rate support
+the factors were sized for is checked only when `:tx` is scored.
 """
 function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
                      panel::AbstractVector{Symbol} = M0_PANEL, delta = nothing, S = nothing,
                      floor::Real = 1.0, sigma_prior::LogNormal = SIGMA_MET_PRIOR,
                      window::Real = 60, abstol::Real = 1e-10, reltol::Real = 1e-8,
-                     maxiters::Integer = 10^4, box_sd::Real = 6)
+                     maxiters::Integer = 10^4, box_sd::Real = 6, streams = MIXED_STREAMS)
+    st = collect(Symbol, streams)
+    !isempty(st) && allunique(st) && all(in(MIXED_STREAMS), st) || throw(ArgumentError(
+        "streams must be distinct entries of $MIXED_STREAMS, got $(Tuple(st))"))
     ms = collect(AbstractSubModel, models)
     times = Float64.(ds.times)
     M = length(times)
@@ -136,7 +148,7 @@ function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
                       [Float64(params(p)[1]) for p in priors],
                       [Float64(params(p)[2]) for p in priors],
                       Normal(Float64.(params(sigma_prior))...), Float64(abstol), Float64(reltol),
-                      Int(maxiters), Float64(box_sd))
+                      Int(maxiters), Float64(box_sd), st)
 end
 
 """
@@ -151,7 +163,7 @@ function with_reference(s::MixedSetup, delta, S)
     return MixedSetup(s.models, s.route, s.factors, s.loci, s.lengths, s.tx_slots, s.rows,
                       s.saves, s.switches, s.logz, δ, Σ, s.floor, s.names, s.forwards,
                       s.prior_mu, s.prior_sd, s.sigma_prior, s.abstol, s.reltol,
-                      s.maxiters, s.box_sd)
+                      s.maxiters, s.box_sd, s.streams)
 end
 
 """
@@ -256,10 +268,11 @@ end
 """
     mixed_loglik(s, x) -> Real
 
-The transcript and bulk factors at x = (log θ, log σ_b), without the prior. −Inf
-outside the support box ([`mixed_box`](@ref)), where route (ii) cannot run or
-reaches its step cap, or where a rate leaves the support the factors were sized
-for (§12 2026-10-23, "B5 as planned" and "B5's support box").
+The transcript and bulk factors at x = (log θ, log σ_b), without the prior, each
+when its stream is scored (`s.streams`). −Inf outside the support box
+([`mixed_box`](@ref)), where route (ii) cannot run or reaches its step cap, or,
+when the transcripts are scored, where a rate leaves the support the factors
+were sized for (§12 2026-10-23, "B5 as planned" and "B5's support box").
 """
 function mixed_loglik(s::MixedSetup, x::AbstractVector)
     n = length(s.names)
@@ -269,14 +282,19 @@ function mixed_loglik(s::MixedSetup, x::AbstractVector)
     σ = exp(x[n + 1])
     r = _mixed_solve(s, θ)
     r === nothing && return oftype(σ, -Inf)
-    k = route_transcription_rates(s, r.sol, r.p)
-    μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
-    f1 = first(s.factors)
-    for g in eachindex(μ)
-        _primal(μ[g]) >= f1.μmin[g] || return oftype(σ, -Inf)
-        all(j -> _primal(k[g, j]) <= f1.kmax[g], axes(k, 2)) || return oftype(σ, -Inf)
+    tx = zero(σ)
+    if :tx in s.streams
+        k = route_transcription_rates(s, r.sol, r.p)
+        μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
+        f1 = first(s.factors)
+        for g in eachindex(μ)
+            _primal(μ[g]) >= f1.μmin[g] || return oftype(σ, -Inf)
+            all(j -> _primal(k[g, j]) <= f1.kmax[g], axes(k, 2)) || return oftype(σ, -Inf)
+        end
+        tx = transcript_loglik(s.factors, k, μ)
     end
-    return transcript_loglik(s.factors, k, μ) + bulk_loglik(s, mean_field_log_bulk(s, r.sol), σ)
+    bulk = :bulk in s.streams ? bulk_loglik(s, mean_field_log_bulk(s, r.sol), σ) : zero(σ)
+    return tx + bulk
 end
 
 """

@@ -159,6 +159,50 @@ using Turing: logjoint, sample, NUTS
         @test Dict(v)[:kcatR_R_ENO] ≈ truth[:kcatR_R_ENO] rtol = 1e-12
     end
 
+    # B7.3 (§12 2026-10-24, "B7 as planned"): one stream at a time.
+    @testset "streams: each factor alone" begin
+        @test s.streams == [:tx, :bulk]
+        @test_throws ArgumentError mixed_setup(ds; streams = ())
+        @test_throws ArgumentError mixed_setup(ds; streams = (:tx, :tx))
+        @test_throws ArgumentError mixed_setup(ds; streams = (:cells,))
+        rng = Xoshiro(12)
+        n = length(M0_PANEL) * 3
+        A = randn(rng, n, 4)
+        δ, Σ = 0.02 .* randn(rng, n), 1e-3 .* (A * A')
+        both = with_reference(mixed_setup(ds; streams = (:bulk, :tx)), δ, Σ)
+        txo = with_reference(mixed_setup(ds; streams = (:tx,)), δ, Σ)
+        bulko = with_reference(mixed_setup(ds; streams = (:bulk,)), δ, Σ)
+        @test txo.streams == [:tx] && bulko.streams == [:bulk]
+        r = _mixed_solve(s, θ)
+        k = route_transcription_rates(s, r.sol, r.p)
+        μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
+        ltx = transcript_loglik(s.factors, k, μ)
+        lbulk = bulk_loglik(both, mean_field_log_bulk(s, r.sol), ds.sigma)
+        @test mixed_logdensity(both, x) === mixed_logdensity(with_reference(s, δ, Σ), x)
+        @test mixed_loglik(both, x) === ltx + lbulk
+        @test mixed_loglik(txo, x) === ltx
+        @test mixed_loglik(bulko, x) === lbulk
+        @test mixed_logdensity(txo, x) == mixed_log_prior(s, x) + ltx
+        @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
+        # AV3 on each stream alone, at tight tolerances as above.
+        for st in ((:tx,), (:bulk,))
+            tight = with_reference(mixed_setup(ds; abstol = 1e-14, reltol = 1e-12, streams = st),
+                                   δ, Σ)
+            ℓ(z) = mixed_logdensity(tight, z)
+            g = ForwardDiff.gradient(ℓ, x)
+            h = 1e-4
+            fd = map(eachindex(x)) do j
+                e = zeros(length(x))
+                e[j] = h
+                (ℓ(x + e) - ℓ(x - e)) / 2h
+            end
+            @test all(isfinite, g)
+            for j in eachindex(x)
+                @test g[j] ≈ fd[j] rtol = 1e-6
+            end
+        end
+    end
+
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         @testset "integration: the reference θ and a few NUTS steps" begin
             ref = reference_theta(s; maxiters = 20)
