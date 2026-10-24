@@ -162,6 +162,7 @@ function run_chain(out, fit, c)
     st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
     t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(NADAPT, TARGET_ACCEPT), NDRAW;
                                 initial_params = st.x, progress = false)
+    mkpath(fitdir(out, fit))                         # the stream arms have no prep of their own
     serialize(chain_file(out, fit, c),
               (; fit, c, seed, start = st.x, start_tries = st.tries, chain, seconds = t,
                nadapt = NADAPT, ndraw = NDRAW, commit = COMMIT, job = slurm_job()))

@@ -43,10 +43,11 @@ for r in $ids; do base_fit "r$r"; done
 base_fit v6
 # KS: the bases are v6 and the two replicates with the lowest kcatF_R_ENO truths,
 # which the driver names (stage lowest_eno) when the job runs.
+base_chains=$(IFS=:; echo "${all_chains[*]}")      # the low-ENO bases are known only to Julia
 for kf in ks_v6 ks_low1 ks_low2; do
     case $kf in
         ks_v6) dep=${chains[v6]} ;;
-        *) dep=$(IFS=:; echo "${all_chains[*]}") ;;   # the base is known only to Julia
+        *) dep=$base_chains ;;
     esac
     k=$(sub --dependency=afterok:$dep --time=$prep_time --job-name=av6_ksprep_$kf $job ksprep "$outdir" "$kf")
     c1=$(sub --dependency=afterok:$k --time=$chain_time --job-name=av6_chain_$kf $job chain "$outdir" "$kf" 1)
