@@ -148,6 +148,11 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19081750–19081758 | #89 B5 | Smoke r3 at `b101190`: precompile, `theta_ref`, two ensemble chunks, four chains of 10 + 10, merge (all stages ran; numbers not of record) | 1 | 0:01:26–0:44:57 each | 2.69 |
 | 19084578 | #89 B5 | Full suite at `469ca26` (28791 of 28791, of record) | 4 | 0:57:54 | 3.86 |
 | 19091859–19091881 | #89 B5 | The full run at `469ca26`: precompile, `theta_ref` (bounded MAP), 16 ensemble chunks (800 cells), four chains of 300 + 300, merge (of record, `dev/scripts/mixed_nuts_89_result.md`) | 1 | 0:01:31–10:27:54 each | 41.48 |
+| 19159993, 19160196, 19161734, 19162737, 19162281, 19163602 | #89 B7 | Gradient profile: snapshots at `ddddec5` (the first invalid: it compiled an edited tree), `d39360c` and `6d1320a`, and two compares | 1 | 0:00:45–0:04:13 each | 0.30 |
+| 19160188, 19163839, 19163842, 19164153 | #89 B7 | Test files: `test_mixed_likelihood.jl` at `48f1e99` (107 of 107); the mean-field set at `6d1320a` (19163842 FAILED, helpers not included; 19164153 489 of 489) | 1 | 0:00:04–0:11:18 each | 0.40 |
+| 19163848–19163870 | #89 B7 | AV6 smoke r1 at `51064a8` (2 replicates, v6, KS, stream arms). The stream arms FAILED (no fit directory; fixed in `ba69134`), so the merge (19163871) never ran | 1 | 0:01:03–0:21:05 each | 4.46 |
+| 19171825–19171849, 19177272 | #89 B7 | AV6 smoke r2 at `ba69134`, every stage and the merge; 19177272 reran the merge at `56c573d` with `AV6_COMPARE=1` (numbers not of record) | 1 | 0:01:04–0:22:18 each | 4.86 |
+| 19177653–19177825 | #89 B7 | AV6 at `7a102fc`: 50 replicates, v6, three KS refits, two stream arms, merge (167 jobs; running) | 1 | | |
 
 **#89 total: about 119.7 CPU-h**: B3's 4.3, six suites' 19.7, the rethink's 48.0,
 the close-out's 0.07, B4's 1.3 besides its suite, and B5's 46.4 besides its suites
