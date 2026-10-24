@@ -135,8 +135,10 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
                            priors_override=priors_override, noise=noise)
-    else
+    elseif r === :abc
         return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
+    else
+        error("infer has no runner for route :$r with ObservedData")
     end
 end
 
