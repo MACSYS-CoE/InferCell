@@ -147,9 +147,11 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19076298, 19076299 | #89 B5 | Smoke r2: precompile, `theta_ref` (cancelled after 2:05:49: the MAP stepped to an extreme θ where one solve does not return; fixed by the support box, `b101190`, §12) | 1 | 0:01:46, 2:05:49 | 2.13 |
 | 19081750–19081758 | #89 B5 | Smoke r3 at `b101190`: precompile, `theta_ref`, two ensemble chunks, four chains of 10 + 10, merge (all stages ran; numbers not of record) | 1 | 0:01:26–0:44:57 each | 2.69 |
 | 19084578 | #89 B5 | Full suite at `469ca26` (28791 of 28791, of record) | 4 | 0:57:54 | 3.86 |
+| 19091859–19091881 | #89 B5 | The full run at `469ca26`: precompile, `theta_ref` (bounded MAP), 16 ensemble chunks (800 cells), four chains of 300 + 300, merge (of record, `dev/scripts/mixed_nuts_89_result.md`) | 1 | 0:01:31–10:27:54 each | 41.48 |
 
-**#89 total: about 65.5 CPU-h**: B3's 4.3, four suites' 11.9, the rethink's 48.0,
-the close-out's 0.07 and B4's 1.3 besides its suite.
+**#89 total: about 119.7 CPU-h**: B3's 4.3, six suites' 19.7, the rethink's 48.0,
+the close-out's 0.07, B4's 1.3 besides its suite, and B5's 46.4 besides its suites
+(the smokes' 4.9 and the full run's 41.5).
 The first two suites were missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,920.4 CPU-h** of 50k, so about 7.1k
+**Phase 16 total with both tracks: about 42,974.5 CPU-h** of 50k, so about 7.0k
 remain.

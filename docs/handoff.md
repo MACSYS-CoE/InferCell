@@ -1,6 +1,6 @@
 # Handoff
 
-## Latest: B5, the mixed likelihood and NUTS (branch `issue-89-b5-mixed-likelihood`, 2026-10-23)
+## Latest: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
 
 **Built:** `src/mixed_likelihood.jl`.
 - `mixed_setup(ds)` builds route (ii), one `TranscriptFactor` per cell, and the
@@ -42,34 +42,32 @@
   profiling before B7.
 - NUTS ran at tree depth 4, with about 15 leapfrog steps per draw.
 
-**In flight (the user chose 4 × (300 + 300), projected ≈ 59 CPU-h, a little
-over KC's 50.75):**
-- Launched by `NADAPT=300 NDRAW=300 dev/scripts/mixed_nuts_89.sh
-  /fred/oz022/tkimpson/infercell-89-b5-archive-2026-10-23`, from the worktree
-  `.worktrees/89b5-469ca26`.
-- The jobs:
-  - precompile 19091859;
-  - theta_ref 19091860;
-  - ensemble 19091861–19091876;
-  - chains 19091877–19091880, each about 14 h;
-  - merge 19091881.
+**The full run (done 2026-10-24, `dev/scripts/mixed_nuts_89_result.md`):**
+- Jobs 19091859–19091881 at `469ca26`, launched by `NADAPT=300 NDRAW=300
+  dev/scripts/mixed_nuts_89.sh <outdir>`. Archive
+  `/fred/oz022/tkimpson/infercell-89-b5-archive-2026-10-23/`, with `SHA256SUMS`.
+- θ_ref: the bounded MAP, log density −591.04, in 6793 s. Its σ_b is about twice
+  the truth's, as expected at δ = S = 0.
+- δ is small: per-pool means lie in [−0.084, +0.114] nats. S has trace 1.72 and is
+  full rank.
+- The chains: four of 300 + 300, with 0 divergences, R̂ ≤ 1.012, bulk ESS
+  1291–1905 and a median of 7 leapfrog steps per draw.
+- Cost: 41.5 CPU-h by `sacct`, inside KC's 50.75. It came in under the projected
+  59 because the trees were shallower than the smoke's.
+- Beside F10 (information only): every mean lies within 0.51 F10 SD, and the SDs
+  agree to within 22%.
+- B5 is ticked in §11. No §12 "as run" entry was needed, since nothing diverged
+  from the rules.
 
 **Next:**
-1. When the merge is done:
-   - copy `summary.md` into `dev/scripts/mixed_nuts_89_result.md`, with the job
-     ids and commit;
-   - write `SHA256SUMS` in the archive;
-   - add the run's ledger row and update the #89 total;
-   - tick B5 in the sub-spec's §11;
-   - add a §12 "as run" entry if anything diverged.
-
-   The F10 comparison is information only. AV6 (B7) is the test.
-2. Open the PR, run `/check-PR` and merge with a merge commit.
-3. B6, the dispatcher. B7 should profile the gradient first (KC).
-4. **Can go once merged:** `.worktrees/89b5-4fe4022`, `89b5-c77f49a`, `89b5-b101190`
-   and `89b5-469ca26`, the smoke directories r1–r3, and the old
-   `.worktrees/89re-*` worktrees, as listed below.
-5. The follow-ups from #99's review (below) are still open.
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. B6, the dispatcher. B7 (AV6) should profile the gradient first: the dual solve
+   of route (ii) is almost all of its 6.1 s, even at 3 cells and 120 s.
+3. **Can go once merged:**
+   - `.worktrees/89b5-4fe4022`, `89b5-c77f49a`, `89b5-b101190` and `89b5-469ca26`;
+   - the smoke directories r1–r3;
+   - the old `.worktrees/89re-*` worktrees, as listed below.
+4. The follow-ups from #99's review (below) are still open.
 
 ## Earlier: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
 
