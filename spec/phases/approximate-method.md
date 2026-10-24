@@ -353,11 +353,14 @@ No rule changes and no posterior result changes. `src/inference.jl` (#102), at
 - **The checks, at `8a93475`:**
   - **Selection** (default suite): job 19147408, 28813 of 28813 (B5's 28791 plus
     B6's 22).
-  - **Identity and common output** (gated): job 19147409, 34 of 34. That is the 22
-    selection checks, plus `infer` equal to each route composed by hand, draw for
-    draw (`==`), plus both chains carrying `mixed_parameter_names`. Also:
+  - **Identity and common output** (gated): job 19147409, 34 of 34: the 22
+    selection checks plus 12 gated ones. Among the gated:
+    - `infer` equals each route composed by hand, draw for draw (`==`);
+    - both chains carry the same log-scale names, which equal
+      `mixed_parameter_names`;
     - the exact chain is the trace on the log scale;
-    - default-rng calls under two seeds, and consecutive ones, differ;
+    - `info` holds the route's state;
+    - default-rng calls differ, under two seeds and when consecutive;
     - the caller's global stream moves by the fork's single draw.
   - The logs are archived, with `SHA256SUMS`, at
     `/fred/oz022/tkimpson/infercell-89-b6-archive-2026-10-24/`. Round 1 (`0459c3d`:

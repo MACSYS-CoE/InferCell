@@ -39,8 +39,8 @@ using MCMCChains: Chains
         @test occursin("does not apply here", msg(() -> infer(ode, obs; route = :mixed)))
     end
 
-    # The identity checks run each route twice at smoke size, about 5 s per
-    # gradient, so they are past the cost guard of §12 2026-10-24 and run with
+    # The identity checks run each route at least twice at smoke size, about 5 s
+    # per gradient, so they are past the cost guard of §12 2026-10-24 and run with
     # the integration tests.
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         H = 120.0
