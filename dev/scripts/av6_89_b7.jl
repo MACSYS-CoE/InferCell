@@ -23,7 +23,7 @@
 # Usage: julia --project dev/scripts/av6_89_b7.jl <stage> <out> [<fit> [<c>]]
 # Regenerate: dev/scripts/av6_89_b7.sh <out outside the worktrees>.
 # SMOKE=1: 3 cells, a 120 s horizon, 8 reference cells, 10 + 10 NUTS steps, and
-# only the replicates in AV6_REPS (default 1:50).
+# only the replicates in AV6_REPS (default 1:50). AV6_COMPARE=1: see COMPARE.
 
 using InferCell
 using InferCell: _mixed_solve
@@ -40,6 +40,9 @@ using MCMCChains: MCMCDiagnosticTools
 const MDT = MCMCDiagnosticTools
 
 const SMOKE = get(ENV, "SMOKE", "0") == "1"
+# The merge's comparisons with V7 and V6 (rules 4, 5 and KS's V6 floor) are off in a
+# smoke, whose datasets are not V7's; AV6_COMPARE=1 runs them anyway, to test the code.
+const COMPARE = !SMOKE || get(ENV, "AV6_COMPARE", "0") == "1"
 const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
 const NCELLS = SMOKE ? 3 : 50
 const HORIZON = SMOKE ? 120.0 : M0_HORIZON_S
@@ -303,7 +306,7 @@ function run_merge(out)
         tx = truth_x(p.ds, s)
         ranks[j, :] = [count(<(tx[q]), flat[idx, q]) for q in 1:P]
         r = parse(Int, String(f)[2:end])
-        if isfile(joinpath(V7_DIR, "replicate$(r).jls")) && !SMOKE
+        if isfile(joinpath(V7_DIR, "replicate$(r).jls")) && COMPARE
             V = v7_draws(r, pnames)
             ev = MDT.ess(reshape(V, size(V, 1), 1, P); kind = :bulk)
             sdv = vec(std(V; dims = 1))
@@ -372,7 +375,7 @@ function run_merge(out)
     end
 
     # Rule 5: against V7, information.
-    if !SMOKE
+    if COMPARE
         say("\n## Against V7 over the $R (rule 5, information)\n")
         say("d_r = (mean_mixed − mean_V7) / sd_V7 per replicate; V7's own MCSE is 1/√ESS_r.\n")
         say("| Parameter (log) | mean d ± SE | median |d| | median V7 MCSE | replicates with |d| > 3 MCSE | median SD ratio |")
@@ -391,7 +394,7 @@ function run_merge(out)
         println(o, join(String.(pnames), '\t'))
         foreach(i -> println(o, join((@sprintf("%.17g", v) for v in Xv[i, :]), '\t')), axes(Xv, 1))
     end
-    if !SMOKE
+    if COMPARE
         v6 = v6_reference(pnames)
         say("\n## m0_v6 against V6 (rule 4, information; F10's matched nulls)\n")
         say("| Parameter (log) | mixed mean ± sd | V6 mean ± sd | W1 / SD_V6 | matched nulls | reading |")
@@ -418,7 +421,7 @@ function run_merge(out)
         Xk = posterior_draws(out, kf)
         fb = reshape(permutedims(Xb, (1, 3, 2)), :, P)
         fk = reshape(permutedims(Xk, (1, 3, 2)), :, P)
-        v6 = base === :v6 && !SMOKE ? v6_reference(pnames) : nothing
+        v6 = base === :v6 && COMPARE ? v6_reference(pnames) : nothing
         for q in 1:P
             if v6 === nothing
                 sd = std(fb[:, q])
