@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-23
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-24
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -309,10 +309,82 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
+  Planned in §12 2026-10-24, "B7 as planned". One commit per task:
+  - [ ] B7.1 This plan, as a §12 entry.
+  - [ ] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
+  - [ ] B7.3 A stream switch, `mixed_setup(ds; streams)` — verify by `(:tx, :bulk)` equal to today's density bitwise, `(:bulk,)` equal to prior + bulk, `(:tx,)` equal to prior + transcript factors, and AV3 on each to 1e-6.
+  - [ ] B7.4 Jittered starts and seed ranges — verify by a test that starts lie in the box, are reproducible at a seed, and their seeds are disjoint from the cells' and the ensemble's.
+  - [ ] B7.5 The AV6 driver (`dev/scripts/av6_89_b7.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
+  - [ ] B7.6 The production run: 50 replicates, 3 KS refits, 2 stream arms — verify by `sacct` showing every job COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
+  - [ ] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
+  - [ ] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask.
+  - [ ] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-24 — B7 as planned: AV6's rules, run size and the extra arms (the user's decisions; fixed before any run)
+
+- **Why an entry.** AV6 (§3) names the comparison but gives no pass rule for the
+  marginals, and B7 had no verification clause.
+- **Run size.**
+  - Profile the gradient first (B7.2), with a resize gate.
+  - Then each posterior is B5's pipeline (θ_ref by the bounded MAP, the 800-cell
+    ensemble, δ and S), followed by **2 chains × (200 adaptation + 200 draws)**.
+  - **Starts:** θ_ref + N(0, (0.25 prior SD)²) per coordinate, clipped to the box.
+  - **Seeds:** the start and chain seeds are recorded, and taken from a range
+    disjoint from the cells' and the ensemble's.
+  - **Cost.** At B5's 6.13 s per gradient this is about 16 CPU-h per posterior, and
+    about 880 CPU-h for everything below.
+- **Per-replicate convergence: reported, not used to drop replicates.**
+  - The target is R̂ ≤ 1.02 and bulk ESS ≥ 100 for every parameter.
+  - Replicates below it are listed, and SBC is also shown without them as a
+    sensitivity check.
+  - Only a complete set of 50 is merged, as V7's guard requires.
+- **AV6's pass line is SBC.**
+  - **Data:** V7's 50 datasets, `m0_dataset(16_200_000 + r)`.
+  - **Ranks:** each replicate's 400 draws are thinned to L = 100, and the rank is
+    `count(< truth)`, as in `sbc_v7_16a9b.jl`.
+  - **Pass:** the rank-ECDF lies within simultaneous bands at 1 − 0.05/6 for all six
+    parameters.
+- **The floor on m0_v6** (information, F10's construction).
+  - W1 per marginal, in reference SDs, between the mixed posterior and V6's pooled
+    chains.
+  - It is read against F10's four matched nulls as resolved or not resolved, never
+    as zero.
+  - The ptsG–ENO contour is drawn.
+- **Against V7 over the 50** (information, not a gate).
+  - Per replicate, d_r = (mean_mix − mean_V7) / sd_V7, with V7's own MCSE
+    (1/√ESS_r).
+  - It is reported per parameter as the mean bias ± its SE across replicates, with
+    the SD ratio.
+  - V7 has one 556-draw chain per dataset, so no matched floor exists there.
+- **KS** is checked on m0_v6 and on the two V7 replicates with the lowest
+  kcatF_R_ENO truths.
+  - **The refit:** S is re-estimated from a new 800-cell ensemble at the mixed
+    posterior mean, with δ held fixed, and the posterior is refitted at the same
+    size.
+  - **KS fires** if, on any marginal, W1 between the fixed-S and re-estimated-S
+    posteriors exceeds the floor.
+  - **The floor:** on m0_v6, F10's matched nulls. Elsewhere, the larger of the two
+    runs' chain-vs-chain W1.
+- **KC.**
+  - Each replicate's CPU-h by `sacct` (MAP, ensemble and chains) is set against
+    50.75.
+  - It is reported per replicate and as a median.
+  - **KC fires** if the median exceeds 50.75.
+- **Stream arms on m0_v6** (added: §3's block-2 check, and the outline's "ptsG still
+  shrinks under metabolites only").
+  - `mixed_setup` gains `streams`, and B7 runs a metabolites-only fit and a
+    transcripts-only fit at the same size.
+  - Each is compared with 16b.4's exact single-stream fit: W1 in exact SD, against
+    16b.4's own chain-vs-chain W1.
+  - ptsG's shrinkage under metabolites only (1 − var_post / var_prior) is reported
+    beside the exact fit's.
+  - If 16b.4 has not landed when the rest is done, stop and ask.
+- **Not changed:** δ, S's construction, the box, the step cap, KG's status and the
+  exact sampler.
 
 ### 2026-10-24 — B6 as built: how its clause was checked, and what #102's review changed (after the runs)
 
