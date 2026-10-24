@@ -29,13 +29,14 @@
   and `:mixed` in 39m33s. Only `:mixed` is past §12's 5-minute guard. Both are
   gated behind one flag, so the default suite stays near its 57–59 min.
   `dev/scripts/dispatch_89_b6.slurm` runs them at 4 threads.
-- **Slurm at `0459c3d`:** suite job 19142081 and identity job 19142082, both
-  launched from `.worktrees/89b6-0459c3d`. Results: PENDING, fill in here and in
-  §11/§12 "as built".
+- **Slurm at `0459c3d`** (launched from `.worktrees/89b6-0459c3d`):
+  - suite job 19142081: 28811 of 28811 in 58m43s (B5's 28791 + 20);
+  - identity job 19142082: 30 of 30 at 4 threads in 35m32s.
+- B6 is ticked in §11, and §12 2026-10-24 "B6 as built" records the checks. The PR
+  is #102.
 
 **Next:**
-1. Record 19142081/19142082, tick B6, write §12 "B6 as built", open the PR,
-   `/check-PR`, merge with a merge commit.
+1. `/check-PR` #102 and merge with a merge commit.
 2. B7 (AV6): profile the gradient first. Route (ii)'s dual solve is almost all of
    its ~5–6 s at 3 cells. The order is in E3: dual vs primal `sol.stats`,
    FullSpecialize, a batched transcript factor, an eigen-form bulk term. B7's 50
