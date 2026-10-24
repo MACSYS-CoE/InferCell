@@ -203,6 +203,32 @@ using Turing: logjoint, sample, NUTS
         end
     end
 
+    # B7.4 (§12 2026-10-24, "B7 as planned").
+    @testset "chain seeds and jittered starts" begin
+        seeds = mixed_chain_seeds(ds, 2)
+        @test length(seeds) == 2 && allunique(seeds)
+        @test all(>(typemax(UInt32)), seeds)
+        @test isdisjoint(seeds, ds.seeds)
+        @test isdisjoint(seeds, reference_seeds(ds, 800))
+        arms = reduce(vcat, [mixed_chain_seeds(ds, 16; arm) for arm in 0:3])
+        @test allunique(arms)
+        other = mixed_chain_seeds(merge(ds, (; replicate_seed = ds.replicate_seed + 1)), 16)
+        @test isdisjoint(arms, other)
+        @test_throws ArgumentError mixed_chain_seeds(ds, 2; arm = 4)
+        @test_throws ArgumentError mixed_chain_seeds(ds, 17)
+        lo, hi = mixed_box(s)
+        a = mixed_jittered_start(Xoshiro(seeds[1]), s, x)
+        b = mixed_jittered_start(Xoshiro(seeds[1]), s, x)
+        c = mixed_jittered_start(Xoshiro(seeds[2]), s, x)
+        @test a.x == b.x && a.tries == b.tries
+        @test a.x != c.x && a.x != x
+        @test all(lo .<= a.x .<= hi)
+        @test isfinite(mixed_logdensity(s, a.x))
+        # Where every density is −∞, it gives up after `tries` draws.
+        capped = mixed_setup(ds; maxiters = 10)
+        @test_throws ErrorException mixed_jittered_start(Xoshiro(3), capped, x; tries = 2)
+    end
+
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         @testset "integration: the reference θ and a few NUTS steps" begin
             ref = reference_theta(s; maxiters = 20)

@@ -407,6 +407,43 @@ function reference_seeds(ds, n::Integer)
     return seeds
 end
 
+const CHAIN_SEED_OFFSET = 90_000_000_000
+
+"""
+    mixed_chain_seeds(ds, n; arm = 0) -> Vector{Int}
+
+The seeds of `n` NUTS chains on `ds` (§12 2026-10-24, "B7 as planned"):
+`CHAIN_SEED_OFFSET + 64 · replicate seed + 16 · arm + c` for chain c, so each
+dataset and each arm of a fit on it (`0 ≤ arm < 4`, `n ≤ 16`) has its own. They
+are above every `UInt32`, so disjoint from the dataset's cell seeds and its
+reference seeds by construction, and refused if not.
+"""
+function mixed_chain_seeds(ds, n::Integer; arm::Integer = 0)
+    0 <= arm < 4 && 1 <= n <= 16 || throw(ArgumentError("need 0 ≤ arm < 4 and 1 ≤ n ≤ 16"))
+    seeds = [CHAIN_SEED_OFFSET + 64 * ds.replicate_seed + 16 * arm + c for c in 1:n]
+    all(>(typemax(UInt32)), seeds) && isdisjoint(seeds, ds.seeds) || error(
+        "replicate $(ds.replicate_seed)'s chain seeds meet its cells'")
+    return seeds
+end
+
+"""
+    mixed_jittered_start(rng, s, centre; scale = 0.25, tries = 20) -> (x, tries)
+
+A chain's start: `centre` plus `scale` prior SDs of Normal noise per coordinate,
+clamped to the support box ([`mixed_box`](@ref)). A draw whose log density is
+not finite is redrawn, up to `tries` times, and the number of draws is returned.
+"""
+function mixed_jittered_start(rng::AbstractRNG, s::MixedSetup, centre::AbstractVector;
+                              scale::Real = 0.25, tries::Integer = 20)
+    lo, hi = mixed_box(s)
+    sd = vcat(s.prior_sd, s.sigma_prior.σ)
+    for k in 1:tries
+        x = clamp.(centre .+ scale .* sd .* randn(rng, length(sd)), lo, hi)
+        isfinite(mixed_logdensity(s, x)) && return (x = x, tries = k)
+    end
+    error("no finite start in $tries draws about $centre")
+end
+
 """
     delta_and_S(cells, m_ref; C) -> (delta, S)
 
@@ -432,4 +469,5 @@ export MixedSetup, mixed_setup, with_reference, mixed_parameter_names, mixed_pri
        mixed_box,
        route_transcription_rates, mean_field_log_bulk, bulk_loglik, mixed_loglik,
        mixed_log_prior, mixed_logdensity, mixed_model, reference_theta, mixed_theta_values,
-       reference_ensemble, reference_seeds, delta_and_S
+       reference_ensemble, reference_seeds, delta_and_S, mixed_chain_seeds,
+       mixed_jittered_start
