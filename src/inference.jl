@@ -232,7 +232,8 @@ runs the route end to end in one process:
   then NUTS on [`mixed_model`](@ref) from θ_ref. Keywords: `n_adapt`, `n_draws`,
   `n_chains = 1`, `n_ref = 800`, `target_accept = 0.8`, `map_maxiters = 200`.
 
-Chains run one after another from `rng`. Both routes return `MCMCChains.Chains`
+Each route draws from its own stream, forked from `rng` before any setup runs, and
+chains run one after another on it. Both routes return `MCMCChains.Chains`
 over [`mixed_parameter_names`](@ref)' coordinates, `log_<target>` for each of
 `targets = M0_TARGETS` and then `log_sigma_b`, with the route's own state in the
 chain's `info` and `info.route` set.
@@ -246,6 +247,11 @@ end
 
 infer(model::AbstractSubModel, ds::NamedTuple; kwargs...) = infer([model], ds; kwargs...)
 
+# A route's own stream, forked from `rng` before anything runs. The setups reseed
+# the global generator once per cell (`gibbs_setup`, `emit_ensemble`), so drawing
+# from `Random.default_rng()` after them would give every call the same draws.
+_route_stream(rng::AbstractRNG) = Xoshiro(rand(rng, UInt64))
+
 _log_names(targets) = vcat([Symbol(:log_, n) for n in targets], :log_sigma_b)
 
 function _infer_exact(models, ds; rng::AbstractRNG = Random.default_rng(),
@@ -254,6 +260,7 @@ function _infer_exact(models, ds; rng::AbstractRNG = Random.default_rng(),
                       targets::AbstractVector{Symbol} = M0_TARGETS)
     0 <= n_burn < n_sweeps || throw(ArgumentError(
         "n_burn must be in 0:$(n_sweeps - 1), got $n_burn"))
+    rng = _route_stream(rng)
     g = gibbs_setup(ds; models, build, N, horizon = ds.times[end])
     order = vcat(g.cme, g.forwards)
     sort(order) == sort(collect(targets)) || throw(ArgumentError(
@@ -282,6 +289,7 @@ function _infer_mixed(models, ds; rng::AbstractRNG = Random.default_rng(),
                       n_ref::Integer = 800, target_accept::Real = 0.8,
                       map_maxiters::Integer = 200,
                       targets::AbstractVector{Symbol} = M0_TARGETS)
+    rng = _route_stream(rng)
     s0 = mixed_setup(ds; models, targets)
     ref = reference_theta(s0; maxiters = map_maxiters)
     r = _mixed_solve(s0, exp.(ref.x[1:length(s0.names)]))
