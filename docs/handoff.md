@@ -35,29 +35,35 @@
 - **The smoke:** `SMOKE=1` r3 at `b101190` ran every stage, with merge job
   19081758. Its output is in `/fred/oz022/tkimpson/infercell-89-b5-smoke-2026-10-23-r3/`.
 
-**Cost:**
-- On M0, at 50 cells and 600 s, a density takes 1.9 s and a gradient 5.6 s
-  (5.1 GiB). The dual route solve accounts for 5.1 s of the gradient.
-- A smoke at 3 cells and 120 s also took 5.35 s per gradient. That is worth
-  profiling before B7.
-- NUTS ran at tree depth 4, with about 15 leapfrog steps per draw.
+**Cost before the run (login node and smoke r3; superseded by the run below):**
+- On the login node, at 50 cells and 600 s, a density took 1.9 s and a gradient
+  5.6 s (5.1 GiB), with the dual route solve about 5.1 s of it.
+- Smoke r3 (3 cells, 120 s, job 19081758) took 5.35 s per gradient, at tree
+  depth 4 and about 15 leapfrog steps per draw.
 
 **The full run (done 2026-10-24, `dev/scripts/mixed_nuts_89_result.md`):**
 - Jobs 19091859–19091881 at `469ca26`, launched by `NADAPT=300 NDRAW=300
   dev/scripts/mixed_nuts_89.sh <outdir>`. Archive
   `/fred/oz022/tkimpson/infercell-89-b5-archive-2026-10-23/`, with `SHA256SUMS`.
 - θ_ref: the bounded MAP, log density −591.04, in 6793 s. Its σ_b is about twice
-  the truth's, as expected at δ = S = 0.
+  the truth's, consistent with fitting at δ = S = 0.
 - δ is small: per-pool means lie in [−0.084, +0.114] nats. S has trace 1.72 and is
-  full rank.
-- The chains: four of 300 + 300, with 0 divergences, R̂ ≤ 1.012, bulk ESS
+  full rank, though nearly singular (smallest eigenvalue 7.4e-11).
+- The chains: four of 300 + 300, all started at θ_ref, with 0 divergences in the
+  draws, R̂ ≤ 1.012, bulk ESS
   1291–1905 and a median of 7 leapfrog steps per draw.
-- Cost: 41.5 CPU-h by `sacct`, inside KC's 50.75. It came in under the projected
-  59 because the trees were shallower than the smoke's.
+- Cost: 41.5 CPU-h by `sacct`, inside KC's 50.75 on this dataset at this run
+  length. It came in under the projected 59 because the draws' trees were
+  shallower (7 steps); adaptation took about 12 per iteration.
 - Beside F10 (information only): every mean lies within 0.51 F10 SD, and the SDs
   agree to within 22%.
-- B5 is ticked in §11. No §12 "as run" entry was needed, since nothing diverged
-  from the rules.
+- B5 is ticked in §11. §12 2026-10-24 "B5 as run" records how the clause was
+  checked and corrects four details of the earlier entries (#101's review).
+- #101's review left code follow-ups for B6/B7: a typed overdraw exception in
+  place of matching the error text; `reference_theta`'s catch-all fallback; unit
+  tests for `reference_seeds`/`reference_ensemble`; jittered chain starts; and
+  E3's profiling order (dual vs primal `sol.stats`, FullSpecialize, a batched
+  transcript factor, an eigen-form bulk term).
 
 **Next:**
 1. Open the PR, run `/check-PR` and merge with a merge commit.

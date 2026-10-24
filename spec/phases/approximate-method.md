@@ -234,7 +234,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - `src/mixed_likelihood.jl` (B5): the mixed likelihood on route (ii)
   (`mixed_setup`, `mixed_logdensity`, `mixed_model`), the reference θ, the
   reference ensemble, and δ and S. `dev/scripts/mixed_nuts_89_result.md` is its
-  smoke run.
+  full run on m0_v6, which serves as the verification clause's end-to-end smoke
+  (§12 2026-10-24).
 - Later PRs: the dispatcher, and B7's and B8's result files.
 
 ## 7. Non-goals
@@ -305,13 +306,42 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. The rethink (2026-10-23, §12; `dev/scripts/jensen_rethink_89_result.md`) names the cause and tests δ. Decided 2026-10-23: the gap is reported, not a stop.
   - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19039511): uncorrected, krnadeg moves by 2.4–3.1 posterior SDs even with the transcripts' information; with δ_ref the residual's RMS is within about 1 SD, and it is mostly within its noise.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
-- [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75. No pass line on the posterior; AV6 (B7) is the test.
+- [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [ ] **B6.** The dispatcher.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-24 — B5 as run: how its clause was checked, and corrections to the entries below (after the run; from #101's review)
+
+None of this changes a rule or a result.
+
+- **Clock identity, as tested.**
+  - The last column is held to 1e-12 relative against the route's own solve.
+  - Each earlier column is held to 1e-6 against a separate solve ending at
+    60m + 1. A route rebuilds at 60m − 1 only when its horizon reaches 60m, so
+    those columns cannot come from the same solve.
+  - The clause's "to 1e-12" is met for the last column only.
+- **The −∞ fraction, as reported.** The merge reports Turing's
+  `numerical_error` count over the 1200 kept draws (0). That count merges −∞
+  with divergences. The adaptation iterations are discarded, so they are not
+  counted.
+- **The end-to-end smoke** is the full run, 4 × (300 + 300) at `469ca26`
+  (`dev/scripts/mixed_nuts_89_result.md`). The r1–r3 smokes were pipeline
+  checks only.
+- **Corrections to the entries below:**
+  - **The support box's mass.** The box's 2e-9 is prior mass, not posterior
+    mass, and it is not the binding truncation for krnadeg. μmin (krnadeg's 1e-6
+    quantile, from "B5 as planned") already cuts it at about −4.75 prior SD,
+    which removes about 1e-6 of prior mass.
+  - **The step cap's margin.** It was measured on Float64 solves out to ±4 SD.
+    The dual solves NUTS runs were not counted.
+  - **"The first smoke run's MAP"** (job 19076299) was smoke r2; r1 stopped
+    before its MAP.
+  - **"A range of the dataset's own" seeds** is a `Xoshiro(89_000_000_000 +
+    replicate seed)` stream, checked unique and disjoint from the cells' seeds.
 
 ### 2026-10-23 — B5's support box and step cap (a fix, made before any B5 result)
 
