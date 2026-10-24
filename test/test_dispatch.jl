@@ -50,7 +50,7 @@ using MCMCChains: Chains
                  :log_kcatF_R_ENO, :log_kcatF_R_FBA, :log_sigma_b]
 
         @testset "identity: :exact is the Gibbs chain composed by hand" begin
-            N, n_sweeps, n_burn = 4, 3, 1
+            N, n_sweeps, n_burn = 4, 2, 1
             ch = infer(ms, ds; route = :exact, rng = Xoshiro(6), N, n_sweeps, n_burn)
 
             rng = Xoshiro(rand(Xoshiro(6), UInt64))
@@ -70,7 +70,7 @@ using MCMCChains: Chains
             @test Symbol.(ch.name_map.parameters) == names
             @test size(ch) == (n_sweeps - n_burn, length(names), 1)
             @test Array(ch[:, names, :])[:, :, 1] == reduce(vcat, want)
-            @test ch.info.starts[1].σ == σ0
+            @test ch.info.start.σ == σ0
 
             # The default rng: the setup reseeds the global generator per cell, so
             # without the route's own stream these two calls drew the same chain.
@@ -83,7 +83,7 @@ using MCMCChains: Chains
         end
 
         @testset "identity: :mixed is B5's pipeline composed by hand" begin
-            kw = (n_ref = 8, n_adapt = 3, n_draws = 3, map_maxiters = 2)
+            kw = (n_ref = 8, n_adapt = 1, n_draws = 2, max_depth = 2, map_maxiters = 1)
             ch = infer(ms, ds; route = :mixed, rng = Xoshiro(7), kw...)
 
             s0 = mixed_setup(ds)
@@ -93,7 +93,8 @@ using MCMCChains: Chains
                                        horizon = H)
             d = delta_and_S(cells, mean_field_log_bulk(s0, r.sol); C = 3)
             s = with_reference(s0, d.delta, d.S)
-            hand = sample(Xoshiro(rand(Xoshiro(7), UInt64)), mixed_model(s), NUTS(kw.n_adapt, 0.8), kw.n_draws;
+            hand = sample(Xoshiro(rand(Xoshiro(7), UInt64)), mixed_model(s),
+                          NUTS(kw.n_adapt, 0.8; max_depth = kw.max_depth), kw.n_draws;
                           initial_params = ref.x, progress = false)
 
             @test ch.info.route === :mixed

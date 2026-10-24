@@ -159,7 +159,10 @@ end
 
 The coordinates of x: `log_<target>` for each target, then `log_sigma_b`.
 """
-mixed_parameter_names(s::MixedSetup) = vcat([Symbol(:log_, n) for n in s.names], :log_sigma_b)
+mixed_parameter_names(s::MixedSetup) = _log_names(s.names)
+
+# The chain coordinates for a list of targets, shared with `infer`'s exact route.
+_log_names(targets) = vcat([Symbol(:log_, n) for n in targets], :log_sigma_b)
 
 """
     mixed_prior_median(s) -> Vector{Float64}

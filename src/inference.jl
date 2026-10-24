@@ -221,7 +221,8 @@ function inference_route(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
         "named: route = :exact (the three-block Gibbs sampler, the reference) or " *
         "route = :mixed (the mixed likelihood, an approximation)"))
     route in CELL_ROUTES || throw(ArgumentError(
-        "unknown route :$route for cell and bulk data; the routes are :exact and :mixed"))
+        "unknown route :$route for cell and bulk data; the routes are " *
+        join((":$r" for r in CELL_ROUTES), " and ")))
     return route
 end
 
@@ -233,25 +234,24 @@ Inference for a hybrid composition from a cell and bulk record `ds`, as
 runs the route end to end in one process:
 - `:exact`: [`gibbs_setup`](@ref), a start drawn from the prior as V7's,
   [`gibbs_init`](@ref) and `n_sweeps` of [`gibbs_sweep!`](@ref), the first `n_burn`
-  dropped. Keywords: `n_sweeps`, `n_burn = 0`, `n_chains = 1`, `N = 20`,
-  `build = build_m0`. Each cell's driver is built by `build`, which must build
-  `models`: the default builds `m0_models()`, whatever `models` holds.
+  dropped. Keywords: `n_sweeps`, `n_burn = 0`, `N = 20`. Each cell's driver is
+  built by `gibbs_setup`'s default, `build_m0`, so `models` must be M0's
+  composition: a different one gives drivers and priors from two compositions.
 - `:mixed`: B5's pipeline. [`reference_theta`](@ref), the reference ensemble at it
   ([`reference_ensemble`](@ref), [`reference_seeds`](@ref)), [`delta_and_S`](@ref),
   then NUTS on [`mixed_model`](@ref) from θ_ref. Keywords: `n_adapt`, `n_draws`,
-  `n_chains = 1`, `n_ref = 800`, `target_accept = 0.8`, `map_maxiters = 200`.
+  `n_ref = 800`, `target_accept = 0.8`, `max_depth = 10`, `map_maxiters = 200`.
 
-Each route draws from its own stream, forked from `rng` before any setup runs, and
-chains run one after another on it. Both routes return `MCMCChains.Chains`
-over [`mixed_parameter_names`](@ref)' coordinates, `log_<target>` for each of
-`targets = M0_TARGETS` and then `log_sigma_b`, with the route's own state in the
-chain's `info` and `info.route` set.
+Each call runs one chain, on its own stream forked from `rng` before any setup runs;
+join several with `chainscat`. Both routes return `MCMCChains.Chains` over
+[`mixed_parameter_names`](@ref)' coordinates, `log_<target>` for each of
+`M0_TARGETS` and then `log_sigma_b`, with the route's own state in the chain's
+`info` (`start`, or `theta_ref`, `delta` and `S`) and `info.route` set.
 """
 function infer(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
                route::Union{Nothing, Symbol} = nothing, kwargs...)
     r = inference_route(models, ds; route)
-    ms = collect(AbstractSubModel, models)
-    return r === :exact ? _infer_exact(ms, ds; kwargs...) : _infer_mixed(ms, ds; kwargs...)
+    return r === :exact ? _infer_exact(models, ds; kwargs...) : _infer_mixed(models, ds; kwargs...)
 end
 
 # A route's own stream, forked from `rng` before anything runs. The setups reseed
@@ -259,45 +259,35 @@ end
 # from `Random.default_rng()` after them would give every call the same draws.
 _route_stream(rng::AbstractRNG) = Xoshiro(rand(rng, UInt64))
 
-_log_names(targets) = vcat([Symbol(:log_, n) for n in targets], :log_sigma_b)
-
 function _infer_exact(models, ds; rng::AbstractRNG = Random.default_rng(),
-                      n_sweeps::Integer, n_burn::Integer = 0, n_chains::Integer = 1,
-                      N::Integer = 20, build = build_m0,
-                      targets::AbstractVector{Symbol} = M0_TARGETS)
+                      n_sweeps::Integer, n_burn::Integer = 0, N::Integer = 20)
     0 <= n_burn < n_sweeps || throw(ArgumentError(
         "n_burn must be in 0:$(n_sweeps - 1), got $n_burn"))
     rng = _route_stream(rng)
-    g = gibbs_setup(ds; models, build, N, horizon = ds.times[end])
+    g = gibbs_setup(ds; models, N, horizon = ds.times[end])
     order = vcat(g.cme, g.forwards)
-    sort(order) == sort(collect(targets)) || throw(ArgumentError(
-        "the Gibbs sampler's free parameters $(order) are not the targets $(targets)"))
-    perm = [findfirst(==(n), order) for n in targets]
-    runs = map(1:n_chains) do _
-        v = Dict(draw_truth(rng, models; names = targets, purpose = :calibration).values)
-        σ0 = rand(rng, g.sigma_prior)
-        cme0 = [v[n] for n in g.cme]
-        u0 = [log(v[f]) for f in g.forwards]
-        s = gibbs_init(rng, g; cme = cme0, u = u0, σ = σ0)
-        for _ in 1:n_sweeps
-            gibbs_sweep!(s, g)
-        end
-        draws = [vcat(vcat(log.(t.cme), t.u)[perm], log(t.σ))' for t in s.trace[(n_burn + 1):end]]
-        (draws = reduce(vcat, draws), start = (cme = cme0, u = u0, σ = σ0))
+    sort(order) == sort(M0_TARGETS) || throw(ArgumentError(
+        "the Gibbs sampler's free parameters $(order) are not M0_TARGETS"))
+    perm = [findfirst(==(n), order) for n in M0_TARGETS]
+    v = Dict(draw_truth(rng, models; names = M0_TARGETS, purpose = :calibration).values)
+    start = (cme = [v[n] for n in g.cme], u = [log(v[f]) for f in g.forwards],
+             σ = rand(rng, g.sigma_prior))
+    s = gibbs_init(rng, g; start...)
+    for _ in 1:n_sweeps
+        gibbs_sweep!(s, g)
     end
-    A = cat((r.draws for r in runs)...; dims = 3)
-    return Chains(A, _log_names(targets);
-                  info = (route = :exact, starts = [r.start for r in runs], N = g.N,
-                          n_burn = n_burn))
+    draws = reduce(vcat, (permutedims(vcat(vcat(log.(t.cme), t.u)[perm], log(t.σ)))
+                          for t in s.trace[(n_burn + 1):end]))
+    return Chains(reshape(draws, size(draws)..., 1), _log_names(M0_TARGETS);
+                  info = (route = :exact, start = start))
 end
 
 function _infer_mixed(models, ds; rng::AbstractRNG = Random.default_rng(),
-                      n_adapt::Integer, n_draws::Integer, n_chains::Integer = 1,
-                      n_ref::Integer = 800, target_accept::Real = 0.8,
-                      map_maxiters::Integer = 200,
-                      targets::AbstractVector{Symbol} = M0_TARGETS)
+                      n_adapt::Integer, n_draws::Integer, n_ref::Integer = 800,
+                      target_accept::Real = 0.8, max_depth::Integer = 10,
+                      map_maxiters::Integer = 200)
     rng = _route_stream(rng)
-    s0 = mixed_setup(ds; models, targets)
+    s0 = mixed_setup(ds; models)
     ref = reference_theta(s0; maxiters = map_maxiters)
     r = _mixed_solve(s0, exp.(ref.x[1:length(s0.names)]))
     r === nothing && error("route (ii) cannot run at θ_ref ($(ref.method)), so δ and S cannot be formed")
@@ -305,14 +295,12 @@ function _infer_mixed(models, ds; rng::AbstractRNG = Random.default_rng(),
                                models, horizon = ds.times[end])
     d = delta_and_S(cells, mean_field_log_bulk(s0, r.sol); C = size(ds.transcripts, 1))
     s = with_reference(s0, d.delta, d.S)
-    model = mixed_model(s)
-    runs = [sample(rng, model, NUTS(n_adapt, target_accept), n_draws;
-                   initial_params = ref.x, progress = false) for _ in 1:n_chains]
-    chain = n_chains == 1 ? only(runs) : chainscat(runs...)
-    names = mixed_parameter_names(s)
-    chain = replacenames(chain, ("x[$i]" => string(n) for (i, n) in enumerate(names))...)
+    chain = sample(rng, mixed_model(s), NUTS(n_adapt, target_accept; max_depth), n_draws;
+                   initial_params = ref.x, progress = false)
+    chain = replacenames(chain, ("x[$i]" => string(n)
+                                 for (i, n) in enumerate(mixed_parameter_names(s)))...)
     return setinfo(chain, merge(chain.info, (route = :mixed, theta_ref = ref, delta = d.delta,
-                                             S = d.S, n_ref = n_ref)))
+                                             S = d.S)))
 end
 
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,

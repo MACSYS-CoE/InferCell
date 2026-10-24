@@ -10,7 +10,7 @@ using Turing
 using Distributions
 using StaticArrays
 using Random
-using MCMCChains: replacenames, Chains, setinfo, chainscat
+using MCMCChains: replacenames, Chains, setinfo
 using ForwardDiff
 using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
                      Diagonal
