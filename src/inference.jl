@@ -232,7 +232,8 @@ runs the route end to end in one process:
 - `:exact`: [`gibbs_setup`](@ref), a start drawn from the prior as V7's,
   [`gibbs_init`](@ref) and `n_sweeps` of [`gibbs_sweep!`](@ref), the first `n_burn`
   dropped. Keywords: `n_sweeps`, `n_burn = 0`, `n_chains = 1`, `N = 20`,
-  `build = build_m0`.
+  `build = build_m0`. Each cell's driver is built by `build`, which must build
+  `models`: the default builds `m0_models()`, whatever `models` holds.
 - `:mixed`: B5's pipeline. [`reference_theta`](@ref), the reference ensemble at it
   ([`reference_ensemble`](@ref), [`reference_seeds`](@ref)), [`delta_and_S`](@ref),
   then NUTS on [`mixed_model`](@ref) from θ_ref. Keywords: `n_adapt`, `n_draws`,
