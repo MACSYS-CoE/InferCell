@@ -301,7 +301,7 @@ function _infer_mixed(models, ds; rng::AbstractRNG,
                                models, horizon = ds.times[end])
     d = delta_and_S(cells, mean_field_log_bulk(s0, r.sol); C = size(ds.transcripts, 1))
     s = with_reference(s0, d.delta, d.S)
-    chain = sample(rng, mixed_model(s), NUTS(n_adapt, target_accept; max_depth), n_draws;
+    chain = sample(rng, mixed_model(s), NUTS(Int(n_adapt), Float64(target_accept); max_depth = Int(max_depth)), n_draws;
                    initial_params = ref.x, progress = false)
     chain = replacenames(chain, ("x[$i]" => string(n)
                                  for (i, n) in enumerate(mixed_parameter_names(s)))...)
