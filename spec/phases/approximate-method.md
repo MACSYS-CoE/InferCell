@@ -314,6 +314,46 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
+### 2026-10-24 — B6 as planned: the dispatcher's shape and its verification clause (the user's decisions; fixed before any code)
+
+- **Scope.** The three routes of §1, named: plain NUTS, exact Gibbs and the mixed
+  likelihood. ABC stays as it was. No registry, no arbitrary compositions (§7).
+- **Selection.** `inference_route(models, data; route = nothing)` returns the route
+  as a symbol, or throws an `ArgumentError` that names what is wrong.
+  - An all-ODE or all-jump composition with `ObservedData` takes `:nuts` or `:abc`,
+    as before.
+  - A hybrid composition with `ObservedData` is refused, as before. The message now
+    points at the cell-data routes.
+  - A hybrid composition with a cell and bulk dataset (as `m0_dataset` returns)
+    takes `:exact` or `:mixed`. **The route must be named.** There is no default,
+    so nothing approximate runs unless it is asked for.
+  - Any other composition with cell data, a dataset missing a field, or an unknown
+    route is refused by name.
+- **Running.** `infer(models, ds; route, rng, …)` runs the route end to end in one
+  process, from the same library functions as the stage scripts:
+  - `:exact`: `gibbs_setup`, a start drawn from the prior as V7's, `gibbs_init` and
+    the sweeps, with burn-in dropped;
+  - `:mixed`: B5's pipeline, so `reference_theta`, `reference_ensemble`,
+    `delta_and_S`, `with_reference`, then NUTS from θ_ref.
+  - The Slurm stage scripts stay as they are for production runs.
+- **The common output.** Both routes return `MCMCChains.Chains` over
+  `mixed_parameter_names`, so `log_<target>` for each of M0_TARGETS, then
+  `log_sigma_b`. Each route's own state (the start; θ_ref, δ and S) goes in the
+  chain's `info`, with `info.route` set.
+- **Not in B6:** #101's review follow-ups (a typed overdraw exception,
+  `reference_theta`'s fallback, unit tests for `reference_*`, jittered starts).
+- **B6's verification clause** (`test/test_dispatch.jl`):
+  - **Selection.** Each case above, with error messages matched by phrase.
+  - **Identity.** At smoke size (3 cells, a 120 s horizon, short runs), `infer`
+    equals the route composed by hand under the same seeds, draw for draw (`==`),
+    for both `:exact` and `:mixed`.
+  - **Common output.** Both chains carry `mixed_parameter_names`. The exact chain's
+    values are the trace's on the log scale.
+  - The existing inference and refusal tests still pass.
+  - **Cost guard.** If the identity checks take more than about 5 minutes on the
+    login node, they are gated behind `INFERCELL_INTEGRATION_TESTS`, and the
+    as-built entry says so.
+
 ### 2026-10-24 — B5 as run: how its clause was checked, and corrections to the entries below (after the run; from #101's review)
 
 None of this changes a rule or a result.
