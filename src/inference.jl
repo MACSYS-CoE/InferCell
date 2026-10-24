@@ -251,8 +251,6 @@ function infer(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
     return r === :exact ? _infer_exact(ms, ds; kwargs...) : _infer_mixed(ms, ds; kwargs...)
 end
 
-infer(model::AbstractSubModel, ds::NamedTuple; kwargs...) = infer([model], ds; kwargs...)
-
 # A route's own stream, forked from `rng` before anything runs. The setups reseed
 # the global generator once per cell (`gibbs_setup`, `emit_ensemble`), so drawing
 # from `Random.default_rng()` after them would give every call the same draws.
