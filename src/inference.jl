@@ -181,7 +181,8 @@ spec/phases/approximate-method.md §1, or ABC:
 - `ObservedData` and an all-ODE composition: `:nuts`; an all-jump one: `:abc`. A
   hybrid is refused.
 - A cell and bulk record (a `NamedTuple` as [`m0_dataset`](@ref) returns) and a
-  hybrid composition: `route`, which must be named, `:exact` (the three-block Gibbs
+  hybrid composition with M0's gene expression, one `CoreATranscription` and one
+  `CoreATranscriptDecay`: `route`, which must be named, `:exact` (the three-block Gibbs
   sampler, the reference) or `:mixed` (the mixed likelihood, an approximation).
 
 Anything else throws an `ArgumentError` that names what is wrong.
@@ -208,6 +209,11 @@ function inference_route(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
         "cell and bulk data have routes only for a hybrid composition, jump gene " *
         "expression coupled to ODE metabolism; this one is all :$f. Its route takes " *
         "ObservedData"))
+    nt = count(m -> m isa CoreATranscription, models)
+    nd = count(m -> m isa CoreATranscriptDecay, models)
+    nt == 1 && nd == 1 || throw(ArgumentError(
+        "the cell-data routes are built for M0's gene expression: one CoreATranscription " *
+        "and one CoreATranscriptDecay, as m0_models() holds. This hybrid has $nt and $nd"))
     route === nothing && throw(ArgumentError(
         "a hybrid composition with cell and bulk data has two routes, and one must be " *
         "named: route = :exact (the three-block Gibbs sampler, the reference) or " *

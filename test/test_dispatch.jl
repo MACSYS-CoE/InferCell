@@ -13,7 +13,8 @@ using MCMCChains: Chains
         obs = ObservedData([0.0, 1.0], zeros(1, 2), [:M_atp_c])
         cells = (times = [60.0], genes = [:g], seeds = [1], replicate_seed = 1,
                  transcripts = zeros(Int, 1, 1, 1), bulk = zeros(1, 1))
-        hybrid = AbstractSubModel[ToyPool(), ToyExpression()]
+        hybrid = collect(AbstractSubModel, m0_models())
+        toy = AbstractSubModel[ToyPool(), ToyExpression()]
         ode = AbstractSubModel[CoreAStub(:DiffA; st = [:M_atp_c], mode = :differentiable)]
 
         @test inference_route(ode, obs) === :nuts
@@ -23,12 +24,14 @@ using MCMCChains: Chains
 
         msg(f) = (e = caught(f); @test e isa ArgumentError; sprint(showerror, e))
         @test occursin("does not apply here", msg(() -> inference_route(ode, obs; route = :mixed)))
-        m = msg(() -> inference_route(hybrid, obs))
+        m = msg(() -> inference_route(toy, obs))
         @test occursin("no path for a hybrid composition", m) && occursin("route = :exact", m)
         m = msg(() -> inference_route(hybrid, cells))
         @test occursin("one must be named", m) && occursin(":mixed", m)
         @test occursin("unknown route :gibbs", msg(() -> inference_route(hybrid, cells; route = :gibbs)))
         @test occursin("only for a hybrid composition", msg(() -> inference_route(ode, cells; route = :exact)))
+        m = msg(() -> inference_route(toy, cells; route = :exact))
+        @test occursin("built for M0's gene expression", m) && occursin("has 0 and 0", m)
         short = Base.structdiff(cells, NamedTuple{(:bulk,)})
         @test occursin("lacks bulk", msg(() -> inference_route(hybrid, short; route = :mixed)))
         # infer refuses before any work, by the same rules.
