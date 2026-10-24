@@ -307,34 +307,61 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19039511): uncorrected, krnadeg moves by 2.4–3.1 posterior SDs even with the transcripts' information; with δ_ref the residual's RMS is within about 1 SD, and it is mostly within its noise.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
-- [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28811 of 28811 at `0459c3d` (job 19142081); identity checks 30 of 30 (job 19142082). As built: §12 2026-10-24.
+- [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
 
-### 2026-10-24 — B6 as built: how its clause was checked (after the runs)
+### 2026-10-24 — B6 as built: how its clause was checked, and what #102's review changed (after the runs)
 
-Neither a rule nor a result changes.
+No rule changes and no posterior result changes. `src/inference.jl` (#102), at
+`8a93475`.
 
-- **Built as planned,** in `src/inference.jl` (#102).
-- **One addition, made before the PR.** `infer(models, ::ObservedData)` now also
-  goes through `inference_route`. Before, a `route` keyword there fell into
-  `kwargs`: silently dropped on the NUTS path, and a MethodError on the ABC path.
-  A route that does not apply is now refused by name.
-- **The cost guard applied.** On the login node (`-t 1`) the identity checks took
-  4m02s for `:exact` and 39m33s for `:mixed`. Only `:mixed` is past the
-  5-minute guard. Both are gated behind one `INFERCELL_INTEGRATION_TESTS` flag,
-  so the default suite stays near its 57–59 min.
-  `dev/scripts/dispatch_89_b6.slurm` runs them.
-- **The checks, at `0459c3d`:**
-  - **Selection and common output** (default suite): suite job 19142081, 28811 of
-    28811. That is B5's 28791 plus B6's 20.
-  - **Identity** (gated): job 19142082, 30 of 30 at 4 threads in 35m32s. `infer`
-    equals each route composed by hand, draw for draw (`==`). The exact chain's
-    values are the trace's on the log scale, and both chains carry
-    `mixed_parameter_names`.
+- **Additions to the plan, all made before merge:**
+  - `infer(models, ::ObservedData)` also goes through `inference_route`. Before, a
+    `route` keyword there fell into `kwargs`: silently dropped on NUTS, and a
+    MethodError on ABC. ABC's branch is now named, so a later route cannot fall
+    into it.
+  - **The random stream** (#102's review, M1, fixed in two rounds). The setups
+    reseed the global generator once per cell (`gibbs_setup`, `emit_ensemble`).
+    Drawing from `Random.default_rng()` after them gave every call the same chain,
+    whatever the caller seeded. Forking at entry was not enough, because the
+    global state was left reseeded and the next call repeated this one. `infer`
+    now forks the route's stream from `rng`, snapshots the global generator, and
+    puts it back when the route returns.
+  - **The selector** (M2). A hybrid passes only with M0's gene expression: one
+    `CoreATranscription` and one `CoreATranscriptDecay`. Any other hybrid is
+    refused by name, as the clause says, rather than failing deep in a setup.
+  - **Simplified** (the review's suggestions):
+    - One chain per call. Callers join chains with `chainscat`.
+    - Both routes run M0_TARGETS. The `n_chains`, `targets` and `build` keywords
+      are gone.
+    - The exact route builds its cells with `build_m0`, as its docstring says.
+    - The mixed route takes `max_depth`.
+    - `infer(model, ds)` is dropped: a single model is never a hybrid, so it could
+      never succeed.
+- **The cost guard applied.** On the login node (`-t 1`, before `8dfa53f`) the
+  identity checks took 4m02s (`:exact`) and 39m33s (`:mixed`). Only `:mixed` was
+  past 5 min. Both are gated behind one `INFERCELL_INTEGRATION_TESTS` flag, run
+  by `dev/scripts/dispatch_89_b6.slurm`.
+  - The review then cut their settings:
+    - exact: 2 sweeps, 1 burnt;
+    - mixed: 1 adaptation step, 2 draws, depth 2, 1 MAP iteration.
+  - The job now takes 21m40s at 4 threads.
+- **The checks, at `8a93475`:**
+  - **Selection** (default suite): job 19147408, 28813 of 28813 (B5's 28791 plus
+    B6's 22).
+  - **Identity and common output** (gated): job 19147409, 34 of 34. That is the 22
+    selection checks, plus `infer` equal to each route composed by hand, draw for
+    draw (`==`), plus both chains carrying `mixed_parameter_names`. Also:
+    - the exact chain is the trace on the log scale;
+    - default-rng calls under two seeds, and consecutive ones, differ;
+    - the caller's global stream moves by the fork's single draw.
+  - The logs are archived, with `SHA256SUMS`, at
+    `/fred/oz022/tkimpson/infercell-89-b6-archive-2026-10-24/`. Round 1 (`0459c3d`:
+    jobs 19142081 and 19142082) is superseded by round 3.
 
 ### 2026-10-24 — B6 as planned: the dispatcher's shape and its verification clause (the user's decisions; fixed before any code)
 
