@@ -96,14 +96,14 @@ def figure4(out):
     ax.legend(fontsize=7)
 
     ax = fig.add_subplot(gs[1, 3])
-    bars = [("exact reference\n(V6)", V6_CPUH), ("exact production\n(F10)", F10_CPUH),
-            ("mixed, median\nover V7's 50", float(np.median(cpuh)))]
+    bars = [("exact\nreference\n(V6)", V6_CPUH), ("exact\nproduction\n(F10)", F10_CPUH),
+            ("mixed,\nmedian over\nV7's 50", float(np.median(cpuh)))]
     ax.bar(range(3), [b[1] for b in bars], color=["C0", "C0", "C3"])
     ax.set_yscale("log")
     ax.set_xticks(range(3), [b[0] for b in bars], fontsize=7)
     ax.set_ylabel("CPU-h per posterior", fontsize=8)
     ax.axhline(F10_CPUH / 10, color="k", ls=":", lw=0.8)
-    ax.text(2.4, F10_CPUH / 10, " KC", fontsize=7, va="center")
+    ax.text(-0.4, F10_CPUH / 10, "KC (F10 / 10)", fontsize=7, va="bottom")
     fig.suptitle("Figure 4 (AV6): the mixed posterior against the exact sampler's on m0_v6", fontsize=10)
     fig.tight_layout()
     save(fig, "f4_mixed_vs_exact")
