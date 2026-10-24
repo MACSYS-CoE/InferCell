@@ -1,6 +1,81 @@
 # Handoff
 
-## Latest: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
+## Latest: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
+
+**Built:** `src/mixed_likelihood.jl`.
+- `mixed_setup(ds)` builds route (ii), one `TranscriptFactor` per cell, and the
+  bulk factor.
+- `mixed_logdensity(s, x)` scores x = (log θ for M0_TARGETS, log σ_b). It is −∞
+  in each of these cases:
+  - outside the box `prior ± 6 SD`;
+  - where a solve reaches the 10⁴-step cap;
+  - where the pools are overdrawn;
+  - where a rate is outside the factors' support.
+- `mixed_model(s)` wraps it for Turing.
+- `reference_theta` is the bounded MAP, pass 1.
+- `reference_ensemble`, `reference_seeds` and `delta_and_S` give pass 2, δ and S
+  (the delta method, 800 cells).
+- Small changes outside the new file:
+  - the route's rebuild is split (`_route_rebuilt_values`);
+  - `solve_mean_field` takes `maxiters`;
+  - `derived_ode_values` passes dual numbers through;
+  - the suite's Slurm limit is now 90 min, since it takes 57–59 min.
+
+**Rules:** two §12 entries in the sub-spec, both written before any result:
+- "B5 as planned": the user's choices of the delta-method S, N = 800 and Turing,
+  plus the verification clause;
+- "B5's support box and step cap": a fix, after the first MAP hung at an extreme θ.
+
+**Checks:**
+- **The test file:** 82 of 82. It covers clock identity, the bulk term reducing to
+  block 1's lognormal, Haldane on duals, AV3 on the whole density at 1e-6, −∞
+  outside the box and at the cap, the delta-method S, and Turing's `logjoint`
+  equal to `mixed_logdensity`.
+- **The suite:** 28791 of 28791 at `469ca26` (job 19084578).
+- **The smoke:** `SMOKE=1` r3 at `b101190` ran every stage, with merge job
+  19081758. Its output is in `/fred/oz022/tkimpson/infercell-89-b5-smoke-2026-10-23-r3/`.
+
+**Cost before the run (login node and smoke r3; superseded by the run below):**
+- On the login node, at 50 cells and 600 s, a density took 1.9 s and a gradient
+  5.6 s (5.1 GiB), with the dual route solve about 5.1 s of it.
+- Smoke r3 (3 cells, 120 s, job 19081758) took 5.35 s per gradient, at tree
+  depth 4 and about 15 leapfrog steps per draw.
+
+**The full run (done 2026-10-24, `dev/scripts/mixed_nuts_89_result.md`):**
+- Jobs 19091859–19091881 at `469ca26`, launched by `NADAPT=300 NDRAW=300
+  dev/scripts/mixed_nuts_89.sh <outdir>`. Archive
+  `/fred/oz022/tkimpson/infercell-89-b5-archive-2026-10-23/`, with `SHA256SUMS`.
+- θ_ref: the bounded MAP, log density −591.04, in 6793 s. Its σ_b is about twice
+  the truth's, consistent with fitting at δ = S = 0.
+- δ is small: per-pool means lie in [−0.084, +0.114] nats. S has trace 1.72 and is
+  full rank, though nearly singular (smallest eigenvalue 7.4e-11).
+- The chains: four of 300 + 300, all started at θ_ref, with 0 divergences in the
+  draws, R̂ ≤ 1.012, bulk ESS
+  1291–1905 and a median of 7 leapfrog steps per draw.
+- Cost: 41.5 CPU-h by `sacct`, inside KC's 50.75 on this dataset at this run
+  length. It came in under the projected 59 because the draws' trees were
+  shallower (7 steps); adaptation took about 12 per iteration.
+- Beside F10 (information only): every mean lies within 0.51 F10 SD, and the SDs
+  agree to within 22%.
+- B5 is ticked in §11. §12 2026-10-24 "B5 as run" records how the clause was
+  checked and corrects four details of the earlier entries (#101's review).
+- #101's review left code follow-ups for B6/B7: a typed overdraw exception in
+  place of matching the error text; `reference_theta`'s catch-all fallback; unit
+  tests for `reference_seeds`/`reference_ensemble`; jittered chain starts; and
+  E3's profiling order (dual vs primal `sol.stats`, FullSpecialize, a batched
+  transcript factor, an eigen-form bulk term).
+
+**Next:**
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. B6, the dispatcher. B7 (AV6) should profile the gradient first: the dual solve
+   of route (ii) is almost all of its 6.1 s, even at 3 cells and 120 s.
+3. **Can go once merged:**
+   - `.worktrees/89b5-4fe4022`, `89b5-c77f49a`, `89b5-b101190` and `89b5-469ca26`;
+   - the smoke directories r1–r3;
+   - the old `.worktrees/89re-*` worktrees, as listed below.
+4. The follow-ups from #99's review (below) are still open.
+
+## Earlier: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
 
 **Built:** `build_mean_field_problem` in `src/mean_field_route.jl`. It is the
 reduced syn3A model with its jump modules swapped for one `MeanField`, run as a

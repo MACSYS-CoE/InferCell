@@ -230,8 +230,13 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - `dev/scripts/jensen_gap_89_result.md` (B3), with AV5's verdict.
 - `dev/scripts/jensen_rethink_89_result.md` (after B3): the gap's cause, δ, and
   KG's null.
-- Later PRs: route (ii) in `src/orchestrator.jl`, the sampler, the dispatcher, and
-  B7's and B8's result files.
+- `src/mean_field_route.jl` (B4): route (ii).
+- `src/mixed_likelihood.jl` (B5): the mixed likelihood on route (ii)
+  (`mixed_setup`, `mixed_logdensity`, `mixed_model`), the reference θ, the
+  reference ensemble, and δ and S. `dev/scripts/mixed_nuts_89_result.md` is its
+  full run on m0_v6, which serves as the verification clause's end-to-end smoke
+  (§12 2026-10-24).
+- Later PRs: the dispatcher, and B7's and B8's result files.
 
 ## 7. Non-goals
 
@@ -301,13 +306,118 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B3.** The Jensen-gap prototype, AV5. Measured 2026-10-20: **the mean field fails KG at all five truths** (`dev/scripts/jensen_gap_89_result.md`). Matching the reference's rounding does not change it. The rethink (2026-10-23, §12; `dev/scripts/jensen_rethink_89_result.md`) names the cause and tests δ. Decided 2026-10-23: the gap is reported, not a stop.
   - [x] **B3 close-out.** The implied-bias report (§12 2026-10-23): no pass line. Done 2026-10-23 (`dev/scripts/jensen_bias_89_result.md`, job 19039511): uncorrected, krnadeg moves by 2.4–3.1 posterior SDs even with the transcripts' information; with δ_ref the residual's RMS is within about 1 SD, and it is mostly within its noise.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
-- [ ] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S).
+- [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [ ] **B6.** The dispatcher.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-24 — B5 as run: how its clause was checked, and corrections to the entries below (after the run; from #101's review)
+
+None of this changes a rule or a result.
+
+- **Clock identity, as tested.**
+  - The last column is held to 1e-12 relative against the route's own solve.
+  - Each earlier column is held to 1e-6 against a separate solve ending at
+    60m + 1. A route rebuilds at 60m − 1 only when its horizon reaches 60m, so
+    those columns cannot come from the same solve.
+  - The clause's "to 1e-12" is met for the last column only.
+- **The −∞ fraction, as reported.** The merge reports Turing's
+  `numerical_error` count over the 1200 kept draws (0). That count merges −∞
+  with divergences. The adaptation iterations are discarded, so they are not
+  counted.
+- **The end-to-end smoke** is the full run, 4 × (300 + 300) at `469ca26`
+  (`dev/scripts/mixed_nuts_89_result.md`). The r1–r3 smokes were pipeline
+  checks only.
+- **Corrections to the entries below:**
+  - **The support box's mass.** The box's 2e-9 is prior mass, not posterior
+    mass, and it is not the binding truncation for krnadeg. μmin (krnadeg's 1e-6
+    quantile, from "B5 as planned") already cuts it at about −4.75 prior SD,
+    which removes about 1e-6 of prior mass.
+  - **The step cap's margin.** It was measured on Float64 solves out to ±4 SD.
+    The dual solves NUTS runs were not counted.
+  - **"The first smoke run's MAP"** (job 19076299) was smoke r2; r1 stopped
+    before its MAP.
+  - **"A range of the dataset's own" seeds** is a `Xoshiro(89_000_000_000 +
+    replicate seed)` stream, checked unique and disjoint from the cells' seeds.
+
+### 2026-10-23 — B5's support box and step cap (a fix, made before any B5 result)
+
+- **What happened.** The first smoke run's MAP did not return in two hours
+  (job 19076299). Neither did the first standalone test run, which also reached
+  the MAP.
+- **The cause.** At the prior median the gradient is up to about 109 per
+  coordinate. A unit step along it, which the optimiser's first line search can
+  take, moves log θ by up to 109. One density evaluation there ran for more than
+  28 minutes without returning, because route (ii)'s stiff solve crawls.
+- **For comparison:** an ordinary M0 solve takes 1,134–1,217 accepted steps, in
+  about 2 s, everywhere out to ±4 prior SD from the median.
+- **The fix.**
+  - **The support box.** x outside the prior mean ± 6 prior SD, per log
+    coordinate (log σ_b included), has density −∞ and is not solved. The prior
+    mass outside is about 2e-9 per coordinate, so the target changes by less
+    than that.
+  - **The step cap.** Inside the density, route (ii) solves with
+    `maxiters = 10⁴`, about 8× the most seen. A solve that reaches the cap is
+    not Success, so its density is −∞, as the support rule above already says.
+  - **The MAP** is bounded by the same box.
+- **What it does not change:** δ, S, the reference θ's two passes, the
+  verification clause and the parameterisation. No B5 result existed when this
+  was made.
+
+### 2026-10-23 — B5 as planned: S, δ, the reference θ, the support and the verification clause (the user's decisions; rules fixed before any run)
+
+- **D-S amended: S by the delta method.**
+  - S = Cov(per-cell panel counts) / (x̄ x̄ᵀ · C), with C the dataset's cell count
+    (50 on M0).
+  - It is taken over N = 800 reference cells. That is full rank on M0, since
+    17 pools × 10 saves = 170 < 800, so there is no low-rank truncation.
+  - This replaces D-S's sample covariance over disjoint C-cell replicates. 800
+    cells would give 16 such replicates for a 170-dimensional matrix. The B3
+    close-out already used the delta method.
+  - Core A′'s ~1785 dimensions are B8's question.
+- **δ** = log max(x̄_ens, 1) − log max(x̄_MF(θ_ref), 1), per pool and save, in
+  particles. The floor is the lognormal observation's one particle.
+- **The bulk factor** is N(log z; log max(x̄_MF(θ), 1) + δ, σ_b² I + S), on
+  M0_PANEL at the 60 s saves after t = 0. At δ = 0 and S = 0 it is block 1's
+  lognormal.
+- **The reference θ takes two passes.**
+  - The first is the MAP of the approximate posterior at δ = 0 and S = 0. If it
+    fails, the prior median is used.
+  - The second runs the 800-cell reference ensemble at that θ, which gives δ and
+    S.
+  - θ_ref is recorded per dataset. The ensemble's seeds are a range of the
+    dataset's own, disjoint from its cells.
+- **The support.**
+  - kmax_g = TURNOVER_CEILING / (len_g − 1), an upper bound on the transcription
+    rate constant.
+  - μmin_g = krnadeg's prior quantile at 1e-6, divided by len_g.
+  - These cases give a log density of −∞ rather than an error: a rate outside
+    that support, a route (ii) overdraw, and a solve that does not return
+    Success. Their fraction is reported.
+- **The sampler** is Turing's NUTS on (log θ for M0_TARGETS, log σ_b). The priors
+  are the exact sampler's: a Normal on each log, with each reverse constant
+  derived by Haldane and carrying no prior term. It is not wired into `infer()`,
+  which is B6.
+- **B5's verification clause** (`test/test_mixed_likelihood.jl`):
+  - **Clock identity.** The transcript factor's constants equal `rate_constants`
+    at the route's own pools at 0 and 60m − 1 s, to 1e-12 relative. There are
+    windows + 1 columns.
+  - **Bulk reduction.** At δ = 0 and S = 0 the bulk term equals the summed
+    lognormal of `src/csmc.jl` at the route's x̄, to 1e-10.
+  - **Haldane.** The dual-safe derivation of the reverse constants equals
+    `derived_ode_values` at Float64.
+  - **AV3 on the whole log density.** ForwardDiff agrees with central differences
+    in all six coordinates to 1e-6 relative.
+  - **−∞, not a throw,** outside the support.
+  - **Delta-method S** equals a direct computation on a toy.
+  - **One end-to-end smoke** on m0_v6 (`dev/scripts/mixed_nuts_89_result.md`). It
+    reports θ_ref, δ, S's spectrum, R̂, ESS, divergences, the −∞ fraction, and
+    the cost per gradient against KC's bound (a tenth of F10's 507.5 CPU-h).
+    There is **no pass line on the posterior.** The marginals sit beside F10's
+    as information only, and AV6 (B7) is the test.
 
 ### 2026-10-23 — B4's check judged on convergence (the user's decision, after the run)
 

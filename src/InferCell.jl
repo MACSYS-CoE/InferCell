@@ -3,7 +3,7 @@ module InferCell
 using OrdinaryDiffEq: Tsit5, solve, ODEProblem, Rodas5P
 using SciMLSensitivity: ForwardDiffSensitivity
 using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!,
-                 DiscreteCallback, CallbackSet
+                 DiscreteCallback, CallbackSet, successful_retcode
 using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
                      reset_aggregated_jumps!
 using Turing
@@ -12,8 +12,9 @@ using StaticArrays
 using Random
 using MCMCChains: replacenames
 using ForwardDiff
-using LinearAlgebra: rank, svd, svdvals, eigvals, I
-using Statistics: quantile, mean, std, median
+using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
+                     Diagonal
+using Statistics: quantile, mean, std, median, cov
 
 include("parameters.jl")
 # Reading order, not a load-time requirement: resolver.jl and loader.jl call
@@ -70,6 +71,7 @@ include("organisms/coreA/observables.jl")
 include("organisms/coreA/block1.jl")
 include("csmc.jl")
 include("organisms/coreA/gibbs.jl")
+include("mixed_likelihood.jl")
 include("control_analysis.jl")
 include("organisms/coreA/control_variant.jl")
 include("models/transcription_translation.jl")

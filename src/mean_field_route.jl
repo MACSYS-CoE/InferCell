@@ -203,15 +203,20 @@ end
     return _write_parts!(du, Base.tail(slots), Base.tail(parts))
 end
 
+# One rebuild's constants from the pools in `u`, in the order of `r.fill_idxs`.
+function _route_rebuilt_values(r, p, u, t)
+    pools = [k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)]
+    vals = rate_constants(view(p, r.p_idxs), t, r.model, pools)
+    length(vals) == length(r.fill_idxs) || error(
+        "rate_constants() for $(r.declared_by) returned $(length(vals)) values " *
+        "but rebuilt_params() names $(length(r.fill_idxs))")
+    return vals
+end
+
 # Every rebuild, from the pools in `u` now, into `p`.
 function _route_rebuild!(p, u, t, rt::MeanFieldRoute)
     for r in rt.rebuilds
-        pools = [k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)]
-        vals = rate_constants(view(p, r.p_idxs), t, r.model, pools)
-        length(vals) == length(r.fill_idxs) || error(
-            "rate_constants() for $(r.declared_by) returned $(length(vals)) values " *
-            "but rebuilt_params() names $(length(r.fill_idxs))")
-        for (k, v) in zip(r.fill_idxs, vals)
+        for (k, v) in zip(r.fill_idxs, _route_rebuilt_values(r, p, u, t))
             p[k] = v
         end
     end
@@ -423,18 +428,20 @@ end
 
 """
     solve_mean_field(route; p = route.prob.p, saveat = [], solver = Rodas5P(),
-                     abstol = 1e-10, reltol = 1e-8)
+                     abstol = 1e-10, reltol = 1e-8, maxiters = 10^5)
 
 Solve route (ii) at parameters `p`, a copy of which the rebuild writes into, at
 the hybrid's pinned tolerances. The initial state is promoted to `p`'s type, so a
-dual-number `p` differentiates the solve.
+dual-number `p` differentiates the solve. `maxiters` caps the solver's steps, and
+a solve that reaches it returns rather than throws.
 """
 function solve_mean_field(rt::MeanFieldRoute; p = rt.prob.p, saveat = Float64[],
-                          solver = Rodas5P(), abstol = 1e-10, reltol = 1e-8)
+                          solver = Rodas5P(), abstol = 1e-10, reltol = 1e-8,
+                          maxiters::Integer = 10^5)
     q = copy(p)
     u0 = convert(Vector{promote_type(eltype(q), eltype(rt.prob.u0))}, rt.prob.u0)
     prob = remake(rt.prob; u0, p = q)
-    return solve(prob, solver; saveat, abstol, reltol, save_everystep = false)
+    return solve(prob, solver; saveat, abstol, reltol, maxiters, save_everystep = false)
 end
 
 """
