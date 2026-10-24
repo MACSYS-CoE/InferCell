@@ -72,14 +72,21 @@ using MCMCChains: Chains
             @test Array(ch[:, names, :])[:, :, 1] == reduce(vcat, want)
             @test ch.info.start.σ == σ0
 
-            # The default rng: the setup reseeds the global generator per cell, so
-            # without the route's own stream these two calls drew the same chain.
+            # The default rng. The setup reseeds the global generator per cell, so
+            # without the route's own stream two seeds drew the same chain, and
+            # without putting the global state back consecutive calls did.
             short = (; N = 2, n_sweeps = 1)
             Random.seed!(1)
             a = infer(ms, ds; route = :exact, short...)
-            Random.seed!(2)
             b = infer(ms, ds; route = :exact, short...)
-            @test Array(a) != Array(b)
+            Random.seed!(2)
+            c = infer(ms, ds; route = :exact, short...)
+            @test Array(a) != Array(b) && Array(a) != Array(c) && Array(b) != Array(c)
+            # The caller's global stream moves by the fork's one draw, nothing more.
+            after = rand()
+            Random.seed!(2)
+            rand(UInt64)
+            @test after == rand()
         end
 
         @testset "identity: :mixed is B5's pipeline composed by hand" begin

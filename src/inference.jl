@@ -242,28 +242,35 @@ runs the route end to end in one process:
   then NUTS on [`mixed_model`](@ref) from θ_ref. Keywords: `n_adapt`, `n_draws`,
   `n_ref = 800`, `target_accept = 0.8`, `max_depth = 10`, `map_maxiters = 200`.
 
-Each call runs one chain, on its own stream forked from `rng` before any setup runs;
-join several with `chainscat`. Both routes return `MCMCChains.Chains` over
+Each call runs one chain, on its own stream forked from `rng`, and leaves the global
+generator as the fork left it, so consecutive calls differ; join several with
+`chainscat`. Both routes return `MCMCChains.Chains` over
 [`mixed_parameter_names`](@ref)' coordinates, `log_<target>` for each of
 `M0_TARGETS` and then `log_sigma_b`, with the route's own state in the chain's
 `info` (`start`, or `theta_ref`, `delta` and `S`) and `info.route` set.
 """
 function infer(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
-               route::Union{Nothing, Symbol} = nothing, kwargs...)
+               route::Union{Nothing, Symbol} = nothing,
+               rng::AbstractRNG = Random.default_rng(), kwargs...)
     r = inference_route(models, ds; route)
-    return r === :exact ? _infer_exact(models, ds; kwargs...) : _infer_mixed(models, ds; kwargs...)
+    # The route draws from its own stream, forked here. Its setup reseeds the global
+    # generator once per cell (`gibbs_setup`, `emit_ensemble`), so the global state is
+    # put back as it was after the fork: drawing after the setup would give every call
+    # the same draws, and leaving it reseeded would make the next call repeat this one.
+    stream = Xoshiro(rand(rng, UInt64))
+    saved = copy(Random.default_rng())
+    try
+        return r === :exact ? _infer_exact(models, ds; rng = stream, kwargs...) :
+               _infer_mixed(models, ds; rng = stream, kwargs...)
+    finally
+        copy!(Random.default_rng(), saved)
+    end
 end
 
-# A route's own stream, forked from `rng` before anything runs. The setups reseed
-# the global generator once per cell (`gibbs_setup`, `emit_ensemble`), so drawing
-# from `Random.default_rng()` after them would give every call the same draws.
-_route_stream(rng::AbstractRNG) = Xoshiro(rand(rng, UInt64))
-
-function _infer_exact(models, ds; rng::AbstractRNG = Random.default_rng(),
+function _infer_exact(models, ds; rng::AbstractRNG,
                       n_sweeps::Integer, n_burn::Integer = 0, N::Integer = 20)
     0 <= n_burn < n_sweeps || throw(ArgumentError(
         "n_burn must be in 0:$(n_sweeps - 1), got $n_burn"))
-    rng = _route_stream(rng)
     g = gibbs_setup(ds; models, N, horizon = ds.times[end])
     order = vcat(g.cme, g.forwards)
     sort(order) == sort(M0_TARGETS) || throw(ArgumentError(
@@ -282,11 +289,10 @@ function _infer_exact(models, ds; rng::AbstractRNG = Random.default_rng(),
                   info = (route = :exact, start = start))
 end
 
-function _infer_mixed(models, ds; rng::AbstractRNG = Random.default_rng(),
+function _infer_mixed(models, ds; rng::AbstractRNG,
                       n_adapt::Integer, n_draws::Integer, n_ref::Integer = 800,
                       target_accept::Real = 0.8, max_depth::Integer = 10,
                       map_maxiters::Integer = 200)
-    rng = _route_stream(rng)
     s0 = mixed_setup(ds; models)
     ref = reference_theta(s0; maxiters = map_maxiters)
     r = _mixed_solve(s0, exp.(ref.x[1:length(s0.names)]))
