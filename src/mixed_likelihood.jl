@@ -332,20 +332,27 @@ The approximate posterior as a Turing model over the vector `x`, ready for
 mixed_model(s::MixedSetup) = _mixed_model(s)
 
 """
-    reference_theta(s; x0 = mixed_prior_median(s), maxiters = 200) -> NamedTuple
+    reference_theta(s; x0 = mixed_prior_median(s), maxiters = 200, reltol = 1e-10) -> NamedTuple
 
 Pass 1 of the reference θ (§12 2026-10-23, "B5 as planned"): the MAP of
 `mixed_model(s)` from `x0`, bounded by the support box ([`mixed_box`](@ref)),
 where `s` normally has δ = 0 and S = 0. If the optimiser fails, stops at
 `maxiters` without converging, or ends at a non-finite density, the prior median
 is used. Returns `(x, method, logdensity)`, with `method` `:map` or `:prior_median`.
+
+The optimiser also stops once the objective's relative change between iterations
+falls to `reltol`, in LBFGS and in Fminbox's outer loop (§12 2026-10-25): the ODE
+solves' error leaves the gradient a noise floor near 1e-6 on some datasets, so
+Optim's own test, |g| ≤ 1e-8, may never pass. `reltol = 0` restores Optim's tests
+alone.
 """
 function reference_theta(s::MixedSetup; x0::AbstractVector = mixed_prior_median(s),
-                         maxiters::Integer = 200)
+                         maxiters::Integer = 200, reltol::Real = 1e-10)
     res = try
         lb, ub = mixed_box(s)
         maximum_a_posteriori(mixed_model(s); initial_params = collect(Float64, x0), lb, ub,
-                             maxiters)
+                             maxiters, reltol = Float64(reltol),
+                             outer_f_reltol = Float64(reltol))
     catch e
         e isa InterruptException && rethrow()
         @warn "reference_theta: the MAP failed, so the prior median is used" exception = e
