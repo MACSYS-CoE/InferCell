@@ -153,6 +153,11 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19163848–19163870 | #89 B7 | AV6 smoke r1 at `51064a8` (2 replicates, v6, KS, stream arms). The stream arms FAILED (no fit directory; fixed in `ba69134`), so the merge (19163871) never ran | 1 | 0:01:03–0:21:05 each | 4.46 |
 | 19171825–19171849, 19177272 | #89 B7 | AV6 smoke r2 at `ba69134`, every stage and the merge; 19177272 reran the merge at `56c573d` with `AV6_COMPARE=1` (numbers not of record) | 1 | 0:01:04–0:22:18 each | 4.86 |
 | 19177653–19177825 | #89 B7 | AV6 at `7a102fc`: 50 replicates, v6, three KS refits, two stream arms, merge (167 jobs; running) | 1 | | |
+| 11 preps of 19177653–19177825 | #89 B7 | AV6 preps r5, r7, r18, r23, r25, r28, r29, r33, r37, r42, r50: TIMEOUT at 12 h in the bounded MAP (§12 2026-10-25); listed apart as wasted; the row above's CPU-h will include them, so not summed twice | 1 | 12:00:04–12:00:27 each | 132.06 |
+| 19200562–19200603 (40 of 42; 19200569, 19200589 are not #89) | #89 B7 | First resume at `7a102fc` (3-day preps). CANCELLED once the MAP trace showed the gradient test would not pass; 11 preps ran 11:16:53 each, the rest never started | 1 | 11:16:53 | 124.10 |
+| 19209034, 19209035 | #89 B7 | MAP traces at `af332d7`: r5 (to its 6 h cap) and r46 | 1 | 6:01:28, 0:09:52 | 6.19 |
+| 19232720–19232727, 19232740 | #89 B7 | MAP checks of the reltol stop at `6526b45` (r46, r4, r9, r38, r5, r7; 19232727 an empty submission) and the test files (142 of 142) | 1 | 0:00:10–1:07:15 each | 2.03 |
+| 19238017–19238056 | #89 B7 | Second resume at `6526b45`: 11 preps and 22 chains, KS low-ENO refits, merge (40 jobs; running) | 1 | | |
 
 **#89 total: about 119.7 CPU-h**: B3's 4.3, six suites' 19.7, the rethink's 48.0,
 the close-out's 0.07, B4's 1.3 besides its suite, and B5's 46.4 besides its suites

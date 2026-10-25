@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-24
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-25
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -323,6 +323,67 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-25 — B7: θ_ref's MAP stops on the objective, after 11 preps ran past 12 h
+
+- **Trigger.** In AV6's production run (jobs 19177653–19177825, at `7a102fc`), 11
+  of the 51 base preps hit their 12 h limit inside `reference_theta`'s bounded MAP:
+  r5, r7, r18, r23, r25, r28, r29, r33, r37, r42 and r50. The other 40 finished in
+  0.07–7.66 h. All of them ended at ordinary optima, within 3.45 prior SD of the
+  prior median (the box is ±6 SD).
+- **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl`, at `af332d7`).
+  - **r5** (job 19209034) ran to its 6 h cap: 7,703 gradients and 4 Fminbox
+    rounds. Its objective was within 1e-6 of the final value at 0.10 h.
+    - At the cap, |Δx| was 1.6e-9, the relative change in f was 9e-13 and |g| was
+      5.1e-6, against Optim's g_tol of 1e-8.
+    - The median gradient took 2.31 s, with a maximum of 6.5 s, so it was not
+      stiffness.
+  - **r46** (job 19209035) converged in 0.14 h, with |g| at 3.3e-9.
+  - **Cause:** the ODE solves leave a noise floor in the gradient, and on some
+    datasets it sits above g_tol. The gradient test then never passes.
+  - Fminbox maps `maxiters = 200` to 200 outer rounds, and each inner LBFGS keeps
+    Optim's default of 1,000 iterations. So a MAP can run for days before it
+    falls back to the prior median.
+- **Change** (`6526b45`). `reference_theta` takes `reltol = 1e-10`, passed as
+  Optim's `f_reltol` and Fminbox's `outer_f_reltol`. The MAP now also stops once
+  the objective's relative change between iterations is at most 1e-10. With
+  `reltol = 0` the call is exactly the old one.
+- **Check, before any rerun** (`dev/scripts/av6_89_b7_mapcheck.jl`, jobs
+  19232720–19232726, at `6526b45`). The new rule against the θ_ref that the run
+  stored:
+
+  | Replicate | Old MAP | New MAP | max \|Δx\| (prior SD) | Δ log density |
+  |---|---|---|---|---|
+  | r46 | 0.07 h | 0.05 h | 2.1e-5 | −1.3e-8 |
+  | r4 | 3.50 h | 0.07 h | 4.8e-7 | −1.0e-9 |
+  | r9 | 7.66 h | 0.07 h | 7.8e-8 | +1.2e-10 |
+  | r38 | 6.41 h | 1.03 h | 1.1e-8 | −6.6e-7 |
+
+  - **r5** stopped in 0.06 h, at the final x of its 6 h trace to the trace's 4
+    decimals, with log density −863.765.
+  - **r7** stopped in 0.07 h.
+  - B5's and B6's test files passed, 142 of 142 (job 19232740).
+- **What the run uses.**
+  - The 40 finished preps keep the θ_ref they stored under Optim's tests alone.
+  - The 11 reruns use the new rule. They were submitted from a worktree at
+    `6526b45`; the driver and Slurm scripts are the same as `7a102fc`'s.
+  - θ_ref is the same under either rule to at most 2e-5 prior SD. The starts are
+    drawn at 0.25 SD around θ_ref, so the mixed set does not change the
+    posteriors AV6 compares.
+- **The wall-limit fault, and the resume script** (`dev/scripts/av6_89_b7_resume.sh`,
+  `eaa627a`).
+  - The script resubmits only what a run is missing, with a 3-day prep limit. It
+    relabels the dead jobs `<fit>~superseded` in `jobs.tsv`, so KC's `sacct`
+    leaves them out.
+  - **First resume, at `7a102fc`, cancelled:** jobs 19200562–19200603, 40 jobs.
+    The 11 preps ran 11.3 h each under the old rule before the diagnosis
+    projected that they would run out their 3 days.
+  - **Second resume, at `6526b45`:** jobs 19238017–19238056, 40 jobs. These are
+    the 11 preps and their 22 chains, the KS refits on the two low-ENO replicates
+    (each a prep and 2 chains) and the merge.
+  - **Cost of the fault:** 132.06 CPU-h in the timed-out preps and 124.10 CPU-h in
+    the cancelled resume, 256.16 in all.
+- **Sections touched:** §12, and `src/mixed_likelihood.jl`'s docstring.
 
 ### 2026-10-24 — B7 as planned: AV6's rules, run size and the extra arms (the user's decisions; fixed before any run)
 
