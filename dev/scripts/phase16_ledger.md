@@ -157,7 +157,10 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19200562–19200603 (40 of 42; 19200569, 19200589 are not #89) | #89 B7 | First resume at `7a102fc` (3-day preps). CANCELLED once the MAP trace showed the gradient test would not pass; 11 preps ran 11:16:53 each, the rest never started | 1 | 11:16:53 | 124.10 |
 | 19209034, 19209035 | #89 B7 | MAP traces at `af332d7`: r5 (to its 6 h cap) and r46 | 1 | 6:01:28, 0:09:52 | 6.19 |
 | 19232720–19232727, 19232740 | #89 B7 | MAP checks of the reltol stop at `6526b45` (r46, r4, r9, r38, r5, r7; 19232727 an empty submission) and the test files (142 of 142) | 1 | 0:00:10–1:07:15 each | 2.03 |
-| 19238017–19238056 | #89 B7 | Second resume at `6526b45`: 11 preps and 22 chains, KS low-ENO refits, merge (40 jobs; running) | 1 | | |
+| 19238017–19238056 | #89 B7 | Second resume at `6526b45`: 11 preps and 22 chains, KS low-ENO refits, merge. 30 COMPLETED (10 preps, 20 chains); r33's prep CANCELLED after 17:57:17 in its MAP (§12 2026-10-26) with the 9 jobs waiting on it, 17.95 CPU-h wasted | 1 | | 75.16 |
+| 19285234 | #89 B7 | MAP trace of r33 under `RELTOL=1e-10` at `afb10d2` (CANCELLED once the checks below passed) | 1 | 2:05:57 | 2.10 |
+| 19290049–19290056 (not 19290052) | #89 B7 | MAP checks of the xtol stop at `8da6045` (r46, r4, r9, r38, r33, r5) and the test files (142 of 142) | 1 | 0:09:00–0:13:02 each | 1.21 |
+| 19292223–19292232 | #89 B7 | Third resume at `8da6045`: r33's prep and 2 chains, KS low-ENO refits, merge (10 jobs; running) | 1 | | |
 
 **#89 total: about 119.7 CPU-h**: B3's 4.3, six suites' 19.7, the rethink's 48.0,
 the close-out's 0.07, B4's 1.3 besides its suite, and B5's 46.4 besides its suites

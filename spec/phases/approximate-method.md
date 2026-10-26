@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-25
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-26
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -323,6 +323,58 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
+
+- **Trigger.** In the second resume (jobs 19238017–19238056, at `6526b45`), ten of
+  the 11 rerun MAPs stopped under the reltol rule of 2026-10-25, in 209–2651 s.
+  r33's prep (19238038) was still in its MAP after 17.9 h. It had also hit the
+  12 h limit in the first run.
+- **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl` with `RELTOL=1e-10`, at
+  `afb10d2`, job 19285234).
+  - By 0.13 h, x was 1.0531, 1.1060, 2.8421, 4.2988, 3.9281, −1.6688.
+  - At about 0.8 h, Fminbox's second round moved x by at most 0.0035. The
+    objective it reports went from 474.497 to 492.113.
+  - From then on, x did not change in the fourth decimal over at least 300
+    iterations. Each iteration still took about 2 gradients.
+  - With |f| ≈ 492, the 1e-10 relative test needs changes below 5e-8. The trace
+    prints the objective to 6 significant figures, too coarse to show whether it
+    was still moving at that scale.
+  - A wall-time cap would not help: it ends with a non-success code, and
+    `reference_theta` then falls back to the prior median.
+- **Change** (`8da6045`). `reference_theta` takes `xtol = 1e-6`, passed as Optim's
+  `x_abstol` and Fminbox's `outer_x_abstol`. The MAP also stops once a step moves
+  every coordinate of x by at most 1e-6. Optim's defaults for both are 0, so
+  `xtol = 0` gives the 2026-10-25 call exactly.
+- **Check** (`dev/scripts/av6_89_b7_mapcheck.jl`, jobs 19290049–19290055, at
+  `8da6045`). The new rule against the θ_ref that the run stored:
+
+  | Replicate | Stored θ_ref took | New MAP | max \|Δx\| (prior SD) | Δ log density |
+  |---|---|---|---|---|
+  | r46 | 0.07 h | 0.06 h | 2.1e-5 | −1.3e-8 |
+  | r4 | 3.50 h | 0.07 h | 3.8e-6 | +3.9e-8 |
+  | r9 | 7.66 h | 0.06 h | 6.5e-7 | +4.0e-10 |
+  | r38 | 6.41 h | 0.06 h | 1.3e-7 | −1.5e-6 |
+  | r5 | 0.06 h (the reltol rule) | 0.07 h | 2.4e-6 | −6.6e-10 |
+
+  - **r33** stopped in 0.09 h at x = 1.051620, 1.107654, 2.842046, 4.301152,
+    3.924617, −1.668981, with log density −492.1305. That is where its trace had
+    sat since about 0.8 h, to the trace's 4 decimals: 1.0516, 1.1077, 2.8420,
+    4.3012, 3.9246, −1.6690, objective 492.131.
+  - B5's and B6's test files passed, 142 of 142 (job 19290056).
+- **What the run uses.**
+  - 40 base fits have θ_ref under Optim's tests alone.
+  - Ten have θ_ref under the reltol rule: r5, r7, r18, r23, r25, r28, r29, r37,
+    r42, r50.
+  - r33 and the two low-ENO KS refits use the xtol rule.
+  - The three rules agree to at most 2.1e-5 prior SD wherever they were compared.
+- **Third resume, at `8da6045`:** jobs 19292223–19292232. These are r33's prep and 2
+  chains, the KS refits on the two low-ENO replicates (each a prep and 2 chains) and
+  the merge.
+- **Cost of this round:** r33's prep ran 17.95 CPU-h before it was cancelled, along
+  with the 9 jobs waiting on it. The trace took 2.10 CPU-h, and the checks and tests
+  1.21.
+- **Sections touched:** §12, and `src/mixed_likelihood.jl`'s docstring.
 
 ### 2026-10-25 — B7: θ_ref's MAP stops on the objective, after 11 preps ran past 12 h
 
