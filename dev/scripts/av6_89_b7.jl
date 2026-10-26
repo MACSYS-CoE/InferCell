@@ -99,6 +99,8 @@ function fit_kind(fit::Symbol)
     fit === :ks_low2 && return (; kind = :ks, base = lowest_eno()[2])
     fit === :tx_v6 && return (; kind = :tx, base = :v6)
     fit === :bulk_v6 && return (; kind = :bulk, base = :v6)
+    fit === :null_v6 && return (; kind = :null, base = :v6)
+    fit === :null_low1 && return (; kind = :null, base = lowest_eno()[1])
     (fit === :v6 || occursin(r"^r\d+$", f)) && return (; kind = :base, base = fit)
     error("unknown fit $fit")
 end
@@ -151,7 +153,7 @@ end
 function fit_setup(out, fit)
     k = fit_kind(fit)
     p = deserialize(prep_file(out, k.base))
-    k.kind === :base && return (; s = with_reference(mixed_setup(p.ds), p.delta, p.S), p, k)
+    k.kind in (:base, :null) && return (; s = with_reference(mixed_setup(p.ds), p.delta, p.S), p, k)
     k.kind === :ks && return (; s = with_reference(mixed_setup(p.ds), p.delta,
                                                    deserialize(prep_file(out, fit)).S), p, k)
     streams = k.kind === :tx ? (:tx,) : (:bulk,)
@@ -160,7 +162,9 @@ end
 
 function run_chain(out, fit, c)
     f = fit_setup(out, fit)
-    seed = mixed_chain_seeds(f.p.ds, NCHAIN; arm = ARMS[f.k.kind])[c]
+    # A null fit reruns its base's setup on the base arm's next NCHAIN seeds.
+    seed = f.k.kind === :null ? mixed_chain_seeds(f.p.ds, 2NCHAIN; arm = ARMS[:base])[NCHAIN + c] :
+           mixed_chain_seeds(f.p.ds, NCHAIN; arm = ARMS[f.k.kind])[c]
     rng = Xoshiro(seed)
     st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
     t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(NADAPT, TARGET_ACCEPT), NDRAW;
@@ -470,6 +474,37 @@ function run_merge(out)
     write(joinpath(out, "av6_summary.md"), String(take!(io)))
 end
 
+# KS's matched null (§12 2026-10-27, added after the result): two fits with the same
+# θ_ref, δ and S and different chain seeds, base against null, in KS's units and
+# beside KS's own W1 and floor. Information only; KS's verdict stands.
+function run_nullcmp(out)
+    pnames = mixed_parameter_names(fit_setup(out, :v6).s)
+    P = length(pnames)
+    pool(X) = reshape(permutedims(X, (1, 3, 2)), :, P)
+    io = IOBuffer()
+    say(xs...) = (println(io, xs...); println(xs...))
+    say("# AV6 (#89 B7): KS's matched null\n")
+    say("Commit `", COMMIT, "` (job ", slurm_job(), "). Two fits per base, same θ_ref, δ and S, ",
+        "different chain seeds. W1 in KS's units.\n")
+    say("| Base | Parameter (log) | W1(base, null) | W1(fixed, re-estimated) | KS floor | KS over the null |")
+    say("|---|---|---|---|---|---|")
+    for (nf, kf) in ((:null_v6, :ks_v6), (:null_low1, :ks_low1))
+        base = fit_kind(nf).base
+        Xb, Xn, Xk = posterior_draws(out, base), posterior_draws(out, nf), posterior_draws(out, kf)
+        fb, fn, fk = pool(Xb), pool(Xn), pool(Xk)
+        v6 = base === :v6 ? v6_reference(pnames) : nothing
+        for q in 1:P
+            sd = v6 === nothing ? std(fb[:, q]) : v6.sd[q]
+            floor_ = v6 === nothing ? max(w1(Xb[:, q, 1], Xb[:, q, 2]), w1(Xk[:, q, 1], Xk[:, q, 2])) / sd :
+                     maximum(v6.null[:, q])
+            wn, wk = w1(fb[:, q], fn[:, q]) / sd, w1(fb[:, q], fk[:, q]) / sd
+            say(@sprintf("| %s | %s | %.3f | %.3f | %.3f | %s |", base, pnames[q], wn, wk, floor_,
+                         wk > wn ? "yes" : "no"))
+        end
+    end
+    write(joinpath(out, "av6_ks_null.md"), String(take!(io)))
+end
+
 function main(args)
     stage, out = args[1], args[2]
     if stage == "prep"
@@ -478,6 +513,8 @@ function main(args)
         run_ksprep(out, Symbol(args[3]))
     elseif stage == "chain"
         run_chain(out, Symbol(args[3]), parse(Int, args[4]))
+    elseif stage == "nullcmp"
+        run_nullcmp(out)
     elseif stage == "merge"
         run_merge(out)
     elseif stage == "lowest_eno"
