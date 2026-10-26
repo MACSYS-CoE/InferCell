@@ -2,7 +2,8 @@
 # MAP (reference_theta's call: maximum_a_posteriori from the prior median, box
 # bounds, maxiters = 200) on a model identical to mixed_model but for a wrapper that
 # times and logs every likelihood evaluation, values unchanged. Also logs each
-# iteration the optimiser reports. Stops after MAX_HOURS (default 6).
+# iteration the optimiser reports. Stops after MAX_HOURS (default 6). RELTOL (default
+# 0, the old call) is reference_theta's relative-change stop (§12 2026-10-25).
 #
 #   julia --project dev/scripts/av6_89_b7_maptrace.jl <replicate r> <out.tsv>
 #
@@ -22,6 +23,7 @@ using Printf
 const R = parse(Int, ARGS[1])
 const OUT = ARGS[2]
 const MAX_HOURS = parse(Float64, get(ENV, "MAX_HOURS", "6"))
+const RELTOL = parse(Float64, get(ENV, "RELTOL", "0"))
 const T0 = time()
 const IO_ = open(OUT, "w")
 println(IO_, "kind\tn\tt_since_start\tseconds\tvalue\tx")
@@ -62,7 +64,7 @@ function main()
     x0 = mixed_prior_median(s)
     @printf("r%d: box ±%g SD; prior median %s\n", R, s.box_sd, x0)
     res = maximum_a_posteriori(traced_model(s); initial_params = collect(Float64, x0), lb, ub,
-                               maxiters = 200, callback)
+                               maxiters = 200, reltol = RELTOL, outer_f_reltol = RELTOL, callback)
     close(IO_)
     println(res.optim_result.original)
     @printf("r%d: %d evaluations, %d callback iterations, %.2f h; lp %.4f\n",
