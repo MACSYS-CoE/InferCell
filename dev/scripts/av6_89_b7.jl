@@ -96,13 +96,15 @@ replicate_seed(fit::Symbol) = fit === :v6 ? V6_SEED : DATA_SEED0 + parse(Int, St
 
 # The two V7 replicates with the lowest kcatF_R_ENO truths. The truth is
 # m0_dataset's first draw, so it is read without simulating the cells.
+const LOWEST_ENO = Ref{Vector{Symbol}}()
 function lowest_eno()
+    isassigned(LOWEST_ENO) && return LOWEST_ENO[]
     eno = map(REPS) do r
         t = draw_truth(Xoshiro(DATA_SEED0 + r), m0_models(); names = M0_TARGETS,
                        purpose = :calibration)
         Dict(t.values)[:kcatF_R_ENO]
     end
-    return [Symbol(:r, REPS[i]) for i in sortperm(eno)[1:2]]
+    return LOWEST_ENO[] = [Symbol(:r, REPS[i]) for i in sortperm(eno)[1:2]]
 end
 
 # What a fit runs: its kind, the base fit it reads its dataset and reference from.
@@ -148,7 +150,7 @@ function run_ksprep(out, fit)
     mkpath(fitdir(out, fit))
     p = deserialize(prep_file(out, k.base))
     X = posterior_draws(out, k.base)
-    x̄ = vec(mean(reshape(permutedims(X, (1, 3, 2)), :, size(X, 2)); dims = 1))
+    x̄ = vec(mean(pooled(X); dims = 1))
     s0 = mixed_setup(p.ds)
     values = mixed_theta_values(s0, x̄)
     m_at = mean_field_log_bulk(s0, _mixed_solve(s0, exp.(x̄[1:length(s0.names)])).sol)
@@ -167,11 +169,9 @@ end
 function fit_setup(out, fit)
     k = fit_kind(fit)
     p = deserialize(prep_file(out, k.base))
-    k.kind in (:base, :null) && return (; s = with_reference(mixed_setup(p.ds), p.delta, p.S), p, k)
-    k.kind === :ks && return (; s = with_reference(mixed_setup(p.ds), p.delta,
-                                                   deserialize(prep_file(out, fit)).S), p, k)
-    streams = k.kind === :tx ? (:tx,) : (:bulk,)
-    return (; s = with_reference(mixed_setup(p.ds; streams), p.delta, p.S), p, k)
+    S = k.kind === :ks ? deserialize(prep_file(out, fit)).S : p.S
+    streams = k.kind === :tx ? (:tx,) : k.kind === :bulk ? (:bulk,) : InferCell.MIXED_STREAMS
+    return (; s = with_reference(mixed_setup(p.ds; streams), p.delta, S), p, k)
 end
 
 function run_chain(out, fit, c)
@@ -202,6 +202,9 @@ end
 
 chains_of(out, fit) = [deserialize(chain_file(out, fit, c)) for c in 1:NCHAIN]
 
+# A fit's chains pooled: (draws · chains) × parameters.
+pooled(X) = reshape(permutedims(X, (1, 3, 2)), :, size(X, 2))
+
 # Rank-normalised split R̂ and bulk ESS per parameter, as MCMCChains reports them.
 function diagnostics(X)
     rh = MDT.rhat(permutedims(X, (1, 3, 2)))
@@ -222,14 +225,25 @@ function w1(a::AbstractVector, b::AbstractVector)
     return s
 end
 
+# count(<(i), ranks) for i in 1:L, in one pass over ranks in 0:L.
+function ecdf_counts(ranks, L)
+    h = zeros(Int, L + 1)
+    for r in ranks
+        h[r + 1] += 1
+    end
+    return cumsum(h)[1:L]
+end
+
+in_band(counts, lo, hi) = all(lo .<= counts .<= hi)
+
 # V7's simultaneous bands, as sbc_v7_16a9b.jl draws them (same generator), so the
 # two methods' rank-ECDFs are read against the same bands.
 function ecdf_bands(R, L; α = 0.05, nsim = 50_000, rng = Xoshiro(16_299_999))
     z = (1:L) ./ (L + 1)
     tail(k, p) = (d = Binomial(R, p); 2 * min(cdf(d, k), 1 - cdf(d, k - 1)))
     mins = map(1:nsim) do _
-        ranks = rand(rng, 0:L, R)
-        minimum(tail(count(<(i), ranks), z[i]) for i in 1:L)
+        counts = ecdf_counts(rand(rng, 0:L, R), L)
+        minimum(tail(counts[i], z[i]) for i in 1:L)
     end
     γ = quantile(mins, α)
     lo = [quantile(Binomial(R, p), γ / 2) for p in z]
@@ -266,6 +280,14 @@ function v6_reference(pnames)
     null = [[w1(pick([k], 101, 656)[:, p], pick(setdiff(1:4, k), 101, last_)[:, p]) / sd[p]
              for p in eachindex(pnames)] for k in 1:4]
     return (; ref, sd, null = reduce(hcat, null)')            # null: 4 × parameters
+end
+
+# KS's unit and floor for marginal q (rule 6): on m0_v6, V6's SD and F10's largest
+# matched null; elsewhere the base's SD and the larger chain-vs-chain W1.
+function ks_scale_floor(Xb, Xk, q, v6)
+    v6 === nothing || return v6.sd[q], maximum(v6.null[:, q])
+    sd = std(pooled(Xb)[:, q])
+    return sd, max(w1(Xb[:, q, 1], Xb[:, q, 2]), w1(Xk[:, q, 1], Xk[:, q, 2])) / sd
 end
 
 # CPU-h by sacct for the jobs a fit ran (jobs.tsv, written by the launcher). Falls
@@ -316,12 +338,11 @@ function run_merge(out)
     rows_tsv = String[]
     for (j, f) in enumerate(reps)
         p = deserialize(prep_file(out, f))
-        s = fit_setup(out, f).s
         X = posterior_draws(out, f)
         rh[j, :], es[j, :] = diagnostics(X)
-        flat = reshape(permutedims(X, (1, 3, 2)), :, P)
+        flat = pooled(X)
         idx = round.(Int, range(1, size(flat, 1); length = L))
-        tx = truth_x(p.ds, s)
+        tx = truth_x(p.ds, s_any)
         ranks[j, :] = [count(<(tx[q]), flat[idx, q]) for q in 1:P]
         r = parse(Int, String(f)[2:end])
         if isfile(joinpath(V7_DIR, "replicate$(r).jls")) && COMPARE
@@ -369,7 +390,7 @@ function run_merge(out)
     say("| Parameter (log) | Outside the band at | Largest |ECDF − z| | Verdict |")
     say("|---|---|---|---|")
     for q in 1:P
-        counts = [count(<(i), ranks[:, q]) for i in 1:L]
+        counts = ecdf_counts(ranks[:, q], L)
         outside = [i for i in 1:L if !(lo[i] <= counts[i] <= hi[i])]
         within[q] = isempty(outside)
         say(@sprintf("| %s | %s | %.3f | %s |", pnames[q],
@@ -380,7 +401,7 @@ function run_merge(out)
     if !isempty(bad) && length(bad) < R
         keep = [j for j in 1:R if !(reps[j] in bad)]
         _, lo2, hi2, _ = ecdf_bands(length(keep), L; α)
-        n2 = count(q -> all(lo2[i] <= count(<(i), ranks[keep, q]) <= hi2[i] for i in 1:L), 1:P)
+        n2 = count(q -> in_band(ecdf_counts(ranks[keep, q], L), lo2, hi2), 1:P)
         say("Without the $(length(bad)) below the convergence target (sensitivity, not the verdict): ",
             "$n2 of $P within, on $(length(keep)).")
     end
@@ -407,13 +428,9 @@ function run_merge(out)
     end
 
     # Rule 4: m0_v6 against V6, beside F10's matched nulls.
-    Xv = reshape(permutedims(posterior_draws(out, :v6), (1, 3, 2)), :, P)
-    open(joinpath(out, "av6_v6_draws.tsv"), "w") do o
-        println(o, join(String.(pnames), '\t'))
-        foreach(i -> println(o, join((@sprintf("%.17g", v) for v in Xv[i, :]), '\t')), axes(Xv, 1))
-    end
+    v6 = COMPARE ? v6_reference(pnames) : nothing
     if COMPARE
-        v6 = v6_reference(pnames)
+        Xv = pooled(posterior_draws(out, :v6))
         say("\n## m0_v6 against V6 (rule 4, information; F10's matched nulls)\n")
         say("| Parameter (log) | mixed mean ± sd | V6 mean ± sd | W1 / SD_V6 | matched nulls | reading |")
         say("|---|---|---|---|---|---|")
@@ -437,20 +454,13 @@ function run_merge(out)
         base = fit_kind(kf).base
         Xb = posterior_draws(out, base)
         Xk = posterior_draws(out, kf)
-        fb = reshape(permutedims(Xb, (1, 3, 2)), :, P)
-        fk = reshape(permutedims(Xk, (1, 3, 2)), :, P)
-        v6 = base === :v6 && COMPARE ? v6_reference(pnames) : nothing
+        fb, fk = pooled(Xb), pooled(Xk)
+        v6k = base === :v6 ? v6 : nothing
+        unit = v6k === nothing ? "base SD; floor = larger chain-vs-chain W1" :
+               "V6 SD; floor = F10's largest matched null"
         for q in 1:P
-            if v6 === nothing
-                sd = std(fb[:, q])
-                w = w1(fb[:, q], fk[:, q]) / sd
-                floor_ = max(w1(Xb[:, q, 1], Xb[:, q, 2]), w1(Xk[:, q, 1], Xk[:, q, 2])) / sd
-                unit = "base SD; floor = larger chain-vs-chain W1"
-            else
-                w = w1(fb[:, q], fk[:, q]) / v6.sd[q]
-                floor_ = maximum(v6.null[:, q])
-                unit = "V6 SD; floor = F10's largest matched null"
-            end
+            sd, floor_ = ks_scale_floor(Xb, Xk, q, v6k)
+            w = w1(fb[:, q], fk[:, q]) / sd
             over = w > floor_
             fires |= over
             say(@sprintf("| %s | %s | %s | %.3f | %.3f (%s) | %s |", kf, base, pnames[q], w, floor_,
@@ -474,7 +484,7 @@ function run_merge(out)
         all(c -> isfile(chain_file(out, sf, c)), 1:NCHAIN) || (say("| $sf | not run | | | | |"); continue)
         X = posterior_draws(out, sf)
         r_, e_ = diagnostics(X)
-        flat = reshape(permutedims(X, (1, 3, 2)), :, P)
+        flat = pooled(X)
         open(joinpath(out, "av6_$(sf)_draws.tsv"), "w") do o
             println(o, join(String.(pnames), '\t'))
             foreach(i -> println(o, join((@sprintf("%.17g", v) for v in flat[i, :]), '\t')), axes(flat, 1))
@@ -494,7 +504,7 @@ end
 function run_nullcmp(out)
     pnames = mixed_parameter_names(fit_setup(out, :v6).s)
     P = length(pnames)
-    pool(X) = reshape(permutedims(X, (1, 3, 2)), :, P)
+    v6ref = v6_reference(pnames)
     io = IOBuffer()
     say(xs...) = (println(io, xs...); println(xs...))
     say("# AV6 (#89 B7): KS's matched null\n")
@@ -505,12 +515,9 @@ function run_nullcmp(out)
     for (nf, kf) in ((:null_v6, :ks_v6), (:null_low1, :ks_low1))
         base = fit_kind(nf).base
         Xb, Xn, Xk = posterior_draws(out, base), posterior_draws(out, nf), posterior_draws(out, kf)
-        fb, fn, fk = pool(Xb), pool(Xn), pool(Xk)
-        v6 = base === :v6 ? v6_reference(pnames) : nothing
+        fb, fn, fk = pooled(Xb), pooled(Xn), pooled(Xk)
         for q in 1:P
-            sd = v6 === nothing ? std(fb[:, q]) : v6.sd[q]
-            floor_ = v6 === nothing ? max(w1(Xb[:, q, 1], Xb[:, q, 2]), w1(Xk[:, q, 1], Xk[:, q, 2])) / sd :
-                     maximum(v6.null[:, q])
+            sd, floor_ = ks_scale_floor(Xb, Xk, q, base === :v6 ? v6ref : nothing)
             wn, wk = w1(fb[:, q], fn[:, q]) / sd, w1(fb[:, q], fk[:, q]) / sd
             say(@sprintf("| %s | %s | %.3f | %.3f | %.3f | %s |", base, pnames[q], wn, wk, floor_,
                          wk > wn ? "yes" : "no"))
