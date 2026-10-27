@@ -38,20 +38,15 @@ parameters over unchanged. `:none` drops them, for a standalone build at
 pinned rate constants. Route (ii), [`build_mean_field_problem`](@ref), executes
 them; the plain [`build_problem`](@ref) does not.
 """
-struct MeanField{N} <: AbstractSubModel
+struct MeanField{N, K <: Tuple} <: AbstractSubModel
     members::Vector{AbstractSubModel}
     names::Vector{Symbol}
     params::Vector{InferParameter}
-    rates::Vector{Any}
-    member::Vector{Int}
-    sidx::Vector{Vector{Int}}
     pidx::Vector{Vector{Int}}
-    iidx::Vector{Vector{Int}}
-    ν::Matrix{Float64}
-    nz::Vector{Vector{Int}}
     edges::Vector{CouplingEdge}
     rebuilt::Vector{Symbol}
     id::Symbol
+    kernel::K
 end
 
 function MeanField(members::AbstractVector{<:AbstractSubModel};
@@ -121,9 +116,17 @@ function MeanField(members::AbstractVector{<:AbstractSubModel};
          CouplingEdge[]
     rebuilt = declared ? reduce(vcat, (rebuilt_params(mem) for mem in members); init = Symbol[]) :
               Symbol[]
-    return MeanField{N}(members, names, params, rates, member, sidx, pidx, iidx, ν, nz,
-                        collect(CouplingEdge, es), rebuilt, id)
+    kernel = Tuple(_kernel_term(rates[r], sidx[member[r]], pidx[member[r]], iidx[member[r]],
+                                nz[r], ν[nz[r], r]) for r in eachindex(rates))
+    return MeanField{N, typeof(kernel)}(members, names, params, pidx, collect(CouplingEdge, es),
+                                        rebuilt, id, kernel)
 end
+
+# One reaction's term in `dynamics`, with its closure and indices concretely
+# typed, so the right-hand side neither dispatches nor allocates per call.
+_kernel_term(rate, s, p, i, nz, ν) =
+    (; rate, s = SVector{length(s)}(s), p = SVector{length(p)}(p), i = SVector{length(i)}(i),
+     nz = SVector{length(nz)}(nz), ν = SVector{length(ν)}(ν))
 
 # A reaction's state change, by applying its affect to a base state of `x`.
 function _state_change(r, ns, ni, x)
@@ -158,15 +161,20 @@ member's slices of the mean state and the group's parameters.
 """
 function dynamics(u, p, t, m::MeanField{N}) where {N}
     T = promote_type(eltype(u), eltype(p))
-    du = zeros(T, N)
-    for r in eachindex(m.rates)
-        j = m.member[r]
-        a = m.rates[r](u[m.sidx[j]], p[m.pidx[j]], t, u[m.iidx[j]])
-        for i in m.nz[r]
-            du[i] += a * m.ν[i, r]
-        end
-    end
+    du = zeros(MVector{N, T})
+    _add_terms!(du, u, p, t, m.kernel)
     return SVector{N, T}(du)
+end
+
+# The reactions in order, each adding a_r · ν_r over ν_r's nonzeros.
+@inline _add_terms!(du, u, p, t, ::Tuple{}) = du
+@inline function _add_terms!(du, u, p, t, ks::Tuple)
+    k = first(ks)
+    a = k.rate(u[k.s], p[k.p], t, u[k.i])
+    for j in eachindex(k.nz)
+        du[k.nz[j]] += a * k.ν[j]
+    end
+    return _add_terms!(du, u, p, t, Base.tail(ks))
 end
 
 function reduction_notes(m::MeanField)

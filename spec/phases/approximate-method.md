@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-23
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-27
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -19,8 +19,9 @@ the reference here, and M0, V6 and V7.
 **Labels.**
 - B0 to B9 are #89's tasks.
 - AV1 to AV7 are this file's verification checks.
-- KG, KS and KC are its local checks. KS and KC are stops. KG has been reported,
-  not a stop, since 2026-10-23 (§12).
+- KG, KS and KC are its local checks. KC is a stop. KG has been reported, not a
+  stop, since 2026-10-23 (§12). KS is a stop; it fired in B7 (2026-10-27, §8,
+  §12), and its named response is not built now.
 - **Not phase 17.** The parent's phase 17 is per-module calibration, so this file
   has no phase number.
 
@@ -190,7 +191,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   evaluation, about 1.8 CPU-h on Core A′, and no gradients. That kills NUTS.
 - **The alternative is the linear noise approximation.** S per θ, differentiable,
   exact for the gene-expression block, linearised through the metabolism. It is §9's
-  open question. It is the right next step if KS fires.
+  open question. It is the right next step if KS fires. (KS fired in B7; the
+  approximation is not built now, §8 and §12 2026-10-27.)
 
 **Order and gates:**
 1. **B1 and B2** are standalone and unit tested: AV1–AV4.
@@ -236,7 +238,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
   reference ensemble, and δ and S. `dev/scripts/mixed_nuts_89_result.md` is its
   full run on m0_v6, which serves as the verification clause's end-to-end smoke
   (§12 2026-10-24).
-- Later PRs: the dispatcher, and B7's and B8's result files.
+- `dev/scripts/av6_89_b7_result.md` (B7): AV6's verdicts, with Figure 4 and
+  Figure 5's middle panel in `dev/notes/figures/av6-89b7/`.
+- Later PRs: B7.8's stream-arm comparison, and B8's result file.
 
 ## 7. Non-goals
 
@@ -268,7 +272,11 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - **If it fails at every truth:** the mean field, as built, is not the second
     description anywhere. Stop before B4. The result file lists the options, and
     the user chooses one. Do not tune σ_b to pass (added 2026-10-20, §12).
-- **KS — a fixed S is too crude.** On M0, 5.2's posterior with S fixed differs from
+- **KS — a fixed S is too crude.** **KS fired in B7 (2026-10-27, §12 "B7 as
+  run"), on 5 of 18 marginals by at most 0.027 SD. The user's decision: report it
+  as fired and write it up in the paper; the linear noise approximation is not
+  built now. How B8 handles S is open, and is asked before B8 starts.** The text
+  below is kept as agreed on 2026-10-20. On M0, 5.2's posterior with S fixed differs from
   one with S re-estimated at the posterior mean by more than the Monte Carlo floor.
   The response is the linear noise approximation (§9).
 - **KC — no cost advantage.** On M0 an approximate posterior costs more than a tenth
@@ -280,6 +288,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - ~~[NEEDS CLARIFICATION: KG's threshold.]~~ — resolved 2026-10-20: as in §8.
 - ~~[NEEDS CLARIFICATION: fixed S, or the linear noise approximation?]~~ — resolved
   2026-10-20: fixed S (D-S), with the linear noise approximation if KS fires.
+  (KS fired in B7; the approximation is not built now, §8 and §12 2026-10-27.)
 - ~~[NEEDS CLARIFICATION: the near-floor pools.]~~ — resolved 2026-10-20: Pi, 3PG
   and 2PG stay in the Gaussian factor. The approximate and exact fits then see the
   same data, and AV6 shows whether the Gaussian breaks there. Dropping them, or
@@ -288,6 +297,13 @@ forward ensemble of the full two-way model, and held fixed across θ.
   are scored at the population-mean `k̄_tx`. Is per-cell feedback in the transcript
   factor ever worth keeping? It is the only route by which a cell's own pools inform
   its own transcripts.
+- [NEEDS CLARIFICATION: the m0_v6 gap.] On m0_v6 the mixed posterior sits
+  0.42–0.56 SD from V6 on S_0779, krnadeg and ENO, about 0.3 SD above every
+  matched null, while over V7's 50 the largest mean bias is 0.095 ± 0.050 SD and
+  SBC passes (B7, §12 2026-10-27). FBA and σ_b also clear the nulls, by 0.005 and
+  0.013. Re-estimating S at the posterior mean moves the three by 0.08–0.09 SD
+  and does not close the gap. Is it δ's sampling noise (one 800-cell
+  ensemble), the mean field at this dataset, or the transcript constants above?
 
 ## 10. Risks
 
@@ -308,11 +324,325 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
-- [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
+- [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done). PR #104 (B7.1–B7.7, B7.9); B7.8 follows in its own PR.
+  Planned in §12 2026-10-24, "B7 as planned"; as run in §12 2026-10-27 (SBC passes, KS fires, KC does not; `dev/scripts/av6_89_b7_result.md`). One commit per task:
+  - [x] B7.1 This plan, as a §12 entry.
+  - [x] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
+  - [x] B7.3 A stream switch, `mixed_setup(ds; streams)` — verify by `(:tx, :bulk)` equal to today's density bitwise, `(:bulk,)` equal to prior + bulk, `(:tx,)` equal to prior + transcript factors, and AV3 on each to 1e-6.
+  - [x] B7.4 Jittered starts and seed ranges — verify by a test that starts lie in the box, are reproducible at a seed, and their seeds are disjoint from the cells' and the ensemble's.
+  - [x] B7.5 The AV6 driver (`dev/scripts/av6_89_b7.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
+  - [x] B7.6 The production run: 50 replicates, 3 KS refits, 2 stream arms — verify by `sacct` showing every job COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
+  - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
+  - [ ] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".)
+  - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-27 — B7 as run: AV6's verdicts, KS fires, and what changed on the way (after the runs)
+
+- **Verdicts** (`dev/scripts/av6_89_b7_result.md`; merge job 19292232 at
+  `8da6045`):
+  - **SBC, AV6's pass line: passes.** All six parameters lie within the bands at
+    1 − 0.05/6, on all 50 replicates and on the 33 that meet the convergence target.
+  - **KS fires.** On 5 of 18 marginals, each by at most 0.027 SD over its floor.
+  - **KC does not fire.** The median is 6.57 CPU-h per posterior, against 50.75.
+  - **On m0_v6 (information):** five of six marginals are resolved from V6 under
+    the reading fixed in advance. S_0779, krnadeg and ENO are 0.42–0.56 SD
+    apart, about 0.3 SD above F10's largest null; FBA and σ_b clear it by only
+    0.005 and 0.013; S_0607 is not resolved.
+  - **Against V7 over the 50 (information):** the largest mean bias is
+    krnadeg's, +0.095 ± 0.050 SD; per parameter, 9–22 of the 50 replicates
+    differ by more than 3× V7's own MCSE.
+- **KS: the user's decision (2026-10-27).** KS is a stop (§8), and its named
+  response is the linear noise approximation.
+  - §8 now says in place, as KG's entry does, that KS fired, that it is
+    reported as fired, and that the approximation is not built now. How B8
+    handles S is open, and is asked before B8 starts.
+  - It fired, and that is reported as it stands. The approximation is not built
+    in B7; the paper reports KS as fired.
+  - **A matched null was run after the result (information only).** It is two
+    fixed-S fits with the same θ_ref, δ and S and different chain seeds (`09be2f5`,
+    jobs 19334375–19334380).
+    - v6 S_0607 is at 0.213 against a null of 0.113, and r12 ENO at 0.216 against
+      0.101: about twice the null.
+    - v6 FBA is 1.3× the null. v6 σ_b and r12 S_0607 are below it.
+    - On the two datasets with a null (v6, r12; r19 had none), holding S fixed
+      shows as a W1 of about 0.2 SD on one marginal each, a raw figure that
+      includes about 0.1 SD of chain noise.
+    - KS's floors are not matched to its 400-against-400 comparison. The floor
+      is above the matched null on 5 of 6 marginals on v6 (σ_b is the
+      exception) and on 4 of 6 on r12, so it mostly makes KS harder to fire.
+      Two firings, v6 σ_b and r12 S_0607, sit where the floor is below the
+      null; they are the two within it.
+- **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
+  comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
+  mixed side is in the result file, and B7.8 follows in its own PR.
+- **The m0_v6 gap is a new open question (§9).** Re-estimating S at the posterior
+  mean moves those three marginals by only 0.08–0.09 SD and does not close it.
+  S's form was not varied.
+- **B7.2's profile** (the ledger's profile row).
+  - The kept changes:
+    - `MeanField`'s reactions as a typed tuple (`d39360c`);
+    - route (ii)'s module terms by recursion (`6d1320a`).
+  - The gradient went from 3.193 s to 2.143 s, and the density from 0.995 s to
+    0.419 s.
+  - Both snapshot compares agree at relative difference 0, within the 1e-10 the
+    clause asks.
+  - B5's tests pass, 107 of 107 (job 19160188), as does the mean-field set, 489
+    of 489 (job 19164153).
+  - The projected cost was below the gate.
+- **KS's re-estimation, as built** (`run_ksprep`). Two details the plan's
+  wording did not fix:
+  - the ensemble reuses the base fit's 800 reference seeds (common random
+    numbers), not a new ensemble, so the two S share the cells' random
+    numbers;
+  - the posterior mean is taken on the log scale, the sampler's own
+    coordinates.
+- **B7.6's clause, as read.** "Every job COMPLETED" is read as every job of
+  record. The preps that timed out or were cancelled during the MAP fault, and
+  the jobs stranded behind them, are relabelled `~superseded` in the run's
+  `jobs.tsv` and costed in the ledger as lost.
+- **Touches.** `d39360c` edits `src/mean_field.jl`, which "B7 as planned" did not
+  list. It is a number-preserving speedup inside B7.2's scope, and no in-flight
+  phase touches the file.
+- **B7.5's smoke** (r1 at `51064a8`, r2 at `ba69134`) found three faults, each
+  fixed before production:
+  - **`mkpath`:** the stream arms had no fit directory.
+  - **`base_chains`:** ks_low2 queued behind ks_low1's chains.
+  - **The `!SMOKE` gate:** it skipped rules 4 and 5 and KS's V6 floor, so
+    `AV6_COMPARE=1` was added (`56c573d`).
+  - Figure 4's cost-bar labels were also fixed (`7a102fc`).
+- **The MAP faults** are in §12 2026-10-25 and 2026-10-26.
+  - Eleven preps timed out at 12 h. `reference_theta` gained `reltol`, and then
+    `xtol` for r33.
+  - θ_ref agrees across the three rules to at most 2.1e-5 prior SD wherever they
+    were compared.
+  - The faults cost 274.1 CPU-h. The run of record cost 391.9.
+- **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349), and again after
+  #104's review at `d23c746` (job 19344907).
+- **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
+  `SHA256SUMS`. It holds the run, the MAP traces and checks, B7.2's profile
+  snapshots and logs, the test and suite logs, and B7.5's smokes.
+- **What #104's review corrected** (before merge; this entry and the result file
+  as first committed at `6c32015`):
+  - KS's null reading had said three of the five firings were within the null.
+    v6 FBA is 1.3× it, so two are.
+  - Rule 4 had been read as three marginals resolved. Under the rule fixed in
+    advance it is five of six; FBA and σ_b clear the nulls narrowly.
+  - 2026-10-25's r5 diagnosis had said the objective was within 1e-6 of its
+    final value at 0.10 h. The trace (`maptrace_r5.tsv`) has it 3.5e-4 away
+    then, and within 1e-6 only from 2.86 h. The diagnosis, a gradient noise
+    floor, is unchanged.
+  - Smaller corrections: 2026-10-25's "maximum of 6.5 s" excludes the first,
+    compile-time gradient (41.4 s); 2026-10-26's "about 2 gradients" per
+    iteration is about 3.4; the ledger's 32.1 was 32.0 (32.1 again with the
+    review's replay), and two of its ranges
+    now name the `ttcf` jobs inside them.
+  - B7.2's evidence (the profile logs and snapshots, and the test and suite logs)
+    sat only in worktrees the handoff said could go. It is now in the archive,
+    whose `SHA256SUMS` was regenerated and verifies.
+  - Simplifications applied, each meant to leave every number unchanged:
+    `mixed_prior_sd`; `MeanField` without the six fields its typed kernel
+    replaced; the driver's repeated pieces written once; AV3's test loop
+    written once. Replayed at `d23c746` on a copy of the run directory (merge
+    19344905, nullcmp 19344906), every output is byte-identical to the run of
+    record but for the header's commit and job, and the figures regenerate
+    byte-identical. The replay's outputs and logs are in the archive under
+    `replay/`. The suite at `d23c746`: job 19344907.
+  - The fix round's own review (round 2) corrected two of its fixes: the floors'
+    direction, which the first fix had stated backwards (against the matched
+    null they mostly make KS harder to fire), and §8's note, which had stated a
+    B8 decision the user had not made (how B8 handles S is open).
+  - Deferred, with reasons, to the handoff: replacing `reference_theta`'s two
+    stops with one gradient floor (it would change the code the run used); the
+    launchers' shared pieces, KS-low's dependencies and the resume fault (each
+    needs a smoke); `readdlm` for F10's TSV (not a project dependency); and
+    sharing `f10_16a10.py`'s loaders (different keys, and its import pulls in
+    arviz).
+- **Sections touched:** the label line, §6, §8, §9, §11 and §12.
+
+### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
+
+- **Trigger.** In the second resume (jobs 19238017–19238056, at `6526b45`), ten of
+  the 11 rerun MAPs stopped under the reltol rule of 2026-10-25, in 209–2651 s.
+  r33's prep (19238038) was still in its MAP after 17.9 h. It had also hit the
+  12 h limit in the first run.
+- **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl` with `RELTOL=1e-10`, at
+  `afb10d2`, job 19285234).
+  - By 0.13 h, x was 1.0531, 1.1060, 2.8421, 4.2988, 3.9281, −1.6688.
+  - At about 0.8 h, Fminbox's second round moved x by at most 0.0035. The
+    objective it reports went from 474.497 to 492.113.
+  - From then on, x did not change in the fourth decimal over at least 300
+    iterations. Each iteration still took about 3.4 gradients on average over
+    the last 300. (Corrected by #104's review from "about 2"; see 2026-10-27.)
+  - With |f| ≈ 492, the 1e-10 relative test needs changes below 5e-8. The trace
+    prints the objective to 6 significant figures, too coarse to show whether it
+    was still moving at that scale.
+  - A wall-time cap would not help: it ends with a non-success code, and
+    `reference_theta` then falls back to the prior median.
+- **Change** (`8da6045`). `reference_theta` takes `xtol = 1e-6`, passed as Optim's
+  `x_abstol` and Fminbox's `outer_x_abstol`. The MAP also stops once a step moves
+  every coordinate of x by at most 1e-6. Optim's defaults for both are 0, so
+  `xtol = 0` gives the 2026-10-25 call exactly.
+- **Check** (`dev/scripts/av6_89_b7_mapcheck.jl`, jobs 19290049–19290055, at
+  `8da6045`). The new rule against the θ_ref that the run stored:
+
+  | Replicate | Stored θ_ref took | New MAP | max \|Δx\| (prior SD) | Δ log density |
+  |---|---|---|---|---|
+  | r46 | 0.07 h | 0.06 h | 2.1e-5 | −1.3e-8 |
+  | r4 | 3.50 h | 0.07 h | 3.8e-6 | +3.9e-8 |
+  | r9 | 7.66 h | 0.06 h | 6.5e-7 | +4.0e-10 |
+  | r38 | 6.41 h | 0.06 h | 1.3e-7 | −1.5e-6 |
+  | r5 | 0.06 h (the reltol rule) | 0.07 h | 2.4e-6 | −6.6e-10 |
+
+  - **r33** stopped in 0.09 h at x = 1.051620, 1.107654, 2.842046, 4.301152,
+    3.924617, −1.668981, with log density −492.1305. That is where its trace had
+    sat since about 0.8 h, to the trace's 4 decimals: 1.0516, 1.1077, 2.8420,
+    4.3012, 3.9246, −1.6690, objective 492.131.
+  - B5's and B6's test files passed, 142 of 142 (job 19290056).
+- **What the run uses.**
+  - 40 base fits have θ_ref under Optim's tests alone.
+  - Ten have θ_ref under the reltol rule: r5, r7, r18, r23, r25, r28, r29, r37,
+    r42, r50.
+  - r33 uses the xtol rule. The KS refits run no MAP: they reuse their base's
+    θ_ref (v6, r12 and r19, all under Optim's tests alone).
+  - The three rules agree to at most 2.1e-5 prior SD wherever they were compared.
+- **Third resume, at `8da6045`:** jobs 19292223–19292232. These are r33's prep and 2
+  chains, the KS refits on the two low-ENO replicates (each a prep and 2 chains) and
+  the merge.
+- **Cost of this round:** r33's prep ran 17.95 CPU-h before it was cancelled, along
+  with the 9 jobs waiting on it. The trace took 2.10 CPU-h, and the checks and tests
+  1.21.
+- **Sections touched:** §12, and `src/mixed_likelihood.jl`'s docstring.
+
+### 2026-10-25 — B7: θ_ref's MAP stops on the objective, after 11 preps ran past 12 h
+
+- **Trigger.** In AV6's production run (jobs 19177653–19177825, at `7a102fc`), 11
+  of the 51 base preps hit their 12 h limit inside `reference_theta`'s bounded MAP:
+  r5, r7, r18, r23, r25, r28, r29, r33, r37, r42 and r50. The other 40 finished in
+  0.07–7.66 h. All of them ended at ordinary optima, within 3.45 prior SD of the
+  prior median (the box is ±6 SD).
+- **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl`, at `af332d7`).
+  - **r5** (job 19209034) ran to its 6 h cap: 7,703 gradients and 4 Fminbox
+    rounds. At 0.10 h Fminbox's objective was 863.463 against a final 863.765, a
+    relative gap of 3.5e-4. It was within 1e-6 of the final value, at the
+    trace's 6 significant figures, only from 2.86 h. (Corrected by #104's review: this line had said within 1e-6 at
+    0.10 h; see 2026-10-27.)
+    - At the cap, |Δx| was 1.6e-9, the relative change in f was 9e-13 and |g| was
+      5.1e-6, against Optim's g_tol of 1e-8.
+    - The median gradient took 2.31 s, with a maximum of 6.5 s after the first,
+      compile-time gradient (41.4 s), so it was not stiffness. (The first
+      gradient's exception added by #104's review; see 2026-10-27.)
+  - **r46** (job 19209035) converged in 0.14 h, with |g| at 3.3e-9.
+  - **Cause:** the ODE solves leave a noise floor in the gradient, and on some
+    datasets it sits above g_tol. The gradient test then never passes.
+  - Fminbox maps `maxiters = 200` to 200 outer rounds, and each inner LBFGS keeps
+    Optim's default of 1,000 iterations. So a MAP can run for days before it
+    falls back to the prior median.
+- **Change** (`6526b45`). `reference_theta` takes `reltol = 1e-10`, passed as
+  Optim's `f_reltol` and Fminbox's `outer_f_reltol`. The MAP now also stops once
+  the objective's relative change between iterations is at most 1e-10. With
+  `reltol = 0` the call is exactly the old one.
+- **Check, before any rerun** (`dev/scripts/av6_89_b7_mapcheck.jl`, jobs
+  19232720–19232726, at `6526b45`). The new rule against the θ_ref that the run
+  stored:
+
+  | Replicate | Old MAP | New MAP | max \|Δx\| (prior SD) | Δ log density |
+  |---|---|---|---|---|
+  | r46 | 0.07 h | 0.05 h | 2.1e-5 | −1.3e-8 |
+  | r4 | 3.50 h | 0.07 h | 4.8e-7 | −1.0e-9 |
+  | r9 | 7.66 h | 0.07 h | 7.8e-8 | +1.2e-10 |
+  | r38 | 6.41 h | 1.03 h | 1.1e-8 | −6.6e-7 |
+
+  - **r5** stopped in 0.06 h, at the final x of its 6 h trace to the trace's 4
+    decimals, with log density −863.765.
+  - **r7** stopped in 0.07 h.
+  - B5's and B6's test files passed, 142 of 142 (job 19232740).
+- **What the run uses.**
+  - The 40 finished preps keep the θ_ref they stored under Optim's tests alone.
+  - The 11 reruns use the new rule. They were submitted from a worktree at
+    `6526b45`; the driver and Slurm scripts are the same as `7a102fc`'s.
+  - θ_ref is the same under either rule to at most 2e-5 prior SD. The starts are
+    drawn at 0.25 SD around θ_ref, so the mixed set does not change the
+    posteriors AV6 compares.
+- **The wall-limit fault, and the resume script** (`dev/scripts/av6_89_b7_resume.sh`,
+  `eaa627a`).
+  - The script resubmits only what a run is missing, with a 3-day prep limit. It
+    relabels the dead jobs `<fit>~superseded` in `jobs.tsv`, so KC's `sacct`
+    leaves them out.
+  - **First resume, at `7a102fc`, cancelled:** jobs 19200562–19200603, 40 jobs.
+    The 11 preps ran 11.3 h each under the old rule before the diagnosis
+    projected that they would run out their 3 days.
+  - **Second resume, at `6526b45`:** jobs 19238017–19238056, 40 jobs. These are
+    the 11 preps and their 22 chains, the KS refits on the two low-ENO replicates
+    (each a prep and 2 chains) and the merge.
+  - **Cost of the fault:** 132.06 CPU-h in the timed-out preps and 124.10 CPU-h in
+    the cancelled resume, 256.16 in all.
+- **Sections touched:** §12, and `src/mixed_likelihood.jl`'s docstring.
+
+### 2026-10-24 — B7 as planned: AV6's rules, run size and the extra arms (the user's decisions; fixed before any run)
+
+- **Why an entry.** AV6 (§3) names the comparison but gives no pass rule for the
+  marginals, and B7 had no verification clause.
+- **Run size.**
+  - Profile the gradient first (B7.2), with a resize gate.
+  - Then each posterior is B5's pipeline (θ_ref by the bounded MAP, the 800-cell
+    ensemble, δ and S), followed by **2 chains × (200 adaptation + 200 draws)**.
+  - **Starts:** θ_ref + N(0, (0.25 prior SD)²) per coordinate, clipped to the box.
+  - **Seeds:** the start and chain seeds are recorded, and taken from a range
+    disjoint from the cells' and the ensemble's.
+  - **Cost.** At B5's 6.13 s per gradient this is about 16 CPU-h per posterior, and
+    about 880 CPU-h for everything below.
+- **Per-replicate convergence: reported, not used to drop replicates.**
+  - The target is R̂ ≤ 1.02 and bulk ESS ≥ 100 for every parameter.
+  - Replicates below it are listed, and SBC is also shown without them as a
+    sensitivity check.
+  - Only a complete set of 50 is merged, as V7's guard requires.
+- **AV6's pass line is SBC.**
+  - **Data:** V7's 50 datasets, `m0_dataset(16_200_000 + r)`.
+  - **Ranks:** each replicate's 400 draws are thinned to L = 100, and the rank is
+    `count(< truth)`, as in `sbc_v7_16a9b.jl`.
+  - **Pass:** the rank-ECDF lies within simultaneous bands at 1 − 0.05/6 for all six
+    parameters.
+- **The floor on m0_v6** (information, F10's construction).
+  - W1 per marginal, in reference SDs, between the mixed posterior and V6's pooled
+    chains.
+  - It is read against F10's four matched nulls as resolved or not resolved, never
+    as zero.
+  - The ptsG–ENO contour is drawn.
+- **Against V7 over the 50** (information, not a gate).
+  - Per replicate, d_r = (mean_mix − mean_V7) / sd_V7, with V7's own MCSE
+    (1/√ESS_r).
+  - It is reported per parameter as the mean bias ± its SE across replicates, with
+    the SD ratio.
+  - V7 has one 556-draw chain per dataset, so no matched floor exists there.
+- **KS** is checked on m0_v6 and on the two V7 replicates with the lowest
+  kcatF_R_ENO truths.
+  - **The refit:** S is re-estimated from a new 800-cell ensemble at the mixed
+    posterior mean, with δ held fixed, and the posterior is refitted at the same
+    size.
+  - **KS fires** if, on any marginal, W1 between the fixed-S and re-estimated-S
+    posteriors exceeds the floor.
+  - **The floor:** on m0_v6, F10's matched nulls. Elsewhere, the larger of the two
+    runs' chain-vs-chain W1.
+- **KC.**
+  - Each replicate's CPU-h by `sacct` (MAP, ensemble and chains) is set against
+    50.75.
+  - It is reported per replicate and as a median.
+  - **KC fires** if the median exceeds 50.75.
+- **Stream arms on m0_v6** (added: §3's block-2 check, and the outline's "ptsG still
+  shrinks under metabolites only").
+  - `mixed_setup` gains `streams`, and B7 runs a metabolites-only fit and a
+    transcripts-only fit at the same size.
+  - Each is compared with 16b.4's exact single-stream fit: W1 in exact SD, against
+    16b.4's own chain-vs-chain W1.
+  - ptsG's shrinkage under metabolites only (1 − var_post / var_prior) is reported
+    beside the exact fit's.
+  - If 16b.4 has not landed when the rest is done, stop and ask.
+- **Not changed:** δ, S's construction, the box, the step cap, KG's status and the
+  exact sampler.
 
 ### 2026-10-24 — B6 as built: how its clause was checked, and what #102's review changed (after the runs)
 

@@ -17,6 +17,20 @@ using Turing: logjoint, sample, NUTS
     truth = Dict(ds.truth.values)
     x = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
     θ = exp.(x[1:length(s.names)])
+    # AV3: ForwardDiff's gradient against central differences, coordinate by coordinate.
+    function av3(ℓ, x; h = 1e-4, rtol = 1e-6)
+        g = ForwardDiff.gradient(ℓ, x)
+        fd = map(eachindex(x)) do j
+            e = zeros(length(x))
+            e[j] = h
+            (ℓ(x + e) - ℓ(x - e)) / 2h
+        end
+        @test all(isfinite, g)
+        for j in eachindex(x)
+            @test g[j] ≈ fd[j] rtol = rtol
+        end
+        return g
+    end
 
     @testset "the setup" begin
         @test mixed_parameter_names(s) ==
@@ -115,18 +129,8 @@ using Turing: logjoint, sample, NUTS
                                0.02 .* randn(rng, n), 1e-3 .* (A * A'))
         ℓ(z) = mixed_logdensity(tight, z)
         @test isfinite(ℓ(x))
-        g = ForwardDiff.gradient(ℓ, x)
-        h = 1e-4
-        fd = map(eachindex(x)) do j
-            e = zeros(length(x))
-            e[j] = h
-            (ℓ(x + e) - ℓ(x - e)) / 2h
-        end
-        @test all(isfinite, g)
+        g = av3(ℓ, x)
         @test all(!iszero, g)
-        for j in eachindex(x)
-            @test g[j] ≈ fd[j] rtol = 1e-6
-        end
     end
 
     @testset "−∞ outside the support, not an error" begin
@@ -138,7 +142,7 @@ using Turing: logjoint, sample, NUTS
         @test ForwardDiff.gradient(z -> mixed_logdensity(s, z), lo) isa Vector
         # The support box: outside it, −∞ without a solve.
         lb, ub = mixed_box(s)
-        @test lb ≈ mixed_prior_median(s) .- 6 .* vcat(s.prior_sd, s.sigma_prior.σ)
+        @test lb ≈ mixed_prior_median(s) .- 6 .* mixed_prior_sd(s)
         far = copy(x)
         far[4] = ub[4] + 1.0
         t_far = @elapsed v_far = mixed_logdensity(s, far)
@@ -157,6 +161,65 @@ using Turing: logjoint, sample, NUTS
         v = mixed_theta_values(s, x)
         @test Dict(v)[:krnadeg] ≈ truth[:krnadeg]
         @test Dict(v)[:kcatR_R_ENO] ≈ truth[:kcatR_R_ENO] rtol = 1e-12
+    end
+
+    # B7.3 (§12 2026-10-24, "B7 as planned"): one stream at a time.
+    @testset "streams: each factor alone" begin
+        @test s.streams == [:tx, :bulk]
+        @test_throws ArgumentError mixed_setup(ds; streams = ())
+        @test_throws ArgumentError mixed_setup(ds; streams = (:tx, :tx))
+        @test_throws ArgumentError mixed_setup(ds; streams = (:cells,))
+        rng = Xoshiro(12)
+        n = length(M0_PANEL) * 3
+        A = randn(rng, n, 4)
+        δ, Σ = 0.02 .* randn(rng, n), 1e-3 .* (A * A')
+        both = with_reference(mixed_setup(ds; streams = (:bulk, :tx)), δ, Σ)
+        txo = with_reference(mixed_setup(ds; streams = (:tx,)), δ, Σ)
+        bulko = with_reference(mixed_setup(ds; streams = (:bulk,)), δ, Σ)
+        @test txo.streams == [:tx] && bulko.streams == [:bulk]
+        r = _mixed_solve(s, θ)
+        k = route_transcription_rates(s, r.sol, r.p)
+        μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
+        ltx = transcript_loglik(s.factors, k, μ)
+        lbulk = bulk_loglik(both, mean_field_log_bulk(s, r.sol), ds.sigma)
+        @test mixed_logdensity(both, x) === mixed_logdensity(with_reference(s, δ, Σ), x)
+        @test mixed_loglik(both, x) === ltx + lbulk
+        @test mixed_loglik(txo, x) === ltx
+        @test mixed_loglik(bulko, x) === lbulk
+        @test mixed_logdensity(txo, x) == mixed_log_prior(s, x) + ltx
+        @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
+        # AV3 on each stream alone, at tight tolerances as above.
+        for st in ((:tx,), (:bulk,))
+            tight = with_reference(mixed_setup(ds; abstol = 1e-14, reltol = 1e-12, streams = st),
+                                   δ, Σ)
+            av3(z -> mixed_logdensity(tight, z), x)
+        end
+    end
+
+    # B7.4 (§12 2026-10-24, "B7 as planned").
+    @testset "chain seeds and jittered starts" begin
+        seeds = mixed_chain_seeds(ds, 2)
+        @test length(seeds) == 2 && allunique(seeds)
+        @test all(>(typemax(UInt32)), seeds)
+        @test isdisjoint(seeds, ds.seeds)
+        @test isdisjoint(seeds, reference_seeds(ds, 800))
+        arms = reduce(vcat, [mixed_chain_seeds(ds, 16; arm) for arm in 0:3])
+        @test allunique(arms)
+        other = mixed_chain_seeds(merge(ds, (; replicate_seed = ds.replicate_seed + 1)), 16)
+        @test isdisjoint(arms, other)
+        @test_throws ArgumentError mixed_chain_seeds(ds, 2; arm = 4)
+        @test_throws ArgumentError mixed_chain_seeds(ds, 17)
+        lo, hi = mixed_box(s)
+        a = mixed_jittered_start(Xoshiro(seeds[1]), s, x)
+        b = mixed_jittered_start(Xoshiro(seeds[1]), s, x)
+        c = mixed_jittered_start(Xoshiro(seeds[2]), s, x)
+        @test a.x == b.x && a.tries == b.tries
+        @test a.x != c.x && a.x != x
+        @test all(lo .<= a.x .<= hi)
+        @test isfinite(mixed_logdensity(s, a.x))
+        # Where every density is −∞, it gives up after `tries` draws.
+        capped = mixed_setup(ds; maxiters = 10)
+        @test_throws ErrorException mixed_jittered_start(Xoshiro(3), capped, x; tries = 2)
     end
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"

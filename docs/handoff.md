@@ -1,5 +1,73 @@
 # Handoff
 
+## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
+
+**Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
+- **SBC passes:** 6 of 6 parameters within the bands at 1 − 0.05/6, over V7's
+  50 datasets.
+- **KS fires,** on 5 of 18 marginals by at most 0.027 SD.
+  - A matched null was run after the result (jobs 19334375–19334380). Two of the
+    five firings are about twice the noise between identical fits, one (v6 FBA)
+    is 1.3× it, and two are within it.
+  - The user's decision: report KS as fired, and do not build the linear noise
+    approximation now.
+- **KC does not fire:** median 6.57 CPU-h per posterior, against 50.75.
+- **m0_v6 against V6:** five of six marginals are resolved from V6. S_0779,
+  krnadeg and ENO differ by 0.42–0.56 SD, about 0.3 SD above the nulls; FBA and
+  σ_b clear them by 0.005 and 0.013. Re-estimating S does not close the gap.
+  This is a new open question in §9.
+- **Figures** are in `dev/notes/figures/av6-89b7/`: Figure 4 and Figure 5's middle
+  panel.
+
+**Changed on the way** (§12 2026-10-25, 2026-10-26 and 2026-10-27):
+- `reference_theta` stops on `reltol = 1e-10` and on `xtol = 1e-6`.
+  - Eleven bounded MAPs had run past 12 h, because noise in the ODE gradient kept
+    Optim's test, |g| ≤ 1e-8, from ever passing.
+  - θ_ref is unchanged to at most 2.1e-5 prior SD.
+- The two kept speedups: `MeanField` as a typed tuple (`src/mean_field.jl`,
+  outside the Touches as planned) and route (ii)'s module terms by recursion.
+- The driver, the resume launcher, the MAP trace and check scripts, and KS's null
+  stage all live in `dev/scripts/av6_89_b7*`.
+
+**Suite:** 28851 of 28851 at `5a6cb89` (job 19342349), and after #104's review
+at `d23c746` (job 19344907).
+
+**Cost:** 391.9 CPU-h of record, plus 274.1 lost to the MAP fault. The rows are in
+`dev/scripts/phase16_ledger.md`.
+
+**Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
+`SHA256SUMS`.
+
+**Next:**
+1. **B7.8:** compare the stream arms against 16b.4's exact fits once jobs
+   19034901–19034903 finish (6-day limit, started 2026-10-23), in a follow-up PR.
+   The mixed side is already in the run directory as `av6_tx_v6_draws.tsv` and
+   `av6_bulk_v6_draws.tsv`.
+2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
+   needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
+   the story check, not applied. Before B8 starts, ask how it handles S (§8:
+   open since KS fired).
+3. **Left from #104's review** (not done in B7; see §12 2026-10-27):
+   - `reference_theta`: the next change should replace `reltol` and `xtol` with
+     one noise-floor `g_abstol` (about 1e-4) and an inner LBFGS iteration cap.
+     Changing it now would make the code disagree with the stops the run used,
+     and a new rule needs MAPs on Slurm to check.
+   - The launchers: `av6_89_b7.sh` and `av6_89_b7_resume.sh` copy `sub()` and
+     the `AV6_REPS` parser, whose Python form reads a stepped range (1:2:9)
+     differently from Julia; KS-low's preps wait on all 102 base chains; and a
+     resume run while a prep is RUNNING drops that fit's chains (it fails at the
+     merge, and a second resume repairs it). Each needs a smoke to change.
+   - `reference_theta`'s stopping keywords are tested only in the gated
+     integration test.
+   - Not done: `readdlm` for F10's TSV (DelimitedFiles is not a project
+     dependency), and sharing `f10_16a10.py`'s loaders (different label keys,
+     and importing it pulls in arviz).
+4. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
+   profile, replay and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
+   but only after `sha256sum -c SHA256SUMS` passes in the archive. The archive
+   holds their logs, B7.2's profile snapshots and logs, the test and suite logs,
+   and the smokes.
+
 ## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
 
 **Built** (`src/inference.jl`, at `8a93475`):

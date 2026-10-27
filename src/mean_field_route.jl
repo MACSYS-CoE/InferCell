@@ -159,15 +159,8 @@ end
 function (f::_RouteRHS)(du, u, p, t)
     rt = f.route
     geo = _route_geometry(rt, rt.n_idx == 0 ? zero(eltype(u)) : u[rt.n_idx])
-    parts = map(f.models, f.slots, f.subs) do m, sl, sb
-        u_local = u[sl.sidx]
-        p_local = _substitute(p[sl.pidx], sb, u, geo)
-        u_inputs = u[sl.iidx]
-        (dynamics(u_local, p_local, t, m, u_inputs),
-         contributions(u_local, p_local, t, m, u_inputs))
-    end
     fill!(du, zero(eltype(du)))
-    _write_parts!(du, f.slots, parts)
+    _write_parts!(du, u, p, t, geo, f.models, f.slots, f.subs)
     # The drains, after every module's own term, so a counter's derivative is
     # its whole accrual rate.
     for k in eachindex(f.drain_pool)
@@ -191,16 +184,24 @@ function (f::_RouteRHS)(du, u, p, t)
     return nothing
 end
 
-@inline _write_parts!(du, ::Tuple{}, ::Tuple{}) = du
-@inline function _write_parts!(du, slots::Tuple, parts::Tuple)
-    sl, (d, c) = first(slots), first(parts)
+# Each module's own term and its contributions, added into `du` module by module.
+# A recursion over the tuples, not a `map`, so that under the Jacobian's duals no
+# call is dispatched at run time.
+@inline _write_parts!(du, u, p, t, geo, ::Tuple{}, ::Tuple{}, ::Tuple{}) = du
+@inline function _write_parts!(du, u, p, t, geo, models::Tuple, slots::Tuple, subs::Tuple)
+    m, sl = first(models), first(slots)
+    u_local = u[sl.sidx]
+    p_local = _substitute(p[sl.pidx], first(subs), u, geo)
+    u_inputs = u[sl.iidx]
+    d = dynamics(u_local, p_local, t, m, u_inputs)
+    c = contributions(u_local, p_local, t, m, u_inputs)
     for j in eachindex(sl.sidx)
         du[sl.sidx[j]] += d[j]
     end
     for j in eachindex(sl.cidx)
         du[sl.cidx[j]] += c[j]
     end
-    return _write_parts!(du, Base.tail(slots), Base.tail(parts))
+    return _write_parts!(du, u, p, t, geo, Base.tail(models), Base.tail(slots), Base.tail(subs))
 end
 
 # One rebuild's constants from the pools in `u`, in the order of `r.fill_idxs`.
