@@ -1,5 +1,52 @@
 # Handoff
 
+## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, 2026-10-27)
+
+**Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
+- **SBC passes:** 6 of 6 parameters within the bands at 1 − 0.05/6, over V7's
+  50 datasets.
+- **KS fires,** on 5 of 18 marginals by at most 0.027 SD.
+  - A matched null was run after the result (jobs 19334375–19334380). Two of the
+    five firings are about twice the noise between identical fits; the other
+    three are within it.
+  - The user's decision: report KS as fired, and do not build the linear noise
+    approximation now.
+- **KC does not fire:** median 6.57 CPU-h per posterior, against 50.75.
+- **m0_v6 against V6:** S_0779, krnadeg and ENO differ by 0.42–0.56 SD. Holding S
+  fixed is not the cause. This is a new open question in §9.
+- **Figures** are in `dev/notes/figures/av6-89b7/`: Figure 4 and Figure 5's middle
+  panel.
+
+**Changed on the way** (§12 2026-10-25, 2026-10-26 and 2026-10-27):
+- `reference_theta` stops on `reltol = 1e-10` and on `xtol = 1e-6`.
+  - Eleven bounded MAPs had run past 12 h, because noise in the ODE gradient kept
+    Optim's test, |g| ≤ 1e-8, from ever passing.
+  - θ_ref is unchanged to at most 2.1e-5 prior SD.
+- The two kept speedups: `MeanField` as a typed tuple (`src/mean_field.jl`,
+  outside the Touches as planned) and route (ii)'s module terms by recursion.
+- The driver, the resume launcher, the MAP trace and check scripts, and KS's null
+  stage all live in `dev/scripts/av6_89_b7*`.
+
+**Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
+
+**Cost:** 391.9 CPU-h of record, plus 274.1 lost to the MAP fault. The rows are in
+`dev/scripts/phase16_ledger.md`.
+
+**Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
+`SHA256SUMS`.
+
+**Next:**
+1. **B7.8:** compare the stream arms against 16b.4's exact fits once jobs
+   19034901–19034903 finish (6-day limit, started 2026-10-23), in a follow-up PR.
+   The mixed side is already in the run directory as `av6_tx_v6_draws.tsv` and
+   `av6_bulk_v6_draws.tsv`.
+2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
+   needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
+   the story check, not applied.
+3. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check
+   and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`
+   (everything that matters is in the archive).
+
 ## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
 
 **Built** (`src/inference.jl`, at `8a93475`):

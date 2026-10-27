@@ -148,6 +148,8 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19081750–19081758 | #89 B5 | Smoke r3 at `b101190`: precompile, `theta_ref`, two ensemble chunks, four chains of 10 + 10, merge (all stages ran; numbers not of record) | 1 | 0:01:26–0:44:57 each | 2.69 |
 | 19084578 | #89 B5 | Full suite at `469ca26` (28791 of 28791, of record) | 4 | 0:57:54 | 3.86 |
 | 19091859–19091881 | #89 B5 | The full run at `469ca26`: precompile, `theta_ref` (bounded MAP), 16 ensemble chunks (800 cells), four chains of 300 + 300, merge (of record, `dev/scripts/mixed_nuts_89_result.md`) | 1 | 0:01:31–10:27:54 each | 41.48 |
+| 19147408 | #89 B6 | Full suite at `8a93475` (28813 of 28813, of record) | 4 | 0:56:37 | 3.77 |
+| 19147409 | #89 B6 | Gated identity checks at `8a93475` (34 of 34) | 4 | 0:23:02 | 1.54 |
 | 19159993, 19160196, 19161734, 19162737, 19162281, 19163602 | #89 B7 | Gradient profile: snapshots at `ddddec5` (the first invalid: it compiled an edited tree), `d39360c` and `6d1320a`, and two compares | 1 | 0:00:45–0:04:13 each | 0.30 |
 | 19160188, 19163839, 19163842, 19164153 | #89 B7 | Test files: `test_mixed_likelihood.jl` at `48f1e99` (107 of 107); the mean-field set at `6d1320a` (19163842 FAILED, helpers not included; 19164153 489 of 489) | 1 | 0:00:04–0:11:18 each | 0.40 |
 | 19163848–19163870 | #89 B7 | AV6 smoke r1 at `51064a8` (2 replicates, v6, KS, stream arms). The stream arms FAILED (no fit directory; fixed in `ba69134`), so the merge (19163871) never ran | 1 | 0:01:03–0:21:05 each | 4.46 |
@@ -162,10 +164,14 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19290049–19290056 (not 19290052) | #89 B7 | MAP checks of the xtol stop at `8da6045` (r46, r4, r9, r38, r33, r5) and the test files (142 of 142) | 1 | 0:09:00–0:13:02 each | 1.21 |
 | 19292223–19292232 | #89 B7 | Third resume at `8da6045`: r33's prep and 2 chains, KS low-ENO refits, merge (of record; 10 COMPLETED) | 1 | 0:01:53–2:48:15 each | 16.84 |
 | 19334375, 19334376, 19334378–19334381 | #89 B7 | KS's matched null at `09be2f5` (added after the result): four chains on v6 and r12, the comparison, and its smoke on copied chains | 1 | 0:02:07–2:45:01 each | 10.49 |
+| 19342349 | #89 B7 | Full suite at `5a6cb89` (28851 of 28851, of record) | 4 | 1:02:37 | 4.17 |
 
-**#89 total: about 119.7 CPU-h**: B3's 4.3, six suites' 19.7, the rethink's 48.0,
-the close-out's 0.07, B4's 1.3 besides its suite, and B5's 46.4 besides its suites
-(the smokes' 4.9 and the full run's 41.5).
-The first two suites were missing from #93's rows and are added here from `sacct`.
-**Phase 16 total with both tracks: about 42,974.5 CPU-h** of 50k, so about 7.0k
+**#89 total: about 827.2 CPU-h**: B3's 4.3, eight suites' 27.6, the rethink's 48.0,
+the close-out's 0.07, B4's 1.3 besides its suite, B5's 46.4 besides its suites
+(the smokes' 4.9 and the full run's 41.5), B6's identity checks 1.5, and B7's 698.1
+besides its suite (391.9 of record, 274.1 lost to the MAP fault, and 32.1 of
+profile, tests, smokes, MAP diagnostics and KS's null).
+The first two suites were missing from #93's rows, and B6's two jobs from #102's;
+both are added from `sacct`.
+**Phase 16 total with both tracks: about 43,682.0 CPU-h** of 50k, so about 6.3k
 remain.

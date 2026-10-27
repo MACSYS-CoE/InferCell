@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-26
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-27
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -236,7 +236,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
   reference ensemble, and δ and S. `dev/scripts/mixed_nuts_89_result.md` is its
   full run on m0_v6, which serves as the verification clause's end-to-end smoke
   (§12 2026-10-24).
-- Later PRs: the dispatcher, and B7's and B8's result files.
+- `dev/scripts/av6_89_b7_result.md` (B7): AV6's verdicts, with Figure 4 and
+  Figure 5's middle panel in `dev/notes/figures/av6-89b7/`.
+- Later PRs: B7.8's stream-arm comparison, and B8's result file.
 
 ## 7. Non-goals
 
@@ -288,6 +290,11 @@ forward ensemble of the full two-way model, and held fixed across θ.
   are scored at the population-mean `k̄_tx`. Is per-cell feedback in the transcript
   factor ever worth keeping? It is the only route by which a cell's own pools inform
   its own transcripts.
+- [NEEDS CLARIFICATION: the m0_v6 gap.] On m0_v6 the mixed posterior sits
+  0.42–0.56 SD from V6 on S_0779, krnadeg and ENO, above every matched null, while
+  over V7's 50 the bias is at most 0.095 SD and SBC passes (B7, §12 2026-10-27).
+  Re-estimating S does not move them. Is it δ's sampling noise (one 800-cell
+  ensemble), the mean field at this dataset, or the transcript constants above?
 
 ## 10. Risks
 
@@ -309,20 +316,80 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
 - [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
-  Planned in §12 2026-10-24, "B7 as planned". One commit per task:
-  - [ ] B7.1 This plan, as a §12 entry.
-  - [ ] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
-  - [ ] B7.3 A stream switch, `mixed_setup(ds; streams)` — verify by `(:tx, :bulk)` equal to today's density bitwise, `(:bulk,)` equal to prior + bulk, `(:tx,)` equal to prior + transcript factors, and AV3 on each to 1e-6.
-  - [ ] B7.4 Jittered starts and seed ranges — verify by a test that starts lie in the box, are reproducible at a seed, and their seeds are disjoint from the cells' and the ensemble's.
-  - [ ] B7.5 The AV6 driver (`dev/scripts/av6_89_b7.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
-  - [ ] B7.6 The production run: 50 replicates, 3 KS refits, 2 stream arms — verify by `sacct` showing every job COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
-  - [ ] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
-  - [ ] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask.
-  - [ ] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
+  Planned in §12 2026-10-24, "B7 as planned"; as run in §12 2026-10-27 (SBC passes, KS fires, KC does not; `dev/scripts/av6_89_b7_result.md`). One commit per task:
+  - [x] B7.1 This plan, as a §12 entry.
+  - [x] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
+  - [x] B7.3 A stream switch, `mixed_setup(ds; streams)` — verify by `(:tx, :bulk)` equal to today's density bitwise, `(:bulk,)` equal to prior + bulk, `(:tx,)` equal to prior + transcript factors, and AV3 on each to 1e-6.
+  - [x] B7.4 Jittered starts and seed ranges — verify by a test that starts lie in the box, are reproducible at a seed, and their seeds are disjoint from the cells' and the ensemble's.
+  - [x] B7.5 The AV6 driver (`dev/scripts/av6_89_b7.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
+  - [x] B7.6 The production run: 50 replicates, 3 KS refits, 2 stream arms — verify by `sacct` showing every job COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
+  - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
+  - [ ] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".)
+  - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-27 — B7 as run: AV6's verdicts, KS fires, and what changed on the way (after the runs)
+
+- **Verdicts** (`dev/scripts/av6_89_b7_result.md`; merge job 19292232 at
+  `8da6045`):
+  - **SBC, AV6's pass line: passes.** All six parameters lie within the bands at
+    1 − 0.05/6, on all 50 replicates and on the 33 that meet the convergence target.
+  - **KS fires.** On 5 of 18 marginals, each by at most 0.027 SD over its floor.
+  - **KC does not fire.** The median is 6.57 CPU-h per posterior, against 50.75.
+  - **On m0_v6 (information):** S_0779, krnadeg and ENO are resolved from V6 by
+    0.42–0.56 SD.
+  - **Against V7 over the 50 (information):** the mean bias is at most 0.095 SD
+    per parameter.
+- **KS: the user's decision (2026-10-27).** KS is a stop (§8), and its named
+  response is the linear noise approximation.
+  - It fired, and that is reported as it stands. The approximation is not built
+    in B7; the paper reports KS as fired.
+  - **A matched null was run after the result (information only).** It is two
+    fixed-S fits with the same θ_ref, δ and S and different chain seeds (`09be2f5`,
+    jobs 19334375–19334380).
+    - v6 S_0607 is at 0.213 against a null of 0.113, and r12 ENO at 0.216 against
+      0.101: about twice the null.
+    - v6 FBA is 1.3× the null. v6 σ_b and r12 S_0607 are below it.
+    - So holding S fixed costs about 0.2 SD on about one marginal per dataset.
+- **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
+  comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
+  mixed side is in the result file, and B7.8 follows in its own PR.
+- **The m0_v6 gap is a new open question (§9).** Re-estimating S moves those three
+  marginals by only 0.08–0.09 SD, so S is not its cause.
+- **B7.2's profile** (the ledger's profile row).
+  - The kept changes:
+    - `MeanField`'s reactions as a typed tuple (`d39360c`);
+    - route (ii)'s module terms by recursion (`6d1320a`).
+  - The gradient went from 3.193 s to 2.143 s, and the density from 0.995 s to
+    0.419 s.
+  - Both snapshot compares agree at relative difference 0, within the 1e-10 the
+    clause asks.
+  - B5's tests pass, 107 of 107 (job 19160188), as does the mean-field set, 489
+    of 489 (job 19164153).
+  - The projected cost was below the gate.
+- **Touches.** `d39360c` edits `src/mean_field.jl`, which "B7 as planned" did not
+  list. It is a number-preserving speedup inside B7.2's scope, and no in-flight
+  phase touches the file.
+- **B7.5's smoke** (r1 at `51064a8`, r2 at `ba69134`) found three faults, each
+  fixed before production:
+  - **`mkpath`:** the stream arms had no fit directory.
+  - **`base_chains`:** ks_low2 queued behind ks_low1's chains.
+  - **The `!SMOKE` gate:** it skipped rules 4 and 5 and KS's V6 floor, so
+    `AV6_COMPARE=1` was added (`56c573d`).
+  - Figure 4's cost-bar labels were also fixed (`7a102fc`).
+- **The MAP faults** are in §12 2026-10-25 and 2026-10-26.
+  - Eleven preps timed out at 12 h. `reference_theta` gained `reltol`, and then
+    `xtol` for r33.
+  - θ_ref agrees across the three rules to at most 2.1e-5 prior SD wherever they
+    were compared.
+  - The faults cost 274.1 CPU-h. The run of record cost 391.9.
+- **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
+- **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
+  `SHA256SUMS`.
+- **Sections touched:** §6, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
 
