@@ -45,9 +45,11 @@
 2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
    needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
    the story check, not applied.
-3. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check
-   and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`
-   (everything that matters is in the archive).
+3. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
+   profile and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
+   but only after `sha256sum -c SHA256SUMS` passes in the archive. The archive
+   holds their logs, B7.2's profile snapshots and logs, the test and suite logs,
+   and the smokes.
 
 ## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
 

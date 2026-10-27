@@ -407,7 +407,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - The faults cost 274.1 CPU-h. The run of record cost 391.9.
 - **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
-  `SHA256SUMS`.
+  `SHA256SUMS`. It holds the run, the MAP traces and checks, B7.2's profile
+  snapshots and logs, the test and suite logs, and B7.5's smokes.
 - **What #104's review corrected** (before merge; this entry and the result file
   as first committed at `6c32015`):
   - KS's null reading had said three of the five firings were within the null.
@@ -418,6 +419,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
     final value at 0.10 h. The trace (`maptrace_r5.tsv`) has it 3.5e-4 away
     then, and within 1e-6 only from 2.86 h. The diagnosis, a gradient noise
     floor, is unchanged.
+  - B7.2's evidence (the profile logs and snapshots, and the test and suite logs)
+    sat only in worktrees the handoff said could go. It is now in the archive,
+    whose `SHA256SUMS` was regenerated and verifies.
 - **Sections touched:** the label line, §6, §8, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)

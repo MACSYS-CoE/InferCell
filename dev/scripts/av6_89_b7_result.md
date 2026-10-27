@@ -58,7 +58,13 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
 - **Run size:** 50 cells, 600 s, an 800-cell reference ensemble, 2 chains of
   200 + 200 per fit from starts jittered by 0.25 prior SD.
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
-  `SHA256SUMS`: the run directory, the MAP traces and the MAP checks.
+  `SHA256SUMS` (518 files):
+  - the run directory, the MAP traces, the MAP checks and the null's smoke;
+  - `profile/`: B7.2's snapshots and the profile logs (19159993, 19160196,
+    19161734, 19162281, 19162737, 19163602);
+  - `tests/`: the test-file logs (19160188, 19163839, 19163842, 19164153,
+    19232727, 19232740, 19290056) and the suite's (19342349);
+  - B7.5's two smoke directories, r1 and r2.
 - **Figures:** `dev/notes/figures/av6-89b7/` (`dev/scripts/av6_89_b7.py <run>`):
   Figure 4 (`f4_mixed_vs_exact`) and Figure 5's middle panel (`f5_rank_ecdf_m0`).
 - **Cost:** 391.9 CPU-h of record across the three batches' completed jobs, and
