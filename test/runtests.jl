@@ -120,12 +120,15 @@ using Aqua
     include("test_transcript_bridge.jl")
     include("test_transcript_factor.jl")
     include("test_mean_field.jl")
+    include("test_mean_field_route.jl")
     include("test_block2.jl")
     include("test_m0.jl")
     include("test_block1.jl")
     include("test_fixed_path_kink.jl")
     include("test_csmc.jl")
     include("test_gibbs.jl")
+    include("test_mixed_likelihood.jl")
+    include("test_dispatch.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

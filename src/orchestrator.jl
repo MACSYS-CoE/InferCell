@@ -70,7 +70,8 @@ function _refuse_inert_catalytic(models::Vector{<:AbstractSubModel})
             "the handshake reads the count from the stochastic block, so here the " *
             "slot would be sampled as a free parameter that nothing sets. Compose " *
             "the jump module that owns :$(e.species), or build the module without " *
-            "the edge, for example with enzymes = :nominal"))
+            "the edge, for example with enzymes = :nominal. To run the count from " *
+            "a mean-field group, use build_mean_field_problem"))
     end
     return nothing
 end

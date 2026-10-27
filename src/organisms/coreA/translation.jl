@@ -425,7 +425,7 @@ previous value. **This module never calls this**; only the driver does.
 function rate_constants(p, t, m::CoreATranslation, pools)
     chg = pools[1]
     n = length(m.genes)
-    return SVector{n, Float64}(ntuple(n) do i
+    return SVector{n, promote_type(Float64, eltype(pools))}(ntuple(n) do i
         translation_rate_constant(m.genes[i].length, m.residues[i], chg;
                                   ribo_conc = m.ribo_conc)
     end)

@@ -24,5 +24,5 @@ Source: [`src/inference.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/s
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["inference.jl", "abc_smc.jl", "summary_statistics.jl", "likelihoods.jl"]
+Pages = ["inference.jl", "mixed_likelihood.jl", "abc_smc.jl", "summary_statistics.jl", "likelihoods.jl"]
 ```

@@ -2,17 +2,19 @@ module InferCell
 
 using OrdinaryDiffEq: Tsit5, solve, ODEProblem, Rodas5P
 using SciMLSensitivity: ForwardDiffSensitivity
-using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!
+using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!,
+                 DiscreteCallback, CallbackSet, successful_retcode
 using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
                      reset_aggregated_jumps!
 using Turing
 using Distributions
 using StaticArrays
 using Random
-using MCMCChains: replacenames
+using MCMCChains: replacenames, Chains, setinfo
 using ForwardDiff
-using LinearAlgebra: rank, svd, svdvals, eigvals, I
-using Statistics: quantile, mean, std, median
+using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
+                     Diagonal
+using Statistics: quantile, mean, std, median, cov
 
 include("parameters.jl")
 # Reading order, not a load-time requirement: resolver.jl and loader.jl call
@@ -63,11 +65,13 @@ include("organisms/coreA/assembly.jl")
 include("organisms/coreA/prior_draws.jl")
 include("organisms/coreA/m0.jl")
 include("mean_field.jl")
+include("mean_field_route.jl")
 include("organisms/coreA/validation.jl")
 include("organisms/coreA/observables.jl")
 include("organisms/coreA/block1.jl")
 include("csmc.jl")
 include("organisms/coreA/gibbs.jl")
+include("mixed_likelihood.jl")
 include("control_analysis.jl")
 include("organisms/coreA/control_variant.jl")
 include("models/transcription_translation.jl")
@@ -97,7 +101,7 @@ export ObservedData, PosteriorPredictive, ABCPosterior, state_rows
 export Modality, NoiseModel, MODALITY_KINDS, scale_name, noise_scales, observation_loglik
 export build_problem
 export TranscriptionTranslation, StochasticGeneExpression, BurstyGeneExpression, LightMetabolism, TierBMetabolism
-export build_turing_model, infer, observe, posterior_predictive, check_identifiability
+export build_turing_model, infer, inference_route, observe, posterior_predictive, check_identifiability
 export compute_summary_stats, summary_distance
 export abc_smc
 export KDEPrior, boundary_condition, sequential_infer, iterative_infer, kl_divergence, chain_kl

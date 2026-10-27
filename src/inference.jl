@@ -117,6 +117,10 @@ refused, because neither backend can run the handshake driver it builds.
 `priors_override::Dict{Symbol,Distribution}` is forwarded to
 [`build_turing_model`](@ref) on the NUTS path and is the hook used by the
 boundary protocol's iterative loop.
+
+The route is [`inference_route`](@ref)'s, so `route`, if given, must be the one this
+data takes. A hybrid composition's routes take a cell and bulk record instead, by
+the method `infer(models, ds; route)`.
 """
 function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                sampler=NUTS(), n_samples=1000,
@@ -124,16 +128,17 @@ function infer(models::Vector{<:AbstractSubModel}, data::ObservedData;
                prob=nothing, tspan=nothing,
                priors_override::Union{Nothing, Dict{Symbol, <:Distribution}}=nothing,
                noise::Union{Nothing, NoiseModel}=nothing,
+               route::Union{Nothing, Symbol}=nothing,
                kwargs...)
-    mode = _composition_inference_mode(models)
-    if mode == :differentiable
+    r = inference_route(models, data; route)
+    if r === :nuts
         return _infer_nuts(models, data; sampler=sampler, n_samples=n_samples,
                            solver=solver, sensealg=sensealg, prob=prob, tspan=tspan,
                            priors_override=priors_override, noise=noise)
-    elseif mode == :simulation
+    elseif r === :abc
         return _infer_abc(models, data; n_particles=n_samples, tspan=tspan, kwargs...)
     else
-        error("Unknown inference mode: $mode")
+        error("infer has no runner for route :$r with ObservedData")
     end
 end
 
@@ -150,10 +155,11 @@ function _composition_inference_mode(models::Vector{<:AbstractSubModel})
         ids(f) = join((string(module_id(m)) for m in models if formalism(m) === f), ", ")
         throw(ArgumentError(
             "infer has no path for a hybrid composition: $(ids(:ode)) are :ode " *
-            "and $(ids(:jump)) are :jump. It builds a HandshakeDriver, which NUTS " *
-            "(an ODEProblem through Turing) and ABC-SMC (a JumpProblem re-solved " *
-            "with SSAStepper) both cannot run. Inference across the boundary is " *
-            "the conditional scheme of spec §4 D10, built in phase 16"))
+            "and $(ids(:jump)) are :jump. With ObservedData it builds a " *
+            "HandshakeDriver, which NUTS (an ODEProblem through Turing) and ABC-SMC " *
+            "(a JumpProblem re-solved with SSAStepper) both cannot run. A hybrid's " *
+            "routes take per-cell transcripts and a bulk record, as m0_dataset " *
+            "returns: infer(models, ds; route = :exact) or route = :mixed"))
     end
     modes = unique(inference_mode.(models))
     length(modes) == 1 || throw(ArgumentError(
@@ -161,6 +167,146 @@ function _composition_inference_mode(models::Vector{<:AbstractSubModel})
         "— $(join(("$(module_id(m)) :$(inference_mode(m))" for m in models), ", ")) " *
         "— so no one backend is right for all of them. Declare one mode"))
     return only(modes)
+end
+
+# The fields a cell and bulk record needs, as `m0_dataset` returns, and the two
+# routes that take one (spec/phases/approximate-method.md §12 2026-10-24, "B6 as
+# planned").
+const CELL_DATA_FIELDS = (:times, :genes, :seeds, :replicate_seed, :transcripts, :bulk)
+const CELL_ROUTES = (:exact, :mixed)
+
+"""
+    inference_route(models, data; route = nothing) -> Symbol
+
+The route [`infer`](@ref) takes for a composition and its data, one of the three of
+spec/phases/approximate-method.md §1, or ABC:
+- `ObservedData` and an all-ODE composition: `:nuts`; an all-jump one: `:abc`. A
+  hybrid is refused.
+- A cell and bulk record (a `NamedTuple` as [`m0_dataset`](@ref) returns) and a
+  hybrid composition with M0's gene expression, one `CoreATranscription` and one
+  `CoreATranscriptDecay`: `route`, which must be named, `:exact` (the three-block Gibbs
+  sampler, the reference) or `:mixed` (the mixed likelihood, an approximation).
+
+Anything else throws an `ArgumentError` that names what is wrong.
+"""
+function inference_route(models::Vector{<:AbstractSubModel}, data::ObservedData;
+                         route::Union{Nothing, Symbol} = nothing)
+    mode = _composition_inference_mode(models)
+    r = mode === :differentiable ? :nuts : mode === :simulation ? :abc :
+        error("Unknown inference mode: $mode")
+    route === nothing || route === r || throw(ArgumentError(
+        "route :$route does not apply here: this composition with ObservedData takes :$r"))
+    return r
+end
+
+function inference_route(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
+                         route::Union{Nothing, Symbol} = nothing)
+    isempty(models) && throw(ArgumentError("infer needs at least one sub-model"))
+    lacks = [f for f in CELL_DATA_FIELDS if !haskey(ds, f)]
+    isempty(lacks) || throw(ArgumentError(
+        "a cell and bulk record needs the fields $(join(CELL_DATA_FIELDS, ", ")), as " *
+        "m0_dataset returns; this one lacks $(join(lacks, ", "))"))
+    f = _determine_formalism(models)
+    f === :mixed || throw(ArgumentError(
+        "cell and bulk data have routes only for a hybrid composition, jump gene " *
+        "expression coupled to ODE metabolism; this one is all :$f. Its route takes " *
+        "ObservedData"))
+    nt = count(m -> m isa CoreATranscription, models)
+    nd = count(m -> m isa CoreATranscriptDecay, models)
+    nt == 1 && nd == 1 || throw(ArgumentError(
+        "the cell-data routes are built for M0's gene expression: one CoreATranscription " *
+        "and one CoreATranscriptDecay, as m0_models() holds. This hybrid has $nt and $nd"))
+    route === nothing && throw(ArgumentError(
+        "a hybrid composition with cell and bulk data has two routes, and one must be " *
+        "named: route = :exact (the three-block Gibbs sampler, the reference) or " *
+        "route = :mixed (the mixed likelihood, an approximation)"))
+    route in CELL_ROUTES || throw(ArgumentError(
+        "unknown route :$route for cell and bulk data; the routes are " *
+        join((":$r" for r in CELL_ROUTES), " and ")))
+    return route
+end
+
+"""
+    infer(models, ds; route, rng = Random.default_rng(), kwargs...) -> Chains
+
+Inference for a hybrid composition from a cell and bulk record `ds`, as
+[`m0_dataset`](@ref) returns, by the named `route` ([`inference_route`](@ref)). It
+runs the route end to end in one process:
+- `:exact`: [`gibbs_setup`](@ref), a start drawn from the prior as V7's,
+  [`gibbs_init`](@ref) and `n_sweeps` of [`gibbs_sweep!`](@ref), the first `n_burn`
+  dropped. Keywords: `n_sweeps`, `n_burn = 0`, `N = 20`. Each cell's driver is
+  built by `gibbs_setup`'s default, `build_m0`, so `models` must be M0's
+  composition: a different one gives drivers and priors from two compositions.
+- `:mixed`: B5's pipeline. [`reference_theta`](@ref), the reference ensemble at it
+  ([`reference_ensemble`](@ref), [`reference_seeds`](@ref)), [`delta_and_S`](@ref),
+  then NUTS on [`mixed_model`](@ref) from θ_ref. Keywords: `n_adapt`, `n_draws`,
+  `n_ref = 800`, `target_accept = 0.8`, `max_depth = 10`, `map_maxiters = 200`.
+
+Each call runs one chain, on its own stream forked from `rng`, and leaves the global
+generator as the fork left it, so consecutive calls differ; join several with
+`chainscat`. Both routes return `MCMCChains.Chains` over
+[`mixed_parameter_names`](@ref)' coordinates, `log_<target>` for each of
+`M0_TARGETS` and then `log_sigma_b`, with the route's own state in the chain's
+`info` (`start`, or `theta_ref`, `delta` and `S`) and `info.route` set.
+"""
+function infer(models::Vector{<:AbstractSubModel}, ds::NamedTuple;
+               route::Union{Nothing, Symbol} = nothing,
+               rng::AbstractRNG = Random.default_rng(), kwargs...)
+    r = inference_route(models, ds; route)
+    # The route draws from its own stream, forked here. Its setup reseeds the global
+    # generator once per cell (`gibbs_setup`, `emit_ensemble`), so the global state is
+    # put back as it was after the fork: drawing after the setup would give every call
+    # the same draws, and leaving it reseeded would make the next call repeat this one.
+    stream = Xoshiro(rand(rng, UInt64))
+    saved = copy(Random.default_rng())
+    try
+        return r === :exact ? _infer_exact(models, ds; rng = stream, kwargs...) :
+               _infer_mixed(models, ds; rng = stream, kwargs...)
+    finally
+        copy!(Random.default_rng(), saved)
+    end
+end
+
+function _infer_exact(models, ds; rng::AbstractRNG,
+                      n_sweeps::Integer, n_burn::Integer = 0, N::Integer = 20)
+    0 <= n_burn < n_sweeps || throw(ArgumentError(
+        "n_burn must be in 0:$(n_sweeps - 1), got $n_burn"))
+    g = gibbs_setup(ds; models, N, horizon = ds.times[end])
+    order = vcat(g.cme, g.forwards)
+    sort(order) == sort(M0_TARGETS) || throw(ArgumentError(
+        "the Gibbs sampler's free parameters $(order) are not M0_TARGETS"))
+    perm = [findfirst(==(n), order) for n in M0_TARGETS]
+    v = Dict(draw_truth(rng, models; names = M0_TARGETS, purpose = :calibration).values)
+    start = (cme = [v[n] for n in g.cme], u = [log(v[f]) for f in g.forwards],
+             σ = rand(rng, g.sigma_prior))
+    s = gibbs_init(rng, g; start...)
+    for _ in 1:n_sweeps
+        gibbs_sweep!(s, g)
+    end
+    draws = reduce(vcat, (permutedims(vcat(vcat(log.(t.cme), t.u)[perm], log(t.σ)))
+                          for t in s.trace[(n_burn + 1):end]))
+    return Chains(reshape(draws, size(draws)..., 1), _log_names(M0_TARGETS);
+                  info = (route = :exact, start = start))
+end
+
+function _infer_mixed(models, ds; rng::AbstractRNG,
+                      n_adapt::Integer, n_draws::Integer, n_ref::Integer = 800,
+                      target_accept::Real = 0.8, max_depth::Integer = 10,
+                      map_maxiters::Integer = 200)
+    s0 = mixed_setup(ds; models)
+    ref = reference_theta(s0; maxiters = map_maxiters)
+    r = _mixed_solve(s0, exp.(ref.x[1:length(s0.names)]))
+    r === nothing && error("route (ii) cannot run at θ_ref ($(ref.method)), so δ and S cannot be formed")
+    cells = reference_ensemble(mixed_theta_values(s0, ref.x), reference_seeds(ds, n_ref);
+                               models, horizon = ds.times[end])
+    d = delta_and_S(cells, mean_field_log_bulk(s0, r.sol); C = size(ds.transcripts, 1))
+    s = with_reference(s0, d.delta, d.S)
+    chain = sample(rng, mixed_model(s), NUTS(Int(n_adapt), Float64(target_accept); max_depth = Int(max_depth)), n_draws;
+                   initial_params = ref.x, progress = false)
+    chain = replacenames(chain, ("x[$i]" => string(n)
+                                 for (i, n) in enumerate(mixed_parameter_names(s)))...)
+    return setinfo(chain, merge(chain.info, (route = :mixed, theta_ref = ref, delta = d.delta,
+                                             S = d.S)))
 end
 
 function _infer_nuts(models, data; sampler=NUTS(), n_samples=1000,

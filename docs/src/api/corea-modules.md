@@ -30,5 +30,6 @@ Pages = [
     "organisms/coreA/validation.jl",
     "control_analysis.jl",
     "mean_field.jl",
+    "mean_field_route.jl",
 ]
 ```

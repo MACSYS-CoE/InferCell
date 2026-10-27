@@ -1,6 +1,343 @@
 # Handoff
 
-## Latest: 16b.1 and 16b.4 running at M0 (2026-10-23)
+## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
+
+**Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
+- **SBC passes:** 6 of 6 parameters within the bands at 1 − 0.05/6, over V7's
+  50 datasets.
+- **KS fires,** on 5 of 18 marginals by at most 0.027 SD.
+  - A matched null was run after the result (jobs 19334375–19334380). Two of the
+    five firings are about twice the noise between identical fits, one (v6 FBA)
+    is 1.3× it, and two are within it.
+  - The user's decision: report KS as fired, and do not build the linear noise
+    approximation now.
+- **KC does not fire:** median 6.57 CPU-h per posterior, against 50.75.
+- **m0_v6 against V6:** five of six marginals are resolved from V6. S_0779,
+  krnadeg and ENO differ by 0.42–0.56 SD, about 0.3 SD above the nulls; FBA and
+  σ_b clear them by 0.005 and 0.013. Re-estimating S does not close the gap.
+  This is a new open question in §9.
+- **Figures** are in `dev/notes/figures/av6-89b7/`: Figure 4 and Figure 5's middle
+  panel.
+
+**Changed on the way** (§12 2026-10-25, 2026-10-26 and 2026-10-27):
+- `reference_theta` stops on `reltol = 1e-10` and on `xtol = 1e-6`.
+  - Eleven bounded MAPs had run past 12 h, because noise in the ODE gradient kept
+    Optim's test, |g| ≤ 1e-8, from ever passing.
+  - θ_ref is unchanged to at most 2.1e-5 prior SD.
+- The two kept speedups: `MeanField` as a typed tuple (`src/mean_field.jl`,
+  outside the Touches as planned) and route (ii)'s module terms by recursion.
+- The driver, the resume launcher, the MAP trace and check scripts, and KS's null
+  stage all live in `dev/scripts/av6_89_b7*`.
+
+**Suite:** 28851 of 28851 at `5a6cb89` (job 19342349), and after #104's review
+at `d23c746` (job 19344907).
+
+**Cost:** 391.9 CPU-h of record, plus 274.1 lost to the MAP fault. The rows are in
+`dev/scripts/phase16_ledger.md`.
+
+**Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
+`SHA256SUMS`.
+
+**Next:**
+1. **B7.8:** compare the stream arms against 16b.4's exact fits once jobs
+   19034901–19034903 finish (6-day limit, started 2026-10-23), in a follow-up PR.
+   The mixed side is already in the run directory as `av6_tx_v6_draws.tsv` and
+   `av6_bulk_v6_draws.tsv`.
+2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
+   needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
+   the story check, not applied. Before B8 starts, ask how it handles S (§8:
+   open since KS fired).
+3. **Left from #104's review** (not done in B7; see §12 2026-10-27):
+   - `reference_theta`: the next change should replace `reltol` and `xtol` with
+     one noise-floor `g_abstol` (about 1e-4) and an inner LBFGS iteration cap.
+     Changing it now would make the code disagree with the stops the run used,
+     and a new rule needs MAPs on Slurm to check.
+   - The launchers: `av6_89_b7.sh` and `av6_89_b7_resume.sh` copy `sub()` and
+     the `AV6_REPS` parser, whose Python form reads a stepped range (1:2:9)
+     differently from Julia; KS-low's preps wait on all 102 base chains; and a
+     resume run while a prep is RUNNING drops that fit's chains (it fails at the
+     merge, and a second resume repairs it). Each needs a smoke to change.
+   - `reference_theta`'s stopping keywords are tested only in the gated
+     integration test.
+   - Not done: `readdlm` for F10's TSV (DelimitedFiles is not a project
+     dependency), and sharing `f10_16a10.py`'s loaders (different label keys,
+     and importing it pulls in arviz).
+4. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
+   profile, replay and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
+   but only after `sha256sum -c SHA256SUMS` passes in the archive. The archive
+   holds their logs, B7.2's profile snapshots and logs, the test and suite logs,
+   and the smokes.
+
+## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
+
+**Built** (`src/inference.jl`, at `8a93475`):
+- **`inference_route(models, data; route = nothing)`** names the route.
+  - It returns `:nuts` or `:abc` for `ObservedData`, as before.
+  - It returns `:exact` or `:mixed` for M0's hybrid (one `CoreATranscription`, one
+    `CoreATranscriptDecay`) with a cell and bulk record (an `m0_dataset` record).
+    The route must be named.
+  - Everything else is an `ArgumentError` that names what is wrong.
+- **`infer(models, ds; route, rng, …)`** runs one chain of the route end to end:
+  - `:exact`: Gibbs from a prior start, as V7's;
+  - `:mixed`: B5's pipeline, θ_ref → δ, S → NUTS.
+
+  Both return `Chains` over `log_<M0_TARGETS>…, log_sigma_b`, with the route's
+  state in `info`. The route draws from a stream forked from `rng`, and the global
+  generator, which the setups reseed per cell, is put back afterwards.
+- **`infer(models, ::ObservedData)`** goes through `inference_route` too.
+
+**Review (#102, `/check-PR`, three rounds):**
+- **Round 1:** two MAJOR findings.
+  - M1: the default rng was overridden by the setups' reseeding, so every call
+    repeated.
+  - M2: any hybrid passed the selector.
+  - Plus six MINOR ones and the simplifications.
+- **Round 2:** M1 was not fully resolved, because consecutive default-rng calls
+  still repeated. It was redone at the source by restoring the global state, and
+  two docs refs and the NUTS argument types were fixed.
+- **Round 3:** clean. The report is `PR_REVIEW_102_2026-10-24.md` (gitignored,
+  in this worktree).
+
+**Checks at `8a93475`:**
+- suite job 19147408: 28813 of 28813;
+- gated identity job 19147409: 34 of 34, at 4 threads, in 21m40s.
+
+Logs: `/fred/oz022/tkimpson/infercell-89-b6-archive-2026-10-24/`, with
+`SHA256SUMS`. §11 B6 is ticked, and §12 2026-10-24 "B6 as built" records all of
+it.
+
+**Docs CI** fails on main as before (a DistributionsAD `@check_args` load error).
+#102 removes its own unresolved refs and lists `mixed_likelihood.jl` and
+`mean_field_route.jl`.
+
+**Next:**
+1. **B7 (AV6).** Profile the gradient first: route (ii)'s dual solve is almost all
+   of its ~5 s at 3 cells. The order (E3) is dual vs primal `sol.stats`, then
+   FullSpecialize, a batched transcript factor, and an eigen-form bulk term. B7's
+   50 refits at B5's cost are about 2,000 CPU-h. `infer(…; route = :mixed)` runs
+   one chain per call; production keeps the stage scripts.
+2. **Still open, not in B6** (the user's choice), from #101's review:
+   - a typed overdraw exception;
+   - `reference_theta`'s catch-all fallback;
+   - unit tests for `reference_seeds` and `reference_ensemble`;
+   - jittered chain starts.
+
+   #99's follow-ups (in the B4 entry below) are also still open.
+3. **Can go:**
+   - the B5 worktrees (`.worktrees/89b5-*`);
+   - the B5 smoke directories r1–r3;
+   - `.worktrees/89re-*`;
+   - `.worktrees/89b6-8a93475` and `.worktrees/89-b6`, once #102 merges (their
+     logs are archived).
+4. **For paper-1** (not edited from here): STATUS flag 3 can cite
+   `infer(models, ds; route)`.
+
+## Earlier: B5, the mixed likelihood and NUTS, done (branch `issue-89-b5-mixed-likelihood`, 2026-10-23/24)
+
+**Built:** `src/mixed_likelihood.jl`.
+- `mixed_setup(ds)` builds route (ii), one `TranscriptFactor` per cell, and the
+  bulk factor.
+- `mixed_logdensity(s, x)` scores x = (log θ for M0_TARGETS, log σ_b). It is −∞
+  in each of these cases:
+  - outside the box `prior ± 6 SD`;
+  - where a solve reaches the 10⁴-step cap;
+  - where the pools are overdrawn;
+  - where a rate is outside the factors' support.
+- `mixed_model(s)` wraps it for Turing.
+- `reference_theta` is the bounded MAP, pass 1.
+- `reference_ensemble`, `reference_seeds` and `delta_and_S` give pass 2, δ and S
+  (the delta method, 800 cells).
+- Small changes outside the new file:
+  - the route's rebuild is split (`_route_rebuilt_values`);
+  - `solve_mean_field` takes `maxiters`;
+  - `derived_ode_values` passes dual numbers through;
+  - the suite's Slurm limit is now 90 min, since it takes 57–59 min.
+
+**Rules:** two §12 entries in the sub-spec, both written before any result:
+- "B5 as planned": the user's choices of the delta-method S, N = 800 and Turing,
+  plus the verification clause;
+- "B5's support box and step cap": a fix, after the first MAP hung at an extreme θ.
+
+**Checks:**
+- **The test file:** 82 of 82. It covers clock identity, the bulk term reducing to
+  block 1's lognormal, Haldane on duals, AV3 on the whole density at 1e-6, −∞
+  outside the box and at the cap, the delta-method S, and Turing's `logjoint`
+  equal to `mixed_logdensity`.
+- **The suite:** 28791 of 28791 at `469ca26` (job 19084578).
+- **The smoke:** `SMOKE=1` r3 at `b101190` ran every stage, with merge job
+  19081758. Its output is in `/fred/oz022/tkimpson/infercell-89-b5-smoke-2026-10-23-r3/`.
+
+**Cost before the run (login node and smoke r3; superseded by the run below):**
+- On the login node, at 50 cells and 600 s, a density took 1.9 s and a gradient
+  5.6 s (5.1 GiB), with the dual route solve about 5.1 s of it.
+- Smoke r3 (3 cells, 120 s, job 19081758) took 5.35 s per gradient, at tree
+  depth 4 and about 15 leapfrog steps per draw.
+
+**The full run (done 2026-10-24, `dev/scripts/mixed_nuts_89_result.md`):**
+- Jobs 19091859–19091881 at `469ca26`, launched by `NADAPT=300 NDRAW=300
+  dev/scripts/mixed_nuts_89.sh <outdir>`. Archive
+  `/fred/oz022/tkimpson/infercell-89-b5-archive-2026-10-23/`, with `SHA256SUMS`.
+- θ_ref: the bounded MAP, log density −591.04, in 6793 s. Its σ_b is about twice
+  the truth's, consistent with fitting at δ = S = 0.
+- δ is small: per-pool means lie in [−0.084, +0.114] nats. S has trace 1.72 and is
+  full rank, though nearly singular (smallest eigenvalue 7.4e-11).
+- The chains: four of 300 + 300, all started at θ_ref, with 0 divergences in the
+  draws, R̂ ≤ 1.012, bulk ESS
+  1291–1905 and a median of 7 leapfrog steps per draw.
+- Cost: 41.5 CPU-h by `sacct`, inside KC's 50.75 on this dataset at this run
+  length. It came in under the projected 59 because the draws' trees were
+  shallower (7 steps); adaptation took about 12 per iteration.
+- Beside F10 (information only): every mean lies within 0.51 F10 SD, and the SDs
+  agree to within 22%.
+- B5 is ticked in §11. §12 2026-10-24 "B5 as run" records how the clause was
+  checked and corrects four details of the earlier entries (#101's review).
+- #101's review left code follow-ups for B6/B7: a typed overdraw exception in
+  place of matching the error text; `reference_theta`'s catch-all fallback; unit
+  tests for `reference_seeds`/`reference_ensemble`; jittered chain starts; and
+  E3's profiling order (dual vs primal `sol.stats`, FullSpecialize, a batched
+  transcript factor, an eigen-form bulk term).
+
+**Next:**
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. B6, the dispatcher. B7 (AV6) should profile the gradient first: the dual solve
+   of route (ii) is almost all of its 6.1 s, even at 3 cells and 120 s.
+3. **Can go once merged:**
+   - `.worktrees/89b5-4fe4022`, `89b5-c77f49a`, `89b5-b101190` and `89b5-469ca26`;
+   - the smoke directories r1–r3;
+   - the old `.worktrees/89re-*` worktrees, as listed below.
+4. The follow-ups from #99's review (below) are still open.
+
+## Earlier: B4, route (ii) (branch `issue-89-b4-route-ii`, 2026-10-23)
+
+**Built:** `build_mean_field_problem` in `src/mean_field_route.jl`. It is the
+reduced syn3A model with its jump modules swapped for one `MeanField`, run as a
+single ODE. It executes four edges, which are declared reductions:
+
+- catalytic;
+- continuous unclamped drains, where a negative pool stops the solve;
+- the rebuild at 60m − 1 s, plus one at t = 0;
+- continuous growth.
+
+`build_problem` is unchanged. AV3 holds on route (ii), with ForwardDiff through the
+callbacks. **Suite:** 28709 of 28709 at `67c9eef` (job 19042448).
+
+**The check against the hybrid** (`dev/scripts/route_ii_89_result.md`):
+
+- **As written,** it fails at 0 of 5 truths (job 19058585). The difference is the
+  prototype's 1 s step: it halves with the step, and Pi has the largest at four of five truths.
+- **The user's decision:** judge it on convergence instead, recorded in §12.
+- **Under that rule,** 5 of 5 truths pass (job 19058586), with max |Δ| ≤ 0.0122.
+- **To get there,** corea's 0.25 s prototype first stopped on the hybrid
+  integrator's lifetime cap of 1e5 steps. The script lifts the cap; `src` keeps
+  it. A long hybrid run at a fine step can still reach it.
+
+**KC baseline:** one M0 600 s solve takes about 1.1 s and allocates 1.5 GiB. One
+corea 6300 s solve takes 9–12 s and allocates 16.7–19.7 GiB.
+
+**CPU-h:** 5.0 (ledger).
+
+**Next:**
+1. Open the PR, run `/check-PR` and merge with a merge commit.
+2. B5: the mixed likelihood centred on m(θ) + δ, with NUTS, through
+   `solve_mean_field`.
+3. **Follow-ups from #99's review** (none block, all in `src`):
+   - raise or expose the hybrid driver's `maxiters` in `src/handshake.jl`;
+   - share the geometry with the hybrid (`_initial_geometry`, `_geometry_at`).
+     Route (ii) copies it, and it skips the hybrid's `area0 > 0` and
+     `footprint > 0` checks;
+   - loosen `driver_written_params` and drop `mean_field_written_params`;
+   - build `MeanFieldRoute` once instead of twice;
+   - count rebuild times from `tspan[1]`, not from 0 (latent: every caller starts
+     at 0).
+
+## Earlier: B3 closed out (branch `issue-89-b3-closeout`, 2026-10-23)
+
+**#97 is merged** at `0eec5cc`, with a merge commit. Its review fixes are in `28ba4db`.
+
+**B3 close-out:** `dev/scripts/jensen_bias_89_result.md` (job 19039511 at `beeb446`,
+0.07 CPU-h over three runs; outputs in `/fred/oz022/tkimpson/infercell-89-bias-2026-10-23/`). It is a
+linearised implied bias from the rethink's archive, with no pass line.
+- **Uncorrected:** krnadeg moves by +2.4 to +3.1 posterior SDs at every F10
+  target, even with the transcripts' information (at F10's σ_b), and S_0607 by
+  +1.2 to +2.2. The
+  spec's bulk-only formula, which leaves out the transcripts, gives RMS values of
+  6.0–6.9 SD on krnadeg.
+- **With δ_ref:** the residual is within about 1 SD RMS, with 10 of 140 cells
+  above 2 SE. The test resolves only about 1 SD on S_0607 and krnadeg.
+  kcatF_ENO at low_kcatF_R_ENO_− keeps −0.80 ± 0.24.
+- **The m0_v6 claim from #97 is withdrawn.** On independent seeds, δ_v6 differs
+  from δ_ref by about its paired noise, and m0_v6's distance is typical of a
+  posterior draw (§12). Five low-noise pools hint at a θ-dependence; that is
+  open.
+- **Method:** J comes from the archived mean fields, not ForwardDiff, and m(θ) is
+  near-linear over the posterior (R² 0.989). Recorded in §12.
+
+**Next:**
+1. Review the close-out PR with `/check-PR`, then merge with a merge commit.
+2. B4: route (ii), in `src/`, on a new branch, with the full suite.
+3. B5 to B7. AV6 should watch krnadeg, S_0607 and kcatF_ENO at low-ENO truths.
+4. 16b: the chains are running (see the 16b-m0 branch's handoff). The `rates`
+   check is due at about sweep 20.
+5. **Can go:** `.worktrees/89-b3-rethink` and the six `89re-*` worktrees.
+
+## Earlier: track B's rethink, overnight 2026-10-22/23 (branch `issue-89-b3-rethink`, merged as #97)
+
+**What ran:** `dev/scripts/jensen_rethink_89.jl` (48.0 CPU-h of the 100 allowed).
+The result is `dev/scripts/jensen_rethink_89_result.md`, and the rules and
+outcome are in the sub-spec's §12 (2026-10-22, 2026-10-23). The archive is
+`/fred/oz022/tkimpson/infercell-89-rethink-archive-2026-10-22/`.
+
+**Findings:**
+- **The GTP gap is cell-to-cell drain variation.** Given the mean field's drains,
+  the 200-cell mean equals the mean field to three figures.
+  - Ruled out for GTP: enzyme counts, the per-cell feedback (a live popmean arm)
+    and the clip (2 of 360k drains). Both arms still move pools other than GTP at
+    m0_v6 (enzymes_mf 59, popmean 56, against noise 25).
+  - **Shot noise is not ruled out:** its share is up to 0.44 at m0_low.
+  - Measured, from an unscripted login-node read: per-cell GTP falls with protein
+    output, which varies about 2-fold.
+  - Interpretation, not measured: GTP is regenerated only by saturable PGK3/PYK3,
+    so the population mean sits above GTP at the mean spend.
+- **δ at m0_v6 (information only).** On shared seeds it made the gap worse at
+  all 8 F10 draws. That read is withdrawn: on independent seeds it is within
+  noise of δ_ref (the B3 close-out, above).
+- **Under KG as agreed, nothing passes 2A.** A fixed offset δ from 800 cells at the
+  reference θ passes at 5 of 8 F10 posterior draws, 4 of 10 and 6 of 10. The
+  uncorrected mean field passes at 0 of 28.
+- **KG fails a right answer about half the time.** A 600-cell mean at the same θ
+  passes at 36–56%; the per-pool 3× clause is the problem. Read against that null,
+  δ behaves like a right description at 26 of 28 targets.
+
+**Decided 2026-10-23 (§12, the user's decision after the results):** the gap is
+a declared reduction, not a stop. The reference is the most detailed composition
+(jump gene expression coupled two ways to ODE metabolism), not the truth. The
+bulk factor is centred on m(θ) + δ, with δ from the same reference ensemble as S.
+KG, KG′ and the implied parameter bias are reported. AV6 (B7) decides whether the
+gap matters.
+
+**Next:**
+1. PR #97 (the rethink plus this decision) was reviewed with `/check-PR`. Its text
+   fixes are in (§12 "corrections from #97's review"), and it is merged with a
+   merge commit.
+2. B3 close-out: the implied-bias report at 2A's 28 targets, no pass line
+   (§12 2026-10-23). A few CPU-h at most; it reuses the archived ensembles. J
+   comes from central differences through the script's mean field, since AV3's
+   ForwardDiff covers only the gene-expression block. Done (above).
+3. B4: route (ii), the ODE path's catalytic, drain and rebuild edges, in `src/`,
+   on a new branch, with the full suite.
+4. B5: the mixed likelihood centred on m(θ) + δ, with the two-pass reference θ
+   (D-S). Then B6, and B7 (AV6), the real test of the gap.
+5. Unchanged from below: 16b on a new branch.
+
+**Can go:** the run worktrees `.worktrees/89re-bf54df3`, `89re-29781f6`,
+`89re-bc71511`, `89re-b2f6b4c`, `89re-b2f6b4c-b` and `89re-538d32d`, and
+`/fred/oz022/tkimpson/infercell-89-rethink-smoke-2026-10-22/`.
+
+**Cluster:** a fresh worktree's first array, spread over dave, gina and turin
+nodes, wrote a precompile cache that milan refused. Precompile once on milan, and
+keep the arrays on `--exclude='dave[148-149]'`.
+
+## Earlier: 16b.1 and 16b.4 running at M0 (2026-10-23)
 
 **Branch:** `phase-16b-m0`, worktree `.worktrees/16b-m0`. No PR yet.
 
@@ -44,7 +381,7 @@ well. The next stage is to be picked up from a separate worktree on this branch.
    merge commit.
 4. Then 16b.5's M0 read-off, 16b.7 and 16b.8 (T3).
 
-## Latest: #92 merged; #93 (track B) merged with main (2026-10-22)
+## Earlier: #92 merged; #93 (track B) merged with main (2026-10-22)
 
 **#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,
 `2b039a0` and `6da2398` stay reachable.
