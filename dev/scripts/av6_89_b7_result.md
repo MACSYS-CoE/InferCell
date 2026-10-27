@@ -21,12 +21,18 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
   - The response §8 names, the linear noise approximation, is not built in B7
     (the user's decision, 2026-10-27).
 - **KC does not fire** (rule 7): median 6.57 CPU-h per posterior against 50.75.
-- **On m0_v6** (rule 4, information): three marginals are resolved from V6 by
-  0.42–0.56 SD (S_0779, krnadeg, ENO), each about 0.3 SD above F10's largest
-  matched null. Re-estimating S moves them by 0.08–0.09 SD, so S is not the
-  cause. Open question, §9.
-- **Against V7 over the 50** (rule 5, information): mean bias at most 0.095 SD
-  per parameter; median SD ratio 0.92–1.07.
+- **On m0_v6** (rule 4, information): five of six marginals are resolved from V6
+  under the reading fixed in advance (W1 above all four of F10's matched nulls).
+  - Three by about 0.3 SD over the largest null: S_0779, krnadeg and ENO, at
+    0.47, 0.56 and 0.42 SD.
+  - Two narrowly: FBA by 0.005 and σ_b by 0.013.
+  - S_0607 is not resolved.
+  - Re-estimating S at the posterior mean moves the three large ones by
+    0.08–0.09 SD and does not close the gap; S's form was not varied. Open
+    question, §9.
+- **Against V7 over the 50** (rule 5, information): the largest mean bias is
+  krnadeg's, +0.095 ± 0.050 SD. Per parameter, 9–22 of the 50 replicates differ
+  from V7 by more than 3× V7's own MCSE. The median SD ratio is 0.92–1.07.
 - **Stream arms** (rule 8): the mixed side is below. The comparison with 16b.4's
   exact fits (B7.8) follows in its own PR once 16b.4 lands (the user's decision,
   2026-10-27).
@@ -199,9 +205,10 @@ follow-up PR.
 
 ## Open
 
-- **The m0_v6 gap.** S_0779, krnadeg and ENO sit 0.42–0.56 SD from V6, above
-  every matched null, while over the 50 the bias against V7 is at most 0.095 SD
-  and SBC passes. S is not the cause. Untested candidates: δ's sampling noise
+- **The m0_v6 gap.** S_0779, krnadeg and ENO sit 0.42–0.56 SD from V6, about
+  0.3 SD above every matched null, while over the 50 the largest mean bias
+  against V7 is 0.095 ± 0.050 SD and SBC passes. Re-estimating S at the posterior
+  mean does not close it. Untested candidates: δ's sampling noise
   (one 800-cell ensemble), the mean field itself at this dataset, and the
   transcript factor's population-mean constants (§9).
 - **Convergence:** 17 of 50 replicates fall short of R̂ ≤ 1.02 and ESS ≥ 100 at

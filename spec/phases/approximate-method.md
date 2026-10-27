@@ -291,9 +291,11 @@ forward ensemble of the full two-way model, and held fixed across θ.
   factor ever worth keeping? It is the only route by which a cell's own pools inform
   its own transcripts.
 - [NEEDS CLARIFICATION: the m0_v6 gap.] On m0_v6 the mixed posterior sits
-  0.42–0.56 SD from V6 on S_0779, krnadeg and ENO, above every matched null, while
-  over V7's 50 the bias is at most 0.095 SD and SBC passes (B7, §12 2026-10-27).
-  Re-estimating S does not move them. Is it δ's sampling noise (one 800-cell
+  0.42–0.56 SD from V6 on S_0779, krnadeg and ENO, about 0.3 SD above every
+  matched null, while over V7's 50 the largest mean bias is 0.095 ± 0.050 SD and
+  SBC passes (B7, §12 2026-10-27). FBA and σ_b also clear the nulls, by 0.005 and
+  0.013. Re-estimating S at the posterior mean moves the three by 0.08–0.09 SD
+  and does not close the gap. Is it δ's sampling noise (one 800-cell
   ensemble), the mean field at this dataset, or the transcript constants above?
 
 ## 10. Risks
@@ -339,10 +341,13 @@ forward ensemble of the full two-way model, and held fixed across θ.
     1 − 0.05/6, on all 50 replicates and on the 33 that meet the convergence target.
   - **KS fires.** On 5 of 18 marginals, each by at most 0.027 SD over its floor.
   - **KC does not fire.** The median is 6.57 CPU-h per posterior, against 50.75.
-  - **On m0_v6 (information):** S_0779, krnadeg and ENO are resolved from V6 by
-    0.42–0.56 SD.
-  - **Against V7 over the 50 (information):** the mean bias is at most 0.095 SD
-    per parameter.
+  - **On m0_v6 (information):** five of six marginals are resolved from V6 under
+    the reading fixed in advance. S_0779, krnadeg and ENO are 0.42–0.56 SD
+    apart, about 0.3 SD above F10's largest null; FBA and σ_b clear it by only
+    0.005 and 0.013; S_0607 is not resolved.
+  - **Against V7 over the 50 (information):** the largest mean bias is
+    krnadeg's, +0.095 ± 0.050 SD; per parameter, 9–22 of the 50 replicates
+    differ by more than 3× V7's own MCSE.
 - **KS: the user's decision (2026-10-27).** KS is a stop (§8), and its named
   response is the linear noise approximation.
   - It fired, and that is reported as it stands. The approximation is not built
@@ -362,8 +367,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
   comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
   mixed side is in the result file, and B7.8 follows in its own PR.
-- **The m0_v6 gap is a new open question (§9).** Re-estimating S moves those three
-  marginals by only 0.08–0.09 SD, so S is not its cause.
+- **The m0_v6 gap is a new open question (§9).** Re-estimating S at the posterior
+  mean moves those three marginals by only 0.08–0.09 SD and does not close it.
+  S's form was not varied.
 - **B7.2's profile** (the ledger's profile row).
   - The kept changes:
     - `MeanField`'s reactions as a typed tuple (`d39360c`);
@@ -394,6 +400,12 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
   `SHA256SUMS`.
+- **What #104's review corrected** (before merge; this entry and the result file
+  as first committed at `6c32015`):
+  - KS's null reading had said three of the five firings were within the null.
+    v6 FBA is 1.3× it, so two are.
+  - Rule 4 had been read as three marginals resolved. Under the rule fixed in
+    advance it is five of six; FBA and σ_b clear the nulls narrowly.
 - **Sections touched:** §6, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)

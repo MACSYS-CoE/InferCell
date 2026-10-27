@@ -12,8 +12,10 @@
   - The user's decision: report KS as fired, and do not build the linear noise
     approximation now.
 - **KC does not fire:** median 6.57 CPU-h per posterior, against 50.75.
-- **m0_v6 against V6:** S_0779, krnadeg and ENO differ by 0.42–0.56 SD. Holding S
-  fixed is not the cause. This is a new open question in §9.
+- **m0_v6 against V6:** five of six marginals are resolved from V6. S_0779,
+  krnadeg and ENO differ by 0.42–0.56 SD, about 0.3 SD above the nulls; FBA and
+  σ_b clear them by 0.005 and 0.013. Re-estimating S does not close the gap.
+  This is a new open question in §9.
 - **Figures** are in `dev/notes/figures/av6-89b7/`: Figure 4 and Figure 5's middle
   panel.
 
