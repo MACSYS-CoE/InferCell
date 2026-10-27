@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7) in PR #86; 16a.10, 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-17
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-28
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -945,7 +945,7 @@ annotated below with its rung and funding.
   full scale budget-bound".
 - **V7 serves as 16b.3,** with its caveats carried into T3.
 
-- [ ] 16b.1 (parent 16.4) Recover the tight-prior control alone — verify by:
+- [x] 16b.1 (parent 16.4) Recover the tight-prior control alone — verify by:
   - the posterior concentrating on truth well inside its prior;
   - a deliberate perturbation of the truth moving the posterior with it;
   - shrinkage below 0.9.
@@ -953,6 +953,9 @@ annotated below with its rung and funding.
   M0 dataset with ENO's truth moved by +1 prior SD, and one production posterior on it.
 
   **If it does not recover, the machinery is wrong and the phase stops (K4).**
+  **Done 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** recovers, so K4 does not fire.
+  Shrinkage 0.258, the moved truth at quantile 0.099, and a shift ratio of
+  0.951 ± 0.021 (job 19034901; `dev/scripts/m0_16b_result.md`).
 - [ ] 16b.2 (parent 16.5) Recover the full six-parameter set — verify by:
   - every marginal containing truth;
   - at least one target shrinking below 0.5 (K4);
@@ -977,6 +980,10 @@ annotated below with its rung and funding.
   shrinkage there is a sampler error to investigate, not a result.
   **M0, funded (~1.4k CPU-h).** Transcripts-only and metabolites-only fits on V6's
   dataset; the joint fit is V6. First check that the Gibbs driver can drop a stream.
+  **Held open 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** both chains ran. Under
+  metabolites only the transcript parameters did not mix (ESS 6–7), so ptsG's
+  load-bearing cell is not measured. F6 is not drawn until the user decides how
+  that arm is reported.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -1006,6 +1013,40 @@ annotated below with its rung and funding.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-28 — 16b.1 and 16b.4 as run: 16b.1 recovers; 16b.4 is held open
+
+**Trigger:** the three production chains finished (jobs 19034901–19034903 at
+`03b4c4f`, 1,669.8 CPU-h). Their summary (job 19378382 at `626a1cc`) is in
+`dev/scripts/m0_16b_result.md`.
+
+**16b.1 recovers, by the rule fixed in advance.** ENO's shrinkage is 0.258, the
+moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
+0.951 ± 0.021. K4 does not fire. 16b.1 is ticked.
+
+**16b.4: what was measured.**
+- **Transcripts only:** ENO's null is not flagged, by 0.00014. SD / prior SD is
+  0.93445 against a flag line of 0.93431. FBA's is 1.007.
+- **Metabolites only:** ENO, FBA and σ_b mixed (ESS 140 to 568), and match the
+  joint fit.
+- **Metabolites only, not measured:** S_0607 and ptsG have bulk ESS 7 and 6 and
+  split-R̂ 1.13 and 1.16, so ptsG's load-bearing cell is not measured.
+- **The failure is not the one named in advance.** The named risk was the
+  bootstrap proposal. Every live cell-window updated at a rate of 0.37 or more
+  (job 19376253).
+- **Running on is not affordable.** ESS 100 would take about 8,000 to 9,000 CPU-h
+  more, against about 4.6k left.
+
+**Change (the user's decision, 2026-10-28, after the results):** close 16b.1 now
+and hold 16b.4 open. Its options are:
+- report the metabolites-only transcript parameters as unmixed;
+- redesign that arm's sampler move, then rerun it.
+
+F6 is not drawn until that is decided. B7.8 (`approximate-method.md`) reads the
+same chain. Its ptsG comparison and its floor (one chain per arm, so no
+chain-vs-chain W1) wait on the same choice.
+
+*Sections:* §11 16b.1, 16b.4.
 
 ### 2026-10-22 — 16b.1 and 16b.4 at M0: the runs and their reading rules
 
