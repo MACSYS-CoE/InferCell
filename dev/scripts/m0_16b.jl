@@ -140,6 +140,8 @@ draws(trace, upto = length(trace)) =
 
 # Bulk ESS per parameter of draws × chains × parameters.
 bulk_ess(x::AbstractArray{<:Real, 3}) = MDT.ess(x; kind = :bulk)
+# Rank-normalised split-R̂ per parameter; a single chain is split in two.
+split_rhat(x::AbstractArray{<:Real, 3}) = MDT.rhat(x)
 chains3(xs) = cat([reshape(x, size(x, 1), 1, size(x, 2)) for x in xs]...; dims = 2)
 
 function summary(v6dir, dirs)
@@ -157,28 +159,37 @@ function summary(v6dir, dirs)
     tv(meta) = vcat([log(Dict(meta.truth)[Symbol(n)]) for n in names[1:(P - 1)]],
                     log(meta.sigma_true))
     function rows(lab, x, truth)
-        ess = bulk_ess(x)
+        ess, rhat = bulk_ess(x), split_rhat(x)
         for p in 1:P
             if lab == "tx_only" && names[p] == "sigma_b"
-                println("| $lab | sigma_b | held at its start, not inferred | — | — | — | — |")
+                println("| $lab | sigma_b | held at its start, not inferred | — | — | — | — | — |")
                 continue
             end
             v = vec(x[:, :, p])
-            @printf("| %s | %s | %.3f ± %.3f | %.3f | %.0f | %.3f | %.2f |\n", lab, names[p],
-                    mean(v), std(v), std(v) / prior_sd[p], ess[p], truth[p],
+            @printf("| %s | %s | %.3f ± %.3f | %.3f | %.0f | %.3f | %.3f | %.2f |\n", lab, names[p],
+                    mean(v), std(v), std(v) / prior_sd[p], ess[p], rhat[p], truth[p],
                     mean(v .<= truth[p]))
         end
     end
     println("Posteriors after $BURN sweeps of burn-in: sweeps $(BURN + 1) to $S of each new chain, ",
             "and $(BURN + 1) to $(length(first(v6).state.trace)) of V6's four (the joint fit). ",
             "SD / prior SD is the shrinkage. σ_b is held, not inferred, under transcripts only.\n")
-    println("| Fit | Parameter (log) | Mean ± SD | SD / prior SD | Bulk ESS | Truth | Truth's quantile |")
-    println("|---|---|---|---|---|---|---|")
+    println("| Fit | Parameter (log) | Mean ± SD | SD / prior SD | Bulk ESS | Split-R̂ | Truth | Truth's quantile |")
+    println("|---|---|---|---|---|---|---|---|")
     rows("joint (V6, 4 chains)", joint, tv(first(v6).meta))
     for r in runs
         rows(string(r.meta.mode), chains3([draws(r.state.trace, S)]), tv(r.meta))
     end
     p = findfirst(==("kcatF_R_ENO"), names)
+    for r in runs
+        r.meta.mode === :tx_only || continue
+        # 16b.4's measured null (§12 2026-10-22): flagged if the ratio is below 1 − 2·SE.
+        x = chains3([draws(r.state.trace, S)])
+        ratio = std(x[:, :, p]) / prior_sd[p]
+        se = ratio / sqrt(2 * bulk_ess(x)[p])
+        @printf("\n16b.4: ENO under transcripts only has SD / prior SD %.5f at bulk ESS %.1f, SE %.5f; the flag line 1 − 2·SE is %.5f, so it is %s.\n",
+                ratio, bulk_ess(x)[p], se, 1 - 2se, ratio < 1 - 2se ? "flagged" : "not flagged")
+    end
     for r in runs
         r.meta.mode === :perturbed || continue
         x = chains3([draws(r.state.trace, S)])
