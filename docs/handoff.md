@@ -1,5 +1,42 @@
 # Handoff
 
+## Latest: 16b.1 recovers; 16b.4 held open (branch `phase-16b-m0`, 2026-10-28)
+
+**The chains finished** (jobs 19034901–19034903 at `03b4c4f`, 1,669.7 CPU-h).
+They are archived with checksums at
+`/fred/oz022/tkimpson/infercell-16b-archive-2026-10-28/`. The close-out jobs' logs
+are in the same folder. The result is `dev/scripts/m0_16b_result.md`, from job
+19378382 at `626a1cc`.
+
+**16b.1 recovers, so K4 does not fire.** Shrinkage is 0.258, the moved truth is
+at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
+
+**16b.4 is held open (the user's decision, §12 2026-10-28).**
+- **Transcripts only:** ENO's null is not flagged, by 0.00014 (0.93445 against a
+  flag line of 0.93431).
+- **Metabolites only:** ENO, FBA and σ_b mixed. S_0607 and ptsG did not (ESS 7
+  and 6, split-R̂ 1.13 and 1.16), so ptsG's load-bearing cell is not measured.
+  - The cell-windows update fine (lowest 0.37), so the bootstrap proposal is not
+    the cause.
+  - ESS 100 would cost about 8–9k CPU-h, against about 4.6k left.
+
+**The branch:** main (B4–B7) is merged in at `1ca9b85`. The suite passed 28895 of
+28895 at that commit (job 19378175). `626a1cc` adds split-R̂ and the ENO null line to
+`m0_16b.jl summary`.
+
+**Next:**
+1. Open the PR for 16b.1, run `/check-PR`, and merge with a merge commit.
+2. **The user's call on 16b.4's metabolites-only arm:** report it as unmixed, or
+   redesign the move (for example a joint S_g-and-path update) and rerun it
+   (about 550 CPU-h). F6 waits on this.
+3. **B7.8 waits on the same call.** Its plan's "16b.4 chain-vs-chain W1" floor does
+   not exist, because each arm is one chain. ENO, FBA and σ_b can be compared now.
+4. Then 16b.5's M0 read-off (the transcripts-only divergence for ENO and FBA, off
+   job 19034902's chain), 16b.7 and 16b.8.
+5. **Can go once this merges:** `.worktrees/16b-03b4c4f`, `.worktrees/16b-sum-626a1cc`,
+   `.worktrees/16b-suite-1ca9b85` and `/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`
+   (archived).
+
 ## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
 
 **Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
