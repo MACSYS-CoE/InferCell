@@ -414,6 +414,10 @@ forward ensemble of the full two-way model, and held fixed across θ.
     v6 FBA is 1.3× it, so two are.
   - Rule 4 had been read as three marginals resolved. Under the rule fixed in
     advance it is five of six; FBA and σ_b clear the nulls narrowly.
+  - 2026-10-25's r5 diagnosis had said the objective was within 1e-6 of its
+    final value at 0.10 h. The trace (`maptrace_r5.tsv`) has it 3.5e-4 away
+    then, and within 1e-6 only from 2.86 h. The diagnosis, a gradient noise
+    floor, is unchanged.
 - **Sections touched:** the label line, §6, §8, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
@@ -478,7 +482,10 @@ forward ensemble of the full two-way model, and held fixed across θ.
   prior median (the box is ±6 SD).
 - **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl`, at `af332d7`).
   - **r5** (job 19209034) ran to its 6 h cap: 7,703 gradients and 4 Fminbox
-    rounds. Its objective was within 1e-6 of the final value at 0.10 h.
+    rounds. At 0.10 h Fminbox's objective was 863.463 against a final 863.765, a
+    relative gap of 3.5e-4. It was within 1e-6 of the final value only from
+    2.86 h. (Corrected by #104's review: this line had said within 1e-6 at
+    0.10 h; see 2026-10-27.)
     - At the cap, |Δx| was 1.6e-9, the relative change in f was 9e-13 and |g| was
       5.1e-6, against Optim's g_tol of 1e-8.
     - The median gradient took 2.31 s, with a maximum of 6.5 s, so it was not
