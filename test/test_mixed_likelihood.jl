@@ -17,6 +17,20 @@ using Turing: logjoint, sample, NUTS
     truth = Dict(ds.truth.values)
     x = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
     θ = exp.(x[1:length(s.names)])
+    # AV3: ForwardDiff's gradient against central differences, coordinate by coordinate.
+    function av3(ℓ, x; h = 1e-4, rtol = 1e-6)
+        g = ForwardDiff.gradient(ℓ, x)
+        fd = map(eachindex(x)) do j
+            e = zeros(length(x))
+            e[j] = h
+            (ℓ(x + e) - ℓ(x - e)) / 2h
+        end
+        @test all(isfinite, g)
+        for j in eachindex(x)
+            @test g[j] ≈ fd[j] rtol = rtol
+        end
+        return g
+    end
 
     @testset "the setup" begin
         @test mixed_parameter_names(s) ==
@@ -115,18 +129,8 @@ using Turing: logjoint, sample, NUTS
                                0.02 .* randn(rng, n), 1e-3 .* (A * A'))
         ℓ(z) = mixed_logdensity(tight, z)
         @test isfinite(ℓ(x))
-        g = ForwardDiff.gradient(ℓ, x)
-        h = 1e-4
-        fd = map(eachindex(x)) do j
-            e = zeros(length(x))
-            e[j] = h
-            (ℓ(x + e) - ℓ(x - e)) / 2h
-        end
-        @test all(isfinite, g)
+        g = av3(ℓ, x)
         @test all(!iszero, g)
-        for j in eachindex(x)
-            @test g[j] ≈ fd[j] rtol = 1e-6
-        end
     end
 
     @testset "−∞ outside the support, not an error" begin
@@ -188,18 +192,7 @@ using Turing: logjoint, sample, NUTS
         for st in ((:tx,), (:bulk,))
             tight = with_reference(mixed_setup(ds; abstol = 1e-14, reltol = 1e-12, streams = st),
                                    δ, Σ)
-            ℓ(z) = mixed_logdensity(tight, z)
-            g = ForwardDiff.gradient(ℓ, x)
-            h = 1e-4
-            fd = map(eachindex(x)) do j
-                e = zeros(length(x))
-                e[j] = h
-                (ℓ(x + e) - ℓ(x - e)) / 2h
-            end
-            @test all(isfinite, g)
-            for j in eachindex(x)
-                @test g[j] ≈ fd[j] rtol = 1e-6
-            end
+            av3(z -> mixed_logdensity(tight, z), x)
         end
     end
 
