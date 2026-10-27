@@ -14,10 +14,11 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
   - On the two datasets with a null (v6 and r12; r19 had none), holding S fixed
     shows as a W1 of about 0.2 SD on one marginal each. That raw W1 includes
     about 0.1 SD of chain noise.
-  - KS's floors are not matched to its 400-against-400 comparison, and they err
-    in opposite directions. On v6 they are F10's nulls, which bias KS toward
-    firing. On r12 and r19 they are the larger 200-against-200 chain W1, which
-    biases it against.
+  - KS's floors are not matched to its 400-against-400 comparison. Against the
+    matched null, the floor is the higher of the two on 5 of 6 marginals on v6
+    (F10's largest null; σ_b, one of the firings, is the exception) and on 4 of
+    6 on r12 (the larger 200-against-200 chain W1). So the floors mostly make
+    KS harder to fire, not easier.
   - The response §8 names, the linear noise approximation, is not built in B7
     (the user's decision, 2026-10-27).
 - **KC does not fire** (rule 7): median 6.57 CPU-h per posterior against 50.75.
@@ -60,12 +61,15 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
 - **Run size:** 50 cells, 600 s, an 800-cell reference ensemble, 2 chains of
   200 + 200 per fit from starts jittered by 0.25 prior SD.
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
-  `SHA256SUMS` (518 files):
+  `SHA256SUMS` (529 files):
   - the run directory, the MAP traces, the MAP checks and the null's smoke;
   - `profile/`: B7.2's snapshots and the profile logs (19159993, 19160196,
     19161734, 19162281, 19162737, 19163602);
   - `tests/`: the test-file logs (19160188, 19163839, 19163842, 19164153,
-    19232727, 19232740, 19290056) and the suite's (19342349);
+    19232727, 19232740, 19290056) and the suites' (19342349; 19344907 after
+    #104's review);
+  - `replay/`: #104's review's replay of the merge and nullcmp (19344905,
+    19344906);
   - B7.5's two smoke directories, r1 and r2.
 - **Figures:** `dev/notes/figures/av6-89b7/` (`dev/scripts/av6_89_b7.py <run>`):
   Figure 4 (`f4_mixed_vs_exact`) and Figure 5's middle panel (`f5_rank_ecdf_m0`).

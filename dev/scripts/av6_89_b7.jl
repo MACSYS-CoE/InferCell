@@ -28,8 +28,9 @@
 # Usage: julia --project dev/scripts/av6_89_b7.jl <stage> <out> [<fit> [<c>]]
 # Regenerate: dev/scripts/av6_89_b7.sh <out outside the worktrees>.
 # The matched null is not in the launcher. It was submitted by hand after the
-# merge, from a worktree at 09be2f5 (jobs 19334375-19334380), as
-#   s="sbatch --partition=milan --exclude=dave[148-149] --export=ALL,SMOKE=0
+# merge, from a worktree at 09be2f5 (jobs 19334375-19334380), as below; <the four>
+# is the chain jobs' ids, colon-separated, which --parsable prints
+#   s="sbatch --parsable --partition=milan --exclude=dave[148-149] --export=ALL,SMOKE=0
 #      --output=<out>/logs/%x_%j.log"
 #   for f in null_v6 null_low1; do for c in 1 2; do
 #     $s --time=3-00:00:00 --job-name=av6_chain_$f dev/scripts/av6_89_b7.slurm chain <out> $f $c

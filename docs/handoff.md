@@ -29,7 +29,8 @@
 - The driver, the resume launcher, the MAP trace and check scripts, and KS's null
   stage all live in `dev/scripts/av6_89_b7*`.
 
-**Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
+**Suite:** 28851 of 28851 at `5a6cb89` (job 19342349), and after #104's review
+at `d23c746` (job 19344907).
 
 **Cost:** 391.9 CPU-h of record, plus 274.1 lost to the MAP fault. The rows are in
 `dev/scripts/phase16_ledger.md`.
@@ -57,8 +58,11 @@
      merge, and a second resume repairs it). Each needs a smoke to change.
    - `reference_theta`'s stopping keywords are tested only in the gated
      integration test.
+   - Not done: `readdlm` for F10's TSV (DelimitedFiles is not a project
+     dependency), and sharing `f10_16a10.py`'s loaders (different label keys,
+     and importing it pulls in arviz).
 4. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
-   profile and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
+   profile, replay and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
    but only after `sha256sum -c SHA256SUMS` passes in the archive. The archive
    holds their logs, B7.2's profile snapshots and logs, the test and suite logs,
    and the smokes.

@@ -20,8 +20,8 @@ the reference here, and M0, V6 and V7.
 - B0 to B9 are #89's tasks.
 - AV1 to AV7 are this file's verification checks.
 - KG, KS and KC are its local checks. KC is a stop. KG has been reported, not a
-  stop, since 2026-10-23 (§12). KS was a stop; it fired in B7 and is reported as
-  fired, not acted on, since 2026-10-27 (§8, §12).
+  stop, since 2026-10-23 (§12). KS is a stop; it fired in B7 (2026-10-27, §8,
+  §12), and its named response is not built now.
 - **Not phase 17.** The parent's phase 17 is per-module calibration, so this file
   has no phase number.
 
@@ -191,7 +191,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   evaluation, about 1.8 CPU-h on Core A′, and no gradients. That kills NUTS.
 - **The alternative is the linear noise approximation.** S per θ, differentiable,
   exact for the gene-expression block, linearised through the metabolism. It is §9's
-  open question. It is the right next step if KS fires.
+  open question. It is the right next step if KS fires. (KS fired in B7; the
+  approximation is not built now, §8 and §12 2026-10-27.)
 
 **Order and gates:**
 1. **B1 and B2** are standalone and unit tested: AV1–AV4.
@@ -272,11 +273,10 @@ forward ensemble of the full two-way model, and held fixed across θ.
     description anywhere. Stop before B4. The result file lists the options, and
     the user chooses one. Do not tune σ_b to pass (added 2026-10-20, §12).
 - **KS — a fixed S is too crude.** **KS fired in B7 (2026-10-27, §12 "B7 as
-  run"), on 5 of 18 marginals by at most 0.027 SD. It is reported as fired, not
-  acted on (the user's decision): the linear noise approximation is not built,
-  and the paper reports KS's cost.** B8 runs with S fixed, as B7 did, unless the
-  user decides otherwise before it starts. The text below is kept as agreed on
-  2026-10-20. On M0, 5.2's posterior with S fixed differs from
+  run"), on 5 of 18 marginals by at most 0.027 SD. The user's decision: report it
+  as fired and write it up in the paper; the linear noise approximation is not
+  built now. How B8 handles S is open, and is asked before B8 starts.** The text
+  below is kept as agreed on 2026-10-20. On M0, 5.2's posterior with S fixed differs from
   one with S re-estimated at the posterior mean by more than the Monte Carlo floor.
   The response is the linear noise approximation (§9).
 - **KC — no cost advantage.** On M0 an approximate posterior costs more than a tenth
@@ -288,6 +288,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - ~~[NEEDS CLARIFICATION: KG's threshold.]~~ — resolved 2026-10-20: as in §8.
 - ~~[NEEDS CLARIFICATION: fixed S, or the linear noise approximation?]~~ — resolved
   2026-10-20: fixed S (D-S), with the linear noise approximation if KS fires.
+  (KS fired in B7; the approximation is not built now, §8 and §12 2026-10-27.)
 - ~~[NEEDS CLARIFICATION: the near-floor pools.]~~ — resolved 2026-10-20: Pi, 3PG
   and 2PG stay in the Gaussian factor. The approximate and exact fits then see the
   same data, and AV6 shows whether the Gaussian breaks there. Dropping them, or
@@ -356,8 +357,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
     differ by more than 3× V7's own MCSE.
 - **KS: the user's decision (2026-10-27).** KS is a stop (§8), and its named
   response is the linear noise approximation.
-  - §8 now says so in place, as KG's entry does: KS is reported as fired, not a
-    stop, and B8 runs with S fixed unless the user decides otherwise first.
+  - §8 now says in place, as KG's entry does, that KS fired, that it is
+    reported as fired, and that the approximation is not built now. How B8
+    handles S is open, and is asked before B8 starts.
   - It fired, and that is reported as it stands. The approximation is not built
     in B7; the paper reports KS as fired.
   - **A matched null was run after the result (information only).** It is two
@@ -369,9 +371,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
     - On the two datasets with a null (v6, r12; r19 had none), holding S fixed
       shows as a W1 of about 0.2 SD on one marginal each, a raw figure that
       includes about 0.1 SD of chain noise.
-    - KS's floors are not matched to its 400-against-400 comparison. F10's nulls
-      on v6 bias it toward firing; the 200-against-200 chain W1 on r12 and r19
-      bias it against.
+    - KS's floors are not matched to its 400-against-400 comparison. The floor
+      is above the matched null on 5 of 6 marginals on v6 (σ_b is the
+      exception) and on 4 of 6 on r12, so it mostly makes KS harder to fire.
 - **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
   comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
   mixed side is in the result file, and B7.8 follows in its own PR.
@@ -392,8 +394,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - **KS's re-estimation, as built** (`run_ksprep`). Two details the plan's
   wording did not fix:
   - the ensemble reuses the base fit's 800 reference seeds (common random
-    numbers), not a new ensemble, so the two S differ by θ and not by the
-    cells' noise;
+    numbers), not a new ensemble, so the two S share the cells' random
+    numbers;
   - the posterior mean is taken on the log scale, the sampler's own
     coordinates.
 - **B7.6's clause, as read.** "Every job COMPLETED" is read as every job of
@@ -416,7 +418,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - θ_ref agrees across the three rules to at most 2.1e-5 prior SD wherever they
     were compared.
   - The faults cost 274.1 CPU-h. The run of record cost 391.9.
-- **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349).
+- **Suite:** 28851 of 28851 at `5a6cb89` (job 19342349), and again after
+  #104's review at `d23c746` (job 19344907).
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with
   `SHA256SUMS`. It holds the run, the MAP traces and checks, B7.2's profile
   snapshots and logs, the test and suite logs, and B7.5's smokes.
@@ -432,7 +435,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
     floor, is unchanged.
   - Smaller corrections: 2026-10-25's "maximum of 6.5 s" excludes the first,
     compile-time gradient (41.4 s); 2026-10-26's "about 2 gradients" per
-    iteration is about 3.4; the ledger's 32.1 is 32.0, and two of its ranges
+    iteration is about 3.4; the ledger's 32.1 was 32.0 (32.1 again with the
+    review's replay), and two of its ranges
     now name the `ttcf` jobs inside them.
   - B7.2's evidence (the profile logs and snapshots, and the test and suite logs)
     sat only in worktrees the handoff said could go. It is now in the archive,
@@ -443,7 +447,12 @@ forward ensemble of the full two-way model, and held fixed across θ.
     written once. Replayed at `d23c746` on a copy of the run directory (merge
     19344905, nullcmp 19344906), every output is byte-identical to the run of
     record but for the header's commit and job, and the figures regenerate
-    byte-identical.
+    byte-identical. The replay's outputs and logs are in the archive under
+    `replay/`. The suite at `d23c746`: job 19344907.
+  - The fix round's own review (round 2) corrected two of its fixes: the floors'
+    direction, which the first fix had stated backwards (against the matched
+    null they mostly make KS harder to fire), and §8's note, which had stated a
+    B8 decision the user had not made (how B8 handles S is open).
   - Deferred, with reasons, to the handoff: replacing `reference_theta`'s two
     stops with one gradient floor (it would change the code the run used); the
     launchers' shared pieces, KS-low's dependencies and the resume fault (each
@@ -465,7 +474,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
     objective it reports went from 474.497 to 492.113.
   - From then on, x did not change in the fourth decimal over at least 300
     iterations. Each iteration still took about 3.4 gradients on average over
-    the last 300.
+    the last 300. (Corrected by #104's review from "about 2"; see 2026-10-27.)
   - With |f| ≈ 492, the 1e-10 relative test needs changes below 5e-8. The trace
     prints the objective to 6 significant figures, too coarse to show whether it
     was still moving at that scale.
@@ -516,13 +525,14 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - **Diagnosis** (`dev/scripts/av6_89_b7_maptrace.jl`, at `af332d7`).
   - **r5** (job 19209034) ran to its 6 h cap: 7,703 gradients and 4 Fminbox
     rounds. At 0.10 h Fminbox's objective was 863.463 against a final 863.765, a
-    relative gap of 3.5e-4. It was within 1e-6 of the final value only from
-    2.86 h. (Corrected by #104's review: this line had said within 1e-6 at
+    relative gap of 3.5e-4. It was within 1e-6 of the final value, at the
+    trace's 6 significant figures, only from 2.86 h. (Corrected by #104's review: this line had said within 1e-6 at
     0.10 h; see 2026-10-27.)
     - At the cap, |Δx| was 1.6e-9, the relative change in f was 9e-13 and |g| was
       5.1e-6, against Optim's g_tol of 1e-8.
     - The median gradient took 2.31 s, with a maximum of 6.5 s after the first,
-      compile-time gradient (41.4 s), so it was not stiffness.
+      compile-time gradient (41.4 s), so it was not stiffness. (The first
+      gradient's exception added by #104's review; see 2026-10-27.)
   - **r46** (job 19209035) converged in 0.14 h, with |g| at 3.3e-9.
   - **Cause:** the ODE solves leave a noise floor in the gradient, and on some
     datasets it sits above g_tol. The gradient test then never passes.
