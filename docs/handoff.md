@@ -7,8 +7,8 @@
   50 datasets.
 - **KS fires,** on 5 of 18 marginals by at most 0.027 SD.
   - A matched null was run after the result (jobs 19334375–19334380). Two of the
-    five firings are about twice the noise between identical fits; the other
-    three are within it.
+    five firings are about twice the noise between identical fits, one (v6 FBA)
+    is 1.3× it, and two are within it.
   - The user's decision: report KS as fired, and do not build the linear noise
     approximation now.
 - **KC does not fire:** median 6.57 CPU-h per posterior, against 50.75.

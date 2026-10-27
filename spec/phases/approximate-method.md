@@ -353,7 +353,12 @@ forward ensemble of the full two-way model, and held fixed across θ.
     - v6 S_0607 is at 0.213 against a null of 0.113, and r12 ENO at 0.216 against
       0.101: about twice the null.
     - v6 FBA is 1.3× the null. v6 σ_b and r12 S_0607 are below it.
-    - So holding S fixed costs about 0.2 SD on about one marginal per dataset.
+    - On the two datasets with a null (v6, r12; r19 had none), holding S fixed
+      shows as a W1 of about 0.2 SD on one marginal each, a raw figure that
+      includes about 0.1 SD of chain noise.
+    - KS's floors are not matched to its 400-against-400 comparison. F10's nulls
+      on v6 bias it toward firing; the 200-against-200 chain W1 on r12 and r19
+      bias it against.
 - **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
   comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
   mixed side is in the result file, and B7.8 follows in its own PR.

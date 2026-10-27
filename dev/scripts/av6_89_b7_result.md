@@ -9,10 +9,17 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
   the convergence target.
 - **KS fires** (rule 6): on 5 of 18 marginals, each by at most 0.027 SD. A matched
   null run after the result (information only; the verdict stands) puts two of the
-  five at about twice the noise between two identical fits and three within it.
-  Holding S fixed costs about 0.2 SD on about one marginal per dataset. The
-  response §8 names, the linear noise approximation, is not built in B7 (the
-  user's decision, 2026-10-27).
+  five at about twice the noise between two identical fits (v6 S_0607, r12 ENO),
+  one at 1.3× it (v6 FBA) and two within it (v6 σ_b, r12 S_0607).
+  - On the two datasets with a null (v6 and r12; r19 had none), holding S fixed
+    shows as a W1 of about 0.2 SD on one marginal each. That raw W1 includes
+    about 0.1 SD of chain noise.
+  - KS's floors are not matched to its 400-against-400 comparison, and they err
+    in opposite directions. On v6 they are F10's nulls, which bias KS toward
+    firing. On r12 and r19 they are the larger 200-against-200 chain W1, which
+    biases it against.
+  - The response §8 names, the linear noise approximation, is not built in B7
+    (the user's decision, 2026-10-27).
 - **KC does not fire** (rule 7): median 6.57 CPU-h per posterior against 50.75.
 - **On m0_v6** (rule 4, information): three marginals are resolved from V6 by
   0.42–0.56 SD (S_0779, krnadeg, ENO), each about 0.3 SD above F10's largest
