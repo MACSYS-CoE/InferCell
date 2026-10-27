@@ -366,7 +366,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - 40 base fits have θ_ref under Optim's tests alone.
   - Ten have θ_ref under the reltol rule: r5, r7, r18, r23, r25, r28, r29, r37,
     r42, r50.
-  - r33 and the two low-ENO KS refits use the xtol rule.
+  - r33 uses the xtol rule. The KS refits run no MAP: they reuse their base's
+    θ_ref (v6, r12 and r19, all under Optim's tests alone).
   - The three rules agree to at most 2.1e-5 prior SD wherever they were compared.
 - **Third resume, at `8da6045`:** jobs 19292223–19292232. These are r33's prep and 2
   chains, the KS refits on the two low-ENO replicates (each a prep and 2 chains) and
