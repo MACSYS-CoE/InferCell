@@ -45,7 +45,8 @@ at `d23c746` (job 19344907).
    `av6_bulk_v6_draws.tsv`.
 2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
    needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
-   the story check, not applied.
+   the story check, not applied. Before B8 starts, ask how it handles S (§8:
+   open since KS fired).
 3. **Left from #104's review** (not done in B7; see §12 2026-10-27):
    - `reference_theta`: the next change should replace `reltol` and `xtol` with
      one noise-floor `g_abstol` (about 1e-4) and an inner LBFGS iteration cap.

@@ -374,6 +374,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
     - KS's floors are not matched to its 400-against-400 comparison. The floor
       is above the matched null on 5 of 6 marginals on v6 (σ_b is the
       exception) and on 4 of 6 on r12, so it mostly makes KS harder to fire.
+      Two firings, v6 σ_b and r12 S_0607, sit where the floor is below the
+      null; they are the two within it.
 - **B7.8 (the user's decision, 2026-10-27).** B7 ships without the stream-arm
   comparison. 16b.4's exact fits (jobs 19034901–19034903) were still running. The
   mixed side is in the result file, and B7.8 follows in its own PR.

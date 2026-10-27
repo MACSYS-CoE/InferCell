@@ -16,9 +16,10 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
     about 0.1 SD of chain noise.
   - KS's floors are not matched to its 400-against-400 comparison. Against the
     matched null, the floor is the higher of the two on 5 of 6 marginals on v6
-    (F10's largest null; σ_b, one of the firings, is the exception) and on 4 of
-    6 on r12 (the larger 200-against-200 chain W1). So the floors mostly make
-    KS harder to fire, not easier.
+    (F10's largest null; σ_b is the exception) and on 4 of 6 on r12 (the larger
+    200-against-200 chain W1; S_0607 and FBA are the exceptions). So the floors
+    mostly make KS harder to fire. The exceptions include two of the five
+    firings, v6 σ_b and r12 S_0607: the two that are within the null.
   - The response §8 names, the linear noise approximation, is not built in B7
     (the user's decision, 2026-10-27).
 - **KC does not fire** (rule 7): median 6.57 CPU-h per posterior against 50.75.
