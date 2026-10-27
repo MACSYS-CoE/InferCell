@@ -42,13 +42,7 @@ struct MeanField{N, K <: Tuple} <: AbstractSubModel
     members::Vector{AbstractSubModel}
     names::Vector{Symbol}
     params::Vector{InferParameter}
-    rates::Vector{Any}
-    member::Vector{Int}
-    sidx::Vector{Vector{Int}}
     pidx::Vector{Vector{Int}}
-    iidx::Vector{Vector{Int}}
-    ν::Matrix{Float64}
-    nz::Vector{Vector{Int}}
     edges::Vector{CouplingEdge}
     rebuilt::Vector{Symbol}
     id::Symbol
@@ -124,8 +118,8 @@ function MeanField(members::AbstractVector{<:AbstractSubModel};
               Symbol[]
     kernel = Tuple(_kernel_term(rates[r], sidx[member[r]], pidx[member[r]], iidx[member[r]],
                                 nz[r], ν[nz[r], r]) for r in eachindex(rates))
-    return MeanField{N, typeof(kernel)}(members, names, params, rates, member, sidx, pidx, iidx,
-                                        ν, nz, collect(CouplingEdge, es), rebuilt, id, kernel)
+    return MeanField{N, typeof(kernel)}(members, names, params, pidx, collect(CouplingEdge, es),
+                                        rebuilt, id, kernel)
 end
 
 # One reaction's term in `dynamics`, with its closure and indices concretely
