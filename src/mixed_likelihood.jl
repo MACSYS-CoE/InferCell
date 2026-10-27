@@ -184,12 +184,19 @@ x at the prior median: each log prior's mean.
 mixed_prior_median(s::MixedSetup) = vcat(s.prior_mu, s.sigma_prior.μ)
 
 """
+    mixed_prior_sd(s) -> Vector{Float64}
+
+Each coordinate of x's prior SD, in `mixed_parameter_names`' order.
+"""
+mixed_prior_sd(s::MixedSetup) = vcat(s.prior_sd, s.sigma_prior.σ)
+
+"""
     mixed_box(s) -> (lower, upper)
 
 The support box in x: each coordinate's prior mean ± `box_sd` prior SDs.
 """
 function mixed_box(s::MixedSetup)
-    sd = vcat(s.prior_sd, s.sigma_prior.σ)
+    sd = mixed_prior_sd(s)
     return (mixed_prior_median(s) .- s.box_sd .* sd, mixed_prior_median(s) .+ s.box_sd .* sd)
 end
 
@@ -318,7 +325,7 @@ function mixed_logdensity(s::MixedSetup, x::AbstractVector)
 end
 
 @model function _mixed_model(s::MixedSetup)
-    x ~ MvNormal(mixed_prior_median(s), Diagonal(vcat(s.prior_sd, s.sigma_prior.σ) .^ 2))
+    x ~ MvNormal(mixed_prior_median(s), Diagonal(mixed_prior_sd(s) .^ 2))
     Turing.@addlogprob! mixed_loglik(s, x)
 end
 
@@ -447,7 +454,7 @@ not finite is redrawn, up to `tries` times, and the number of draws is returned.
 function mixed_jittered_start(rng::AbstractRNG, s::MixedSetup, centre::AbstractVector;
                               scale::Real = 0.25, tries::Integer = 20)
     lo, hi = mixed_box(s)
-    sd = vcat(s.prior_sd, s.sigma_prior.σ)
+    sd = mixed_prior_sd(s)
     for k in 1:tries
         x = clamp.(centre .+ scale .* sd .* randn(rng, length(sd)), lo, hi)
         isfinite(mixed_logdensity(s, x)) && return (x = x, tries = k)
@@ -477,7 +484,7 @@ function delta_and_S(cells::AbstractArray{<:Real, 3}, m_ref::AbstractVector; C::
 end
 
 export MixedSetup, mixed_setup, with_reference, mixed_parameter_names, mixed_prior_median,
-       mixed_box,
+       mixed_prior_sd, mixed_box,
        route_transcription_rates, mean_field_log_bulk, bulk_loglik, mixed_loglik,
        mixed_log_prior, mixed_logdensity, mixed_model, reference_theta, mixed_theta_values,
        reference_ensemble, reference_seeds, delta_and_S, mixed_chain_seeds,

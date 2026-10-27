@@ -19,7 +19,7 @@ function main(r, run)
     file = joinpath(run, "r$r", "prep.jls")
     if isfile(file)
         p = deserialize(file)
-        sd = vcat(s.prior_sd, s.sigma_prior.σ)
+        sd = mixed_prior_sd(s)
         z = (ref.x .- p.ref.x) ./ sd
         @printf("r%d: stored θ_ref (%s, %.2f h, log density %.6f); max |Δx| %.3g prior SD, Δ log density %.3g\n",
                 r, p.ref.method, p.seconds.map / 3600, p.ref.logdensity, maximum(abs.(z)),

@@ -47,7 +47,7 @@ function traced_loglik(s, x)
 end
 
 @model function traced_model(s)
-    x ~ MvNormal(mixed_prior_median(s), Diagonal(vcat(s.prior_sd, s.sigma_prior.σ) .^ 2))
+    x ~ MvNormal(mixed_prior_median(s), Diagonal(mixed_prior_sd(s) .^ 2))
     @addlogprob! traced_loglik(s, x)
 end
 

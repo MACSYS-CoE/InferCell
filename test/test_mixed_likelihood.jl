@@ -138,7 +138,7 @@ using Turing: logjoint, sample, NUTS
         @test ForwardDiff.gradient(z -> mixed_logdensity(s, z), lo) isa Vector
         # The support box: outside it, −∞ without a solve.
         lb, ub = mixed_box(s)
-        @test lb ≈ mixed_prior_median(s) .- 6 .* vcat(s.prior_sd, s.sigma_prior.σ)
+        @test lb ≈ mixed_prior_median(s) .- 6 .* mixed_prior_sd(s)
         far = copy(x)
         far[4] = ub[4] + 1.0
         t_far = @elapsed v_far = mixed_logdensity(s, far)
