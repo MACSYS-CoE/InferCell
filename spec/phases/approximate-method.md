@@ -19,8 +19,9 @@ the reference here, and M0, V6 and V7.
 **Labels.**
 - B0 to B9 are #89's tasks.
 - AV1 to AV7 are this file's verification checks.
-- KG, KS and KC are its local checks. KS and KC are stops. KG has been reported,
-  not a stop, since 2026-10-23 (§12).
+- KG, KS and KC are its local checks. KC is a stop. KG has been reported, not a
+  stop, since 2026-10-23 (§12). KS was a stop; it fired in B7 and is reported as
+  fired, not acted on, since 2026-10-27 (§8, §12).
 - **Not phase 17.** The parent's phase 17 is per-module calibration, so this file
   has no phase number.
 
@@ -270,7 +271,12 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - **If it fails at every truth:** the mean field, as built, is not the second
     description anywhere. Stop before B4. The result file lists the options, and
     the user chooses one. Do not tune σ_b to pass (added 2026-10-20, §12).
-- **KS — a fixed S is too crude.** On M0, 5.2's posterior with S fixed differs from
+- **KS — a fixed S is too crude.** **KS fired in B7 (2026-10-27, §12 "B7 as
+  run"), on 5 of 18 marginals by at most 0.027 SD. It is reported as fired, not
+  acted on (the user's decision): the linear noise approximation is not built,
+  and the paper reports KS's cost.** B8 runs with S fixed, as B7 did, unless the
+  user decides otherwise before it starts. The text below is kept as agreed on
+  2026-10-20. On M0, 5.2's posterior with S fixed differs from
   one with S re-estimated at the posterior mean by more than the Monte Carlo floor.
   The response is the linear noise approximation (§9).
 - **KC — no cost advantage.** On M0 an approximate posterior costs more than a tenth
@@ -350,6 +356,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
     differ by more than 3× V7's own MCSE.
 - **KS: the user's decision (2026-10-27).** KS is a stop (§8), and its named
   response is the linear noise approximation.
+  - §8 now says so in place, as KG's entry does: KS is reported as fired, not a
+    stop, and B8 runs with S fixed unless the user decides otherwise first.
   - It fired, and that is reported as it stands. The approximation is not built
     in B7; the paper reports KS as fired.
   - **A matched null was run after the result (information only).** It is two
@@ -406,7 +414,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
     v6 FBA is 1.3× it, so two are.
   - Rule 4 had been read as three marginals resolved. Under the rule fixed in
     advance it is five of six; FBA and σ_b clear the nulls narrowly.
-- **Sections touched:** §6, §9, §11 and §12.
+- **Sections touched:** the label line, §6, §8, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
 
