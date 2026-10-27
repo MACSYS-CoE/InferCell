@@ -54,7 +54,9 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
   19290049–19290055).
 - **Matched null:** at `09be2f5`, chains 19334375, 19334376, 19334378, 19334379
   and comparison 19334380 (`av6_ks_null.md`); smoke 19334381 on copied chains gave
-  W1 = 0 and reproduced the merge's KS numbers.
+  W1 = 0 and reproduced the merge's KS numbers. The launcher does not submit
+  these; `dev/scripts/av6_89_b7.jl`'s header has the commands, run against the
+  run directory after the merge.
 - **Run size:** 50 cells, 600 s, an 800-cell reference ensemble, 2 chains of
   200 + 200 per fit from starts jittered by 0.25 prior SD.
 - **Archive:** `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, with

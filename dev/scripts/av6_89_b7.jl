@@ -12,16 +12,30 @@
 #   tx_v6, bulk_v6
 #              the stream arms: m0_v6 with transcripts only and metabolites only,
 #              at v6's reference (θ_ref, δ, S).
+#   null_v6, null_low1
+#              KS's matched null (§12 2026-10-27, added after the result): v6 and
+#              ks_low1's base refitted at the same (θ_ref, δ, S) on the base arm's
+#              chain seeds 3 and 4. No prep of their own; chains only.
 #
 # Stages:
 #   prep <out> <fit>       a base fit (r*, v6): the dataset, θ_ref (the bounded MAP at
 #                          δ = S = 0), the 800-cell reference ensemble, δ and S;
 #   ksprep <out> <fit>     a KS fit: S from 800 cells at the base's posterior mean;
 #   chain <out> <fit> <c>  one NUTS chain, NADAPT + NDRAW, from a jittered start;
-#   merge <out>            every rule of "B7 as planned", and the TSVs the figures read.
+#   merge <out>            every rule of "B7 as planned", and the TSVs the figures read;
+#   nullcmp <out>          W1(base, null) beside KS's W1, to <out>/av6_ks_null.md.
 #
 # Usage: julia --project dev/scripts/av6_89_b7.jl <stage> <out> [<fit> [<c>]]
 # Regenerate: dev/scripts/av6_89_b7.sh <out outside the worktrees>.
+# The matched null is not in the launcher. It was submitted by hand after the
+# merge, from a worktree at 09be2f5 (jobs 19334375-19334380), as
+#   s="sbatch --partition=milan --exclude=dave[148-149] --export=ALL,SMOKE=0
+#      --output=<out>/logs/%x_%j.log"
+#   for f in null_v6 null_low1; do for c in 1 2; do
+#     $s --time=3-00:00:00 --job-name=av6_chain_$f dev/scripts/av6_89_b7.slurm chain <out> $f $c
+#   done; done
+#   $s --time=01:00:00 --dependency=afterok:<the four> --job-name=av6_nullcmp \
+#      dev/scripts/av6_89_b7.slurm nullcmp <out>
 # SMOKE=1: 3 cells, a 120 s horizon, 8 reference cells, 10 + 10 NUTS steps, and
 # only the replicates in AV6_REPS (default 1:50). AV6_COMPARE=1: see COMPARE.
 
