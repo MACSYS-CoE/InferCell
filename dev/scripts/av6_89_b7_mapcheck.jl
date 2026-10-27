@@ -1,5 +1,7 @@
-# Issue #89 B7: does reference_theta's relative-change stop (§12 2026-10-25) move
-# θ_ref? Reruns one AV6 prep's MAP under it and compares x with the θ_ref the
+# Issue #89 B7: do reference_theta's added stops move θ_ref? It calls
+# reference_theta with its defaults at the commit it runs from: the relative-change
+# stop at 6526b45 (§12 2026-10-25), and that plus the x-step stop from 8da6045
+# (2026-10-26). Reruns one AV6 prep's MAP under it and compares x with the θ_ref the
 # production run stored (when that prep finished under Optim's tests alone), in
 # prior SDs. For a prep that never finished, reports only the time and method.
 #

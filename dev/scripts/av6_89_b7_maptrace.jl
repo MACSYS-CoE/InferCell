@@ -3,7 +3,9 @@
 # bounds, maxiters = 200) on a model identical to mixed_model but for a wrapper that
 # times and logs every likelihood evaluation, values unchanged. Also logs each
 # iteration the optimiser reports. Stops after MAX_HOURS (default 6). RELTOL (default
-# 0, the old call) is reference_theta's relative-change stop (§12 2026-10-25).
+# 0, the old call) is reference_theta's relative-change stop (§12 2026-10-25). It
+# replays the call before xtol (§12 2026-10-26): reference_theta now also passes
+# x_abstol and outer_x_abstol, which this replay leaves at Optim's 0.
 #
 #   julia --project dev/scripts/av6_89_b7_maptrace.jl <replicate r> <out.tsv>
 #

@@ -207,8 +207,8 @@ cancelled preps are not in any replicate's cost.
 | bulk_v6 | log_kcatF_R_FBA | 4.4119 ± 0.1942 | 0.879 | 1.0096 | 455 |
 | bulk_v6 | log_sigma_b | -2.6126 ± 0.0597 | 0.996 | 1.0034 | 421 |
 
-The exact side, 16b.4's metabolites-only and transcripts-only fits (jobs
-19034901–19034903), had not finished on 2026-10-27. B7.8 compares them in a
+The exact side, 16b.4's three fits (jobs 19034901 perturbed, 19034902
+tx_only and 19034903 met_only), had not finished on 2026-10-27. B7.8 compares them in a
 follow-up PR.
 
 ## Open

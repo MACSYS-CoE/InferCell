@@ -389,6 +389,17 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - B5's tests pass, 107 of 107 (job 19160188), as does the mean-field set, 489
     of 489 (job 19164153).
   - The projected cost was below the gate.
+- **KS's re-estimation, as built** (`run_ksprep`). Two details the plan's
+  wording did not fix:
+  - the ensemble reuses the base fit's 800 reference seeds (common random
+    numbers), not a new ensemble, so the two S differ by θ and not by the
+    cells' noise;
+  - the posterior mean is taken on the log scale, the sampler's own
+    coordinates.
+- **B7.6's clause, as read.** "Every job COMPLETED" is read as every job of
+  record. The preps that timed out or were cancelled during the MAP fault, and
+  the jobs stranded behind them, are relabelled `~superseded` in the run's
+  `jobs.tsv` and costed in the ledger as lost.
 - **Touches.** `d39360c` edits `src/mean_field.jl`, which "B7 as planned" did not
   list. It is a number-preserving speedup inside B7.2's scope, and no in-flight
   phase touches the file.
@@ -419,6 +430,10 @@ forward ensemble of the full two-way model, and held fixed across θ.
     final value at 0.10 h. The trace (`maptrace_r5.tsv`) has it 3.5e-4 away
     then, and within 1e-6 only from 2.86 h. The diagnosis, a gradient noise
     floor, is unchanged.
+  - Smaller corrections: 2026-10-25's "maximum of 6.5 s" excludes the first,
+    compile-time gradient (41.4 s); 2026-10-26's "about 2 gradients" per
+    iteration is about 3.4; the ledger's 32.1 is 32.0, and two of its ranges
+    now name the `ttcf` jobs inside them.
   - B7.2's evidence (the profile logs and snapshots, and the test and suite logs)
     sat only in worktrees the handoff said could go. It is now in the archive,
     whose `SHA256SUMS` was regenerated and verifies.
@@ -436,7 +451,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - At about 0.8 h, Fminbox's second round moved x by at most 0.0035. The
     objective it reports went from 474.497 to 492.113.
   - From then on, x did not change in the fourth decimal over at least 300
-    iterations. Each iteration still took about 2 gradients.
+    iterations. Each iteration still took about 3.4 gradients on average over
+    the last 300.
   - With |f| ≈ 492, the 1e-10 relative test needs changes below 5e-8. The trace
     prints the objective to 6 significant figures, too coarse to show whether it
     was still moving at that scale.
@@ -492,8 +508,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
     0.10 h; see 2026-10-27.)
     - At the cap, |Δx| was 1.6e-9, the relative change in f was 9e-13 and |g| was
       5.1e-6, against Optim's g_tol of 1e-8.
-    - The median gradient took 2.31 s, with a maximum of 6.5 s, so it was not
-      stiffness.
+    - The median gradient took 2.31 s, with a maximum of 6.5 s after the first,
+      compile-time gradient (41.4 s), so it was not stiffness.
   - **r46** (job 19209035) converged in 0.14 h, with |g| at 3.3e-9.
   - **Cause:** the ODE solves leave a noise floor in the gradient, and on some
     datasets it sits above g_tol. The gradient test then never passes.
