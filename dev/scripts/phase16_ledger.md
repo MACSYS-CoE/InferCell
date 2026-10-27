@@ -185,7 +185,13 @@ remain.
 | 19012523 | 16b | The M0 and Gibbs testsets on the stream and truth changes (dev check, uncommitted tree; 109 of 109) | 4 | 0:13:45 | 0.92 |
 | 19012980 | 16b | Test suite (of record, 28684 of 28684 at `fc8b141`) | 4 | 0:58:58 | 3.93 |
 | 19012981–19012983 | 16b.1, 16b.4 | Smoke: each mode, 3 cells, 120 s, 2 sweeps, at `fc8b141` | 5 | ~0:04 each | 0.99 |
-| 19034901–19034903 | 16b.1, 16b.4 | Production: perturbed, tx_only, met_only, 656 sweeps each, at `03b4c4f` | 5 | running | — |
+| 19034901 | 16b.1 | Production: perturbed, 656 sweeps, at `03b4c4f` | 5 | 4-10:33:29 | 532.79 |
+| 19034902 | 16b.4 | Production: tx_only, 656 sweeps, at `03b4c4f` | 5 | 4-21:17:37 | 586.47 |
+| 19034903 | 16b.4 | Production: met_only, 656 sweeps, at `03b4c4f` | 5 | 4-14:05:39 | 550.47 |
+| 19376252 | 16b.1, 16b.4 | Summary against V6, at `03b4c4f` | 5 | 0:01:28 | 0.12 |
+| 19376253 | 16b.4 | met_only's update rates, at `03b4c4f` | 5 | 0:04:19 | 0.36 |
+| 19378382 | 16b.1, 16b.4 | Summary with split-R̂ and the ENO null line (of record, at `626a1cc`) | 5 | 0:01:25 | 0.12 |
+| 19378175 | 16b | Test suite (of record, 28895 of 28895 at `1ca9b85`, main merged in) | 4 | 1:03:50 | 4.26 |
 
-**16b so far: about 5.8 CPU-h,** so phase 16 stands at about 42,873.2 of 50k,
-with the three production chains (about 1.5k projected) still to add.
+**16b total: about 1,680.4 CPU-h** (the production chains' 1,669.7 from `sacct`).
+Phase 16 stands at about 45,366.5 CPU-h of 50k, so about 4.6k remain.
