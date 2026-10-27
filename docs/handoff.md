@@ -1,6 +1,6 @@
 # Handoff
 
-## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, 2026-10-27)
+## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
 
 **Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
 - **SBC passes:** 6 of 6 parameters within the bands at 1 − 0.05/6, over V7's
@@ -45,7 +45,19 @@
 2. **The paper:** 5.2's text changes. KS fired, and Figure 4's "same posterior"
    needs qualifying on m0_v6. Both are for the user to frame; they are proposed at
    the story check, not applied.
-3. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
+3. **Left from #104's review** (not done in B7; see §12 2026-10-27):
+   - `reference_theta`: the next change should replace `reltol` and `xtol` with
+     one noise-floor `g_abstol` (about 1e-4) and an inner LBFGS iteration cap.
+     Changing it now would make the code disagree with the stops the run used,
+     and a new rule needs MAPs on Slurm to check.
+   - The launchers: `av6_89_b7.sh` and `av6_89_b7_resume.sh` copy `sub()` and
+     the `AV6_REPS` parser, whose Python form reads a stepped range (1:2:9)
+     differently from Julia; KS-low's preps wait on all 102 base chains; and a
+     resume run while a prep is RUNNING drops that fit's chains (it fails at the
+     merge, and a second resume repairs it). Each needs a smoke to change.
+   - `reference_theta`'s stopping keywords are tested only in the gated
+     integration test.
+4. **Can go:** the pinned worktrees `.worktrees/89b7-*`, and the smoke, MAP check,
    profile and null-smoke directories under `/fred/oz022/tkimpson/infercell-89-b7-*`,
    but only after `sha256sum -c SHA256SUMS` passes in the archive. The archive
    holds their logs, B7.2's profile snapshots and logs, the test and suite logs,

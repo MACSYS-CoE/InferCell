@@ -323,7 +323,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
-- [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done).
+- [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done). PR #104 (B7.1–B7.7, B7.9); B7.8 follows in its own PR.
   Planned in §12 2026-10-24, "B7 as planned"; as run in §12 2026-10-27 (SBC passes, KS fires, KC does not; `dev/scripts/av6_89_b7_result.md`). One commit per task:
   - [x] B7.1 This plan, as a §12 entry.
   - [x] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
@@ -437,6 +437,19 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - B7.2's evidence (the profile logs and snapshots, and the test and suite logs)
     sat only in worktrees the handoff said could go. It is now in the archive,
     whose `SHA256SUMS` was regenerated and verifies.
+  - Simplifications applied, each meant to leave every number unchanged:
+    `mixed_prior_sd`; `MeanField` without the six fields its typed kernel
+    replaced; the driver's repeated pieces written once; AV3's test loop
+    written once. Replayed at `d23c746` on a copy of the run directory (merge
+    19344905, nullcmp 19344906), every output is byte-identical to the run of
+    record but for the header's commit and job, and the figures regenerate
+    byte-identical.
+  - Deferred, with reasons, to the handoff: replacing `reference_theta`'s two
+    stops with one gradient floor (it would change the code the run used); the
+    launchers' shared pieces, KS-low's dependencies and the resume fault (each
+    needs a smoke); `readdlm` for F10's TSV (not a project dependency); and
+    sharing `f10_16a10.py`'s loaders (different keys, and its import pulls in
+    arviz).
 - **Sections touched:** the label line, §6, §8, §9, §11 and §12.
 
 ### 2026-10-26 — B7: θ_ref's MAP also stops once x stops moving (r33)
