@@ -36,8 +36,10 @@ the MAP's stopping rule changed during the run (§12 2026-10-25 and 2026-10-26).
   krnadeg's, +0.095 ± 0.050 SD. Per parameter, 9–22 of the 50 replicates differ
   from V7 by more than 3× V7's own MCSE. The median SD ratio is 0.92–1.07.
 - **Stream arms** (rule 8): the mixed side is below. The comparison with 16b.4's
-  exact fits (B7.8) follows in its own PR once 16b.4 lands (the user's decision,
-  2026-10-27).
+  exact fits (B7.8, §12 2026-10-28 "B7.8 as planned") is in "B7.8" below:
+  - under transcripts only, no marginal is resolved from the exact fit;
+  - under metabolites only, ENO, σ_b and krnadeg are resolved, by small margins.
+    FBA is not resolved. ptsG has no exact counterpart.
 
 ## Runs
 
@@ -212,9 +214,85 @@ cancelled preps are not in any replicate's cost.
 | bulk_v6 | log_kcatF_R_FBA | 4.4119 ± 0.1942 | 0.879 | 1.0096 | 455 |
 | bulk_v6 | log_sigma_b | -2.6126 ± 0.0597 | 0.996 | 1.0034 | 421 |
 
-The exact side, 16b.4's three fits (jobs 19034901 perturbed, 19034902
-tx_only and 19034903 met_only), had not finished on 2026-10-27. B7.8 compares them in a
-follow-up PR.
+The exact side, 16b.4's fits, had not finished on 2026-10-27. B7.8 compares them
+below.
+
+## B7.8: the stream arms against 16b.4's exact fits
+
+The rules were fixed before any distance was computed (§12 2026-10-28, "B7.8 as
+planned").
+- **W1** is in the exact posterior's SD.
+- **The floor** is the larger of the exact chain's split-half W1 and the mixed
+  fit's chain-vs-chain W1.
+- **The exact fits** are 16b.4's single chains: tx_only (job 19034902) and met_only
+  (job 19034903), sweeps 101 to 656.
+
+**Reproduce** (Slurm job 19411150 at `db30305`, 0.05 CPU-h; identical to a
+login-node run):
+```
+julia --project dev/scripts/av6_89_b78.jl /fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run \
+    /fred/oz022/tkimpson/infercell-16b-archive-2026-10-28/m0_16b_tx_only \
+    /fred/oz022/tkimpson/infercell-16b-archive-2026-10-28/m0_16b_met_only
+```
+
+**Transcripts only** (`tx_v6` against the exact tx_only fit):
+
+| Parameter | Exact mean ± SD | Mixed mean ± SD | W1 / exact SD | Exact split-half | Mixed chain-vs-chain | Floor | Exact ESS | Exact split-R̂ | Reads |
+|---|---|---|---|---|---|---|---|---|---|
+| S_JCVISYN3A_0607 | 1.502 ± 0.117 | 1.512 ± 0.117 | 0.096 | 0.103 | 0.112 | 0.112 | 142 | 1.000 | not resolved |
+| S_JCVISYN3A_0779 | 0.684 ± 0.200 | 0.678 ± 0.200 | 0.055 | 0.093 | 0.064 | 0.093 | 305 | 1.001 | not resolved |
+| krnadeg | 2.202 ± 0.073 | 2.208 ± 0.074 | 0.097 | 0.146 | 0.126 | 0.146 | 160 | 1.009 | not resolved |
+| kcatF_R_ENO | 4.131 ± 0.147 | 4.122 ± 0.144 | 0.066 | 0.067 | 0.126 | 0.126 | 405 | 0.999 | not resolved |
+| kcatF_R_FBA | 4.121 ± 0.562 | 4.103 ± 0.544 | 0.051 | 0.145 | 0.144 | 0.145 | 496 | 1.003 | not resolved |
+| sigma_b | held at its start | -1.592 ± 1.021 | — | — | — | — | — | — | not compared |
+
+**Metabolites only** (`bulk_v6` against the exact met_only fit):
+
+| Parameter | Exact mean ± SD | Mixed mean ± SD | W1 / exact SD | Exact split-half | Mixed chain-vs-chain | Floor | Exact ESS | Exact split-R̂ | Reads |
+|---|---|---|---|---|---|---|---|---|---|
+| S_JCVISYN3A_0607 | unmixed | 1.329 ± 0.378 | — | — | — | — | 7 | 1.129 | not read |
+| S_JCVISYN3A_0779 | unmixed | 0.971 ± 0.468 | — | — | — | — | 6 | 1.164 | not read |
+| krnadeg | 2.343 ± 0.107 | 2.375 ± 0.108 | 0.302 | 0.147 | 0.141 | 0.147 | 39 | 1.003 | resolved, by 0.155, exact ESS below 100 |
+| kcatF_R_ENO | 4.251 ± 0.042 | 4.256 ± 0.045 | 0.153 | 0.098 | 0.116 | 0.116 | 140 | 1.000 | resolved, by 0.037 |
+| kcatF_R_FBA | 4.417 ± 0.194 | 4.412 ± 0.194 | 0.069 | 0.097 | 0.227 | 0.227 | 568 | 1.000 | not resolved |
+| sigma_b | -2.622 ± 0.053 | -2.613 ± 0.060 | 0.179 | 0.112 | 0.149 | 0.149 | 385 | 1.001 | resolved, by 0.030 |
+
+**What it shows.**
+- **Under transcripts only, the mixed route is not resolved from the exact
+  sampler on any of the five marginals.** W1 runs from 0.051 to 0.097 exact SD,
+  each under its floor (0.093 to 0.146).
+  - This includes §3's block-2 check (B1): the transcript factor's S_g against the
+    exact sampler. S_0607 is at 0.096 against 0.112, and ptsG at 0.055 against
+    0.093.
+  - ENO's posterior SD is 0.144 in the mixed fit and 0.147 in the exact. Neither
+    fit learns ENO from transcripts, which is the measured null.
+- **Under metabolites only, three of the four read marginals are resolved, by
+  small margins.**
+  - ENO is at 0.153 against a floor of 0.116, a margin of 0.037.
+  - σ_b is at 0.179 against 0.149, a margin of 0.030.
+  - krnadeg is at 0.302 against 0.147, a margin of 0.155. But its exact fit has
+    ESS 39, and a split-half of so few effective draws can understate the exact
+    side's noise.
+  - FBA is not resolved: 0.069 against 0.227.
+  - In each resolved cell the mixed mean sits above the exact one: krnadeg by
+    0.032, ENO by 0.005 and σ_b by 0.009 on the log scale. That is 0.30, 0.12 and
+    0.17 exact SD.
+  - The joint fit on m0_v6 also sits apart from V6 on krnadeg and ENO (rule 4,
+    "the m0_v6 gap", §9). Whether this is the same gap is not tested here.
+- **The floor is one draw.** Each half and each mixed chain is a single sample of
+  the noise. Like F10, a margin of a few hundredths of an SD is not large against
+  that.
+- **ptsG under metabolites only has no exact counterpart.** The exact fit did not
+  mix (ESS 6), so it is not read.
+  - The mixed fit gives SD / prior SD 0.676, which is 1 − var_post / var_prior of
+    0.544.
+  - Track A's linearised estimate (A1) was 0.47, against a split-half noise
+    bracket of 0.68 (`sensitivity_88_m0_result.md`). A1 treats save points as
+    independent, which overstates the information.
+  - So the approximate route shows ptsG shrinking under metabolites only, by less
+    than A1 projected. **Figure 4's "ptsG still shrinks under metabolites only"
+    has the approximate route's support and no exact comparison at M0** (T3, "the
+    forward direction").
 
 ## Open
 

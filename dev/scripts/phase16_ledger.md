@@ -167,12 +167,15 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19342349 | #89 B7 | Full suite at `5a6cb89` (28851 of 28851, of record) | 4 | 1:02:37 | 4.17 |
 | 19344905, 19344906 | #89 B7 | #104's review: merge and nullcmp replayed at `d23c746` on a copy of the run (outputs byte-identical but for the summaries' header line) | 1 | 0:02:32, 0:01:38 | 0.07 |
 | 19344907 | #89 B7 | Full suite at `d23c746`, after #104's review (28851 of 28851) | 4 | 1:00:23 | 4.03 |
+| 19411150 | #89 B7.8 | The stream arms against 16b.4's exact fits, at `db30305` | 2 | 0:01:33 | 0.05 |
+| 19411151 | #89 B7.8 | Full suite at `db30305`: 28894 of 28895; the one failure is the known flaky `test_corea_validation_14b.jl:269` (0.99996 > 1.0) | 4 | 1:01:53 | 4.13 |
 
-**#89 total: about 831.3 CPU-h**: B3's 4.3, nine suites' 31.6, the rethink's 48.0,
+**#89 total: about 835.5 CPU-h**: B3's 4.3, ten suites' 35.7, the rethink's 48.0,
 the close-out's 0.07, B4's 1.3 besides its suite, B5's 46.4 besides its suites
 (the smokes' 4.9 and the full run's 41.5), B6's identity checks 1.5, and B7's 698.1
 besides its suites (391.9 of record, 274.1 lost to the MAP fault, and 32.1 of
-profile, tests, smokes, MAP diagnostics, KS's null and the review's replay).
+profile, tests, smokes, MAP diagnostics, KS's null and the review's replay),
+and B7.8's 0.05 besides its suite.
 The first two suites were missing from #93's rows, and B6's two jobs from #102's;
 both are added from `sacct`.
 **Phase 16 total with both tracks: about 43,686.1 CPU-h** of 50k, so about 6.3k
@@ -199,4 +202,4 @@ remain.
 | 19399322 | 16b.3 | V7's coverage read-off (`v7_coverage_16a11.py`), at `e84a44e` | 1 | 0:00:59 | 0.02 |
 
 **16b total: about 1,689.5 CPU-h** (the production chains' 1,669.7 from `sacct`).
-Phase 16 stands at about 45,375.6 CPU-h of 50k, so about 4.6k remain.
+Phase 16 stands at about 45,379.8 CPU-h of 50k with B7.8 (4.2), so about 4.6k remain.
