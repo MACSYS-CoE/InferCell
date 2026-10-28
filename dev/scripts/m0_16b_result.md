@@ -80,7 +80,11 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
 **Transcripts only.**
 - **ENO's measured null is not flagged, by 0.00014.** SD / prior SD is 0.93445 at
   bulk ESS 404.7, so SE = 0.03285 and the flag line 1 − 2·SE is 0.93431. The point
-  estimate is 2 SE below 1. The bound it is read against
+  estimate is 2 SE below 1.
+  - **The verdict is not robust either way.** The margin is 0.4% of one SE, far
+    smaller than the uncertainty in the ESS estimate that the SE rests on. A small
+    change in that estimate, or in the burn-in, would move the line across the
+    ratio. The bound it is read against
   (`eno_path_information_16a7_result.md`) was measured at one truth, on Core A′ at
   200 cells, not on M0.
 - FBA's SD / prior SD is 1.007.

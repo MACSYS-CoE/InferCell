@@ -1026,7 +1026,9 @@ moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
 
 **16b.4: what was measured.**
 - **Transcripts only:** ENO's null is not flagged, by 0.00014. SD / prior SD is
-  0.93445 against a flag line of 0.93431. FBA's is 1.007.
+  0.93445 against a flag line of 0.93431. The margin is 0.4% of one SE, far
+  smaller than the uncertainty in the ESS estimate, so the verdict is not robust
+  either way. FBA's is 1.007.
 - **Metabolites only:** ENO, FBA and σ_b mixed (ESS 140 to 568), and match the
   joint fit.
 - **Metabolites only, not measured:** S_0607 and ptsG have bulk ESS 7 and 6 and

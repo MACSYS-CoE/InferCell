@@ -13,7 +13,8 @@ at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
 
 **16b.4 is held open (the user's decision, §12 2026-10-28).**
 - **Transcripts only:** ENO's null is not flagged, by 0.00014 (0.93445 against a
-  flag line of 0.93431).
+  flag line of 0.93431). The margin is 0.4% of one SE, so the verdict is not
+  robust either way.
 - **Metabolites only:** ENO, FBA and σ_b mixed. S_0607 and ptsG did not (ESS 7
   and 6, split-R̂ 1.13 and 1.16), so ptsG's load-bearing cell is not measured.
   - The symptom named in advance did not occur: no live cell-window updates at a
