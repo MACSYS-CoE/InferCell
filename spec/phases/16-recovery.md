@@ -1036,6 +1036,10 @@ moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
   Every live cell-window updated at a rate of 0.37 or more (job 19376253). That
   shows the paths are resampled, not that they decorrelate from S_g, so whether
   the bootstrap move causes the slow mixing is not tested.
+- **The early check was not run as fixed.** §12 2026-10-22 set `rates` at about
+  sweep 20 on each chain. No such run exists. The only `rates` run is job
+  19376253, on met_only after 656 sweeps. Before it, the per-sweep log lines
+  ("windows changed") were read up to sweep 6.
 - **Running on costs more than is left.** ESS 100 would take about 7,300 CPU-h
   more, against about 4.6k left. That assumes ESS grows in proportion to the
   draws, which an ESS of 6 does not establish.

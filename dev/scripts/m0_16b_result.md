@@ -28,7 +28,8 @@ RUN_MODE=perturbed PILOT_DIR=<any dir> julia --project dev/scripts/m0_16b.jl sum
     <archive>/m0_16b_perturbed <archive>/m0_16b_tx_only <archive>/m0_16b_met_only
 RUN_MODE=met_only PILOT_DIR=<archive>/m0_16b_met_only julia --project dev/scripts/m0_16b.jl rates
 ```
-The `rates` line is from job 19376253 at `03b4c4f`.
+The `rates` line is from job 19376253 at `03b4c4f`, run once on met_only after the
+chains ended. The check §12 set at about sweep 20 on each chain was not run.
 
 ## 16b.1: recovers, so K4 does not fire
 
