@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-27
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-28
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -339,6 +339,58 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-28 — B7.8 as planned: the floor, and which cells are read
+
+**Status: recorded 2026-10-28, before any B7.8 distance was computed.** The mixed
+arms' summaries are in `av6_89_b7_result.md` (job 19292232). The exact fits'
+summaries are in `m0_16b_result.md` (job 19378382). No W1 between them has been
+computed.
+
+**Trigger:** 16b.4 landed (16-recovery §12 2026-10-28), and rule 8's floor does not
+exist as written. "16b.4's own chain-vs-chain W1" needs two chains, and each exact
+single-stream fit is one chain. Under metabolites only, the exact fit's S_0607 and
+ptsG did not mix (ESS 7 and 6, split-R̂ 1.13 and 1.16), and the user chose to
+report them as unmixed.
+
+**The comparison.** Per marginal, on the log scale:
+- `tx_v6` against the exact tx_only fit (job 19034902);
+- `bulk_v6` against the exact met_only fit (job 19034903).
+- **The draws:** the mixed side uses the 400 pooled draws (2 chains × 200), as
+  exported by B7's merge (`av6_{tx,bulk}_v6_draws.tsv`, rows 1–200 chain 1). The
+  exact side uses sweeps 101 to 656 of its chain (556 draws).
+- **The distance:** W1, `av6_89_b7.jl`'s estimator, divided by the exact
+  posterior's SD.
+
+**The floor.** It is the larger of two numbers, each in the same units:
+- the exact chain's split-half W1, sweeps 101–378 against 379–656;
+- the mixed fit's chain-vs-chain W1, chain 1 against chain 2.
+
+This is B7's KS floor ("the larger of the two runs' chain-vs-chain W1") with a
+split-half standing in for the missing second exact chain. Each half is shorter
+than the full sample compared, which leans the floor high, toward "not resolved".
+- **Above the floor:** "resolved", reported with its margin.
+- **At or below it:** "not resolved", never "agrees".
+- **No gate.** B7.8 is information for Figure 4, like rule 4.
+
+**Which cells are read.**
+- **Not read:** a cell whose exact fit has split-R̂ above 1.05 (F6's rule). Under
+  metabolites only that is S_0607 and ptsG. The mixed fit's values are reported
+  alone.
+- **Flagged:** a cell whose exact fit has bulk ESS below 100 (krnadeg under
+  metabolites only, 39). It is read, with the ESS beside it.
+- **Not compared:** σ_b under transcripts only. The exact fit held it at its
+  start, and the mixed fit inferred it.
+
+**ptsG under metabolites only.** The mixed fit's shrinkage, 1 − var_post /
+var_prior, is reported with no exact counterpart, as T3 records ("the forward
+direction"). Track A's linearised estimate (A1) is reported beside it.
+
+**B1's block-2 check.** The transcripts-only S_g rows (S_0607 and ptsG) are §3's
+check of the transcript factor against the exact sampler. They are read by the same
+rule.
+
+*Sections:* §11 B7.8.
 
 ### 2026-10-27 — B7 as run: AV6's verdicts, KS fires, and what changed on the way (after the runs)
 
