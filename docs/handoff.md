@@ -19,7 +19,8 @@ at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
   - The symptom named in advance did not occur: no live cell-window updates at a
     rate below 0.10 (the lowest is 0.37). Whether the bootstrap move causes the
     slow mixing is not tested.
-  - ESS 100 would cost about 8–9k CPU-h, against about 4.6k left.
+  - ESS 100 would cost about 7,300 CPU-h more if ESS grew in proportion to the
+    draws, against about 4.6k left.
 
 **The branch:** main (B4–B7) is merged in at `1ca9b85`. The suite passed 28895 of
 28895 at that commit (job 19378175). `626a1cc` adds split-R̂ and the ENO null line to

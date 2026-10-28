@@ -1036,8 +1036,9 @@ moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
   Every live cell-window updated at a rate of 0.37 or more (job 19376253). That
   shows the paths are resampled, not that they decorrelate from S_g, so whether
   the bootstrap move causes the slow mixing is not tested.
-- **Running on is not affordable.** ESS 100 would take about 8,000 to 9,000 CPU-h
-  more, against about 4.6k left.
+- **Running on costs more than is left.** ESS 100 would take about 7,300 CPU-h
+  more, against about 4.6k left. That assumes ESS grows in proportion to the
+  draws, which an ESS of 6 does not establish.
 
 **Change (the user's decision, 2026-10-28, after the results):** close 16b.1 now
 and hold 16b.4 open. Its options are:

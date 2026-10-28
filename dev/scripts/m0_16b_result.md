@@ -108,8 +108,11 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   move together slowly when no transcript data separate them. That coupling comes
   from the bootstrap move, so the proposal may be part of the cause. Neither is
   tested here.
-- **What reaching ESS 100 would cost.** Running the chain on would take about 16
-  times the draws, about 8,000 to 9,000 CPU-h more. About 4.6k remain under phase 16's cap.
+- **What reaching ESS 100 would cost.** ptsG's ESS of 6 comes from 556 kept draws,
+  so ESS 100 needs about 9,270 kept draws, or about 8,710 more sweeps. At 0.839
+  CPU-h a sweep (550.47 over 656), that is about 7,300 CPU-h more. It assumes ESS
+  grows in proportion to the draws, which an ESS of 6 at split-R̂ 1.16 does not
+  establish. About 4.6k remain under phase 16's cap.
 
 **Held open (the user's decision, 2026-10-28).** 16b.4 stays unticked, and F6 is not
 drawn. The choice is between reporting the metabolites-only transcript parameters
