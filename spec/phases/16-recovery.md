@@ -1017,7 +1017,7 @@ annotated below with its rung and funding.
 ### 2026-10-28 — 16b.1 and 16b.4 as run: 16b.1 recovers; 16b.4 is held open
 
 **Trigger:** the three production chains finished (jobs 19034901–19034903 at
-`03b4c4f`, 1,669.8 CPU-h). Their summary (job 19378382 at `626a1cc`) is in
+`03b4c4f`, 1,669.7 CPU-h). Their summary (job 19378382 at `626a1cc`) is in
 `dev/scripts/m0_16b_result.md`.
 
 **16b.1 recovers, by the rule fixed in advance.** ENO's shrinkage is 0.258, the
