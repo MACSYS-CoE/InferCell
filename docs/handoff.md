@@ -28,7 +28,8 @@ at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
 `m0_16b.jl summary`.
 
 **Next:**
-1. Open the PR for 16b.1, run `/check-PR`, and merge with a merge commit.
+1. PR #105 (this branch) is under `/check-PR`. Merge it with a merge commit on a
+   clean verdict, then set 16b's `**PR:**` line in the spec.
 2. **The user's call on 16b.4's metabolites-only arm:** report it as unmixed, or
    redesign the move (for example a joint S_g-and-path update) and rerun it
    (about 550 CPU-h). F6 waits on this.
