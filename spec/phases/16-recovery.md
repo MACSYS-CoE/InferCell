@@ -1053,7 +1053,7 @@ and hold 16b.4 open. Its options are:
 
 **It follows that** F6 is not drawn until that is decided. B7.8
 (`approximate-method.md`) reads the same chain, so its ptsG comparison waits on the
-same choice. Its floor needs one too: each arm is one chain, so the planned
+same choice. B7.8 also needs a new floor: each arm is one chain, so the planned
 chain-vs-chain W1 does not exist.
 
 *Sections:* §11 16b.1, 16b.4.
