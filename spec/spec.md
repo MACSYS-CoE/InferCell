@@ -4254,6 +4254,9 @@ rates, and validate the production sampler against an exact reference.
 error of nominal for every target, the tight-prior control shrinks and recovers,
 the loose-prior control is visibly wider, and the reference comparison exists.
 **PR:** 16a.1 to 16a.8 in #81 (merged 2026-10-05); the rest per the sub-spec
+**Met at M0; full scale budget-bound (2026-10-28).** Closed at the M0 rung per the
+sub-spec's §12 "16a.11" (call 2). T3 is in `dev/scripts/phase16_t3.md`, and what
+the result licenses is in `dev/scripts/phase16_m0_license.md`.
 
 **Specified in a sub-spec: [`spec/phases/16-recovery.md`](phases/16-recovery.md)
 (§12 2026-09-30).** It splits the phase into 16a, the sampler and the reference, and

@@ -1,6 +1,6 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
-**Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7) in PR #86; 16a.10, 16a.11 and 16b remain
+**Status:** met at M0; full scale budget-bound (2026-10-28). 16a is ticked in §11, and 16b closed in #105, #107, #109 and #110. 16b.5 and 16b.6 are budget-bound (§12 "T3 at M0")
 **Created:** 2026-09-30  ·  **Last amended:** 2026-10-28
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
@@ -1017,12 +1017,15 @@ annotated below with its rung and funding.
   **M0's read-off, 2026-10-28 (job 19395555):** under transcripts only, ENO is at
   0.0041 nat and FBA at 0.0081, both below 0.05 nat and below their floors. K2's
   firing condition is met at M0, 50 cells. That is not K2's verdict.
+  **Closed in T3 as budget-bound** (§12 "T3 at M0"). Left unticked: the
+  1,000-cell extension was never run.
 - [ ] 16b.6 Measure K7 (D16.9). Verify by:
   - PYK's dropped sibling reactions enumerated from upstream at `db048ac`, with the
     count checked against the parent's "seven";
   - the two fits' posterior width ratio on `kcatF_R_PYK`;
   - K7 scored against twofold.
   **Not run, budget-bound** (not funded at 16a.11).
+  **Closed in T3 as budget-bound** (§12 "T3 at M0"). Left unticked.
 - [x] 16b.7 (parent 16.10) Label what the result does and does not license — verify
   by the report carrying:
   - the scoping note's caveats: best-measured region, enzyme competition partly
@@ -1035,15 +1038,47 @@ annotated below with its rung and funding.
   - K7 as not measured (budget-bound);
   - that neither direction of cross-block information is measured on the exact
     sampler at M0.
-- [ ] 16b.8 (parent 16.11) Fill T3 — verify by:
+- [x] 16b.8 (parent 16.11) Fill T3 — verify by:
   - all seven criteria carrying a threshold, a measured value and a verdict,
     **published whether or not everything passed**;
   - K1's verdict written here, with its threshold marked as set after its
     measurement;
   - K5 recorded as fired in 14b and answered by 14c and D16.1;
   - every verdict the cap forced labelled budget-bound.
+  **Done 2026-10-28 at M0:** `dev/scripts/phase16_t3.md` (§12 "T3 at M0").
 
 ## 12. Amendment log
+
+### 2026-10-28 — T3 at M0: K2 scored budget-bound; the forward direction unmeasured
+
+**Trigger:** 16b.8. T3 needed two scoring choices that the results left open:
+- K2 is defined at 1,000 cells, which is not funded, yet M0's read-off meets its
+  firing condition at 50 cells (job 19395555);
+- K2's response assumes the forward direction is measured, and on the exact
+  sampler at M0 it is not (ptsG under metabolites only is unmixed).
+
+**Change (the user's decisions, 2026-10-28, after the results):**
+- **K2 is scored budget-bound,** with M0's read-off beside it: the firing condition
+  is met at 50 cells, and that is not K2's verdict. K2's definition is unchanged.
+- **The forward direction is recorded beside T3 as unmeasured** on the exact
+  sampler at M0. It rests on track A's linearised estimate and the approximate
+  route until measured. The redesigned move and rerun (§12 "16b.4 at M0") stays an
+  option, to revisit when the paper's framing is set.
+
+**Result:** T3 is in `dev/scripts/phase16_t3.md`.
+- K1 does not fire at M0, and fires at full scale (budget-bound).
+- K2 is budget-bound.
+- K3 is phase 17's.
+- K4 does not fire.
+- K5 fired in 14b, and was answered by 14c and D16.1.
+- K6 does not fire.
+- K7 is budget-bound.
+
+16b.8 is ticked. 16b.5 and 16b.6 stay unticked and are closed as budget-bound in
+T3. The parent's phase 16 is met at M0, with full scale budget-bound (§12 "16a.11",
+call 2).
+
+*Sections:* header status, §11 16b.5, 16b.6 and 16b.8.
 
 ### 2026-10-28 — F6 at M0: the divergence, its floor and how each cell reads
 
