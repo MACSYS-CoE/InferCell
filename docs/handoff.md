@@ -1,6 +1,31 @@
 # Handoff
 
-## Latest: 16b.1 recovers; 16b.4 held open (branch `phase-16b-m0`, 2026-10-28)
+## Latest: 16b.4's metabolites-only arm is reported as unmixed (2026-10-28)
+
+PR #105 merged 2026-10-28 (merge `2a50465`). The suite after its review fixes
+(job 19387838 at `07771b3`) gave 28894 of 28895. The one failure is the known
+flaky `test_corea_validation_14b.jl:269`, and the same code passed 28895 of 28895
+in job 19378175.
+
+**The user chose to report the metabolites-only transcript parameters as unmixed**
+(§12 2026-10-28 "16b.4 at M0: metabolites only reported as unmixed"). No rerun
+now. The redesign of that arm's move and a rerun (about 550 CPU-h) is kept as an
+option to revisit. It is needed only if the paper claims, on the exact sampler at
+M0, that ptsG shrinks under metabolites only.
+
+**Next:**
+1. Draw F6 at M0 from the three fits as they stand, with S_0607 and ptsG under
+   metabolites only marked unmixed. F6 also needs the prior-to-posterior
+   divergence. Then tick 16b.4.
+2. B7.8: compare the stream arms on the parameters the exact fits mixed. It needs
+   a floor other than chain-vs-chain W1, since each arm is one chain.
+3. 16b.5's M0 read-off (off job 19034902's chain), then 16b.7 and 16b.8.
+4. A small PR to fix the flaky test.
+5. Paper story: Figure 4's "ptsG still shrinks under metabolites only" has no exact
+   counterpart at M0. The §6 / outline wording is the user's call.
+6. `/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/` can go (archived).
+
+## Earlier: 16b.1 recovers; 16b.4 held open (branch `phase-16b-m0`, 2026-10-28)
 
 **The chains finished** (jobs 19034901–19034903 at `03b4c4f`, 1,669.7 CPU-h).
 They are archived with checksums at

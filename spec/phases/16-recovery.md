@@ -937,7 +937,7 @@ rung.
 In addition, K1, K2, K4, K5 and K7 are scored in T3. **If coverage is funded at no
 rung, 16b ends incomplete.** T3 then scores coverage as budget-bound, and the
 parent's phase 16 stays unticked. It does not count as done.
-**PR:** _not started_
+**PR:** #105 (merged 2026-10-28) carries 16b.1 and 16b.4's two runs; 16b.4 is held open (§12 2026-10-28)
 
 **Funded at the M0 rung (§12 "16a.11", approved 2026-10-22).** Each task is
 annotated below with its rung and funding.
@@ -984,6 +984,11 @@ annotated below with its rung and funding.
   metabolites only the transcript parameters did not mix (ESS 6–7), so ptsG's
   load-bearing cell is not measured. The user decides between reporting that arm
   as unmixed and redesigning its move, then rerunning it. F6 follows that choice.
+  **Decided 2026-10-28 (§12 "16b.4 at M0: metabolites only reported as unmixed"):**
+  the first option. F6 at M0 is drawn from the three fits as they stand, with
+  S_0607 and ptsG under metabolites only shown as unmixed, not as a shrinkage, and
+  krnadeg shown with its ESS of 39. The redesign and rerun is kept as an option to
+  revisit. 16b.4 is ticked when F6 is drawn.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -1013,6 +1018,38 @@ annotated below with its rung and funding.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-28 — 16b.4 at M0: metabolites only reported as unmixed
+
+**Trigger:** the choice that §12 "16b.1 and 16b.4 as run" left open. Under
+metabolites only, S_0607 and ptsG did not mix (ESS 7 and 6, split-R̂ 1.13 and
+1.16), so ptsG's load-bearing cell is not measured on the exact sampler.
+
+**Change (the user's decision, 2026-10-28, after the results):** report the
+metabolites-only transcript parameters as unmixed. No rerun is made now.
+- F6 at M0 is drawn from the three fits as they stand: transcripts only (job
+  19034902), metabolites only (job 19034903) and joint (V6).
+- In the metabolites-only column, S_0607 and ptsG are shown as unmixed, with
+  their ESS and split-R̂, and no shrinkage is read from them. krnadeg is shown
+  with its ESS of 39.
+- The metabolic parameters under metabolites only, and every cell under
+  transcripts only, are reported as measured.
+
+**Kept as an option to revisit:** redesign that arm's sampler move (for example
+a joint S_g-and-path update), then rerun it, about 550 CPU-h at today's cost per
+sweep. Whether the joint update fixes the mixing is not tested. The user will
+revisit this depending on the story the paper tells: it is needed if the paper
+claims, on the exact sampler at M0, that ptsG shrinks under metabolites only.
+
+**It follows that:**
+- at M0 the exact sampler does not measure the load-bearing cell. Until it does,
+  that cell rests on track A's estimate (`approximate-method.md`, A1: 0.47 of prior
+  SD against a bracket of 0.68) and on the mixed route's fit;
+- B7.8 compares the stream arms on the parameters the exact fits mixed. The
+  mixed route's ptsG shrinkage under metabolites only is reported alone, without
+  an exact counterpart.
+
+*Sections:* §11 16b.4.
 
 ### 2026-10-28 — 16b.1 and 16b.4 as run: 16b.1 recovers; 16b.4 is held open
 
