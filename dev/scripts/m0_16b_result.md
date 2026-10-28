@@ -190,3 +190,57 @@ bulk ESS, scored the same way.
 (0.0041 and 0.0081 nat) are below 0.05 nat. That is K2's firing condition, met at
 M0 with 50 cells. It is M0's read-off, not K2's verdict, which is defined at
 1,000 cells and is budget-bound. 16b.5 is not ticked.
+
+## 16b.2 and 16b.3 at M0: read off V6 and V7
+
+Neither needs new compute (§12 "16a.11", call 1). Both read results that already
+exist, against the clauses in §11.
+
+### 16b.2: the full parameter set recovers (V6)
+
+M0 has five of D11's six targets; `S_PGI` is not in M0. The numbers are V6's joint
+rows from job 19378382 (also in `v6_16a9b_result.md`).
+
+| Parameter | SD / prior SD | Truth's quantile |
+|---|---|---|
+| S_JCVISYN3A_0607 | 0.167 | 0.31 |
+| S_JCVISYN3A_0779 (ptsG) | 0.288 | 0.95 |
+| krnadeg | 0.110 | 0.60 |
+| kcatF_R_ENO | 0.267 | 0.07 |
+| kcatF_R_FBA | 0.331 | 0.13 |
+| sigma_b | 0.060 | 0.52 |
+
+- **Every marginal contains its truth.** All six quantiles lie inside the central
+  95% (0.025 to 0.975). ptsG's 0.95 is the closest to an edge.
+- **At least one target shrinks below 0.5 (K4):** all six do, from 0.060 to 0.331.
+- **Cost per posterior, against 16a.11's measured 507.5 to 678 CPU-h:** the three
+  16b production posteriors cost 532.8, 586.5 and 550.5 CPU-h (`sacct`), inside
+  that range. V6 itself is a reference posterior (4 × 1,650 sweeps), at about
+  6,809.7 CPU-h (`v6_16a9b_result.md`). It is not a production posterior.
+
+### 16b.3: coverage over repeated datasets (V7)
+
+Read off V7's ranks by `dev/scripts/v7_coverage_16a11.py` (Slurm job 19399322 at
+`e84a44e`). R = 50 replicates and L = 100 thinned draws. Bold marks a count
+outside the binomial 95% band.
+
+| Level | S_JCVISYN3A_0607 | S_JCVISYN3A_0779 | krnadeg | kcatF_R_ENO | kcatF_R_FBA | sigma_b | Band |
+| 50% | 23 | 27 | 22 | 31 | 24 | 26 | 18–32 |
+| 80% | 36 | 41 | 37 | 42 | 40 | 42 | 34–45 |
+| 90% | 42 | 47 | 45 | 45 | 42 | 48 | 41–49 |
+| 95% | 46 | 47 | 46 | 46 | 44 | 49 | 44–50 |
+| 99% | 49 | 48 | **47** | 50 | 49 | 49 | 48–50 |
+
+- **29 of 30 cells are in band.** One or two misses are expected by chance over 30.
+  The miss is krnadeg at 99%, where L = 100 is coarsest.
+- **The tight-prior control (ENO) at nominal 95%** covers 46 of 50. That is inside
+  K4's band restated at R = 50 (44 to 50; §12 "16a.11", call 1), so K4's first
+  trigger does not fire.
+- **K4's third trigger (equal widths for ENO and FBA) does not fire.** In V6, ENO's
+  posterior SD is 0.042 and FBA's 0.184, which is 0.267 and 0.331 of their priors.
+  The same holds under 16b.1's perturbation: 0.040 and 0.202.
+- **Carried into T3, as call 1 required:**
+  - 23 of the 50 replicates have bulk ESS below 100;
+  - L = 100 makes the 99% level coarse;
+  - it covers M0's five parameters plus σ_b, not D11's six;
+  - K4 asks for 100 replications, and V7 has 50, so the band is restated at R = 50.

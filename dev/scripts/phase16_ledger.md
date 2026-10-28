@@ -195,6 +195,8 @@ remain.
 | 19387838 | 16b | Test suite after #105's review fixes, at `07771b3` (same src and test as `1ca9b85`): 28894 of 28895; the one failure is the known flaky `test_corea_validation_14b.jl:269` (0.99998 > 1.0), which passed in 19378175 | 4 | 1:07:31 | 4.50 |
 | 19387839 | 16b.1, 16b.4 | Summary re-run at `07771b3`, identical to 19378382 | 5 | 0:02:14 | 0.19 |
 | 19395555 | 16b.4, 16b.5 | F6 at M0 (`f6` stage), at `f0dd5b2` | 5 | 0:01:49 | 0.15 |
+| 19395558 | 16b.4 | Test suite for #107, at `f0dd5b2`: 28895 of 28895 | 4 | 1:03:38 | 4.24 |
+| 19399322 | 16b.3 | V7's coverage read-off (`v7_coverage_16a11.py`), at `e84a44e` | 1 | 0:00:59 | 0.02 |
 
-**16b total: about 1,685.3 CPU-h** (the production chains' 1,669.7 from `sacct`).
-Phase 16 stands at about 45,371.4 CPU-h of 50k, so about 4.6k remain.
+**16b total: about 1,689.5 CPU-h** (the production chains' 1,669.7 from `sacct`).
+Phase 16 stands at about 45,375.6 CPU-h of 50k, so about 4.6k remain.

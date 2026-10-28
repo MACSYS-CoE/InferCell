@@ -956,12 +956,17 @@ annotated below with its rung and funding.
   **Done 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** recovers, so K4 does not fire.
   Shrinkage 0.258, the moved truth at quantile 0.099, and a shift ratio of
   0.951 ± 0.021 (job 19034901; `dev/scripts/m0_16b_result.md`).
-- [ ] 16b.2 (parent 16.5) Recover the full six-parameter set — verify by:
+- [x] 16b.2 (parent 16.5) Recover the full six-parameter set — verify by:
   - every marginal containing truth;
   - at least one target shrinking below 0.5 (K4);
   - the cost per posterior reported against 16a.11's projection.
   **M0, reuse V6 (0 CPU-h).** Five of the six; `S_PGI` is not in M0.
-- [ ] 16b.3 (parent 16.6) Compute coverage over repeated datasets — verify by:
+  **Done 2026-10-28 at M0** (`dev/scripts/m0_16b_result.md`, "16b.2 and 16b.3"):
+  - every truth lies inside its central 95% (quantiles 0.07 to 0.95);
+  - all six shrink below 0.5 (0.060 to 0.331);
+  - the 16b production posteriors cost 532.8 to 586.5 CPU-h, inside 16a.11's
+    507.5 to 678.
+- [x] 16b.3 (parent 16.6) Compute coverage over repeated datasets — verify by:
   - 50, 80, 90, 95 and 99% intervals covering truth at those rates within binomial
     error, per parameter, at ≥ 50 replications, with the count and rung stated;
   - **the tight-prior control at 100 replications**, inside K4's band of 90 to 99 out
@@ -971,6 +976,11 @@ annotated below with its rung and funding.
   **M0, reuse V7 (0 CPU-h; call 1, approved).** Read off by
   `dev/scripts/v7_coverage_16a11.py`. K4's band is restated at R = 50 as 44 to 50 at
   nominal 95%.
+  **Done 2026-10-28 at M0** (job 19399322; `dev/scripts/m0_16b_result.md`):
+  - 29 of 30 cells are in band; the miss is krnadeg at 99%;
+  - ENO covers 46 of 50 at 95%, inside 44 to 50;
+  - K4's third trigger does not fire (ENO 0.267 against FBA 0.331 of prior SD);
+  - call 1's four caveats are carried into T3.
 - [x] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
   transcripts-only, metabolites-only and joint data, with ptsG under metabolites only
   (load-bearing) and ENO under transcripts only (the measured null) present. Any cell 16a.11
