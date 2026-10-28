@@ -324,7 +324,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [x] **B4.** Route (ii). Built as `build_mean_field_problem`, with AV3 on route (ii). Suite 28709 of 28709 at `67c9eef` (job 19042448). The check against the hybrid (`dev/scripts/route_ii_89_result.md`) fails as written at all five truths, from the prototype's 1 s step. Amended to a check on convergence (§12 2026-10-23), it passes at all five (job 19058586).
 - [x] **B5.** The mixed likelihood and NUTS, centred on m(θ) + δ (D-S). Built as `src/mixed_likelihood.jl` with its verification clause (§12 2026-10-23). Suite 28791 of 28791 at `469ca26` (job 19084578). The full run on m0_v6 (jobs 19091859–19091881, `dev/scripts/mixed_nuts_89_result.md`): four chains of 300 + 300, 0 divergences, R̂ ≤ 1.012, 41.5 CPU-h, inside KC's 50.75 on this dataset at this run length (B7's refits read KC in general). No pass line on the posterior; AV6 (B7) is the test. As run: §12 2026-10-24.
 - [x] **B6.** The dispatcher. Built as `inference_route` and `infer(models, ds; route = :exact | :mixed)` in `src/inference.jl` (#102), with its verification clause (§12 2026-10-24, "B6 as planned"). Suite 28813 of 28813 at `8a93475` (job 19147408); identity checks 34 of 34 (job 19147409). As built: §12 2026-10-24.
-- [ ] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done). PR #104 (B7.1–B7.7, B7.9); B7.8 follows in its own PR.
+- [x] **B7.** Paper section 5.2, AV6. Needs track A's A1 (done). PR #104 (B7.1–B7.7, B7.9); B7.8 in its own PR.
   Planned in §12 2026-10-24, "B7 as planned"; as run in §12 2026-10-27 (SBC passes, KS fires, KC does not; `dev/scripts/av6_89_b7_result.md`). One commit per task:
   - [x] B7.1 This plan, as a §12 entry.
   - [x] B7.2 Profile the gradient (E3's order) and keep only number-preserving speedups — verify by `mixed_logdensity` and its gradient equal to the pre-change values at 5 fixed x on m0_v6 to 1e-10 relative, B5's tests passing, and the per-gradient time (median of 3) before and after. Gate: project B7's cost; above ~1,200 CPU-h, stop and ask.
@@ -333,7 +333,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] B7.5 The AV6 driver (`dev/scripts/av6_89_b7.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
   - [x] B7.6 The production run: 50 replicates, 3 KS refits, 2 stream arms — verify by `sacct` showing every job COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
   - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
-  - [ ] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".)
+  - [x] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".) **Done 2026-10-28** (§12 "B7.8 as planned"; job 19411150; `av6_89_b7_result.md`, "B7.8"). Under transcripts only, none of the five marginals is resolved. Under metabolites only, ENO, σ_b and krnadeg are resolved by small margins and FBA is not. ptsG has no exact counterpart.
   - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
 - [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
 - [ ] **B9** (optional). Paper section 5.4.

@@ -167,6 +167,7 @@ solver benchmark's 7.8, and 411.4 before F10's 507.8).
 | 19342349 | #89 B7 | Full suite at `5a6cb89` (28851 of 28851, of record) | 4 | 1:02:37 | 4.17 |
 | 19344905, 19344906 | #89 B7 | #104's review: merge and nullcmp replayed at `d23c746` on a copy of the run (outputs byte-identical but for the summaries' header line) | 1 | 0:02:32, 0:01:38 | 0.07 |
 | 19344907 | #89 B7 | Full suite at `d23c746`, after #104's review (28851 of 28851) | 4 | 1:00:23 | 4.03 |
+| 19411150 | #89 B7.8 | The stream arms against 16b.4's exact fits, at `db30305` | 2 | 0:01:33 | 0.05 |
 
 **#89 total: about 831.3 CPU-h**: B3's 4.3, nine suites' 31.6, the rethink's 48.0,
 the close-out's 0.07, B4's 1.3 besides its suite, B5's 46.4 besides its suites

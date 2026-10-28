@@ -1,6 +1,26 @@
 # Handoff
 
-## Latest: phase 16 met at M0; T3 filled (branch `phase-16b-license`, PR #110, 2026-10-28)
+## Latest: B7.8, the stream arms against 16b.4's exact fits (branch `issue-89-b78`, 2026-10-28)
+
+The rules (§12 2026-10-28 "B7.8 as planned") were fixed before computing. W1 is in
+exact SD, against the larger of the exact chain's split-half W1 and the mixed
+chain-vs-chain W1. The result is job 19411150 at `db30305`, in
+`av6_89_b7_result.md` ("B7.8"). B7.8 and B7 are ticked.
+- **Transcripts only:** no marginal is resolved (0.051 to 0.097 SD, all under the
+  floor). That includes B1's block-2 check on S_g.
+- **Metabolites only:**
+  - ENO is resolved by 0.037 and σ_b by 0.030;
+  - krnadeg is resolved by 0.155, but its exact ESS is 39;
+  - FBA is not resolved.
+  - The mixed means sit 0.12 to 0.30 exact SD high, which may be the m0_v6 gap
+    (§9). That is not tested.
+- **ptsG under metabolites only:** the mixed fit gives SD / prior SD 0.676, against
+  A1's linearised 0.47. There is no exact counterpart. Figure 4's claim has
+  approximate-route support only.
+- **Suite 19411151 at `db30305`** is pending. Add its ledger row and the #89 total
+  when it lands.
+
+## Earlier: phase 16 met at M0; T3 filled (branch `phase-16b-license`, PR #110, 2026-10-28)
 
 **T3** is in `dev/scripts/phase16_t3.md`.
 - K1 does not fire at M0, and fires at full scale (budget-bound).
