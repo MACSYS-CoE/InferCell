@@ -1,6 +1,35 @@
 # Handoff
 
-## Latest: F6 at M0 is drawn; 16b.4 ticked (branch `phase-16b-f6`, 2026-10-28)
+## Latest: 16b.2 and 16b.3 read off at M0 (branch `phase-16b-readoffs`, 2026-10-28)
+
+Both are ticked from existing results, with no new chains
+(`dev/scripts/m0_16b_result.md`, "16b.2 and 16b.3").
+- **16b.2 (V6):**
+  - every truth lies inside its central 95% (quantiles 0.07 to 0.95);
+  - all six shrink below 0.5 (0.060 to 0.331);
+  - the 16b production posteriors cost 532.8 to 586.5 CPU-h, inside 16a.11's
+    507.5 to 678.
+- **16b.3 (V7, job 19399322):**
+  - 29 of 30 coverage cells are in band; the miss is krnadeg at 99%;
+  - ENO covers 46 of 50 at 95%, inside K4's band restated at R = 50 (44 to 50);
+  - K4's third trigger does not fire;
+  - call 1's four caveats go into T3.
+
+#106, #107 and #108 merged 2026-10-28. #107's suite (job 19395558 at `f0dd5b2`)
+passed 28895 of 28895.
+
+**Next, to close phase 16:**
+1. 16b.7, what the result licenses.
+2. 16b.8, fill T3. K2 needs the user's framing call first: at M0, transcripts
+   alone do not resolve ENO or FBA (K2's condition is met at 50 cells), and ptsG
+   under metabolites only is unmeasured.
+3. Tick the parent's phase 16 as "met at M0; full scale budget-bound".
+
+Then: B7.8, track C's uncertainty budget (#90, needs O4), B8's funding call, and
+v0.3.0 docs (#91). The paper branch (#100) needs main merged in and §5.3 filled
+from B7.
+
+## Earlier: F6 at M0 is drawn; 16b.4 ticked (branch `phase-16b-f6`, 2026-10-28)
 
 **F6** is in `dev/scripts/m0_16b_result.md` ("F6 at M0"), from job 19395555 at
 `f0dd5b2`. The rules, set in §12 2026-10-28 "F6 at M0: the divergence, its floor
@@ -20,11 +49,7 @@ floor from prior samples of each cell's ESS.
   so K2's firing condition is met at M0, 50 cells. This is not K2's verdict;
   16b.5 stays unticked.
 
-**This branch sits on `16b-record-pr-105` (PR #106).** Merge #106 first, or
-retarget.
-
-**Next:** /check-PR on the F6 PR; suite 19395558 at `f0dd5b2`; then B7.8, 16b.7
-and 16b.8, and the flaky-test PR.
+Merged as #107 (`69c619a`).
 
 ## Earlier: 16b.4's metabolites-only arm is reported as unmixed (2026-10-28)
 
