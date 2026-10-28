@@ -112,8 +112,8 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   event in it differs, metabolic ones included. One reading is that each S_g is
   updated given the path's transcription counts and the path given S_g, so the two
   move together slowly when no transcript data separate them. That coupling comes
-  from updating S_g and the path in separate blocks. Neither it nor any part the
-  proposal plays is tested here.
+  from updating S_g and the path in separate blocks. Neither that reading nor any part
+  the proposal plays is tested here.
 - **What reaching ESS 100 would cost.** ptsG's ESS of 6 comes from 556 kept draws,
   so ESS 100 needs about 9,270 kept draws, or about 8,710 more sweeps. At 0.839
   CPU-h a sweep (550.47 over 656), that is about 7,300 CPU-h more. It assumes ESS
