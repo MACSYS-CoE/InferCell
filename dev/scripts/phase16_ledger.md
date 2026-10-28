@@ -177,3 +177,23 @@ The first two suites were missing from #93's rows, and B6's two jobs from #102's
 both are added from `sacct`.
 **Phase 16 total with both tracks: about 43,686.1 CPU-h** of 50k, so about 6.3k
 remain.
+
+## 16b at M0 (§12 "16b.1 and 16b.4 at M0", approved 2026-10-23)
+
+| Job | Task | What | Cores | Wall | CPU-h |
+|---|---|---|---|---|---|
+| 19012523 | 16b | The M0 and Gibbs testsets on the stream and truth changes (dev check, uncommitted tree; 109 of 109) | 4 | 0:13:45 | 0.92 |
+| 19012980 | 16b | Test suite (of record, 28684 of 28684 at `fc8b141`) | 4 | 0:58:58 | 3.93 |
+| 19012981–19012983 | 16b.1, 16b.4 | Smoke: each mode, 3 cells, 120 s, 2 sweeps, at `fc8b141` | 5 | ~0:04 each | 0.99 |
+| 19034901 | 16b.1 | Production: perturbed, 656 sweeps, at `03b4c4f` | 5 | 4-10:33:29 | 532.79 |
+| 19034902 | 16b.4 | Production: tx_only, 656 sweeps, at `03b4c4f` | 5 | 4-21:17:37 | 586.47 |
+| 19034903 | 16b.4 | Production: met_only, 656 sweeps, at `03b4c4f` | 5 | 4-14:05:39 | 550.47 |
+| 19376252 | 16b.1, 16b.4 | Summary against V6, at `03b4c4f` | 5 | 0:01:28 | 0.12 |
+| 19376253 | 16b.4 | met_only's update rates, at `03b4c4f` | 5 | 0:04:19 | 0.36 |
+| 19378382 | 16b.1, 16b.4 | Summary with split-R̂ and the ENO null line (of record, at `626a1cc`) | 5 | 0:01:25 | 0.12 |
+| 19378175 | 16b | Test suite (of record, 28895 of 28895 at `1ca9b85`, main merged in) | 4 | 1:03:50 | 4.26 |
+| 19387838 | 16b | Test suite after #105's review fixes, at `07771b3` (same src and test as `1ca9b85`): 28894 of 28895; the one failure is the known flaky `test_corea_validation_14b.jl:269` (0.99998 > 1.0), which passed in 19378175 | 4 | 1:07:31 | 4.50 |
+| 19387839 | 16b.1, 16b.4 | Summary re-run at `07771b3`, identical to 19378382 | 5 | 0:02:14 | 0.19 |
+
+**16b total: about 1,685.1 CPU-h** (the production chains' 1,669.7 from `sacct`).
+Phase 16 stands at about 45,371.2 CPU-h of 50k, so about 4.6k remain.

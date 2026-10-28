@@ -1,5 +1,46 @@
 # Handoff
 
+## Latest: 16b.1 recovers; 16b.4 held open (branch `phase-16b-m0`, 2026-10-28)
+
+**The chains finished** (jobs 19034901–19034903 at `03b4c4f`, 1,669.7 CPU-h).
+They are archived with checksums at
+`/fred/oz022/tkimpson/infercell-16b-archive-2026-10-28/`. The close-out jobs' logs
+are in the same folder. The result is `dev/scripts/m0_16b_result.md`, from job
+19378382 at `626a1cc`.
+
+**16b.1 recovers, so K4 does not fire.** Shrinkage is 0.258, the moved truth is
+at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
+
+**16b.4 is held open (the user's decision, §12 2026-10-28).**
+- **Transcripts only:** ENO's null is not flagged, by 0.00014 (0.93445 against a
+  flag line of 0.93431). The margin is 0.4% of one SE, so the verdict is not
+  robust either way.
+- **Metabolites only:** ENO, FBA and σ_b mixed. S_0607 and ptsG did not (ESS 7
+  and 6, split-R̂ 1.13 and 1.16), so ptsG's load-bearing cell is not measured.
+  - The symptom named in advance did not occur: no live cell-window updates at a
+    rate below 0.10 (the lowest is 0.37). Whether the bootstrap move causes the
+    slow mixing is not tested.
+  - ESS 100 would cost about 7,300 CPU-h more if ESS grew in proportion to the
+    draws, against about 4.6k left.
+
+**The branch:** main (B4–B7) is merged in at `1ca9b85`. The suite passed 28895 of
+28895 at that commit (job 19378175). `626a1cc` adds split-R̂ and the ENO null line to
+`m0_16b.jl summary`.
+
+**Next:**
+1. PR #105 (this branch) is under `/check-PR`. Merge it with a merge commit on a
+   clean verdict, then set 16b's `**PR:**` line in the spec.
+2. **The user's call on 16b.4's metabolites-only arm:** report it as unmixed, or
+   redesign the move (for example a joint S_g-and-path update) and rerun it
+   (about 550 CPU-h). F6 waits on this.
+3. **B7.8 waits on the same call.** Its plan's "16b.4 chain-vs-chain W1" floor does
+   not exist, because each arm is one chain. ENO, FBA and σ_b can be compared now.
+4. Then 16b.5's M0 read-off (the transcripts-only divergence for ENO and FBA, off
+   job 19034902's chain), 16b.7 and 16b.8.
+5. **Can go once this merges:** `.worktrees/16b-03b4c4f`, `.worktrees/16b-sum-626a1cc`,
+   `.worktrees/16b-suite-1ca9b85` and `/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`
+   (archived).
+
 ## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
 
 **Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
@@ -337,7 +378,51 @@ gap matters.
 nodes, wrote a precompile cache that milan refused. Precompile once on milan, and
 keep the arrays on `--exclude='dave[148-149]'`.
 
-## Previous: #92 merged; #93 (track B) merged with main (2026-10-22)
+## Earlier: 16b.1 and 16b.4 running at M0 (2026-10-23)
+
+**Branch:** `phase-16b-m0`, worktree `.worktrees/16b-m0`. No PR yet.
+
+**What was built:**
+- `gibbs_setup(ds; streams)`: a chain can see transcripts only (empty panel,
+  σ_b held) or metabolites only (block 3 bridges no gene, so it is bootstrap
+  particle Gibbs on the bulk term; block 2 keeps the full transcript map).
+- `m0_dataset(seed; forwards)`: moves named forward constants of the drawn truth,
+  reverses derived, every other draw the replicate's own. 16b.1's dataset is V6's
+  with ENO × exp(0.1568).
+- Driver `dev/scripts/m0_16b.{jl,sh,slurm}`: stages `run`, `rates` (the early
+  check) and `summary` (16b.1's rule and the F6 table).
+- The suite passed 28684 of 28684 at `fc8b141` (job 19012980).
+
+**§12 "16b.1 and 16b.4 at M0" is approved (2026-10-23).** 16b.1 recovers if
+ENO's shrinkage is below 0.9, the moved truth is in the central 95%, and the mean
+shift ÷ +0.1568 lies in 0.5 to 1.5. Otherwise K4 fires. 16b.4 is a measurement.
+
+**Running:** jobs 19034901 (perturbed), 19034902 (tx_only) and 19034903
+(met_only), 656 sweeps each at `03b4c4f`, submitted from the detached worktree
+`.worktrees/16b-03b4c4f`, writing to
+`/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`. All three started
+2026-10-23 07:40. By sweep 6, sweeps took about 520 to 750 s, so 656 sweeps
+should take about 4 days, inside the 6-day limit. Logs are
+`<run dir>/m0_16b_<mode>/slurm_m0_16b_<mode>_<job>.log`, one line per sweep.
+By sweep 6: tx_only holds σ_b at 0.3101 as designed, and met_only changes
+0.48 to 0.71 of its windows per sweep, the same range as the joint chain.
+Do not remove that worktree while they run. `.worktrees/16b-m0` is left open as
+well. The next stage is to be picked up from a separate worktree on this branch.
+
+**Next:**
+1. **At about sweep 20:** `RUN_MODE=<mode> PILOT_DIR=<run dir> julia --project
+   dev/scripts/m0_16b.jl rates` for each chain. Report to the user any live
+   cell-window below 0.10, especially for met_only.
+2. On a timeout: rerun `ROOT=/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23
+   MODES=<mode> bash dev/scripts/m0_16b.sh` from `.worktrees/16b-03b4c4f`.
+3. At 656 sweeps: `summary` against V6
+   (`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v6/gibbs_pilot_16a9a`),
+   archive with `SHA256SUMS`, write the result files and the F6 figure, add the
+   ledger rows, tick 16b.1 and 16b.4, then open a PR, run `/check-PR` and merge with a
+   merge commit.
+4. Then 16b.5's M0 read-off, 16b.7 and 16b.8 (T3).
+
+## Earlier: #92 merged; #93 (track B) merged with main (2026-10-22)
 
 **#92 (track A) is merged** at `2112946`, with a merge commit, so `8813dca`,
 `2b039a0` and `6da2398` stay reachable.

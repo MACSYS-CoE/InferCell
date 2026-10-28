@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** in progress: 16a.1 to 16a.8, with 16a.7a to 16a.7c, merged in PR #81 (2026-10-05); 16a.9a met and in PR #82; 16a.9b met (V6 and V7) in PR #86; 16a.10, 16a.11 and 16b remain
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-17
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-28
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -945,7 +945,7 @@ annotated below with its rung and funding.
   full scale budget-bound".
 - **V7 serves as 16b.3,** with its caveats carried into T3.
 
-- [ ] 16b.1 (parent 16.4) Recover the tight-prior control alone — verify by:
+- [x] 16b.1 (parent 16.4) Recover the tight-prior control alone — verify by:
   - the posterior concentrating on truth well inside its prior;
   - a deliberate perturbation of the truth moving the posterior with it;
   - shrinkage below 0.9.
@@ -953,6 +953,9 @@ annotated below with its rung and funding.
   M0 dataset with ENO's truth moved by +1 prior SD, and one production posterior on it.
 
   **If it does not recover, the machinery is wrong and the phase stops (K4).**
+  **Done 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** recovers, so K4 does not fire.
+  Shrinkage 0.258, the moved truth at quantile 0.099, and a shift ratio of
+  0.951 ± 0.021 (job 19034901; `dev/scripts/m0_16b_result.md`).
 - [ ] 16b.2 (parent 16.5) Recover the full six-parameter set — verify by:
   - every marginal containing truth;
   - at least one target shrinking below 0.5 (K4);
@@ -977,6 +980,10 @@ annotated below with its rung and funding.
   shrinkage there is a sampler error to investigate, not a result.
   **M0, funded (~1.4k CPU-h).** Transcripts-only and metabolites-only fits on V6's
   dataset; the joint fit is V6. First check that the Gibbs driver can drop a stream.
+  **Held open 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** both chains ran. Under
+  metabolites only the transcript parameters did not mix (ESS 6–7), so ptsG's
+  load-bearing cell is not measured. The user decides between reporting that arm
+  as unmixed and redesigning its move, then rerunning it. F6 follows that choice.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -1006,6 +1013,125 @@ annotated below with its rung and funding.
   - every verdict the cap forced labelled budget-bound.
 
 ## 12. Amendment log
+
+### 2026-10-28 — 16b.1 and 16b.4 as run: 16b.1 recovers; 16b.4 is held open
+
+**Trigger:** the three production chains finished (jobs 19034901–19034903 at
+`03b4c4f`, 1,669.7 CPU-h). Their summary (job 19378382 at `626a1cc`) is in
+`dev/scripts/m0_16b_result.md`.
+
+**16b.1 recovers, by the rule fixed in advance.** ENO's shrinkage is 0.258, the
+moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
+0.951 ± 0.021. K4 does not fire. 16b.1 is ticked.
+
+**16b.4: what was measured.**
+- **Transcripts only:** ENO's null is not flagged, by 0.00014. SD / prior SD is
+  0.93445 against a flag line of 0.93431. The margin is 0.4% of one SE, far
+  smaller than the uncertainty in the ESS estimate, so the verdict is not robust
+  either way. FBA's is 1.007.
+- **Metabolites only:** ENO, FBA and σ_b mixed (ESS 140 to 568), and match the
+  joint fit.
+- **Metabolites only, not measured:** S_0607 and ptsG have bulk ESS 7 and 6 and
+  split-R̂ 1.13 and 1.16, so ptsG's load-bearing cell is not measured.
+- **The symptom named in advance did not occur.** The named risk was the
+  bootstrap proposal, checked by a live cell-window updating at a rate below 0.10.
+  Every live cell-window updated at a rate of 0.37 or more (job 19376253). That
+  shows the paths are resampled, not that they decorrelate from S_g, so whether
+  the bootstrap move causes the slow mixing is not tested.
+- **The early check was not run as fixed.** §12 2026-10-22 set `rates` at about
+  sweep 20 on each chain. No such run exists. The only `rates` run is job
+  19376253, on met_only after 656 sweeps. Before it, the per-sweep log lines
+  ("windows changed") were read up to sweep 6.
+- **Running on costs more than is left.** ESS 100 would take about 7,300 CPU-h
+  more, against about 4.6k left. That assumes ESS grows in proportion to the
+  draws, which an ESS of 6 does not establish.
+
+**Change (the user's decision, 2026-10-28, after the results):** close 16b.1 now
+and hold 16b.4 open. Its options are:
+- report the metabolites-only transcript parameters as unmixed;
+- redesign that arm's sampler move, then rerun it.
+
+**It follows that** F6 is not drawn until that is decided. B7.8
+(`approximate-method.md`) reads the same chain, so its ptsG comparison waits on the
+same choice. B7.8 also needs a new floor: each arm is one chain, so the planned
+chain-vs-chain W1 does not exist.
+
+*Sections:* §11 16b.1, 16b.4.
+
+### 2026-10-22 — 16b.1 and 16b.4 at M0: the runs and their reading rules
+
+**Status: approved 2026-10-23, before any 16b production chain has run,** with the
+ratio band of 0.5 to 1.5 and all three chains launched side by side. It fixes the
+runs 16a.11 funded, and how each is read, before any of their draws exist. Only
+the smoke runs (3 cells, 120 s, 2 sweeps) had been read.
+
+**The runs.** Three production-length chains, side by side, at F10's settings:
+- 50 cells, 600 s, N = 20, 656 sweeps, 5 threads, and 100 sweeps of burn-in;
+- each starts from θ and σ_b drawn from the prior with `Xoshiro(16_400_000 + i)`,
+  i = 1, 2, 3, and from paths drawn by `gibbs_init`;
+- driver: `dev/scripts/m0_16b.{jl,sh,slurm}`, about 3 × 510 CPU-h.
+
+| Mode | Task | Dataset | Streams |
+|---|---|---|---|
+| `perturbed` | 16b.1 | M0 replicate 16085, ENO's forward constant × exp(0.1568), its reverse derived | Both |
+| `tx_only` | 16b.4 | V6's (replicate 16085) | Transcripts |
+| `met_only` | 16b.4 | V6's | Bulk metabolites |
+
+**What changes in `src`.**
+- `m0_dataset(seed; forwards)` moves named forward constants of the drawn truth,
+  each with its reverse derived (`derived_ode_values`). Every draw is the
+  replicate's own, so the perturbed dataset shares V6's cells, σ_b and noise
+  seeds. Only ENO moves, so the comparison is paired.
+- `gibbs_setup(ds; streams)`. With the default, a chain is unchanged.
+  - **Transcripts only:** the panel is empty, so no bulk term enters any block. σ_b
+    is held at its start and is not inferred.
+  - **Metabolites only:** block 3 bridges no gene. It simulates transcription
+    forward with every other reaction and weights each window by the bulk term
+    alone, which makes it a bootstrap particle Gibbs. Block 2 still reads the
+    transcription counts from the path.
+
+**16b.1's rule (K4's gate).** Read off `m0_16b.jl summary` for ENO, against V6
+(sweeps 101 to 1,650). **It recovers if all three hold:**
+1. **Shrinkage:** posterior SD / prior SD (0.157) is below 0.9.
+2. **Coverage of the moved truth:** ln ENO = 4.3386 lies in the posterior's central
+   95%.
+3. **It moves with the truth:** the posterior mean's shift from V6's, divided by the
+   truth's shift (+0.1568), lies in 0.5 to 1.5.
+   - Under a conjugate reading at V6's shrinkage (0.27), the expected ratio is
+     about 1 − 0.27² ≈ 0.93.
+   - It is not exactly 1, because moving ENO changes the pools. That changes the
+     rebuilt transcription rates and the paths, not only the bulk data.
+   - **Why not a Monte Carlo error rule:** the means' MC SEs are about 0.005, far
+     below that systematic difference, so such a rule would fail a correct
+     sampler.
+- V6's truth's quantile under the perturbed posterior is reported beside them.
+- **If any of the three fails, K4 fires:** the phase stops and the cause is
+  diagnosed before anything is rerun.
+
+**16b.4's reading.** A measurement, not a gate.
+- **F6:** the five parameters under transcripts only, metabolites only and joint
+  (V6). Each with mean ± SD, shrinkage, bulk ESS, the truth and its quantile.
+- **The load-bearing cell:** ptsG (`S_JCVISYN3A_0779`) under metabolites only,
+  reported with its shrinkage against A1's linearised 0.47 at σ_b = 10%
+  (`sensitivity_88_m0_result.md`). A1 is a bound under its own settings, not a
+  prediction of this posterior.
+- **The measured null:** ENO under transcripts only. The 2026-10-05 amendment
+  bounds its ratio near 1 (`eno_path_information_16a7_result.md`; Core A′ at 200
+  cells, at 15.7's truth).
+  - A ratio below 1 − 2·SE, with SE = ratio / √(2 · bulk ESS), is flagged as a
+    sampler error to investigate, not reported as a result.
+  - The bound's scope (one truth, Core A′) is stated beside it.
+- **For 16b.5:** M0's transcripts-only prior-to-posterior divergence for ENO and
+  FBA is read off the same chain, labelled as M0's.
+
+**The early check.** At about sweep 20, run `m0_16b.jl rates` on each chain.
+- `met_only`'s bootstrap proposal is the mixing risk.
+- A live cell-window below 0.10 (the pilot's threshold) is reported to you before
+  the chain continues.
+- Otherwise the chains run to 656. A chain that hits its time limit is resubmitted
+  with the same command.
+
+*Sections:* §11 16b.1, 16b.4, 16b.5.
 
 ### 2026-10-22 — 16a.11: the measured cost, K1's bound, and closing phase 16 at M0
 

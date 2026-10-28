@@ -174,4 +174,65 @@ _gibbs_key(s) = (s.cme, s.u, s.σ, [[(w.times, w.reactions) for w in p] for p in
         gibbs_sweep!(b, g; threads = false)
         @test _gibbs_key(a) == _gibbs_key(b)
     end
+
+    @testset "16b.4: a chain on one data stream" begin
+        @test g.streams == [:transcripts, :metabolites] && g.path_tmap === g.tmap
+        @test_throws ArgumentError gibbs_setup(ds; N = 4, horizon = H, streams = Symbol[])
+        @test_throws ArgumentError gibbs_setup(ds; N = 4, horizon = H, streams = [:proteins])
+
+        # Transcripts only: no panel, so no bulk term, and σ_b is held.
+        gt = gibbs_setup(ds; N = 4, horizon = H, streams = [:transcripts])
+        @test isempty(gt.panel) && size(gt.bulk) == (0, T) && gt.transcripts == g.transcripts
+        st = gibbs_init(Xoshiro(1612), gt; start..., threads = false)
+        for _ in 1:2
+            gibbs_sweep!(st, gt; threads = false)
+        end
+        @test st.σ == start.σ
+        @test st.u != start.u && st.cme != start.cme
+        for c in eachindex(st.paths)
+            tx, lat, lp = _gibbs_replay(gt, st.bases[c], st.paths[c])
+            @test tx == g.transcripts[c]
+            @test lat == st.latents[c] && size(lat) == (0, T)
+            @test isfinite(lp)
+        end
+
+        # Metabolites only: block 3 bridges no gene, block 2 keeps the full map.
+        gm = gibbs_setup(ds; N = 4, horizon = H, streams = [:metabolites])
+        @test isempty(gm.path_tmap.states)
+        @test gm.tmap.births == g.tmap.births && gm.tmap.deaths == g.tmap.deaths
+        @test all(m -> size(m) == (0, T), gm.transcripts) && gm.bulk == g.bulk
+
+        # With no gene bridged, a window's weight is its bulk term alone.
+        spec = InferCell._gibbs_spec(gm, 0.3)
+        d = restore(bases[1])
+        y = bulk_window_observations(gm.bulk, zeros(length(gm.rows), T), length(bases))[1]
+        lw, _ = InferCell.advance_window!(Xoshiro(1), d, spec, Int[], Int[], y)
+        @test lw == InferCell._metabolite_loglik(d, spec, y)
+
+        sm = gibbs_init(Xoshiro(1613), gm; start..., threads = false)
+        for _ in 1:2
+            gibbs_sweep!(sm, gm; threads = false)
+        end
+        @test sm.u != start.u && sm.cme != start.cme && sm.σ != start.σ
+        txs = map(eachindex(sm.paths)) do c
+            tx, lat, lp = _gibbs_replay(gm, sm.bases[c], sm.paths[c])
+            @test lat == sm.latents[c]
+            @test isfinite(lp)
+            tx
+        end
+        # The transcripts are simulated, not pinned to the data.
+        @test any(c -> txs[c] != g.transcripts[c], eachindex(txs))
+
+        a = gibbs_init(Xoshiro(1614), gm; start..., threads = false)
+        b = gibbs_init(Xoshiro(1614), gm; start..., threads = false)
+        for _ in 1:2
+            gibbs_sweep!(a, gm; threads = false)
+        end
+        gibbs_sweep!(b, gm; threads = false)
+        file = tempname()
+        serialize(file, gibbs_checkpoint(b))
+        b = gibbs_resume(deserialize(file), gm; threads = false)
+        gibbs_sweep!(b, gm; threads = false)
+        @test _gibbs_key(a) == _gibbs_key(b)
+    end
 end

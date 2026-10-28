@@ -27,8 +27,12 @@ that is a valid start.
 
 What a chain holds fixed: the composition, each cell's pristine t = 0 driver,
 the transcript map, the panel's ODE rows, each cell's transcripts (genes ×
-windows), the bulk record (panel × windows), the particle count, and the free
-parameters with their priors. Built by [`gibbs_setup`](@ref).
+windows), the bulk record (panel × windows), the particle count, the free
+parameters with their priors, and the data streams the chain sees. Built by
+[`gibbs_setup`](@ref).
+
+`path_tmap` is the transcript map block 3 bridges to: `tmap`, or an empty map
+when transcripts are not observed. Block 2 always reads `tmap`.
 """
 struct GibbsSetup
     models::Vector{AbstractSubModel}
@@ -46,22 +50,40 @@ struct GibbsSetup
     cme_priors::Vector{LogNormal{Float64}}
     forwards::Vector{Symbol}
     sigma_prior::LogNormal{Float64}
+    streams::Vector{Symbol}
+    path_tmap::TranscriptMap
 end
+
+"The data streams an M0 chain can see (task 16b.4)."
+const GIBBS_STREAMS = (:transcripts, :metabolites)
 
 """
     gibbs_setup(ds; models = m0_models(), build = build_m0, N = 20, horizon,
                 panel = M0_PANEL, forwards = [:kcatF_R_ENO, :kcatF_R_FBA],
-                window = 60, floor = 1.0, sigma_prior = SIGMA_MET_PRIOR) -> GibbsSetup
+                window = 60, floor = 1.0, sigma_prior = SIGMA_MET_PRIOR,
+                streams = GIBBS_STREAMS) -> GibbsSetup
 
 A chain's fixed ingredients for a dataset `ds` with a bulk record, as
 [`m0_dataset`](@ref) returns. Each cell's driver is built as the dataset's was,
 under its seed, at its nominal parameters.
+
+`streams` names the data the chain conditions on (task 16b.4). Without
+`:metabolites` the panel is empty, so no bulk term enters any block, and σ_b is
+held at its start. Without `:transcripts` each cell's record has no rows and
+block 3 bridges no gene: it simulates transcription forward with every other
+reaction and weights by the bulk term alone. Block 2 still reads the
+transcription counts from the path.
 """
 function gibbs_setup(ds; models = m0_models(), build = build_m0, N::Integer = 20,
                      horizon::Real = M0_HORIZON_S, panel::AbstractVector{Symbol} = M0_PANEL,
                      forwards::AbstractVector{Symbol} = [:kcatF_R_ENO, :kcatF_R_FBA],
                      window::Integer = 60, floor::Real = 1.0,
-                     sigma_prior::LogNormal = SIGMA_MET_PRIOR)
+                     sigma_prior::LogNormal = SIGMA_MET_PRIOR,
+                     streams = GIBBS_STREAMS)
+    streams = collect(Symbol, streams)
+    isempty(streams) && throw(ArgumentError("a chain needs at least one data stream"))
+    all(in(GIBBS_STREAMS), streams) && allunique(streams) ||
+        throw(ArgumentError("streams must be drawn from $GIBBS_STREAMS, not $streams"))
     pristine = map(ds.seeds) do seed
         Random.seed!(seed)
         build(; tspan = (0.0, Float64(horizon)))
@@ -80,10 +102,20 @@ function gibbs_setup(ds; models = m0_models(), build = build_m0, N::Integer = 20
     cme_priors = map(n -> _parameter_by_name(models, n).prior, cme)
     all(p -> p isa LogNormal, cme_priors) || throw(ArgumentError("block 2 needs LogNormal priors"))
     cap_floor = bridge_cap(maximum(maximum, transcripts))
+    bulk = Matrix{Float64}(ds.bulk)
+    if !(:metabolites in streams)
+        panel, rows, bulk = Symbol[], Int[], zeros(0, T)
+    end
+    path_tmap = tmap
+    if !(:transcripts in streams)
+        transcripts = [zeros(Int, 0, T) for _ in transcripts]
+        path_tmap = TranscriptMap(Int[], Int[], Int[])
+    end
     return GibbsSetup(collect(models), pristine, tmap, collect(panel), rows, transcripts,
-                      Matrix{Float64}(ds.bulk), Int(window), Float64(floor), cap_floor, Int(N),
+                      bulk, Int(window), Float64(floor), cap_floor, Int(N),
                       cme, [LogNormal(Float64.(params(p))...) for p in cme_priors],
-                      collect(forwards), LogNormal(Float64.(params(sigma_prior))...))
+                      collect(forwards), LogNormal(Float64.(params(sigma_prior))...),
+                      streams, path_tmap)
 end
 
 """
@@ -130,7 +162,7 @@ function _gibbs_bases(g::GibbsSetup, cme, u; threads::Bool)
 end
 
 _gibbs_spec(g::GibbsSetup, σ) =
-    CSMCSpec(g.tmap, g.rows; sigma = σ, floor = g.floor, window = g.window,
+    CSMCSpec(g.path_tmap, g.rows; sigma = σ, floor = g.floor, window = g.window,
              cap_floor = g.cap_floor)
 
 """
@@ -192,7 +224,7 @@ function gibbs_sweep!(s::GibbsState, g::GibbsSetup; threads::Bool = Threads.nthr
         b = Block1(g.models, cells; forwards = g.forwards, panel = g.panel,
                    save_every = g.window, floor = g.floor, sigma_prior = g.sigma_prior,
                    bulk = g.bulk)
-        block1_update!(rng, b, st; threads)
+        block1_update!(rng, b, st; threads, update_sigma = :metabolites in g.streams)
     end
     t2 = @elapsed begin
         # Block 2 reads block 1's accepted replay, which ran at the current θ_CME.
