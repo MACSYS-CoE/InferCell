@@ -119,9 +119,12 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   grows in proportion to the draws, which an ESS of 6 at split-R̂ 1.16 does not
   establish. About 4.6k remain under phase 16's cap.
 
-**Held open (the user's decision, 2026-10-28).** 16b.4 stays unticked, and F6 is not
-drawn. The choice is between reporting the metabolites-only transcript parameters
-as unmixed, and redesigning the sampler's move under metabolites only before a
-rerun. B7.8's ptsG comparison waits on the same choice. B7.8 also needs a floor:
+**Held open (the user's decision, 2026-10-28).** 16b.1 closes now and 16b.4 stays
+unticked. The choice still open is between reporting the metabolites-only
+transcript parameters as unmixed, and redesigning the sampler's move under
+metabolites only before a rerun.
+
+**It follows that** F6 is not drawn until that choice is made, and B7.8's ptsG
+comparison waits on it too. B7.8 also needs a floor:
 each 16b.4 arm is one chain, so "16b.4's chain-vs-chain W1" does not exist as
 written. A split-half floor at ESS 6 would make the ptsG comparison vacuous.

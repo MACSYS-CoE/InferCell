@@ -982,8 +982,8 @@ annotated below with its rung and funding.
   dataset; the joint fit is V6. First check that the Gibbs driver can drop a stream.
   **Held open 2026-10-28 (§12 "16b.1 and 16b.4 as run"):** both chains ran. Under
   metabolites only the transcript parameters did not mix (ESS 6–7), so ptsG's
-  load-bearing cell is not measured. F6 is not drawn until the user decides how
-  that arm is reported.
+  load-bearing cell is not measured. The user decides between reporting that arm
+  as unmixed and redesigning its move, then rerunning it. F6 follows that choice.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -1051,9 +1051,10 @@ and hold 16b.4 open. Its options are:
 - report the metabolites-only transcript parameters as unmixed;
 - redesign that arm's sampler move, then rerun it.
 
-F6 is not drawn until that is decided. B7.8 (`approximate-method.md`) reads the
-same chain. Its ptsG comparison and its floor (one chain per arm, so no
-chain-vs-chain W1) wait on the same choice.
+**It follows that** F6 is not drawn until that is decided. B7.8
+(`approximate-method.md`) reads the same chain, so its ptsG comparison waits on the
+same choice. Its floor needs one too: each arm is one chain, so the planned
+chain-vs-chain W1 does not exist.
 
 *Sections:* §11 16b.1, 16b.4.
 
