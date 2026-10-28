@@ -1019,6 +1019,52 @@ annotated below with its rung and funding.
 
 ## 12. Amendment log
 
+### 2026-10-28 — F6 at M0: the divergence, its floor and how each cell reads
+
+**Status: recorded 2026-10-28, before any F6 divergence was computed.** The
+shrinkages are the ones already in job 19378382.
+
+**Trigger:** F6 reports "the prior-to-posterior divergence" without saying which
+one. K2 names `kl_divergence` (`src/boundary.jl`), and 16b.5's M0 read-off reuses
+whatever F6 uses.
+
+**The divergence.** It is KL(posterior ‖ prior) in nats, per marginal, on the log
+scale: `kl_divergence(post, prior; n_grid)`.
+- `post` holds the kept draws: sweeps 101 to 656 of each 16b.4 chain, and 101 to
+  1,650 of each of V6's four chains, pooled.
+- `prior` holds 10⁵ draws of each parameter's prior on the log scale, from
+  `Xoshiro(16_400_100)`. Every prior is log-normal, so this is
+  Normal(μ, σ) from `params(prior)`.
+- **The grid.** The default 200 points span the union of both supports, which
+  would leave σ_b's posterior about one point per SD. `n_grid` is raised to 4,000.
+  It is checked by 8,000: every cell must move by less than 2% or 0.002 nat.
+- **A cross-check.** Each cell is also given the Gaussian KL, with the posterior
+  fitted as a Normal. A cell where the two differ by more than 20% is reported
+  with both, and the difference is named as the estimator's, not the data's.
+
+**The floor (R16.5).** Two samples of one distribution give KL > 0. For each
+cell, 20 independent samples of the prior, each the size of that cell's bulk
+ESS (rounded), are scored against the reference prior sample. The 95th
+percentile of those 20 is the floor. A divergence at or below its floor is
+reported as "not resolved from the prior", never as zero.
+
+**How each cell reads.**
+- **Not read:** a cell with split-R̂ above 1.05. Its SD ratio and divergence are
+  not reported. It is shown as unmixed, with its ESS and R̂. This covers S_0607 and
+  ptsG under metabolites only (§12 "16b.4 at M0: metabolites only reported as
+  unmixed").
+- **Read, flagged:** a cell with bulk ESS below 100 and split-R̂ at most 1.05. It
+  is reported with its ESS beside it.
+- **Held:** σ_b under transcripts only is held at its start, so it has no
+  posterior.
+- **The joint column** is V6, as in job 19378382.
+
+**16b.5.** ENO's and FBA's divergence under transcripts only, read against 0.05
+nat, is M0's K2 read-off. It is labelled as M0's at 50 cells, not as K2's verdict.
+16b.5 stays unticked.
+
+*Sections:* §11 16b.4, 16b.5.
+
 ### 2026-10-28 — 16b.4 at M0: metabolites only reported as unmixed
 
 **Trigger:** the choice that §12 "16b.1 and 16b.4 as run" left open. Under
