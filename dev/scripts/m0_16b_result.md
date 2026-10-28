@@ -89,15 +89,16 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   200 cells, not on M0.
 - FBA's SD / prior SD is 1.007.
 - The three transcript parameters shrink as far as in the joint fit (0.169, 0.288
-  and 0.105, against V6's 0.167, 0.288 and 0.110). The bulk data add almost
-  nothing to them at M0.
+  and 0.105, against V6's 0.167, 0.288 and 0.110). The two agree within Monte
+  Carlo error (about 0.01 at these ESS), so at M0 the bulk data add no shrinkage
+  to them that this run can resolve.
 - For 16b.5, M0's prior-to-posterior divergence for ENO and FBA is to be read off
   this chain. It is not computed here.
 
 **Metabolites only.**
 - **The metabolic parameters are measured.** ENO (ESS 140), FBA (568) and σ_b
   (385) have split-R̂ ≤ 1.001. Their posteriors match the joint fit's to within
-  0.01 in the mean and 0.02 in the SD ratio. At M0 the bulk data alone pin them.
+  0.01 in the mean and 0.02 in the SD ratio.
 - **The transcript parameters are not.** S_0607 and ptsG (S_JCVISYN3A_0779) have
   bulk ESS 7 and 6, and split-R̂ 1.129 and 1.164. krnadeg has ESS 39.
   - **ptsG's shrinkage under metabolites only, the load-bearing cell, is therefore
