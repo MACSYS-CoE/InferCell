@@ -192,6 +192,8 @@ remain.
 | 19376253 | 16b.4 | met_only's update rates, at `03b4c4f` | 5 | 0:04:19 | 0.36 |
 | 19378382 | 16b.1, 16b.4 | Summary with split-R̂ and the ENO null line (of record, at `626a1cc`) | 5 | 0:01:25 | 0.12 |
 | 19378175 | 16b | Test suite (of record, 28895 of 28895 at `1ca9b85`, main merged in) | 4 | 1:03:50 | 4.26 |
+| 19387838 | 16b | Test suite after #105's review fixes, at `07771b3` (same src and test as `1ca9b85`): 28894 of 28895; the one failure is the known flaky `test_corea_validation_14b.jl:269` (0.99998 > 1.0), which passed in 19378175 | 4 | 1:07:31 | 4.50 |
+| 19387839 | 16b.1, 16b.4 | Summary re-run at `07771b3`, identical to 19378382 | 5 | 0:02:14 | 0.19 |
 
-**16b total: about 1,680.4 CPU-h** (the production chains' 1,669.7 from `sacct`).
-Phase 16 stands at about 45,366.5 CPU-h of 50k, so about 4.6k remain.
+**16b total: about 1,685.1 CPU-h** (the production chains' 1,669.7 from `sacct`).
+Phase 16 stands at about 45,371.2 CPU-h of 50k, so about 4.6k remain.
