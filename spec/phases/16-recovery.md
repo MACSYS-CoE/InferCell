@@ -971,7 +971,7 @@ annotated below with its rung and funding.
   **M0, reuse V7 (0 CPU-h; call 1, approved).** Read off by
   `dev/scripts/v7_coverage_16a11.py`. K4's band is restated at R = 50 as 44 to 50 at
   nominal 95%.
-- [ ] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
+- [x] 16b.4 (parent 16.7) Produce F6 — verify by all six targets under
   transcripts-only, metabolites-only and joint data, with ptsG under metabolites only
   (load-bearing) and ENO under transcripts only (the measured null) present. Any cell 16a.11
   did not fund is shown as not run. **Amended 2026-10-05 (§12):** ENO under
@@ -989,6 +989,13 @@ annotated below with its rung and funding.
   S_0607 and ptsG under metabolites only shown as unmixed, not as a shrinkage, and
   krnadeg shown with its ESS of 39. The redesign and rerun is kept as an option to
   revisit. 16b.4 is ticked when F6 is drawn.
+  **Done 2026-10-28 at M0:** F6 is drawn in `dev/scripts/m0_16b_result.md` (job
+  19395555 at `f0dd5b2`), under §12 "F6 at M0: the divergence, its floor and how
+  each cell reads".
+  - Both named cells are present. ptsG under metabolites only is unmixed and not
+    read.
+  - ENO under transcripts only is at 0.0041 nat, below its floor of 0.0194, so it
+    is not resolved from the prior.
 - [ ] 16b.5 (parent 16.9) Generate the 1,000-cell extension (D16.8) and decide K2.
   Verify by:
   - the extension's `meta.md`;
@@ -997,6 +1004,9 @@ annotated below with its rung and funding.
   - the verdict written as a sentence, with its consequence for framing.
   **Budget-bound at 1,000 cells.** M0's transcripts-only divergence is read off 16b.4
   and labelled as M0's, not as K2's verdict.
+  **M0's read-off, 2026-10-28 (job 19395555):** under transcripts only, ENO is at
+  0.0041 nat and FBA at 0.0081, both below 0.05 nat and below their floors. K2's
+  firing condition is met at M0, 50 cells. That is not K2's verdict.
 - [ ] 16b.6 Measure K7 (D16.9). Verify by:
   - PYK's dropped sibling reactions enumerated from upstream at `db048ac`, with the
     count checked against the parent's "seven";

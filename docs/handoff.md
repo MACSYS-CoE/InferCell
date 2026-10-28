@@ -1,6 +1,32 @@
 # Handoff
 
-## Latest: 16b.4's metabolites-only arm is reported as unmixed (2026-10-28)
+## Latest: F6 at M0 is drawn; 16b.4 ticked (branch `phase-16b-f6`, 2026-10-28)
+
+**F6** is in `dev/scripts/m0_16b_result.md` ("F6 at M0"), from job 19395555 at
+`f0dd5b2`. The rules, set in §12 2026-10-28 "F6 at M0: the divergence, its floor
+and how each cell reads", were fixed before any divergence was computed. The
+divergence is KL(posterior ‖ prior) by `kl_divergence` at n_grid 4,000, with a
+floor from prior samples of each cell's ESS.
+- **Transcripts only:**
+  - transcript parameters 1.50 to 2.66 nat;
+  - ENO 0.0041 and FBA 0.0081 nat, both below their floors, so neither is
+    resolved from the prior.
+- **Metabolites only:**
+  - ENO, FBA and σ_b are resolved;
+  - krnadeg is resolved, at ESS 39;
+  - S_0607 and ptsG are unmixed and not read.
+- **Joint:** everything is resolved.
+- **16b.5's M0 read-off:** ENO and FBA under transcripts only are below 0.05 nat,
+  so K2's firing condition is met at M0, 50 cells. This is not K2's verdict;
+  16b.5 stays unticked.
+
+**This branch sits on `16b-record-pr-105` (PR #106).** Merge #106 first, or
+retarget.
+
+**Next:** /check-PR on the F6 PR; suite 19395558 at `f0dd5b2`; then B7.8, 16b.7
+and 16b.8, and the flaky-test PR.
+
+## Earlier: 16b.4's metabolites-only arm is reported as unmixed (2026-10-28)
 
 PR #105 merged 2026-10-28 (merge `2a50465`). The suite after its review fixes
 (job 19387838 at `07771b3`) gave 28894 of 28895. The one failure is the known
