@@ -1,6 +1,7 @@
-# spec/phases/16-recovery.md tasks 16b.1 and 16b.4, at the M0 rung (§12 "16a.11",
-# approved 2026-10-22): three production-length chains of the three-block Gibbs
-# sampler, at F10's settings (50 cells, 600 s, N = 20, 656 sweeps, 5 threads).
+# spec/phases/16-recovery.md tasks 16b.1 and 16b.4, at the M0 rung that §12 "16a.11"
+# funded, under the rules of §12 "16b.1 and 16b.4 at M0" (approved 2026-10-23):
+# three production-length chains of the three-block Gibbs sampler, at F10's
+# settings (50 cells, 600 s, N = 20, 656 sweeps, 5 threads).
 #
 # Modes (RUN_MODE):
 #   perturbed  16b.1: M0 replicate 16085 (V6's) with ENO's forward constant moved

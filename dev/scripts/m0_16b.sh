@@ -1,6 +1,6 @@
 #!/bin/bash
 # Submit 16b.1's and 16b.4's production chains at M0 (spec/phases/16-recovery.md
-# §12 "16a.11" and "16b at M0"), side by side, one per mode, at F10's settings.
+# §12 "16a.11" and "16b.1 and 16b.4 at M0"), side by side, one per mode, at F10's settings.
 # Run from a worktree at a pushed commit. A chain resumes from its checkpoint, so
 # one that hits its time limit is resubmitted with the same command.
 # MODES picks a subset. A smoke run passes ROOT, PILOT_NCELLS, PILOT_HORIZON,
