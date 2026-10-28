@@ -1031,9 +1031,11 @@ moved truth is at quantile 0.099, and the mean shift ÷ truth shift is
   joint fit.
 - **Metabolites only, not measured:** S_0607 and ptsG have bulk ESS 7 and 6 and
   split-R̂ 1.13 and 1.16, so ptsG's load-bearing cell is not measured.
-- **The failure is not the one named in advance.** The named risk was the
-  bootstrap proposal. Every live cell-window updated at a rate of 0.37 or more
-  (job 19376253).
+- **The symptom named in advance did not occur.** The named risk was the
+  bootstrap proposal, checked by a live cell-window updating at a rate below 0.10.
+  Every live cell-window updated at a rate of 0.37 or more (job 19376253). That
+  shows the paths are resampled, not that they decorrelate from S_g, so whether
+  the bootstrap move causes the slow mixing is not tested.
 - **Running on is not affordable.** ESS 100 would take about 8,000 to 9,000 CPU-h
   more, against about 4.6k left.
 

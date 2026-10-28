@@ -98,12 +98,16 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   - **ptsG's shrinkage under metabolites only, the load-bearing cell, is therefore
     not measured.** The table's 0.542 is one wandering chain's spread, and is not
     read against A1's 0.47 or against anything else.
-- **It is not the mixing risk §12 named.** The named risk was the bootstrap
-  proposal stalling the paths. The update rates rule that out: over 414 live
-  cell-windows the lowest is 0.37 and the median 0.54, and none is below 0.10. The
-  paths move. Each S_g is updated given the path's transcription counts, and the
-  path given S_g, so the two move together slowly when no transcript data separate
-  them. This reading is not tested here.
+- **The symptom named in advance did not occur; the cause is not tested.** §12
+  named met_only's bootstrap proposal as the mixing risk, checked by a live
+  cell-window updating at a rate below 0.10. Over 414 live cell-windows the lowest
+  rate is 0.37 and the median 0.54, so none is below 0.10. That shows the paths are
+  resampled, not that they decorrelate from S_g: a window counts as changed if any
+  event in it differs, metabolic ones included. One reading is that each S_g is
+  updated given the path's transcription counts and the path given S_g, so the two
+  move together slowly when no transcript data separate them. That coupling comes
+  from the bootstrap move, so the proposal may be part of the cause. Neither is
+  tested here.
 - **What reaching ESS 100 would cost.** Running the chain on would take about 16
   times the draws, about 8,000 to 9,000 CPU-h more. About 4.6k remain under phase 16's cap.
 

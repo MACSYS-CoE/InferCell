@@ -16,8 +16,9 @@ at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
   flag line of 0.93431).
 - **Metabolites only:** ENO, FBA and σ_b mixed. S_0607 and ptsG did not (ESS 7
   and 6, split-R̂ 1.13 and 1.16), so ptsG's load-bearing cell is not measured.
-  - The cell-windows update fine (lowest 0.37), so the bootstrap proposal is not
-    the cause.
+  - The symptom named in advance did not occur: no live cell-window updates at a
+    rate below 0.10 (the lowest is 0.37). Whether the bootstrap move causes the
+    slow mixing is not tested.
   - ESS 100 would cost about 8–9k CPU-h, against about 4.6k left.
 
 **The branch:** main (B4–B7) is merged in at `1ca9b85`. The suite passed 28895 of
