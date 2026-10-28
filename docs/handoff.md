@@ -17,8 +17,9 @@ chain-vs-chain W1. The result is job 19411150 at `db30305`, in
 - **ptsG under metabolites only:** the mixed fit gives SD / prior SD 0.676, against
   A1's linearised 0.47. There is no exact counterpart. Figure 4's claim has
   approximate-route support only.
-- **Suite 19411151 at `db30305`** is pending. Add its ledger row and the #89 total
-  when it lands.
+- **Suite 19411151 at `db30305`:** 28894 of 28895; the one failure is the known
+  flaky `test_corea_validation_14b.jl:269` (0.99996 > 1.0). #89's total is about
+  835.5 CPU-h; phase 16 stands at about 45,379.8 of 50k.
 
 ## Earlier: phase 16 met at M0; T3 filled (branch `phase-16b-license`, PR #110, 2026-10-28)
 
