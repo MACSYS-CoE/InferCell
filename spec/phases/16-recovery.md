@@ -937,7 +937,7 @@ rung.
 In addition, K1, K2, K4, K5 and K7 are scored in T3. **If coverage is funded at no
 rung, 16b ends incomplete.** T3 then scores coverage as budget-bound, and the
 parent's phase 16 stays unticked. It does not count as done.
-**PR:** _not started_
+**PR:** #105 (merged 2026-10-28) carries 16b.1 and 16b.4's two runs; 16b.4 is held open (§12 2026-10-28)
 
 **Funded at the M0 rung (§12 "16a.11", approved 2026-10-22).** Each task is
 annotated below with its rung and funding.
