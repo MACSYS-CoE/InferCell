@@ -1,4 +1,4 @@
-# 16b.1 and 16b.4 at M0: the perturbed truth recovers; metabolites only leaves the transcript rates unmixed
+# 16b.1 and 16b.4 at M0: the perturbed truth recovers; F6 is drawn, with ptsG under metabolites only unmixed
 
 The rules were fixed before any production draw existed (`spec/phases/16-recovery.md`
 §12 2026-10-22, approved 2026-10-23). How 16b.4 is held is the user's decision of
@@ -120,12 +120,73 @@ ENO's truth moved by +0.1568 (one prior SD), and the posterior mean moved by
   grows in proportion to the draws, which an ESS of 6 at split-R̂ 1.16 does not
   establish. About 4.6k remain under phase 16's cap.
 
-**Held open (the user's decision, 2026-10-28).** 16b.1 closes now and 16b.4 stays
-unticked. The choice still open is between reporting the metabolites-only
-transcript parameters as unmixed, and redesigning the sampler's move under
-metabolites only before a rerun.
+**Held open, then decided (the user's decisions, 2026-10-28).** 16b.1 closed
+first, with 16b.4 held open. The user then chose to report the metabolites-only
+transcript parameters as unmixed (§12 "16b.4 at M0: metabolites only reported as
+unmixed"). Redesigning the sampler's move under metabolites only and rerunning it
+is kept as an option to revisit.
 
-**It follows that** F6 is not drawn until that choice is made, and B7.8's ptsG
-comparison waits on it too. B7.8 also needs a floor:
+**It followed that** F6 waited on that choice, which is now made (below). B7.8's
+ptsG comparison has no exact counterpart. B7.8 also needs a floor:
 each 16b.4 arm is one chain, so "16b.4's chain-vs-chain W1" does not exist as
 written. A split-half floor at ESS 6 would make the ptsG comparison vacuous.
+
+## F6 at M0
+
+The rules were fixed before any divergence was computed (§12 2026-10-28 "F6 at M0:
+the divergence, its floor and how each cell reads"). The shrinkages are the ones
+in job 19378382.
+
+**Reproduce** (Slurm job 19395555 at `f0dd5b2`, 0.15 CPU-h; its log is in the archive):
+```
+RUN_MODE=tx_only PILOT_DIR=<archive>/m0_16b_tx_only julia --project dev/scripts/m0_16b.jl f6 \
+    /fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v6/gibbs_pilot_16a9a \
+    <archive>/m0_16b_tx_only <archive>/m0_16b_met_only
+```
+The divergence is KL(posterior ‖ prior) in nats, per marginal, on the log scale.
+"Floor" is the 95th percentile of 20 prior samples, each the size of the cell's
+bulk ESS, scored the same way.
+
+| Parameter | Data | SD / prior SD | KL (nat) | KL at 8,000 | Gaussian KL | Floor | Bulk ESS | Split-R̂ | Reads |
+| S_JCVISYN3A_0607 | transcripts only | 0.169 | 1.5515 | 1.5515 | 1.5683 | 0.0322 | 142 | 1.000 | resolved |
+| S_JCVISYN3A_0607 | metabolites only | — | — | — | — | — | 7 | 1.129 | unmixed, not read |
+| S_JCVISYN3A_0607 | joint (V6) | 0.167 | 1.5329 | 1.5329 | 1.5355 | 0.0097 | 1081 | 1.007 | resolved |
+| S_JCVISYN3A_0779 | transcripts only | 0.288 | 1.4957 | 1.4957 | 1.5305 | 0.0192 | 305 | 1.001 | resolved |
+| S_JCVISYN3A_0779 | metabolites only | — | — | — | — | — | 6 | 1.164 | unmixed, not read |
+| S_JCVISYN3A_0779 | joint (V6) | 0.288 | 1.4867 | 1.4867 | 1.5035 | 0.0033 | 3441 | 1.001 | resolved |
+| krnadeg | transcripts only | 0.105 | 2.6590 | 2.6590 | 2.6944 | 0.0521 | 160 | 1.009 | resolved |
+| krnadeg | metabolites only | 0.154 | 2.5850 | 2.5850 | 2.6176 | 0.1768 | 39 | 1.003 | resolved, ESS below 100 |
+| krnadeg | joint (V6) | 0.110 | 2.6700 | 2.6700 | 2.6933 | 0.0072 | 1088 | 1.006 | resolved |
+| kcatF_R_ENO | transcripts only | 0.934 | 0.0041 | 0.0041 | 0.0044 | 0.0194 | 405 | 0.999 | not resolved from the prior |
+| kcatF_R_ENO | metabolites only | 0.267 | 1.1273 | 1.1273 | 1.1513 | 0.0280 | 140 | 1.000 | resolved |
+| kcatF_R_ENO | joint (V6) | 0.267 | 1.0991 | 1.0991 | 1.1109 | 0.0048 | 1531 | 1.002 | resolved |
+| kcatF_R_FBA | transcripts only | 1.007 | 0.0081 | 0.0081 | 0.0017 | 0.0138 | 496 | 1.003 | not resolved from the prior, KDE and Gaussian differ by > 20% |
+| kcatF_R_FBA | metabolites only | 0.347 | 0.7903 | 0.7903 | 0.7910 | 0.0140 | 568 | 1.000 | resolved |
+| kcatF_R_FBA | joint (V6) | 0.331 | 0.8399 | 0.8399 | 0.8244 | 0.0023 | 5750 | 1.001 | resolved |
+| sigma_b | transcripts only | held at its start | — | — | — | — | — | — | held |
+| sigma_b | metabolites only | 0.053 | 2.9196 | 2.9196 | 2.9483 | 0.0161 | 385 | 1.001 | resolved |
+| sigma_b | joint (V6) | 0.060 | 2.8183 | 2.8183 | 2.8297 | 0.0027 | 4248 | 1.000 | resolved |
+
+**What it shows.**
+- **Transcripts only:**
+  - the transcript parameters are resolved (1.50 to 2.66 nat);
+  - ENO and FBA are not resolved from the prior: 0.0041 and 0.0081 nat, under
+    floors of 0.0194 and 0.0138.
+  - ENO's cell is the measured null, read in 16b.4 above.
+  - FBA's KDE and Gaussian values differ (0.0081 and 0.0017). Both are below the
+    floor, so the reading does not depend on which one is used.
+- **Metabolites only:**
+  - ENO, FBA and σ_b are resolved: 1.13, 0.79 and 2.92 nat, against the joint
+    fit's 1.10, 0.84 and 2.82;
+  - krnadeg is resolved at 2.59 nat, with ESS 39;
+  - S_0607 and ptsG are unmixed and not read. **The load-bearing cell is therefore
+    not measured on the exact sampler at M0.**
+- **Joint (V6):** every parameter is resolved.
+- **The grid check holds in every cell.** The value at 8,000 points matches 4,000
+  to four decimals. The KDE and Gaussian values agree within 20% in every read
+  cell except FBA under transcripts only.
+
+**16b.5's M0 read-off.** Under transcripts only, ENO's and FBA's divergences
+(0.0041 and 0.0081 nat) are below 0.05 nat. That is K2's firing condition, met at
+M0 with 50 cells. It is M0's read-off, not K2's verdict, which is defined at
+1,000 cells and is budget-bound. 16b.5 is not ticked.

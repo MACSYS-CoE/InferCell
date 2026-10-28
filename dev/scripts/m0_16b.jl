@@ -14,7 +14,9 @@
 # Stages:
 #   run <sweeps>               resumable: it checkpoints after every sweep
 #   rates                      per-window update rates so far (the early check)
-#   summary <v6dir> <dir>...   the posterior tables and F6, after burn-in
+#   summary <v6dir> <dir>...   the posterior tables, after burn-in
+#   f6 <v6dir> <tx> <met>      F6 at M0, under §12 "F6 at M0: the divergence, its
+#                              floor and how each cell reads"
 # Regenerate: m0_16b.sh, from a worktree at a pushed commit.
 
 using InferCell
@@ -22,7 +24,7 @@ using Random
 using Serialization
 using Statistics
 using Printf
-using Distributions: params
+using Distributions: params, LogNormal, Normal
 using LinearAlgebra: BLAS
 using MCMCChains: MCMCDiagnosticTools
 const MDT = MCMCDiagnosticTools
@@ -204,12 +206,65 @@ function summary(v6dir, dirs)
     end
 end
 
+# KL(N(m, s) ‖ N(μ, σ)), the Gaussian cross-check.
+gauss_kl(m, s, μ, σ) = log(σ / s) + (s^2 + (m - μ)^2) / (2σ^2) - 1 / 2
+
+function f6(v6dir, txdir, metdir)
+    ms = m0_models()
+    v6 = [deserialize(joinpath(v6dir, "chain$k.jls")) for k in 1:4]
+    runs = Dict(r.meta.mode => r for r in deserialize.(chainfile.((txdir, metdir))))
+    names = string.(first(v6).meta.names)
+    P = length(names)
+    priors = vcat([InferCell._parameter_by_name(ms, Symbol(n)).prior for n in names[1:(P - 1)]],
+                  SIGMA_MET_PRIOR)
+    all(d -> d isa LogNormal, priors) || error("F6 assumes log-normal priors")
+    μσ = [params(d) for d in priors]
+    rng = Xoshiro(16_400_100)
+    ref = [rand(rng, Normal(μ, σ), 100_000) for (μ, σ) in μσ]
+    fits = [("transcripts only", chains3([draws(runs[:tx_only].state.trace)])),
+            ("metabolites only", chains3([draws(runs[:met_only].state.trace)])),
+            ("joint (V6)", chains3([draws(r.state.trace) for r in v6]))]
+    println("F6 at M0. KL(posterior ‖ prior) in nats on the log scale, n_grid 4,000 (8,000 as the check); ",
+            "the floor is the 95th percentile of 20 prior samples of the cell's bulk ESS. ",
+            "Draws: sweeps $(BURN + 1) on of each chain.\n")
+    println("| Parameter | Data | SD / prior SD | KL (nat) | KL at 8,000 | Gaussian KL | Floor | Bulk ESS | Split-R̂ | Reads |")
+    println("|---|---|---|---|---|---|---|---|---|---|")
+    for p in 1:P, (lab, x) in fits
+        if lab == "transcripts only" && names[p] == "sigma_b"
+            println("| sigma_b | $lab | held at its start | — | — | — | — | — | — | held |")
+            continue
+        end
+        ess, rhat = bulk_ess(x)[p], split_rhat(x)[p]
+        if rhat > 1.05
+            @printf("| %s | %s | — | — | — | — | — | %.0f | %.3f | unmixed, not read |\n", names[p], lab, ess, rhat)
+            continue
+        end
+        v = vec(x[:, :, p])
+        μ, σ = μσ[p]
+        kl = kl_divergence(v, ref[p]; n_grid = 4_000)
+        kl8 = kl_divergence(v, ref[p]; n_grid = 8_000)
+        n = round(Int, ess)
+        floor95 = quantile([kl_divergence(rand(rng, Normal(μ, σ), n), ref[p]; n_grid = 4_000)
+                            for _ in 1:20], 0.95)
+        g = gauss_kl(mean(v), std(v), μ, σ)
+        reads = kl <= floor95 ? "not resolved from the prior" : "resolved"
+        ess < 100 && (reads *= ", ESS below 100")
+        abs(kl - g) > 0.2 * max(kl, g) && (reads *= ", KDE and Gaussian differ by > 20%")
+        stable = abs(kl8 - kl) < max(0.02kl, 0.002)
+        stable || (reads *= ", grid not converged")
+        @printf("| %s | %s | %.3f | %.4f | %.4f | %.4f | %.4f | %.0f | %.3f | %s |\n", names[p], lab,
+                std(v) / σ, kl, kl8, g, floor95, ess, rhat, reads)
+    end
+end
+
 if ARGS[1] == "run"
     run_chain(parse(Int, ARGS[2]))
 elseif ARGS[1] == "rates"
     rates()
 elseif ARGS[1] == "summary"
     summary(ARGS[2], ARGS[3:end])
+elseif ARGS[1] == "f6"
+    f6(ARGS[2], ARGS[3], ARGS[4])
 else
-    error("stage must be run, rates or summary")
+    error("stage must be run, rates, summary or f6")
 end
