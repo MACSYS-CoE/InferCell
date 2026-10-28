@@ -1,6 +1,51 @@
 # Handoff
 
-## Latest: 16b.2 and 16b.3 read off at M0 (branch `phase-16b-readoffs`, 2026-10-28)
+## Latest: phase 16 met at M0; T3 filled (branch `phase-16b-license`, PR #110, 2026-10-28)
+
+**T3** is in `dev/scripts/phase16_t3.md`.
+- K1 does not fire at M0, and fires at full scale (budget-bound).
+- K2 is budget-bound, with M0's read-off beside it.
+- K3 is phase 17's.
+- K4 does not fire.
+- K5 fired in 14b, and was answered by 14c and D16.1.
+- K6 does not fire.
+- K7 is budget-bound.
+
+**The user's two scoring choices** (§12 "T3 at M0"):
+- K2 is scored budget-bound, with its definition unchanged;
+- the forward direction, ptsG under metabolites only, is recorded as unmeasured on
+  the exact sampler. The rerun (option b) stays parked until the paper's framing
+  is set.
+
+16b.7 and 16b.8 are ticked. 16b.5 and 16b.6 are closed as budget-bound. The
+sub-spec's status and the parent's phase 16 now read "met at M0; full scale
+budget-bound".
+
+**Next (v0.3.0 and paper 1):**
+1. B7.8: the stream arms against 16b.4, on the parameters that mixed.
+2. Track C's uncertainty budget (#90), once the user picks the prediction (O4).
+3. B8: run it inside the ~4.6k CPU-h left, or defer it. Ask how B8 handles S.
+4. The paper branch (#100): merge main in, fill §5.3 from B7, and set the
+   framing of Figure 4 and K2. Revisit option (b) then.
+5. Docs (#91), the flaky-test fix, and the v0.3.0 release.
+
+## Earlier: 16b.7, what phase 16 licenses at M0 (branch `phase-16b-license`, 2026-10-28)
+
+`dev/scripts/phase16_m0_license.md` lists every phase 16 result with its rung and
+label, what M0 licenses, what it does not, and the scoping note's caveats. 16b.7 is
+ticked.
+- **Licensed at M0:**
+  - the sampler is calibrated;
+  - the joint data resolve all six;
+  - each stream informs its own block.
+- **Not licensed:**
+  - anything at full scale;
+  - cross-block information on the exact sampler, in either direction (F6);
+  - precision beyond what single chains carry.
+- **K7** is not measured (budget-bound).
+
+
+## Earlier: 16b.2 and 16b.3 read off at M0 (branch `phase-16b-readoffs`, 2026-10-28)
 
 Both are ticked from existing results, with no new chains
 (`dev/scripts/m0_16b_result.md`, "16b.2 and 16b.3").
