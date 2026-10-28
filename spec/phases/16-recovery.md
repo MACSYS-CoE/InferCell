@@ -1023,12 +1023,18 @@ annotated below with its rung and funding.
   - the two fits' posterior width ratio on `kcatF_R_PYK`;
   - K7 scored against twofold.
   **Not run, budget-bound** (not funded at 16a.11).
-- [ ] 16b.7 (parent 16.10) Label what the result does and does not license — verify
+- [x] 16b.7 (parent 16.10) Label what the result does and does not license — verify
   by the report carrying:
   - the scoping note's caveats: best-measured region, enzyme competition partly
     removed, architecture evidence rather than well-posedness;
   - K7's factor;
   - every result's rung and budget-bound label.
+  **Done 2026-10-28 at M0:** `dev/scripts/phase16_m0_license.md` carries:
+  - every result's rung and label;
+  - the scoping note's three caveats;
+  - K7 as not measured (budget-bound);
+  - that neither direction of cross-block information is measured on the exact
+    sampler at M0.
 - [ ] 16b.8 (parent 16.11) Fill T3 — verify by:
   - all seven criteria carrying a threshold, a measured value and a verdict,
     **published whether or not everything passed**;

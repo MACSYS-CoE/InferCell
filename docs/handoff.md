@@ -1,6 +1,25 @@
 # Handoff
 
-## Latest: 16b.2 and 16b.3 read off at M0 (branch `phase-16b-readoffs`, 2026-10-28)
+## Latest: 16b.7, what phase 16 licenses at M0 (branch `phase-16b-license`, 2026-10-28)
+
+`dev/scripts/phase16_m0_license.md` lists every phase 16 result with its rung and
+label, what M0 licenses, what it does not, and the scoping note's caveats. 16b.7 is
+ticked.
+- **Licensed at M0:**
+  - the sampler is calibrated;
+  - the joint data resolve all six;
+  - each stream informs its own block.
+- **Not licensed:**
+  - anything at full scale;
+  - cross-block information on the exact sampler, in either direction (F6);
+  - precision beyond what single chains carry.
+- **K7** is not measured (budget-bound).
+
+**Next:** 16b.8, T3. It needs the user's framing call on K2 and on ptsG under
+metabolites only. Then tick the parent's phase 16 as "met at M0; full scale
+budget-bound".
+
+## Earlier: 16b.2 and 16b.3 read off at M0 (branch `phase-16b-readoffs`, 2026-10-28)
 
 Both are ticked from existing results, with no new chains
 (`dev/scripts/m0_16b_result.md`, "16b.2 and 16b.3").
