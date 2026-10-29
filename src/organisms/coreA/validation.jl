@@ -297,19 +297,21 @@ struct ValidationRun
 end
 
 """
-    validation_run!(models, d, n; moieties = corea_moieties(...), sample_every = 60)
-        -> ValidationRun
+    validation_run!(models, d, n; moieties = corea_moieties(...), sample_every = 60,
+                    clips = nothing) -> ValidationRun
 
 Advance the driver `n` handshakes, recording what the balance checks read.
 `models` must be the list `d` was built from, since the driver keeps indices
 and not names. Each moiety's total is taken at every handshake, so a closure is
-asserted along the whole trajectory, not only at its end.
+asserted along the whole trajectory, not only at its end. A [`ClipRecord`](@ref)
+passed as `clips` is read after every handshake, as [`record_clips!`](@ref) needs.
 """
 function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
                          n::Integer;
                          moieties = corea_moieties(carbon = GLC_UPTAKE_METER in
                                                    _block_names(models, :ode)),
-                         sample_every::Integer = 60)
+                         sample_every::Integer = 60,
+                         clips = nothing)
     ode_names = _block_names(models, :ode)
     jump_names = _block_names(models, :jump)
     length(ode_names) == length(d.ode.u) && length(jump_names) == length(d.jump.u) ||
@@ -327,6 +329,7 @@ function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
     samples = [(t = d.ode.t, u = collect(Float64, d.ode.u), p = collect(Float64, d.ode.p))]
     for k in 1:n
         handshake_step!(d)
+        clips === nothing || record_clips!(clips, d)
         push!(t, d.ode.t)
         push!(ode, collect(Float64, d.ode.u))
         push!(factor, d.factor)

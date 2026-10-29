@@ -85,6 +85,7 @@ include("abc_smc.jl")
 include("inference.jl")
 include("posterior_draws.jl")
 include("predict_completion.jl")
+include("predict_forward.jl")
 include("boundary.jl")
 
 export InferParameter, free_params, rate_params, ic_params, obs_params,

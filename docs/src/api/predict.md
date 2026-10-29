@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl).
+Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl).
 
 ## Reading a posterior
 
@@ -27,9 +27,29 @@ about their medians for the sensitivity runs. Reverse constants are derived from
 the whole set that runs, posterior and held values together, by
 [`haldane_values`](@ref), so every reaction keeps its equilibrium constant.
 
+## Forward descriptions and δ
+
+[`forward_cells`](@ref) runs a composition at given parameter writes, read for
+the predicted quantity Q:
+- `forward = :hybrid` runs the reference composition, one stochastic cell per
+  seed, and each seed fixes its cell;
+- `forward = :mean_field` runs route (ii), one ODE, with no cells and no
+  single-cell distribution.
+
+Q is read from the run's metered lactate export, so every composition is
+[`metered`](@ref) first: `:lactate_out` is the lactate exported in particles and
+`:exported` is the fraction of the lactate formed that left the cell. A function
+of the run is accepted too. Each run is kept as a [`CellRun`](@ref): its Q, its
+clips, the smallest particle count of each state, and its failure, if it failed,
+with the reason.
+
+The mean field has no δ for Q of its own. The mixed route's δ covers only its 17
+panel pools. [`delta_correction`](@ref) computes one from a hybrid ensemble at a
+reference point, once, and keeps it as a [`DeltaCorrection`](@ref) to reuse.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["posterior_draws.jl", "predict_completion.jl"]
+Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_forward.jl"]
 ```

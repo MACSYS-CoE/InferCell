@@ -133,6 +133,7 @@ using Aqua
     # M3: predict (KIM-27 to KIM-34).
     include("test_predict_posterior.jl")
     include("test_predict_completion.jl")
+    include("test_predict_forward.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")
