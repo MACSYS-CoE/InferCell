@@ -42,11 +42,17 @@ intervened arm keeps the nominal equilibrium constants, as its baseline does.
 """
 function intervene(a::Knockdown, models::AbstractVector{<:AbstractSubModel}, values)
     vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
+    nominal = nominal_parameter_values(models)
+    haskey(nominal, a.param) || throw(ArgumentError(
+        "No module in the composition has the parameter :$(a.param) to knock down"))
+    any(r -> r.reverse === a.param, haldane_relations(models)) && throw(ArgumentError(
+        ":$(a.param) is a reverse constant, derived from the others, so a knockdown of " *
+        "it would never run; knock down its forward constant"))
+    # A zero dose writes exactly what the baseline writes: adding a parameter the
+    # writes leave out would re-derive its reverse constant, a roundoff away.
+    a.dose == 0 && return haldane_values(models, vals)
     i = findfirst(p -> first(p) === a.param, vals)
     if i === nothing
-        nominal = nominal_parameter_values(models)
-        haskey(nominal, a.param) || throw(ArgumentError(
-            "No module in the composition has the parameter :$(a.param) to knock down"))
         push!(vals, a.param => nominal[a.param] * (1 - a.dose))
     else
         vals[i] = a.param => last(vals[i]) * (1 - a.dose)

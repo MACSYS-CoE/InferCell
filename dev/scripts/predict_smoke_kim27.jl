@@ -121,7 +121,7 @@ function reduced()
         p = predict(dms, pd; horizon = H, completion = :prior, width = w, n_held = 2,
                     n_parameter_draws = 2, rng = Xoshiro(29))
         report("prior_width_$w", p)
-        check(length(p.held) == 15, "width $w: the 15 non-M0 promoters are held")
+        check(length(p.held) == 15, "width $w: 15 parameters are held (which ones: test_predict_completion.jl)")
     end
     V = ViabilityRule(; label = "smoke toy V, not M4's", allow_clipped = true,
                       min_viable_fraction = 0.5, floors = [:M_gtp_c => 500.0])

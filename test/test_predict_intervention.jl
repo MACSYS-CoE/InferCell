@@ -31,6 +31,11 @@ using InferCell: AbstractSubModel
         @test e[:kcatR_R_ENO] ≈ 0.5 * Dict(θ)[:kcatR_R_ENO] rtol = 1e-12
         @test e[:kcatR_R_FBA] == Dict(θ)[:kcatR_R_FBA]
         @test all(r -> r.relative <= r.bound, assert_haldane(ms, collect(e)))
+        # A zero dose writes exactly the baseline's writes, even for a Haldane-linked
+        # parameter they leave out; and a reverse constant, which is derived, is
+        # refused as a target.
+        @test intervene(Knockdown(; param = :kcatF_R_PGK3, dose = 0.0), ms, θ) == θ
+        @test_throws ArgumentError intervene(Knockdown(; param = :kcatR_R_ENO, dose = 0.5), ms, θ)
         @test_throws ArgumentError Knockdown(; dose = 1.5)
         @test_throws ArgumentError intervene(Knockdown(; param = :no_such, dose = 0.1), ms, θ)
     end

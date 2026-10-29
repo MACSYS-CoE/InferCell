@@ -69,7 +69,9 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
    - `predict` runs serially, and cannot yet be split over tasks under
      completion: tasks sharing an rng rerun the same cells, and tasks with
      different rngs draw different θ_H. KIM-62 is the parallel path. Under
-     `completion = :none` (M0), give each task its own rng.
+     `completion = :none` (M0), give each task its own rng and disjoint
+     `draws`. For a corrected mean field, compute one `DeltaCorrection` and pass
+     it to every task.
    - Timings so far: an M0 hybrid cell over 600 s takes about 2 s (job
      19518978), and a d11 hybrid cell over 120 s about 1 s (job 19520507). A
      d11 cell over 6,300 s has not been timed; KIM-38 times it.

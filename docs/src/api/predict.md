@@ -27,8 +27,8 @@ within a draw. The [`Prediction`](@ref) keeps every run, every decision and ever
 seed. Its `summary` separates the spread of μ̂ over the pairs from the Monte
 Carlo term and from the cell-to-cell spread. Without completion, their
 difference is the parameter variance. With completion it is not: every row
-shares the same held draws, so the held parameters' share is mostly missing from
-it (all of it at one held draw). Its estimator on the crossed matrix, like the
+shares the same held draws, so about 1/K of the held parameters' share is
+missing from it for K held draws, and all of it at one held draw. Its estimator on the crossed matrix, like the
 θ_I/θ_H split's, is fixed in M4.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
@@ -41,9 +41,10 @@ the reduced model the held parameters come from their priors, and the result is
 unscored: no truth matches those data.
 
 The toy models' [`posterior_predictive`](@ref) reads its posterior the same way,
-and forks the rng the same way. It draws without replacement, runs the toy
-composition once per draw (an ODE solve, or a stochastic run for the ABC
-method), and returns the trajectories.
+and forks the rng the same way. It draws without replacement, or by weight
+with replacement from an ABC posterior. It runs the toy composition once per
+draw, an ODE solve or, for a jump module, a stochastic run, and returns the
+trajectories.
 
 ## Reading a posterior
 

@@ -120,6 +120,7 @@ end
         bad(; draws = [1, 9])
         bad(; completion = :prior, held = [:kcatR_R_ENO])   # derived, not drawn
         bad(; theta_ref = draw_values(pd, 1))
+        bad(; intervention = Knockdown(; param = :enz_R_ENO, dose = 0.5))   # driver-written
         stray = PosteriorDraws([:no_such], ones(2, 1), nothing, [1, 1], [1, 2], nothing,
                                nothing, (kind = :test,))
         @test_throws ArgumentError predict(ms, stray; horizon = H)

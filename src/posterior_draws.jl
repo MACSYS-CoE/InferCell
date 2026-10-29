@@ -121,8 +121,9 @@ not only the first.
 A `PosteriorDraws` is returned as it is.
 
 **Several files** are read in turn and merged, as a fit's two B7 chain files are.
-Their parameters must match, and so must their truths when they record one, and
-their B7 fits: a posterior merged over datasets or likelihoods is refused. If two
+Their parameters must match, and so must their truths when they record one, their
+B7 fits, and their routes (V7 is the exact route's, B7 the mixed route's, and a
+`Chains` records its own). A file read twice is refused. If two
 parts would give a draw the same chain and iteration, as two `infer` outputs do
 (each is chain 1), the later part's chains are numbered after the earlier's.
 """
@@ -236,6 +237,10 @@ end
 # The sources a posterior was read from, a merge's parts flattened.
 _sources(s::NamedTuple) = s.kind === :merged ? s.parts : [s]
 
+# The route whose likelihood a source's draws come from, where it is known.
+_route(s) = s.kind === :v7_replicate ? :exact : s.kind === :b7_chain ? :mixed :
+            get(s, :route, nothing)
+
 function Base.vcat(a::PosteriorDraws, bs::PosteriorDraws...)
     parts = (a, bs...)
     for b in bs
@@ -253,6 +258,11 @@ function Base.vcat(a::PosteriorDraws, bs::PosteriorDraws...)
     fits = unique(s.fit for s in sources if haskey(s, :fit))
     length(fits) <= 1 || throw(ArgumentError(
         "the posteriors come from different fits, $fits, so they are not one posterior"))
+    routes = unique(r for r in _route.(sources) if r !== nothing)
+    length(routes) <= 1 || throw(ArgumentError(
+        "the posteriors come from different routes, $routes, so different likelihoods"))
+    paths = [s.path for s in sources if haskey(s, :path)]
+    allunique(paths) || throw(ArgumentError("a file is read twice: $paths"))
     k = findfirst(p -> p.truth !== nothing, parts)
     truth = k === nothing ? nothing : parts[k].truth
     chain = reduce(vcat, (p.chain for p in parts))

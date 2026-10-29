@@ -314,6 +314,10 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
     isempty(unused) || throw(ArgumentError(
         "the posterior names $unused: the driver writes these or they are derived, so " *
         "a posterior value for them would never run"))
+    intervention isa Knockdown &&
+        any(s -> s.name === intervention.param && s.reason === :driver_written, hp.skipped) &&
+        throw(ArgumentError("the driver writes :$(intervention.param) at every handshake, " *
+                            "so a knockdown of it would never run"))
     inferred = Set(s.name for s in hp.skipped if s.reason === :inferred)
     bad = setdiff(pd.names, inferred)
     isempty(bad) || throw(ArgumentError(

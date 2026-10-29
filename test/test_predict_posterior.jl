@@ -118,6 +118,10 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
         serialize(path, ch)
         @test posterior_draws(path).values == a.values
         @test_throws ArgumentError posterior_draws(path; burn = 1)
+        # Two routes are two likelihoods, and one file read twice is not two chains.
+        mixed = Chains(X, names; info = (route = :mixed,))
+        @test_throws ArgumentError vcat(posterior_draws(ch), posterior_draws(mixed))
+        @test_throws ArgumentError posterior_draws([path, path])
 
         # Separate runs each number their chains from 1; merged, each keeps a place
         # of its own, and the sources stay one flat list.

@@ -4446,9 +4446,10 @@ given by name, with a settable-set default, and 14c's broad composition stays in
   `ABCPosterior` into one `PosteriorDraws`. It maps every column by name, holds
   values on the natural scale, and reads every chain. σ_b is a separate field and
   never reaches a model. A B7 truth keeps the targets and σ_b only, since reverse
-  constants are re-derived, never read. A merge is refused across truths and
-  across B7 fits, since most fits record no truth. Parts that would give two
-  draws the same chain and iteration are renumbered. `burn` and `thin` are V7's
+  constants are re-derived, never read. A merge is refused across truths, across
+  B7 fits (most fits record no truth) and across routes (V7 is exact, B7 mixed),
+  and so is a file read twice. Parts that would give two draws the same chain and
+  iteration are renumbered. `burn` and `thin` are V7's
   and refused for other files. A posterior that names a reverse constant or a
   driver-written slot is refused, since no value for it would ever run.
 - **Reverse constants** are derived from the whole set that runs, posterior and
@@ -4516,9 +4517,12 @@ given by name, with a settable-set default, and 14c's broad composition stays in
   are checked to be distinct. The global generator is restored, as `infer`
   restores it.
   - Two calls with the same rng draw the same θ_H and the same cell seeds,
-    whatever their `draws`. So a prediction cannot yet be split over tasks. With
-    one rng, the tasks rerun the same cells on different rows. With several,
-    the tasks draw different θ_H. KIM-62 is the parallel path.
+    whatever their `draws`. So a prediction with completion cannot yet be split
+    over tasks. With one rng, the tasks rerun the same cells on different rows.
+    With several, the tasks draw different θ_H. KIM-62 is the parallel path.
+    Without completion (M0), tasks can split the rows with an rng each, given
+    disjoint `draws` and, for a corrected mean field, one shared
+    `DeltaCorrection`.
 - **The estimand** is the population mean. For each weight set, the summary
   gives:
   - the mean (δ-corrected when δ is given);
@@ -4557,7 +4561,10 @@ given by name, with a settable-set default, and 14c's broad composition stays in
     recorded run changes.
   - V is read at baseline only (note §4, assumption 4), and pairs that V rejects
     are not run under the intervention.
-  - A zero dose gives ΔQ ≡ 0 exactly.
+  - A zero dose gives ΔQ ≡ 0 exactly: it writes what the baseline writes, even
+    for a Haldane-linked parameter the writes leave out.
+  - A knockdown of a reverse constant or of a driver-written slot is refused,
+    since it would never run.
   - ΔQ is taken over the cells that finish in both arms. A cell that fails only
     under the intervention leaves ΔQ, and is listed in its pair's provenance.
     Note §4(4) counts it as part of the prediction; a count is left to KIM-63.
@@ -4573,9 +4580,10 @@ given by name, with a settable-set default, and 14c's broad composition stays in
   held slots.
 - **`posterior_predictive`** (KIM-34) keeps its signatures and return. It now
   reads the posterior through `posterior_draws` (every chain, by name), and draws
-  from a forked stream with the global generator restored. It draws without
-  replacement, sorted by chain and iteration, where the old code drew with
-  replacement from chain 1.
+  from a forked stream with the global generator restored. From a `Chains` it
+  draws without replacement, sorted by chain and iteration, where the old code
+  drew with replacement from chain 1. From an ABC posterior it still draws by
+  weight, with replacement.
   - **A departure from the M3 plan:** `predict` does not gain an `:ode` forward.
     Its estimand is a population mean of a scalar Q, and trajectories do not fit
     it. The wrapper shares `predict`'s ingest and rng path instead.
@@ -4635,7 +4643,7 @@ CRITICAL.
   - the smoke script's output-directory and pushed-commit checks;
   - the same-rng test now starts from two global states;
   - the text.
-- **MINORs deferred:** KIM-62 and KIM-63.
+- **Deferred:** the parallel path M4 needs (KIM-62), and four MINORs (KIM-63).
 - **Fix-round checks:** TO FILL.
 
 **Unchanged:**

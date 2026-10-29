@@ -179,8 +179,10 @@ end
                   quantity = :lactate_out) -> Vector{CellRun}
 
 Run `models` at the parameter writes `values` (`name => value` pairs, written as
-given; [`haldane_values`](@ref) derives reverse constants). The composition is
-[`metered`](@ref) first.
+given). Unlike [`intervention_cells`](@ref) and [`delta_correction`](@ref), this
+derives no reverse constants. Pass `values` through [`haldane_values`](@ref)
+first to keep every equilibrium constant. The composition is [`metered`](@ref)
+first.
 
 - `forward = :hybrid` runs one cell per seed.
 - `forward = :mean_field` runs route (ii) once, and `seeds` is ignored.
@@ -201,10 +203,10 @@ end
     intervention_cells(models, values, a, seeds; forward = :hybrid, horizon,
                        quantity = :lactate_out) -> (; baseline, intervened, delta)
 
-[`forward_cells`](@ref) twice: at `values`, and at `values` under intervention `a`
-([`intervene`](@ref)). Both arms run on the same seeds, so each hybrid cell is
-paired with itself, and both derive their reverse constants from what they run
-([`haldane_values`](@ref)). `delta` is the paired effect Q_intervened −
+Two arms on the same seeds: `values`, and `values` under intervention `a`
+([`intervene`](@ref)). Each hybrid cell is paired with itself. Both arms derive
+their reverse constants from what they run ([`haldane_values`](@ref)), which
+[`forward_cells`](@ref) leaves to its caller. `delta` is the paired effect Q_intervened −
 Q_baseline for each cell, `NaN` where either arm failed.
 """
 function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
