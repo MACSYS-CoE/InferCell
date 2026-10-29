@@ -1,6 +1,6 @@
 # Handoff
 
-## Latest: KIM-18, the archived posteriors hold draws (branch `tomkimpson/kim-18-…`, 2026-10-29)
+## Latest: KIM-18, the archived posteriors hold draws (PR #113, 2026-10-29)
 
 **Done:** loaded every archived V7 (exact, 50 files) and B7 (mixed, 116 files)
 posterior file on main. Both archives hold full draws, named as `M0_TARGETS` plus
