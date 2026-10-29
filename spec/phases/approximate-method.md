@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-28
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-29
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -335,10 +335,95 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
   - [x] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".) **Done 2026-10-28** (§12 "B7.8 as planned"; job 19411150; `av6_89_b7_result.md`, "B7.8"). Under transcripts only, none of the five marginals is resolved. Under metabolites only, ENO, σ_b and krnadeg are resolved by small margins and FBA is not. ptsG has no exact counterpart.
   - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
-- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
+- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1). **Parked 2026-10-29, outside v0.3.0 and paper 1** (§12 2026-10-29, "B8 parked"; KIM-17). Its plan and B8.1–B8.9 are kept on branch `issue-89-b8`; only `corea_dataset` (B8.2) is on main.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-29 — B8 parked outside v0.3.0 and paper 1; corea_dataset brought to main (KIM-17)
+
+**Status: decided** (the user, 2026-10-29). The record is `spec/spec.md` §12
+2026-10-29, "v0.3.0 launch decisions", "B8 / O1".
+
+**Change:**
+- **B8 is parked.** It is not run for v0.3.0 or paper 1. B8 is a full-scale
+  calibration without an exact Core A′ reference, and the predictive
+  demonstration completes the argument more directly (launch-readiness note §9).
+- **Branch `issue-89-b8`.** Its plan ("B8 as planned"), the cap reopening
+  (`16-recovery.md` §12 2026-10-29, "O1 part 2") and its B8.3–B8.6 work exist
+  only on that branch. It is kept, with a superseding "B8 parked" entry written
+  there. That entry supersedes both of the branch's records.
+- **The evidence.** B8's only outputs are six profile logs and three M0
+  snapshots, in `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/profile/`.
+  None was inside `.worktrees/`, so nothing needed archiving.
+- **`corea_dataset` and `corea_draws` (B8.2) are on main**
+  (`src/organisms/coreA/observables.jl`; `test/test_corea_mixed.jl`). Their later
+  use is a scored recovery test: injections with a known truth on the reduced
+  model, separate from the reduced-model prediction, which stays unscored. The cherry-pick adds functions and
+  changes none, so M0's datasets are unchanged by construction. The branch checked
+  that `m0_dataset(16_200_001)` hashes the same as on main.
+
+**Unchanged:** B1–B7.9, and every result they report.
+
+*Sections:* §11 B8, §12.
+
+### 2026-10-29 — the mixed route's status in one sentence (KIM-19)
+
+**Status: agreed** (the user, 2026-10-29). This wording is to be reused in the
+README (KIM-23), the paper's §5.3 (KIM-45) and its abstract (KIM-61). Spec §1 carries only
+the claim's "small declared discrepancies", and points here.
+
+**Trigger:** two descriptions were in circulation. The launch-readiness note said
+"passes SBC for 6 of 6 parameters … small but resolved discrepancies". Notes
+outside the repository said "some biases persist for 3 of the parameters". Both
+hold. SBC passes. The "3 parameters" are the m0_v6 gap against V6 (rule 4), which
+is still open.
+
+**The sentence:**
+> On M0 the mixed route passes SBC on all 6 parameters over V7's 50 datasets (job
+> 19292232), at a median 6.57 CPU-h per posterior against 507.5–678 for the exact
+> sampler. Its largest mean bias against the exact posteriors (V7) is
+> 0.095 ± 0.050 SD (krnadeg). On the single dataset m0_v6, S_0779, krnadeg and ENO
+> sit 0.42–0.56 SD from the exact reference (V6), about 0.3 SD above the matched
+> noise floor, and the cause is open.
+
+**Sources**, re-read 2026-10-29:
+- SBC, 6 of 6 within the 1 − 0.05/6 bands: `dev/scripts/av6_89_b7_result.md`,
+  "SBC (rule 3)". The merge is job 19292232 at `8da6045`.
+- The mean biases against V7: the same file, "Against V7 over the 50 (rule 5)".
+  S_0779 (−0.064 ± 0.031) and ENO (+0.064 ± 0.031) are each about 2 SE from
+  zero.
+- The m0_v6 gap: the same file's summary, rule 4. It is 0.47, 0.56 and 0.42 SD
+  for S_0779, krnadeg and ENO. Re-estimating S does not close it (§9).
+- The cost:
+  - the mixed route's figure is from the same file, "KC (rule 7)", from sacct;
+  - the exact sampler's is from `spec/phases/16-recovery.md` §11 16a.11.
+- B7.8 (job 19411150) is not in the sentence. Its single-stream gaps are read
+  against floors that are each one sample of the noise ("the floor is one draw"),
+  and whether they are the m0_v6 gap is untested.
+
+**Word rule:** say "detectable" or "declared" discrepancies, not "resolved".
+In this record, "resolved" means a gap is larger than its noise floor. Readers take
+it to mean fixed.
+
+*Sections:* §12.
+
+### 2026-10-29 — the v0.3.0 claim, recorded in the parent spec
+
+**Status: decided** (the user's decisions). The record is `spec/spec.md` §12
+2026-10-29, "v0.3.0 launch decisions". It is not restated here.
+
+**What it means for this track:**
+- The claim (O2) rests on this track for its second sentence: "on M0, both
+  inference routes pass simulation-based calibration, with small declared
+  discrepancies". B7 is that evidence for the mixed route. The discrepancies are
+  spelled out in one sentence in the KIM-19 entry.
+- The formalism swap, hybrid against mean-field forward, is the one model-form
+  term that is measured (KIM-16). It is measured by the crossed design on M0.
+  This track's mean field is one of its two columns.
+- B8 is parked outside v0.3.0 (KIM-17). See the KIM-17 entry.
+
+*Sections:* §12.
 
 ### 2026-10-28 — B7.8 as planned: the floor, and which cells are read
 

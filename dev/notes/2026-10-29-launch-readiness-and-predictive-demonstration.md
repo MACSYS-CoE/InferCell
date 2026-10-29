@@ -47,7 +47,7 @@ critical path.
 
 | Area | Current state | Remaining launch gate |
 |---|---|---|
-| Exact and mixed inference on M0 | Substantially complete. The mixed route passes SBC for 6 of 6 parameters; median cost is 6.57 CPU-h per posterior. Small but resolved discrepancies remain. | Integrate the evidence into the paper and state the caveats plainly. |
+| Exact and mixed inference on M0 | Substantially complete. The mixed route passes SBC for 6 of 6 parameters; median cost is 6.57 CPU-h per posterior. Small but detectable discrepancies remain (worded once in `spec/phases/approximate-method.md` §12 2026-10-29, KIM-19). | Integrate the evidence into the paper and state the caveats plainly. |
 | Probabilistic prediction | The required public feature is not built. The existing `posterior_predictive` is an early all-ODE implementation. | Hybrid prediction, chain ingestion, completion from priors, viability conditioning, interventions and reproducible seeds. |
 | Paper | A substantial draft exists, but it branched before B6, is 111 `main` commits behind and contains 46 placeholder occurrences. | Evidence integration, the predictive result, five figures, Table 1, authorship and affiliations, venue material and review. |
 | Release | Unit CI is green. Documentation CI is red. README and spec claims are stale, and `Project.toml` remains at 0.2.0. | Docs, claim audit, version bump, citation and DOI, release notes and archival release. |

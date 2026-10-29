@@ -10,9 +10,11 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
 coupled half failed and carried as a measured cost (§12, #77). Phase 15,
-observables and synthetic data, is done (#78). Phase 16 is next, specified in
-`spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30).
-**Created:** 2026-09-03  ·  **Last amended:** 2026-10-05
+observables and synthetic data, is done (#78). Phase 16, specified in
+`spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30), closed at M0 on
+2026-10-28 (#105–#110). The v0.3.0 claim is §1's, as amended on 2026-10-29 (§12,
+"v0.3.0 launch decisions").
+**Created:** 2026-09-03  ·  **Last amended:** 2026-10-29
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -81,6 +83,10 @@ spec wins, because the note does not address either.
   - **FBA, the other metabolic target, is not shown null.** So the reverse
     direction is a measured null for ENO and open for FBA. K2 still decides it, at
     1,000 cells (§8, 16b.5).
+  - **Amended 2026-10-29 (§12):** this table is outside the v0.3.0 claim. At M0,
+    the ptsG cell is unmeasured on the exact sampler (it did not mix). K2 is
+    budget-bound and 16b.5 is closed as budget-bound (T3, `spec/phases/16-recovery.md`
+    §12 2026-10-28).
 
 - **What it is not.** It does not reproduce syn3A's 105-minute doubling time, its
   metabolite concentrations or its proteome, and no result is to be compared to
@@ -118,21 +124,43 @@ spec wins, because the note does not address either.
 
 ## 1. The claim
 
-**Parameter uncertainty propagates correctly across a genuine ODE/stochastic
-boundary in a model derived from a published whole-cell simulation.** Concretely:
-in Core A′ — 21 metabolic reactions and 17 genes carved out of Thornburg et al.
-2022's well-stirred JCVI-syn3A model, with four deterministic modules and three
-stochastic ones exchanging state every simulated second and rate constants every
-sixty — posteriors over parameters whose information crosses the boundary are
-*calibrated*, not merely centred: coverage on synthetic data is nominal at stated levels, rank
-statistics are uniform within test, and what the data does and does not constrain
-is characterised rather than assumed.
+**The v0.3.0 claim** (amended 2026-10-29, §12, "v0.3.0 launch decisions"):
+
+> InferCell supports exact stochastic and mean-field descriptions across a coupled
+> ODE–jump boundary. On M0, both inference routes pass simulation-based
+> calibration, with small declared discrepancies. Posterior-updated parameters can
+> be combined modularly with viability-conditioned uncertainty in the remaining
+> parameters to produce forward and intervention predictions on the reduced model.
+
+It does not claim:
+- an all-parameter posterior;
+- calibrated inference on Core A′ itself;
+- a biological finding.
+
+The data are synthetic and the priors asserted throughout. User-facing text says
+"the reduced syn3A model", not "Core A′"; the `corea` identifiers stay.
+
+**The original claim, now the direction of the work and not claimed for v0.3.0**
+(superseded 2026-10-29, §12). Parameter uncertainty propagates correctly across a
+genuine ODE/stochastic boundary in a model derived from a published whole-cell
+simulation. Concretely: in Core A′ — 21 metabolic reactions and 17 genes carved
+out of Thornburg et al. 2022's well-stirred JCVI-syn3A model, with four
+deterministic modules and three stochastic ones exchanging state every simulated
+second and rate constants every sixty — posteriors over parameters whose
+information crosses the boundary are *calibrated*, not merely centred: coverage on
+synthetic data is nominal at stated levels, rank statistics are uniform within
+test, and what the data does and does not constrain is characterised rather than
+assumed. Phase 16 met calibration at M0, not on Core A′, and closed there
+(`spec/phases/16-recovery.md` §11 16b.8 and §12 2026-10-28 "T3 at M0"); the
+v0.3.0 claim states that and no more.
 
 The enabling result, and not the claim itself, is that a composable
 typed-interface architecture can host heterogeneous formalisms from a published
 whole-cell model, execute the coupling between them, and support inference over
 the whole with every reduction and every provenance choice enumerable from the
-composed model.
+composed model. It is demonstrated on reduced syn3A only: v0.3.0 builds no generic
+organism registry (O3, §12 2026-10-29; §7's "Decoupling the framework from
+Core A′").
 
 **What "crosses the boundary" means here, precisely.** No parameter is *shared*
 between the two blocks; §4 D13 establishes that this is inherited from the
@@ -140,7 +168,13 @@ published model rather than chosen by us. So the claim is not that one quantity
 appears in both blocks' rate laws and is informed by both data streams. It is
 that a parameter local to one block has its posterior moved by the *other*
 block's data, through the state coupling. That is a harder claim and a narrower
-one, and §6 F6 is where it is cashed out.
+one, and §6 F6 is where it is cashed out. **Status (amended 2026-10-29, §12):**
+on the exact sampler at M0, the forward direction is unmeasured: ptsG under
+metabolites only did not mix. The reverse is a null read-off at 50 cells (ENO
+0.0041 and FBA 0.0081 nat, each below its floor; job 19395555). That read-off is
+budget-bound and is not K2's verdict, which needs 1,000 cells (T3,
+`spec/phases/16-recovery.md` §12 2026-10-28 "T3 at M0"). So neither direction is
+part of the v0.3.0 claim.
 - **Metabolites → gene expression:** the ptsG promoter strength shrinking under
   metabolite-only data.
 - **The other direction, for ENO, is shown not to carry information** (amended
@@ -154,8 +188,14 @@ one, and §6 F6 is where it is cashed out.
   - **FBA, the other metabolic constant, is not shown null.** Its expected
     information gives a ratio of 0.995, but its curvature-based upper-2σ ratio is
     about 0.72. K2 decides the reverse direction on the posterior at 1,000 cells.
+  - *Amended 2026-10-29:* K2 was not run at 1,000 cells, and is scored
+    budget-bound (T3). At M0, both ENO and FBA are null read-offs at 50 cells.
+    This bullet records the design, not a v0.3.0 result.
 
-**What this claim deliberately excludes.** Core A′ removes roughly 92% of the
+**What this claim deliberately excludes** (amended 2026-10-29, §12). It makes no
+claim of an all-parameter posterior, of calibrated inference on Core A′, or of a
+biological finding: predictions on the reduced model are unscored demonstrations
+of the method, and only M0 is scored. Core A′ removes roughly 92% of the
 cell. It will not reproduce syn3A's 105-minute doubling time, its metabolite
 concentrations, or its proteome, and no result here is to be compared to them.
 That is a consequence of the reduction, not a defect in it. Growth is reported as
@@ -164,10 +204,11 @@ bar this work is held to is in the table below, and the left column is not it.
 
 | Not the bar | The bar |
 |---|---|
-| Reproduces the 105 min doubling time | Parameters recover from synthetic data with nominal coverage |
-| Matches syn3A metabolite concentrations | Posteriors are calibrated, checked per module and jointly |
+| Reproduces the 105 min doubling time | Parameters recover from synthetic data with nominal coverage, on M0 (amended 2026-10-29) |
+| Matches syn3A metabolite concentrations | Posteriors are calibrated on M0, by both the exact and the mixed route (amended 2026-10-29) |
 | Predicts the observed proteome | Identifiability is characterised: we know what the data constrains |
-| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05) |
+| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05). Not measured at M0 and outside the v0.3.0 claim (amended 2026-10-29, T3) |
+| A biological prediction | Predictions on the reduced model state every uncertainty source they carry, and say which are measured and which are only declared (amended 2026-10-29) |
 
 ---
 
@@ -1404,7 +1445,7 @@ is the enabler.
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
 | F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
-| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** | **Amended 2026-10-05 (§12):** one load-bearing cell and one measured null. The ptsG promoter under *metabolites only* shrinks: information crossed from the ODE block's data into the stochastic block's parameter. ENO under *transcripts only* cannot shrink at 15.7's truth, by the complete-data information bound (§12 2026-10-05; linearised, 40 cells scaled to 200). At that truth, a shrinkage there would mean a sampler error, so it is a check, not a hope. At other truths, such as 16b's prior-drawn coverage replicates, the bound was not computed |
+| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** (outside the v0.3.0 claim; amended 2026-10-29, §12) | **Amended 2026-10-29 (§12):** at M0, the ptsG cell is unmeasured on the exact sampler and the reverse is a 50-cell null read-off (T3). **Amended 2026-10-05 (§12):** one load-bearing cell and one measured null. The ptsG promoter under *metabolites only* shrinks: information crossed from the ODE block's data into the stochastic block's parameter. ENO under *transcripts only* cannot shrink at 15.7's truth, by the complete-data information bound (§12 2026-10-05; linearised, 40 cells scaled to 200). At that truth, a shrinkage there would mean a sampler error, so it is a check, not a hope. At other truths, such as 16b's prior-drawn coverage replicates, the bound was not computed |
 | F7 | Leave-one-stream-out: refit dropping each transcript stream and each metabolite stream, reporting the change per target | C3 | Identifies load-bearing single points of failure, and streams that never informed anything |
 | **F8** | **Rank-ECDF difference plots with simultaneous bands**, per target, at the largest affordable replication count | C4 | Primary calibration evidence. Histograms are secondary |
 | F9 | Coverage curve: nominal against empirical at 50, 80, 90, 95 and 99 percent, per target, with binomial intervals | C4 | The two controls are the diagnostic rows, with the kill-criterion band drawn on |
@@ -4379,6 +4420,116 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-10-29 — v0.3.0 launch decisions: the claim, scope, quantity, venue and model form (the user's decisions)
+
+**Status: decided**, except O4, which is provisional until M4's freeze entry
+(KIM-39). Recorded before any `predict` code or prediction run.
+
+**Trigger:** the launch-readiness note
+(`dev/notes/2026-10-29-launch-readiness-and-predictive-demonstration.md` §9) and
+the completion plan built on it (`dev/notes/2026-10-29-completion-plan.md` §2,
+moved from the repository root's `tmp-completion-plan.md` in #114). The
+discussion of 2026-10-29 accepted the note's calls with the adjustments in the
+plan's §3.
+Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
+
+**Change:**
+- **O2, the claim (KIM-12).** §1 now leads with the v0.3.0 claim, the note's
+  wording verbatim:
+  > InferCell supports exact stochastic and mean-field descriptions across a
+  > coupled ODE–jump boundary. On M0, both inference routes pass simulation-based
+  > calibration, with small declared discrepancies. Posterior-updated parameters
+  > can be combined modularly with viability-conditioned uncertainty in the
+  > remaining parameters to produce forward and intervention predictions on the
+  > reduced model.
+
+  - It does not claim an all-parameter posterior, calibrated inference on
+    Core A′, or a biological finding.
+  - User-facing text says "the reduced syn3A model"; the `corea` identifiers stay.
+  - The old §1 claim ("posteriors over parameters whose information crosses the
+    boundary are *calibrated*" in Core A′) is kept in §1 as the direction of the
+    work, marked superseded. Phase 16 met it at M0 only (16b.8, T3). On the exact
+    sampler at M0 the forward direction is unmeasured, and the reverse is only a
+    budget-bound null read-off at 50 cells, so the boundary-crossing paragraph is
+    marked as outside the claim.
+  - "Small declared discrepancies" is spelled out for the mixed route in
+    `spec/phases/approximate-method.md` §12 2026-10-29 "the mixed route's status
+    in one sentence" (KIM-19).
+- **O3, generality (KIM-13).** No generic organism registry in v0.3.0. The wording
+  is "a compositional inference framework demonstrated on reduced syn3A".
+  Generality across organisms needs a second implementation, not more abstraction
+  in this release; §7's "Decoupling the framework from Core A′" stays unpaid.
+- **O4, the predicted quantity (KIM-14). Provisional.**
+  - Q is lactate export. `carbon_accounts` (`src/organisms/coreA/validation.jl`)
+    returns two candidates: `lactate_out`, the integrated export in particles,
+    and `exported = lactate_out / lactate_formed`, a fraction. Which one is Q is
+    left to the freeze.
+  - The estimand is the population mean of Q. Intrinsic cell-to-cell spread comes
+    from the hybrid only and is reported separately.
+  - Minimum GTP, clipping and starvation are validity diagnostics on the
+    unfiltered ensemble. Fractional growth is not the headline.
+  - δ for Q: the mean-field forward model is reported both uncorrected (the Jensen
+    gap is the finding) and corrected by a hybrid ensemble at θ_ref (the fix and
+    its cost). The mixed route's δ covers the 17 panel pools only, and lactate
+    export is not one of them (completion plan §3.1).
+  - The plan wanted O4 both decided before any work and decided after a
+    sensitivity pilot. It stays provisional here. It is frozen in M4's freeze
+    entry (KIM-39), after the sensitivity pilot on held-out seeds (KIM-35) and
+    before any evidence is read.
+- **The venue (KIM-15).** Paper 1 goes to PLOS Computational Biology as a methods
+  paper. The M0 validation plus the reduced-model predictive and intervention
+  demonstration is enough for it. Full-cell stage 1 (prior forward UQ through the
+  syn3a-ensemble port) therefore does not block v0.3.0; it runs in parallel as
+  paper 2. The venue material is an Author Summary.
+- **Model form (KIM-16).** Honest uncertainty has four sources: inferred
+  parameters, held parameters, intrinsic noise and model form. Each is represented
+  or declared missing.
+  - **Measured:** the hybrid vs mean-field forward effect, from the crossed
+    design's columns. This is the model-form term.
+  - **Declared, not bounded:** every other reduction, namely M0's 15 proteins held
+    at proteomics counts, the `reduction_report` labels on the reduced model, and
+    the one-way nucleotide seam (§12 2026-10-05). The paper lists them in a table
+    (KIM-47).
+  - Measurement noise (σ_b) is a separate term, used only when the target is a
+    future noisy observation.
+- **B8 / O1: parked** outside v0.3.0 and paper 1. B8 is a full-scale calibration
+  without an exact Core A′ reference; the predictive demonstration completes the
+  argument more directly. The branch `issue-89-b8` and its evidence are kept, and
+  the parking is recorded on that branch, superseding its "B8 as planned" entry.
+  Its dataset generator, `corea_dataset`, comes to main (KIM-17); its later use is
+  a scored recovery test: injections with a known truth on the reduced model,
+  separate from the reduced-model prediction, which stays unscored. Nothing needed archiving out of
+  `.worktrees/`: B8's only outputs are profile logs and M0 snapshots, already in
+  `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/`.
+- **Redistribution of the upstream parameter extracts (KIM-21): kept vendored,
+  with the risk declared** (the user's decision, 2026-10-29, corrected after the
+  #114 review).
+  - **The facts:** `Luthey-Schulten-Lab/Minimal_Cell` is public, but it carries
+    no licence. So it grants no redistribution rights
+    (`src/organisms/coreA/data/README.md`, "Licensing"; launch-readiness note
+    §2.1). Public code is not an open-source licence.
+  - **The decision:** the extracts stay vendored. No request goes to the lab,
+    and the fetch-at-setup fallback (KIM-25) is cancelled.
+  - **Launch gate 8** ("redistribution has a defensible basis") is therefore met
+    by a declared, accepted risk, not by a licence. The data README already
+    says so, and the v0.3.0 release notes repeat it (KIM-51). The extracts are small derived tables, each recording
+    its upstream commit and regeneration script. InferCell's MIT licence does not
+    cover them.
+
+**Unchanged:**
+- The amendment record, and every result already reported under the old claim.
+- The `corea` identifiers and filenames.
+- The viability rule, the intervention dose, and which nested order of the
+  variance split is the headline. Both orders are reported either way (completion
+  plan §3.4). These are fixed in M4's freeze entry (KIM-36, KIM-37, KIM-39), not
+  here.
+
+**Still to follow this entry:** the README (KIM-23, M2), and the paper's title,
+abstract and claim (KIM-61, M6, after the rebase in KIM-44), are brought into line
+with this entry.
+
+*Sections:* header, §0, §1, §6 F6, §12.
 
 ### 2026-10-13 — a note on inference paths beyond the exact sampler, recorded and open
 

@@ -11,6 +11,7 @@ What the likelihood may condition on, and the synthetic data it is fitted to
 - the ensemble sensitivity and its noise-floor rank test;
 - output F2 on check 8's frozen-expression variant;
 - the dataset generator;
+- synthetic datasets on the reduced syn3A model itself, [`corea_dataset`](@ref);
 - M0, the two-gene reference system of phase 16 (task 16a.8), and its datasets.
 
 ```@autodocs
