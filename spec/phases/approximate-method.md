@@ -340,6 +340,46 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
+### 2026-10-29 — the mixed route's status in one sentence (KIM-19)
+
+**Status: agreed** (the user, 2026-10-29). This wording is reused in the README,
+spec §1, the paper's abstract and §5.3.
+
+**Trigger:** two descriptions were in circulation. The launch-readiness note said
+"passes SBC for 6 of 6 parameters … small but resolved discrepancies". Notes
+outside the repository said "some biases persist for 3 of the parameters". Both
+hold. SBC passes. The "3 parameters" are the m0_v6 gap against V6 (rule 4), which
+is still open.
+
+**The sentence:**
+> On M0 the mixed route passes SBC on all 6 parameters over V7's 50 datasets (job
+> 19292232), at a median 6.57 CPU-h per posterior against 507.5–678 for the exact
+> sampler. Its largest mean bias against the exact posteriors (V7) is
+> 0.095 ± 0.050 SD (krnadeg). On the single dataset m0_v6, S_0779, krnadeg and ENO
+> sit 0.42–0.56 SD from the exact reference (V6), about 0.3 SD above the matched
+> noise floor, and the cause is open.
+
+**Sources**, re-read 2026-10-29:
+- SBC, 6 of 6 within the 1 − 0.05/6 bands: `dev/scripts/av6_89_b7_result.md`,
+  "SBC (rule 3)". The merge is job 19292232 at `8da6045`.
+- The mean biases against V7: the same file, "Against V7 over the 50 (rule 5)".
+  S_0779 (−0.064 ± 0.031) and ENO (+0.064 ± 0.031) are each about 2 SE from
+  zero.
+- The m0_v6 gap: the same file's summary, rule 4. It is 0.47, 0.56 and 0.42 SD
+  for S_0779, krnadeg and ENO. Re-estimating S does not close it (§9).
+- The cost:
+  - the mixed route's figure is from the same file, "KC (rule 7)", from sacct;
+  - the exact sampler's is from `spec/phases/16-recovery.md` §11 16a.11.
+- B7.8 (job 19411150) is not in the sentence. Its single-stream gaps are read
+  against floors that are each one sample of the noise ("the floor is one draw"),
+  and whether they are the m0_v6 gap is untested.
+
+**Word rule:** say "detectable" or "declared" discrepancies, not "resolved".
+In this record, "resolved" means a gap is larger than its noise floor. Readers take
+it to mean fixed.
+
+*Sections:* §12.
+
 ### 2026-10-29 — the v0.3.0 claim, recorded in the parent spec
 
 **Status: decided** (the user's decisions). The record is `spec/spec.md` §12
