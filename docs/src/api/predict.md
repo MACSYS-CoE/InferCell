@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl).
+Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl).
 
 ## Reading a posterior
 
@@ -47,9 +47,22 @@ The mean field has no δ for Q of its own. The mixed route's δ covers only its 
 panel pools. [`delta_correction`](@ref) computes one from a hybrid ensemble at a
 reference point, once, and keeps it as a [`DeltaCorrection`](@ref) to reuse.
 
+## Viability
+
+A viability rule V is data, a [`ViabilityRule`](@ref), and nothing in the code
+fixes its thresholds. V is frozen in M4, before any prediction is read.
+[`cell_status`](@ref) puts each run in one of five categories, which are not
+interchangeable: failed, starved, below a floor, clipped, or clean. V is a
+property of θ: [`assess_viability`](@ref) accepts a parameter set when enough of
+its cells are viable, and otherwise keeps its count of cells per category as the
+reason. Over the crossed matrix of posterior draws × held draws,
+[`viability_weights`](@ref) gives both conditioned variants of the methods note
+as weights: (b) keeps θ_I's marginal as the posterior's, and (a) lets the filter
+act on θ_I. Each comes with its acceptance rate and effective sample size.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_forward.jl"]
+Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_forward.jl", "predict_viability.jl"]
 ```
