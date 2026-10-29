@@ -41,7 +41,8 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
   - **Recorded as M4's:** V is read on the same cells as μ̂, which biases the
     conditioned μ̂ (KIM-36). On the crossed matrix, `var − mc` is not the
     parameter variance (note §5.2).
-  - **Deferred:** KIM-62 (parallel `predict`) and KIM-63 (four MINORs).
+  - **Deferred:** KIM-62 (parallel `predict`) and KIM-63 (five MINORs). KIM-64
+    is a flaky check the suite hit once.
 
 **Checks** (in full in the §12 entry):
 - The suite at `7a2b054` passes 29,564 of 29,564 (job 19520509). The job took
@@ -59,7 +60,9 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
   73m40s), so the 90-minute job has about 10 minutes of slack. Gating one
   metered-M0 file saves little, since the compile moves to the next one. Gate
   all four (forward, intervention, predict, provenance) together, or none.
-- Fix round: TO FILL.
+- Review fixes: the suite at `f529c82` passes 29,582 of 29,582 (job 19525353).
+  At `3c8419e` one untouched, flaky check failed (14.9 check 6; KIM-64). The
+  smoke reruns at both commits print round 1's numbers exactly.
 
 **Next:**
 1. Finish #117: CI, `/check-PR`, merge, and set the Linear issues to Done.

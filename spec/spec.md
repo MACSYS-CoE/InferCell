@@ -4643,8 +4643,30 @@ CRITICAL.
   - the smoke script's output-directory and pushed-commit checks;
   - the same-rng test now starts from two global states;
   - the text.
-- **Deferred:** the parallel path M4 needs (KIM-62), and four MINORs (KIM-63).
-- **Fix-round checks:** TO FILL.
+- **Deferred:** the parallel path M4 needs (KIM-62), and five MINORs (KIM-63).
+- **Round 2** reviewed round 1's fixes (`3c8419e`). It found them resolved, and
+  found MINORs only. Those were fixed in `f529c82`:
+  - a zero dose now writes exactly the baseline's writes;
+  - a knockdown of a reverse constant or a driver-written slot is refused;
+  - a merge across routes, or of a file read twice, is refused;
+  - text.
+- **Round 3** reviewed those fixes, the cap. It found them resolved and raised
+  one MINOR, deferred to KIM-63: a bad knockdown target is refused only after
+  some cells have run.
+- **Fix-round checks:**
+  - The suite at `f529c82`, the PR's last code, passes 29,582 of 29,582 (Slurm
+    job 19525353), in 64m59s, with the job at 1:06:33 of its 90 minutes.
+  - At `3c8419e` it passed 29,576 of 29,577 (job 19524920). The one failure,
+    14.9 check 6 (`test_corea_validation_14b.jl:269`, 0.99998 > 1.0), is in a
+    file this PR does not touch, which runs before every `predict` test. It
+    passed in about 40 earlier runs and at `f529c82`, from the same seed. It is
+    a flaky check, filed as KIM-64.
+  - Full smoke reruns at `3c8419e` (jobs 19524921 to 19524927) and `f529c82`
+    (jobs 19525354 to 19525360) pass every check. They print the same numbers
+    as the run at `7a2b054`, so the knockdown fix changes nothing for the ptsG
+    default. They are in `/fred/oz022/tkimpson/infercell-m3-smoke-2026-10-30-fix`
+    and `-fix2`, each with a `SHA256SUMS`, and both suite logs are in the
+    evidence directory above.
 
 **Unchanged:**
 - Q (O4 stays provisional), V's thresholds, the dose, the headline variant and
