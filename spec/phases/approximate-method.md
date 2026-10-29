@@ -335,7 +335,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
   - [x] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".) **Done 2026-10-28** (§12 "B7.8 as planned"; job 19411150; `av6_89_b7_result.md`, "B7.8"). Under transcripts only, none of the five marginals is resolved. Under metabolites only, ENO, σ_b and krnadeg are resolved by small margins and FBA is not. ptsG has no exact counterpart.
   - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
-- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1). Cap reopened 2026-10-29 with no ceiling (the user's decision; `16-recovery.md` §12).
+- [ ] **B8.** **Parked 2026-10-29, outside v0.3.0 and paper 1** (§12 "B8 parked"; it supersedes the cap reopening below). Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1). Cap reopened 2026-10-29 with no ceiling (the user's decision; `16-recovery.md` §12).
   Planned in §12 2026-10-29, "B8 as planned". One commit per task:
   - [ ] B8.1 This plan, as a §12 entry, and the cap's entry in `16-recovery.md` §12.
   - [ ] B8.2 `corea_dataset` — verify by a test that a replicate is reproducible at its seed, its truth passes `check_truth`, σ_b is drawn from `SIGMA_MET_PRIOR`, its cell, reference, start and chain seeds are disjoint from each other and from V7's and A2's, and `m0_dataset(16_200_001)` is unchanged bitwise.
@@ -349,6 +349,33 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-29 — B8 parked outside v0.3.0 and paper 1 (the user's decision); supersedes "B8 as planned"
+
+**Status: decided** (the user, 2026-10-29, later the same day). This entry
+**supersedes** the "B8 as planned" entry below and the cap reopening in
+`16-recovery.md` §12 2026-10-29, "O1 part 2". Both recorded "full B8, the cap
+reopened with no ceiling". That no longer holds.
+
+**Change:**
+- B8 is not run for v0.3.0 or paper 1. The record on main is `spec/spec.md` §12
+  2026-10-29, "v0.3.0 launch decisions", "B8 / O1" (KIM-11, KIM-17).
+- B8 is a full-scale calibration without an exact Core A′ reference, and the
+  predictive demonstration completes the argument more directly
+  (`dev/notes/2026-10-29-launch-readiness-and-predictive-demonstration.md` §9).
+- No AV7 job was submitted. The cap is closed again; no spend is authorised
+  under "O1 part 2".
+
+**Kept:**
+- This branch: the plan, B8.1–B8.9 unticked, and `b92af35`, the B8.3 tests and
+  the B8.4–B8.6 drivers as the session left them, unreviewed.
+- The evidence: six profile logs and three M0 snapshots in
+  `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/profile/`, all outside
+  `.worktrees/`.
+- `corea_dataset` and `corea_draws` (B8.2, `a2416d7`), which go to main on their
+  own, for a later scored test on the reduced model (KIM-17).
+
+*Sections:* §11 B8, §12.
 
 ### 2026-10-29 — B8 as planned: AV7's rules, run size, the bound and the extra arms (the user's decisions; fixed before any code)
 

@@ -1053,6 +1053,17 @@ annotated below with its rung and funding.
 
 ## 12. Amendment log
 
+### 2026-10-29 — O1 part 2 withdrawn: B8 is parked, and the cap is not reopened (the user's decision)
+
+**Trigger:** the v0.3.0 launch decisions (`spec/spec.md` §12 2026-10-29). They
+park B8 outside v0.3.0 and paper 1.
+
+**Change:** the entry below, "O1 part 2", is superseded. The only B8 jobs run
+under it were the six profiling jobs (19487970/71, 19489069/70, 19506190/91), and
+no AV7 job was submitted. See `approximate-method.md` §12 2026-10-29, "B8 parked".
+
+**Sections touched:** §12.
+
 ### 2026-10-29 — O1 part 2: the cap is reopened for track B's B8, with no ceiling (the user's decision)
 
 **Trigger:** 16a.11 deferred O1 part 2 "until an approximate method passes 5.2". B7
