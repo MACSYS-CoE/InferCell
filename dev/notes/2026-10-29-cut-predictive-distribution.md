@@ -91,8 +91,12 @@ model. Three things are cut:
 1. **D does not update θ_H.** The M0 likelihood does not involve θ_H.
 2. **θ_H does not feed back into θ_I.** M0 fixed the counterparts of θ_H at their
    published values. If θ_I's posterior would move when they vary, the transfer
-   hides it. This is the dependence assumption to state, and the prior-width runs
-   (½, 1, 2) are its sensitivity check.
+   hides it. This is the dependence assumption to state. **It is untested in
+   v0.3.0.** The prior-width runs (½, 1, 2) do not test it: they change how far
+   θ_H spreads the prediction, but θ_I's posterior is the same in every run. A
+   test would refit M0 with some held counterparts moved off their published
+   values and compare θ_I's posteriors. That is outside v0.3.0's budget, and the
+   paper says so.
 3. **V does not act as data on θ_I** in the factorised form.
 
 The reduced model is **unscored**. No truth matches these data under the reduced
