@@ -73,7 +73,9 @@ value whose coverage is measured.
 On M0, a viability filter can act only on θ_I. That would be extra data, and it
 would change the posterior being scored (completion plan §3.3). So on M0 there are
 two options:
-- apply no filter, which is the default; 4% of D11's prior draws starve (14c.2);
+- apply no filter, which is the default. For scale: 4% of prior draws over D11's
+  six targets starve on Core A′ (14c.2). That is a Core A′ prior figure, not M0's
+  posterior rate, which has not been measured;
 - condition jointly, as in §3.3 below, and report it as a different, conditioned
   posterior.
 
