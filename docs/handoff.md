@@ -1,6 +1,22 @@
 # Handoff
 
-## Latest: B7.8, the stream arms against 16b.4's exact fits (branch `issue-89-b78`, 2026-10-28)
+## Latest: KIM-18, the archived posteriors hold draws (branch `tomkimpson/kim-18-…`, 2026-10-29)
+
+**Done:** loaded every archived V7 (exact, 50 files) and B7 (mixed, 116 files)
+posterior file on main. Both archives hold full draws, named as `M0_TARGETS` plus
+σ_b, in the same order. Each dataset's truth is stored beside them, and V7 and B7
+agree on it exactly for r1–r50. **The crossed design needs no refits.**
+
+- Script: `dev/scripts/kim18_inspect_archives.jl`, at `868d37c`.
+- Run: Slurm job 19509733. Log and SHA256SUMS in
+  `/fred/oz022/tkimpson/infercell-kim18-archive-2026-10-29/`.
+- What each file holds, and how to read it: `dev/notes/2026-10-29-archived-posteriors.md`.
+
+**Next:** KIM-28 (`predict` ingests these files), which this unblocks. KIM-40 is
+also unblocked on this side. Exact gives 556 correlated draws per dataset, and
+mixed gives 2 × 200, so a matched comparison has to subsample.
+
+## Earlier: B7.8, the stream arms against 16b.4's exact fits (branch `issue-89-b78`, 2026-10-28)
 
 The rules (§12 2026-10-28 "B7.8 as planned") were fixed before computing. W1 is in
 exact SD, against the larger of the exact chain's split-half W1 and the mixed
