@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use InferCell.jl, please cite it as below."
+type: software
+title: "InferCell.jl"
+abstract: >-
+  Composable, inference-first whole-cell modelling in Julia: a compositional
+  inference framework, demonstrated on a reduced JCVI-syn3A model, with exact
+  stochastic and mean-field descriptions across a coupled ODE-jump boundary.
+# Placeholder until the author list is settled with paper 1's (KIM-49). Names,
+# affiliations and ORCIDs are filled in at the v0.3.0 release (M7, KIM-54).
+authors:
+  - name: "PLACEHOLDER: InferCell authors, to be filled in at v0.3.0"
+version: 0.3.0
+# Added at the v0.3.0 release (M7, KIM-54), once Zenodo mints the DOI:
+# doi: 10.5281/zenodo.<id>
+# date-released: <YYYY-MM-DD>
+license: MIT
+repository-code: "https://github.com/MACSYS-CoE/InferCell"
+url: "https://macsys-coe.github.io/InferCell/stable/"
+keywords:
+  - whole-cell modelling
+  - Bayesian inference
+  - simulation-based calibration
+  - hybrid ODE-jump models
+  - JCVI-syn3A
+  - Julia
