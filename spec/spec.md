@@ -4496,7 +4496,8 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
   argument more directly. The branch `issue-89-b8` and its evidence are kept, and
   the parking is recorded on that branch, superseding its "B8 as planned" entry.
   Its dataset generator, `corea_dataset`, comes to main (KIM-17); its later use is
-  a scored test on the reduced model. Nothing needed archiving out of
+  a scored recovery test: injections with a known truth on the reduced model,
+  separate from the reduced-model prediction, which stays unscored. Nothing needed archiving out of
   `.worktrees/`: B8's only outputs are profile logs and M0 snapshots, already in
   `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/`.
 - **Redistribution of the upstream parameter extracts (KIM-21): kept vendored,

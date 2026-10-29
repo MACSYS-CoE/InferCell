@@ -358,7 +358,8 @@ forward ensemble of the full two-way model, and held fixed across θ.
   None was inside `.worktrees/`, so nothing needed archiving.
 - **`corea_dataset` and `corea_draws` (B8.2) are on main**
   (`src/organisms/coreA/observables.jl`; `test/test_corea_mixed.jl`). Their later
-  use is a scored test on the reduced model. The cherry-pick adds functions and
+  use is a scored recovery test: injections with a known truth on the reduced
+  model, separate from the reduced-model prediction, which stays unscored. The cherry-pick adds functions and
   changes none, so M0's datasets are unchanged by construction. The branch checked
   that `m0_dataset(16_200_001)` hashes the same as on main.
 

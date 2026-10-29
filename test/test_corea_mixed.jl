@@ -1,5 +1,5 @@
 # corea_dataset, the Core A′ injections built for B8.2. B8 is parked; the generator
-# is kept for a later scored test on the reduced model (spec/spec.md §12
+# is kept for a later scored recovery test on the reduced model (spec/spec.md §12
 # 2026-10-29, "v0.3.0 launch decisions").
 
 using Test
