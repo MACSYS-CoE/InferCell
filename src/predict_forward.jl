@@ -198,6 +198,32 @@ function forward_cells(models::AbstractVector{<:AbstractSubModel}, values,
 end
 
 """
+    intervention_cells(models, values, a, seeds; forward = :hybrid, horizon,
+                       quantity = :lactate_out) -> (; baseline, intervened, delta)
+
+[`forward_cells`](@ref) twice: at `values`, and at `values` under intervention `a`
+([`intervene`](@ref)). Both arms run on the same seeds, so each hybrid cell is
+paired with itself. `delta` is the paired effect Q_intervened − Q_baseline for
+each cell, `NaN` where either arm failed.
+"""
+function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
+                            a::Intervention, seeds::AbstractVector{<:Integer};
+                            forward::Symbol = :hybrid, horizon::Real,
+                            quantity = :lactate_out)
+    _check_quantity(quantity)
+    f = _forward_setup(metered(models), forward; horizon)
+    vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
+    base, int = _restoring_global_rng() do
+        _run_cells(f, vals, seeds, quantity),
+        _run_cells(f, intervene(a, f.models, vals), seeds, quantity)
+    end
+    return (; baseline = base, intervened = int, delta = _paired_delta(base, int))
+end
+
+_paired_delta(base, int) = [b.failure === :none && i.failure === :none ? i.q - b.q : NaN
+                            for (b, i) in zip(base, int)]
+
+"""
     DeltaCorrection
 
 The mean field's correction for Q, computed once at a reference point and kept so
@@ -215,7 +241,11 @@ Fields:
 - `mean_field`: the mean field's run at θ_ref;
 - `hybrid_mean`, `hybrid_se` and `n_ok`: the mean of Q over the cells that
   finished, its standard error, and how many finished;
-- `delta`: `hybrid_mean − mean_field.q`.
+- `delta`: `hybrid_mean − mean_field.q`;
+- `intervention`: the intervention the correction also covers, or `nothing`.
+  The intervened arm runs on the same seeds, and `hybrid_intervened`,
+  `mean_field_intervened` and `delta_intervened` are its counterparts, so the
+  corrected mean-field effect is `m(g_a θ) − m(θ) + delta_intervened − delta`.
 """
 struct DeltaCorrection
     values::Vector{Pair{Symbol, Float64}}
@@ -229,19 +259,26 @@ struct DeltaCorrection
     hybrid_se::Float64
     n_ok::Int
     delta::Float64
+    intervention::Union{Nothing, Intervention}
+    hybrid_intervened::Vector{CellRun}
+    mean_field_intervened::Union{Nothing, CellRun}
+    delta_intervened::Float64
 end
 
 """
-    delta_correction(models, values, seeds; horizon, quantity = :lactate_out)
-        -> DeltaCorrection
+    delta_correction(models, values, seeds; horizon, quantity = :lactate_out,
+                     intervention = nothing) -> DeltaCorrection
 
 The hybrid ensemble at the reference writes `values`, one cell per seed, against
-the mean field there. A cell that fails is kept but left out of the mean. If none
-finishes, or the mean field fails at θ_ref, δ is undefined and the call throws.
+the mean field there. With an `intervention`, the intervened arm runs too, on the
+same seeds. A cell that fails is kept but left out of the mean. If fewer than two
+cells finish, or the mean field fails at θ_ref, δ is undefined and the call
+throws.
 """
 function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
                           seeds::AbstractVector{<:Integer}; horizon::Real,
-                          quantity = :lactate_out)
+                          quantity = :lactate_out,
+                          intervention::Union{Nothing, Intervention} = nothing)
     _check_quantity(quantity)
     length(seeds) >= 2 && allunique(seeds) || throw(ArgumentError(
         "the ensemble needs at least two distinct seeds"))
@@ -249,17 +286,25 @@ function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
     vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
     hy = _forward_setup(ms, :hybrid; horizon)
     mf = _forward_setup(ms, :mean_field; horizon)
-    cells, m = _restoring_global_rng() do
-        _run_cells(hy, vals, seeds, quantity), only(_run_cells(mf, vals, Int[], quantity))
+    arm(v) = (_run_cells(hy, v, seeds, quantity), only(_run_cells(mf, v, Int[], quantity)))
+    (cells, m), int = _restoring_global_rng() do
+        arm(vals), intervention === nothing ? nothing : arm(intervene(intervention, ms, vals))
     end
+    hm, se, n, d = _delta_arm(cells, m)
+    cells_i, m_i, d_i = int === nothing ? (CellRun[], nothing, NaN) :
+                        (int[1], int[2], _delta_arm(int[1], int[2])[4])
+    return DeltaCorrection(vals, Float64(horizon), _quantity_label(quantity),
+                           [module_id(x) for x in ms], collect(Int, seeds), cells, m, hm, se,
+                           n, d, intervention, cells_i, m_i, d_i)
+end
+
+function _delta_arm(cells, m)
     m.failure === :none || error("The mean field fails at θ_ref ($(m.failure)), so δ is undefined")
     q = [c.q for c in cells if c.failure === :none]
     length(q) >= 2 || error("Fewer than two hybrid cells finished at θ_ref, so δ is undefined")
     hm = mean(q)
-    return DeltaCorrection(vals, Float64(horizon), _quantity_label(quantity),
-                           [module_id(x) for x in ms], collect(Int, seeds), cells, m, hm,
-                           std(q) / sqrt(length(q)), length(q), hm - m.q)
+    return hm, std(q) / sqrt(length(q)), length(q), hm - m.q
 end
 
-export metered, CellRun, PREDICT_QUANTITIES, forward_cells, DeltaCorrection,
-       delta_correction
+export metered, CellRun, PREDICT_QUANTITIES, forward_cells, intervention_cells,
+       DeltaCorrection, delta_correction

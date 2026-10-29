@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl).
+Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl).
 
 ## Reading a posterior
 
@@ -60,9 +60,20 @@ reason. Over the crossed matrix of posterior draws × held draws,
 as weights: (b) keeps θ_I's marginal as the posterior's, and (a) lets the filter
 act on θ_I. Each comes with its acceptance rate and effective sample size.
 
+## Interventions
+
+An [`Intervention`](@ref) is applied after the parameter draw. The first is a
+[`Knockdown`](@ref) of the ptsG promoter, which scales `S_JCVISYN3A_0779` by
+`1 − dose` and changes nothing else ([`intervene`](@ref)). It assumes the
+intervention acts only through that parameter, and that the posterior fitted on
+unperturbed data carries over. [`intervention_cells`](@ref) runs both arms on the
+same seeds, so each cell is paired with itself and the effect ΔQ keeps little of
+the intrinsic noise. A dose of 0 gives ΔQ = 0 exactly.
+[`delta_correction`](@ref) covers the intervened arm too.
+
 ## Reference
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_forward.jl", "predict_viability.jl"]
+Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl"]
 ```
