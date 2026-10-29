@@ -4490,11 +4490,20 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
   a scored test on the reduced model. Nothing needed archiving out of
   `.worktrees/`: B8's only outputs are profile logs and M0 snapshots, already in
   `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/`.
-- **Redistribution of the upstream parameter extracts (KIM-21).** The user's
-  decision, 2026-10-29: the extracts are open source, so they stay vendored. No
-  request to the Luthey-Schulten lab is needed, and the fetch-at-setup fallback
-  (KIM-25) is cancelled. This is the basis that launch gate 8 ("redistribution has
-  a defensible basis") rests on.
+- **Redistribution of the upstream parameter extracts (KIM-21): kept vendored,
+  with the risk declared** (the user's decision, 2026-10-29, corrected after the
+  #114 review).
+  - **The facts:** `Luthey-Schulten-Lab/Minimal_Cell` is public, but it carries
+    no licence. So it grants no redistribution rights
+    (`src/organisms/coreA/data/README.md`, "Licensing"; launch-readiness note
+    §2.1). Public code is not an open-source licence.
+  - **The decision:** the extracts stay vendored. No request goes to the lab,
+    and the fetch-at-setup fallback (KIM-25) is cancelled.
+  - **Launch gate 8** ("redistribution has a defensible basis") is therefore met
+    by a declared, accepted risk, not by a licence. The data README already
+    says so, and the v0.3.0 release notes repeat it (KIM-51). The extracts are small derived tables, each recording
+    its upstream commit and regeneration script. InferCell's MIT licence does not
+    cover them.
 
 **Unchanged:**
 - The amendment record, and every result already reported under the old claim.
