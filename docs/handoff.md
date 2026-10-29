@@ -80,8 +80,9 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
      d11 cell over 6,300 s has not been timed; KIM-38 times it.
    - KIM-36 also decides whether V reads cells of its own. KIM-39 freezes the
      variance estimators on the crossed matrix.
-   - KIM-34's departure (`posterior_predictive` is not a wrapper around
-     `predict`) is the user's to accept or reverse.
+   - The user accepted KIM-34's departure on 2026-10-30
+     (`posterior_predictive` is not a wrapper around `predict`). They also
+     confirmed that M1 and M3 stay recorded for M4.
 3. **Can go once #117 merges:** `.worktrees/m3-run`, `.worktrees/m3-smoke-*`
    (their logs are copied to the archive's `evidence/`), `.worktrees/m2-hygiene`.
 

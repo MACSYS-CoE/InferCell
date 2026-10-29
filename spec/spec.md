@@ -4637,6 +4637,10 @@ CRITICAL.
 - **Recorded, not changed, as M4's to decide:**
   - V and μ̂ sharing their cells (KIM-36);
   - the variance on the crossed matrix (note §5.2).
+
+  The user confirmed both on 2026-10-30, before the merge, and accepted
+  KIM-34's departure (`posterior_predictive` is not a wrapper around
+  `predict`).
 - **MINORs fixed:**
   - the ingest refusals (above);
   - δ counting the cells `predict`'s μ̂ counts;
