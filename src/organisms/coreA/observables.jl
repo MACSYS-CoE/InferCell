@@ -501,6 +501,60 @@ function generate_dataset(truth::NamedTuple, seeds::AbstractVector{<:Integer};
             observed_species = observed_species, report = reduction_report(models, d0))
 end
 
+"""
+    corea_draws(replicate_seed; ncells = 200, models = d11_models()) -> NamedTuple
+
+[`corea_dataset`](@ref)'s draws without its cells: `(truth, σ, cells, noise_seed,
+bulk_seed)`, in the order it draws them.
+"""
+function corea_draws(replicate_seed::Integer; ncells::Integer = 200, models = d11_models())
+    rng = Xoshiro(replicate_seed)
+    truth = draw_truth(rng, models; names = D11_TARGETS, purpose = :calibration)
+    σ = rand(rng, SIGMA_MET_PRIOR)
+    cells = Int.(rand(rng, UInt32, ncells))
+    allunique(cells) || error("replicate $replicate_seed drew a repeated cell seed")
+    noise_seed = Int(rand(rng, UInt32))
+    bulk_seed = Int(rand(rng, UInt32))
+    return (; truth, σ, cells, noise_seed, bulk_seed)
+end
+
+"""
+    corea_dataset(replicate_seed; ncells = 200, horizon = COREA_CYCLE_S) -> NamedTuple
+
+One Core A′ injection, everything drawn from one recorded seed, as
+[`m0_dataset`](@ref) draws an M0 replicate. Built for B8's AV7, which is parked;
+its later use is a scored test on the reduced model (spec/spec.md §12 2026-10-29,
+"v0.3.0 launch decisions"). It draws:
+- a truth over [`D11_TARGETS`](@ref) on [`d11_models`](@ref), drawn from the prior
+  Haldane-consistently;
+- σ from [`SIGMA_MET_PRIOR`](@ref), the sampler's own prior;
+- `ncells` cell seeds, a noise seed and a bulk seed, drawn last in that order.
+
+The [`M0_PANEL`](@ref) metabolites, A2's panel, are observed in bulk at σ, floored at
+one particle, and every transcribed gene's transcripts exactly. The t = 0 save is
+dropped. Returns [`generate_dataset`](@ref)'s record without t = 0, with `sigma`,
+`replicate_seed`, `noise`, `bulk` and `bulk_seed` added, as `m0_dataset` does.
+"""
+function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
+                       horizon::Real = COREA_CYCLE_S)
+    models = d11_models()
+    (; truth, σ, cells, noise_seed, bulk_seed) = corea_draws(replicate_seed; ncells, models)
+    genes = [g.locus for g in only(m for m in models if m isa CoreATranscription).genes]
+    noise = NoiseModel(Modality(:metabolite, :lognormal, M0_PANEL; floor = 1.0,
+                                prior = SIGMA_MET_PRIOR),
+                       Modality(:transcript, :poisson, [transcript_state(g) for g in genes]))
+    ds = generate_dataset(truth, cells; models, horizon, noise, noise_seed,
+                          scales = Dict(:sigma_metabolite => σ), names = D11_TARGETS)
+    keep = findall(>(0), ds.times)
+    latent = ds.latent[:, :, keep]
+    bulk = observe_bulk(latent, ds.species, M0_PANEL; sigma = σ, noise_seed = bulk_seed)
+    return (; ds..., times = ds.times[keep], latent,
+            transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
+            sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
+            bulk, bulk_seed)
+end
+
+export corea_dataset, corea_draws
 export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble

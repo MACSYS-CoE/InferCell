@@ -335,10 +335,36 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
   - [x] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".) **Done 2026-10-28** (§12 "B7.8 as planned"; job 19411150; `av6_89_b7_result.md`, "B7.8"). Under transcripts only, none of the five marginals is resolved. Under metabolites only, ENO, σ_b and krnadeg are resolved by small margins and FBA is not. ptsG has no exact counterpart.
   - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
-- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
+- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1). **Parked 2026-10-29, outside v0.3.0 and paper 1** (§12 2026-10-29, "B8 parked"; KIM-17). Its plan and B8.1–B8.9 are kept on branch `issue-89-b8`; only `corea_dataset` (B8.2) is on main.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-29 — B8 parked outside v0.3.0 and paper 1; corea_dataset brought to main (KIM-17)
+
+**Status: decided** (the user, 2026-10-29). The record is `spec/spec.md` §12
+2026-10-29, "v0.3.0 launch decisions", "B8 / O1".
+
+**Change:**
+- **B8 is parked.** It is not run for v0.3.0 or paper 1. B8 is a full-scale
+  calibration without an exact Core A′ reference, and the predictive
+  demonstration completes the argument more directly (launch-readiness note §9).
+- **Branch `issue-89-b8`.** Its plan ("B8 as planned"), the cap reopening
+  (`16-recovery.md` §12 2026-10-29, "O1 part 2") and its B8.3–B8.6 work exist
+  only on that branch. It is kept, with a superseding "B8 parked" entry written
+  there. That entry supersedes both of the branch's records.
+- **The evidence.** B8's only outputs are six profile logs and three M0
+  snapshots, in `/fred/oz022/tkimpson/infercell-89-b8-runs-2026-10-29/profile/`.
+  None was inside `.worktrees/`, so nothing needed archiving.
+- **`corea_dataset` and `corea_draws` (B8.2) are on main**
+  (`src/organisms/coreA/observables.jl`; `test/test_corea_mixed.jl`). Their later
+  use is a scored test on the reduced model. The cherry-pick adds functions and
+  changes none, so M0's datasets are unchanged by construction. The branch checked
+  that `m0_dataset(16_200_001)` hashes the same as on main.
+
+**Unchanged:** B1–B7.9, and every result they report.
+
+*Sections:* §11 B8, §12.
 
 ### 2026-10-29 — the mixed route's status in one sentence (KIM-19)
 

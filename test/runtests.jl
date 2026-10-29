@@ -128,6 +128,7 @@ using Aqua
     include("test_csmc.jl")
     include("test_gibbs.jl")
     include("test_mixed_likelihood.jl")
+    include("test_corea_mixed.jl")
     include("test_dispatch.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
