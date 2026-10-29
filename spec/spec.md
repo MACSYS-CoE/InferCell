@@ -4428,8 +4428,10 @@ fabricated task list.
 
 **Trigger:** the launch-readiness note
 (`dev/notes/2026-10-29-launch-readiness-and-predictive-demonstration.md` §9) and
-the completion plan built on it (`tmp-completion-plan.md` §2). The discussion of
-2026-10-29 accepted the note's calls with the adjustments in the plan's §3.
+the completion plan built on it (`dev/notes/2026-10-29-completion-plan.md` §2,
+moved from the repository root's `tmp-completion-plan.md` in #114). The
+discussion of 2026-10-29 accepted the note's calls with the adjustments in the
+plan's §3.
 Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
 
 **Change:**

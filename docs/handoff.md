@@ -3,7 +3,7 @@
 ## Latest: M1, the launch decisions and prerequisites (branch `tomkimpson/m1-decisions-kim-11-17-19-20`, 2026-10-29)
 
 **Done:** one PR, one commit per issue. PR #112 (the framing and launch-readiness
-notes and `tmp-completion-plan.md`) was merged first.
+notes and `dev/notes/2026-10-29-completion-plan.md`) was merged first.
 - **KIM-11** (`a64fa13`, with sub-issues KIM-12 to KIM-16): spec §12 2026-10-29,
   "v0.3.0 launch decisions". It records:
   - O2, the claim;

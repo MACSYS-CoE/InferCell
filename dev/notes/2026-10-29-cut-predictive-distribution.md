@@ -7,7 +7,7 @@ recorded. The choices it leaves open are named, and are fixed in M4's freeze ent
 (KIM-39).
 
 **Based on:**
-- the completion plan (`tmp-completion-plan.md`) §3.1–3.4 and §4;
+- the completion plan (`dev/notes/2026-10-29-completion-plan.md`) §3.1–3.4 and §4;
 - the launch-readiness note
   (`dev/notes/2026-10-29-launch-readiness-and-predictive-demonstration.md`) §5–§8;
 - spec §12 2026-10-29, "v0.3.0 launch decisions".
