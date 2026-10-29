@@ -35,8 +35,25 @@ notes and `dev/notes/2026-10-29-completion-plan.md`) was merged first.
 **Checks:** the changed Julia files parse and lower on the login node, and the
 package loads. Suite: Slurm job 19510918 at `f942d58`, 29114 of 29114, in 59m24s.
 
-**Still to follow the claim:** the README (KIM-23, M2) and the paper's claim
-(KIM-44/46, M6).
+**Review (#114, `/check-PR`, three rounds):**
+- **Round 1:** MERGE AFTER FIXES, five MAJOR findings:
+  - B1: §1 said "neither direction" was measured; T3 has only the forward
+    direction unmeasured;
+  - B2: "open source" contradicts the data README. The upstream repo has no
+    licence, so gate 8 now rests on a declared risk (the user's call);
+  - B3–B5: errors in the maths note (the prior-width check, the H-first cost, the
+    bulk-noise term).
+  - Nine should-fix items, including moving `tmp-completion-plan.md` to
+    `dev/notes/2026-10-29-completion-plan.md`.
+- **Round 2:** B4's bias rule was the nested-design one, so it was redone in round
+  3, and S7 named the wrong issues. KIM-61 was created for the paper's
+  title, abstract and claim.
+- Round 3: clean; three MINORs left in the cut note (the mask's subset term, M_kept normalisation, two long lines).
+- The report is `PR_REVIEW_114_2026-10-29.md` (gitignored, in this worktree).
+- Merged on the user's call before the post-fix suite (job 19513048) finished; the fixes touch only a docstring and a comment in src/test. Docs CI fails as on main (KIM-22).
+
+**Still to follow the claim:** the README (KIM-23, M2) and the paper's title,
+abstract and claim (KIM-61, M6, after the KIM-44 rebase).
 
 **Next:** M2 hygiene (KIM-22 first, the docs split) and M3, starting with
 KIM-28, `predict`'s ingestion. KIM-20's note §6 maps each object to `predict`'s
