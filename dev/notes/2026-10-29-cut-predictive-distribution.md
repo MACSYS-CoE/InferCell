@@ -228,15 +228,20 @@ from parameters no measurement supports.*
 ### 5.3 Measurement noise
 
 σ_b is observation noise. It is never pushed into a latent biological quantity.
-If the target is a future noisy bulk observation Y = h(Q) + ε, with
-ε ~ N(0, σ_b²) on the observation's scale, then a fourth term is added:
+It enters only when the target is a future noisy **bulk** observation. The
+model's bulk noise is multiplicative lognormal (`observe_bulk`): a reading of the
+mean over N cells, x̄, is Y = max(x̄, floor) · exp(σ_b ε), with ε ~ N(0, 1). So
+the split is on the log scale. Away from the floor, it is
 
 ```text
-Var(Y | D, V) = Var_θ[μ] + E_θ[σ²] + E[σ_b²]
+Var(log Y | D, V) = Var_θ[ E(log x̄ | θ) ]  +  E_θ[ Var(log x̄ | θ) ]  +  E[σ_b²]
+                    parameters             intrinsic, over N cells     measurement
 ```
 
-(with Var_θ[μ] split as in §5.2). Otherwise σ_b is dropped after the posterior is
-read in.
+By the delta method, Var(log x̄ | θ) ≈ σ²(θ) / (N μ(θ)²). Because a bulk reading
+averages N cells, the intrinsic term shrinks as 1/N. It is not the single-cell
+E[σ²]. The parameter term is split as in §5.2. Otherwise, for the
+population-mean estimand, σ_b is dropped once the posterior is read in.
 
 ### 5.4 Model form
 
