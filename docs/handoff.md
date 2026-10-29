@@ -1,6 +1,92 @@
 # Handoff
 
-## Latest: M2, release hygiene (branch `tomkimpson/m2-release-hygiene-kim-22-23-24-26`, 2026-10-29)
+## Latest: M3, `predict` (branch `tomkimpson/m3-predict-kim-27-34`, PR #117, 2026-10-29)
+
+**Done:** one PR, one commit per issue, from `.worktrees/m3-predict` (based on
+main at `ca6ee0d`). The user's calls: `posterior_predictive` becomes a thin
+wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
+- **KIM-28** (`a366da0`): `posterior_draws` reads V7 replicate files, B7 chain
+  files (with the truth from `prep.jls`), `infer`'s `Chains` and the toy
+  posteriors into one `PosteriorDraws`. It maps by name, holds values on the
+  natural scale and reads every chain. σ_b is a separate field. `Serialization`
+  moves to `[deps]`; only the manifest's `project_hash` changed.
+- **KIM-29** (`7927f27`): `held_parameters`, which on `d11_models()` with M0's
+  targets inferred is the 15 non-M0 promoters, skipping the `enz_R_*` as
+  driver-written. Also `draw_held`, a `width` for `draw_parameters`, and
+  `haldane_values`, which derives reverse constants from the set that runs.
+- **KIM-31** (`d64c052`): `metered`, `forward_cells`, `CellRun` and
+  `delta_correction`. The metered route (ii) was the open risk, and it works (job
+  19518978). `validation_run!` gains `clips`.
+- **KIM-30** (`9e4224b`): `ViabilityRule`, data with no thresholds in code. A
+  cell is failed, starved, below a floor, clipped or clean; V is a property of θ.
+  `viability_weights` gives both variants on the crossed matrix.
+- **KIM-32** (`9e5e8d4`): `Knockdown`, `intervene`, `intervention_cells`, with
+  paired seeds. δ covers the intervened arm.
+- **KIM-27** (`1ee0d3f`): `predict` and `Prediction`.
+  - One crossed M × K matrix, with fresh cells per pair.
+  - Both conditioned variants are returned as weights.
+  - The population-mean summary gives the MC term and, without completion, the
+    parameter variance.
+  - `predict` extends `StatsAPI.predict`, the one Turing exports.
+  - The smoke script is `dev/scripts/predict_smoke_kim27.{jl,sh}`.
+- **KIM-33** (`47077cf`): provenance per pair and per call. Same rng, same
+  result; the global generator is restored.
+- **KIM-34** (`7a2b054`): `posterior_predictive` on the shared ingest and rng
+  path (every chain, by name). The getting-started page gets a "Predict" quick
+  start. `predict` gains no `:ode` forward; §12 records why.
+- **Spec:** a §12 entry, "`predict` as built".
+- **Review** (`/check-PR`, 2026-10-30; the §12 entry's "Review" lists it):
+  - **Fixed:** δ's intervened arm now derives its reverse constants, as
+    `predict`'s does. Several ingest refusals were added.
+  - **Recorded as M4's:** V is read on the same cells as μ̂, which biases the
+    conditioned μ̂ (KIM-36). On the crossed matrix, `var − mc` is not the
+    parameter variance (note §5.2).
+  - **Deferred:** KIM-62 (parallel `predict`) and KIM-63 (five MINORs). KIM-64
+    is a flaky check the suite hit once.
+
+**Checks** (in full in the §12 entry):
+- The suite at `7a2b054` passes 29,564 of 29,564 (job 19520509). The job took
+  1:18:51 of its 90-minute limit. The new files take about 8 minutes, by job
+  19520246's per-file times; 6m20s of that is KIM-31's testset, mostly the
+  metered-M0 composition's first compile.
+- `posterior_predictive`'s gated call sites pass 22 of 22 (job 19520247, and the
+  smoke run's wrapper stage).
+- A smoke run of every stage at `7a2b054` (jobs 19520502 to 19520508), in
+  `/fred/oz022/tkimpson/infercell-m3-smoke-2026-10-29/`.
+- The metered route (ii): job 19518978.
+- These logs are copied to the archive's `evidence/` directory, under its
+  `SHA256SUMS`.
+- CI on #117: docs and unit tests pass. The unit test step took 79m46s (main:
+  73m40s), so the 90-minute job has about 10 minutes of slack. Gating one
+  metered-M0 file saves little, since the compile moves to the next one. Gate
+  all four (forward, intervention, predict, provenance) together, or none.
+- Review fixes: the suite at `f529c82` passes 29,582 of 29,582 (job 19525353).
+  At `3c8419e` one untouched, flaky check failed (14.9 check 6; KIM-64). The
+  smoke reruns at both commits print round 1's numbers exactly.
+
+**Next:**
+1. Finish #117: CI, `/check-PR`, merge, and set the Linear issues to Done.
+2. M4: KIM-35 (lactate's sensitivity to θ_I and θ_H, on held-out seeds),
+   KIM-37 (the dose screen), KIM-38 (cost the evidence package), KIM-36 (V),
+   KIM-39 (the freeze).
+   - `predict` runs serially, and cannot yet be split over tasks under
+     completion: tasks sharing an rng rerun the same cells, and tasks with
+     different rngs draw different θ_H. KIM-62 is the parallel path. Under
+     `completion = :none` (M0), give each task its own rng and disjoint
+     `draws`. For a corrected mean field, compute one `DeltaCorrection` and pass
+     it to every task.
+   - Timings so far: an M0 hybrid cell over 600 s takes about 2 s (job
+     19518978), and a d11 hybrid cell over 120 s about 1 s (job 19520507). A
+     d11 cell over 6,300 s has not been timed; KIM-38 times it.
+   - KIM-36 also decides whether V reads cells of its own. KIM-39 freezes the
+     variance estimators on the crossed matrix.
+   - The user accepted KIM-34's departure on 2026-10-30
+     (`posterior_predictive` is not a wrapper around `predict`). They also
+     confirmed that M1 and M3 stay recorded for M4.
+3. **Can go once #117 merges:** `.worktrees/m3-run`, `.worktrees/m3-smoke-*`
+   (their logs are copied to the archive's `evidence/`), `.worktrees/m2-hygiene`.
+
+## Earlier: M2, release hygiene (branch `tomkimpson/m2-release-hygiene-kim-22-23-24-26`, 2026-10-29)
 
 **Done:** one PR, one commit per issue, from a worktree at `.worktrees/m2-hygiene`
 (based on main at `1bb9790`). There was no `/check-PR`, by the user's call. KIM-25

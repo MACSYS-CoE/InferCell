@@ -130,6 +130,15 @@ using Aqua
     include("test_mixed_likelihood.jl")
     include("test_corea_mixed.jl")
     include("test_dispatch.jl")
+    # M3: predict (KIM-27 to KIM-34).
+    include("test_predict_posterior.jl")
+    include("test_predict_completion.jl")
+    include("test_predict_forward.jl")
+    include("test_predict_viability.jl")
+    include("test_predict_intervention.jl")
+    include("test_predict.jl")
+    include("test_predict_provenance.jl")
+    include("test_posterior_predictive.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

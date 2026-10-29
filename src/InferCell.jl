@@ -7,14 +7,18 @@ using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!,
 using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
                      reset_aggregated_jumps!
 using Turing
+# `predict` extends the StatsAPI function Turing exports, so `using Turing, InferCell`
+# leaves one `predict`, with InferCell's methods on its own types.
+import Turing: predict
 using Distributions
 using StaticArrays
 using Random
+using Serialization: deserialize
 using MCMCChains: replacenames, Chains, setinfo
 using ForwardDiff
 using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
                      Diagonal
-using Statistics: quantile, mean, std, median, cov
+using Statistics: quantile, mean, std, median, cov, var
 
 include("parameters.jl")
 # Reading order, not a load-time requirement: resolver.jl and loader.jl call
@@ -82,6 +86,12 @@ include("models/tier_b_metabolism.jl")
 include("summary_statistics.jl")
 include("abc_smc.jl")
 include("inference.jl")
+include("posterior_draws.jl")
+include("predict_completion.jl")
+include("predict_intervention.jl")
+include("predict_forward.jl")
+include("predict_viability.jl")
+include("predict.jl")
 include("boundary.jl")
 
 export InferParameter, free_params, rate_params, ic_params, obs_params,

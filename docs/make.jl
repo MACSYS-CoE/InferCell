@@ -42,6 +42,7 @@ makedocs(;
             "Orchestrator" => "api/orchestrator.md",
             "Handshake driver" => "api/handshake.md",
             "Conditional sampler" => "api/conditional-sampler.md",
+            "Prediction" => "api/predict.md",
             "Inference (toy models)" => "api/inference.md",
             "Boundary (toy models)" => "api/boundary.md",
             "Toy models" => "api/models.md",

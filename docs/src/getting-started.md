@@ -59,6 +59,42 @@ run in minutes. A production chain uses 50 cells over 600 s with `N = 20`
 particles, and one sweep takes about 13 minutes on five threads. See
 [the conditional sampler](api/conditional-sampler.md).
 
+## Predict
+
+[`predict`](@ref) turns a posterior into a prediction of a quantity Q, here the
+lactate a cell exports. [`posterior_draws`](@ref) reads any posterior InferCell
+writes: the `Chains` that [`infer`](@ref) returns, or an archived V7 or B7 file
+by its path.
+
+```julia
+ms = m0_models()
+ch = infer(ms, ds; route = :exact, rng = Xoshiro(3), n_sweeps = 5, N = 4)
+pd = posterior_draws(ch)
+
+# Four stochastic cells for each of three posterior draws.
+p = predict(ms, pd; horizon = 180, n_cells = 4, n_parameter_draws = 3, rng = Xoshiro(4))
+p.summary.uniform
+
+# The mean field, uncorrected and corrected by a hybrid ensemble at one point.
+m = predict(ms, pd; horizon = 180, forward = :mean_field, delta = :ensemble, n_ref = 8,
+            rng = Xoshiro(4))
+m.summary.uniform.mean, m.delta.delta
+
+# The paired effect of a 25% ptsG promoter knockdown, on the same cells.
+k = predict(ms, pd; horizon = 180, n_cells = 4, n_parameter_draws = 3,
+            intervention = Knockdown(; dose = 0.25), rng = Xoshiro(4))
+k.effect_summary.uniform.mean
+```
+
+`summary` separates three parts of the spread: the parameter uncertainty
+(`parameter_var`), the Monte Carlo part that a finite number of cells adds (`mc`),
+and the cell-to-cell spread (`intrinsic_var`). The last is reported apart, since
+the estimand is a population mean. `parameter_var` is the parameter variance only
+without completion, as here. On the reduced model (`d11_models()`), the
+parameters M0 does not infer are completed from their priors with
+`completion = :prior`, or filtered by a declared [`ViabilityRule`](@ref) with
+`completion = :viability_conditioned_prior`. See [Prediction](api/predict.md).
+
 ## Running the tests
 
 ```bash

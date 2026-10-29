@@ -162,20 +162,27 @@ reaction keeps its equilibrium constant, which [`assert_haldane`](@ref) checks.
 included. That is the rule phase 14b's census drew by, which breaks the Haldane
 relations. It is kept as the mutation 14c.1's check must fail on (14b's own
 script draws inline and does not call this).
+
+`width` scales every prior's width, for the prior-width sensitivity runs (KIM-29):
+a `LogNormal(μ, σ)` is drawn as `LogNormal(μ, width·σ)`, so its median stays.
+A point prior (`Dirac`) has no width to scale. Any other prior is refused unless
+`width = 1`.
 """
 function draw_parameters(rng::AbstractRNG, models::AbstractVector{<:AbstractSubModel},
-                         names::AbstractVector{Symbol}; reverse::Symbol = :derived)
+                         names::AbstractVector{Symbol}; reverse::Symbol = :derived,
+                         width::Real = 1.0)
     reverse in (:derived, :independent) || throw(ArgumentError(
         "reverse must be :derived or :independent, not :$reverse"))
     allunique(names) || throw(ArgumentError("names must not repeat"))
+    width > 0 || throw(ArgumentError("width must be positive, got $width"))
+    prior(n) = _widened(_parameter_by_name(models, n).prior, width, n)
     if reverse === :independent
-        return [n => rand(rng, _parameter_by_name(models, n).prior) for n in names]
+        return [n => rand(rng, prior(n)) for n in names]
     end
 
     rels = haldane_relations(models)
     reverses = Set(r.reverse for r in rels)
-    drawn = [n => rand(rng, _parameter_by_name(models, n).prior)
-             for n in names if !(n in reverses)]
+    drawn = [n => rand(rng, prior(n)) for n in names if !(n in reverses)]
 
     nominal = nominal_parameter_values(models)
     values = merge(nominal, Dict(drawn))
@@ -190,6 +197,50 @@ function draw_parameters(rng::AbstractRNG, models::AbstractVector{<:AbstractSubM
                                                      equilibrium_constant(r, nominal)))
     end
     return vcat(drawn, derived)
+end
+
+# A prior `width` times as wide, about the same median.
+_widened(d::LogNormal, width, _) = width == 1 ? d : LogNormal(d.μ, width * d.σ)
+_widened(d::Dirac, _, _) = d
+_widened(d, width, name) = width == 1 ? d : throw(ArgumentError(
+    ":$name's prior is a $(typeof(d)); only a LogNormal's width can be scaled"))
+
+"""
+    haldane_values(models, values) -> Vector{Pair{Symbol, Float64}}
+
+`values` as parameter writes, with the reverse constant of every reversible
+reaction they touch derived through its nominal equilibrium constant, as
+[`draw_parameters`](@ref) derives it. A reaction is touched when `values` names
+its forward, reverse or any Michaelis constant. A reverse constant in `values`
+is replaced by the derived one, not kept.
+
+This is for a parameter set put together from several sources, such as a
+posterior's forward constants beside a prior's Michaelis constants (`predict`'s
+completion). Each reverse constant is then derived from the values that run,
+not from one source's.
+"""
+function haldane_values(models::AbstractVector{<:AbstractSubModel},
+                        values::AbstractVector{<:Pair{Symbol}})
+    names = first.(values)
+    allunique(names) || throw(ArgumentError("values must not name a parameter twice"))
+    rels = haldane_relations(models)
+    reverses = Set(r.reverse for r in rels)
+    nominal = nominal_parameter_values(models)
+    plain = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values if !(n in reverses)]
+    all(n -> haskey(nominal, n), first.(plain)) || throw(ArgumentError(
+        "No module in the composition has the parameter " *
+        ":$(first(n for n in first.(plain) if !haskey(nominal, n)))"))
+    vals = merge(nominal, Dict(plain))
+    moved = Set(names)
+    derived = Pair{Symbol, Float64}[]
+    for r in rels
+        touched = r.reverse in moved || r.forward in moved ||
+                  any(km in moved for (km, _) in r.substrates) ||
+                  any(km in moved for (km, _) in r.products)
+        touched || continue
+        push!(derived, r.reverse => _derived_reverse(r, vals, equilibrium_constant(r, nominal)))
+    end
+    return vcat(plain, derived)
 end
 
 """
@@ -252,5 +303,5 @@ function d11_models(; smoothing::Union{Nothing, Real} = nothing)
 end
 
 export HaldaneRelation, haldane_relations, equilibrium_constant,
-       nominal_parameter_values, draw_parameters, assert_haldane, D11_TARGETS,
+       nominal_parameter_values, draw_parameters, haldane_values, assert_haldane, D11_TARGETS,
        d11_models
