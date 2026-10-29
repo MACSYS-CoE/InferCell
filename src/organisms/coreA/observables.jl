@@ -521,7 +521,7 @@ end
 """
     corea_dataset(replicate_seed; ncells = 200, horizon = COREA_CYCLE_S) -> NamedTuple
 
-One Core A′ injection, everything drawn from one recorded seed, as
+One synthetic dataset (an injection) on the reduced syn3A model, everything drawn from one recorded seed, as
 [`m0_dataset`](@ref) draws an M0 replicate. Built for B8's AV7, which is parked;
 its later use is a scored recovery test, with a known truth on the reduced model,
 separate from the unscored reduced-model prediction (spec/spec.md §12 2026-10-29,
