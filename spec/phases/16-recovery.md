@@ -1,7 +1,7 @@
 # Spec: Phase 16 — Recovery, coverage, and the reference
 
 **Status:** met at M0; full scale budget-bound (2026-10-28). 16a is ticked in §11, and 16b closed in #105, #107, #109 and #110. 16b.5 and 16b.6 are budget-bound (§12 "T3 at M0")
-**Created:** 2026-09-30  ·  **Last amended:** 2026-10-28
+**Created:** 2026-09-30  ·  **Last amended:** 2026-10-29
 **Parent spec:** [`spec/spec.md`](../spec.md) §11 phase 16. That spec's §2 (background), §7
 (non-goals) and §8 (kill criteria) are inherited, not restated. Where this file and
 the parent disagree on phase 16, this file wins. On anything else, the parent wins.
@@ -510,6 +510,10 @@ with E block-1 evaluations per sweep. E is between 5 and 15.
 | Full PGAS, N = 10 | about 525 + E | about 1.9M |
 
 **So the cap cannot fund one full-scale posterior at any variant.**
+
+*Amended 2026-10-29 (§12, O1 part 2):* the cap is reopened for track B's B8 with no
+ceiling, by the user's decision. B8's spend is logged and labelled; the exact
+full-scale posterior (O5) is not funded by it.
 
 **Amended 2026-10-05 (§12, after the #81 review): wall-clock under bulk
 metabolites.**
@@ -1048,6 +1052,18 @@ annotated below with its rung and funding.
   **Done 2026-10-28 at M0:** `dev/scripts/phase16_t3.md` (§12 "T3 at M0").
 
 ## 12. Amendment log
+
+### 2026-10-29 — O1 part 2: the cap is reopened for track B's B8, with no ceiling (the user's decision)
+
+**Trigger:** 16a.11 deferred O1 part 2 "until an approximate method passes 5.2". B7
+passed AV6's SBC (`approximate-method.md` §12 2026-10-27). B8, AV7's ≥ 200
+injections on Core A′, is projected roughly at 10k–25k CPU-h, against about 4.6k
+left of D16.6's 50k.
+**Change:** the user's decision (2026-10-29): B8 runs in full and is not held to
+the cap. Its spend is logged in `phase16_ledger.md` as before, and labelled B8.
+The gate on B8 is wall-clock (`approximate-method.md` §12 2026-10-29, "B8 as
+planned"). O5, an exact Core A′ posterior, is not funded by this.
+**Sections touched:** D16.6 (by reference), §12.
 
 ### 2026-10-28 — T3 at M0: K2 scored budget-bound; the forward direction unmeasured
 

@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-28
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-29
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -164,7 +164,7 @@ L_tx,g,m = [ P_{k_{g,m−1}, μ_g}(59) · P_{k_{g,m}, μ_g}(1) ] (y_{m−1}, y_m
 | AV4 | Mean field, pinned constants | With k_tx and k_tl pinned and no rebuild, the mean-field means of every transcript, protein and counter match an SSA ensemble's means within 4 SE at every save. Ensemble: ~2,000 cells × 600 s on M0's two genes | B2 |
 | AV5 | **The Jensen gap (B3's measurement)** | See §8 KG. Measured at three drawn M0 truths (V6's replicate 16085, V7's replicates 13 and 2) and A3's truths 1 and 2 (amended 2026-10-20, §12). Reported, not a stop, with δ's correction, KG′ and the implied parameter bias (amended 2026-10-23, §12) | B3 |
 | AV6 | Approximate vs exact on M0 | V7's 50 datasets refitted. Marginals and the ptsG–ENO pair against V6 and V7, beside a Monte Carlo floor taken from V6's split halves (V8's construction). SBC under V7's rule (α/6 per parameter) | B7 |
-| AV7 | Calibration and efficiency on Core A′ | ≥ 200 injections, truths from the prior, data from the full two-way model. Rank-ECDF at 1 − 0.05/6, and widths against A2's information bound | B8 |
+| AV7 | Calibration and efficiency on Core A′ | ≥ 200 injections, truths from the prior, data from the full two-way model. Rank-ECDF at 1 − 0.05/7 over D11's six and σ_b, and widths against a per-truth bound matched to the fit's covariance (amended 2026-10-29, §12 "B8 as planned") | B8 |
 
 **AV6 also covers #89 B1's "test against block 2's exact conditional".** Block 2 is
 conditional on the path (firings and exposures), so it is not a function a
@@ -335,10 +335,130 @@ forward ensemble of the full two-way model, and held fixed across θ.
   - [x] B7.7 Merge, Figure 4, Figure 5's middle panel and `dev/scripts/av6_89_b7_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B7 as planned" reported.
   - [x] B7.8 The stream arms against 16b.4's exact fits. If 16b.4 has not landed by then, stop and ask. (Asked 2026-10-27: a follow-up PR once 16b.4 lands; §12 2026-10-27, "B7 as run".) **Done 2026-10-28** (§12 "B7.8 as planned"; job 19411150; `av6_89_b7_result.md`, "B7.8"). Under transcripts only, none of the five marginals is resolved. Under metabolites only, ENO, σ_b and krnadeg are resolved by small margins and FBA is not. ptsG has no exact counterpart.
   - [x] B7.9 The suite by Slurm, "B7 as run" in §12, and the handoff.
-- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1).
+- [ ] **B8.** Paper section 5.3, AV7. Needs the cap reopened at 16a.11 (O1). Cap reopened 2026-10-29 with no ceiling (the user's decision; `16-recovery.md` §12).
+  Planned in §12 2026-10-29, "B8 as planned". One commit per task:
+  - [ ] B8.1 This plan, as a §12 entry, and the cap's entry in `16-recovery.md` §12.
+  - [ ] B8.2 `corea_dataset` — verify by a test that a replicate is reproducible at its seed, its truth passes `check_truth`, σ_b is drawn from `SIGMA_MET_PRIOR`, its cell, reference, start and chain seeds are disjoint from each other and from V7's and A2's, and `m0_dataset(16_200_001)` is unchanged bitwise.
+  - [ ] B8.3 Core A′ in `mixed_setup` (`d11_models()`, `D11_TARGETS`, `M0_PANEL`, every gene's transcripts, `COREA_CYCLE_S`) — verify by AV3 on Core A′ at 2 fixed x to 1e-6, B7.3's stream identities on Core A′, and M0's density and gradient equal to B7.2's snapshots at 5 fixed x to 1e-10.
+  - [ ] B8.4 Profile and pilot: the per-gradient time (median of 3), one full posterior end to end, and one truth's bound — verify by ledger rows and a wall-clock projection for the run. Gate: above 7 days per posterior or 4 weeks for the run, stop and ask. The efficiency reading's 1.25 is confirmed here.
+  - [ ] B8.5 The per-truth bound script — verify by A2's three tables reproduced at the nominal θ under A2's resolution rule, from A2's run, to the figures quoted.
+  - [ ] B8.6 The AV7 driver (`dev/scripts/av7_89_b8.*`) — verify by a parse-and-lower on the login node and a `SMOKE=1` run of every stage on 2 replicates from a worktree at a pushed commit.
+  - [ ] B8.7 The production run: 200 joint fits, 20 × 2 stream arms, 20 bounds, 3 KS refits and 3 matched nulls — verify by `sacct` showing every job of record COMPLETED, ledger rows, and an archive with `SHA256SUMS`.
+  - [ ] B8.8 Merge, Figure 5's third panel, Figure 6, Table 2's Core A′ row and `dev/scripts/av7_89_b8_result.md` — verify by the merge log reproducing the result file's tables, with every rule of "B8 as planned" reported.
+  - [ ] B8.9 The suite by Slurm, "B8 as run" in §12, and the handoff.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-29 — B8 as planned: AV7's rules, run size, the bound and the extra arms (the user's decisions; fixed before any code)
+
+- **Why an entry.** §11 gave B8 one line and no verification clause. AV7 (§3)
+  names the run but fixes no pass line for the widths, and four calls were open:
+  S, the ensemble, the bound and F6's scope. The user's answers (2026-10-29):
+  - **Full B8,** not a reduced demonstration. The cap is reopened for it with no
+    ceiling (O1 part 2; `16-recovery.md` §12 2026-10-29). Spend is still logged
+    in `phase16_ledger.md`.
+  - **S:** fixed S at θ_ref by the delta method, as B5 and B7, with KS refits on
+    a few injections.
+  - **The ensemble:** 800 cells, as B7.
+  - **The bound:** per truth, on a subset.
+  - **F6:** the stream arms on a subset.
+- **What it feeds.** The outline's §5.3 (the draft's `STATUS.md` numbers it 5.4;
+  the story check reads the outline's row): Figure 5's third panel, Figure 6,
+  Table 2's Core A′ approximate row, the abstract's injection count, and the
+  reviewer answers "a two-gene toy" and "calibration does not show you kept the
+  information".
+- **The datasets.** `corea_dataset(replicate_seed; ncells = 200)`, written as
+  `m0_dataset` is, on `d11_models()`:
+  - a truth over `D11_TARGETS` from `draw_truth(…; purpose = :calibration)`;
+  - σ_b from `SIGMA_MET_PRIOR`, so σ_b's truth is drawn from the sampler's own
+    prior, as in V7;
+  - 200 cell seeds, a noise seed and a bulk seed, drawn last in that order;
+  - one `COREA_CYCLE_S` cycle, 60 s saves, t = 0 dropped;
+  - the bulk panel is `M0_PANEL`, A2's 17 pools (n = 17 × 105 = 1785);
+  - every gene's transcripts are observed exactly. krnadeg is shared, so all of
+    them inform it.
+- **The seeds.** Injection r = 1, …, 200 is `corea_dataset(17_200_000 + r)`.
+  Reference and chain seeds follow `reference_seeds` and `mixed_chain_seeds`
+  from that replicate seed. They are disjoint from V7's (`16_200_000 + r`) and
+  from A2's (20001–21470), and a test asserts it (B8.2).
+- **The posterior.** B7's pipeline at Core A′'s size:
+  - θ_ref by the bounded MAP with B7's reltol and xtol rules, then the 800-cell
+    reference ensemble at θ_ref, then δ and S;
+  - S = Cov(per-cell panel counts) / (x̄ x̄ᵀ · 200). It has rank at most 799 of
+    1785; σ_b² I + S is still positive definite. This is a declared reduction,
+    beside fixed S;
+  - **2 chains × (200 adaptation + 200 draws),** starts and seeds as B7.4.
+  - The MAP's time limit and the chains' are set from B8.4's pilot, at 3× its
+    measured time, not inherited from B7's 12 h.
+- **Per-replicate convergence: reported, not used to drop replicates.** As B7:
+  R̂ ≤ 1.02 and bulk ESS ≥ 100 for every parameter is the target. Replicates below
+  it are listed, and SBC is also shown without them. Only a complete set of 200
+  is merged.
+- **AV7's calibration pass line is SBC over seven parameters.**
+  - **Amended from AV7's "1 − 0.05/6".** The sampler draws D11's six and σ_b. B7's
+    six on M0 were five targets and σ_b. So the band here is 1 − 0.05/7, over all
+    seven.
+  - **Ranks:** each replicate's 400 draws thinned to L = 100, rank
+    `count(< truth)`, as B7.
+  - **Pass:** the rank-ECDF lies within simultaneous bands at 1 − 0.05/7 for all
+    seven.
+- **The subset.** Injections r = 1, …, 20, fixed here before any truth is
+  drawn. It carries the stream arms and the bound.
+- **The stream arms (F6 at full scale).** On the subset, a `(:tx,)` fit and a
+  `(:bulk,)` fit at the joint fit's size, as B7.3's switch.
+  - Reported per arm and parameter: the shrinkage 1 − var_post / var_prior, and
+    the width against that arm's bound.
+  - Their rank-ECDFs are drawn, but 20 ranks have little power, so **they are not
+    read as a calibration verdict.**
+  - σ_b under `(:tx,)` is its prior and is not reported.
+- **The bound, per truth (AV7's efficiency check).** A2's bound is at the nominal
+  θ, and its row weights are not the fit's. Each row's resolution is
+  max(SE, CV · mean), diagonal, with saves independent. The mixed likelihood
+  weights rows by σ_b² I + S, with S full. A ratio against A2's table would read
+  above 1 by construction. So the bound is recomputed per truth, matched to the
+  fit:
+  - **J** is A2's: `ensemble_jacobian`'s central differences at ln θ ± 0.2 under
+    common random numbers. The cells are the full two-way reference model at the
+    injection's truth, 1470 paired seeds as A2.
+  - **The bulk rows** are weighted by σ_b² I + S, with σ_b the injection's truth
+    and S from the same nominal cells by the delta method. The metabolites-only
+    bound is then J_mᵀ (σ_b² I + S)⁻¹ J_m plus the prior precision.
+  - **The transcript rows** keep A2's rule: ensemble means at a 1% floor. That
+    understates what per-cell counts carry, so under transcripts only and joint a
+    posterior can legitimately come in under the bound. Those two designs are
+    reported, not read against a pass line.
+  - The split-half bracket is carried, as A2. A parameter is "informed" if its
+    bound is below its bracket.
+  - **The efficiency reading,** on the metabolites-only arm and for each informed
+    parameter: ρ = posterior SD / bound SD per injection, reported as a median and
+    a range over the 20. **"Reaches the bound" if the median ρ ≤ 1.25.** This is
+    the paper's reading, not a gate. The number is the user's call before B8.4.
+  - The check that the script is A2's: with A2's resolution rule, at the nominal
+    θ and σ_b = 10%, it reproduces A2's three tables at C = 200 to the figures
+    quoted, from A2's own run.
+- **KS at full scale.** Three injections, chosen from the 200 drawn truths by
+  rule: the lowest ptsG truth, the lowest ENO truth (the next lowest if it is the
+  same injection), and the injection with ptsG nearest its prior median.
+  - **The refit,** as B7: S re-estimated from a new 800-cell ensemble at the mixed
+    posterior mean (log scale), δ held, the same run size.
+  - **The matched null, built in from the start.** A second fixed-S fit with the
+    same θ_ref, δ and S and different chain seeds (B7's 2026-10-27 construction).
+  - **KS fires** on a marginal if the fixed-against-re-estimated W1 exceeds the
+    fixed-against-fixed W1. It is reported, as on M0, and not a stop: the linear
+    noise approximation is not built (§8).
+- **Cost (Table 2).** Each posterior's CPU-h by `sacct` (MAP, ensemble and
+  chains), reported per replicate and as a median. It is set beside the exact
+  sampler's projected 60k–150k CPU-h on Core A′. KC is M0's criterion and is not
+  read here.
+- **The gate is wall-clock, not CPU-h.** B8.4 projects the run's wall time as a
+  Slurm array. **Stop and ask** if one posterior projects above 7 days, or the
+  whole run above 4 weeks.
+- **Not changed:** δ, S's construction, the box, the step cap, KG's status, the
+  exact sampler, and M0's numbers (B8.3 checks them bitwise).
+- **Tasks** (§11 B8): B8.1–B8.9. One commit per task.
+
+*Sections:* §3 AV7, §11 B8.
 
 ### 2026-10-28 — B7.8 as planned: the floor, and which cells are read
 
