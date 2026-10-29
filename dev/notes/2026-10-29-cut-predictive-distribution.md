@@ -53,6 +53,13 @@ The hybrid estimates μ(θ) from n_cells cells per draw:
 So the spread of μ̂ over the parameter draws overstates the spread of μ by
 E_θ[σ²(θ)] / n. `predict` reports that Monte Carlo term beside the result. The
 parameter variance in §5 subtracts it, and does not leave it inside.
+- **Fresh cells per draw:** the subtraction holds only if each parameter draw
+  gets its own cell seeds. Reusing one set of cells across draws correlates the
+  errors, and E[σ²]/n is then the wrong correction. Paired seeds are for ΔQ
+  within a draw (§4), not across draws.
+- **A negative estimate:** if the subtracted parameter variance comes out
+  negative, it is reported as zero and flagged. It means n_cells is too small for
+  that draw count.
 
 ## 3. The cut distribution
 
@@ -119,8 +126,12 @@ factorised form is only exact if it does not. There are two well-defined variant
 - **(a)** reweights θ_I by P(V | θ_I) = ∫ P(V | θ_I, θ_H) p(θ_H) dθ_H. To sample
   it, draw a pair and accept it if viable.
 - **(b)** keeps θ_I's marginal equal to the M0 posterior, which is what "modular"
-  means. For each θ_I draw, resample θ_H until a viable one is found. Record each
-  θ_I's acceptance rate, which is an estimate of P(V | θ_I).
+  means. For each θ_I draw, draw a fixed number K of θ_H and keep the viable ones.
+  - The fraction kept estimates P(V | θ_I) without bias.
+  - A θ_I with none viable is recorded as a failure of the completion, not
+    silently redrawn.
+  - "Resample until viable" is avoided: it has no bound when P(V | θ_I) ≈ 0, and
+    1 / (tries) is a biased estimate of P(V | θ_I).
 
 Both are reported with:
 - the acceptance rate;
@@ -137,7 +148,8 @@ and a starved one. So V has to say whether it is a per-cell event or a property 
 being at least a threshold. A per-cell V conditions the cells, not the parameters,
 and changes μ's definition.
 
-If no starvation is part of V, starvation cannot also be Q (note §6).
+If no starvation is part of V, starvation cannot also be Q (launch-readiness note
+§6).
 
 ## 4. The intervention, p(Q | D, do(a))
 
@@ -174,7 +186,8 @@ Common seeds remove most of ξ's variance from Δ. The `predict` test for this
 
 On M0 the true effect Δμ(θ_I*) is computable with the same seeds. So coverage of
 the true effect is scored over the 50 datasets, for exact vs mixed posterior and
-for hybrid vs mean-field forward.
+for hybrid vs mean-field forward. Sharpness, the width of the interval, is reported
+beside coverage. Coverage alone is not enough (launch-readiness note §8.2).
 
 ## 5. The variance split
 
@@ -200,9 +213,11 @@ I first:  Var_θ[μ] = Var_{θ_I}[ E_{θ_H | θ_I}[μ] ] + E_{θ_I}[ Var_{θ_H |
 H first:  Var_θ[μ] = Var_{θ_H}[ E_{θ_I | θ_H}[μ] ] + E_{θ_H}[ Var_{θ_I | θ_H}[μ] ]
 ```
 
-- With independent groups, as in variant (b) when acceptance does not depend on
-  θ_I, the I-first first term is θ_I's first-order effect. The H-first second term
-  is θ_I's total effect.
+- With independent groups, the I-first first term is θ_I's first-order effect. The H-first second term
+  is θ_I's total effect. "Independent" means θ_H ⟂ θ_I under the conditioned
+  distribution. Under variant (b) that needs p(θ_H | θ_I, V) not to depend on
+  θ_I. A constant acceptance rate is not enough, because the viable region can move
+  with θ_I while keeping its mass.
 - The gap between the two orders measures the interaction, plus the dependence the
   filter induced.
 - Shapley effects are not used (completion plan §3.4).
