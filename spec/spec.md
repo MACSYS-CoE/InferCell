@@ -163,9 +163,12 @@ appears in both blocks' rate laws and is informed by both data streams. It is
 that a parameter local to one block has its posterior moved by the *other*
 block's data, through the state coupling. That is a harder claim and a narrower
 one, and §6 F6 is where it is cashed out. **Status (amended 2026-10-29, §12):**
-at M0, neither direction is measured on the exact sampler (T3,
-`spec/phases/16-recovery.md` §12 2026-10-28 "T3 at M0"), so it is not part of the
-v0.3.0 claim.
+on the exact sampler at M0, the forward direction is unmeasured: ptsG under
+metabolites only did not mix. The reverse is a null read-off at 50 cells (ENO
+0.0041 and FBA 0.0081 nat, each below its floor; job 19395555). That read-off is
+budget-bound and is not K2's verdict, which needs 1,000 cells (T3,
+`spec/phases/16-recovery.md` §12 2026-10-28 "T3 at M0"). So neither direction is
+part of the v0.3.0 claim.
 - **Metabolites → gene expression:** the ptsG promoter strength shrinking under
   metabolite-only data.
 - **The other direction, for ENO, is shown not to carry information** (amended
@@ -4435,9 +4438,10 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
   - User-facing text says "the reduced syn3A model"; the `corea` identifiers stay.
   - The old §1 claim ("posteriors over parameters whose information crosses the
     boundary are *calibrated*" in Core A′) is kept in §1 as the direction of the
-    work, marked superseded. Phase 16 met it at M0 only (16b.8, T3), and at M0
-    neither direction of cross-block information is measured on the exact
-    sampler, so the boundary-crossing paragraph is marked as outside the claim.
+    work, marked superseded. Phase 16 met it at M0 only (16b.8, T3). On the exact
+    sampler at M0 the forward direction is unmeasured, and the reverse is only a
+    budget-bound null read-off at 50 cells, so the boundary-crossing paragraph is
+    marked as outside the claim.
   - "Small declared discrepancies" is spelled out for the mixed route in
     `spec/phases/approximate-method.md` §12 2026-10-29 "the mixed route's status
     in one sentence" (KIM-19).
