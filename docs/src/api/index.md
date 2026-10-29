@@ -7,6 +7,7 @@ The pages in this section are organised by source module. Each splices the live 
 | `src/parameters.jl` | [Parameters](parameters.md) | `InferParameter`, role-filtering helpers |
 | `src/interface.jl` | [Sub-model interface](interface.md) | `AbstractSubModel`, protocol functions |
 | `src/edges.jl`, `src/resolver.jl`, `src/loader.jl`, `src/labels.jl`, `src/organisms/coreA/registry.jl` | [Interface contract](corea-interface.md) | `COREA_SPECIES`, the seven `CouplingEdge` kinds, `resolve_coupling`, `load_parameter` |
+| `src/organisms/coreA/` (the seven modules) | [Model modules](corea-modules.md): [Metabolism](corea-metabolism.md), [Gene expression](corea-gene-expression.md), [Assembly, priors and checks](corea-assembly.md) | `CentralGlycolysis`, `PtsTransport`, `CoreATranscription`, `MeanField`, `build_mean_field_problem`, `build_corea`, `draw_parameters` |
 | `src/orchestrator.jl` | [Orchestrator](orchestrator.md) | `build_problem` |
 | `src/handshake.jl` | [Handshake driver](handshake.md) | `HandshakeDriver`, `run_handshake!`, `clipping_census`, `rebuild_census`, `override_rebuild_pools!`, `chemostat_census`, `rate_constant_elasticity`, `driver_declarations`, the count↔concentration conversion |
 | `src/inference.jl` | [Inference](inference.md) | `infer`, `observe`, `posterior_predictive`, `check_identifiability` |
