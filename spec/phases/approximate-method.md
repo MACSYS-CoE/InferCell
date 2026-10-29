@@ -370,7 +370,7 @@ forward ensemble of the full two-way model, and held fixed across θ.
 ### 2026-10-29 — the mixed route's status in one sentence (KIM-19)
 
 **Status: agreed** (the user, 2026-10-29). This wording is to be reused in the
-README (KIM-23), the paper's abstract and §5.3 (KIM-45). Spec §1 carries only
+README (KIM-23), the paper's §5.3 (KIM-45) and its abstract (KIM-61). Spec §1 carries only
 the claim's "small declared discrepancies", and points here.
 
 **Trigger:** two descriptions were in circulation. The launch-readiness note said

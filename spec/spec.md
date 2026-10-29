@@ -85,7 +85,7 @@ spec wins, because the note does not address either.
     1,000 cells (§8, 16b.5).
   - **Amended 2026-10-29 (§12):** this table is outside the v0.3.0 claim. At M0,
     the ptsG cell is unmeasured on the exact sampler (it did not mix). K2 is
-    budget-bound and 16b.5 is closed unfunded (T3, `spec/phases/16-recovery.md`
+    budget-bound and 16b.5 is closed as budget-bound (T3, `spec/phases/16-recovery.md`
     §12 2026-10-28).
 
 - **What it is not.** It does not reproduce syn3A's 105-minute doubling time, its
@@ -207,7 +207,7 @@ bar this work is held to is in the table below, and the left column is not it.
 | Reproduces the 105 min doubling time | Parameters recover from synthetic data with nominal coverage, on M0 (amended 2026-10-29) |
 | Matches syn3A metabolite concentrations | Posteriors are calibrated on M0, by both the exact and the mixed route (amended 2026-10-29) |
 | Predicts the observed proteome | Identifiability is characterised: we know what the data constrains |
-| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05). Not met at M0 and outside the v0.3.0 claim (amended 2026-10-29, T3) |
+| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05). Not measured at M0 and outside the v0.3.0 claim (amended 2026-10-29, T3) |
 | A biological prediction | Predictions on the reduced model state every uncertainty source they carry, and say which are measured and which are only declared (amended 2026-10-29) |
 
 ---
@@ -4525,8 +4525,9 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
   plan §3.4). These are fixed in M4's freeze entry (KIM-36, KIM-37, KIM-39), not
   here.
 
-**Still to follow this entry:** the README (KIM-23) and the paper's title,
-abstract and claim (KIM-44, KIM-46) are brought into line in M2 and M6.
+**Still to follow this entry:** the README (KIM-23, M2), and the paper's title,
+abstract and claim (KIM-61, M6, after the rebase in KIM-44), are brought into line
+with this entry.
 
 *Sections:* header, §0, §1, §6 F6, §12.
 
