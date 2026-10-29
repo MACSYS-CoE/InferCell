@@ -1,7 +1,7 @@
 # Spec: v0.3.0 track B — the approximate method and the formalism swap
 
 **Status:** agreed 2026-10-20 (issue #89, task B0; §12). B1 and B2 met. B3 measured: the mean field fails KG at every truth, so B4 waited on a rethink (§8). The rethink (2026-10-23, §12) names the cause, drain-rate variation, and shows that KG fails a right description about half the time. Decided 2026-10-23 (§12): the gap is a declared reduction, corrected by an offset δ and reported, not a stop. B4 can go ahead; AV6 measures the gap's effect on the posterior. B4 built 2026-10-23: route (ii) is the Δt → 0 limit of the hybrid's pinned path at all five truths (§12).
-**Created:** 2026-10-20  ·  **Last amended:** 2026-10-28
+**Created:** 2026-10-20  ·  **Last amended:** 2026-10-29
 **Parent spec:** [`spec/spec.md`](../spec.md). Its §2 (background), §7 (non-goals) and
 §8 (kill criteria) are inherited, not restated.
 **Sibling:** [`16-recovery.md`](16-recovery.md). It supplies the exact sampler, which is
@@ -339,6 +339,23 @@ forward ensemble of the full two-way model, and held fixed across θ.
 - [ ] **B9** (optional). Paper section 5.4.
 
 ## 12. Amendment log
+
+### 2026-10-29 — the v0.3.0 claim, recorded in the parent spec
+
+**Status: decided** (the user's decisions). The record is `spec/spec.md` §12
+2026-10-29, "v0.3.0 launch decisions". It is not restated here.
+
+**What it means for this track:**
+- The claim (O2) rests on this track for its second sentence: "on M0, both
+  inference routes pass simulation-based calibration, with small declared
+  discrepancies". B7 is that evidence for the mixed route. The discrepancies are
+  spelled out in one sentence in the KIM-19 entry.
+- The formalism swap, hybrid against mean-field forward, is the one model-form
+  term that is measured (KIM-16). It is measured by the crossed design on M0.
+  This track's mean field is one of its two columns.
+- B8 is parked outside v0.3.0 (KIM-17). See the KIM-17 entry.
+
+*Sections:* §12.
 
 ### 2026-10-28 — B7.8 as planned: the floor, and which cells are read
 
