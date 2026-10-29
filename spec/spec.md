@@ -143,8 +143,9 @@ The data are synthetic and the priors asserted throughout. User-facing text says
 **The original claim, now the direction of the work and not claimed for v0.3.0**
 (superseded 2026-10-29, §12). Parameter uncertainty propagates correctly across a
 genuine ODE/stochastic boundary in a model derived from a published whole-cell
-simulation. Concretely: in Core A′ — 21 metabolic reactions and 17 genes carved
-out of Thornburg et al. 2022's well-stirred JCVI-syn3A model, with four
+simulation. Concretely: in Core A′ — 22 reactions (the 21 published metabolic
+reactions plus a lumped tRNA charging step; amended 2026-10-29, §12) and 17 genes
+carved out of Thornburg et al. 2022's well-stirred JCVI-syn3A model, with four
 deterministic modules and three stochastic ones exchanging state every simulated
 second and rate constants every sixty — posteriors over parameters whose
 information crosses the boundary are *calibrated*, not merely centred: coverage on
@@ -183,8 +184,13 @@ part of the v0.3.0 claim.
     information bound leaves its posterior SD at 99.9% of its prior over 200
     cells. That is at 15.7's truth, linearised, and from 40 cells scaled to 200.
   - It is reported as a measured null, not omitted.
-  - **A likely reason, not tested:** the pools reach the stochastic block only
-    through rate constants rebuilt once a minute.
+  - **The reason, in part** (amended 2026-10-29, §12). The 60 s cadence is not
+    it: a 6 s rebuild changes nothing measurable (A3,
+    `spec/phases/approximate-method.md` §2). What is measured is a weak gain. The
+    published rate laws are saturated, so a rebuilt constant's elasticity to its
+    pools is 0.044 to 0.051 for transcription (task 10.8) and 0.091 for
+    translation (task 11.10). That the weak gain is what makes ENO null is an
+    interpretation, not a test.
   - **FBA, the other metabolic constant, is not shown null.** Its expected
     information gives a ratio of 0.995, but its curvature-based upper-2σ ratio is
     about 0.72. K2 decides the reverse direction on the posterior at 1,000 cells.
@@ -4420,6 +4426,45 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-10-29 — §1's reaction count and the ENO null's reason (KIM-24)
+
+**Status: corrected.** These are two statements of fact in §1, brought into line
+with the code and with what has been measured. No decision changes.
+
+**Trigger:** paper 1's `paper/STATUS.md`, flag 4 (on `paper-1-draft`). §1 gave
+21 metabolic reactions where §0, §2, the README and the docs give 22. It also
+still gave the 60 s rebuild as the likely reason for the ENO null, after A3 had
+refuted it.
+
+**Change:**
+- **The count.** The ODE block integrates 22 rate laws: central glycolysis 10,
+  the phosphotransferase cascade plus lactate export 6, nucleotide recycling 5,
+  and the lumped tRNA charging step 1 (`src/organisms/coreA/`). Of those, 21 are
+  published metabolic reactions, and the charging step lumps the published
+  100-reaction chains into one. That is the scoping note's own count ("21
+  metabolic reactions plus one lumped step", `dev/notes/reduced-syn3a-scoping.md`).
+  §1's original claim now says "22 reactions (the 21 published metabolic
+  reactions plus a lumped tRNA charging step)", as §2 does.
+- **The ENO null's reason.**
+  - §1 said "a likely reason, not tested: … rate constants rebuilt once a
+    minute". A3 tested it: a 6 s rebuild changes nothing measurable
+    (`spec/phases/approximate-method.md` §2).
+  - §1 now gives the measured part, the weak gain. The published rate laws are
+    saturated, so a rebuilt constant's elasticity to its pools is 0.044 to 0.051
+    for transcription (task 10.8) and 0.091 for translation (task 11.10).
+  - That the weak gain causes the null is stated as an interpretation. It is the
+    same reason paper 1 gives (its subsection "Information follows gain").
+
+**Unchanged:**
+- Every result, and the ENO null itself.
+- `dev/notes/`. The scoping note's count is correct. The `fig1r` legend's "21
+  reactions" belongs to the pre-D13 figure, which `fig1c` supersedes.
+- `spec/amendment-draft-2026-10-05.md`, a historical draft.
+- The paper is not edited from main. It already uses 22 and gives saturation as
+  the reason, and its STATUS flag 4 is struck at the rebase (KIM-44).
+
+*Sections:* §1, §12.
 
 ### 2026-10-29 — v0.3.0 launch decisions: the claim, scope, quantity, venue and model form (the user's decisions)
 

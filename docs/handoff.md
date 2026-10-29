@@ -1,6 +1,49 @@
 # Handoff
 
-## Latest: M1, the launch decisions and prerequisites (branch `tomkimpson/m1-decisions-kim-11-17-19-20`, 2026-10-29)
+## Latest: M2, release hygiene (branch `tomkimpson/m2-release-hygiene-kim-22-23-24-26`, 2026-10-29)
+
+**Done:** one PR, one commit per issue, from a worktree at `.worktrees/m2-hygiene`
+(based on main at `1bb9790`). There was no `/check-PR`, by the user's call. KIM-25
+stays cancelled: the README's licence section already states the declared risk.
+- **KIM-22** (`c438dcc`): the docs CI fix.
+  - `api/corea-modules.md` was 201.95 KiB of HTML against Documenter's 200 KiB
+    limit. It is now an overview page, and its 13 `@autodocs` sources are split
+    over `api/corea-metabolism.md`, `api/corea-gene-expression.md` and
+    `api/corea-assembly.md`.
+  - The mean-field paragraph no longer says B4 is pending.
+  - The DistributionsAD `@check_args` error in the log is a non-fatal extension
+    load.
+- **KIM-24** (`e9cf0a9`): spec §1 and a §12 entry.
+  - The count is 22 reactions, the 21 published plus the lumped charging step,
+    from the code (10 + 6 + 5 + 1).
+  - The ENO null's reason is the measured weak gain (elasticities 0.044–0.051 for
+    transcription and 0.091 for translation), labelled an interpretation. The
+    60 s cadence was refuted by A3.
+  - Left alone: `dev/notes`, the 2026-10-05 draft, and the paper branch. The paper
+    already says 22 and saturation; strike STATUS flag 4 at the KIM-44 rebase.
+- **KIM-23** (`763ed70`): the README and `docs/src/index.md` follow spec §1.
+  - O3's wording, and the mixed route.
+  - V7's SBC pass, KIM-19's sentence and the v0.3.0 claim, each verbatim (checked
+    by script).
+  - §1's not-claimed list.
+  - The 4D model is credited to Thornburg et al. (2026).
+  - The STATUS flag 7 note on the 4D author is now fixed on main.
+- **KIM-26** (`da40da6`): `CITATION.cff`.
+  - The authors are a placeholder, by the user's choice.
+  - `version: 0.3.0` while Project.toml says 0.2.0 until KIM-51.
+  - There is no DOI or date until M7.
+  - `cffconvert --validate` 2.0.0 passes.
+
+**Checks:** no `src/` or `test/` change, so there was no Slurm run. A script
+confirmed that the three new pages hold the original 13 `Pages` entries, each
+once. The grep over README, `docs/src` and `spec/spec.md` finds 22, or the "21
+published … plus" form, only. The PR's docs workflow is KIM-22's done-when.
+
+**Next:** M3, starting with KIM-28, `predict`'s ingestion. At M7 (KIM-54), fill in
+CITATION.cff's authors, ORCIDs, DOI and date. At KIM-44, strike paper STATUS
+flags 4 and 7.
+
+## Earlier: M1, the launch decisions and prerequisites (branch `tomkimpson/m1-decisions-kim-11-17-19-20`, 2026-10-29)
 
 **Done:** one PR, one commit per issue. PR #112 (the framing and launch-readiness
 notes and `dev/notes/2026-10-29-completion-plan.md`) was merged first.

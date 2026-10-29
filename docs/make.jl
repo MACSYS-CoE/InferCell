@@ -30,7 +30,14 @@ makedocs(;
             "Parameters" => "api/parameters.md",
             "Sub-model interface" => "api/interface.md",
             "Interface contract" => "api/corea-interface.md",
-            "Model modules" => "api/corea-modules.md",
+            # One page overflowed Documenter's 200 KiB HTML limit, so the
+            # modules' docstrings are split by block (KIM-22).
+            "Model modules" => [
+                "Overview" => "api/corea-modules.md",
+                "Metabolism" => "api/corea-metabolism.md",
+                "Gene expression" => "api/corea-gene-expression.md",
+                "Assembly, priors and checks" => "api/corea-assembly.md",
+            ],
             "Observables and data" => "api/corea-observables.md",
             "Orchestrator" => "api/orchestrator.md",
             "Handshake driver" => "api/handshake.md",
