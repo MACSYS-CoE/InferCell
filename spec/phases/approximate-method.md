@@ -369,8 +369,9 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ### 2026-10-29 — the mixed route's status in one sentence (KIM-19)
 
-**Status: agreed** (the user, 2026-10-29). This wording is reused in the README,
-spec §1, the paper's abstract and §5.3.
+**Status: agreed** (the user, 2026-10-29). This wording is to be reused in the
+README (KIM-23), the paper's abstract and §5.3 (KIM-45). Spec §1 carries only
+the claim's "small declared discrepancies", and points here.
 
 **Trigger:** two descriptions were in circulation. The launch-readiness note said
 "passes SBC for 6 of 6 parameters … small but resolved discrepancies". Notes
