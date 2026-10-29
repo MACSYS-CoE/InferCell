@@ -81,6 +81,10 @@ spec wins, because the note does not address either.
   - **FBA, the other metabolic target, is not shown null.** So the reverse
     direction is a measured null for ENO and open for FBA. K2 still decides it, at
     1,000 cells (§8, 16b.5).
+  - **Amended 2026-10-29 (§12):** this table is outside the v0.3.0 claim. At M0,
+    the ptsG cell is unmeasured on the exact sampler (it did not mix). K2 is
+    budget-bound and 16b.5 is closed unfunded (T3, `spec/phases/16-recovery.md`
+    §12 2026-10-28).
 
 - **What it is not.** It does not reproduce syn3A's 105-minute doubling time, its
   metabolite concentrations or its proteome, and no result is to be compared to
@@ -182,6 +186,9 @@ part of the v0.3.0 claim.
   - **FBA, the other metabolic constant, is not shown null.** Its expected
     information gives a ratio of 0.995, but its curvature-based upper-2σ ratio is
     about 0.72. K2 decides the reverse direction on the posterior at 1,000 cells.
+  - *Amended 2026-10-29:* K2 was not run at 1,000 cells, and is scored
+    budget-bound (T3). At M0, both ENO and FBA are null read-offs at 50 cells.
+    This bullet records the design, not a v0.3.0 result.
 
 **What this claim deliberately excludes** (amended 2026-10-29, §12). It makes no
 claim of an all-parameter posterior, of calibrated inference on Core A′, or of a
@@ -198,7 +205,7 @@ bar this work is held to is in the table below, and the left column is not it.
 | Reproduces the 105 min doubling time | Parameters recover from synthetic data with nominal coverage, on M0 (amended 2026-10-29) |
 | Matches syn3A metabolite concentrations | Posteriors are calibrated on M0, by both the exact and the mixed route (amended 2026-10-29) |
 | Predicts the observed proteome | Identifiability is characterised: we know what the data constrains |
-| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05) |
+| Forward trajectories look biological | Uncertainty crosses the boundary correctly where information crosses it, and the information in each direction is measured (amended 2026-10-05). Not met at M0 and outside the v0.3.0 claim (amended 2026-10-29, T3) |
 | A biological prediction | Predictions on the reduced model state every uncertainty source they carry, and say which are measured and which are only declared (amended 2026-10-29) |
 
 ---
@@ -1436,7 +1443,7 @@ is the enabler.
 | F4 | Conservation residual against handshake count under the three rounding policies | C2 | Exact-zero, square-root, linear. Justifies the policy and forestalls a rounding artefact being read as a leak |
 | **F5** | **The two external comparisons.** Predicted against measured transcript steady states, 17 points, log-log with a twofold band; and the protein fold-change histogram with the published median marked | C2, external | The only two places Core A′ touches data it did not consume |
 | F5b | Analytic drain-noise calculation against simulated | C1 | Closed-form variance of the cumulative expression drain. **Must be computed after D13, not before:** removing 3.49 M near-smooth charging events and leaving ~10⁴ translation events carrying residue-weighted increments makes the drain noise relatively *larger*, not smaller. That recomputation is the measured cost for T2's formalism row |
-| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** | **Amended 2026-10-05 (§12):** one load-bearing cell and one measured null. The ptsG promoter under *metabolites only* shrinks: information crossed from the ODE block's data into the stochastic block's parameter. ENO under *transcripts only* cannot shrink at 15.7's truth, by the complete-data information bound (§12 2026-10-05; linearised, 40 cells scaled to 200). At that truth, a shrinkage there would mean a sampler error, so it is a check, not a hope. At other truths, such as 16b's prior-drawn coverage replicates, the bound was not computed |
+| **F6** | **The shrinkage table.** All six targets × three data configurations — transcripts only, metabolites only, joint — reporting posterior over prior standard deviation and the prior-to-posterior divergence | **C3. This is the figure the whole work is for** (outside the v0.3.0 claim; amended 2026-10-29, §12) | **Amended 2026-10-29 (§12):** at M0, the ptsG cell is unmeasured on the exact sampler and the reverse is a 50-cell null read-off (T3). **Amended 2026-10-05 (§12):** one load-bearing cell and one measured null. The ptsG promoter under *metabolites only* shrinks: information crossed from the ODE block's data into the stochastic block's parameter. ENO under *transcripts only* cannot shrink at 15.7's truth, by the complete-data information bound (§12 2026-10-05; linearised, 40 cells scaled to 200). At that truth, a shrinkage there would mean a sampler error, so it is a check, not a hope. At other truths, such as 16b's prior-drawn coverage replicates, the bound was not computed |
 | F7 | Leave-one-stream-out: refit dropping each transcript stream and each metabolite stream, reporting the change per target | C3 | Identifies load-bearing single points of failure, and streams that never informed anything |
 | **F8** | **Rank-ECDF difference plots with simultaneous bands**, per target, at the largest affordable replication count | C4 | Primary calibration evidence. Histograms are secondary |
 | F9 | Coverage curve: nominal against empirical at 50, 80, 90, 95 and 99 percent, per target, with binomial intervals | C4 | The two controls are the diagnostic rows, with the kill-criterion band drawn on |
@@ -4514,7 +4521,7 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
 **Still to follow this entry:** the README (KIM-23) and the paper's title,
 abstract and claim (KIM-44, KIM-46) are brought into line in M2 and M6.
 
-*Sections:* header, §1, §12.
+*Sections:* header, §0, §1, §6 F6, §12.
 
 ### 2026-10-13 — a note on inference paths beyond the exact sampler, recorded and open
 
