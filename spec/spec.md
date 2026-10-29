@@ -10,8 +10,10 @@ is split (§12, 2026-09-25): 14a, the balance checks, is done (#70), and so is
 Phase 14c, the smoothed drain and a Haldane-consistent prior, landed (#75)
 with 14c.5 partly open. 14c.5 closed on 2026-09-29 over 5,000 seeds, with its
 coupled half failed and carried as a measured cost (§12, #77). Phase 15,
-observables and synthetic data, is done (#78). Phase 16 is next, specified in
-`spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30).
+observables and synthetic data, is done (#78). Phase 16, specified in
+`spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30), closed at M0 on
+2026-10-28 (#105–#110). The v0.3.0 claim is §1's, as amended on 2026-10-29 (§12,
+"v0.3.0 launch decisions").
 **Created:** 2026-09-03  ·  **Last amended:** 2026-10-29
 
 This is the authoritative document for the Core A′ work. It supersedes
