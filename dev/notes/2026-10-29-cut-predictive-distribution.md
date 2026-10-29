@@ -204,8 +204,23 @@ H first:  Var_θ[μ] = Var_{θ_H}[ E_{θ_I | θ_H}[μ] ] + E_{θ_H}[ Var_{θ_I |
 - The gap between the two orders measures the interaction, plus the dependence the
   filter induced.
 - Shapley effects are not used (completion plan §3.4).
-- Estimating E_{θ_H | θ_I}[μ] needs K inner θ_H draws per θ_I draw, so the nested
-  split costs K times the plain prediction. That is costed in KIM-38.
+- **How both orders are computed.** Simulate a crossed matrix: M posterior draws
+  θ_I^m × K prior draws θ_H^k, with μ̂_mk from n_cells cells and the viability
+  indicator v_mk for each pair. The cost is M·K·n_cells cells, and KIM-38 costs it.
+  Each variant is then a set of cell weights on that one matrix:
+  - (b): w_mk = v_mk / (M · Σ_k v_mk);
+  - (a): w_mk ∝ v_mk.
+
+  Both orders are weighted two-way splits of the same matrix, using conditional
+  means along rows (θ_I fixed) and along columns (θ_H fixed). Under (b), θ_I given
+  θ_H is not something one can sample directly, because it needs P(V | θ_I) to
+  normalise. The matrix sidesteps that, since the row sums of v estimate P(V | θ_I).
+  - **Bias:** the variance of the row means over m overstates
+    Var_{θ_I}[E_{θ_H|θ_I} μ] by about E[within-row variance] / K_eff. Each μ̂_mk adds
+    σ²/n on top. Both are subtracted with the usual unbiased two-way estimator,
+    and an estimate that comes out negative is reported as zero, flagged.
+  - **Fallback:** if M·K·n_cells is too dear, report the I-first order only, and
+    say so. The H-first order is not then claimed.
 
 The sentence to aim for (plan §4.3): *x% of this prediction's uncertainty comes
 from parameters no measurement supports.*
