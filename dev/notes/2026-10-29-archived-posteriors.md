@@ -68,7 +68,7 @@ Written by `dev/scripts/av6_89_b7.jl`.
     `ds` (KS), and take theirs from their base fit (`fit_kind` in
     `av6_89_b7.jl`).
 - **Writing commits:** the chain files were written at four commits (7a102fc
-  ×86, 6526b45 ×20, 8da6045 ×6, 09be2f5 ×4). This is the run's resume history
+  ×86, 6526b45 ×20, 8da6045 ×6, 09be2f5 ×4). This is consistent with the run's resume history
   (`jobs_before_resume*.tsv`). None of it gets in the way of loading.
 
 ## For KIM-28 (`predict` ingesting these)
