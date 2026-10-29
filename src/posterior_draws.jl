@@ -92,7 +92,7 @@ end
     posterior_draws(chain::Chains; names = nothing, truth = nothing,
                     source = (kind = :chains,)) -> PosteriorDraws
     posterior_draws(result::ABCPosterior) -> PosteriorDraws
-    posterior_draws(path::AbstractString; burn = 100, thin = 1) -> PosteriorDraws
+    posterior_draws(path::AbstractString; burn, thin) -> PosteriorDraws
     posterior_draws(paths::AbstractVector{<:AbstractString}; kwargs...) -> PosteriorDraws
 
 Read a posterior into a [`PosteriorDraws`](@ref), mapping every column to its
@@ -110,8 +110,9 @@ not only the first.
 - a V7 replicate file, `(; state, meta)`, from `dev/scripts/sbc_v7_16a9b.jl`. Its
   draws are the sweeps after the first `burn`, every `thin`-th. The default
   `burn = 100` is V7's. The sweeps come from one correlated chain (23 of the 50
-  replicates have a smallest bulk ESS under 100), so `thin` is there to thin it.
-  The names are `meta.names`, and the truth is `meta.truth`;
+  replicates have a smallest bulk ESS under 100), so `thin` (default 1) is there
+  to thin it. The names are `meta.names`, and the truth is `meta.truth`. `burn`
+  and `thin` apply to V7 files only, and are refused for the others;
 - a B7 chain file, from `dev/scripts/av6_89_b7.jl`. Its `x[i]` columns are the
   mixed route's names in order, `log_` and then `M0_TARGETS` plus σ_b. The truth
   comes from the fit's `prep.jls` beside it, when that file holds the dataset;
@@ -120,8 +121,10 @@ not only the first.
 A `PosteriorDraws` is returned as it is.
 
 **Several files** are read in turn and merged, as a fit's two B7 chain files are.
-Their parameters must match, and so must their truths when they record one: a
-posterior merged over datasets is refused.
+Their parameters must match, and so must their truths when they record one, and
+their B7 fits: a posterior merged over datasets or likelihoods is refused. If two
+parts would give a draw the same chain and iteration, as two `infer` outputs do
+(each is chain 1), the later part's chains are numbered after the earlier's.
 """
 function posterior_draws(ch::Chains; names::Union{Nothing, AbstractVector{Symbol}} = nothing,
                          truth::Union{Nothing, AbstractDict} = nothing,
@@ -165,11 +168,16 @@ end
 
 const V7_BURN = 100
 
-function posterior_draws(path::AbstractString; burn::Integer = V7_BURN, thin::Integer = 1)
+function posterior_draws(path::AbstractString; burn::Union{Nothing, Integer} = nothing,
+                         thin::Union{Nothing, Integer} = nothing)
     x = deserialize(path)
+    if x isa NamedTuple && haskey(x, :state) && haskey(x, :meta)
+        return _v7_draws(x, String(path); burn = something(burn, V7_BURN),
+                         thin = something(thin, 1))
+    end
+    burn === thin === nothing || throw(ArgumentError(
+        "burn and thin apply to V7 replicate files; $path is not one"))
     x isa Chains && return posterior_draws(x; source = (kind = :chains, path = String(path)))
-    x isa NamedTuple && haskey(x, :state) && haskey(x, :meta) &&
-        return _v7_draws(x, String(path); burn, thin)
     x isa NamedTuple && haskey(x, :chain) && x.chain isa Chains &&
         return _b7_draws(x, String(path))
     throw(ArgumentError(
@@ -178,7 +186,7 @@ end
 
 function posterior_draws(paths::AbstractVector{<:AbstractString}; kwargs...)
     isempty(paths) && throw(ArgumentError("no files to read"))
-    return reduce(vcat, [posterior_draws(p; kwargs...) for p in paths])
+    return vcat((posterior_draws(p; kwargs...) for p in paths)...)
 end
 
 # A V7 replicate: each sweep's draw is `vcat(cme, exp.(u), σ)` in `meta.names`
@@ -225,6 +233,9 @@ function _b7_draws(x, path)
                           pd.iteration, pd.weights, pd.truth, pd.source)
 end
 
+# The sources a posterior was read from, a merge's parts flattened.
+_sources(s::NamedTuple) = s.kind === :merged ? s.parts : [s]
+
 function Base.vcat(a::PosteriorDraws, bs::PosteriorDraws...)
     parts = (a, bs...)
     for b in bs
@@ -237,13 +248,27 @@ function Base.vcat(a::PosteriorDraws, bs::PosteriorDraws...)
         a.truth === nothing || b.truth === nothing || a.truth == b.truth || throw(ArgumentError(
             "the posteriors record different truths, so they are not one dataset's"))
     end
+    sources = reduce(vcat, (_sources(p.source) for p in parts))
+    # A B7 fit names its dataset and likelihood, and several fits record no truth.
+    fits = unique(s.fit for s in sources if haskey(s, :fit))
+    length(fits) <= 1 || throw(ArgumentError(
+        "the posteriors come from different fits, $fits, so they are not one posterior"))
     k = findfirst(p -> p.truth !== nothing, parts)
     truth = k === nothing ? nothing : parts[k].truth
+    chain = reduce(vcat, (p.chain for p in parts))
+    iteration = reduce(vcat, (p.iteration for p in parts))
+    # Separate runs each number their chains from 1. Where that makes two draws
+    # share a place, each part's chains are numbered after the last part's.
+    if !allunique(zip(chain, iteration))
+        chain, off = Int[], 0
+        for p in parts
+            append!(chain, p.chain .+ off)
+            off = maximum(chain)
+        end
+    end
     return PosteriorDraws(a.names, reduce(vcat, (p.values for p in parts)),
                           a.sigma_b === nothing ? nothing : reduce(vcat, (p.sigma_b for p in parts)),
-                          reduce(vcat, (p.chain for p in parts)),
-                          reduce(vcat, (p.iteration for p in parts)), nothing, truth,
-                          (kind = :merged, parts = [p.source for p in parts]))
+                          chain, iteration, nothing, truth, (kind = :merged, parts = sources))
 end
 
 export PosteriorDraws, posterior_draws, draw_values

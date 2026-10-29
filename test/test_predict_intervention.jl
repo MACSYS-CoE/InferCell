@@ -23,6 +23,14 @@ using InferCell: AbstractSubModel
         @test Dict(w)[promoter_param(:JCVISYN3A_0607)] ==
               0.5 * nominal[promoter_param(:JCVISYN3A_0607)]
         @test Dict(intervene(Knockdown(; dose = 0.0), ms, θ)) == Dict(θ)
+        # A knockdown of a forward constant moves its reverse constant with it, so
+        # the equilibrium constant stays nominal, as it does at baseline. Every
+        # intervened arm (predict's, intervention_cells', δ's) goes through here.
+        e = Dict(intervene(Knockdown(; param = :kcatF_R_ENO, dose = 0.5), ms, θ))
+        @test e[:kcatF_R_ENO] == 0.5 * Dict(θ)[:kcatF_R_ENO]
+        @test e[:kcatR_R_ENO] ≈ 0.5 * Dict(θ)[:kcatR_R_ENO] rtol = 1e-12
+        @test e[:kcatR_R_FBA] == Dict(θ)[:kcatR_R_FBA]
+        @test all(r -> r.relative <= r.bound, assert_haldane(ms, collect(e)))
         @test_throws ArgumentError Knockdown(; dose = 1.5)
         @test_throws ArgumentError intervene(Knockdown(; param = :no_such, dose = 0.1), ms, θ)
     end

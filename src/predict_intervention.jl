@@ -14,7 +14,8 @@ abstract type Intervention end
     Knockdown(; param = :S_JCVISYN3A_0779, dose)
 
 A promoter knockdown: `param` is scaled by `1 − dose` after the parameter draw,
-and nothing else changes ([`intervene`](@ref)). The default is the ptsG promoter,
+and nothing else changes, beyond a reverse constant derived from it
+([`intervene`](@ref)). The default is the ptsG promoter,
 the first case (KIM-32). It is an inferred parameter, and its effect crosses the
 gene-expression–metabolism boundary. `dose` is in [0, 1], and the dose screen
 (KIM-37) picks it. A dose of 0 changes nothing, so its effect is exactly zero.
@@ -34,8 +35,10 @@ Knockdown(; param::Symbol = promoter_param(:JCVISYN3A_0779), dose::Real) = Knock
 
 The parameter writes `values` with intervention `a` applied. For a
 [`Knockdown`](@ref), the parameter's drawn value is scaled by `1 − dose`. If
-`values` does not set it, the scaling starts from its nominal value. Reverse
-constants are not re-derived here. `predict` intervenes before deriving them.
+`values` does not set it, the scaling starts from its nominal value. The reverse
+constants are then derived from the scaled set ([`haldane_values`](@ref)), so a
+knockdown of a forward constant moves its reverse constant with it, and every
+intervened arm keeps the nominal equilibrium constants, as its baseline does.
 """
 function intervene(a::Knockdown, models::AbstractVector{<:AbstractSubModel}, values)
     vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
@@ -48,7 +51,7 @@ function intervene(a::Knockdown, models::AbstractVector{<:AbstractSubModel}, val
     else
         vals[i] = a.param => last(vals[i]) * (1 - a.dose)
     end
-    return vals
+    return haldane_values(models, vals)
 end
 
 export Intervention, Knockdown, intervene

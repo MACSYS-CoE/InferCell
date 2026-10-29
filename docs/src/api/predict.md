@@ -24,8 +24,12 @@ columns, the held draws shared by every row. Each pair runs its own fresh cells,
 since the Monte Carlo correction E[σ²]/n holds only if no two draws share cell
 seeds. An intervention's arm reuses its pair's seeds, so the effect is paired
 within a draw. The [`Prediction`](@ref) keeps every run, every decision and every
-seed. Its `summary` separates the parameter uncertainty from the Monte Carlo
-term and from the cell-to-cell spread.
+seed. Its `summary` separates the spread of μ̂ over the pairs from the Monte
+Carlo term and from the cell-to-cell spread. Without completion, their
+difference is the parameter variance. With completion it is not: every row
+shares the same held draws, so the held parameters' share is mostly missing from
+it (all of it at one held draw). Its estimator on the crossed matrix, like the
+θ_I/θ_H split's, is fixed in M4.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
 the dose, which conditioned variant is the headline, and the estimator for the
@@ -37,8 +41,9 @@ the reduced model the held parameters come from their priors, and the result is
 unscored: no truth matches those data.
 
 The toy models' [`posterior_predictive`](@ref) reads its posterior the same way,
-and forks the rng the same way. It solves an all-ODE composition once per draw
-and returns the trajectories.
+and forks the rng the same way. It draws without replacement, runs the toy
+composition once per draw (an ODE solve, or a stochastic run for the ABC
+method), and returns the trajectories.
 
 ## Reading a posterior
 
@@ -89,7 +94,10 @@ fixes its thresholds. V is frozen in M4, before any prediction is read.
 interchangeable: failed, starved, below a floor, clipped, or clean. V is a
 property of θ: [`assess_viability`](@ref) accepts a parameter set when enough of
 its cells are viable, and otherwise keeps its count of cells per category as the
-reason. Over the crossed matrix of posterior draws × held draws,
+reason. The hybrid reads V on the same cells that give μ̂, so where Q differs
+between viable and unviable cells, and the viable fraction is near the threshold,
+the conditioned μ̂ is biased. Whether V reads cells of its own is fixed with V.
+Over the crossed matrix of posterior draws × held draws,
 [`viability_weights`](@ref) gives both conditioned variants of the methods note
 as weights: (b) keeps θ_I's marginal as the posterior's, and (a) lets the filter
 act on θ_I. Each comes with its acceptance rate and effective sample size.

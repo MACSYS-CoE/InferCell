@@ -80,6 +80,19 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
         other = PosteriorDraws(pd.names, pd.values, pd.sigma_b, pd.chain, pd.iteration,
                                nothing, Dict(:krnadeg => 1.0), pd.source)
         @test_throws ArgumentError vcat(pd, other)
+        # Another fit is refused even where neither records a truth, as most of
+        # the B7 archive's fits do not.
+        ks = joinpath(dir, "ks_low1")
+        mkpath(ks)
+        serialize(joinpath(ks, "chain_1.jls"),
+                  (; fit = "ks_low1", c = 1, seed = 8, start = nothing, start_tries = 1,
+                   chain = ch, seconds = 1.0, nadapt = 0, ndraw = nit, commit = "abc1234",
+                   job = "1"))
+        @test posterior_draws(joinpath(ks, "chain_1.jls")).truth === nothing
+        @test_throws ArgumentError posterior_draws([joinpath(fit, "chain_1.jls"),
+                                                    joinpath(ks, "chain_1.jls")])
+        # burn and thin are V7's, and refused for a B7 file.
+        @test_throws ArgumentError posterior_draws(joinpath(fit, "chain_1.jls"); thin = 2)
     end
 
     @testset "infer's Chains, mapped by name" begin
@@ -104,6 +117,15 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
         path = joinpath(dir, "chains.jls")
         serialize(path, ch)
         @test posterior_draws(path).values == a.values
+        @test_throws ArgumentError posterior_draws(path; burn = 1)
+
+        # Separate runs each number their chains from 1; merged, each keeps a place
+        # of its own, and the sources stay one flat list.
+        single = Chains(X[:, :, 1:1], names)
+        three = vcat(posterior_draws(single), posterior_draws(single), posterior_draws(single))
+        @test three.chain == vcat(fill(1, nit), fill(2, nit), fill(3, nit))
+        @test allunique(zip(three.chain, three.iteration))
+        @test length(three.source.parts) == 3 && all(s -> s.kind === :chains, three.source.parts)
 
         # The toy models' NUTS path writes natural-scale names.
         nat = Chains(rand(rng, nit, 2, 1), [:k_tx, :sigma_obs])

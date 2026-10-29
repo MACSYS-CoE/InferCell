@@ -123,5 +123,11 @@ end
         stray = PosteriorDraws([:no_such], ones(2, 1), nothing, [1, 1], [1, 2], nothing,
                                nothing, (kind = :test,))
         @test_throws ArgumentError predict(ms, stray; horizon = H)
+        # A posterior value for a reverse constant would be replaced by the
+        # derived one, so a posterior naming one is refused, not quietly overridden.
+        rev = PosteriorDraws(vcat(M0_TARGETS, :kcatR_R_ENO), hcat(pd.values, fill(123.0, 3)),
+                             nothing, [1, 1, 1], [1, 2, 3], nothing, nothing, (kind = :test,))
+        @test_throws ArgumentError predict(ms, rev; horizon = H)
+        @test (name = :kcatR_R_ENO, reason = :haldane_derived) in held_parameters(ms, rev).skipped
     end
 end

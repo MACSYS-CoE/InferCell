@@ -13,7 +13,7 @@ of `models` that is not among `inferred` (names, or a [`PosteriorDraws`](@ref)).
 `held` is in composition order. Four kinds are skipped, and each is listed in
 `skipped` as `(name, reason)`, so a prediction's provenance can say what it left
 out:
-- `:inferred`: the posterior has it;
+- `:inferred`: the posterior has it, unless it is of the next two kinds;
 - `:driver_written`: the driver overwrites it at every handshake, so a value
   set there is never read. The `enz_R_*` catalytic slots are of this kind
   ([`driver_written_params`](@ref));
@@ -37,10 +37,12 @@ function held_parameters(models::AbstractVector{<:AbstractSubModel},
     free = unique_params(reduce(vcat, (model_free_params(parameters(m)) for m in ms)))
     held = Symbol[]
     skipped = NamedTuple{(:name, :reason), Tuple{Symbol, Symbol}}[]
+    # A driver-written slot or a reverse constant is that, even if a posterior
+    # names it: no value for it would ever run, and `predict` refuses one.
     for p in free
-        reason = p.name in inferred ? :inferred :
-                 p.name in written ? :driver_written :
+        reason = p.name in written ? :driver_written :
                  p.name in reverses ? :haldane_derived :
+                 p.name in inferred ? :inferred :
                  p.prior isa Dirac ? :point_prior : nothing
         reason === nothing ? push!(held, p.name) : push!(skipped, (name = p.name, reason))
     end

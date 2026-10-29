@@ -5,10 +5,14 @@
 # One job precompiles first, on milan; then one job per stage. Job ids go to
 # <out>/jobs.tsv, logs to <out>/logs.
 set -euo pipefail
-outdir=$1
-case "$outdir" in */.worktrees/*|*/.claude/worktrees/*) echo "outdir is inside a worktree" >&2; exit 1;; esac
+outdir=$(realpath -m "$1")
+case "$outdir" in "$(git rev-parse --show-toplevel)"/*|*/.worktrees/*|*/.claude/worktrees/*)
+    echo "outdir $outdir is inside a worktree" >&2; exit 1;; esac
 if [ -n "$(git status --porcelain -- src test dev/scripts Project.toml Manifest.toml)" ]; then
     echo "the tree is dirty; run from a clean worktree at a pushed commit" >&2; exit 1
+fi
+if [ -z "$(git branch -r --contains HEAD)" ]; then
+    echo "HEAD $(git rev-parse --short HEAD) is on no remote branch; push it first" >&2; exit 1
 fi
 mkdir -p "$outdir/logs"
 sub() { sbatch --parsable --partition=milan --exclude='dave[148-149]' --ntasks=1 \

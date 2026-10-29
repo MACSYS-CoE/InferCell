@@ -89,7 +89,8 @@ k.effect_summary.uniform.mean
 `summary` separates three parts of the spread: the parameter uncertainty
 (`parameter_var`), the Monte Carlo part that a finite number of cells adds (`mc`),
 and the cell-to-cell spread (`intrinsic_var`). The last is reported apart, since
-the estimand is a population mean. On the reduced model (`d11_models()`), the
+the estimand is a population mean. `parameter_var` is the parameter variance only
+without completion, as here. On the reduced model (`d11_models()`), the
 parameters M0 does not infer are completed from their priors with
 `completion = :prior`, or filtered by a declared [`ViabilityRule`](@ref) with
 `completion = :viability_conditioned_prior`. See [Prediction](api/predict.md).

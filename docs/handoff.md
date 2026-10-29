@@ -25,7 +25,8 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
 - **KIM-27** (`1ee0d3f`): `predict` and `Prediction`.
   - One crossed M × K matrix, with fresh cells per pair.
   - Both conditioned variants are returned as weights.
-  - The population-mean summary gives the MC term and the parameter variance.
+  - The population-mean summary gives the MC term and, without completion, the
+    parameter variance.
   - `predict` extends `StatsAPI.predict`, the one Turing exports.
   - The smoke script is `dev/scripts/predict_smoke_kim27.{jl,sh}`.
 - **KIM-33** (`47077cf`): provenance per pair and per call. Same rng, same
@@ -34,30 +35,50 @@ wrapper, θ_H is given by name, a §12 entry only, and `/check-PR` before merge.
   path (every chain, by name). The getting-started page gets a "Predict" quick
   start. `predict` gains no `:ode` forward; §12 records why.
 - **Spec:** a §12 entry, "`predict` as built".
+- **Review** (`/check-PR`, 2026-10-30; the §12 entry's "Review" lists it):
+  - **Fixed:** δ's intervened arm now derives its reverse constants, as
+    `predict`'s does. Several ingest refusals were added.
+  - **Recorded as M4's:** V is read on the same cells as μ̂, which biases the
+    conditioned μ̂ (KIM-36). On the crossed matrix, `var − mc` is not the
+    parameter variance (note §5.2).
+  - **Deferred:** KIM-62 (parallel `predict`) and KIM-63 (four MINORs).
 
 **Checks** (in full in the §12 entry):
 - The suite at `7a2b054` passes 29,564 of 29,564 (job 19520509). The job took
-  1:18:51 of its 90-minute limit, and the new files take about 8 minutes of it
-  (6m20s is KIM-31's δ ensemble).
+  1:18:51 of its 90-minute limit. The new files take about 8 minutes, by job
+  19520246's per-file times; 6m20s of that is KIM-31's testset, mostly the
+  metered-M0 composition's first compile.
 - `posterior_predictive`'s gated call sites pass 22 of 22 (job 19520247, and the
   smoke run's wrapper stage).
 - A smoke run of every stage at `7a2b054` (jobs 19520502 to 19520508), in
   `/fred/oz022/tkimpson/infercell-m3-smoke-2026-10-29/`.
 - The metered route (ii): job 19518978.
+- These logs are copied to the archive's `evidence/` directory, under its
+  `SHA256SUMS`.
 - CI on #117: docs and unit tests pass. The unit test step took 79m46s (main:
-  73m40s), so the 90-minute job has about 10 minutes of slack. If a later PR
-  pushes it over, gate KIM-31's δ ensemble (6m20s) first.
+  73m40s), so the 90-minute job has about 10 minutes of slack. Gating one
+  metered-M0 file saves little, since the compile moves to the next one. Gate
+  all four (forward, intervention, predict, provenance) together, or none.
+- Fix round: TO FILL.
 
 **Next:**
 1. Finish #117: CI, `/check-PR`, merge, and set the Linear issues to Done.
 2. M4: KIM-35 (lactate's sensitivity to θ_I and θ_H, on held-out seeds),
    KIM-37 (the dose screen), KIM-38 (cost the evidence package), KIM-36 (V),
    KIM-39 (the freeze).
-   - `predict` runs serially. Split the draws over array tasks with `draws`.
-   - A d11 cell over 6,300 s takes about 30 s, and an M0 cell over 600 s about
-     2 s.
-3. **Can go once #117 merges:** `.worktrees/m3-run`, `.worktrees/m3-smoke-*`,
-   `.worktrees/m2-hygiene`.
+   - `predict` runs serially, and cannot yet be split over tasks under
+     completion: tasks sharing an rng rerun the same cells, and tasks with
+     different rngs draw different θ_H. KIM-62 is the parallel path. Under
+     `completion = :none` (M0), give each task its own rng.
+   - Timings so far: an M0 hybrid cell over 600 s takes about 2 s (job
+     19518978), and a d11 hybrid cell over 120 s about 1 s (job 19520507). A
+     d11 cell over 6,300 s has not been timed; KIM-38 times it.
+   - KIM-36 also decides whether V reads cells of its own. KIM-39 freezes the
+     variance estimators on the crossed matrix.
+   - KIM-34's departure (`posterior_predictive` is not a wrapper around
+     `predict`) is the user's to accept or reverse.
+3. **Can go once #117 merges:** `.worktrees/m3-run`, `.worktrees/m3-smoke-*`
+   (their logs are copied to the archive's `evidence/`), `.worktrees/m2-hygiene`.
 
 ## Earlier: M2, release hygiene (branch `tomkimpson/m2-release-hygiene-kim-22-23-24-26`, 2026-10-29)
 

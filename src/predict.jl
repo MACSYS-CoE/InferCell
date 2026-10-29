@@ -199,7 +199,11 @@ composition is [`metered`](@ref) first.
 **The posterior source** is a [`PosteriorDraws`](@ref) ([`posterior_draws`](@ref)).
 `n_parameter_draws` of its draws are used, chosen without replacement (or by
 weight, for an ABC posterior), or the indices `draws` exactly. σ_b is carried
-beside each draw and never simulated.
+beside each draw and never simulated. Two calls with the same `rng` draw the same
+held values and the same cell seeds whatever their `draws`. So splitting one
+prediction's rows over calls that share an `rng` reruns the same cells on
+different rows. Calls with different `rng`s draw different held values, and do
+not form one crossed matrix.
 
 **The forward description:**
 - `forward = :hybrid` runs `n_cells` stochastic cells for each parameter set;
@@ -222,32 +226,46 @@ corrected one, since the gap between them is part of the result (spec §12
 - `completion = :viability_conditioned_prior` does the same, and then reads the
   rule `viability` (a [`ViabilityRule`](@ref)) on each pair's baseline runs.
   Both conditioned variants are returned as weights ([`viability_weights`](@ref)),
-  with each pair's decision and reason.
+  with each pair's decision and reason. For the hybrid, V is read on the same
+  cells that give μ̂. So where Q differs between viable and unviable cells, and a
+  θ's viable fraction is near the rule's threshold, the conditioned μ̂ is biased.
+  Whether V should read cells of its own is part of fixing V (M4).
 
 **The estimand** is `:population_mean`, the mean of Q over cells, μ(θ). For each
 weight set, `summary` gives:
 - `mean`: the predicted population mean, δ-corrected when δ is given;
-- `var`: the spread of μ̂ over the draws;
+- `var`: the spread of μ̂ over the matrix's pairs;
 - `mc`: E[σ̂²]/n, the Monte Carlo part of that spread, which the hybrid's finite
   cells add;
-- `parameter_var`: `var − mc`, the parameter uncertainty. A negative difference
-  is reported as 0, and `flagged`. Under two finished cells per pair (the default
-  `n_cells = 1` among them), σ̂² does not exist, so `mc` and `parameter_var` are
-  NaN and `mc_undefined` is set;
+- `parameter_var`: `var − mc`. A negative difference is reported as 0, and
+  `flagged`. Under two finished cells per pair (the default `n_cells = 1` among
+  them), σ̂² does not exist, so `mc` and `parameter_var` are NaN and
+  `mc_undefined` is set;
 - `intrinsic_var`: E[σ̂²], the cell-to-cell spread (hybrid only). It is a separate
   output, not part of the estimand's uncertainty;
 - `ess`, `n_pairs`, and `n_no_q`, the pairs with no finished run.
 
-The θ_I/θ_H variance split is not computed here; its estimator is fixed in M4.
-`mu`, `sigma2`, `viable` and the weights are what it needs.
+Without completion, the rows are independent posterior draws, and
+`parameter_var` estimates the parameter variance. With completion it does not:
+every row shares the same K held draws, so with equal weights the held
+parameters' main effect enters `var` only in proportion M(K−1)/(MK−1), about
+(K−1)/K, and not at all at `n_held = 1`. Then `var` is a spread over the matrix, not the parameter variance.
+The total and its θ_I/θ_H split are not computed here, since their estimators on
+the crossed matrix are fixed in M4 (note §5.2). `mu`, `sigma2`, `viable` and the
+weights are what they need.
 
 **The intervention** (an [`Intervention`](@ref), such as a [`Knockdown`](@ref))
 is applied after the parameter draw. Its arm runs on the same seeds, and
-`effect_summary` gives the paired effect ΔQ. V is read at baseline only.
+`effect_summary` gives the paired effect ΔQ. V is read at baseline only. ΔQ is
+taken over the cells that finish in both arms. A cell that fails only under the
+intervention leaves ΔQ. It is listed in its pair's `failed_intervened`
+(provenance) and not counted in `statuses`.
 
 The cells reseed the global generator. `predict` draws everything from a stream
 forked from `rng` and puts the global generator back afterwards, as
 [`infer`](@ref) does. Two calls with equal `rng` states give the same result.
+The fork seed is recorded, but `predict` cannot be called with one. To replay a
+call, keep the `rng`'s seed and the commit.
 """
 function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  horizon::Real, forward::Symbol = :hybrid, completion::Symbol = :none,
@@ -292,6 +310,10 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
     # Built for its slot lists and labels; a build may read the global generator.
     driver = _restoring_global_rng(() -> build_problem(ms; tspan = (0.0, 1.0), complete = true))
     hp = held_parameters(ms, pd; driver)
+    unused = [s for s in hp.skipped if s.name in pd.names && s.reason !== :inferred]
+    isempty(unused) || throw(ArgumentError(
+        "the posterior names $unused: the driver writes these or they are derived, so " *
+        "a posterior value for them would never run"))
     inferred = Set(s.name for s in hp.skipped if s.reason === :inferred)
     bad = setdiff(pd.names, inferred)
     isempty(bad) || throw(ArgumentError(
@@ -338,8 +360,7 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
             decisions[m, k] = conditioned ? assess_viability(cells[m, k], viability) :
                               (; viable = true, fraction = 1.0, counts = Dict{Symbol, Int}())
             if intervention !== nothing && decisions[m, k].viable
-                cells_i[m, k] = _run_cells(f, haldane_values(ms, intervene(intervention, ms, plain)),
-                                           s, quantity)
+                cells_i[m, k] = _run_cells(f, intervene(intervention, ms, plain), s, quantity)
             end
         end
         labels = forward === :hybrid ? reduction_declarations(ms, driver) :

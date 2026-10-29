@@ -18,7 +18,11 @@ using Random
     go(rng) = predict(ms, pd; horizon = H, n_cells = 2, n_parameter_draws = 2, rng)
 
     @testset "the same rng gives the same result" begin
-        a, b = go(Xoshiro(7)), go(Xoshiro(7))
+        # From two different global states, so the result rests on `rng` alone.
+        Random.seed!(1)
+        a = go(Xoshiro(7))
+        Random.seed!(2)
+        b = go(Xoshiro(7))
         @test a.draws == b.draws && a.seeds == b.seeds
         @test a.mu == b.mu && a.sigma2 == b.sigma2
         @test [c.q for cs in a.cells for c in cs] == [c.q for cs in b.cells for c in cs]

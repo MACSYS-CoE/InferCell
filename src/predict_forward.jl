@@ -203,8 +203,9 @@ end
 
 [`forward_cells`](@ref) twice: at `values`, and at `values` under intervention `a`
 ([`intervene`](@ref)). Both arms run on the same seeds, so each hybrid cell is
-paired with itself. `delta` is the paired effect Q_intervened − Q_baseline for
-each cell, `NaN` where either arm failed.
+paired with itself, and both derive their reverse constants from what they run
+([`haldane_values`](@ref)). `delta` is the paired effect Q_intervened −
+Q_baseline for each cell, `NaN` where either arm failed.
 """
 function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
                             a::Intervention, seeds::AbstractVector{<:Integer};
@@ -212,7 +213,7 @@ function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
                             quantity = :lactate_out)
     _check_quantity(quantity)
     f = _forward_setup(metered(models), forward; horizon)
-    vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
+    vals = haldane_values(f.models, Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values])
     base, int = _restoring_global_rng() do
         _run_cells(f, vals, seeds, quantity),
         _run_cells(f, intervene(a, f.models, vals), seeds, quantity)
@@ -270,10 +271,11 @@ end
                      intervention = nothing) -> DeltaCorrection
 
 The hybrid ensemble at the reference writes `values`, one cell per seed, against
-the mean field there. With an `intervention`, the intervened arm runs too, on the
-same seeds. A cell that fails is kept but left out of the mean. If fewer than two
-cells finish, or the mean field fails at θ_ref, δ is undefined and the call
-throws.
+the mean field there. Reverse constants are derived from `values`
+([`haldane_values`](@ref)). With an `intervention`, the intervened arm runs too,
+on the same seeds ([`intervene`](@ref)). A cell that fails is kept but left out of
+the mean. If fewer than two cells finish, or the mean field fails at θ_ref, δ is
+undefined and the call throws.
 """
 function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
                           seeds::AbstractVector{<:Integer}; horizon::Real,
@@ -283,7 +285,7 @@ function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
     length(seeds) >= 2 && allunique(seeds) || throw(ArgumentError(
         "the ensemble needs at least two distinct seeds"))
     ms = metered(models)
-    vals = Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values]
+    vals = haldane_values(ms, Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values])
     hy = _forward_setup(ms, :hybrid; horizon)
     mf = _forward_setup(ms, :mean_field; horizon)
     arm(v) = (_run_cells(hy, v, seeds, quantity), only(_run_cells(mf, v, Int[], quantity)))
@@ -300,10 +302,10 @@ end
 
 function _delta_arm(cells, m)
     m.failure === :none || error("The mean field fails at θ_ref ($(m.failure)), so δ is undefined")
-    q = [c.q for c in cells if c.failure === :none]
-    length(q) >= 2 || error("Fewer than two hybrid cells finished at θ_ref, so δ is undefined")
-    hm = mean(q)
-    return hm, std(q) / sqrt(length(q)), length(q), hm - m.q
+    # The cells that count are those `predict`'s μ̂ counts: a finite Q.
+    hm, v, n = _moments([c.q for c in cells])
+    n >= 2 || error("Fewer than two hybrid cells finished at θ_ref, so δ is undefined")
+    return hm, sqrt(v / n), n, hm - m.q
 end
 
 export metered, CellRun, PREDICT_QUANTITIES, forward_cells, intervention_cells,
