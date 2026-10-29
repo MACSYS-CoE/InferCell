@@ -21,13 +21,15 @@ out:
   from the values that run;
 - `:point_prior`: a `Dirac` prior, with nothing to draw.
 
-`driver` is the composition's built [`HandshakeDriver`](@ref); one is built over
-a one-second span if none is passed.
+`driver` is the composition's built [`HandshakeDriver`](@ref). If none is passed,
+one is built over a one-second span, with the global generator restored after.
 """
 function held_parameters(models::AbstractVector{<:AbstractSubModel},
                          inferred::AbstractVector{Symbol}; driver = nothing)
     ms = collect(AbstractSubModel, models)
-    d = driver === nothing ? build_problem(ms; tspan = (0.0, 1.0), complete = true) : driver
+    d = driver === nothing ?
+        _restoring_global_rng(() -> build_problem(ms; tspan = (0.0, 1.0), complete = true)) :
+        driver
     d isa HandshakeDriver || throw(ArgumentError(
         "held_parameters needs a hybrid composition, whose driver lists the slots it writes"))
     written = Set(w.param_slot for w in driver_written_params(d))

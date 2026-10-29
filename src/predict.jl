@@ -53,7 +53,20 @@ draws (k = 1…K). Without completion there is one column.
 - `statuses`: the count of every baseline run in each [`CELL_STATUSES`](@ref)
   category, read without a rule. This is the unfiltered ensemble's validity
   diagnostic;
-- `provenance`: what was run, and from what.
+- `provenance`: what was run, and from what (KIM-33):
+  - `fork_seed`: the seed of the stream forked from `rng`, from which every draw,
+    held value and cell seed came;
+  - `version`: InferCell's;
+  - `settings`: the call's arguments, as run;
+  - `source`: the posterior's;
+  - `reductions`: the composition's declared reductions, the driver's or route
+    (ii)'s included ([`reduction_declarations`](@ref));
+  - `skipped`: the parameters the completion left out, and why
+    ([`held_parameters`](@ref));
+  - `pairs`: one record per pair, M × K. Each gives the posterior draw (index,
+    chain, iteration), where θ_H came from (`:none`, `:prior` or
+    `:viability_conditioned`), its seeds, V's decision, and every failed run with
+    its seed and reason.
 """
 struct Prediction
     forward::Symbol
@@ -276,7 +289,9 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         "theta_ref is read only under delta = :ensemble"))
 
     ms = metered(models)
-    hp = held_parameters(ms, pd)
+    # Built for its slot lists and labels; a build may read the global generator.
+    driver = _restoring_global_rng(() -> build_problem(ms; tspan = (0.0, 1.0), complete = true))
+    hp = held_parameters(ms, pd; driver)
     inferred = Set(s.name for s in hp.skipped if s.reason === :inferred)
     bad = setdiff(pd.names, inferred)
     isempty(bad) || throw(ArgumentError(
@@ -327,13 +342,34 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                                            s, quantity)
             end
         end
+        labels = forward === :hybrid ? reduction_declarations(ms, driver) :
+                                       reduction_declarations(ms, f.route)
+        settings = (; forward, completion, estimand, quantity = _quantity_label(quantity),
+                    horizon = f.horizon, n_parameter_draws = M, n_held = K, width,
+                    n_cells = nc, intervention,
+                    delta = delta isa DeltaCorrection ? :cached : delta,
+                    n_ref = delta === :ensemble ? n_ref : 0,
+                    viability = viability === nothing ? nothing : viability.label)
         _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i, decisions,
-                  completion, viability, intervention, dc, hp, fork, (; width, n_cells = nc))
+                  completion, viability, intervention, dc, hp, fork, settings, labels)
     end
 end
 
+# What each pair ran, from what, and what became of it (KIM-33).
+function _pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
+    failed(cs) = [(seed = c.seed, failure = c.failure, message = c.message)
+                  for c in cs if c.failure !== :none]
+    r = rows[m]
+    return (; draw = r, chain = pd.chain[r], iteration = pd.iteration[r],
+            theta_H_source = completion === :none ? :none :
+                             completion === :prior ? :prior : :viability_conditioned,
+            held_draw = k, seeds = seeds[:, k, m], viable = decisions[m, k].viable,
+            failed = failed(cells[m, k]), failed_intervened = failed(cells_i[m, k]))
+end
+
 function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i,
-                   decisions, completion, viability, intervention, dc, hp, fork, settings)
+                   decisions, completion, viability, intervention, dc, hp, fork, settings,
+                   labels)
     M, K = size(cells)
     mom = [_moments([c.q for c in cells[i]]) for i in CartesianIndices(cells)]
     mu, s2, nok = first.(mom), getindex.(mom, 2), last.(mom)
@@ -369,7 +405,10 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
     for cs in cells, c in cs
         statuses[cell_status(c)] += 1
     end
-    provenance = (; fork_seed = fork, settings, source = pd.source)
+    pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
+             for m in 1:M, k in 1:K]
+    provenance = (; fork_seed = fork, version = pkgversion(@__MODULE__), settings,
+                  source = pd.source, reductions = labels, skipped = hp.skipped, pairs)
     return Prediction(f.forward, completion, :population_mean, _quantity_label(quantity),
                       f.horizon, rows, θI,
                       pd.sigma_b === nothing ? nothing : pd.sigma_b[rows], hnames, θH,
