@@ -56,7 +56,8 @@ parameter variance in §5 subtracts it, and does not leave it inside.
 - **Fresh cells per draw:** the subtraction holds only if each parameter draw
   gets its own cell seeds. Reusing one set of cells across draws correlates the
   errors, and E[σ²]/n is then the wrong correction. Paired seeds are for ΔQ
-  within a draw (§4), not across draws.
+  within a draw (§4), not across draws. The same holds for every cell of the
+  §5.2 matrix: each μ̂_mk gets its own cell seeds.
 - **A negative estimate:** if the subtracted parameter variance comes out
   negative, it is reported as zero and flagged. It means n_cells is too small for
   that draw count.
@@ -129,7 +130,11 @@ factorised form is only exact if it does not. There are two well-defined variant
   means. For each θ_I draw, draw a fixed number K of θ_H and keep the viable ones.
   - The fraction kept estimates P(V | θ_I) without bias.
   - A θ_I with none viable is recorded as a failure of the completion, not
-    silently redrawn.
+    silently redrawn. Dropping it shifts θ_I's marginal to
+    p(θ_I | D) · (1 − (1 − P(V | θ_I))^K). So (b) keeps the M0 posterior only up
+    to that factor. The failure fraction is reported, and the prediction is
+    labelled as conditional on at least one viable θ_H per θ_I. Where
+    P(V | θ_I) = 0, (b) is undefined.
   - "Resample until viable" is avoided: it has no bound when P(V | θ_I) ≈ 0, and
     1 / (tries) is a biased estimate of P(V | θ_I).
 
@@ -213,8 +218,8 @@ I first:  Var_θ[μ] = Var_{θ_I}[ E_{θ_H | θ_I}[μ] ] + E_{θ_I}[ Var_{θ_H |
 H first:  Var_θ[μ] = Var_{θ_H}[ E_{θ_I | θ_H}[μ] ] + E_{θ_H}[ Var_{θ_I | θ_H}[μ] ]
 ```
 
-- With independent groups, the I-first first term is θ_I's first-order effect. The H-first second term
-  is θ_I's total effect. "Independent" means θ_H ⟂ θ_I under the conditioned
+- With independent groups, the I-first first term is θ_I's first-order effect.
+  The H-first second term is θ_I's total effect. "Independent" means θ_H ⟂ θ_I under the conditioned
   distribution. Under variant (b) that needs p(θ_H | θ_I, V) not to depend on
   θ_I. A constant acceptance rate is not enough, because the viable region can move
   with θ_I while keeping its mass.
@@ -231,11 +236,20 @@ H first:  Var_θ[μ] = Var_{θ_H}[ E_{θ_I | θ_H}[μ] ] + E_{θ_H}[ Var_{θ_I |
   Both orders are weighted two-way splits of the same matrix, using conditional
   means along rows (θ_I fixed) and along columns (θ_H fixed). Under (b), θ_I given
   θ_H is not something one can sample directly, because it needs P(V | θ_I) to
-  normalise. The matrix sidesteps that, since the row sums of v estimate P(V | θ_I).
-  - **Bias:** the variance of the row means over m overstates
-    Var_{θ_I}[E_{θ_H|θ_I} μ] by about E[within-row variance] / K_eff. Each μ̂_mk adds
-    σ²/n on top. Both are subtracted with the usual unbiased two-way estimator,
-    and an estimate that comes out negative is reported as zero, flagged.
+  normalise. The matrix sidesteps that, since the row means of v estimate
+  P(V | θ_I).
+  - **Bias:** the plain variance of the row means is not Var_{θ_I}[E_{θ_H|θ_I} μ].
+    In a crossed design the rows share the same K θ_H draws, so θ_H's main effect
+    largely cancels. What is left is roughly the interaction plus the cell noise
+    σ²/n, both divided by K_eff. With viability-masked, unequal weights there is no
+    standard unbiased estimator. So the estimator is fixed in M4, and it is checked
+    by simulation on a μ with a known split (e.g. μ = f(θ_I) + g(θ_H) + an
+    interaction) before it is used. An estimate that comes out negative is
+    reported as zero, flagged.
+  - **K for both orders:** the H-first conditional means use weights
+    ∝ v_mk / P̂(V | θ_I^m). That is a ratio estimate, biased at O(1/K) and noisy
+    where P̂ is small. Its outer variance also rests on only K distinct θ_H. So K is
+    sized for the H-first order, not only for the inner means.
   - **Fallback:** if M·K·n_cells is too dear, report the I-first order only, and
     say so. The H-first order is not then claimed.
 
@@ -257,7 +271,8 @@ Var(log Y | D, V) = Var_θ[ E(log x̄ | θ) ]  +  E_θ[ Var(log x̄ | θ) ]  +  
 
 By the delta method, Var(log x̄ | θ) ≈ σ²(θ) / (N μ(θ)²). Because a bulk reading
 averages N cells, the intrinsic term shrinks as 1/N. It is not the single-cell
-E[σ²]. The parameter term is split as in §5.2. Otherwise, for the
+E[σ²]. The parameter term is Var_θ[E(log x̄ | θ)] ≈ Var_θ[log μ(θ)], so §5.2's
+split is applied to log μ, not to μ. Otherwise, for the
 population-mean estimand, σ_b is dropped once the posterior is read in.
 
 ### 5.4 Model form
