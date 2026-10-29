@@ -3,6 +3,8 @@
 
 using Test
 using InferCell
+using InferCell: _mixed_solve
+using ForwardDiff
 using Random
 
 @testset "B8: the mixed likelihood on Core A′" begin
@@ -61,4 +63,70 @@ using Random
         @test isdisjoint(chains, v7)
     end
 
+    # B8.3: Core A′ in mixed_setup, AV3 and B7.3's stream identities.
+    H = 180.0
+    ds = corea_dataset(17_200_001; ncells = 2, horizon = H)
+    corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = D11_TARGETS, kw...)
+    s = corea()
+    truth = Dict(ds.truth.values)
+    xt = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
+    xs = [xt, mixed_prior_median(s)]
+    n = length(M0_PANEL) * 3
+    rng = Xoshiro(13)
+    A = randn(rng, n, 4)
+    δ, Σ = 0.02 .* randn(rng, n), 1e-3 .* (A * A')
+
+    @testset "the setup on Core A′" begin
+        @test mixed_parameter_names(s) == vcat([Symbol(:log_, t) for t in D11_TARGETS],
+                                               :log_sigma_b)
+        @test s.loci == [g.locus for g in read_transcription_genes()]
+        @test length(s.factors) == 2
+        @test s.saves == [60.0, 120.0, 180.0] && s.switches == [0.0, 59.0, 119.0, 179.0]
+        @test Set(s.forwards) == Set([:kcatF_R_ENO, :kcatF_R_FBA])
+        @test length(s.logz) == n
+        @test all(x -> isfinite(mixed_logdensity(s, x)), xs)
+    end
+
+    @testset "AV3 on Core A′ at two x" begin
+        tight = with_reference(corea(; abstol = 1e-14, reltol = 1e-12), δ, Σ)
+        ℓ(z) = mixed_logdensity(tight, z)
+        for x in xs
+            g = ForwardDiff.gradient(ℓ, x)
+            @test all(isfinite, g) && all(!iszero, g)
+            for j in eachindex(x)
+                e = zeros(length(x))
+                e[j] = 1e-4
+                @test g[j] ≈ (ℓ(x + e) - ℓ(x - e)) / 2e-4 rtol = 1e-6
+            end
+        end
+    end
+
+    @testset "streams on Core A′: each factor alone" begin
+        both = with_reference(corea(; streams = (:bulk, :tx)), δ, Σ)
+        txo = with_reference(corea(; streams = (:tx,)), δ, Σ)
+        bulko = with_reference(corea(; streams = (:bulk,)), δ, Σ)
+        x = xt
+        θ = exp.(x[1:length(s.names)])
+        r = _mixed_solve(s, θ)
+        k = route_transcription_rates(s, r.sol, r.p)
+        μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
+        ltx = transcript_loglik(s.factors, k, μ)
+        lbulk = bulk_loglik(both, mean_field_log_bulk(s, r.sol), ds.sigma)
+        @test mixed_logdensity(both, x) === mixed_logdensity(with_reference(s, δ, Σ), x)
+        @test mixed_loglik(both, x) === ltx + lbulk
+        @test mixed_loglik(txo, x) === ltx
+        @test mixed_loglik(bulko, x) === lbulk
+        @test mixed_logdensity(txo, x) == mixed_log_prior(s, x) + ltx
+        @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
+        for st in ((:tx,), (:bulk,))
+            tight = with_reference(corea(; abstol = 1e-14, reltol = 1e-12, streams = st), δ, Σ)
+            ℓ(z) = mixed_logdensity(tight, z)
+            g = ForwardDiff.gradient(ℓ, x)
+            for j in eachindex(x)
+                e = zeros(length(x))
+                e[j] = 1e-4
+                @test g[j] ≈ (ℓ(x + e) - ℓ(x - e)) / 2e-4 rtol = 1e-6
+            end
+        end
+    end
 end
