@@ -1,6 +1,48 @@
 # Handoff
 
-## Latest: KIM-18, the archived posteriors hold draws (PR #113, 2026-10-29)
+## Latest: M1, the launch decisions and prerequisites (branch `tomkimpson/m1-decisions-kim-11-17-19-20`, 2026-10-29)
+
+**Done:** one PR, one commit per issue. PR #112 (the framing and launch-readiness
+notes and `tmp-completion-plan.md`) was merged first.
+- **KIM-11** (`a64fa13`, with sub-issues KIM-12 to KIM-16): spec §12 2026-10-29,
+  "v0.3.0 launch decisions". It records:
+  - O2, the claim;
+  - O3, no registry;
+  - O4, lactate export, provisional until KIM-39;
+  - the venue, PLOS CB;
+  - model form;
+  - B8 parked;
+  - the redistribution call: the user says the extracts are open source, so
+    KIM-21 is Done and KIM-25 is cancelled.
+
+  §1 now leads with the O2 claim, and the old claim is kept as superseded.
+- **KIM-19** (`affba7b`): one sentence for the mixed route's status, in
+  approximate-method.md §12. "Detectable", not "resolved". The "3 parameters" are
+  the m0_v6 gap, which is still open.
+- **KIM-20** (`8163e2b`): `dev/notes/2026-10-29-cut-predictive-distribution.md`,
+  what `predict` computes. It names the choices left to the M4 freeze:
+  - V as a per-cell event or a property of θ;
+  - the joint vs per-θ_I cut;
+  - V read at baseline under do(a).
+- **KIM-17** (`f942d58`): `corea_dataset` and `corea_draws`, with tests, are on
+  main. On `issue-89-b8`:
+  - `b92af35` keeps the B8 session's uncommitted B8.3 tests and B8.4–B8.6
+    drivers, unreviewed;
+  - `4e7a28d` adds the superseding "B8 parked" entry, plus an "O1 part 2
+    withdrawn" entry in 16-recovery.md;
+  - the branch is pushed.
+
+**Checks:** the changed Julia files parse and lower on the login node, and the
+package loads. Suite: Slurm job 19510918 at `f942d58`, 29114 of 29114, in 59m24s.
+
+**Still to follow the claim:** the README (KIM-23, M2) and the paper's claim
+(KIM-44/46, M6).
+
+**Next:** M2 hygiene (KIM-22 first, the docs split) and M3, starting with
+KIM-28, `predict`'s ingestion. KIM-20's note §6 maps each object to `predict`'s
+arguments.
+
+## Earlier: KIM-18, the archived posteriors hold draws (PR #113, 2026-10-29)
 
 **Done:** loaded every archived V7 (exact, 50 files) and B7 (mixed, 116 files)
 posterior file on main. Both archives hold full draws, named as `M0_TARGETS` plus
