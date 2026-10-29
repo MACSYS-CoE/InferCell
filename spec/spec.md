@@ -4520,8 +4520,10 @@ Tracked in Linear as KIM-11, with one sub-issue per call (KIM-12 to KIM-16).
 **Unchanged:**
 - The amendment record, and every result already reported under the old claim.
 - The `corea` identifiers and filenames.
-- The viability rule, the intervention dose and the variance-split ordering. They
-  are fixed in M4's freeze entry (KIM-36, KIM-37, KIM-39), not here.
+- The viability rule, the intervention dose, and which nested order of the
+  variance split is the headline. Both orders are reported either way (completion
+  plan §3.4). These are fixed in M4's freeze entry (KIM-36, KIM-37, KIM-39), not
+  here.
 
 **Still to follow this entry:** the README (KIM-23) and the paper's title,
 abstract and claim (KIM-44, KIM-46) are brought into line in M2 and M6.
