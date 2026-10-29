@@ -435,72 +435,57 @@ function observe(trajectories::Vector, times, models::Vector{<:AbstractSubModel}
 end
 
 """
-    posterior_predictive(model_or_models, chain_or_posterior; n_samples=100, tspan, saveat=nothing)
+    posterior_predictive(model_or_models, chain_or_posterior; n_samples = 100, tspan,
+                         saveat = nothing, solver = Tsit5(), rng = Random.default_rng())
 
-Draw forward simulations from the posterior. Accepts either an `MCMCChains`
-chain (NUTS path) or an [`ABCPosterior`](@ref) (ABC-SMC path; particles are
-resampled by their weights). `tspan` is required; `saveat` defaults to 100
-points across `tspan`.
+Draw forward simulations of an all-ODE composition (or one jump module, on the
+ABC path) from its posterior: one solve of the composition's own problem per
+posterior draw. `chain_or_posterior` is an `MCMCChains` chain from the NUTS path,
+an [`ABCPosterior`](@ref) (its particles resampled by weight), or a
+[`PosteriorDraws`](@ref). `tspan` is required; `saveat` defaults to 100 points
+across `tspan`. Returns a [`PosteriorPredictive`](@ref).
 
-Returns a [`PosteriorPredictive`](@ref).
+This is the toy models' predictive. For the hybrid compositions, and for a
+population mean with its uncertainty split, use [`predict`](@ref). Both read the
+posterior through [`posterior_draws`](@ref), so every chain is read, not only the
+first, and columns map to parameters by name. Both draw from a stream forked from
+`rng` and restore the global generator afterwards. `min(n_samples, draws)` draws
+are taken, without replacement, or by weight with replacement for an ABC
+posterior.
 """
-function posterior_predictive(model::AbstractSubModel, chain;
-                               n_samples=100, solver=Tsit5(),
-                               tspan=nothing, saveat=nothing)
+posterior_predictive(model::AbstractSubModel, chain; solver = Tsit5(), kwargs...) =
+    _posterior_predictive([model], posterior_draws(chain), solver; kwargs...)
+
+posterior_predictive(models::Vector{<:AbstractSubModel}, chain; solver = Tsit5(), kwargs...) =
+    _posterior_predictive(models, posterior_draws(chain), solver; kwargs...)
+
+# The ABC path's one module may be a jump module, which an SSA steps.
+posterior_predictive(model::AbstractSubModel, result::ABCPosterior; kwargs...) =
+    _posterior_predictive([model], posterior_draws(result),
+                          formalism(model) == :jump ? SSAStepper() : Tsit5(); kwargs...)
+
+function _posterior_predictive(models::Vector{<:AbstractSubModel}, pd, solver;
+                               n_samples = 100, tspan = nothing, saveat = nothing,
+                               rng::AbstractRNG = Random.default_rng())
     tspan === nothing && error("tspan must be provided for posterior_predictive")
-
-    param_names = [string(p.name) for p in model_free_params(parameters(model))]
-    n_chain = size(chain, 1)
-    n_draw = min(n_samples, n_chain)
-    idxs = rand(1:n_chain, n_draw)
-
-    extract_params(idx) = [chain[name].data[idx] for name in param_names]
-
-    return _run_posterior_predictive([model], tspan, saveat, idxs, extract_params, solver)
-end
-
-function posterior_predictive(models::Vector{<:AbstractSubModel}, chain;
-                               n_samples=100, solver=Tsit5(),
-                               tspan=nothing, saveat=nothing)
-    tspan === nothing && error("tspan must be provided for posterior_predictive")
-
-    all_free = unique_params(reduce(vcat, model_free_params.(parameters.(models))))
-    param_names = [string(p.name) for p in all_free]
-    n_chain = size(chain, 1)
-    n_draw = min(n_samples, n_chain)
-    idxs = rand(1:n_chain, n_draw)
-
-    extract_params(idx) = [chain[name].data[idx] for name in param_names]
-
-    return _run_posterior_predictive(models, tspan, saveat, idxs, extract_params, solver)
-end
-
-function posterior_predictive(model::AbstractSubModel, result::ABCPosterior;
-                               n_samples=100, tspan=nothing, saveat=nothing)
-    tspan === nothing && error("tspan must be provided for posterior_predictive")
-
-    n_available = size(result.particles, 2)
-    n_draw = min(n_samples, n_available)
-    idxs = [_weighted_sample(result.weights, Random.default_rng()) for _ in 1:n_draw]
-
-    stepper = formalism(model) == :jump ? SSAStepper() : Tsit5()
-    extract_params(idx) = result.particles[:, idx]
-
-    return _run_posterior_predictive([model], tspan, saveat, idxs, extract_params, stepper)
-end
-
-function _run_posterior_predictive(models::Vector{<:AbstractSubModel}, tspan, saveat,
-                                   idxs, extract_params, solver)
-    prob = build_problem(models; tspan=tspan)
-    save_times = saveat === nothing ? range(tspan[1], tspan[2]; length=100) : saveat
-
-    solutions = Vector{Any}(undef, length(idxs))
-    for (j, idx) in enumerate(idxs)
-        solutions[j] = solve(remake(prob, p=extract_params(idx)), solver; saveat=save_times)
+    names = [p.name for p in unique_params(reduce(vcat, model_free_params.(parameters.(models))))]
+    cols = [findfirst(==(n), pd.names) for n in names]
+    missing_names = [n for (n, c) in zip(names, cols) if c === nothing]
+    isempty(missing_names) || throw(ArgumentError(
+        "the posterior has no draws of $missing_names, which the composition's problem reads"))
+    prob = build_problem(models; tspan = tspan)
+    save_times = saveat === nothing ? range(tspan[1], tspan[2]; length = 100) : saveat
+    stream = Xoshiro(rand(rng, UInt64))
+    solutions = _restoring_global_rng() do
+        rows = _select_draws(stream, pd, min(n_samples, length(pd)))
+        map(rows) do r
+            # An SSA draws from the global generator; one seed per draw fixes it.
+            Random.seed!(rand(stream, UInt64))
+            solve(remake(prob, p = pd.values[r, cols]), solver; saveat = save_times)
+        end
     end
-
     species = reduce(vcat, states.(models))
-    return PosteriorPredictive(solutions, collect(Float64, save_times), species)
+    return PosteriorPredictive(collect(Any, solutions), collect(Float64, save_times), species)
 end
 
 """

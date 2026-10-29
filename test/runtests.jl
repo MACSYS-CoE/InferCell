@@ -138,6 +138,7 @@ using Aqua
     include("test_predict_intervention.jl")
     include("test_predict.jl")
     include("test_predict_provenance.jl")
+    include("test_posterior_predictive.jl")
 
     if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true"
         include("test_txl.jl")

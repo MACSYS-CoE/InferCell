@@ -36,6 +36,10 @@ On M0 no parameter is held, so `completion = :none`. That is the scored case. On
 the reduced model the held parameters come from their priors, and the result is
 unscored: no truth matches those data.
 
+The toy models' [`posterior_predictive`](@ref) reads its posterior the same way,
+and forks the rng the same way. It solves an all-ODE composition once per draw
+and returns the trajectories.
+
 ## Reading a posterior
 
 [`posterior_draws`](@ref) reads any posterior InferCell writes into one

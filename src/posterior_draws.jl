@@ -117,6 +117,8 @@ not only the first.
   comes from the fit's `prep.jls` beside it, when that file holds the dataset;
 - a `Chains` saved on its own.
 
+A `PosteriorDraws` is returned as it is.
+
 **Several files** are read in turn and merged, as a fit's two B7 chain files are.
 Their parameters must match, and so must their truths when they record one: a
 posterior merged over datasets is refused.
@@ -150,6 +152,8 @@ function posterior_draws(ch::Chains; names::Union{Nothing, AbstractVector{Symbol
                           truth === nothing ? nothing : Dict{Symbol, Float64}(truth),
                           merge(source, (route = get(ch.info, :route, nothing),)))
 end
+
+posterior_draws(pd::PosteriorDraws) = pd
 
 function posterior_draws(r::ABCPosterior)
     n = size(r.particles, 2)
