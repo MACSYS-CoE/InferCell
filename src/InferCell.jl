@@ -10,6 +10,7 @@ using Turing
 using Distributions
 using StaticArrays
 using Random
+using Serialization: deserialize
 using MCMCChains: replacenames, Chains, setinfo
 using ForwardDiff
 using LinearAlgebra: rank, svd, svdvals, eigvals, I, cholesky, Symmetric, logdet, dot,
@@ -82,6 +83,7 @@ include("models/tier_b_metabolism.jl")
 include("summary_statistics.jl")
 include("abc_smc.jl")
 include("inference.jl")
+include("posterior_draws.jl")
 include("boundary.jl")
 
 export InferParameter, free_params, rate_params, ic_params, obs_params,
