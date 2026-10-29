@@ -4,7 +4,37 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl).
+Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl).
+
+## The entry point
+
+[`predict`](@ref) computes the predictive distribution of a quantity Q, given the
+data, as `dev/notes/2026-10-29-cut-predictive-distribution.md` defines it. Its
+arguments keep five things apart:
+- the posterior source, a [`PosteriorDraws`](@ref);
+- the forward description: `forward = :hybrid` or `:mean_field`, with `delta`
+  for the mean field;
+- the completion policy: `completion = :none`, `:prior` or
+  `:viability_conditioned_prior`, with `held`, `width`, `n_held` and `viability`;
+- the estimand, the population mean of Q over cells;
+- the intervention.
+
+Its layout is one crossed matrix: posterior draws θ_I as rows, held draws θ_H as
+columns, the held draws shared by every row. Each pair runs its own fresh cells,
+since the Monte Carlo correction E[σ²]/n holds only if no two draws share cell
+seeds. An intervention's arm reuses its pair's seeds, so the effect is paired
+within a draw. The [`Prediction`](@ref) keeps every run, every decision and every
+seed. Its `summary` separates the parameter uncertainty from the Monte Carlo
+term and from the cell-to-cell spread.
+
+What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
+the dose, which conditioned variant is the headline, and the estimator for the
+θ_I/θ_H variance split. It takes the first three as arguments, and returns both
+variants' weights and the matrix the split needs.
+
+On M0 no parameter is held, so `completion = :none`. That is the scored case. On
+the reduced model the held parameters come from their priors, and the result is
+unscored: no truth matches those data.
 
 ## Reading a posterior
 
@@ -75,5 +105,5 @@ the intrinsic noise. A dose of 0 gives ΔQ = 0 exactly.
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl"]
+Pages = ["predict.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl"]
 ```

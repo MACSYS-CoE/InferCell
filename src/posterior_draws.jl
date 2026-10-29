@@ -18,7 +18,7 @@
 """
     PosteriorDraws
 
-A posterior's draws over named model parameters, as `predict` reads
+A posterior's draws over named model parameters, as [`predict`](@ref) reads
 them, whatever produced them. Build one with [`posterior_draws`](@ref).
 
 Fields:

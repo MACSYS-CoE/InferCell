@@ -10,7 +10,7 @@ The pages in this section are organised by source module. Each splices the live 
 | `src/organisms/coreA/` (the seven modules) | [Model modules](corea-modules.md): [Metabolism](corea-metabolism.md), [Gene expression](corea-gene-expression.md), [Assembly, priors and checks](corea-assembly.md) | `CentralGlycolysis`, `PtsTransport`, `CoreATranscription`, `MeanField`, `build_mean_field_problem`, `build_corea`, `draw_parameters` |
 | `src/orchestrator.jl` | [Orchestrator](orchestrator.md) | `build_problem` |
 | `src/handshake.jl` | [Handshake driver](handshake.md) | `HandshakeDriver`, `run_handshake!`, `clipping_census`, `rebuild_census`, `override_rebuild_pools!`, `chemostat_census`, `rate_constant_elasticity`, `driver_declarations`, the count↔concentration conversion |
-| `src/posterior_draws.jl` | [Prediction](predict.md) | `PosteriorDraws`, `posterior_draws` |
+| `src/predict.jl`, `src/posterior_draws.jl`, `src/predict_*.jl` | [Prediction](predict.md) | `predict`, `Prediction`, `PosteriorDraws`, `posterior_draws`, `forward_cells`, `delta_correction`, `ViabilityRule`, `Knockdown` |
 | `src/inference.jl` | [Inference](inference.md) | `infer`, `observe`, `posterior_predictive`, `check_identifiability` |
 | `src/boundary.jl` | [Boundary](boundary.md) | `sequential_infer`, `iterative_infer`, `KDEPrior` |
 | `src/models/*.jl` | [Models](models.md) | `TranscriptionTranslation`, `BurstyGeneExpression`, `LightMetabolism`, … |

@@ -30,7 +30,7 @@ end
 """
     CellRun
 
-One forward run, as `predict` keeps it: one hybrid cell, or one
+One forward run, as [`predict`](@ref) keeps it: one hybrid cell, or one
 mean-field solve.
 
 Fields:
