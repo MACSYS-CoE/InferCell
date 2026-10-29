@@ -4427,6 +4427,149 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-29 — `predict` as built (M3, KIM-27 to KIM-34)
+
+**Status: built.** These are the API and design choices `predict` makes, recorded
+so that M4's freeze (KIM-36, KIM-39) and M5's evidence run read them, rather than
+infer them from the code. No result is read here, and nothing in this entry
+fixes Q, V, the dose, the conditioned variant or the variance-split estimator.
+
+**Trigger:** M3 in Linear (KIM-27 and its sub-issues). `predict` computes the
+objects of `dev/notes/2026-10-29-cut-predictive-distribution.md` (KIM-20). The
+user chose, 2026-10-29: `posterior_predictive` becomes a thin wrapper; θ_H is
+given by name, with a settable-set default, and 14c's broad composition stays in
+`dev/scripts`; a §12 entry only, with no §11 phase; and `/check-PR` before merge.
+
+**Change** (`src/predict*.jl`, `src/posterior_draws.jl`):
+- **The posterior source** (KIM-28). `posterior_draws` reads the V7 replicate
+  files, the B7 chain files, `infer`'s `Chains` and the toy models' `Chains` and
+  `ABCPosterior` into one `PosteriorDraws`. It maps every column by name, holds
+  values on the natural scale, and reads every chain. σ_b is a separate field and
+  never reaches a model. A B7 truth keeps the targets and σ_b only, since reverse
+  constants are re-derived, never read.
+- **Reverse constants** are derived from the whole set that runs, posterior and
+  held values together (`haldane_values`). `draw_parameters` alone derives them
+  from the nominal forward constant.
+- **The held set** (KIM-29). By default, every free parameter that is not
+  inferred, skipping the driver-written slots (the `enz_R_*`), the reverse
+  constants and point priors, each with its reason. On `d11_models()` with
+  `M0_TARGETS` inferred, that is the 15 non-M0 promoters. `width` draws
+  `LogNormal(μ, σ)` as `LogNormal(μ, width·σ)`, so the median stays.
+- **The forward descriptions** (KIM-31). Both are metered (`MeteredPtsTransport`),
+  so paired arms see the same integrator, and Q is read through
+  `carbon_accounts`: `:lactate_out` or `:exported`, or a function of the run.
+  - Route (ii) had never been built metered. Retired first, so no fallback was
+    needed. On M0 at the nominal targets, the mean field exports 628,433
+    particles over 600 s, against 627,134 ± 103,775 (sd) over four hybrid cells,
+    and the metered `d11_models()` solves to 6,300 s (Slurm job 19518978).
+  - Each hybrid cell runs `validation_run!`, which gains `clips`, so the clip
+    record is read after every handshake.
+  - A failed run is kept with its reason: a mean-field overdraw, a hybrid
+    metabolic block that stops, or a solve that ends without success.
+  - δ = μ̂_hybrid(θ_ref) − m(θ_ref) on Q's scale, from one ensemble, kept as a
+    `DeltaCorrection`. It is reusable, and is checked against the composition, the
+    horizon, Q and the intervention. The default θ_ref is the posterior mean of
+    log θ_I, with θ_H at nominal. The uncorrected m(θ) is kept beside it.
+- **The viability rule** (KIM-30) is data, a `ViabilityRule`. A run is failed,
+  starved, below a floor, clipped or clean, in that order of precedence.
+  - Starved means some counter clips at more than `starved_fraction` of the
+    drains, 14c's 0.5 by default.
+  - A mean-field overdraw counts as starved, since it is the mean field's form of
+    starving.
+  - **V is a property of θ:** θ is viable when at least `min_viable_fraction` of
+    its cells are (note §3.3).
+  - The mean field has one run per θ, and it never clips.
+- **One crossed matrix** (KIM-27). M posterior draws × K held draws, the K drawn
+  once and shared by every row. This is note §5.2's matrix. It is not the nested
+  "for each θ_I draw, draw K" of note §3.3's variant (b), which §5.2 itself
+  replaces with weights on the crossed matrix.
+  - Under V, **both** variants are returned as weights: (b) `v / (M′·Σ_k v)`, with
+    the rows that have no viable θ_H listed; and (a) `∝ v`. Each comes with its
+    acceptance rate and Kish ESS, and each pair keeps its decision and reason.
+  - Note §3.1's second M0 option, conditioning jointly on θ_I, is reachable:
+    `completion = :viability_conditioned_prior` on M0 has an empty held set, so
+    the rows are the posterior draws, each with K pairs of fresh cells, and the
+    `joint` weights reweight them by P̂(V | θ_I). On M0 the default is no
+    filter, `completion = :none`.
+- **Seeds.** Every pair runs fresh cells, since E[σ̂²]/n is the right correction
+  only then (note §2). An intervention's arm reuses its pair's seeds, so the
+  pairing is within a draw. All seeds come from one stream forked from `rng`, and
+  are checked to be distinct. The global generator is restored, as `infer`
+  restores it.
+- **The estimand** is the population mean. For each weight set, the summary
+  gives:
+  - the mean (δ-corrected when δ is given);
+  - the spread of μ̂ over the draws, as a reliability-weighted variance (the
+    unbiased sample variance when the weights are equal);
+  - E[σ̂²]/n;
+  - their difference as the parameter variance, reported as 0 and flagged when
+    negative;
+  - E[σ̂²] as the intrinsic spread, reported apart;
+  - the ESS;
+  - the pairs that produced no Q. Those leave the weights and are counted, not
+    hidden.
+  - Below two finished cells per pair, which includes the default
+    `n_cells = 1`, σ̂² does not exist. The MC term and the parameter variance
+    are then NaN, and `mc_undefined` is set.
+  - **The θ_I/θ_H split is not computed.** Its estimator is fixed in M4, and the
+    matrix, the decisions and the weights are what it needs.
+- **The intervention** (KIM-32). `Knockdown(; param = :S_JCVISYN3A_0779, dose)`
+  scales the drawn value by 1 − dose, before the reverse constants are derived.
+  V is read at baseline only (note §4, assumption 4), and pairs that V rejects are
+  not run under the intervention. A zero dose gives ΔQ ≡ 0 exactly.
+- **Provenance** (KIM-33). Each pair records:
+  - its posterior draw (index, chain, iteration);
+  - where θ_H came from;
+  - its seeds;
+  - V's decision;
+  - every failed run.
+
+  The call records the fork seed, the version, the settings, the posterior's
+  source, the declared reductions (the driver's, or route (ii)'s) and the skipped
+  held slots.
+- **`posterior_predictive`** (KIM-34) keeps its signatures and return. It now
+  reads the posterior through `posterior_draws` (every chain, by name), and draws
+  from a forked stream with the global generator restored.
+  - **A departure from the M3 plan:** `predict` does not gain an `:ode` forward.
+    Its estimand is a population mean of a scalar Q, and trajectories do not fit
+    it. The wrapper shares `predict`'s ingest and rng path instead.
+- `predict` extends the StatsAPI function Turing exports, so
+  `using Turing, InferCell` leaves one `predict`.
+
+**Checks:** these are checks that each path runs and agrees with itself. None of
+them is a result.
+- **The suite** at `7a2b054` passes 29,564 of 29,564 (Slurm job 19520509) in
+  76m47s. The job took 1:18:51 of its 90-minute limit. The eight new files take
+  about 8 minutes of that, 6m20s of it KIM-31's δ ensemble. These per-file times
+  come from job 19520246 at `69a6762`, which failed only the provenance line
+  that `47077cf` fixed. In 19520509, KIM-31's independent hybrid mean at a fixed
+  θ is 410,825 against m(θ) + δ = 410,272, with an SE of 7,127.
+- **`posterior_predictive`'s gated call sites**, `test_txl.jl` and
+  `test_joint_inference.jl`, pass 22 of 22 (job 19520247 at `69a6762`, and again
+  in the smoke run's wrapper stage).
+- **A smoke run of every stage** at the pushed `7a2b054` (jobs 19520502 to
+  19520508), written to `/fred/oz022/tkimpson/infercell-m3-smoke-2026-10-29/`
+  with a `SHA256SUMS`:
+  - the real archives read as 556 V7 draws and 400 B7 draws (2 × 200), with
+    agreeing truths and σ_b carried on both;
+  - a zero dose gives ΔQ ≡ 0 under both forwards;
+  - the δ-corrected mean field keeps the uncorrected m(θ);
+  - `d11_models()` holds the 15 non-M0 promoters at widths ½, 1 and 2;
+  - the toy-V reduced run with a knockdown, and the getting-started quick start
+    as written, run to the end.
+- **The metered route (ii):** job 19518978, above.
+- **CI on #117:** the docs build passes (run 40864415569), and so do the unit
+  tests (run 40864415517). Their test step took 79m46s, against 73m40s on main's
+  latest push, so the job now has about 10 minutes left of its 90. The advisory
+  JuliaFormatter check hits its own 10-minute limit, as it has on every recent PR.
+
+**Unchanged:**
+- Q (O4 stays provisional), V's thresholds, the dose, the headline variant and
+  the variance-split estimator. All go to M4's freeze.
+- Every result already recorded.
+
+*Sections:* §12.
+
 ### 2026-10-29 — §1's reaction count and the ENO null's reason (KIM-24)
 
 **Status: corrected.** These are two statements of fact in §1, brought into line
