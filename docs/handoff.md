@@ -67,13 +67,18 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
   pass 176 of 176 (job 19559305).
 - **The suite at `f7b1693`** (job 19565485, 76 min, the PR's head before the
   review's fixes): 29,645 of 29,645.
-- **The suite at the review's fix heads:**
-  - `49189a1`: job 19571278;
-  - the round-3 head: see the PR.
+- **The suite at the review's fix heads**, all passing:
+  - `49189a1`: job 19571278, 65 min, gina5, 29,649 of 29,649;
+  - `c56f5a6`, the last code head: job 19571893, 66 min, dave21, 29,650 of 29,650.
 
-  Both were running at this writing.
-- **The review** (`/check-PR`, three rounds) has its report in
-  `/fred/oz022/tkimpson/infercell-m4-checks-2026-10-30/PR_REVIEW_123_2026-10-30.md`.
+  Commits after `c56f5a6` are docs only.
+- **The review** (`/check-PR`, three rounds) converged with no CRITICAL finding,
+  and its verdict was MERGE.
+  - Its report and fix ledger are in
+    `/fred/oz022/tkimpson/infercell-m4-checks-2026-10-30/PR_REVIEW_123_2026-10-30.md`,
+    under that directory's `SHA256SUMS`, which also covers every suite log above.
+  - The MINOR text points left after its last round are KIM-70, a docs pass
+    before M5 (the user's call).
 
 **Findings for the paper**, all pilot expectations:
 - **GTP near K_d.** On the reduced model, with every parameter from its prior,
@@ -99,6 +104,9 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
    (0.16 at 64 threads; the results are unaffected), and the review's
    simplifications.
    - KIM-67, B7's null-KS finding, needs triage.
+   - KIM-70, the review's leftover MINORs. Three of them define M5 work: KIM-42's
+     K_d diagnostic, an owner for combining M0's row blocks, and the order of
+     the gate's two cuts.
 4. **Keep** `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/` (it has a
    `SHA256SUMS`). The freeze cites its KIM-35 output, which previewed the
    reading. The tags `m4-smoke-657081e`, `m4-suite-d4a05ee`, `m4-pilots-a742224`
