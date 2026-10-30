@@ -8,10 +8,10 @@
 #SBATCH --time=01:30:00
 
 # Named test files alone, at 4 threads (so the threaded-equals-serial tests run
-# threaded), after four of the suite's six test doubles (corea, contribution, jump
-# and hybrid; not nucleotide and trna, which test/runtests.jl loads later): a dev
-# check before the suite (KIM-68). A file that needs the other two errors here.
-# Run from the tree to test.
+# threaded), after four of the eleven helper files test/runtests.jl loads: the
+# corea, contribution, jump and hybrid test models. Not the nucleotide and trna
+# models, nor the five corea_*_doubles.jl, so a file that needs those errors here.
+# A dev check before the suite (KIM-68). Run from the tree to test.
 # Usage: sbatch --output=<log> dev/scripts/testfiles.slurm test/test_a.jl test/test_b.jl ...
 module load julia/1.10.5
 echo "test files $* at $(date) on $(hostname), HEAD $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain -- src test)" || echo ' (tree dirty)')"
