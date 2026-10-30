@@ -4486,6 +4486,116 @@ notes cite the commit that merges this entry to main.
     conditioning removed nothing in this demonstration.
   - V is not tightened to make it bite.
 
+**Q, O4 final (KIM-35).** Q is `lactate_out`: the lactate exported over the
+horizon, in particles, from `carbon_accounts` on the metered composition.
+`exported` is dropped.
+- **The horizons:**
+  - M0 600 s (`M0_HORIZON_S`), the horizon the posterior was fitted on;
+  - the reduced model 6,300 s (`COREA_CYCLE_S`), one published cycle.
+- **`lactate_out` fails the approved rule, and is kept on a declared reading.**
+  - At 6,300 s, θ_I's share of the parameter variance is 3.3%, under the rule's
+    5%, although its variance is resolved (2.5 bootstrap SE). θ_H takes 96.7%.
+  - The script's header declared a reading after the smoke pass and before the
+    run: a failure on θ_I alone calls for a new Q only if θ_I's local
+    elasticities are under a quarter of θ_H's. They are not: the medians of
+    |d ln Q / d ln θ| are 0.056 for θ_I and 0.047 for θ_H. So the small share
+    comes from the tight posterior (log SDs 0.05–0.19, against the prior's 0.69).
+  - The user adopted that reading on 2026-10-30.
+  - **The paper says** that θ_I's share rides on `krnadeg`, whose elasticity is
+    −0.62, the largest of all 20. ENO's and FBA's are about 0.
+- **`exported`** is about 0.998 and flat: every elasticity is ≤ 5e−3, and it fails
+  for both groups.
+- **At 600 s on the reduced model**, neither group rises above the cell noise.
+
+**The estimand.** It is the population mean μ(θ) of Q over cells. The intrinsic
+spread E[σ²] is reported separately, from the hybrid only. The mean field is
+reported both uncorrected and δ-corrected (§12 2026-10-29, O4).
+
+**The dose (KIM-37): 0.3**, `Knockdown(; dose = 0.3)` on ptsG
+(`S_JCVISYN3A_0779`). It is the declared rule's pick on M0: the largest
+admissible dose in {0.1, 0.2, 0.3}.
+- **The criterion's numbers on M0 at 0.3**, against dose 0:
+  - the e95 elasticities: ATP 0.0231 (0.0230), GTP 0.0541 (0.0543), charged tRNA
+    0.0983 (0.1001), against limits of 0.1, 0.1 and 0.1101;
+  - GTP below K_d at 0 of instants (0.0005);
+  - no failed cell.
+- Every dose up to 0.5 was admissible. The watched elasticities moved by under 2%
+  at any dose within 600 s. This is a regime observation; the screen computed no
+  ΔQ.
+- **On the reduced model, 0.3 is also admissible, but its baseline is near K_d.**
+  At dose 0, GTP is below K_d at 19% of rebuild instants, with an e95 elasticity
+  of 0.27, and charged tRNA at 6.6%. The one-way reduction's basis (0.04–0.09)
+  does not hold over the reduced model's full cycle under prior draws, whatever
+  the dose. This is a model-form caveat for the reduced-model results, for
+  KIM-47's table.
+
+**The reduced model's knockdown arm (added).** KIM-42 gains an unscored ptsG
+knockdown arm at 0.3, on the pairs V keeps. Then the O2 claim's "intervention
+predictions on the reduced model" holds as written. KIM-41's scored panel stays
+on M0.
+
+**The variance split (KIM-66).**
+- **The estimator** is `variance_split`, weighted U-statistics on the centred μ̂.
+  It was checked on known splits (all 150 checks pass at R = 2,000). The worst
+  bias at the planned 100 × 20 is 5.6% of the truth, under a θ-dependent mask.
+  Both orders are therefore reported, and note §5.2's I-first-only fallback is
+  not needed.
+- **The headline order is I first.** The held share is E_I[Var(μ | θ_I)] / Var(μ):
+  everything θ_I's posterior does not fix, interaction included. H first is
+  reported beside it, with the gap.
+- It is applied to μ on the reduced model, at each width, under the per-θ_I
+  weights (the headline) and the joint ones.
+- σ_b enters only for a future noisy bulk observation (note §5.3), not the
+  headline.
+
+**The scale (KIM-38).** The gate confirms it: nothing is cut.
+- **M0, the crossed comparison (KIM-40) and the knockdown panel (KIM-41):**
+  - 50 datasets × {V7 exact, B7 mixed}, 100 draws each, evenly spaced over the
+    posterior's draws. V7's chains are autocorrelated (23 of 50 datasets have a
+    bulk ESS under 100), so the 100 draws are not 100 independent ones;
+  - the hybrid runs 106 cells per draw, and the mean field one solve per draw;
+  - δ uses n_ref = 1,167 cells at θ_ref per dataset × posterior;
+  - the truth μ(θ*) uses 1,167 cells per dataset, plus m(θ*);
+  - the panel doubles the hybrid, δ and truth cells and the solves.
+
+  These are the declared sizing rules' values on v6: the MC term at most 10% of
+  the spread, and the truth's and δ's SEs at most 10% of the predictive SD. On
+  M0 the cell-to-cell σ² is 11.7 times Var_θ.
+- **The reduced model (KIM-42):**
+  - θ_I from V7 replicate 1 (exact), 100 draws;
+  - K = 20 held draws;
+  - 4 cells per pair, plus V's 4;
+  - widths ½, 1 and 2;
+  - the knockdown arm, on the kept pairs;
+  - the hybrid only.
+- **Cost:** about 598 + 575 CPU-h on M0, and 491 (plus at most 245 for the
+  knockdown arm) on the reduced model. The total is about 1,900 CPU-h.
+  - Wall-clock: about 6 h for each M0 part at 100 concurrent tasks, and 16 h
+    or less for each width, on one 64-thread node.
+  - That is well before the gate's 20 November.
+  - KIM-62's threading is correct but scales poorly: 0.48 at 16 threads, 0.16 at
+    64. A BLAS and GC test is M5's first job. It changes the cost, not the
+    results.
+- **The order of the run** is KIM-40, then KIM-41, then KIM-42 (completion plan
+  step 6).
+
+**Seeds.** M4's pilots used these:
+- KIM-35: rng 18_435_101, …_102, …_201, …_202, and the bootstrap's at the same
+  plus 10,000;
+- KIM-66: 18_436_001 to …_018;
+- KIM-37: rng 18_437_101 to …_150 and 18_437_501 to …_520; cells
+  18_437_100_101 to 18_437_105_004, and 18_437_500_101 to 18_437_502_002;
+- KIM-38: cells 18_438_100 to …_120 and 18_438_200 to …_210; rng 18_438_300,
+  …_301 and …_400.
+
+M5's rng seeds come from 19_500_000 to 19_599_999, and each M5 script's header
+names its own.
+
+**Unchanged:**
+- M3's §12 entries;
+- every recorded result;
+- the O2 claim's wording, which the knockdown arm now meets.
+
 *Sections:* §12.
 
 ### 2026-10-30 — `predict` made ready for M5 (M4: KIM-62, KIM-63, KIM-66)

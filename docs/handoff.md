@@ -1,78 +1,78 @@
 # Handoff
 
-## Latest: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30, in progress)
+## Latest: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
 
-**The plan** (approved 2026-10-30, `~/.claude/plans/hidden-painting-hejlsberg.md`):
-- one PR, one commit per issue, from `.worktrees/m4-pilots`, based on main at
-  `27d3f88`;
-- KIM-62 parallelises with threads, not with θ_H and seeds passed in;
-- the pilots use θ held out of the evidence run: B7's `v6` fit (m0_v6) and
-  fresh prior draws. Their seeds come from the `18_43x_xxx` block, and each
-  script header lists its exact seeds;
-- the variance-split estimator is a new issue, **KIM-66**, which also takes
-  KIM-63's MC-term item;
-- the pilot result notes go in KIM-39's freeze commit.
+**Done:** one PR, one commit per issue, from `.worktrees/m4-pilots`, based on
+main at `27d3f88`. The plan is `~/.claude/plans/hidden-painting-hejlsberg.md`,
+approved on 2026-10-30.
 
-**Built so far** (the code is recorded in spec §12 2026-10-30, "`predict` made
-ready for M5"):
-- **KIM-62** (`10e7b5d`): `predict`, `delta_correction`, `forward_cells` and
-  `intervention_cells` take `threads`, and the threaded result is the serial
-  one. `test_predict.jl` passes 65 of 65 at 4 threads (job 19550157).
+**The code** (spec §12 2026-10-30, "`predict` made ready for M5"):
+- **KIM-62** (`10e7b5d`): threaded cells, with results equal to the serial run.
 - **KIM-63** (`50e86c3`), items 2–5:
-  - δ's reuse check covers Q itself and a content fingerprint of the
-    composition;
+  - δ's reuse check covers Q itself and a content fingerprint;
   - the errors are typed, `MetabolicBlockStalled` and `PoolOverdraw`;
-  - `statuses_intervened` and `n_failed_intervened` count the intervened
-    failures;
+  - intervened failures are counted;
   - a bad knockdown is refused before any work.
-- **KIM-66** (`6bdb887`):
-  - `variance_split`, weighted U-statistics on the centred μ̂;
-  - the summary's MC term becomes Σ v(1−v)τ / (1−Σv²);
-  - the check script `variance_split_check_kim66.{jl,sh}`;
-  - why it centres: a smoke pass at R = 30 showed the masked split moving with
-    μ's mean. Now centred, it agrees to 1e-12 under a 10⁵ offset.
-- **The pilot scripts**, with their rules declared in their headers:
-  - KIM-38 (`f2aa420`), `cost_pilot_kim38`;
-  - KIM-35 (`08db217`), `sensitivity_pilot_kim35`. Its header also declares how a
-    failure on θ_I is read: the posterior's width against Q's insensitivity, by
-    the local elasticities;
-  - KIM-37 (`495b478`), `dose_screen_kim37`.
-- **A smoke pass** of every pilot stage at an earlier local build of these
-  commits (jobs 19551104–19551117, `SMOKE=1`). It ran end to end. Its outputs
-  are plumbing, not results:
-  `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/`.
+- **KIM-66** (`6bdb887`): `variance_split`, with the summary's MC term fixed.
+- **KIM-36** (`e7a7237`): `n_viability_cells`, so V reads cells of its own.
 
-**The suite** at the pre-rebase `d4a05ee` (job 19550890, 69 min) ran 29,610 of
-29,614 checks with 4 errors, all from one bug: `_fingerprint` called `size` on a
-`Tuple` (CentralGlycolysis's rate laws), wherever a `DeltaCorrection` was built.
-The fix is folded into KIM-63's commit (a `length` method for tuples). The
-fingerprint now agrees between builds of M0 and d11, differs under smoothing,
-and takes 0.2 s. The four files with the errors are rerun at the head; the full
-suite is rerun at the pushed head.
+**The pilots**, the scripts in `f2aa420`, `08db217` and `495b478`, all run at the
+pushed `a742224`. Each archive below is under `/fred/oz022/tkimpson/` and has a
+`SHA256SUMS`, and each result note is in `dev/scripts/`:
+
+| pilot | jobs | archive | note |
+|---|---|---|---|
+| KIM-35, sensitivity | 19560137–19560144 | `infercell-m4-kim35-2026-10-30/` | `sensitivity_pilot_kim35_result.md` |
+| KIM-37, dose screen | 19560145–19560148 | `infercell-m4-kim37-2026-10-30/` | `dose_screen_kim37_result.md` |
+| KIM-38, cost | 19560132–19560136, 19560250 | `infercell-m4-kim38-2026-10-30/` | `cost_pilot_kim38_result.md` |
+| KIM-66, the estimator's check | 19560131 | `infercell-m4-kim66-2026-10-30/` | `variance_split_check_kim66_result.md` |
+
+**The freeze** (spec §12 2026-10-30, "M4 freeze …"; KIM-36 and KIM-39). The
+user's calls, each the recommended option:
+- **Q:** `lactate_out`. On the reduced model at 6,300 s it fails the approved 5%
+  rule on θ_I (3.3%), and is kept on the reading declared before the run (θ_I's
+  elasticities are comparable to θ_H's). M0 runs at 600 s.
+- **V:** clipping allowed, starved at 0.5, no floors, at least half of 4 own
+  cells viable. It applies on the reduced model only. The headline variant is
+  per θ_I.
+- **The dose:** 0.3, and the reduced-model budget gains an unscored knockdown arm.
+- **The split:** I first is the headline.
+- **The scale:** M0 at 100 draws × 106 cells, with n_ref = n_truth = 1,167; the
+  reduced model at 100 × 20 × 4 (+4) cells, widths ½, 1 and 2, θ_I from V7
+  replicate 1. About 1,900 CPU-h in all, and no cut.
+- **M5's seeds:** the block 19_5xx_xxx.
+
+**Checks:**
+- **The suite at `a742224`** (job 19560130, 81 min): 29,634 of 29,635 pass. The
+  one failure is KIM-64's flaky check (14.9 check 6, 0.9999954 > 1.0, node dave19),
+  which is commented on KIM-64.
+- **The earlier suite at `d4a05ee`** (job 19550890) found the fingerprint's tuple
+  bug, now fixed in KIM-63's commit. The `predict` files rerun at `a742224`
+  pass 176 of 176 (job 19559305).
+- **KIM-36's commit** (`e7a7237`) adds code after those runs. The suite runs again
+  at the PR's head.
+
+**Findings for the paper:**
+- On the reduced model, GTP is below K_d at about a fifth of rebuild instants
+  even at dose 0 (KIM-37). This is a model-form caveat for KIM-47.
+- At width 1, V rejects nothing (KIM-35). The paper reports the acceptance at
+  each width.
+- θ_I's share rides on `krnadeg`.
 
 **Next:**
-1. Once the suite is green, push. Then from a detached worktree at the pushed
-   head, run `cost_pilot_kim38.sh`, `sensitivity_pilot_kim35.sh`,
-   `dose_screen_kim37.sh` and `variance_split_check_kim66.sh`, into
-   `/fred/oz022/tkimpson/infercell-m4-<pilot>-<date>/`. After KIM-35's arms,
-   run `cost_pilot_kim38.sh <outdir> project <kim35_outdir>`.
-2. **The decision gate**, the user's calls:
-   - Q (`lactate_out` or `exported`) and the reduced-model horizon;
-   - V's thresholds, and whether V reads its own cells (KIM-36's code if so);
-   - the headline conditioned variant;
-   - the dose;
-   - the headline order of the split;
-   - the scale and any cuts;
-   - which M0 posterior the reduced-model budget carries;
-   - whether that budget has an intervened arm (O2 says "intervention
-     predictions on the reduced model", and KIM-42 has none);
-   - M5's rng seeds.
-3. Then the commits for KIM-36 (V) and KIM-39 (the freeze, the pilot notes and
-   this handoff). Then the PR, `/check-PR`, and merge before any M5 job.
-
-**Watch:** the CI unit job's time against its 90 minutes (KIM-65). The new
-tests are small. The smoke's d11 mean field took 8–17 s per solve, so
-KIM-35's `local_*` stages have 6 h.
+1. Run the suite at the head. Open the PR and run `/check-PR`. Fix in follow-up
+   commits, and never amend a commit a run names. Merge with a merge commit, and
+   set the Linear issues to Done.
+2. Write the freeze's merge hash into KIM-40, KIM-41 and KIM-42. **No M5 job
+   runs before that merge.** KIM-42's text gains the knockdown arm and
+   `n_viability_cells = 4`.
+3. **M5's first job:** test the threading efficiency (`BLAS.set_num_threads(1)`,
+   `--gcthreads`). It was 0.16 at 64 threads, and the results are unaffected.
+4. **Can go once merged:**
+   - `.worktrees/m4-run-*` and `.worktrees/m4-smoke-*`;
+   - `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/`, which is plumbing
+     only;
+   - `.worktrees/m3-*` and `.worktrees/m2-hygiene`, if still present.
 
 ## Earlier: M3, `predict` (branch `tomkimpson/m3-predict-kim-27-34`, PR #117, 2026-10-29)
 
