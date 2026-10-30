@@ -6,7 +6,8 @@
 - The merge's tables are in `dose_screen.md` in that directory.
 
 **Held out:** θ comes from fresh prior draws, the population the SBC truths came
-from. The seeds are in the script's header. The screen computes no ΔQ.
+from. The seeds are in the script's header. The screen computes no ΔQ. The
+archive's `SHA256SUMS` has SHA256 `81fa1126e07ebb08…`.
 
 **Design and criterion** (declared in the script's header before the run):
 - **Draws:** M0 at 600 s, 50 draws × 4 cells; the reduced model at 6,300 s,
@@ -19,6 +20,9 @@ from. The seeds are in the script's header. The screen computes no ΔQ.
      max(0.1, 1.1 × the dose-0 e95);
   2. its fraction of instants below K_d is at most the dose-0 fraction + 0.01.
 - **The pick** is the largest admissible dose in {0.1, 0.2, 0.3}, judged on M0.
+- **Added in the script, not in the approved plan:** judging the reduced model
+  with and without its baseline-starving draws, for information. It changes no
+  pick.
 
 ## Results
 
@@ -35,16 +39,30 @@ admissible. **The rule picks 0.3.**
 The limits are 0.1, 0.1 and 0.1101 for the e95s, and 0.0105 and 0.01 for the
 below-K_d fractions.
 
-- **The knockdown hardly moves the watched elasticities on M0.** They change by
-  under 2% at any dose up to 0.5 within 600 s, and stay inside the measured
-  0.04–0.09 band, or at it for charged tRNA.
+- **The knockdown hardly moves the watched elasticities on M0.**
+  - Up to 0.3, they change by under 2% within 600 s. At 0.4 and 0.5 they fall by
+    up to 3.1% (GTP) and 4.6% (charged tRNA).
+  - Against the measured 0.04–0.09 band: ATP's (0.023) lies below it, GTP's
+    within it, and charged tRNA's at its top.
 
-**The reduced model** (240 cells; none failed, 13 starved, from 2 draws). Every
+**The reduced model** (240 cells; none failed; 13 starved, from 4 draws). Every
 dose up to 0.5 is admissible, with or without the starving draws. **The rule
 would also pick 0.3.**
+- **Which draws starved:**
+  - draws 14 and 19 at baseline (3 cells), the two excluded in the second table;
+  - draws 16 and 20 only under the knockdown at 0.4, and one cell of draw 14 at
+    0.2.
+
+  So the knockdown itself starves some reduced-model cells. Under V at
+  baseline, those failures are part of the prediction, and are counted.
 - **The reduced model's baseline is already near K_d, at dose 0.** GTP is below
   K_d at 19% of instants (17.5% without the starving draws), with an e95
   elasticity of 0.27. Charged tRNA is below at 6.6% (3.5%), with an e95 of 0.31.
+  - These draws take θ_I from its prior too, not from the M0 posterior M5
+    carries.
+  - The fraction varies strongly with θ: GTP is below K_d at 0% of instants in
+    6 of 20 draws, 1% in 2, and 21–55% in 12.
+  - So it is not measured for M5's population.
 - The criterion passes because it is relative to the baseline. The absolute
   basis of the one-way reduction, elasticities of 0.04–0.09, does not hold
   across the reduced model's full cycle under prior draws, even before any
@@ -54,7 +72,8 @@ would also pick 0.3.**
 
 - **Freeze the dose at 0.3**, the rule's pick on M0. The criterion's numbers are
   above.
-- **State in the paper** that on the reduced model the one-way reduction's basis
-  is weaker at baseline: GTP is below K_d at about a fifth of the rebuild
-  instants. This is a model-form caveat for the reduced-model results (KIM-47's
-  table), whatever the dose.
+- **Check it on M5's own reduced-model runs, and state it in the paper.** Under
+  prior draws of every parameter, the one-way reduction's basis is weaker at
+  baseline: GTP is below K_d at about a fifth of the rebuild instants. M5's runs
+  measure it for the population they carry. It is a model-form caveat for the
+  reduced-model results (KIM-47's table), whatever the dose.

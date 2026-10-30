@@ -3,8 +3,8 @@
 ## Latest: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
 
 **Done:** one PR, one commit per issue, from `.worktrees/m4-pilots`, based on
-main at `27d3f88`. The plan is `~/.claude/plans/hidden-painting-hejlsberg.md`,
-approved on 2026-10-30.
+main at `27d3f88`. The plan approved on 2026-10-30 is copied verbatim into
+`dev/notes/2026-10-30-m4-plan.md`.
 
 **The code** (spec §12 2026-10-30, "`predict` made ready for M5"):
 - **KIM-62** (`10e7b5d`): threaded cells, with results equal to the serial run.
@@ -29,17 +29,25 @@ pushed `a742224`. Each archive below is under `/fred/oz022/tkimpson/` and has a
 
 **The freeze** (spec §12 2026-10-30, "M4 freeze …"; KIM-36 and KIM-39). The
 user's calls, each the recommended option:
-- **Q:** `lactate_out`. On the reduced model at 6,300 s it fails the approved 5%
-  rule on θ_I (3.3%), and is kept on the reading declared before the run (θ_I's
-  elasticities are comparable to θ_H's). M0 runs at 600 s.
+- **Q:** `lactate_out`. M0 runs at 600 s.
+  - On the reduced model at 6,300 s it fails the approved 5% rule on θ_I
+    (3.3 ± 1.5%).
+  - It is kept on a reading declared after the smoke pass and before the run:
+    θ_I's elasticities are comparable to θ_H's.
+  - The smoke's mean-field elasticities had previewed that reading's outcome. The
+    freeze discloses this, and the user re-confirmed the reading after the
+    review.
 - **V:** clipping allowed, starved at 0.5, no floors, at least half of 4 own
   cells viable. It applies on the reduced model only. The headline variant is
   per θ_I.
 - **The dose:** 0.3, and the reduced-model budget gains an unscored knockdown arm.
 - **The split:** I first is the headline.
-- **The scale:** M0 at 100 draws × 106 cells, with n_ref = n_truth = 1,167; the
-  reduced model at 100 × 20 × 4 (+4) cells, widths ½, 1 and 2, θ_I from V7
-  replicate 1. About 1,900 CPU-h in all, and no cut.
+- **The scale:**
+  - the reduced model at 100 × 20 × 4 (+4) cells, widths ½, 1 and 2, θ_I from V7
+    replicate 1: 736 CPU-h with its knockdown arm;
+  - **M0's sizes are a todo (KIM-69)**, the user's call. The resolved sizing
+    (job 19568624) gives 887 cells per draw and n_ref = n_truth = 9,849 under the
+    declared rules, about 10,500 CPU-h in all. KIM-69 lists the cheaper options.
 - **M5's seeds:** the block 19_5xx_xxx.
 
 **Checks:**
@@ -52,12 +60,15 @@ user's calls, each the recommended option:
 - **KIM-36's commit** (`e7a7237`) adds code after those runs. The suite runs again
   at the PR's head.
 
-**Findings for the paper:**
-- On the reduced model, GTP is below K_d at about a fifth of rebuild instants
-  even at dose 0 (KIM-37). This is a model-form caveat for KIM-47.
-- At width 1, V rejects nothing (KIM-35). The paper reports the acceptance at
+**Findings for the paper**, all pilot expectations, which M5's own runs measure:
+- **GTP near K_d.** On the reduced model, with every parameter from its prior,
+  GTP is below K_d at about a fifth of rebuild instants even at dose 0 (KIM-37).
+  The fraction varies strongly with θ, and is not measured at the M0 posterior.
+  This is a model-form caveat for KIM-47.
+- **V's acceptance.** At width 1, for one θ_I, V rejected none of 50 θ_H
+  (KIM-35); the 95% upper bound is about 6%. The paper reports the acceptance at
   each width.
-- θ_I's share rides on `krnadeg`.
+- **`krnadeg`.** On the mean field at v6, θ_I's share rides on it.
 
 **Next:**
 1. Run the suite at the head. Open the PR and run `/check-PR`. Fix in follow-up
@@ -66,12 +77,18 @@ user's calls, each the recommended option:
 2. Write the freeze's merge hash into KIM-40, KIM-41 and KIM-42. **No M5 job
    runs before that merge.** KIM-42's text gains the knockdown arm and
    `n_viability_cells = 4`.
-3. **M5's first job:** test the threading efficiency (`BLAS.set_num_threads(1)`,
-   `--gcthreads`). It was 0.16 at 64 threads, and the results are unaffected.
-4. **Can go once merged:**
-   - `.worktrees/m4-run-*` and `.worktrees/m4-smoke-*`;
-   - `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/`, which is plumbing
-     only;
+3. **The user drafts the paper next.** M5 waits on KIM-69, the M0 scale, which is
+   revisited later. M5's first job is KIM-68: threading efficiency, likely GC
+   (0.16 at 64 threads; the results are unaffected), and the review's
+   simplifications.
+   - KIM-67, B7's null-KS finding, needs triage.
+4. **Keep** `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/` (it has a
+   `SHA256SUMS`). The freeze cites its KIM-35 output, which previewed the
+   reading. The tags `m4-smoke-657081e` and `m4-suite-d4a05ee` keep the commits
+   that a run names.
+5. **Can go once merged:**
+   - `.worktrees/m4-run-*` and `.worktrees/m4-smoke-*` (their commits are on
+     the branch or tagged);
    - `.worktrees/m3-*` and `.worktrees/m2-hygiene`, if still present.
 
 ## Earlier: M3, `predict` (branch `tomkimpson/m3-predict-kim-27-34`, PR #117, 2026-10-29)

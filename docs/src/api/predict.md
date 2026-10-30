@@ -31,7 +31,8 @@ shares the same held draws, so about 1/K of the held parameters' share is
 missing from it for K held draws, and all of it at one held draw. On the crossed
 matrix, [`variance_split`](@ref) gives the total and the θ_I/θ_H split in both
 orders, from weighted U-statistics in which the cells' noise and the shared
-columns cancel.
+columns cancel. Without a viability rule it is unbiased. Under one, the weights
+are ratio estimates of the conditioned law, biased at O(1/K).
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
 the dose, which conditioned variant is the headline, and which order of the split
