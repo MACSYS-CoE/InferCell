@@ -330,7 +330,7 @@ A reduced-model cell at 6,300 s allocates about 25 GiB, so at many threads garba
 collection takes most of the time. Start Julia with one concurrent sweep thread,
 `--gcthreads=N,1`; the number of mark threads N did not matter (8 and 32 at 64
 threads). On 128 such cells it cut the wall from 464–477 s to 150–166 s at 64
-threads, in four runs on two nodes, and from 551 s to 394 s at 16 (KIM-68,
+threads, in three runs on two nodes, and from 551 s to 394 s at 16 (KIM-68,
 `dev/scripts/threading_kim68_result.md`).
 """
 function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
