@@ -2009,13 +2009,35 @@ end
 # defensive flourish.
 function _assert_ode_advanced(d::HandshakeDriver, target)
     ok = d.ode.sol.retcode === ReturnCode.Default || d.ode.sol.retcode === ReturnCode.Success
-    (ok && isapprox(d.ode.t, target; atol = 1e-9, rtol = 1e-12)) || error(
-        "The metabolic block failed to advance to t = $target at handshake " *
-        "$(d.n_handshakes + 1): it stopped at t = $(d.ode.t) with retcode " *
-        "$(d.ode.sol.retcode). The trajectory from here would be a frozen " *
-        "state advanced by a counter, so the run stops instead")
+    (ok && isapprox(d.ode.t, target; atol = 1e-9, rtol = 1e-12)) || throw(
+        MetabolicBlockStalled(Float64(target), d.n_handshakes + 1, Float64(d.ode.t),
+                              Symbol(d.ode.sol.retcode)))
     return nothing
 end
+
+"""
+    MetabolicBlockStalled <: Exception
+
+Thrown by the handshake driver when the metabolic block's solve stops short of a
+handshake: the solver returned a non-success `retcode`, and the trajectory from
+there would be a frozen state advanced by a counter. `target` is the time it was
+to reach, `handshake` the exchange, and `t` where it stopped. `predict` keeps such
+a cell as a failed run (`:not_advanced`), and matches it by this type.
+"""
+struct MetabolicBlockStalled <: Exception
+    target::Float64
+    handshake::Int
+    t::Float64
+    retcode::Symbol
+end
+
+Base.showerror(io::IO, e::MetabolicBlockStalled) = print(io,
+    "The metabolic block failed to advance to t = $(e.target) at handshake " *
+    "$(e.handshake): it stopped at t = $(e.t) with retcode $(e.retcode). The " *
+    "trajectory from here would be a frozen state advanced by a counter, so the " *
+    "run stops instead")
+
+export MetabolicBlockStalled
 
 # Free-parameter names in the order the block's parameter vector holds them,
 # read off the builder's own contexts rather than re-deriving its dedup rule

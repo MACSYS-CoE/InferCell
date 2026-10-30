@@ -58,6 +58,23 @@ end
                                            delta = c.delta)
         @test_throws ArgumentError predict(ms, pd; horizon = H, forward = :mean_field,
                                            delta = c.delta, quantity = :exported)
+        # KIM-63: reuse is checked against Q itself and the composition's content.
+        # Two closures share a label, and two settings of the same modules share ids.
+        g(a) = run -> a * carbon_accounts(run).lactate_out
+        q1, q2 = g(1.0), g(2.0)
+        @test InferCell._quantity_label(q1) === InferCell._quantity_label(q2)
+        d1 = delta_correction(ms, haldane_values(metered(ms), draw_values(pd, 1)), [11, 12];
+                              horizon = H, quantity = q1)
+        r1 = predict(ms, pd; horizon = H, forward = :mean_field, delta = d1, quantity = q1)
+        @test r1.delta === d1
+        @test_throws ArgumentError predict(ms, pd; horizon = H, forward = :mean_field,
+                                           delta = d1, quantity = q2)
+        @test InferCell._fingerprint(metered(m0_models())) == InferCell._fingerprint(metered(ms))
+        sm = collect(AbstractSubModel, m0_models(; smoothing = COREA_SMOOTHING_WIDTH))
+        @test [module_id(m) for m in sm] == [module_id(m) for m in ms]
+        @test InferCell._fingerprint(metered(sm)) != InferCell._fingerprint(metered(ms))
+        @test_throws ArgumentError predict(sm, pd; horizon = H, forward = :mean_field,
+                                           delta = c.delta)
     end
 
     @testset "a zero-dose knockdown through predict: ΔQ ≡ 0" begin
@@ -65,6 +82,17 @@ end
                     n_parameter_draws = 2, rng = Xoshiro(3))
         @test all(==(0.0), p.effect) && p.effect_summary.uniform.mean == 0
         @test [c.seed for c in p.cells_intervened[1]] == [c.seed for c in p.cells[1]]
+        # KIM-63: every intervened run is counted, and so are the cells lost to ΔQ.
+        @test sum(values(p.statuses_intervened)) == sum(length, p.cells_intervened)
+        @test p.effect_summary.uniform.n_failed_intervened == 0
+        @test all(==(0), values(predict(ms, pd; horizon = H, n_parameter_draws = 1,
+                                        rng = Xoshiro(3)).statuses_intervened))
+        ok = CellRun(1, 1.0, :none, "", 0, NamedTuple[], Dict{Symbol, Float64}(), nothing)
+        no = CellRun(2, NaN, :not_advanced, "x", 0, NamedTuple[], Dict{Symbol, Float64}(), nothing)
+        base, int = reshape([[ok, ok], [ok, no]], 1, 2), reshape([[no, ok], [no, no]], 1, 2)
+        @test InferCell._n_failed_intervened(base, int, [1.0 1.0]) == 2
+        @test InferCell._n_failed_intervened(base, int, [1.0 0.0]) == 1
+        @test InferCell._n_failed_intervened(base, int, [0.0 0.0]) == 0
     end
 
     @testset "completion on the reduced model, crossed" begin
@@ -165,6 +193,13 @@ end
         bad(; completion = :prior, held = [:kcatR_R_ENO])   # derived, not drawn
         bad(; theta_ref = draw_values(pd, 1))
         bad(; intervention = Knockdown(; param = :enz_R_ENO, dose = 0.5))   # driver-written
+        # KIM-63: a knockdown `intervene` refuses is refused before any cell runs,
+        # which a Q that counts its calls pins.
+        calls = Ref(0)
+        counting(run) = (calls[] += 1; carbon_accounts(run).lactate_out)
+        bad(; intervention = Knockdown(; param = :kcatR_R_ENO, dose = 0.5), quantity = counting)
+        bad(; intervention = Knockdown(; param = :no_such_param, dose = 0.5), quantity = counting)
+        @test calls[] == 0
         stray = PosteriorDraws([:no_such], ones(2, 1), nothing, [1, 1], [1, 2], nothing,
                                nothing, (kind = :test,))
         @test_throws ArgumentError predict(ms, stray; horizon = H)

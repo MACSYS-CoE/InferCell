@@ -243,14 +243,33 @@ function _route_callbacks(rt::MeanFieldRoute, debited::Vector{Int})
         (u, t, integ) -> any(i -> overdrawn(u, i), debited),
         integ -> begin
             i = findfirst(i -> overdrawn(integ.u, i), debited)
-            error("Route (ii): the pool :$(rt.state_names[debited[i]]) went below " *
-                  "zero at t = $(integ.t) s. Its drains are unclamped " *
-                  "(spec/phases/approximate-method.md §12 2026-10-23), so a pool " *
-                  "the costs outrun is an error here, where the hybrid would clip it")
+            throw(PoolOverdraw(rt.state_names[debited[i]], integ.t))
         end;
         save_positions = (false, false))
     return CallbackSet(rebuild, guard)
 end
+
+"""
+    PoolOverdraw <: Exception
+
+Thrown by route (ii)'s solve when a debited pool goes below zero. Its drains are
+unclamped (spec/phases/approximate-method.md §12 2026-10-23), so a pool the
+costs outrun stops the solve, where the hybrid would clip it. `pool` names it and
+`t` is when. `predict` keeps such a run as a failed one (`:overdraw`, the mean
+field's form of starving), and the mixed likelihood scores it −∞; both match it
+by this type.
+"""
+struct PoolOverdraw{T <: Real} <: Exception
+    pool::Symbol
+    t::T
+end
+
+Base.showerror(io::IO, e::PoolOverdraw) = print(io,
+    "Route (ii): the pool :$(e.pool) went below zero at t = $(e.t) s. Its drains " *
+    "are unclamped (spec/phases/approximate-method.md §12 2026-10-23), so a pool " *
+    "the costs outrun is an error here, where the hybrid would clip it")
+
+export PoolOverdraw
 
 """
     build_mean_field_problem(models; tspan = (0.0, 100.0), interval = 1.0,
