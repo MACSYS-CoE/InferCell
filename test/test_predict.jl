@@ -103,6 +103,50 @@ end
         @test a.summary.joint.mean ≈ p.summary.uniform.mean
     end
 
+    # KIM-62: the cells run threaded give the serial result, field by field.
+    @testset "threaded equals serial ($(Threads.nthreads()) threads)" begin
+        same_cell(a, b) = all(isequal(getfield(a, f), getfield(b, f)) for f in fieldnames(CellRun))
+        same_cells(A, B) = size(A) == size(B) &&
+                           all(length(a) == length(b) && all(same_cell.(a, b))
+                               for (a, b) in zip(A, B))
+        function same(p, q)
+            for f in fieldnames(Prediction)
+                f in (:cells, :cells_intervened, :provenance, :delta, :intervention,
+                      :viability) && continue
+                isequal(getfield(p, f), getfield(q, f)) || return false
+            end
+            pp, qp = p.provenance, q.provenance
+            return same_cells(p.cells, q.cells) &&
+                   same_cells(p.cells_intervened, q.cells_intervened) &&
+                   isequal(pp.pairs, qp.pairs) && pp.fork_seed == qp.fork_seed &&
+                   isequal(pp.settings, qp.settings)
+        end
+        dms = collect(AbstractSubModel, d11_models())
+        V = ViabilityRule(; label = "toy: a floor some pairs miss", allow_clipped = true,
+                          min_viable_fraction = 0.5, floors = [:M_gtp_c => 500.0])
+        kw = (; horizon = H, completion = :viability_conditioned_prior, viability = V,
+              n_held = 2, n_parameter_draws = 2, n_cells = 2, width = 2.0,
+              intervention = Knockdown(; dose = 0.3))
+        s = predict(dms, pd; kw..., rng = Xoshiro(62), threads = false)
+        t = predict(dms, pd; kw..., rng = Xoshiro(62), threads = true)
+        @test same(s, t)
+        @test s.provenance.threads == 1 && t.provenance.threads == Threads.nthreads()
+        @test any(!isempty, t.cells_intervened)
+
+        mkw = (; horizon = H, forward = :mean_field, delta = :ensemble, n_ref = 4,
+               n_parameter_draws = 3)
+        sm = predict(ms, pd; mkw..., rng = Xoshiro(63), threads = false)
+        tm = predict(ms, pd; mkw..., rng = Xoshiro(63), threads = true)
+        @test same(sm, tm)
+        @test all(same_cell.(sm.delta.hybrid, tm.delta.hybrid)) &&
+              isequal(sm.delta.delta, tm.delta.delta)
+
+        # An error inside a threaded task keeps its type.
+        boom(run) = throw(ArgumentError("a quantity that refuses"))
+        @test_throws ArgumentError forward_cells(ms, Pair{Symbol, Float64}[], [1, 2];
+                                                 horizon = H, quantity = boom, threads = true)
+    end
+
     @testset "refusals, before any work" begin
         bad(; kw...) = @test_throws ArgumentError predict(ms, pd; horizon = H, kw...)
         bad(; forward = :ode)

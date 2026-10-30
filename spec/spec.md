@@ -4427,6 +4427,56 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-30 — `predict` made ready for M5 (M4: KIM-62, KIM-63, KIM-66)
+
+**Status: built.** These are code changes to `predict` that M3's review deferred to
+M4. They fix no Q, V, dose or variance-split choice; those are M4's freeze entry.
+No result changes.
+
+**Trigger:** M4 in Linear. The user chose, on 2026-10-30, in the M4 plan:
+- threads for KIM-62, not θ_H and seeds passed in;
+- a new issue for the variance-split estimator (KIM-66), which takes KIM-63's
+  first item, the MC term under unequal weights;
+- one PR for M4, with one commit per issue.
+
+**Change:**
+- **Threaded cells (KIM-62).** `predict`, `delta_correction`, `forward_cells` and
+  `intervention_cells` take `threads`. It defaults to true when Julia has more than
+  one thread, as `gibbs_sweep!` and `block1_replay` do.
+  - `predict` runs in three steps: every baseline cell or solve of the matrix as
+    one pool of jobs; then V on each pair, serially; then the intervened runs of
+    the pairs V keeps, as a second pool. Jobs are single cells, so the threads
+    share the work whatever M, K and n_cells are.
+  - **Why it is the serial result.** A hybrid cell reseeds the generator of the
+    task it runs on before its build and before its run. Julia 1.10's default
+    generator is task-local. The cell then builds its own driver.
+  - **The mean field shares one route (ii).** That is safe because its
+    right-hand side keeps no buffer between calls, and `solve_mean_field` copies
+    `p` before the rebuild writes into it. Nothing writes into a module's fields.
+  - An error inside a task is rethrown as itself, not wrapped in a
+    `CompositeException`, so a refusal keeps its type.
+  - Provenance records the thread count, outside `settings`.
+  - **What this changes for M5.** A crossed matrix with completion (the
+    reduced-model budget) is one call, run threaded on one node. Calls still
+    cannot share one, as the entry below explains. Without completion (M0), rows
+    can still be split over calls, each with its own rng and disjoint `draws`.
+    The M0 crossed comparison runs one call per dataset and posterior anyway.
+
+**Checks:**
+- A threaded-equals-serial testset (`test_predict.jl`), run at the suite's 4
+  threads. It covers:
+  - a reduced-model run under a toy V and a knockdown;
+  - a δ-corrected mean field on M0.
+
+  The test compares every field, every cell (seed, Q, failure, clips, minima,
+  accounts), the decisions, the weights, the summaries and the provenance pairs.
+  An error raised inside a threaded task keeps its type.
+
+**Unchanged:** the seed scheme, the stream, the restored global generator, and
+every recorded number.
+
+*Sections:* §12.
+
 ### 2026-10-29 — `predict` as built (M3, KIM-27 to KIM-34)
 
 **Status: built.** These are the API and design choices `predict` makes, recorded

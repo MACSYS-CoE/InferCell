@@ -66,7 +66,9 @@ draws (k = 1…K). Without completion there is one column.
   - `pairs`: one record per pair, M × K. Each gives the posterior draw (index,
     chain, iteration), where θ_H came from (`:none`, `:prior` or
     `:viability_conditioned`), its seeds, V's decision, and every failed run with
-    its seed and reason.
+    its seed and reason;
+  - `threads`: the threads the cells ran on, 1 when not threaded. The result
+    does not depend on it.
 """
 struct Prediction
     forward::Symbol
@@ -190,7 +192,7 @@ end
             viability = nothing, quantity = :lactate_out, estimand = :population_mean,
             intervention = nothing, delta = :none, theta_ref = nothing, n_ref = 100,
             rng = Random.default_rng(), n_parameter_draws = length(posterior),
-            draws = nothing, n_cells = 1) -> Prediction
+            draws = nothing, n_cells = 1, threads = Threads.nthreads() > 1) -> Prediction
 
 The predictive distribution of the quantity Q given the data, for the composition
 `models`, as dev/notes/2026-10-29-cut-predictive-distribution.md defines it. The
@@ -266,6 +268,16 @@ forked from `rng` and puts the global generator back afterwards, as
 [`infer`](@ref) does. Two calls with equal `rng` states give the same result.
 The fork seed is recorded, but `predict` cannot be called with one. To replay a
 call, keep the `rng`'s seed and the commit.
+
+**Parallel runs.** With `threads` (the default when Julia has more than one
+thread), the cells run threaded: every baseline cell or solve of the matrix at
+once, then the intervened ones of the pairs V keeps, and δ's ensemble likewise.
+Each hybrid cell reseeds the generator of the task it runs on before its build
+and its run, so the result is the serial one. A crossed matrix with completion
+is run by one call, threaded on one node: calls cannot share it, as above.
+Without completion (M0), the rows can also be split over calls, each with its
+own `rng` and disjoint `draws`, and a corrected mean field given one shared
+[`DeltaCorrection`](@ref).
 """
 function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  horizon::Real, forward::Symbol = :hybrid, completion::Symbol = :none,
@@ -277,7 +289,7 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  n_ref::Integer = 100, rng::AbstractRNG = Random.default_rng(),
                  n_parameter_draws::Integer = length(pd),
                  draws::Union{Nothing, AbstractVector{<:Integer}} = nothing,
-                 n_cells::Integer = 1)
+                 n_cells::Integer = 1, threads::Bool = Threads.nthreads() > 1)
     # Refuse before any work.
     forward in PREDICT_FORWARDS || throw(ArgumentError(
         "forward must be one of $PREDICT_FORWARDS, not :$forward"))
@@ -347,25 +359,32 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
             ref = theta_ref === nothing ? _theta_ref(pd) : collect(theta_ref)
             rs = _cell_seeds(stream, n_ref)
             isdisjoint(rs, seeds) || error("δ's seeds meet the prediction's; draw again")
-            delta_correction(ms, haldane_values(ms, ref), rs; horizon, quantity, intervention)
+            delta_correction(ms, haldane_values(ms, ref), rs; horizon, quantity, intervention,
+                             threads)
         else
             delta === :none ? nothing : delta
         end
 
         f = _forward_setup(ms, forward; horizon)
-        cells = Matrix{Vector{CellRun}}(undef, M, K)
-        cells_i = fill(CellRun[], M, K)
-        decisions = Matrix{NamedTuple}(undef, M, K)
         θI = [draw_values(pd, r) for r in rows]
-        for m in 1:M, k in 1:K
-            plain = vcat(θI[m], θH[k])
-            s = seeds[:, k, m]
-            cells[m, k] = _run_cells(f, haldane_values(ms, plain), s, quantity)
-            decisions[m, k] = conditioned ? assess_viability(cells[m, k], viability) :
-                              (; viable = true, fraction = 1.0, counts = Dict{Symbol, Int}())
-            if intervention !== nothing && decisions[m, k].viable
-                cells_i[m, k] = _run_cells(f, intervene(intervention, ms, plain), s, quantity)
-            end
+        plain = [vcat(θI[m], θH[k]) for m in 1:M, k in 1:K]
+        # Every baseline run, then V on each pair, then the intervened runs of
+        # the pairs V keeps. Each phase runs its cells threaded or not, with the
+        # same result.
+        cells = _run_matrix(f, map(x -> haldane_values(ms, x), plain), seeds, quantity,
+                            trues(M, K); threads)
+        decisions = Matrix{NamedTuple}(undef, M, K)
+        for i in eachindex(cells)
+            decisions[i] = conditioned ? assess_viability(cells[i], viability) :
+                           (; viable = true, fraction = 1.0, counts = Dict{Symbol, Int}())
+        end
+        cells_i = if intervention === nothing
+            fill(CellRun[], M, K)
+        else
+            keep = [d.viable for d in decisions]
+            vals_i = [keep[i] ? intervene(intervention, ms, plain[i]) : Pair{Symbol, Float64}[]
+                      for i in CartesianIndices(plain)]
+            _run_matrix(f, vals_i, seeds, quantity, keep; threads)
         end
         labels = forward === :hybrid ? reduction_declarations(ms, driver) :
                                        reduction_declarations(ms, f.route)
@@ -376,7 +395,8 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                     n_ref = delta === :ensemble ? n_ref : 0,
                     viability = viability === nothing ? nothing : viability.label)
         _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i, decisions,
-                  completion, viability, intervention, dc, hp, fork, settings, labels)
+                  completion, viability, intervention, dc, hp, fork, settings, labels,
+                  threads ? Threads.nthreads() : 1)
     end
 end
 
@@ -394,7 +414,7 @@ end
 
 function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i,
                    decisions, completion, viability, intervention, dc, hp, fork, settings,
-                   labels)
+                   labels, nthreads)
     M, K = size(cells)
     mom = [_moments([c.q for c in cells[i]]) for i in CartesianIndices(cells)]
     mu, s2, nok = first.(mom), getindex.(mom, 2), last.(mom)
@@ -433,7 +453,8 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
     pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
              for m in 1:M, k in 1:K]
     provenance = (; fork_seed = fork, version = pkgversion(@__MODULE__), settings,
-                  source = pd.source, reductions = labels, skipped = hp.skipped, pairs)
+                  source = pd.source, reductions = labels, skipped = hp.skipped, pairs,
+                  threads = nthreads)
     return Prediction(f.forward, completion, :population_mean, _quantity_label(quantity),
                       f.horizon, rows, θI,
                       pd.sigma_b === nothing ? nothing : pd.sigma_b[rows], hnames, θH,

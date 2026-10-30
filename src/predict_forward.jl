@@ -160,9 +160,55 @@ function _mean_field_cell(f::_ForwardSetup, values, quantity)
 end
 
 # One forward run per seed for the hybrid, or one for the mean field.
-_run_cells(f::_ForwardSetup, values, seeds, quantity) =
-    f.forward === :hybrid ? [_hybrid_cell(f, values, s, quantity) for s in seeds] :
-                            [_mean_field_cell(f, values, quantity)]
+function _run_cells(f::_ForwardSetup, values, seeds, quantity; threads::Bool = false)
+    f.forward === :hybrid || return [_mean_field_cell(f, values, quantity)]
+    out = Vector{CellRun}(undef, length(seeds))
+    _each_cause(length(seeds), threads) do i
+        out[i] = _hybrid_cell(f, values, seeds[i], quantity)
+    end
+    return out
+end
+
+# Every run of a matrix of parameter sets at once, the pairs with `run[m, k]`
+# false left empty: one job per hybrid cell, or one per mean-field solve, so the
+# threads share the work however M, K and n_cells fall. Each hybrid cell reseeds
+# the generator of the task it runs on (task-local) before its build and its
+# run, and the mean field is deterministic, so a threaded run is the serial one.
+function _run_matrix(f::_ForwardSetup, values::AbstractMatrix, seeds::AbstractArray{Int, 3},
+                     quantity, run::AbstractMatrix{Bool}; threads::Bool)
+    M, K = size(values)
+    out = [CellRun[] for _ in 1:M, _ in 1:K]
+    jobs = Tuple{Int, Int, Int}[]
+    for m in 1:M, k in 1:K
+        run[m, k] || continue
+        n = f.forward === :hybrid ? size(seeds, 1) : 1
+        out[m, k] = Vector{CellRun}(undef, n)
+        append!(jobs, ((m, k, c) for c in 1:n))
+    end
+    _each_cause(length(jobs), threads) do j
+        m, k, c = jobs[j]
+        out[m, k][c] = f.forward === :hybrid ?
+                       _hybrid_cell(f, values[m, k], seeds[c, k, m], quantity) :
+                       _mean_field_cell(f, values[m, k], quantity)
+    end
+    return out
+end
+
+# `_each`, with an error inside a task rethrown as itself rather than wrapped in
+# a `CompositeException` of `TaskFailedException`s, so a refusal keeps its type
+# whether or not the work ran threaded.
+function _each_cause(f, n::Integer, threads::Bool)
+    try
+        _each(f, n, threads)
+    catch e
+        c = _task_cause(e)
+        c === e ? rethrow() : throw(c)
+    end
+    return nothing
+end
+_task_cause(e::CompositeException) = _task_cause(first(e.exceptions))
+_task_cause(e::TaskFailedException) = _task_cause(e.task.exception)
+_task_cause(e) = e
 
 # The cells reseed the global generator; a caller's stream is put back after.
 function _restoring_global_rng(f)
@@ -176,7 +222,7 @@ end
 
 """
     forward_cells(models, values, seeds; forward = :hybrid, horizon,
-                  quantity = :lactate_out) -> Vector{CellRun}
+                  quantity = :lactate_out, threads) -> Vector{CellRun}
 
 Run `models` at the parameter writes `values` (`name => value` pairs, written as
 given). Unlike [`intervention_cells`](@ref) and [`delta_correction`](@ref), this
@@ -190,35 +236,39 @@ first.
 `quantity` is `:lactate_out` (the lactate exported over the run, in particles),
 `:exported` (the fraction of the lactate formed that left the cell), or a function
 of the run's [`ValidationRun`](@ref). The global generator is restored afterwards.
+With `threads`, the hybrid's cells run threaded, with the same result.
 """
 function forward_cells(models::AbstractVector{<:AbstractSubModel}, values,
                        seeds::AbstractVector{<:Integer}; forward::Symbol = :hybrid,
-                       horizon::Real, quantity = :lactate_out)
+                       horizon::Real, quantity = :lactate_out,
+                       threads::Bool = Threads.nthreads() > 1)
     _check_quantity(quantity)
     f = _forward_setup(metered(models), forward; horizon)
-    return _restoring_global_rng(() -> _run_cells(f, values, seeds, quantity))
+    return _restoring_global_rng(() -> _run_cells(f, values, seeds, quantity; threads))
 end
 
 """
     intervention_cells(models, values, a, seeds; forward = :hybrid, horizon,
-                       quantity = :lactate_out) -> (; baseline, intervened, delta)
+                       quantity = :lactate_out, threads) -> (; baseline, intervened, delta)
 
 Two arms on the same seeds: `values`, and `values` under intervention `a`
 ([`intervene`](@ref)). Each hybrid cell is paired with itself. Both arms derive
 their reverse constants from what they run ([`haldane_values`](@ref)), which
 [`forward_cells`](@ref) leaves to its caller. `delta` is the paired effect Q_intervened −
-Q_baseline for each cell, `NaN` where either arm failed.
+Q_baseline for each cell, `NaN` where either arm failed. `threads` is as for
+`forward_cells`.
 """
 function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
                             a::Intervention, seeds::AbstractVector{<:Integer};
                             forward::Symbol = :hybrid, horizon::Real,
-                            quantity = :lactate_out)
+                            quantity = :lactate_out,
+                            threads::Bool = Threads.nthreads() > 1)
     _check_quantity(quantity)
     f = _forward_setup(metered(models), forward; horizon)
     vals = haldane_values(f.models, Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values])
     base, int = _restoring_global_rng() do
-        _run_cells(f, vals, seeds, quantity),
-        _run_cells(f, intervene(a, f.models, vals), seeds, quantity)
+        _run_cells(f, vals, seeds, quantity; threads),
+        _run_cells(f, intervene(a, f.models, vals), seeds, quantity; threads)
     end
     return (; baseline = base, intervened = int, delta = _paired_delta(base, int))
 end
@@ -270,19 +320,21 @@ end
 
 """
     delta_correction(models, values, seeds; horizon, quantity = :lactate_out,
-                     intervention = nothing) -> DeltaCorrection
+                     intervention = nothing, threads) -> DeltaCorrection
 
 The hybrid ensemble at the reference writes `values`, one cell per seed, against
 the mean field there. Reverse constants are derived from `values`
 ([`haldane_values`](@ref)). With an `intervention`, the intervened arm runs too,
 on the same seeds ([`intervene`](@ref)). A cell that fails is kept but left out of
 the mean. If fewer than two cells finish, or the mean field fails at θ_ref, δ is
-undefined and the call throws.
+undefined and the call throws. With `threads`, the ensemble's cells run threaded,
+with the same result.
 """
 function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
                           seeds::AbstractVector{<:Integer}; horizon::Real,
                           quantity = :lactate_out,
-                          intervention::Union{Nothing, Intervention} = nothing)
+                          intervention::Union{Nothing, Intervention} = nothing,
+                          threads::Bool = Threads.nthreads() > 1)
     _check_quantity(quantity)
     length(seeds) >= 2 && allunique(seeds) || throw(ArgumentError(
         "the ensemble needs at least two distinct seeds"))
@@ -290,7 +342,8 @@ function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
     vals = haldane_values(ms, Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values])
     hy = _forward_setup(ms, :hybrid; horizon)
     mf = _forward_setup(ms, :mean_field; horizon)
-    arm(v) = (_run_cells(hy, v, seeds, quantity), only(_run_cells(mf, v, Int[], quantity)))
+    arm(v) = (_run_cells(hy, v, seeds, quantity; threads),
+              only(_run_cells(mf, v, Int[], quantity)))
     (cells, m), int = _restoring_global_rng() do
         arm(vals), intervention === nothing ? nothing : arm(intervene(intervention, ms, vals))
     end
