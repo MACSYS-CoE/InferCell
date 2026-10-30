@@ -2,8 +2,10 @@
 
 **Run:** `dev/scripts/threading_kim68.sh` at `6e2a45c` (pushed; tag
 `kim68-run-6e2a45c`), into `/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/threading/`
-(`jobs.tsv`, `logs/`, `summary.md`). The archive's `SHA256SUMS` is made at the end of
-KIM-68 and its digest added here.
+(`jobs.tsv`, `logs/`, `summary.md`).
+- **The archive's `SHA256SUMS`**, made at the end of KIM-68 over all 91 files under
+  `/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/`, has SHA256
+  `c79386a763dc5a45…`.
 - **Jobs and nodes:**
   - precompile 19583235 (dave29); serial 19583236 (dave3);
   - 16 threads 19583237 (dave105) and 64 threads 19583238 (dave108);
