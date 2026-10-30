@@ -25,9 +25,16 @@ const JOB = get(ENV, "SLURM_JOB_ID", "none")
 const SMOKE = get(ENV, "SMOKE", "0") == "1"
 const V6 = ["/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6/chain_$c.jls" for c in 1:2]
 # GC's threads: `ngcthreads()` counts mark and sweep together (3 for both
-# `--gcthreads=3` and `2,1`), so the sweep thread is read from the options.
+# `--gcthreads=3` and `2,1`), so the sweep thread is read from `--gcthreads`, or
+# without it from JULIA_NUM_GC_THREADS, which the options do not record.
 # KIM-68: at 16 threads and more, run with one (`--gcthreads=N,1`).
-const GC_THREADS = (; total = Threads.ngcthreads(), sweep = Int(Base.JLOptions().nsweepthreads))
+function _sweep_threads()
+    o = Base.JLOptions()
+    o.nmarkthreads > 0 && return Int(o.nsweepthreads)
+    s = split(get(ENV, "JULIA_NUM_GC_THREADS", ""), ',')
+    return length(s) == 2 ? something(tryparse(Int, strip(s[2])), 0) : 0
+end
+const GC_THREADS = (; total = Threads.ngcthreads(), sweep = _sweep_threads())
 !SMOKE && Threads.nthreads() >= 16 && GC_THREADS.sweep == 0 &&
     @warn "$(Threads.nthreads()) threads and no concurrent GC sweep thread: start Julia with --gcthreads=$(Threads.nthreads() ÷ 2),1 (KIM-68)"
 
