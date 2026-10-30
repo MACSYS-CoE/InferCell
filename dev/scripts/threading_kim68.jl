@@ -144,6 +144,11 @@ function procs()
     id, n = parse(Int, ENV["SLURM_PROCID"]), parse(Int, ENV["SLURM_NTASKS"])
     x = matrix(; threads = true)
     base = pass(x, 1:2, "serial")
+    # The tasks start seconds apart; a file barrier makes their cells overlap.
+    touch(joinpath(OUT, "procs_ready_$id"))
+    while count(startswith("procs_ready_"), readdir(OUT)) < n
+        sleep(0.5)
+    end
     js = collect((id + 1):n:length(x.jobs))
     r = pass(x, js, "greedy")
     say("proc $id of $n: $(length(js)) cells in $(round(r.wall; digits = 1)) s on $(Threads.nthreads()) threads")
@@ -248,7 +253,7 @@ function report()
             println(io, "| MiB (est.) | count (est.) | first InferCell frame |\n|---|---|---|")
             foreach(s -> println(io, @sprintf("| %.1f | %d | `%s` |", s.bytes / 2^20, s.count, s.key)), a.sites)
             println(io, "\n| MiB (est.) | count (est.) | type |\n|---|---|---|")
-            foreach(s -> println(io, @sprintf("| %.1f | %d | `%s` |", s.bytes / 2^20, s.count, s.key)), a.types[1:min(15, end)])
+            foreach(s -> println(io, @sprintf("| %.1f | %d | `%s` |", s.bytes / 2^20, s.count, first(s.key, 100))), a.types[1:min(15, end)])
         end
     end
     say("wrote $(joinpath(OUT, "summary.md"))")
