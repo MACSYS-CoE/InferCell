@@ -216,7 +216,7 @@ function _mixed_solve(s::MixedSetup, θ::AbstractVector)
         solve_mean_field(s.route; p, saveat, abstol = s.abstol, reltol = s.reltol,
                          maxiters = s.maxiters)
     catch e
-        e isa ErrorException && startswith(e.msg, "Route (ii): the pool") && return nothing
+        e isa PoolOverdraw && return nothing
         rethrow()
     end
     successful_retcode(sol) || return nothing

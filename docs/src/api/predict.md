@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl).
+Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl), [`src/predict_variance.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_variance.jl).
 
 ## The entry point
 
@@ -15,7 +15,8 @@ arguments keep five things apart:
 - the forward description: `forward = :hybrid` or `:mean_field`, with `delta`
   for the mean field;
 - the completion policy: `completion = :none`, `:prior` or
-  `:viability_conditioned_prior`, with `held`, `width`, `n_held` and `viability`;
+  `:viability_conditioned_prior`, with `held`, `width`, `n_held` and `viability`
+  (and, under V, `n_viability_cells`, which must be given);
 - the estimand, the population mean of Q over cells;
 - the intervention.
 
@@ -28,12 +29,16 @@ seed. Its `summary` separates the spread of μ̂ over the pairs from the Monte
 Carlo term and from the cell-to-cell spread. Without completion, their
 difference is the parameter variance. With completion it is not: every row
 shares the same held draws, so about 1/K of the held parameters' share is
-missing from it for K held draws, and all of it at one held draw. Its estimator on the crossed matrix, like the
-θ_I/θ_H split's, is fixed in M4.
+missing from it for K held draws, and all of it at one held draw. On the crossed
+matrix, [`variance_split`](@ref) gives the total and the θ_I/θ_H split in both
+orders, from weighted U-statistics in which the cells' noise and the shared
+columns cancel. Without a viability rule it is unbiased. Under one, the weights
+are ratio estimates of the conditioned law, and the estimate is biased; a
+simulation check (KIM-66) found that bias at up to about 6% at M = 100, K = 20.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
-the dose, which conditioned variant is the headline, and the estimator for the
-θ_I/θ_H variance split. It takes the first three as arguments, and returns both
+the dose, which conditioned variant is the headline, and which order of the split
+is the headline. It takes the first three as arguments, and returns both
 variants' weights and the matrix the split needs.
 
 On M0 no parameter is held, so `completion = :none`. That is the scored case. On
@@ -118,5 +123,5 @@ the intrinsic noise. A dose of 0 gives ΔQ = 0 exactly.
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["predict.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl"]
+Pages = ["predict.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl", "predict_variance.jl"]
 ```
