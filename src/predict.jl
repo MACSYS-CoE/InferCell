@@ -53,6 +53,8 @@ draws (k = 1…K). Without completion there is one column.
 - `statuses`: the count of every baseline run in each [`CELL_STATUSES`](@ref)
   category, read without a rule. This is the unfiltered ensemble's validity
   diagnostic;
+- `statuses_intervened`: the same count over the intervened runs, all zero
+  without an intervention;
 - `provenance`: what was run, and from what (KIM-33):
   - `fork_seed`: the seed of the stream forked from `rng`, from which every draw,
     held value and cell seed came;
@@ -99,6 +101,7 @@ struct Prediction
     summary::NamedTuple
     effect_summary::Union{Nothing, NamedTuple}
     statuses::Dict{Symbol, Int}
+    statuses_intervened::Dict{Symbol, Int}
     provenance::NamedTuple
 end
 
@@ -150,6 +153,12 @@ function _summary(mu, s2, nok, w, shift, forward)
             n_pairs = count(ok), n_no_q = count((w .> 0) .& .!isfinite.(mu)))
 end
 
+# The runs that finished at baseline and failed under the intervention, over the
+# pairs `w` weighs. They leave ΔQ, but they are part of the prediction (note §4(4)).
+_n_failed_intervened(cells, cells_i, w) =
+    sum((count(((b, c),) -> b.failure === :none && c.failure !== :none, zip(cells[i], cells_i[i]))
+         for i in eachindex(w) if w[i] > 0); init = 0)
+
 function _select_draws(rng, pd::PosteriorDraws, n::Integer)
     1 <= n || throw(ArgumentError("n_parameter_draws must be at least 1, got $n"))
     pd.weights === nothing || return [_weighted_sample(pd.weights, rng) for _ in 1:n]
@@ -174,10 +183,16 @@ end
 function _check_delta(dc::DeltaCorrection, ms, horizon, quantity, intervention)
     dc.modules == [module_id(m) for m in ms] || throw(ArgumentError(
         "the DeltaCorrection was computed on modules $(dc.modules), not this composition"))
+    dc.fingerprint == _fingerprint(ms) || throw(ArgumentError(
+        "the DeltaCorrection was computed on these modules with other settings, so it " *
+        "is not this composition's"))
     dc.horizon == horizon || throw(ArgumentError(
         "the DeltaCorrection's horizon is $(dc.horizon) s, not $horizon s"))
     dc.quantity === _quantity_label(quantity) || throw(ArgumentError(
         "the DeltaCorrection is for Q = :$(dc.quantity), not :$(_quantity_label(quantity))"))
+    isequal(dc.quantity_def, quantity) || throw(ArgumentError(
+        "the DeltaCorrection is for another Q with the same label, :$(dc.quantity); " *
+        "compute it with this Q"))
     if intervention !== nothing
         dc.intervention == intervention || throw(ArgumentError(
             "the DeltaCorrection does not cover this intervention; compute it with " *
@@ -260,8 +275,12 @@ weights are what they need.
 is applied after the parameter draw. Its arm runs on the same seeds, and
 `effect_summary` gives the paired effect ΔQ. V is read at baseline only. ΔQ is
 taken over the cells that finish in both arms. A cell that fails only under the
-intervention leaves ΔQ. It is listed in its pair's `failed_intervened`
-(provenance) and not counted in `statuses`.
+intervention leaves ΔQ, but it is part of the prediction (note §4(4)), so it is
+counted: in `statuses_intervened` with every intervened run, in each weight set's
+`effect_summary` as `n_failed_intervened` (the cells that finished at baseline
+and failed under the intervention, over the pairs the set weighs), and in its
+pair's `failed_intervened` (provenance). A knockdown of a reverse constant, or of
+a name the composition lacks, is refused before any cell runs.
 
 The cells reseed the global generator. `predict` draws everything from a stream
 forked from `rng` and puts the global generator back afterwards, as
@@ -319,6 +338,9 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         "theta_ref is read only under delta = :ensemble"))
 
     ms = metered(models)
+    # A knockdown of a reverse constant, or of a name the composition lacks, is
+    # refused here, not after the baseline cells have run.
+    intervention === nothing || intervene(intervention, ms, Pair{Symbol, Float64}[])
     # Built for its slot lists and labels; a build may read the global generator.
     driver = _restoring_global_rng(() -> build_problem(ms; tspan = (0.0, 1.0), complete = true))
     hp = held_parameters(ms, pd; driver)
@@ -444,11 +466,18 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
             effect[i], es2[i], enok[i] = _moments(_paired_delta(cells[i], cells_i[i]))
         end
         eshift = dc === nothing ? 0.0 : dc.delta_intervened - dc.delta
-        esummary = map(w -> _summary(effect, es2, enok, w, eshift, f.forward), weights)
+        esummary = map(weights) do w
+            (; _summary(effect, es2, enok, w, eshift, f.forward)...,
+             n_failed_intervened = _n_failed_intervened(cells, cells_i, w))
+        end
     end
     statuses = Dict(s => 0 for s in CELL_STATUSES)
     for cs in cells, c in cs
         statuses[cell_status(c)] += 1
+    end
+    statuses_intervened = Dict(s => 0 for s in CELL_STATUSES)
+    for cs in cells_i, c in cs
+        statuses_intervened[cell_status(c)] += 1
     end
     pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
              for m in 1:M, k in 1:K]
@@ -460,7 +489,7 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
                       pd.sigma_b === nothing ? nothing : pd.sigma_b[rows], hnames, θH,
                       seeds, cells, mu, s2, nok, intervention, cells_i, effect, es2,
                       viability, viable, decisions, weights, conditioning, dc, summary,
-                      esummary, statuses, provenance)
+                      esummary, statuses, statuses_intervened, provenance)
 end
 
 export Prediction, predict

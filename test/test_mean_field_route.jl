@@ -120,7 +120,7 @@ end
         catch e
             e
         end
-        @test err isa ErrorException && occursin("went below zero", err.msg)
+        @test err isa PoolOverdraw && occursin("went below zero", sprint(showerror, err))
     end
 
     @testset "refusals" begin

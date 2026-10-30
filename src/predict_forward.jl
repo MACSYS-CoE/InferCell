@@ -127,9 +127,8 @@ function _hybrid_cell(f::_ForwardSetup, values, seed::Integer, quantity)
         run = validation_run!(ms, d, n; moieties = Moiety[], clips = rec)
         return _cell(Int(seed), run, quantity, rec.drains, clip_summary(rec))
     catch e
-        e isa ErrorException && startswith(e.msg, "The metabolic block failed to advance") ||
-            rethrow()
-        return _failed_cell(Int(seed), :not_advanced, e.msg)
+        e isa MetabolicBlockStalled || rethrow()
+        return _failed_cell(Int(seed), :not_advanced, sprint(showerror, e))
     end
 end
 
@@ -151,8 +150,8 @@ function _mean_field_cell(f::_ForwardSetup, values, quantity)
     sol = try
         solve_mean_field(rt; p, saveat = f.saveat)
     catch e
-        e isa ErrorException && startswith(e.msg, "Route (ii): the pool") || rethrow()
-        return _failed_cell(0, :overdraw, e.msg)
+        e isa PoolOverdraw || rethrow()
+        return _failed_cell(0, :overdraw, sprint(showerror, e))
     end
     successful_retcode(sol) || return _failed_cell(0, :retcode,
                                                    "the solve ended with retcode $(sol.retcode)")
@@ -287,9 +286,14 @@ posterior's support, which the crossed design tests on M0
 
 Fields:
 - `values`: θ_ref's parameter writes;
-- `horizon` and `quantity`: what Q is;
-- `modules`: the composition's module ids, which a prediction reusing this
-  correction must match;
+- `horizon` and `quantity`: what Q is, `quantity` as its label;
+- `quantity_def`: Q itself, as it was passed (a symbol, or the function of the
+  run), which a prediction reusing this correction must match by `isequal`.
+  Labels alone do not tell two closures apart;
+- `modules`: the composition's module ids;
+- `fingerprint`: a content hash of the composition, over each module's type and
+  every field, so two compositions of the same modules with different settings
+  differ. A prediction reusing this correction must match it, and the ids;
 - `seeds` and `hybrid`: the ensemble's cells;
 - `mean_field`: the mean field's run at θ_ref;
 - `hybrid_mean`, `hybrid_se` and `n_ok`: the mean of Q over the cells that
@@ -304,7 +308,9 @@ struct DeltaCorrection
     values::Vector{Pair{Symbol, Float64}}
     horizon::Float64
     quantity::Symbol
+    quantity_def::Any
     modules::Vector{Symbol}
+    fingerprint::UInt
     seeds::Vector{Int}
     hybrid::Vector{CellRun}
     mean_field::CellRun
@@ -350,9 +356,33 @@ function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
     hm, se, n, d = _delta_arm(cells, m)
     cells_i, m_i, d_i = int === nothing ? (CellRun[], nothing, NaN) :
                         (int[1], int[2], _delta_arm(int[1], int[2])[4])
-    return DeltaCorrection(vals, Float64(horizon), _quantity_label(quantity),
-                           [module_id(x) for x in ms], collect(Int, seeds), cells, m, hm, se,
-                           n, d, intervention, cells_i, m_i, d_i)
+    return DeltaCorrection(vals, Float64(horizon), _quantity_label(quantity), quantity,
+                           [module_id(x) for x in ms], _fingerprint(ms), collect(Int, seeds),
+                           cells, m, hm, se, n, d, intervention, cells_i, m_i, d_i)
+end
+
+# A content hash of a composition: each module's type and every field,
+# recursively. Two compositions built alike agree in any session, and two of the
+# same modules with different settings differ. Symbols and types are hashed by
+# name, since their own hashes are by address.
+_fingerprint(models) = foldl((h, m) -> _fingerprint(m, h), models; init = hash(length(models)))
+_fingerprint(x::Union{Bool, Integer, AbstractFloat, AbstractString, Char, Nothing, Missing},
+             h::UInt) = hash(x, hash(string(typeof(x)), h))
+_fingerprint(x::Symbol, h::UInt) = hash(String(x), hash("s", h))
+_fingerprint(x::Union{Type, Module}, h::UInt) = hash(string(x), hash("t", h))
+_fingerprint(x::AbstractArray, h::UInt) =
+    foldl((g, y) -> _fingerprint(y, g), x; init = hash(size(x), hash(string(typeof(x)), h)))
+_fingerprint(x::Tuple, h::UInt) =
+    foldl((g, y) -> _fingerprint(y, g), x; init = hash(length(x), hash(string(typeof(x)), h)))
+_fingerprint(x::AbstractDict, h::UInt) =
+    foldl((g, kv) -> _fingerprint(kv[2], _fingerprint(kv[1], g)),
+          sort!(collect(x); by = kv -> string(kv[1])); init = hash(length(x), hash("d", h)))
+function _fingerprint(x, h::UInt)
+    h = hash(string(typeof(x)), h)
+    for f in fieldnames(typeof(x))
+        h = isdefined(x, f) ? _fingerprint(getfield(x, f), hash(String(f), h)) : hash("#undef", h)
+    end
+    return h
 end
 
 function _delta_arm(cells, m)

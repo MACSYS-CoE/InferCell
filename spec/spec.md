@@ -4461,6 +4461,32 @@ No result changes.
     cannot share one, as the entry below explains. Without completion (M0), rows
     can still be split over calls, each with its own rng and disjoint `draws`.
     The M0 crossed comparison runs one call per dataset and posterior anyway.
+- **The M3 review's MINORs (KIM-63, items 2 to 5).** Item 1, the MC term, moves
+  to KIM-66.
+  - **δ's reuse check.** A `DeltaCorrection` now keeps:
+    - `quantity_def`, Q as it was passed, compared with `isequal`. Two closures
+      share a label: `g(1)` and `g(2)` are both `#1`;
+    - `fingerprint`, a content hash of the composition. It is taken over each
+      module's type and every field, recursively, with symbols and types by
+      name, so it agrees across sessions. Two compositions of the same modules
+      with other settings then differ, such as `m0_models(; smoothing)`.
+  - **Typed errors.** These replace two `error` strings that callers matched by
+    their prefixes. `showerror` prints the same text as before.
+    - `MetabolicBlockStalled` is thrown by the driver's advance check;
+    - `PoolOverdraw` is thrown by route (ii)'s guard.
+
+    `predict`'s forward runs and the mixed likelihood now catch these by type.
+    Rewording a message can no longer turn a kept failure into an abort.
+  - **Intervened failures are counted.** `Prediction.statuses_intervened` counts
+    every intervened run by category. Each weight set's `effect_summary` gains
+    `n_failed_intervened`: the cells that finished at baseline and failed under
+    the intervention, over the pairs that set weighs. They leave ΔQ, but note
+    §4(4) counts them as part of the prediction.
+  - **Every bad knockdown is refused before any work.** `predict` calls
+    `intervene` on an empty set among its up-front checks. A knockdown of a
+    reverse constant, or of a name the composition lacks, is then refused before
+    any cell runs. Before, it was refused only after the baseline cells (and
+    under `delta = :ensemble`, after δ's whole baseline arm).
 
 **Checks:**
 - A threaded-equals-serial testset (`test_predict.jl`), run at the suite's 4
@@ -4471,6 +4497,14 @@ No result changes.
   The test compares every field, every cell (seed, Q, failure, clips, minima,
   accounts), the decisions, the weights, the summaries and the provenance pairs.
   An error raised inside a threaded task keeps its type.
+- KIM-63's tests (`test_predict.jl`, `test_mean_field_route.jl`):
+  - a cached δ is refused for a closure Q with the same label, and for a
+    smoothed M0;
+  - the fingerprint agrees between two builds of M0;
+  - the overdraw is a `PoolOverdraw`, with its text;
+  - the intervened counts are checked on made-up cells;
+  - a knockdown of `:kcatR_R_ENO`, or of a missing name, is refused while a Q
+    that counts its calls has been called 0 times.
 
 **Unchanged:** the seed scheme, the stream, the restored global generator, and
 every recorded number.
