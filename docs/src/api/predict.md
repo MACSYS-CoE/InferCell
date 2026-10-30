@@ -15,7 +15,8 @@ arguments keep five things apart:
 - the forward description: `forward = :hybrid` or `:mean_field`, with `delta`
   for the mean field;
 - the completion policy: `completion = :none`, `:prior` or
-  `:viability_conditioned_prior`, with `held`, `width`, `n_held` and `viability`;
+  `:viability_conditioned_prior`, with `held`, `width`, `n_held` and `viability`
+  (and, under V, `n_viability_cells`, which must be given);
 - the estimand, the population mean of Q over cells;
 - the intervention.
 
@@ -32,7 +33,8 @@ missing from it for K held draws, and all of it at one held draw. On the crossed
 matrix, [`variance_split`](@ref) gives the total and the θ_I/θ_H split in both
 orders, from weighted U-statistics in which the cells' noise and the shared
 columns cancel. Without a viability rule it is unbiased. Under one, the weights
-are ratio estimates of the conditioned law, biased at O(1/K).
+are ratio estimates of the conditioned law, and the estimate is biased; a
+simulation check (KIM-66) found that bias at up to about 6% at M = 100, K = 20.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
 the dose, which conditioned variant is the headline, and which order of the split

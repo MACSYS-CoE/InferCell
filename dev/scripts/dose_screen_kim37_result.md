@@ -43,18 +43,22 @@ below-K_d fractions.
   - Up to 0.3, they change by under 2% within 600 s. At 0.4 and 0.5 they fall by
     up to 3.1% (GTP) and 4.6% (charged tRNA).
   - Against the measured 0.04–0.09 band: ATP's (0.023) lies below it, GTP's
-    within it, and charged tRNA's at its top.
+    within it, and charged tRNA's (0.096–0.101) just above its top.
 
-**The reduced model** (240 cells; none failed; 13 starved, from 4 draws). Every
-dose up to 0.5 is admissible, with or without the starving draws. **The rule
-would also pick 0.3.**
+**The reduced model** (240 cells, 40 per dose; none failed; 13 starved, from 4
+draws). Every dose up to 0.5 is admissible, with or without the starving draws.
+**The rule would also pick 0.3.**
 - **Which draws starved:**
-  - draws 14 and 19 at baseline (3 cells), the two excluded in the second table;
-  - draws 16 and 20 only under the knockdown at 0.4, and one cell of draw 14 at
-    0.2.
+  - draw 19 at baseline and at every dose but 0.2 (9 cells);
+  - draw 14 at baseline (one cell) and at 0.2 (the other);
+  - draws 16 and 20 at 0.4 only.
 
-  So the knockdown itself starves some reduced-model cells. Under V at
-  baseline, those failures are part of the prediction, and are counted.
+  Draws 14 and 19 are the two excluded in the second table.
+- **No trend with dose.** On the same seeds, the starved counts per dose are 3,
+  2, 1, 2, 3 and 2. At 0.3 only draw 19 starves, and it starves at baseline. So
+  the screen shows cells near the starvation threshold, not a dose effect.
+  Under V at baseline, intervened failures are part of the prediction, and are
+  counted.
 - **The reduced model's baseline is already near K_d, at dose 0.** GTP is below
   K_d at 19% of instants (17.5% without the starving draws), with an e95
   elasticity of 0.27. Charged tRNA is below at 6.6% (3.5%), with an e95 of 0.31.
@@ -72,8 +76,10 @@ would also pick 0.3.**
 
 - **Freeze the dose at 0.3**, the rule's pick on M0. The criterion's numbers are
   above.
-- **Check it on M5's own reduced-model runs, and state it in the paper.** Under
-  prior draws of every parameter, the one-way reduction's basis is weaker at
-  baseline: GTP is below K_d at about a fifth of the rebuild instants. M5's runs
-  measure it for the population they carry. It is a model-form caveat for the
-  reduced-model results (KIM-47's table), whatever the dose.
+- **State it in the paper as a model-form caveat** for the reduced-model
+  results (KIM-47's table), whatever the dose. Under prior draws of every
+  parameter, the one-way reduction's basis is weaker at baseline: GTP is below
+  K_d at about a fifth of the rebuild instants.
+- **What M5 can check.** `predict` keeps each cell's smallest GTP, not the
+  fraction of instants, so KIM-42 reports the fraction of its cells whose GTP
+  ever fell below about K_d (the freeze, §12).

@@ -16,19 +16,22 @@ main at `27d3f88`. The plan approved on 2026-10-30 is copied verbatim into
 - **KIM-66** (`6bdb887`): `variance_split`, with the summary's MC term fixed.
 - **KIM-36** (`e7a7237`): `n_viability_cells`, so V reads cells of its own.
 
-**The pilots**, the scripts in `f2aa420`, `08db217` and `495b478`, all run at the
-pushed `a742224`. Each archive below is under `/fred/oz022/tkimpson/` and has a
-`SHA256SUMS`, and each result note is in `dev/scripts/`:
+**The pilots**, the scripts in `f2aa420`, `08db217` and `495b478`. All ran at the
+pushed `a742224` (tag `m4-pilots-a742224`), except the resolved sizing, which ran
+at `82c14d6` (tag `m4-sizing-82c14d6`). Each archive below is under
+`/fred/oz022/tkimpson/` and has a `SHA256SUMS`, and each result note is in
+`dev/scripts/`:
 
 | pilot | jobs | archive | note |
 |---|---|---|---|
 | KIM-35, sensitivity | 19560137–19560144 | `infercell-m4-kim35-2026-10-30/` | `sensitivity_pilot_kim35_result.md` |
 | KIM-37, dose screen | 19560145–19560148 | `infercell-m4-kim37-2026-10-30/` | `dose_screen_kim37_result.md` |
-| KIM-38, cost | 19560132–19560136, 19560250 | `infercell-m4-kim38-2026-10-30/` | `cost_pilot_kim38_result.md` |
+| KIM-38, cost | 19560132–19560136, 19560250; `sizing_resolved` 19568624 | `infercell-m4-kim38-2026-10-30/` | `cost_pilot_kim38_result.md` |
 | KIM-66, the estimator's check | 19560131 | `infercell-m4-kim66-2026-10-30/` | `variance_split_check_kim66_result.md` |
 
-**The freeze** (spec §12 2026-10-30, "M4 freeze …"; KIM-36 and KIM-39). The
-user's calls, each the recommended option:
+**The freeze** (spec §12 2026-10-30, "M4 freeze …"; KIM-36 and KIM-39). At the
+pilots' gate the user chose the recommended option each time. After the review
+they made two further calls: they re-confirmed Q, and they left M0's scale open.
 - **Q:** `lactate_out`. M0 runs at 600 s.
   - On the reduced model at 6,300 s it fails the approved 5% rule on θ_I
     (3.3 ± 1.5%).
@@ -45,9 +48,14 @@ user's calls, each the recommended option:
 - **The scale:**
   - the reduced model at 100 × 20 × 4 (+4) cells, widths ½, 1 and 2, θ_I from V7
     replicate 1: 736 CPU-h with its knockdown arm;
-  - **M0's sizes are a todo (KIM-69)**, the user's call. The resolved sizing
-    (job 19568624) gives 887 cells per draw and n_ref = n_truth = 9,849 under the
-    declared rules, about 10,500 CPU-h in all. KIM-69 lists the cheaper options.
+  - **M0's scale is a todo (KIM-69)**, the user's call: its sizes, draw count
+    and whether the panel runs.
+    - The resolved sizing (job 19568624) gives 887 cells per draw and n_ref =
+      n_truth = 9,849 under the declared rules, about 10,500 CPU-h in all.
+    - KIM-69 lists the cheaper options, all as package totals: cut the panel
+      (about 5,700), halve the draws (about 6,300), relax the rules (about
+      3,300).
+    - KIM-38's gate still binds.
 - **M5's seeds:** the block 19_5xx_xxx.
 
 **Checks:**
@@ -57,23 +65,32 @@ user's calls, each the recommended option:
 - **The earlier suite at `d4a05ee`** (job 19550890) found the fingerprint's tuple
   bug, now fixed in KIM-63's commit. The `predict` files rerun at `a742224`
   pass 176 of 176 (job 19559305).
-- **KIM-36's commit** (`e7a7237`) adds code after those runs. The suite runs again
-  at the PR's head.
+- **The suite at `f7b1693`** (job 19565485, 76 min, the PR's head before the
+  review's fixes): 29,645 of 29,645.
+- **The suite at the review's fix heads:**
+  - `49189a1`: job 19571278;
+  - the round-3 head: see the PR.
 
-**Findings for the paper**, all pilot expectations, which M5's own runs measure:
+  Both were running at this writing.
+- **The review** (`/check-PR`, three rounds) has its report in
+  `/fred/oz022/tkimpson/infercell-m4-checks-2026-10-30/PR_REVIEW_123_2026-10-30.md`.
+
+**Findings for the paper**, all pilot expectations:
 - **GTP near K_d.** On the reduced model, with every parameter from its prior,
   GTP is below K_d at about a fifth of rebuild instants even at dose 0 (KIM-37).
-  The fraction varies strongly with θ, and is not measured at the M0 posterior.
-  This is a model-form caveat for KIM-47.
+  - The fraction varies strongly with θ, and is not measured at the M0 posterior.
+  - KIM-42 reports what `predict` can: the fraction of cells whose GTP ever
+    fell below K_d.
+  - This is a model-form caveat for KIM-47.
 - **V's acceptance.** At width 1, for one θ_I, V rejected none of 50 θ_H
   (KIM-35); the 95% upper bound is about 6%. The paper reports the acceptance at
   each width.
 - **`krnadeg`.** On the mean field at v6, θ_I's share rides on it.
 
 **Next:**
-1. Run the suite at the head. Open the PR and run `/check-PR`. Fix in follow-up
-   commits, and never amend a commit a run names. Merge with a merge commit, and
-   set the Linear issues to Done.
+1. Confirm the suite at the final head, then merge PR #123 **with a merge
+   commit**. A squash or rebase would leave the commits the runs name off main;
+   they are tagged too. Then set the Linear issues to Done.
 2. Write the freeze's merge hash into KIM-40, KIM-41 and KIM-42. **No M5 job
    runs before that merge.** KIM-42's text gains the knockdown arm and
    `n_viability_cells = 4`.
@@ -84,8 +101,8 @@ user's calls, each the recommended option:
    - KIM-67, B7's null-KS finding, needs triage.
 4. **Keep** `/fred/oz022/tkimpson/infercell-m4-smoke-2026-10-30/` (it has a
    `SHA256SUMS`). The freeze cites its KIM-35 output, which previewed the
-   reading. The tags `m4-smoke-657081e` and `m4-suite-d4a05ee` keep the commits
-   that a run names.
+   reading. The tags `m4-smoke-657081e`, `m4-suite-d4a05ee`, `m4-pilots-a742224`
+   and `m4-sizing-82c14d6` keep the commits that a run names.
 5. **Can go once merged:**
    - `.worktrees/m4-run-*` and `.worktrees/m4-smoke-*` (their commits are on
      the branch or tagged);

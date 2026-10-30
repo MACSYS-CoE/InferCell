@@ -39,7 +39,13 @@ script's header lists them).
       Var_I was negative net of the MC term;
     - deterministically, mean-field elasticities of the same size for the two
       inferred and two held parameters it sampled: 0.037 and 0.020, against
-      0.013 and 0.021.
+      0.013 and 0.021;
+    - its pass column at the long horizon, "no (I false, H true)": a failure on
+      θ_I alone;
+    - the log SDs, 0.11–0.19 for θ_I against 0.69.
+
+    The file labels its sections with the nominal H (6300 s and 600 s), a label
+    fixed at `a742224`.
   - **So the reading and its quarter threshold were written knowing roughly how
     they would come out.** The approved rule (`dev/notes/2026-10-30-m4-plan.md`)
     is the blind one. Under it alone, this note would recommend changing Q.

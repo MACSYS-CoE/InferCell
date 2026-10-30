@@ -13,14 +13,15 @@
 - **The archive's `SHA256SUMS`** has SHA256 `892e3c4b3ffcf995…`. It was
   remade after `sizing_resolved` added its files; the first run's was
   `1c543c4f87054dd1…`.
-- **`sizing_resolved`** (job 19568624, at `82c14d6`): added after the PR #123
-  review. Its output, `sizing_resolved.jls`, holds plain numbers and opens at any
-  later commit.
+- **`sizing_resolved`** (job 19568624, at `82c14d6`, node dave138): added after
+  the PR #123 review. Its output, `sizing_resolved.jls`, holds plain numbers
+  (aggregates, not per-draw values) and opens at any later commit.
 - **`sizing.jls` opens only at `a742224`.** It stores whole `Prediction`s, and
   KIM-36 added fields to that type afterwards. So the projection stage reruns
   from a worktree at `a742224`. `projection.md` carries its numbers.
 
-**Held out:** B7's `v6` fit, and seeds from M4's block.
+**Held out:** B7's `v6` fit (chains' SHA256s `8e1a2d2e…bbe82cd` and
+`7103a478…4ce4e5`), and seeds from M4's block.
 
 ## Per run (warm, one thread, median)
 
@@ -67,9 +68,11 @@ with the mean field on the same draws:**
 | `exported` | 6.6e−8 ± 4.7e−8 (1.4 SE) | 5.6e−8 | 1.6e−5 | 2,171 | 24,121 | 12,235 + 11,767 |
 
 - **On M0 the posterior predictive of μ is very tight next to the cells'
-  spread.** The SD over draws is about 5.3k on a mean of about 480k, and the SD
-  between cells is about 52.6k. So the declared rules ask for many cells.
-- **The hybrid's spread over θ is close to the mean field's** on the same draws.
+  spread.** The SD over draws is about 5.3k on a mean of about 480k (the mean is
+  from the first sizing; `sizing_resolved` saves none). The SD between cells is
+  about 52.6k. So the declared rules ask for many cells.
+- **The hybrid's spread over θ is 1.7× the mean field's** on the same draws:
+  2.81e7 against 1.65e7, 1.3 SE apart.
 - On the reduced model at 6,300 s (KIM-35) the spread over parameters dominates,
   and n_cells = 4 suffices.
 
@@ -77,11 +80,10 @@ with the mean field on the same draws:**
 
 | part | CPU-h | wall |
 |---|---|---|
-| M0 comparison (KIM-40), at the resolved sizes | 4,999 | about 1 day at 200 single-core tasks (rows split over tasks) |
-| M0 knockdown panel (KIM-41), run in the same calls | 4,808 | about 1 day at 200 tasks |
+| M0 comparison (KIM-40) and knockdown panel (KIM-41), at the resolved sizes, in the same calls | 4,999 + 4,808 | about 2 days at 200 single-core tasks (rows split over tasks, each with its own rng), 4 at 100 |
 | reduced-model budget, 6,300 s, n_cells 4 + V's 4, 3 widths (KIM-42) | 491 | about 16 h per width, one 64-thread node each |
 | reduced-model knockdown arm, on the kept pairs | ≤ 245 | about 8 h more per width |
-| **total** | **about 10,500** | **about 2 days at 200 cores, 4 at 100** |
+| **total** | **about 10,500** | **about 3 days at 200 cores (M0, then KIM-42 for about a day), 5 at 100** |
 
 At the first, superseded sizing it was about 1,900.
 
@@ -89,13 +91,16 @@ At the first, superseded sizing it was about 1,900.
 
 - **Not decided: M0's sizes are a todo (KIM-69).** On 2026-10-30 the user chose
   to draft the paper first and revisit, rather than wait on the run.
-- **The options and their cost:**
-  - keep the declared rules (about 10,500 CPU-h);
-  - cut the panel (about 5,700);
-  - halve the draws (about 6,400);
-  - relax the rules (about 2,600, as a recorded post-pilot change).
-- **Against the gate's 20 November:** at the declared rules, the package
-  finishes before it if M5 starts by about 12–14 November.
+- **The options and their cost.** Each total is the whole package, the reduced
+  model's 736 CPU-h included.
+  - **Keep the declared rules:** about 10,500 CPU-h.
+  - **Cut the panel:** about 5,700.
+  - **Halve the draws:** about 6,300. This is a post-pilot change.
+  - **Relax the rules** (MC ≤ 30%; the truth's and δ's SEs ≤ 20%): about 3,300,
+    of which 2,500 is M0 with the panel. This is a post-pilot change.
+- **Against the gate's 20 November.** At the declared rules, about 3 days at 200
+  cores, plus KIM-68 first. So M5 would need to start by about 12–14 November.
+  KIM-38's gate (cut the panel, then 2 widths) still binds.
 - **Caveats:**
   - The sizes come from one held-out posterior (v6). Posterior widths vary across
     the 50 datasets, and the rules may be loose or tight on some.

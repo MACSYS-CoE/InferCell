@@ -4429,20 +4429,32 @@ fabricated task list.
 
 ### 2026-10-30 — M4 freeze: Q, the estimand, V, the dose, the variance split and the scale (pre-registration; the user's decisions)
 
-**Status: frozen**, before any evidence is read, **except M0's sizes**, which are
-a todo (KIM-69, the user's call) and are decided in a later §12 entry before any
+**Status: frozen**, before any evidence is read, **except M0's scale**: its cells
+per draw, n_ref, n_truth, its draw count, and whether the KIM-41 panel runs.
+That is a todo (KIM-69, the user's call), decided in a later §12 entry before any
 KIM-40 or KIM-41 job. This is launch gate 1. Every other item below was fixed on
 held-out pilots, before the first M5 job. M5's result notes cite the commit that
 merges this entry to main, and the entry that fixes M0's sizes.
 
 **Trigger:** M4 in Linear (KIM-35 to KIM-39, KIM-66).
-- The pilots ran at `a742224`, on θ held out of the evidence run: B7's `v6` fit
-  (m0_v6, not one of the 50 evidence datasets), and fresh prior draws, with
-  seeds from M4's block (below).
+- **Where the pilots ran:** at `a742224` (tag `m4-pilots-a742224`), and the
+  resolved sizing at `82c14d6` (tag `m4-sizing-82c14d6`).
+- **On what:** θ held out of the evidence run, namely B7's `v6` fit (m0_v6, not
+  one of the 50 evidence datasets) and fresh prior draws, with seeds from M4's
+  block (below).
+- **Reading the archives back:** the archived `arm_*.jls` and `sizing.jls` hold
+  whole `Prediction`s. KIM-36 then added fields to that type, so they open only
+  at `a742224`. `sizing_resolved.jls` holds plain numbers. M5's scripts save
+  plain summaries beside any `Prediction` (KIM-68).
 - Their result notes are `dev/scripts/*_kim3{5,7,8}_result.md` and
   `dev/scripts/variance_split_check_kim66_result.md`.
-- The user made each call on 2026-10-30, after reading the pilots, choosing the
-  recommended option every time.
+- **The user's calls, 2026-10-30.**
+  - At the pilots' gate, after reading them, the user made each call, choosing
+    the recommended option every time.
+  - After the PR #123 review, the user:
+    - re-confirmed Q, with the disclosure below;
+    - left M0's scale open (KIM-69), where the review had recommended fixing it
+      before merge.
 - The plan the user approved before any pilot ran is
   `dev/notes/2026-10-30-m4-plan.md`, copied verbatim. Rules added after its
   approval are marked where they appear below.
@@ -4530,9 +4542,15 @@ horizon, in particles, from `carbon_accounts` on the metered composition.
       size: Var_I was negative net of the MC term;
     - deterministically, mean-field elasticities of the same size for the two
       inferred and two held parameters it sampled: 0.037 and 0.020, against
-      0.013 and 0.021.
+      0.013 and 0.021;
+    - its pass column at the long horizon: "no (I false, H true)". That is a
+      failure on θ_I alone, the case the reading was then written for;
+    - the log-SD column: 0.11–0.19 for θ_I, against 0.69. That is the
+      explanation the reading reaches.
 
-    The reading and its quarter threshold were written after seeing that output.
+    The file labels its sections with the nominal H (6300 s and 600 s), a label
+    fixed at `a742224`. The reading and its quarter threshold were written after
+    seeing that output.
     So the approved rule's verdict, not the reading's, is the one made blind.
     Under the approved rule alone, the note would have recommended changing Q.
   - The user adopted the reading on 2026-10-30, after the full run. At that gate
@@ -4544,8 +4562,8 @@ horizon, in particles, from `carbon_accounts` on the metered composition.
     v6, θ_I's share rides on `krnadeg`: its elasticity is −0.62, the largest of
     all 20, and ENO's and FBA's are about 0. M5's hybrid run on V7 replicate 1
     gives the attribution the paper reports.
-- **`exported`** is about 0.998 and flat: every elasticity is ≤ 5e−3, and it fails
-  for both groups.
+- **`exported`** is about 0.998 and flat: every elasticity is ≤ 5e−3. It fails at
+  both horizons: for both groups at 6,300 s, and on θ_I at 600 s.
 - **At 600 s on the reduced model**, neither group's variance is resolved at 2
   bootstrap SE.
 
@@ -4565,7 +4583,7 @@ admissible dose in {0.1, 0.2, 0.3}.
   - Up to 0.3, the watched e95 elasticities moved by under 2%. At 0.4 and 0.5
     they moved down by up to 3.1% (GTP) and 4.6% (charged tRNA).
   - Against the measured 0.04–0.09 band: ATP's (0.023) lies below it, GTP's
-    within it, and charged tRNA's at its top.
+    within it, and charged tRNA's (0.096–0.101) just above its top.
   - This is a regime observation; the screen computed no ΔQ.
 - **On the reduced model, 0.3 is also admissible, but its baseline is near K_d.**
   - **Where it was measured:** with θ_I also drawn from its prior, not at the M0
@@ -4576,14 +4594,22 @@ admissible dose in {0.1, 0.2, 0.3}.
     2, and 21–55% in 12. So it is not measured for M5's population.
   - On those draws, the one-way reduction's basis (0.04–0.09) does not hold over
     the full cycle, whatever the dose. This is a model-form caveat for the
-    reduced-model results, for KIM-47's table, to be checked on M5's own runs.
-  - **The knockdown itself starves some cells there.** Of 240 cells, 13 starved,
-    from 4 draws:
-    - draws 14 and 19 at baseline (3 cells);
-    - draws 16 and 20 only at 0.4, and one cell of draw 14 at 0.2.
+    reduced-model results, for KIM-47's table.
+  - **What M5 can check of it.** `predict` keeps each cell's smallest GTP, in
+    particles (`CellRun.minima`), not the fraction of rebuild instants. So KIM-42
+    reports, as a diagnostic, the fraction of its cells whose GTP ever fell below
+    about K_d, at baseline and under the knockdown. K_d is 0.1 mM, about 2,018
+    particles at the initial volume; the volume grows about 7% over a cycle.
+  - **Starvation shows no trend with dose.** Of the 240 cells (40 per dose),
+    13 starved, from 4 draws:
+    - draw 19 at baseline and at every dose but 0.2 (9 cells);
+    - draw 14 at baseline (one cell) and at 0.2 (the other);
+    - draws 16 and 20 at 0.4 only.
 
-    Under V at baseline, such intervened failures are part of the prediction,
-    and are counted.
+    On the same seeds the counts per dose are 3, 2, 1, 2, 3 and 2. At 0.3 only
+    draw 19 starves, and it starves at baseline. So the screen shows cells near
+    the starvation threshold, not a dose effect. Under V at baseline,
+    intervened failures are part of the prediction, and are counted.
   - **A post-approval addition:** judging the reduced model with and without its
     baseline-starving draws was added in the script, not in the approved plan. It
     is for information only, and changes no pick.
@@ -4602,16 +4628,21 @@ on M0.
     applies.
   - **The check measures bias, not precision.** At 100 × 20, one run's
     components vary by about 25–40%, and up to 64% for a small Var_I term.
-    That is mostly the √(2/(K−1)) noise of 20 θ_H draws, which largely cancels
-    in the held share, a ratio. M5 reports each component with an SE, by a
-    method its script declares before the run.
-  - **K = 20 is the plan's size, not set by a rule.** The check at K = 20 stands
-    in for note §5.2's sizing of K for the H-first order, on bias only.
+    That is mostly the √(2/(K−1)) noise of 20 θ_H draws, which is expected to
+    largely cancel in the held share, a ratio. The check did not measure the
+    share. M5 reports each component and the share with an SE, by a method its
+    script declares before the run.
+  - **The check does not cover θ_I's expected regime.** Its smallest component was
+    5–8% of the total. KIM-35 puts θ_I's share near 3%.
+  - **K = 20 is the plan's size.** Note §5.2 asks that K be sized for the H-first
+    order; it was not. The check at K = 20 covers bias only.
   - **A post-approval addition:** the check's tolerance floor,
     max(|truth|, 0.05 × total), was added in the script, not in the plan. All
     150 rows also pass at 10% of |truth|.
-  - **Pairs with under two finished cells** leave the split, and are counted
-    (`dropped`).
+  - **Added after approval, in the #123 review:** pairs with under two finished
+    cells leave the split, and are counted (`dropped`). The `summary`'s MC term
+    still treats such a pair as undefined for its whole weight set, so the two
+    differ there.
 - **The headline order is I first.** The held share is E_I[Var(μ | θ_I)] / Var(μ):
   everything θ_I's posterior does not fix, interaction included. H first is
   reported beside it, with the gap.
@@ -4625,17 +4656,20 @@ on M0.
 - σ_b enters only for a future noisy bulk observation (note §5.3), not the
   headline.
 
-**The scale (KIM-38).** Everything but M0's sizes is frozen. **M0's sizes are
-open: a todo, KIM-69, the user's call on 2026-10-30.** They are decided in a
-§12 entry before any KIM-40 or KIM-41 job.
+**The scale (KIM-38).** Everything but M0's scale is frozen.
+- **M0's scale is open:** a todo, KIM-69, the user's call on 2026-10-30. It is
+  decided in a §12 entry before any KIM-40 or KIM-41 job.
+- **KIM-38's declared gate still binds**, and is applied with that decision. If
+  the run would pass about 20 November: first cut the KIM-41 panel, then run 2
+  widths, not 3, on the reduced model.
 - **M0, the crossed comparison (KIM-40) and the knockdown panel (KIM-41):**
-  - 50 datasets × {V7 exact, B7 mixed}, 100 draws each, evenly spaced over the
-    posterior's draws;
+  - 50 datasets × {V7 exact, B7 mixed}. The plan's 100 draws each are evenly
+    spaced over the posterior's draws. The draw count is open with the rest.
   - V7's chains are autocorrelated (23 of 50 datasets have a bulk ESS under 100),
-    so the 100 draws are not 100 independent ones;
+    so the draws are not independent ones;
   - the mean field runs one solve per draw;
-  - the hybrid's cells per draw, n_ref for δ, and n_truth for the truth μ(θ*)
-    are open.
+  - **open:** the hybrid's cells per draw, n_ref for δ, n_truth for the truth
+    μ(θ*), the draw count, and whether the panel runs.
 - **What the sizing pilot gives under the declared rules** (the MC term at most
   10% of the spread; the truth's and δ's SEs at most 10% of the predictive SD):
   - **The first sizing,** 20 v6 draws × 10 cells (job 19560136), gave
@@ -4643,19 +4677,25 @@ open: a todo, KIM-69, the user's call on 2026-10-30.** They are decided in a
     1,167) was not determined. The #123 review found this.
   - **The resolved sizing,** 200 draws × 40 cells (job 19568624, `sizing_resolved`
     at `82c14d6`), gives:
-    - Var_θ = 2.81e7 ± 0.91e7 (3.1 SE), close to the mean field's 1.65e7 on the
-      same draws;
+    - Var_θ = 2.81e7 ± 0.91e7 (3.1 SE). The mean field's variance on the same
+      draws is 1.65e7, 1.3 SE below: the hybrid's is 1.7× it;
     - σ² = 2.77e9 between cells, so the cells' SD is about 10× the predictive
       SD of μ;
     - **under the rules:** 887 cells per draw, and n_ref = n_truth = 9,849;
     - **the M0 cost:** about 5,000 CPU-h for the comparison, plus 4,800 for the
       panel.
-  - **The options** KIM-69 records:
-    - keep the rules (the package about 10,500 CPU-h);
-    - cut the panel (about 5,700);
-    - halve the draws (about 6,400);
-    - relax the rules (about 2,600 with the panel, and a recorded post-pilot
-      change).
+  - **The options KIM-69 records.** Each total is the whole package, the reduced
+    model's 736 CPU-h included.
+    - **Keep the declared rules:** about 10,500 CPU-h.
+    - **Cut the panel**, KIM-38's first cut: about 5,700.
+    - **Halve the draws:** about 6,300. This is a post-pilot change, recorded as
+      one.
+    - **Relax the rules** (MC ≤ 30%; the truth's and δ's SEs ≤ 20%): about 3,300
+      (2,500 for M0 with the panel). This is a post-pilot change, recorded as one.
+  - **Wall-clock at the declared rules:** M0 takes about 2 days at 200 cores,
+    with its rows split over single-core tasks (each with its own rng and
+    disjoint draws, as `predict` allows without completion), or about 4 days at
+    100. KIM-42 then takes about a day on 3 nodes.
 - **The reduced model (KIM-42), frozen:**
   - θ_I from V7 replicate 1 (exact), 100 draws;
   - K = 20 held draws;
@@ -4670,12 +4710,15 @@ open: a todo, KIM-69, the user's call on 2026-10-30.** They are decided in a
     for each width on one node. That holds about 3,000–4,500 core-h, for 736
     CPU-h of work.
   - KIM-62's threading is correct but scales poorly. KIM-68, M5's first job,
-    diagnoses it. That changes the cost, not the results.
+    diagnoses it.
+  - **Any change to `predict` after this freeze** (KIM-68's scheduler and pools)
+    must reproduce the frozen code's results on the same seeds before any M5 job.
+    That is shown by a test of old against new, and threaded against serial.
 - **The order of the run** is KIM-40 and KIM-41 together, then KIM-42.
-  - M0 runs once per dataset × posterior with `intervention =
-    Knockdown(; dose = 0.3)`, so that one call gives KIM-40's `summary` and
-    KIM-41's `effect_summary` on the same draws and cells. As separate calls,
-    the baseline would run twice.
+  - M0 runs each dataset × posterior with `intervention = Knockdown(; dose =
+    0.3)`. One call, or one call per row block with the blocks combined, then
+    gives KIM-40's `summary` and KIM-41's `effect_summary` on the same draws and
+    cells. As separate calls, the baseline would run twice.
   - If the panel had to be cut, the calls would run without it.
   - The panel's sizes are Q's. Whether they meet the 10% rules for ΔQ is first
     seen in M5, and is reported.
@@ -4693,28 +4736,52 @@ open: a todo, KIM-69, the user's call on 2026-10-30.** They are decided in a
 M5's rng seeds come from 19_500_000 to 19_599_999, and each M5 script's header
 names its own.
 
-**Review** (PR #123, `/check-PR`, 2026-10-30). The verdict was MERGE AFTER
-FIXES. No CRITICAL finding survived verification. The report is
-`PR_REVIEW_123_2026-10-30.md` (gitignored, in the M4 worktree). Corrected here
-before merge:
-- the disclosure of what the KIM-35 smoke had previewed, and the user's
-  re-confirmation;
-- the dose screen's statements (the elasticities' movement past 0.3; 13 starved
-  cells from 4 draws, some starved by the knockdown itself; where the
-  reduced-model K_d caveat was measured);
+**Review** (PR #123, `/check-PR`, 2026-10-30).
+- **Rounds:** three. The first was the review; the second and third were its fix
+  gate over the corrections.
+- **Verdict:** MERGE AFTER FIXES. No CRITICAL finding survived verification in
+  any round.
+- **The report and its fix ledger** are copied to
+  `/fred/oz022/tkimpson/infercell-m4-checks-2026-10-30/PR_REVIEW_123_2026-10-30.md`,
+  under that directory's `SHA256SUMS`.
+
+Corrected here before merge:
+- the disclosure of what the KIM-35 smoke had previewed (θ_I's share, its pass
+  column, the elasticities and the log SDs), and the user's re-confirmation;
+- the dose screen's statements:
+  - the elasticities' movement past 0.3, and charged tRNA's place just above the
+    band;
+  - the 13 starved cells, with no trend with dose;
+  - where the reduced-model K_d caveat was measured, and what M5 can check of it;
 - the width-1 evidence for V, which comes from one θ_I;
-- θ_I's share with its SE;
-- the KIM-66 check, cited for bias only;
-- the M0 sizing, which the resolved run superseded and which is now open
-  (KIM-69);
-- KIM-40 and KIM-41 as one call;
+- θ_I's share with its SE, and `krnadeg` as a pilot expectation;
+- the KIM-66 check, cited for bias only, outside θ_I's expected regime, with K
+  not sized for the H-first order;
+- the M0 sizing:
+  - the resolved run superseded the first one;
+  - the M0 scale (sizes, draws, panel) is open as KIM-69, with KIM-38's gate
+    still binding;
+  - the options are costed on one basis;
+- KIM-40 and KIM-41 run in the same calls;
+- the reduced model's wall-clock and core-h;
+- the θ_I–θ_H correlations as a reported item;
+- V7 replicate 1's ESS;
+- the panel's sizes for ΔQ;
+- post-freeze changes to `predict` must reproduce the frozen results;
 - the post-approval additions, marked as such;
+- the archives' readability, and the commits and tags the runs name;
 - the approved plan, copied into the repo.
 
-In the code, four fixes in their own commits: the δ fingerprint no longer moves
-with `Main`'s imports; under V, `predict` requires `n_viability_cells`; a pair
-without τ leaves the split, and is counted; and the docstrings. The fix gate's
-checks are in the PR.
+In the code, each fix in its own commit:
+- the δ fingerprint no longer moves with `Main`'s imports;
+- under V, `predict` requires `n_viability_cells`;
+- a pair without τ leaves the split, and is counted;
+- the docstrings;
+- a guard in `sizing_resolved`'s launcher.
+
+Checks:
+- the suite at `f7b1693`, before the fixes (job 19565485): 29,645 of 29,645;
+- the suite at each later fix head: `docs/handoff.md` gives the jobs and results.
 
 **Unchanged:**
 - M3's §12 entries;
@@ -4827,7 +4894,8 @@ No result changes.
       one, it leaves the weights, as a missing μ̂ does, and is counted in
       `dropped`. It no longer blanks the whole split, which the #123 review
       found. Only when no pair has two cells (`n_cells = 1`) are the totals
-      undefined.
+      undefined. The `summary`'s MC term keeps its rule: one such pair makes it
+      undefined for its weight set. So the two differ where some pairs lack τ.
   - **The simulation check** is `dev/scripts/variance_split_check_kim66.jl`. It
     is declared in its header before its run, and its result goes in the
     freeze entry.
@@ -4837,7 +4905,8 @@ No result changes.
   the Slurm runs exercise the threaded test.
   - At `a742224` (job 19560130, 81 min): 29,634 of 29,635 pass. The one failure
     is KIM-64's flaky check.
-  - At the review's fix head: see "Review" in the freeze entry above.
+  - At `f7b1693` (job 19565485, 76 min): 29,645 of 29,645.
+  - At the review's later fix heads: `docs/handoff.md` gives the jobs and results.
 - A threaded-equals-serial testset (`test_predict.jl`), run at the suite's 4
   threads. It covers:
   - a reduced-model run under a toy V and a knockdown;
