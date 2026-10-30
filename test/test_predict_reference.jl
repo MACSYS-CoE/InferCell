@@ -1,0 +1,24 @@
+# KIM-68: `predict` against the frozen reference. The M4 freeze (spec §12
+# 2026-10-30) requires any change to `predict` after it to reproduce the frozen
+# code's results on the same seeds. test/fixtures/predict_reference.jl holds them:
+# the calls in predict_reference_calls.jl, run at the frozen commit by
+# dev/scripts/make_predict_reference.jl. This reruns the calls at this tree, serial
+# and threaded. Integers, symbols and seeds must match exactly, and floats to 1e-8,
+# since ulp-level roundoff differs between machines. The bitwise check, on one
+# node, is dev/scripts/make_predict_reference.slurm, run on the frozen tree and on
+# this one.
+
+using Test
+
+include(joinpath(@__DIR__, "fixtures", "predict_reference_calls.jl"))
+include(joinpath(@__DIR__, "fixtures", "predict_reference.jl"))
+
+@testset "KIM-68: predict against the frozen reference ($PREDICT_REFERENCE_COMMIT)" begin
+    @test isequal(predict_reference_posterior(), PREDICT_REFERENCE_POSTERIOR)
+    @test Set(first.(predict_reference_calls())) == Set(keys(PREDICT_REFERENCE))
+    for (name, run) in predict_reference_calls(), threads in (false, true)
+        d = _pref_diff(run(threads), PREDICT_REFERENCE[name])
+        d === nothing || @info "KIM-68 reference: call $name, threads = $threads, first difference" d
+        @test d === nothing
+    end
+end
