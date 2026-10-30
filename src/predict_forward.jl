@@ -362,24 +362,30 @@ function delta_correction(models::AbstractVector{<:AbstractSubModel}, values,
 end
 
 # A content hash of a composition: each module's type and every field,
-# recursively. Two compositions built alike agree in any session, and two of the
-# same modules with different settings differ. Symbols and types are hashed by
-# name, since their own hashes are by address.
+# recursively. Two compositions built alike agree in any session and whatever has
+# been loaded beside them, and two of the same modules with different settings
+# differ. Types are hashed by their name as printed from this module (a name
+# printed from `Main` changes with what `Main` has imported), and symbols by name,
+# since their own hashes are by address. A value with no fields (an `@enum`, a
+# primitive) is hashed by how it prints. It assumes no cycles, which no module has.
+_tshow(x) = sprint(show, x; context = :module => @__MODULE__)
 _fingerprint(models) = foldl((h, m) -> _fingerprint(m, h), models; init = hash(length(models)))
-_fingerprint(x::Union{Bool, Integer, AbstractFloat, AbstractString, Char, Nothing, Missing},
-             h::UInt) = hash(x, hash(string(typeof(x)), h))
+_fingerprint(x::Union{Integer, AbstractFloat, AbstractString, Char, Nothing, Missing},
+             h::UInt) = hash(x, hash(_tshow(typeof(x)), h))
 _fingerprint(x::Symbol, h::UInt) = hash(String(x), hash("s", h))
-_fingerprint(x::Union{Type, Module}, h::UInt) = hash(string(x), hash("t", h))
+_fingerprint(x::Union{Type, Module}, h::UInt) = hash(_tshow(x), hash("t", h))
 _fingerprint(x::AbstractArray, h::UInt) =
-    foldl((g, y) -> _fingerprint(y, g), x; init = hash(size(x), hash(string(typeof(x)), h)))
+    foldl((g, y) -> _fingerprint(y, g), x; init = hash(size(x), hash(_tshow(typeof(x)), h)))
 _fingerprint(x::Tuple, h::UInt) =
-    foldl((g, y) -> _fingerprint(y, g), x; init = hash(length(x), hash(string(typeof(x)), h)))
+    foldl((g, y) -> _fingerprint(y, g), x; init = hash(length(x), hash(_tshow(typeof(x)), h)))
 _fingerprint(x::AbstractDict, h::UInt) =
     foldl((g, kv) -> _fingerprint(kv[2], _fingerprint(kv[1], g)),
           sort!(collect(x); by = kv -> string(kv[1])); init = hash(length(x), hash("d", h)))
 function _fingerprint(x, h::UInt)
-    h = hash(string(typeof(x)), h)
-    for f in fieldnames(typeof(x))
+    T = typeof(x)
+    h = hash(_tshow(T), h)
+    fieldcount(T) == 0 && return hash(_tshow(x), h)
+    for f in fieldnames(T)
         h = isdefined(x, f) ? _fingerprint(getfield(x, f), hash(String(f), h)) : hash("#undef", h)
     end
     return h

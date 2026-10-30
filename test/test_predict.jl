@@ -8,6 +8,9 @@ using InferCell: AbstractSubModel
 using Random
 using Statistics: mean, var
 
+# Two values with no fields, for the fingerprint test (KIM-63).
+@enum _FingerprintMode _fp_lin _fp_quad
+
 # A made-up posterior over M0's targets, near their nominal values.
 function _toy_posterior(ms, n; seed = 27)
     rng = Xoshiro(seed)
@@ -76,6 +79,10 @@ end
         @test_throws ArgumentError predict(ms, pd; horizon = H, forward = :mean_field,
                                            delta = d1, quantity = q2)
         @test InferCell._fingerprint(metered(m0_models())) == InferCell._fingerprint(metered(ms))
+        # Types hash by their name as printed from InferCell, so the fingerprint does
+        # not move with what `Main` has imported; an enum hashes by its value.
+        @test startswith(InferCell._tshow(typeof(first(metered(ms)))), "CentralGlycolysis{")
+        @test InferCell._fingerprint(_fp_lin, UInt(0)) != InferCell._fingerprint(_fp_quad, UInt(0))
         sm = collect(AbstractSubModel, m0_models(; smoothing = COREA_SMOOTHING_WIDTH))
         @test [module_id(m) for m in sm] == [module_id(m) for m in ms]
         @test InferCell._fingerprint(metered(sm)) != InferCell._fingerprint(metered(ms))
