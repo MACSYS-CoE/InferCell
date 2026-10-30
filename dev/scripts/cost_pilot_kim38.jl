@@ -16,6 +16,15 @@
 #              mean field: Var_θ[μ] and σ² for the sizing rules, for both Q
 #              candidates
 #   project    reads the three above and KIM-35's arms, and projects the package
+#   sizing_resolved
+#              (added 2026-10-30 after the PR #123 review: `sizing`'s Var_θ, from 20
+#              draws, was 1.2 bootstrap SE from zero, so the n it gave was not
+#              determined.) The same M0 sizing on v6 at 600 s, with 200 draws × 40
+#              cells, and the mean field on the same draws; Var_θ with a bootstrap SE
+#              (2,000 resamples of the draws). The declared rules below are applied
+#              unchanged to its point estimate, which replaces `sizing`'s; the M0
+#              part of the projection is recomputed from `cells`. It saves plain
+#              numbers, not `Prediction`s, so it reads back at any later commit.
 #
 # Rules, declared before the run (M4 plan, approved 2026-10-30):
 # - Sizing: the MC term is at most 10% of the spread over draws, so
@@ -35,13 +44,14 @@
 #
 # Seeds: the timed cells use 18_438_100 + i (M0, i = 0…20) and 18_438_200 + i
 # (the reduced model, i = 0…10); `predict`'s rng is Xoshiro(18_438_300) and
-# (…_301) in `threads`, and Xoshiro(18_438_400) in `sizing`.
+# (…_301) in `threads`, and Xoshiro(18_438_400) in `sizing`; `sizing_resolved`
+# uses Xoshiro(18_438_402), and its bootstrap Xoshiro(18_438_403).
 
 using InferCell
 using InferCell: AbstractSubModel
 using Random
 using Serialization
-using Statistics: mean, median, quantile, var
+using Statistics: mean, median, quantile, std, var
 using Printf
 using Dates
 
@@ -161,6 +171,46 @@ function sizing()
     save("sizing", (; rows, hybrid = hy, mean_field = mf))
 end
 
+function sizing_resolved()
+    pd = posterior_draws(V6)
+    ms = m0_models()
+    nd, nc = SMOKE ? (4, 3) : (200, 40)
+    hy = predict(ms, pd; horizon = H_M0, n_parameter_draws = nd, n_cells = nc,
+                 rng = Xoshiro(18_438_402))
+    say("hybrid done: statuses $(hy.statuses)")
+    mf = predict(ms, pd; horizon = H_M0, forward = :mean_field, n_parameter_draws = nd,
+                 rng = Xoshiro(18_438_402))
+    hy.draws == mf.draws || error("the two forwards drew different rows")
+    rng = Xoshiro(18_438_403)
+    c = Dict(r.label => r for r in load("cells").result)
+    tm0, tm0k = c["m0_hybrid_600"].median, c["m0_hybrid_600_knockdown"].median
+    tmf = c["m0_mean_field_600"].median
+    rows = map((:lactate_out, :exported)) do q
+        mu, s2, n = moments(hy, q)
+        m, _, _ = moments(mf, q)
+        ok = isfinite.(mu) .& isfinite.(s2)
+        net(i) = var(mu[ok][i]) - mean(s2[ok][i] ./ n[ok][i])
+        k = count(ok)
+        boot = [net(rand(rng, 1:k, k)) for _ in 1:2_000]
+        vθ, σ2 = net(1:k), mean(s2[ok])
+        nrule = vθ > 0 ? max(4, ceil(Int, 9σ2 / vθ)) : missing
+        nref = vθ > 0 ? ceil(Int, 100σ2 / vθ) : missing
+        D, P, M = 50, 2, 100
+        cost(t) = nrule === missing ? missing :
+                  (D * P * M * nrule * t + D * P * M * tmf + D * P * nref * t + D * nref * t +
+                   D * tmf) / 3600
+        r = (; q, draws = k, cells = nc, var_mu = var(mu[ok]), mc = mean(s2[ok] ./ n[ok]),
+             var_theta = vθ, se = std(boot), z = vθ / std(boot), sigma2 = σ2,
+             var_mean_field = var(filter(isfinite, m)), n_cells_rule = nrule,
+             n_ref_rule = nref, m0_cpu_h = cost(tm0), intervention_cpu_h = cost(tm0k))
+        say(r)
+        r
+    end
+    serialize(joinpath(OUT, "sizing_resolved.jls"),
+              (; result = collect(rows), commit = COMMIT, job = JOB, stage = STAGE,
+               threads = Threads.nthreads(), when = now()))
+end
+
 load(name, dir = OUT) = deserialize(joinpath(dir, "$name.jls"))
 
 function project()
@@ -222,7 +272,8 @@ function main()
     mkpath(OUT)
     say("KIM-38 cost pilot, stage $STAGE, at $COMMIT, job $JOB, $(Threads.nthreads()) thread(s)")
     STAGE === :cells ? cells() : STAGE === :threads ? threads() : STAGE === :sizing ? sizing() :
-    STAGE === :project ? project() : error("unknown stage $STAGE")
+    STAGE === :project ? project() : STAGE === :sizing_resolved ? sizing_resolved() :
+    error("unknown stage $STAGE")
     say("done")
 end
 

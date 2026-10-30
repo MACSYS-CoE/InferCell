@@ -3,6 +3,8 @@
 # worktree at a pushed commit.
 #   dev/scripts/cost_pilot_kim38.sh /fred/oz022/tkimpson/infercell-m4-kim38-<date>
 #       precompiles on milan, then submits cells, threads (16 and 64) and sizing;
+#   dev/scripts/cost_pilot_kim38.sh <outdir> sizing_resolved
+#       submits the resolved M0 sizing (added after the PR #123 review);
 #   dev/scripts/cost_pilot_kim38.sh <outdir> project <kim35_outdir>
 #       submits the projection, once those and KIM-35's arms have finished.
 # Job ids go to <outdir>/jobs.tsv, logs to <outdir>/logs.
@@ -20,6 +22,13 @@ mkdir -p "$outdir/logs"
 sub() { sbatch --parsable --partition=milan --exclude='dave[148-149]' --ntasks=1 \
                --output="$outdir/logs/%x_%j.log" "$@"; }
 run="module load julia/1.10.5; julia --project"
+if [ "${2:-}" = sizing_resolved ]; then
+    # Needs `cells` from the first run in the same outdir (its per-run times).
+    j=$(sub --cpus-per-task=16 --mem=48G --time=02:00:00 --job-name=kim38_sizing_resolved \
+            --wrap "$run --threads=16 dev/scripts/cost_pilot_kim38.jl sizing_resolved $outdir")
+    printf 'sizing_resolved\t%s\n' "$j" >> "$outdir/jobs.tsv"
+    cat "$outdir/jobs.tsv"; exit 0
+fi
 if [ "${2:-}" = project ]; then
     k35=$(realpath -m "$3")
     j=$(sub --cpus-per-task=1 --mem=8G --time=00:30:00 --job-name=kim38_project \
