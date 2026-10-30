@@ -67,9 +67,14 @@ end
         mu2[2, 3] = NaN
         e2 = InferCell._variance_split(mu2, τ2, fill(1 / 20, 5, 4); held = true)
         @test e2.pairs == 19 && isfinite(e2.total)
-        τ2[1, 1] = NaN                                   # a pair with one finished cell
+        # A pair with one finished cell leaves the split and is counted, rather than
+        # blanking it; with none that has two, the totals are undefined.
+        τ2[1, 1] = NaN
         e3 = InferCell._variance_split(mu2, τ2, fill(1 / 20, 5, 4); held = true)
-        @test e3.mc_undefined && isnan(e3.total) && isfinite(e3.i_first.between)
+        @test e3.dropped == 1 && e3.pairs == 18 && !e3.mc_undefined && isfinite(e3.total)
+        e4 = InferCell._variance_split(mu2, fill(NaN, 5, 4), fill(1 / 20, 5, 4); held = true)
+        @test e4.dropped == 0 && e4.mc_undefined && isnan(e4.total) &&
+              isfinite(e4.i_first.between)
         @test_throws ArgumentError InferCell._variance_split(mu2, τ2, zeros(5, 4); held = true)
     end
 

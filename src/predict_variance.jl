@@ -63,15 +63,22 @@ Returns:
   each order: `i_first.within / total`, the held parameters with their
   interaction, and `h_first.between / total`, their first-order effect. The gap
   between the orders, `gap = h_first.within − i_first.between`, is the
-  interaction plus any dependence V induced;
+  interaction plus any dependence V induced. It is taken from the components
+  before they are clipped at 0, so it matches the reported ones only when
+  nothing is `flagged`;
 - `mc`: the noise removed, Σ w τ;
 - `flagged`: which of the five components came out negative. Each is reported
   as 0, as the note asks;
-- `mc_undefined`: true when some weighted hybrid pair has under two finished
-  cells. Then σ̂² does not exist, so `total` and both `within` terms are NaN.
-  The two `between` terms do not need it;
-- `rows` and `columns`: the lines with two weighted entries that the
-  conditional second moments used. `pairs` is the number of weighted pairs;
+- `mc_undefined`: true when no weighted hybrid pair has two finished cells, as
+  at `n_cells = 1`. Then σ̂² does not exist, so `total` and both `within` terms
+  are NaN. The two `between` terms do not need it;
+- `dropped`: the weighted pairs left out because they had under two finished
+  cells while others had two, so that one such pair does not blank the split.
+  Leaving them out changes the weights as a missing μ̂ does, and they are
+  counted here, not hidden;
+- `rows` and `columns`: with both groups drawn, the lines with two weighted
+  entries that the conditional second moments used; with one, the lines of the
+  drawn group that carry weight. `pairs` is the number of weighted pairs;
 - `inferred_varies` and `held_varies`: whether each group is drawn. θ_H is
   drawn only with completion and at least two held draws, and θ_I only at two
   or more rows. A group that is not drawn takes no share: its `between` term is 0.
@@ -92,6 +99,12 @@ function _variance_split(mu::AbstractMatrix, τ::AbstractMatrix, w0::AbstractMat
                          held::Bool)
     M, K = size(mu)
     ok = isfinite.(mu)
+    # A pair with under two finished cells has no τ, so its noise cannot be taken
+    # out of E[μ²]. If other pairs have one, it leaves the weights and is counted.
+    weighted = ok .& (w0 .> 0)
+    lacks = weighted .& .!isfinite.(τ)
+    dropped = any(lacks) && any(weighted .& .!lacks) ? count(lacks) : 0
+    dropped > 0 && (ok = ok .& .!lacks)
     w = w0 .* ok
     W = sum(w)
     W > 0 || throw(ArgumentError("the weight set weighs no pair with a finite μ̂"))
@@ -133,7 +146,7 @@ function _variance_split(mu::AbstractMatrix, τ::AbstractMatrix, w0::AbstractMat
             gap = d - a, mc,
             flagged = (; total = total < 0, i_between = a < 0, i_within = b < 0,
                        h_between = c < 0, h_within = d < 0),
-            mc_undefined, rows = nr, columns = nc, pairs = count(>(0), w),
+            mc_undefined, dropped, rows = nr, columns = nc, pairs = count(>(0), w),
             inferred_varies = rows_vary, held_varies = cols_vary)
 end
 
