@@ -9,8 +9,8 @@
 
 # Runs dev/scripts/make_predict_reference.jl, from the tree sbatch was called in,
 # against each <tree> in turn on this node at 4 threads, into
-# <outdir>/predict_reference_<i>.jl. Every body (all but the '#' header) must equal
-# the first, byte for byte.
+# <outdir>/predict_reference_<i>.jl. Every body (all but the '#' header and the line
+# naming the tree's commit) must equal the first, byte for byte.
 # - One tree, twice: the output is deterministic, and _1 is the fixture.
 # - The frozen tree, then a later one: the bitwise old-against-new check of the M4
 #   freeze's condition (KIM-68).
@@ -32,9 +32,11 @@ for tree in "$@"; do
     (cd "$tree" && julia --project=. --threads=4 "$gen" "$outdir/predict_reference_$i.jl")
 done
 
+# The body less its first line, which names the tree's own commit.
+body() { grep -v -e '^#' -e '^const PREDICT_REFERENCE_COMMIT = ' "$1"; }
 status=0
 for j in $(seq 2 "$i"); do
-    if cmp <(grep -v '^#' "$outdir/predict_reference_1.jl") <(grep -v '^#' "$outdir/predict_reference_$j.jl"); then
+    if cmp <(body "$outdir/predict_reference_1.jl") <(body "$outdir/predict_reference_$j.jl"); then
         echo "IDENTICAL: body $j equals body 1"
     else
         echo "DIFFERENT: body $j differs from body 1"
