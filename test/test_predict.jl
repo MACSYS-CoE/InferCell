@@ -82,6 +82,7 @@ end
         # Types hash by their name as printed from InferCell, so the fingerprint does
         # not move with what `Main` has imported; an enum hashes by its value.
         @test startswith(InferCell._tshow(typeof(first(metered(ms)))), "CentralGlycolysis{")
+        @test !occursin("InferCell.", InferCell._tshow(typeof(first(metered(ms)))))
         @test InferCell._fingerprint(_fp_lin, UInt(0)) != InferCell._fingerprint(_fp_quad, UInt(0))
         sm = collect(AbstractSubModel, m0_models(; smoothing = COREA_SMOOTHING_WIDTH))
         @test [module_id(m) for m in sm] == [module_id(m) for m in ms]

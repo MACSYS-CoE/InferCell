@@ -349,10 +349,12 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
     n_held >= 1 || throw(ArgumentError("n_held must be at least 1, got $n_held"))
     forward === :hybrid && n_cells < 1 && throw(ArgumentError(
         "n_cells must be at least 1, got $n_cells"))
-    conditioned && n_viability_cells === nothing && throw(ArgumentError(
+    conditioned && n_viability_cells === nothing && throw(ArgumentError(forward === :hybrid ?
         "under a viability rule, give n_viability_cells: 0 reads V on the cells that " *
         "give μ̂, which biases the conditioned μ̂ where acceptance is partial; n_V > 0 " *
-        "gives V cells of its own (M4's freeze uses 4)"))
+        "gives V cells of its own (M4's freeze uses 4)" :
+        "under a viability rule, give n_viability_cells = 0: the mean field has one " *
+        "deterministic run per θ, which V reads"))
     n_viability_cells = something(n_viability_cells, 0)
     n_viability_cells >= 0 || throw(ArgumentError(
         "n_viability_cells must be at least 0, got $n_viability_cells"))
