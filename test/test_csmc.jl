@@ -254,9 +254,10 @@ end
             InferCell._each(i -> (hits[i] += 1), n, threads)
             @test all(==(1), hits)
         end
-        # Two calls fail: the lower i's error is thrown, as its own type.
+        # Two calls fail, the higher i first when threaded: the lower i's error
+        # is thrown, as its own type.
         two = i -> i == 7 ? throw(DomainError(i, "seventh")) :
-                   i == 3 ? throw(ArgumentError("third")) : nothing
+                   i == 3 ? (sleep(0.05); throw(ArgumentError("third"))) : nothing
         for threads in (false, true)
             @test_throws ArgumentError InferCell._each(two, 20, threads)
         end
