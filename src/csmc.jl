@@ -382,15 +382,36 @@ end
 _normalise(lw) = (w = exp.(lw .- maximum(lw)); w ./ sum(w))
 
 # f(i) for i in 1:n, on Julia's threads when `threads` is set. Each call must
-# write only its own slots.
+# write only its own slots. Each thread takes the next i as it frees up, so a slow
+# call does not hold back a chunk behind it. The first error stops the threads
+# taking more, and is thrown as itself rather than wrapped in a
+# `TaskFailedException`, so a refusal keeps its type either way. The counter hands
+# out i in order and the calls in flight finish, so the error thrown is the lowest
+# failing i's, as the serial loop's would be.
 function _each(f, n::Integer, threads::Bool)
-    if threads
-        Threads.@threads for i in 1:n
-            f(i)
-        end
-    else
+    if !threads || n <= 1
         foreach(f, 1:n)
+        return nothing
     end
+    next = Threads.Atomic{Int}(1)
+    stop = Threads.Atomic{Bool}(false)
+    failed = Ref{Any}(nothing)
+    lk = ReentrantLock()
+    @sync for _ in 1:min(n, Threads.nthreads())
+        Threads.@spawn while !stop[]
+            i = Threads.atomic_add!(next, 1)
+            i > n && break
+            try
+                f(i)
+            catch e
+                lock(lk) do
+                    (failed[] === nothing || i < failed[][1]) && (failed[] = (i, e))
+                end
+                stop[] = true
+            end
+        end
+    end
+    failed[] === nothing || throw(failed[][2])
     return nothing
 end
 

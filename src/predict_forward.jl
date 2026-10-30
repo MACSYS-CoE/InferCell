@@ -158,33 +158,25 @@ function _mean_field_cell(f::_ForwardSetup, values, quantity)
     return _cell(0, _route_run(rt, sol), quantity, 0, NamedTuple[])
 end
 
-# One forward run per seed for the hybrid, or one for the mean field.
-function _run_cells(f::_ForwardSetup, values, seeds, quantity; threads::Bool = false)
-    f.forward === :hybrid || return [_mean_field_cell(f, values, quantity)]
-    out = Vector{CellRun}(undef, length(seeds))
-    _each_cause(length(seeds), threads) do i
-        out[i] = _hybrid_cell(f, values, seeds[i], quantity)
-    end
-    return out
-end
-
-# Every run of a matrix of parameter sets at once, the pairs with `run[m, k]`
-# false left empty: one job per hybrid cell, or one per mean-field solve, so the
-# threads share the work however M, K and n_cells fall. Each hybrid cell reseeds
-# the generator of the task it runs on (task-local) before its build and its
-# run, and the mean field is deterministic, so a threaded run is the serial one.
+# Every run of a matrix of parameter sets at once, the pairs whose values are
+# `nothing` left empty: one job per hybrid cell, or one per mean-field solve, so
+# the threads share the work however M, K and n_cells fall. Each hybrid cell
+# reseeds the generator of the task it runs on (task-local) before its build and
+# its run, and the mean field is deterministic, so a threaded run is the serial
+# one. A cell whose metabolic block stalls is a result (`:not_advanced`), not an
+# error, so it never stops the others (`_each`).
 function _run_matrix(f::_ForwardSetup, values::AbstractMatrix, seeds::AbstractArray{Int, 3},
-                     quantity, run::AbstractMatrix{Bool}; threads::Bool)
+                     quantity; threads::Bool)
     M, K = size(values)
     out = [CellRun[] for _ in 1:M, _ in 1:K]
     jobs = Tuple{Int, Int, Int}[]
     for m in 1:M, k in 1:K
-        run[m, k] || continue
+        values[m, k] === nothing && continue
         n = f.forward === :hybrid ? size(seeds, 1) : 1
         out[m, k] = Vector{CellRun}(undef, n)
         append!(jobs, ((m, k, c) for c in 1:n))
     end
-    _each_cause(length(jobs), threads) do j
+    _each(length(jobs), threads) do j
         m, k, c = jobs[j]
         out[m, k][c] = f.forward === :hybrid ?
                        _hybrid_cell(f, values[m, k], seeds[c, k, m], quantity) :
@@ -193,21 +185,11 @@ function _run_matrix(f::_ForwardSetup, values::AbstractMatrix, seeds::AbstractAr
     return out
 end
 
-# `_each`, with an error inside a task rethrown as itself rather than wrapped in
-# a `CompositeException` of `TaskFailedException`s, so a refusal keeps its type
-# whether or not the work ran threaded.
-function _each_cause(f, n::Integer, threads::Bool)
-    try
-        _each(f, n, threads)
-    catch e
-        c = _task_cause(e)
-        c === e ? rethrow() : throw(c)
-    end
-    return nothing
-end
-_task_cause(e::CompositeException) = _task_cause(first(e.exceptions))
-_task_cause(e::TaskFailedException) = _task_cause(e.task.exception)
-_task_cause(e) = e
+# One forward run per seed for the hybrid, or one for the mean field: the 1 × 1
+# matrix.
+_run_cells(f::_ForwardSetup, values, seeds, quantity; threads::Bool = false) =
+    only(_run_matrix(f, fill(values, 1, 1), reshape(collect(Int, seeds), :, 1, 1), quantity;
+                     threads))
 
 # The cells reseed the global generator; a caller's stream is put back after.
 function _restoring_global_rng(f)

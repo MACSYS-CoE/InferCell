@@ -4427,6 +4427,264 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-31 — KIM-68: `predict`'s scheduler and pools, reproduced against the freeze; the threading diagnosis (M5 prep; the user's calls)
+
+**Status: built and measured.** These are code changes to `predict`'s threading
+and pools, and a diagnosis of why it scales poorly. They fix no Q, V, dose,
+variance-split or scale choice. No result changes: the frozen code's results are
+reproduced bit for bit.
+
+**Trigger:** KIM-68, M5's first job (GitHub #125, PR #129). The plan approved on
+2026-10-30 is copied verbatim into `dev/notes/2026-10-30-kim68-plan.md`. The
+user's calls, 2026-10-30, in the plan:
+- stop at the gate: no threading fix (GC flags, thread counts, processes) before
+  their call on the diagnosis, and no `Distributed` without it;
+- the allocation sites are reported only, in a new issue (KIM-71), and
+  `handshake.jl` is not edited;
+- KIM-40, not KIM-68, combines M0's row blocks (from KIM-70);
+- merge with a merge commit after a green suite and a clean `/check-PR`.
+
+**Change** (from main at `93abbce`, the M4 merge):
+- **`_each` is a greedy scheduler that stops on the first error** (`23ae259`).
+  - It spawns `min(n, nthreads())` tasks. Each takes the next index from an
+    atomic counter until none is left or a stop flag is set. `Threads.@threads`
+    handed out contiguous chunks, and let the other chunks finish after one
+    failed.
+  - The first error sets the flag. After the tasks finish, the lowest failing
+    index's error is thrown as itself. The serial loop throws the same one, since
+    the counter hands out indices in order and the calls in flight finish.
+  - `_each_cause` and `_task_cause` are gone. `predict`'s sites kept their error
+    types through them already. csmc, block1 and gibbs called `_each` directly, so
+    threaded, their errors arrived wrapped in a `CompositeException` of
+    `TaskFailedException`s. They now arrive as themselves, and the threads stop
+    early. Nothing in `src` or `test` caught the wrapped types.
+  - A threaded error now loses the failing task's backtrace, as `predict`'s already
+    did; the serial path keeps it. This is only a debugging cost, and is not
+    fixed after the freeze.
+  - `predict_forward` now has one `_each` site, since `_run_cells` goes through
+    `_run_matrix`.
+  - A stalled cell is not an error. `_hybrid_cell` returns it as a failed run, so
+    it stops nothing.
+- **The M4 review's simplifications, E1 and E2** (`fbf6c23`).
+  - `_run_matrix` drops its `run` mask: a pair whose values are `nothing` is not
+    run. That is how the intervened arm skips the pairs V rejects.
+    `_run_cells` is `_run_matrix`'s 1 × 1 case.
+  - μ̂'s cells and V's own run as one pool. The entry "`predict` made ready for M5"
+    (2026-10-30, below) ran V's as a second pool. Each cell is fixed by its seed, so
+    the results are the same.
+  - `_status_counts` counts both `statuses` and `statuses_intervened`. What each
+    counts is unchanged: V's own cells stay out of `statuses`.
+  - `clip(x) = max(x, 0.0)`. It agrees with the old one bit for bit, ±NaN and
+    −0.0 included.
+- **`predict`'s docstring** ("Parallel runs") describes the one pool, and says to
+  start Julia with a concurrent GC sweep thread (`3f76d43`, with the confirmed
+  figures in `5c45d5e` and `f68c420`; below).
+- **Helpers for M5's scripts** (`d9261a2`). `dev/scripts/pilot_common.jl` saves
+  plain summaries beside any `Prediction`, as the freeze asks.
+  `dev/scripts/launcher_guard.sh` refuses an output directory inside a worktree, a
+  dirty tree, or an unpushed HEAD, before it makes `logs/` (KIM-70's ordering
+  point). Nothing that ran at `a742224` is edited. After the review:
+  - the guard refuses every worktree of the repo, the main checkout included,
+    checks from the tree's top, and refuses when one of its checks cannot run;
+    its `run` sets BLAS to one thread unless the job's environment sets
+    `OPENBLAS_NUM_THREADS`;
+  - `pilot_common.jl` records GC's sweep thread in every save, from
+    `--gcthreads` or `JULIA_NUM_GC_THREADS`, and warns at 16 threads or more
+    without one (`ngcthreads()` cannot tell `3` from `2,1`);
+  - the reference generator's own dirty check read its paths from `dev/scripts`,
+    and checked the code's paths, so it could never flag the generator or the
+    calls; it now checks the generator and the calls, from the tree's top. The
+    code tree's check ran at the tree's top already, so the fixture's "Code:
+    93abbce" stamp was a valid clean check.
+
+**Tests:**
+- **The frozen reference.** `test/fixtures/predict_reference.jl` holds the frozen
+  code's results for five 60-s calls covering every path changed here. They are
+  in `test/fixtures/predict_reference_calls.jl`. The plan had four. The fifth,
+  B0, was added so that V also reads μ̂'s own cells (`883ff57`), and `6746514`
+  raised the GTP floor so that V rejects some pairs:
+  - the M0 hybrid;
+  - the reduced model under V, with V's own cells and with μ̂'s (a GTP floor
+    rejects some pairs, so the intervened arm's skip runs);
+  - the M0 mean field with δ from an ensemble;
+  - `forward_cells` and `intervention_cells`.
+
+  It was generated at `93abbce` by `dev/scripts/make_predict_reference.jl`, in
+  job 19580684 on dave10. Serial and threaded agreed for every call, and two runs
+  wrote byte-identical bodies.
+- `test/test_predict_reference.jl` reruns the calls at the checked-out tree,
+  serial and threaded. Integers, symbols and seeds must match exactly. Floats must
+  match to rtol 1e-6 and atol 1e-9.
+  - **The tolerance changed after CI.** The plan said rtol 1e-8. CI's first run
+    on PR #129 (run 41071931978, at `c5acb38`) failed one value: call A's minimum
+    of `M_13dpg_c`, 0.0013, was off by 1.2e-8 relative.
+  - That run used GitHub's runner and Julia 1.10.12; the fixture and every Slurm
+    run used the cluster's milan nodes (once milan-c's gina10) and Julia 1.10.5.
+    The ODE solves at reltol 1e-8, so a tolerance
+    equal to it leaves no room for the step sizes that either difference can tip.
+    The exact check is the bitwise job on one node (below).
+- `_each`: every index runs once, for n = 0, 1, fewer than the threads and many
+  more; the lowest failing index's error is thrown as its own type; an early
+  failure stops most of the remaining work.
+- **`MetabolicBlockStalled` end to end** (`403def1`). ENO's forward kcat at minus
+  its nominal is finite, so a posterior can hold it, and it sends the metabolic
+  solve to `Unstable` in the first handshake (probe job 19580219). Through
+  `_hybrid_cell` and `predict`, the cell is kept with its seed and reason,
+  counted as failed and left out of μ̂, threaded as serial.
+
+**The freeze's condition.** Any change to `predict` after the freeze must
+reproduce the frozen code's results on the same seeds before any M5 job. The
+M4 freeze entry below sets it.
+- **Old against new:** `make_predict_reference.slurm` runs the generator at
+  `93abbce` and at the head on one node, and compares the bodies byte for byte.
+  At `5d9430b`, the final code head: IDENTICAL, threaded equal to serial in every
+  call (job 19609537, gina10, which Slurm placed in partition milan-c), and both
+  bodies equal the committed fixture's. At `5c45d5e`, after round
+  1's fixes: IDENTICAL (job 19608470, dave2). At `3f76d43`, before the review's
+  fixes: IDENTICAL, threaded equal to serial in every call (job
+  19605458, dave12), and both bodies equal the committed fixture's, generated on
+  dave10. An earlier run at `d9261a2` (job 19581869,
+  dave61) was byte-identical too, except for the line naming each tree's commit,
+  which the script now leaves out.
+- **Threaded against serial:** the generator asserts it for every call, and the
+  test checks both against the fixture.
+
+**The diagnosis** (`dev/scripts/threading_kim68_result.md`; archive
+`/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/threading/`, jobs
+19583235–19583244 at `6e2a45c`, report rerun 19586524 at `c25b659`). It ran on
+KIM-38's matrix: d11, B7's held-out `v6`, `completion = :prior`, 128 cells at
+6,300 s, `rng = Xoshiro(18_438_301)`.
+- **A departure from the plan:** the note gives the idle share and GC's pauses, not
+  "the tail". The first summary's tail, `wall − median(stop)`, is about half the
+  wall for any balanced run, so it measured nothing; the report was rerun for this.
+- **The time is lost to GC inside the cells.** Idle threads and the scheduler are
+  not the cause.
+  - The idle share is 0.03–0.06 in every pass.
+  - GC is 0.46 of the wall at 16 threads and 0.79 at 64, against 0.027 serial. A
+    cell takes 2.7× its serial time at 16 threads and 8.6× at 64.
+  - The chunked loop and the new `_each` are within 3% of each other. The new
+    scheduler is about errors, not speed.
+- **The number of mark threads is not the cost:** one GC thread gives 441 s
+  against 464 s at 64 threads.
+- **BLAS is not the cause, but was not varied.** It ran on one thread in every
+  run: the cluster's profile sets `OMP_NUM_THREADS=1`, which the jobs inherit and
+  OpenBLAS reads. The `OPENBLAS_NUM_THREADS=1` variant therefore repeated the
+  default on another node (446 s against 464 s, about 4%). The gate report had
+  read it as ruling BLAS out. KIM-42's launcher should set
+  `OPENBLAS_NUM_THREADS=1` itself.
+- **One concurrent sweep thread is the gain.** `--gcthreads=32,1` takes 64
+  threads from 464 s to 166 s (efficiency 0.11 to 0.31). GC's share of the wall
+  falls to 0.30, and its mean pause from 1.33 s to 0.17 s.
+- **Four processes × 16 threads** on one node take 135 s (0.37). Each behaves like
+  one 16-thread process (GC 0.44 of its wall against 0.46), so against one
+  64-thread heap GC's share falls from 0.79 to 0.44.
+- **The source is allocation.** A 6,300-s cell allocates 24.8 GiB. The three
+  sites are KIM-71's.
+- **Against KIM-38:** at 64 threads the walls agree (453–477 s against its
+  454 s), and the efficiencies are lower than its 0.16 because this run's serial
+  baselines are the matrix's own cells on each node (24.8–28.1 s), not θ_ref's
+  36.8 s. At 16 threads the walls are 9–11% faster than its 619 s. Whether these
+  gaps are the parameter set, the commit or the node is not tested.
+- **The measures' limits** (the note): each node's baseline is 2 cells of one fast
+  pair, so the efficiencies may read about 8% low; the threaded runs' per-cell GC
+  times are process-wide, so GC's share of cell time restates its share of the
+  wall.
+
+**The gate (the user's call, 2026-10-31).** The user chose the recommended
+option: KIM-42 runs on `--gcthreads=N,1`, a launcher flag with no code change,
+once three runs confirm it. The other options offered were the flag without
+confirming it, and four processes per node.
+
+**The confirmation** (jobs 19605418–19605422 at `3f76d43`; archive
+`threading-confirm/`; the note):
+- `--gcthreads=32,1` at 64 threads on dave9, kept off dave13: 159 s, and
+  `predict`'s own call 150 s. The gain reproduces on another node.
+- `8,1` at 64 threads: 159 s, `predict` 154 s. The number of mark threads does
+  not matter; the sweep thread is the gain.
+- `8,1` at 16 threads: 394 s against the default's 551 s, with GC 0.14 of the
+  wall against 0.46.
+- With the diagnosis's `32,1` run (19583239, dave13, `6e2a45c`, 166 s), the
+  flagged 64-thread walls span 150–166 s: five walls (three passes and two
+  `predict` calls) from three runs on two nodes, against 464–477 s at the
+  default. The confirmation's own are 150–159 s, two runs on dave9.
+
+**KIM-42's wall-clock.** This replaces the M4 freeze entry's two lines on it:
+"about 24 h for each width on one node … about 3,000–4,500 core-h", and "KIM-42
+then takes about a day on 3 nodes". Scaled by the measured walls, on the
+assumption that KIM-42's cells cost like these 128:
+- about 7.8–8.6 h per width on one 64-core node with `--gcthreads=N,1`, so about
+  8–9 h for the three widths on 3 nodes;
+- about 1,000–1,600 core-h, for the same 736 CPU-h of work.
+
+KIM-42's launcher must pass the flag. `launcher_guard.sh`'s `run` sets BLAS to
+one thread unless the job's environment sets `OPENBLAS_NUM_THREADS`, and
+`pilot_common.jl` warns if the sweep thread is missing. (Its record reads
+`JULIA_NUM_GC_THREADS` only when well formed, such as `8,1`; pass `--gcthreads`.)
+
+**Not for M5:**
+- **Processes per node.** They would split the matrix over processes and combine
+  it (KIM-40's combiner). `predict` also forbids splitting rows under
+  completion. Against the flag's 7.8–8.6 h per width, four processes took about
+  7 h, without the flag.
+- **The allocation fixes** (KIM-71), which would change `handshake.jl` after the
+  freeze.
+
+M0 (KIM-40 and KIM-41) runs single-core tasks, at the serial GC share, so this
+does not change its estimate.
+
+**Checks:**
+- the full suite at `6e2a45c`: 29,687 of 29,687 (job 19583252, dave94);
+- the full suite at `3f76d43`, before the review's test changes: 29,687 of
+  29,687 (job 19605459, dave14);
+- the full suite at `5c45d5e`, after round 1's fixes: 29,687 of 29,687 (job
+  19608471, dave26);
+- the full suite at `5d9430b`, the final code head: 29,687 of 29,687 (job
+  19609538, dave4);
+- `test_predict_reference.jl` at `edde363`: 12 of 12 (job 19589222, dave16);
+- CI at `5d9430b`: unit tests pass (1 h 22 m of the 90-minute limit, run
+  41131358703) and the docs build passes. The JuliaFormatter check is advisory
+  and was cancelled, as on every recent branch.
+
+**The review** (`/check-PR`, 2026-10-31: the review and two gates over its fixes,
+three rounds). No CRITICAL finding in any round, and no MAJOR after the first.
+The report, with its fix ledger, is in the archive
+(`PR_REVIEW_129_2026-10-31.md`).
+- **Round 1's three MAJOR text errors, fixed:**
+  - the note's comparison with KIM-38 at 16 threads;
+  - the handoff's and PR description's stale lines: the BLAS claim, the
+    bitwise run still to do, `src` unchanged, the tags and the commits;
+  - the allocation types, which the stage does not split by site.
+- **The minor fixes, from all three rounds:**
+  - the helpers' items above marked "after the review";
+  - `_each`'s two-failure test now has the higher index fail first, so that it
+    tests the lowest-index rule;
+  - comments: the reference test names CI's Julia version, and
+    `testfiles.slurm` counts the helper files it loads;
+  - the text fixes in this entry and the note: the call sites' error types, the
+    freeze's two wall-clock lines, the second-pool entry's name, the plan's
+    departures, the processes' GC share, the measures' limits, the count of
+    flagged walls and which runs they come from, and the factor against 464 s;
+  - the docstring's figures, after the confirmation;
+  - the archive: the 6e2a45c suite log copied in, `jobs.tsv`'s labels, and
+    every job's Slurm submit line saved (`sacct_submitlines.tsv`);
+  - the tags `kim68-run-6746514` and `kim68-run-883ff57`.
+- **Rounds 2 and 3** (the gates over the fixes) found no CRITICAL or MAJOR.
+  Their minor findings are fixed in `f68c420`–`5d9430b`, this entry, the
+  handoff, the PR description and the archive. One is declined: the sweep
+  record misreads a malformed `JULIA_NUM_GC_THREADS` (such as ` 8 , 1 `); the
+  flag is read exactly, and is the documented way.
+
+**The archive:** `/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/`, with
+`jobs.tsv`, `sacct_submitlines.tsv` and `SHA256SUMS` (91 files; its SHA256 is
+`c79386a763dc5a45…`).
+
+**Unchanged:**
+- every choice in the M4 freeze entry below, except its two wall-clock lines for
+  KIM-42, which this entry replaces;
+- every recorded result.
+
+*Sections:* §12.
+
 ### 2026-10-30 — M4 freeze: Q, the estimand, V, the dose, the variance split and the scale (pre-registration; the user's decisions)
 
 **Status: frozen**, before any evidence is read, **except M0's scale**: its cells

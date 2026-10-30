@@ -1,6 +1,79 @@
 # Handoff
 
-## Latest: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
+## Latest: KIM-68, M5 prep (branch `tomkimpson/kim-68-m5-prep-predicts-threading-efficiency-gc-a-work-stealing`, PR #129, 2026-10-31)
+
+**State: done.** The diagnosis, the gate's call and its confirmation, the review
+(`/check-PR`, three rounds, MERGE) and every check at the final code head are in.
+PR #129 merges with a merge commit, and KIM-68 goes to Done in Linear with the job
+ids. Next in M5 (Linear): the prep issues KIM-70 and KIM-69, then the runs, KIM-40
+and KIM-41 together, then KIM-42 on `--gcthreads=N,1`.
+
+The plan is `dev/notes/2026-10-30-kim68-plan.md`. The record is spec §12,
+2026-10-31, "KIM-68: `predict`'s scheduler and pools, reproduced against the
+freeze; the threading diagnosis". The archive is
+`/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/` (`jobs.tsv`, `SHA256SUMS`).
+
+**The code, in commits from `93abbce`:**
+- the frozen reference (`test/fixtures/predict_reference.jl`, generated at
+  `93abbce` by job 19580684 on dave10, generator tag `kim68-run-6746514`) and its
+  test, at rtol 1e-6 and atol 1e-9 since CI's first run (`edde363`);
+- `_each` as a greedy scheduler that stops on the first error (`23ae259`);
+- E1 and E2's simplifications (`fbf6c23`);
+- `MetabolicBlockStalled` end to end (`403def1`);
+- `pilot_common.jl`, `launcher_guard.sh` and the diagnosis (`d9261a2` on);
+- `predict`'s docstring on `--gcthreads=N,1` (`3f76d43`, `5c45d5e`, `f68c420`);
+- the review's fixes (`7a17a19` to `5d9430b`, two rounds). `5d9430b` is the final
+  code head.
+
+**The diagnosis** (`dev/scripts/threading_kim68_result.md`):
+- the time is lost to GC inside the cells: idle share 0.03–0.06, GC 0.46 of the
+  wall at 16 threads and 0.79 at 64;
+- the number of mark threads is not the cost. BLAS ran on one thread in every
+  run, through the site's `OMP_NUM_THREADS=1`, so the BLAS variant tested nothing
+  new;
+- one concurrent sweep thread is the gain;
+- 4 processes × 16 threads take 135 s, but need KIM-40's combiner (not for M5);
+- the allocation sites are KIM-71 (report only).
+
+**The gate (the user's call, 2026-10-31):** the recommended option, the flag once
+three runs confirm it. They did (jobs 19605418–19605422):
+- at 64 threads, `--gcthreads=N,1` gives 150–159 s in the confirmation (dave9),
+  and 166 s in the diagnosis's run (19583239, dave13), against 464–477 s at the
+  default: five walls from three runs on two nodes;
+- 8 and 32 mark threads give the same;
+- at 16 threads, 394 s against 551 s.
+
+**For KIM-42:**
+- start Julia with `--gcthreads=N,1` in its launcher. `launcher_guard.sh`'s `run`
+  sets BLAS to one thread (unless the job's environment sets
+  `OPENBLAS_NUM_THREADS`), and `pilot_common.jl` warns if the sweep thread is
+  missing;
+- if KIM-42's cells cost like these 128, expect about 7.8–8.6 h per width on one
+  64-core node, so about 8–9 h for the three widths on 3 nodes, and about
+  1,000–1,600 core-h. The freeze said about 24 h and 3,000–4,500;
+- M0 (KIM-40, KIM-41) is unaffected: it runs single-core tasks.
+
+**Checks:**
+- bitwise old against new: IDENTICAL at `5d9430b`, the final code head (job
+  19609537, gina10 in partition milan-c, both bodies equal to the committed
+  fixture's), at `5c45d5e` (job 19608470, dave2) and at `3f76d43` (job 19605458,
+  dave12);
+- the full suite at `5d9430b`: 29,687 of 29,687 (job 19609538, dave4); also at
+  `3f76d43` (19605459) and `5c45d5e` (19608471);
+- `/check-PR`: `PR_REVIEW_129_2026-10-31.md` (not committed; a copy is in the
+  archive). Round 1: no CRITICAL, three MAJOR text errors, all fixed. Rounds 2
+  and 3, the gates over the fixes: no CRITICAL or MAJOR; their minor findings
+  fixed, one declined (a malformed `JULIA_NUM_GC_THREADS` misread; pass
+  `--gcthreads`).
+
+**Pushing:** SSH to GitHub failed from this shell on 2026-10-31 (publickey). It
+works over HTTPS with gh's token:
+`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/MACSYS-CoE/InferCell.git HEAD:refs/heads/<branch>`.
+Then fetch the branch back the same way, so that its remote-tracking ref (which
+`launcher_guard.sh` reads) is the remote's own:
+`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch https://github.com/MACSYS-CoE/InferCell.git refs/heads/<branch>:refs/remotes/origin/<branch>`.
+
+## Earlier: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
 
 **Done:** one PR, one commit per issue, from `.worktrees/m4-pilots`, based on
 main at `27d3f88`. The plan approved on 2026-10-30 is copied verbatim into

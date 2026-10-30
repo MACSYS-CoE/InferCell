@@ -214,6 +214,37 @@ end
                                                  horizon = H, quantity = boom, threads = true)
     end
 
+    # KIM-68: a stalled metabolic block is a failed run, end to end. ENO's forward
+    # kcat at minus its nominal (finite, so a posterior can hold it) sends the
+    # solve to `Unstable` within the first handshake.
+    @testset "a stalled metabolic block is a failed run, kept with its reason" begin
+        mm = metered(ms)
+        j = findfirst(==(:kcatF_R_ENO), pd.names)
+        bad = haldane_values(mm, [:kcatF_R_ENO => -nominal_parameter_values(mm)[:kcatF_R_ENO]])
+        f = InferCell._forward_setup(mm, :hybrid; horizon = H)
+        c = InferCell._restoring_global_rng(() -> InferCell._hybrid_cell(f, bad, 6810, :lactate_out))
+        @test c.failure === :not_advanced && isnan(c.q) && c.seed == 6810 && c.accounts === nothing
+        @test occursin("failed to advance", c.message)
+
+        X = copy(pd.values)
+        X[2, j] = -X[2, j]                   # draw 2 of 3 stalls
+        sp = PosteriorDraws(pd.names, X, pd.sigma_b, pd.chain, pd.iteration, nothing, nothing,
+                            (kind = :test_stall,))
+        s = predict(ms, sp; horizon = H, n_cells = 2, rng = Xoshiro(68), threads = false)
+        @test all(c.failure === :not_advanced for c in s.cells[2, 1])
+        @test all(c.failure === :none for c in vcat(s.cells[1, 1], s.cells[3, 1]))
+        @test s.n_ok[:, 1] == [2, 0, 2] && isnan(s.mu[2, 1]) && all(isfinite, s.mu[[1, 3], 1])
+        @test s.statuses[:failed] == 2 && s.statuses[:clean] + s.statuses[:clipped] == 4
+        @test s.summary.uniform.n_no_q == 1 && s.summary.uniform.n_pairs == 2
+        failed = s.provenance.pairs[2, 1].failed
+        @test [x.seed for x in failed] == s.seeds[:, 1, 2]
+        @test all(x.failure === :not_advanced && occursin("failed to advance", x.message)
+                  for x in failed)
+        t = predict(ms, sp; horizon = H, n_cells = 2, rng = Xoshiro(68), threads = true)
+        @test isequal(s.mu, t.mu) && s.statuses == t.statuses &&
+              isequal(s.provenance.pairs, t.provenance.pairs)
+    end
+
     @testset "refusals, before any work" begin
         bad(; kw...) = @test_throws ArgumentError predict(ms, pd; horizon = H, kw...)
         bad(; forward = :ode)

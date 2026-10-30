@@ -169,6 +169,15 @@ _n_failed_intervened(cells, cells_i, w) =
     sum((count(((b, c),) -> b.failure === :none && c.failure !== :none, zip(cells[i], cells_i[i]))
          for i in eachindex(w) if w[i] > 0); init = 0)
 
+# How many of a matrix's runs fall in each of CELL_STATUSES, read without a rule.
+function _status_counts(cells)
+    n = Dict(s => 0 for s in CELL_STATUSES)
+    for cs in cells, c in cs
+        n[cell_status(c)] += 1
+    end
+    return n
+end
+
 function _select_draws(rng, pd::PosteriorDraws, n::Integer)
     1 <= n || throw(ArgumentError("n_parameter_draws must be at least 1, got $n"))
     pd.weights === nothing || return [_weighted_sample(pd.weights, rng) for _ in 1:n]
@@ -306,15 +315,23 @@ The fork seed is recorded, but `predict` cannot be called with one. To replay a
 call, keep the `rng`'s seed and the commit.
 
 **Parallel runs.** With `threads` (the default when Julia has more than one
-thread), the cells run threaded: every baseline cell or solve of the matrix as
-one pool, V's own cells (if any) as a second, then the intervened ones of the
-pairs V keeps, and δ's ensemble likewise.
+thread), the cells run threaded: every baseline cell or solve of the matrix, μ̂'s
+and V's own alike, as one pool, then the intervened ones of the pairs V keeps, and
+δ's ensemble likewise. Each thread takes the next cell as it frees up. An error
+stops the others taking more and is thrown as itself; a cell whose metabolic block
+stalls is not an error but a failed run, kept with its reason.
 Each hybrid cell reseeds the generator of the task it runs on before its build
 and its run, so the result is the serial one. A crossed matrix with completion
 is run by one call, threaded on one node: calls cannot share it, as above.
 Without completion (M0), the rows can also be split over calls, each with its
 own `rng` and disjoint `draws`, and a corrected mean field given one shared
 [`DeltaCorrection`](@ref).
+A reduced-model cell at 6,300 s allocates about 25 GiB, so at many threads garbage
+collection takes most of the time. Start Julia with one concurrent sweep thread,
+`--gcthreads=N,1`; the number of mark threads N did not matter (8 and 32 at 64
+threads). On 128 such cells it cut the wall from 464–477 s to 150–166 s at 64
+threads, in three runs on two nodes, and from 551 s to 394 s at 16 (KIM-68,
+`dev/scripts/threading_kim68_result.md`).
 """
 function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  horizon::Real, forward::Symbol = :hybrid, completion::Symbol = :none,
@@ -431,12 +448,13 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         θI = [draw_values(pd, r) for r in rows]
         plain = [vcat(θI[m], θH[k]) for m in 1:M, k in 1:K]
         base = map(x -> haldane_values(ms, x), plain)
-        # Every baseline run (μ̂'s cells, and V's own if it has them), then V on
-        # each pair, then the intervened runs of the pairs V keeps. Each phase
-        # runs its cells threaded or not, with the same result.
-        cells = _run_matrix(f, base, seeds, quantity, trues(M, K); threads)
-        vcells = nv == 0 ? fill(CellRun[], M, K) :
-                 _run_matrix(f, base, vseeds, quantity, trues(M, K); threads)
+        # Every baseline run as one pool (μ̂'s cells, and V's own after them on
+        # each pair's seeds), then V on each pair, then the intervened runs of the
+        # pairs V keeps. Each phase runs its cells threaded or not, with the same
+        # result.
+        both = _run_matrix(f, base, cat(seeds, vseeds; dims = 1), quantity; threads)
+        cells, vcells = nv == 0 ? (both, fill(CellRun[], M, K)) :
+                        (map(c -> c[1:nc], both), map(c -> c[(nc + 1):end], both))
         decisions = Matrix{NamedTuple}(undef, M, K)
         for i in eachindex(cells)
             decisions[i] = conditioned ?
@@ -446,10 +464,9 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         cells_i = if intervention === nothing
             fill(CellRun[], M, K)
         else
-            keep = [d.viable for d in decisions]
-            vals_i = [keep[i] ? intervene(intervention, ms, plain[i]) : Pair{Symbol, Float64}[]
+            vals_i = [decisions[i].viable ? intervene(intervention, ms, plain[i]) : nothing
                       for i in CartesianIndices(plain)]
-            _run_matrix(f, vals_i, seeds, quantity, keep; threads)
+            _run_matrix(f, vals_i, seeds, quantity; threads)
         end
         labels = forward === :hybrid ? reduction_declarations(ms, driver) :
                                        reduction_declarations(ms, f.route)
@@ -516,14 +533,7 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
              n_failed_intervened = _n_failed_intervened(cells, cells_i, w))
         end
     end
-    statuses = Dict(s => 0 for s in CELL_STATUSES)
-    for cs in cells, c in cs
-        statuses[cell_status(c)] += 1
-    end
-    statuses_intervened = Dict(s => 0 for s in CELL_STATUSES)
-    for cs in cells_i, c in cs
-        statuses_intervened[cell_status(c)] += 1
-    end
+    statuses, statuses_intervened = _status_counts(cells), _status_counts(cells_i)
     pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, vseeds, vcells,
                               completion, m, k) for m in 1:M, k in 1:K]
     provenance = (; fork_seed = fork, version = pkgversion(@__MODULE__), settings,
