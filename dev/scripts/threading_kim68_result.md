@@ -95,7 +95,7 @@ before and after compare like for like). Nothing reads an evidence posterior.
    - The pause count stays the same (284 against 277). The mean pause falls from 1.33 s
      to 0.17 s.
    - This is one run, on one node. The node baselines span 24.8–28.1 s, about 13%,
-     and the four default-like 64-thread runs 441–477 s, against a 2.8× change.
+     and the default-like 64-thread walls 441–477 s, against a 2.8× change.
    - Not measured here: `,1` at 16 threads, fewer mark threads with `,1`, and
      `predict`'s own call under the flag. The confirmation (below) measured all three.
 5. **Separate processes avoid sharing one 64-thread heap.** 4 processes × 16 threads on
@@ -133,7 +133,7 @@ efficiencies agreed at 16 threads too.)
 - **At 64 threads the walls for the same 128 cells agree:** 453–477 s against KIM-38's
   454 s.
 - **At 16 threads they do not:** 551–564 s against 619 s, 9–11% faster. That is more
-  than the four default-like 64-thread runs differ among themselves (441–477 s, up to
+  than the default-like 64-thread walls differ among themselves (441–477 s, up to
   8%).
 - **The baselines differ.** KIM-38 timed 10 cells at one parameter set, `θ_ref`, at
   `a742224` on dave7: a median of 36.8 s. This run times the matrix's own cells on
@@ -175,8 +175,10 @@ ran on one thread.
 3. **The flag helps at 16 threads too.** `8,1` takes 394 s against the default's
    551 s, efficiency 0.52 against 0.37. GC's share of the wall falls from 0.46 to
    0.14, and the mean pause from 0.14 s to 0.03 s.
-4. **For KIM-42:** the flagged 64-thread walls span 150–166 s in four measurements on
-   two nodes, against 464–477 s at the default, a factor of 2.8–3.2.
+4. **For KIM-42:** the flagged 64-thread walls span 150–166 s: five walls (three
+   passes and two `predict` calls) from three runs on two nodes, dave13 at `6e2a45c`
+   and dave9 twice at `3f76d43`. Against the greedy default's 464 s, the scaling rule
+   below, that is a factor of 2.8–3.1.
 
 ## What it means for M5 (for the gate)
 
@@ -187,7 +189,7 @@ Scaled by the measured walls, on the assumption that KIM-42's cells cost like th
 | setting | wall, 128 cells | per width, one node | core-h, three widths (frozen: 3,000–4,500) | needs |
 |---|---|---|---|---|
 | default, 64 threads | 464 s | about 24 h | 3,000–4,500 | nothing |
-| `--gcthreads=N,1`, 64 threads (the gate's call; 4 measurements, 2 nodes) | 150–166 s | about 7.8–8.6 h | about 1,000–1,600 | a launcher flag |
+| `--gcthreads=N,1`, 64 threads (the gate's call; 5 walls, 3 runs, 2 nodes) | 150–166 s | about 7.8–8.6 h | about 1,000–1,600 | a launcher flag |
 | 4 processes × 16 threads | 135 s | about 7 h | about 870–1,300 | the matrix split over processes and combined (KIM-40's combiner), and `predict`'s rules on splitting rows under completion |
 
 - M0 (KIM-40, KIM-41) runs single-core tasks, at the serial GC share of 0.027. This
