@@ -126,7 +126,8 @@ function reduced()
     V = ViabilityRule(; label = "smoke toy V, not M4's", allow_clipped = true,
                       min_viable_fraction = 0.5, floors = [:M_gtp_c => 500.0])
     v = predict(dms, pd; horizon = H, completion = :viability_conditioned_prior,
-                viability = V, n_held = 2, n_parameter_draws = 2, n_cells = 2,
+                viability = V, n_viability_cells = 0,   # M3's behaviour; required since M4
+                n_held = 2, n_parameter_draws = 2, n_cells = 2,
                 intervention = Knockdown(; dose = 0.25), rng = Xoshiro(30))
     report("viability", v)
     println("    conditioning ", v.conditioning)

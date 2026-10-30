@@ -125,7 +125,8 @@ end
         never = ViabilityRule(; label = "toy: never", allow_clipped = true,
                               min_viable_fraction = 1, floors = [:M_gtp_c => 1e15])
         v = predict(dms, pd; horizon = H, completion = :viability_conditioned_prior,
-                    viability = never, n_held = 2, n_parameter_draws = 2, width = 2.0,
+                    viability = never, n_viability_cells = 0, n_held = 2,
+                    n_parameter_draws = 2, width = 2.0,
                     rng = Xoshiro(4), intervention = Knockdown(; dose = 0.3))
         @test !any(v.viable) && v.conditioning.joint.acceptance == 0
         @test v.conditioning.per_theta_I.failed_rows == [1, 2]
@@ -137,7 +138,8 @@ end
         always = ViabilityRule(; label = "toy: always", allow_clipped = true,
                                min_viable_fraction = 0.01)
         a = predict(dms, pd; horizon = H, completion = :viability_conditioned_prior,
-                    viability = always, n_held = 2, n_parameter_draws = 2, width = 2.0,
+                    viability = always, n_viability_cells = 0, n_held = 2,
+                    n_parameter_draws = 2, width = 2.0,
                     rng = Xoshiro(4))
         @test all(a.viable) && a.conditioning.joint.acceptance == 1
         @test sum(a.weights.per_theta_I) ≈ 1 && sum(a.weights.joint) ≈ 1
@@ -188,7 +190,8 @@ end
 
         # KIM-36: V reads cells of its own, which μ̂ does not, on seeds drawn
         # after every other; without them the draws and μ̂ are as before.
-        z = predict(dms, pd; kw..., n_viability_cells = 0, rng = Xoshiro(62), threads = false)
+        z = predict(dms, pd; kw..., n_viability_cells = 0, intervention = nothing,
+                    rng = Xoshiro(62), threads = false)
         @test z.mu == s.mu && z.seeds == s.seeds && z.theta_H == s.theta_H
         @test isempty(z.viability_seeds) && all(isempty, z.viability_cells)
         @test size(s.viability_seeds) == (2, 2, 2) && isdisjoint(s.viability_seeds, s.seeds)
@@ -199,7 +202,8 @@ end
         @test [c.seed for c in s.viability_cells[1, 2]] == s.viability_seeds[:, 2, 1]
         for bad in ((; completion = :prior, viability = nothing),
                     (; forward = :mean_field, n_cells = 1, intervention = nothing),
-                    (; n_viability_cells = -1))
+                    (; n_viability_cells = -1),
+                    (; n_viability_cells = nothing))   # under V the choice must be given
             @test_throws ArgumentError predict(dms, pd; kw..., bad...)
         end
 
