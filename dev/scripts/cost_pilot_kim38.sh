@@ -23,7 +23,9 @@ sub() { sbatch --parsable --partition=milan --exclude='dave[148-149]' --ntasks=1
                --output="$outdir/logs/%x_%j.log" "$@"; }
 run="module load julia/1.10.5; julia --project"
 if [ "${2:-}" = sizing_resolved ]; then
-    # Needs `cells` from the first run in the same outdir (its per-run times).
+    # Needs `cells` from the first run in the same outdir (its per-run times), and
+    # reads it only after its own compute, so refuse here rather than lose the run.
+    [ -f "$outdir/cells.jls" ] || { echo "no $outdir/cells.jls: run the first stages there first" >&2; exit 1; }
     j=$(sub --cpus-per-task=16 --mem=48G --time=02:00:00 --job-name=kim38_sizing_resolved \
             --wrap "$run --threads=16 dev/scripts/cost_pilot_kim38.jl sizing_resolved $outdir")
     printf 'sizing_resolved\t%s\n' "$j" >> "$outdir/jobs.tsv"
