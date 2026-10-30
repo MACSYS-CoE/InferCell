@@ -53,9 +53,10 @@ draws (k = 1…K). Without completion there is one column.
 - `delta`: the mean field's [`DeltaCorrection`](@ref), or `nothing`;
 - `summary` and `effect_summary`: each weight set's population-mean results. See
   [`predict`](@ref);
-- `statuses`: the count of every baseline run in each [`CELL_STATUSES`](@ref)
-  category, read without a rule. This is the unfiltered ensemble's validity
-  diagnostic;
+- `statuses`: the count of every baseline run that gives μ̂ in each
+  [`CELL_STATUSES`](@ref) category, read without a rule. This is the unfiltered
+  ensemble's validity diagnostic. V's own cells are not counted here; V's
+  decisions count them, and their failures are in provenance;
 - `statuses_intervened`: the same count over the intervened runs, all zero
   without an intervention;
 - `provenance`: what was run, and from what (KIM-33):
@@ -305,8 +306,9 @@ The fork seed is recorded, but `predict` cannot be called with one. To replay a
 call, keep the `rng`'s seed and the commit.
 
 **Parallel runs.** With `threads` (the default when Julia has more than one
-thread), the cells run threaded: every baseline cell or solve of the matrix at
-once, then the intervened ones of the pairs V keeps, and δ's ensemble likewise.
+thread), the cells run threaded: every baseline cell or solve of the matrix as
+one pool, V's own cells (if any) as a second, then the intervened ones of the
+pairs V keeps, and δ's ensemble likewise.
 Each hybrid cell reseeds the generator of the task it runs on before its build
 and its run, so the result is the serial one. A crossed matrix with completion
 is run by one call, threaded on one node: calls cannot share it, as above.
