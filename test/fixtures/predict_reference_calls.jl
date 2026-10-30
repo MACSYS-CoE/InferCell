@@ -8,7 +8,7 @@
 # - A: the M0 hybrid, completion = :none;
 # - B: the reduced model under V with V's own cells and a knockdown, and its
 #   variance splits;
-# - B0: the same, with V reading μ̂'s cells and no knockdown;
+# - B0: the same draws and seeds, with V reading μ̂'s cells and no knockdown;
 # - C: the M0 mean field with δ from an ensemble, and a knockdown;
 # - D: `forward_cells` and `intervention_cells`.
 
@@ -65,8 +65,10 @@ function predict_reference_calls()
     ms = collect(AbstractSubModel, m0_models())
     dms = collect(AbstractSubModel, d11_models())
     pd = _pref_posterior(ms, 3)
+    # At 60 s this floor rejects one of B's four pairs, and one of each row's two in
+    # B0, so the intervened arm skips a pair and no row is left empty.
     V = ViabilityRule(; label = "toy: a floor some pairs miss", allow_clipped = true,
-                      min_viable_fraction = 0.5, floors = [:M_gtp_c => 500.0])
+                      min_viable_fraction = 0.5, floors = [:M_gtp_c => 17_000.0])
     kd = Knockdown(; dose = 0.3)
     vkw = (; horizon = _PREF_H, completion = :viability_conditioned_prior, viability = V,
            n_held = 2, n_parameter_draws = 2, n_cells = 2, width = 2.0)
@@ -78,7 +80,7 @@ function predict_reference_calls()
         :B => t -> _pref_plain(predict(dms, pd; vkw..., intervention = kd,
                                        n_viability_cells = 2, rng = Xoshiro(6802), threads = t)),
         :B0 => t -> _pref_plain(predict(dms, pd; vkw..., n_viability_cells = 0,
-                                        rng = Xoshiro(6803), threads = t)),
+                                        rng = Xoshiro(6802), threads = t)),
         :C => t -> _pref_plain(predict(ms, pd; horizon = _PREF_H, forward = :mean_field,
                                        delta = :ensemble, n_ref = 4, intervention = kd,
                                        rng = Xoshiro(6804), threads = t)),
