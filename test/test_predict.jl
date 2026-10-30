@@ -145,13 +145,14 @@ end
                                for (a, b) in zip(A, B))
         function same(p, q)
             for f in fieldnames(Prediction)
-                f in (:cells, :cells_intervened, :provenance, :delta, :intervention,
-                      :viability) && continue
+                f in (:cells, :cells_intervened, :viability_cells, :provenance, :delta,
+                      :intervention, :viability) && continue
                 isequal(getfield(p, f), getfield(q, f)) || return false
             end
             pp, qp = p.provenance, q.provenance
             return same_cells(p.cells, q.cells) &&
                    same_cells(p.cells_intervened, q.cells_intervened) &&
+                   same_cells(p.viability_cells, q.viability_cells) &&
                    isequal(pp.pairs, qp.pairs) && pp.fork_seed == qp.fork_seed &&
                    isequal(pp.settings, qp.settings)
         end
@@ -160,7 +161,7 @@ end
                           min_viable_fraction = 0.5, floors = [:M_gtp_c => 500.0])
         kw = (; horizon = H, completion = :viability_conditioned_prior, viability = V,
               n_held = 2, n_parameter_draws = 2, n_cells = 2, width = 2.0,
-              intervention = Knockdown(; dose = 0.3))
+              intervention = Knockdown(; dose = 0.3), n_viability_cells = 2)
         s = predict(dms, pd; kw..., rng = Xoshiro(62), threads = false)
         t = predict(dms, pd; kw..., rng = Xoshiro(62), threads = true)
         @test same(s, t)
@@ -177,6 +178,23 @@ end
         @test same(sm, tm)
         @test all(same_cell.(sm.delta.hybrid, tm.delta.hybrid)) &&
               isequal(sm.delta.delta, tm.delta.delta)
+
+        # KIM-36: V reads cells of its own, which μ̂ does not, on seeds drawn
+        # after every other; without them the draws and μ̂ are as before.
+        z = predict(dms, pd; kw..., n_viability_cells = 0, rng = Xoshiro(62), threads = false)
+        @test z.mu == s.mu && z.seeds == s.seeds && z.theta_H == s.theta_H
+        @test isempty(z.viability_seeds) && all(isempty, z.viability_cells)
+        @test size(s.viability_seeds) == (2, 2, 2) && isdisjoint(s.viability_seeds, s.seeds)
+        @test all(s.decisions[i] == assess_viability(s.viability_cells[i], V)
+                  for i in eachindex(s.decisions))
+        @test s.provenance.settings.n_viability_cells == 2
+        @test s.provenance.pairs[2, 1].viability_seeds == s.viability_seeds[:, 1, 2]
+        @test [c.seed for c in s.viability_cells[1, 2]] == s.viability_seeds[:, 2, 1]
+        for bad in ((; completion = :prior, viability = nothing),
+                    (; forward = :mean_field, n_cells = 1, intervention = nothing),
+                    (; n_viability_cells = -1))
+            @test_throws ArgumentError predict(dms, pd; kw..., bad...)
+        end
 
         # An error inside a threaded task keeps its type.
         boom(run) = throw(ArgumentError("a quantity that refuses"))

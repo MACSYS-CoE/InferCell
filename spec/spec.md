@@ -4427,6 +4427,67 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-30 — M4 freeze: Q, the estimand, V, the dose, the variance split and the scale (pre-registration; the user's decisions)
+
+**Status: frozen**, before any evidence is read. This is launch gate 1. Every
+item below was fixed on held-out pilots, before the first M5 job. M5's result
+notes cite the commit that merges this entry to main.
+
+**Trigger:** M4 in Linear (KIM-35 to KIM-39, KIM-66).
+- The pilots ran at `a742224`, on θ held out of the evidence run: B7's `v6` fit
+  (m0_v6, not one of the 50 evidence datasets), and fresh prior draws, with
+  seeds from M4's block (below).
+- Their result notes are `dev/scripts/*_kim3{5,7,8}_result.md` and
+  `dev/scripts/variance_split_check_kim66_result.md`.
+- The user made each call on 2026-10-30, after reading the pilots, choosing the
+  recommended option every time.
+
+**V, the viability rule (KIM-36).**
+- **The categories** are as built (`ViabilityRule`). A cell is failed, starved,
+  below a floor, clipped or clean, in that order of precedence. They are not
+  interchangeable.
+- `allow_clipped = true`. Clipping is routine: 81.5% of D11's prior draws clip at
+  least once (14c.2). In KIM-35's held-out run at 6,300 s, 7 and 11 of 200 cells
+  clipped, and none starved.
+- `starved_fraction = 0.5`, 14c's census rule: some counter clipped at more than
+  half its drains. A mean-field overdraw counts as starved.
+- **No floors.**
+- `min_viable_fraction = 0.5`. V is a property of θ: θ is viable when at least
+  half its V cells are, so one stochastic starvation does not reject a
+  parameter set.
+- **V reads cells of its own**, `n_viability_cells = 4`, as many as μ̂'s
+  `n_cells` on the reduced model. These are separate seeds, drawn after every
+  other, that μ̂ does not read.
+  - This removes the bias from V and μ̂ sharing cells, found in the PR #117 review
+    (§12 2026-10-29, "`predict` as built"; its toy case gives 0.636 against 0.5).
+  - It doubles the reduced-model budget's baseline cells, from 245 to 491 CPU-h
+    (KIM-38).
+  - `predict(…; n_viability_cells)` is built here. It is refused without V and
+    for the mean field, whose one deterministic run V reads.
+- **V applies on the reduced model only** (KIM-42). M0 runs with no filter
+  (`completion = :none`), as note §3.1's default. The joint variant on M0 is not
+  run.
+- **The headline conditioned variant is (b), per θ_I.** θ_I's marginal stays the
+  M0 posterior, conditional on at least one viable θ_H per row. Variant (a),
+  joint, is reported beside it. Each comes with its acceptance, its ESS and its
+  failed rows.
+- **Under do(a):**
+  - V is read at baseline;
+  - a pair V rejects is not run under the intervention;
+  - a cell that fails only under the intervention is part of the prediction, and
+    is counted (`n_failed_intervened`, `statuses_intervened`).
+- **Starvation is a category of V, so it is not Q.** Minimum GTP, clipping and
+  starvation stay validity diagnostics on the unfiltered ensemble (`statuses`).
+- **What the held-out run shows.** At width 1, V would reject nothing: none of
+  400 cells starved, and the acceptance was 1.0 under both candidate thresholds.
+  So at width 1 the conditioning may remove nothing.
+  - The paper reports the acceptance at each width as the run finds it.
+  - If the acceptance is about 1 at every width, the paper says the viability
+    conditioning removed nothing in this demonstration.
+  - V is not tightened to make it bite.
+
+*Sections:* §12.
+
 ### 2026-10-30 — `predict` made ready for M5 (M4: KIM-62, KIM-63, KIM-66)
 
 **Status: built.** These are code changes to `predict` that M3's review deferred to

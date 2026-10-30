@@ -42,6 +42,9 @@ draws (k = 1…K). Without completion there is one column.
 - `viable`: V's decision per pair, all true without a rule;
 - `decisions`: each pair's `(; viable, fraction, counts)`
   ([`assess_viability`](@ref)), so a rejected pair keeps its reason;
+- `viability_seeds` and `viability_cells`: V's own cells, n_V × K × M seeds and
+  M × K runs, when `n_viability_cells` gives V cells of its own. They are empty
+  otherwise, and V reads the cells in `cells`;
 - `weights`: the weight sets over the matrix, `uniform`, or `per_theta_I` and
   `joint` under V ([`viability_weights`](@ref)), each with its acceptance and ESS
   in `conditioning`.
@@ -67,8 +70,9 @@ draws (k = 1…K). Without completion there is one column.
     ([`held_parameters`](@ref));
   - `pairs`: one record per pair, M × K. Each gives the posterior draw (index,
     chain, iteration), where θ_H came from (`:none`, `:prior` or
-    `:viability_conditioned`), its seeds, V's decision, and every failed run with
-    its seed and reason;
+    `:viability_conditioned`), its seeds and V's own seeds, V's decision, and every
+    failed run (of μ̂'s cells, V's and the intervened ones) with its seed and
+    reason;
   - `threads`: the threads the cells ran on, 1 when not threaded. The result
     does not depend on it.
 """
@@ -95,6 +99,8 @@ struct Prediction
     viability::Union{Nothing, ViabilityRule}
     viable::Matrix{Bool}
     decisions::Matrix{NamedTuple}
+    viability_seeds::Array{Int, 3}
+    viability_cells::Matrix{Vector{CellRun}}
     weights::NamedTuple
     conditioning::NamedTuple
     delta::Union{Nothing, DeltaCorrection}
@@ -210,7 +216,8 @@ end
             viability = nothing, quantity = :lactate_out, estimand = :population_mean,
             intervention = nothing, delta = :none, theta_ref = nothing, n_ref = 100,
             rng = Random.default_rng(), n_parameter_draws = length(posterior),
-            draws = nothing, n_cells = 1, threads = Threads.nthreads() > 1) -> Prediction
+            draws = nothing, n_cells = 1, n_viability_cells = 0,
+            threads = Threads.nthreads() > 1) -> Prediction
 
 The predictive distribution of the quantity Q given the data, for the composition
 `models`, as dev/notes/2026-10-29-cut-predictive-distribution.md defines it. The
@@ -246,10 +253,13 @@ corrected one, since the gap between them is part of the result (spec §12
 - `completion = :viability_conditioned_prior` does the same, and then reads the
   rule `viability` (a [`ViabilityRule`](@ref)) on each pair's baseline runs.
   Both conditioned variants are returned as weights ([`viability_weights`](@ref)),
-  with each pair's decision and reason. For the hybrid, V is read on the same
-  cells that give μ̂. So where Q differs between viable and unviable cells, and a
-  θ's viable fraction is near the rule's threshold, the conditioned μ̂ is biased.
-  Whether V should read cells of its own is part of fixing V (M4).
+  with each pair's decision and reason. For the hybrid, by default V is read on
+  the same cells that give μ̂. Then, where Q differs between viable and unviable
+  cells and a θ's viable fraction is near the rule's threshold, the conditioned
+  μ̂ is biased. `n_viability_cells` = n_V > 0 gives V cells of its own instead:
+  n_V more cells per pair, on seeds drawn after every other, that V reads and μ̂
+  does not, which removes the bias (KIM-36). The mean field has one deterministic
+  run per θ, which V reads, so it takes none.
 
 **The estimand** is `:population_mean`, the mean of Q over cells, μ(θ). For each
 weight set, `summary` gives:
@@ -311,7 +321,8 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  n_ref::Integer = 100, rng::AbstractRNG = Random.default_rng(),
                  n_parameter_draws::Integer = length(pd),
                  draws::Union{Nothing, AbstractVector{<:Integer}} = nothing,
-                 n_cells::Integer = 1, threads::Bool = Threads.nthreads() > 1)
+                 n_cells::Integer = 1, n_viability_cells::Integer = 0,
+                 threads::Bool = Threads.nthreads() > 1)
     # Refuse before any work.
     forward in PREDICT_FORWARDS || throw(ArgumentError(
         "forward must be one of $PREDICT_FORWARDS, not :$forward"))
@@ -332,6 +343,12 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
     n_held >= 1 || throw(ArgumentError("n_held must be at least 1, got $n_held"))
     forward === :hybrid && n_cells < 1 && throw(ArgumentError(
         "n_cells must be at least 1, got $n_cells"))
+    n_viability_cells >= 0 || throw(ArgumentError(
+        "n_viability_cells must be at least 0, got $n_viability_cells"))
+    n_viability_cells == 0 || conditioned && forward === :hybrid || throw(ArgumentError(
+        "n_viability_cells gives V cells of its own, so it needs " *
+        "completion = :viability_conditioned_prior and the hybrid; the mean field has " *
+        "one deterministic run per θ, which V reads"))
     delta isa Symbol && !(delta in (:none, :ensemble)) && throw(ArgumentError(
         "delta must be :none, :ensemble or a DeltaCorrection, not :$delta"))
     delta === :none || forward === :mean_field || throw(ArgumentError(
@@ -390,17 +407,27 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
             delta === :none ? nothing : delta
         end
 
+        # V's own cells, drawn after every other seed, so that without them the
+        # draws are as before.
+        nv = n_viability_cells
+        vseeds = reshape(_cell_seeds(stream, nv * K * M), nv, K, M)
+        isdisjoint(vseeds, seeds) && (dc === nothing || isdisjoint(vseeds, dc.seeds)) ||
+            error("V's seeds meet the prediction's; draw again")
+
         f = _forward_setup(ms, forward; horizon)
         θI = [draw_values(pd, r) for r in rows]
         plain = [vcat(θI[m], θH[k]) for m in 1:M, k in 1:K]
-        # Every baseline run, then V on each pair, then the intervened runs of
-        # the pairs V keeps. Each phase runs its cells threaded or not, with the
-        # same result.
-        cells = _run_matrix(f, map(x -> haldane_values(ms, x), plain), seeds, quantity,
-                            trues(M, K); threads)
+        base = map(x -> haldane_values(ms, x), plain)
+        # Every baseline run (μ̂'s cells, and V's own if it has them), then V on
+        # each pair, then the intervened runs of the pairs V keeps. Each phase
+        # runs its cells threaded or not, with the same result.
+        cells = _run_matrix(f, base, seeds, quantity, trues(M, K); threads)
+        vcells = nv == 0 ? fill(CellRun[], M, K) :
+                 _run_matrix(f, base, vseeds, quantity, trues(M, K); threads)
         decisions = Matrix{NamedTuple}(undef, M, K)
         for i in eachindex(cells)
-            decisions[i] = conditioned ? assess_viability(cells[i], viability) :
+            decisions[i] = conditioned ?
+                           assess_viability(nv == 0 ? cells[i] : vcells[i], viability) :
                            (; viable = true, fraction = 1.0, counts = Dict{Symbol, Int}())
         end
         cells_i = if intervention === nothing
@@ -415,31 +442,33 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                                        reduction_declarations(ms, f.route)
         settings = (; forward, completion, estimand, quantity = _quantity_label(quantity),
                     horizon = f.horizon, n_parameter_draws = M, n_held = K, width,
-                    n_cells = nc, intervention,
+                    n_cells = nc, n_viability_cells = nv, intervention,
                     delta = delta isa DeltaCorrection ? :cached : delta,
                     n_ref = delta === :ensemble ? n_ref : 0,
                     viability = viability === nothing ? nothing : viability.label)
         _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i, decisions,
-                  completion, viability, intervention, dc, hp, fork, settings, labels,
-                  threads ? Threads.nthreads() : 1)
+                  vseeds, vcells, completion, viability, intervention, dc, hp, fork, settings,
+                  labels, threads ? Threads.nthreads() : 1)
     end
 end
 
 # What each pair ran, from what, and what became of it (KIM-33).
-function _pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
+function _pair_provenance(pd, rows, seeds, cells, cells_i, decisions, vseeds, vcells,
+                          completion, m, k)
     failed(cs) = [(seed = c.seed, failure = c.failure, message = c.message)
                   for c in cs if c.failure !== :none]
     r = rows[m]
     return (; draw = r, chain = pd.chain[r], iteration = pd.iteration[r],
             theta_H_source = completion === :none ? :none :
                              completion === :prior ? :prior : :viability_conditioned,
-            held_draw = k, seeds = seeds[:, k, m], viable = decisions[m, k].viable,
-            failed = failed(cells[m, k]), failed_intervened = failed(cells_i[m, k]))
+            held_draw = k, seeds = seeds[:, k, m], viability_seeds = vseeds[:, k, m],
+            viable = decisions[m, k].viable, failed = failed(cells[m, k]),
+            failed_viability = failed(vcells[m, k]), failed_intervened = failed(cells_i[m, k]))
 end
 
 function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i,
-                   decisions, completion, viability, intervention, dc, hp, fork, settings,
-                   labels, nthreads)
+                   decisions, vseeds, vcells, completion, viability, intervention, dc, hp,
+                   fork, settings, labels, nthreads)
     M, K = size(cells)
     mom = [_moments([c.q for c in cells[i]]) for i in CartesianIndices(cells)]
     mu, s2, nok = first.(mom), getindex.(mom, 2), last.(mom)
@@ -482,8 +511,8 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
     for cs in cells_i, c in cs
         statuses_intervened[cell_status(c)] += 1
     end
-    pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, completion, m, k)
-             for m in 1:M, k in 1:K]
+    pairs = [_pair_provenance(pd, rows, seeds, cells, cells_i, decisions, vseeds, vcells,
+                              completion, m, k) for m in 1:M, k in 1:K]
     provenance = (; fork_seed = fork, version = pkgversion(@__MODULE__), settings,
                   source = pd.source, reductions = labels, skipped = hp.skipped, pairs,
                   threads = nthreads)
@@ -491,8 +520,8 @@ function _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, ce
                       f.horizon, rows, θI,
                       pd.sigma_b === nothing ? nothing : pd.sigma_b[rows], hnames, θH,
                       seeds, cells, mu, s2, nok, intervention, cells_i, effect, es2,
-                      viability, viable, decisions, weights, conditioning, dc, summary,
-                      esummary, statuses, statuses_intervened, provenance)
+                      viability, viable, decisions, vseeds, vcells, weights, conditioning, dc,
+                      summary, esummary, statuses, statuses_intervened, provenance)
 end
 
 export Prediction, predict
