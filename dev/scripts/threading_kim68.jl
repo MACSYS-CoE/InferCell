@@ -32,7 +32,7 @@
 include(joinpath(@__DIR__, "pilot_common.jl"))
 using InferCell: AbstractSubModel
 using Random
-using Statistics: median, quantile
+using Statistics: median
 using Printf
 using LinearAlgebra: BLAS
 using Profile
@@ -198,6 +198,16 @@ function report()
     files = filter(f -> endswith(f, ".jls"), readdir(OUT))
     rows = String[]
     serial_med(base) = median(c.time for c in base.cells)
+    # Shared by a pass and by the procs: per-cell slowdown, GC's share of the cells'
+    # time and of the wall (the process's own GC clock), the pauses, and the idle
+    # share, 1 - Σ cell time / (threads × wall).
+    function cols(ps, T, s)
+        cells = [c for p in ps for c in p.cells]
+        gc, pauses, wall = sum(p.gc_time for p in ps), sum(p.gc.pause for p in ps), sum(p.wall for p in ps)
+        return @sprintf("%.1f | %.2f | %.2f | %d | %.2f | %.2f", median(c.time for c in cells) / s,
+                        sum(c.gctime for c in cells) / sum(c.time for c in cells), gc / wall,
+                        pauses, gc / pauses, 1 - sum(c.time for c in cells) / (T * maximum(p.wall for p in ps)))
+    end
     for f in sort(files)
         r = deserialize(joinpath(OUT, f))
         x = r.result
@@ -206,14 +216,11 @@ function report()
             for p in x.passes
                 n = length(p.cells)
                 eff = n * s / (x.env.threads * p.wall)
-                gshare = sum(c.gctime for c in p.cells) / sum(c.time for c in p.cells)
-                slow = median(c.time for c in p.cells) / s
-                tail = p.wall - quantile([c.stop for c in p.cells], 0.5)
-                push!(rows, @sprintf("| %s | %s | %d | %d | %s | %d | %.0f | %.2f | %.2f | %.1f | %.2f | %.0f | %.1f |",
+                push!(rows, @sprintf("| %s | %s | %d | %d | %s | %d | %.0f | %.2f | %.2f | %s | %.1f |",
                                      x.env.label, x.env.node, x.env.threads, x.env.gcthreads,
-                                     p.loop, n, p.wall, eff, s, slow, gshare, tail, p.maxrss_gib))
+                                     p.loop, n, p.wall, eff, s, cols([p], x.env.threads, s), p.maxrss_gib))
             end
-            x.predict === nothing || push!(rows, @sprintf("| %s | %s | %d | %d | predict | %d | %.0f | %.2f | %.2f | | | | %.1f |",
+            x.predict === nothing || push!(rows, @sprintf("| %s | %s | %d | %d | predict | %d | %.0f | %.2f | %.2f | | | | | | | %.1f |",
                                                          x.env.label, x.env.node, x.env.threads,
                                                          x.env.gcthreads, x.predict.cells,
                                                          x.predict.wall,
@@ -227,18 +234,19 @@ function report()
         n = sum(length(p.pass.cells) for p in procs)
         s = median(serial_med(p.base) for p in procs)
         T = sum(p.env.threads for p in procs)
-        cells = [c for p in procs for c in p.pass.cells]
-        push!(rows, @sprintf("| procs %dx%d | %s | %d | %d | greedy | %d | %.0f | %.2f | %.2f | %.1f | %.2f | | %.1f |",
+        push!(rows, @sprintf("| procs %dx%d | %s | %d | %d | greedy | %d | %.0f | %.2f | %.2f | %s | %.1f |",
                              length(procs), procs[1].env.threads, procs[1].env.node, T,
                              procs[1].env.gcthreads, n, wall, n * s / (T * wall), s,
-                             median(c.time for c in cells) / s,
-                             sum(c.gctime for c in cells) / sum(c.time for c in cells),
+                             cols([p.pass for p in procs], T, s),
                              maximum(p.pass.maxrss_gib for p in procs)))
     end
     open(joinpath(OUT, "summary.md"), "w") do io
         println(io, "# KIM-68 threading diagnosis: summary, at $COMMIT\n")
-        println(io, "| variant | node | threads | GC threads | loop | cells | wall (s) | efficiency | serial median (s) | per-cell slowdown | GC share | tail after median stop (s) | MaxRSS (GiB) |")
-        println(io, "|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        println(io, "Efficiency = cells × the node's serial median / (threads × wall). GC's share ",
+                "of the wall is the process's GC clock over its wall (summed over processes ",
+                "for procs). Idle share = 1 − Σ cell time / (threads × wall).\n")
+        println(io, "| variant | node | threads | GC threads | loop | cells | wall (s) | efficiency | serial median (s) | per-cell slowdown | GC share of cell time | GC share of wall | GC pauses | mean pause (s) | idle share | MaxRSS (GiB) |")
+        println(io, "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         foreach(r -> println(io, r), rows)
         if "serial.jls" in files
             x = load(OUT, "serial")
