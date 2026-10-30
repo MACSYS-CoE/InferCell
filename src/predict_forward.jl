@@ -162,7 +162,7 @@ end
 function _run_cells(f::_ForwardSetup, values, seeds, quantity; threads::Bool = false)
     f.forward === :hybrid || return [_mean_field_cell(f, values, quantity)]
     out = Vector{CellRun}(undef, length(seeds))
-    _each_cause(length(seeds), threads) do i
+    _each(length(seeds), threads) do i
         out[i] = _hybrid_cell(f, values, seeds[i], quantity)
     end
     return out
@@ -184,7 +184,7 @@ function _run_matrix(f::_ForwardSetup, values::AbstractMatrix, seeds::AbstractAr
         out[m, k] = Vector{CellRun}(undef, n)
         append!(jobs, ((m, k, c) for c in 1:n))
     end
-    _each_cause(length(jobs), threads) do j
+    _each(length(jobs), threads) do j
         m, k, c = jobs[j]
         out[m, k][c] = f.forward === :hybrid ?
                        _hybrid_cell(f, values[m, k], seeds[c, k, m], quantity) :
@@ -192,22 +192,6 @@ function _run_matrix(f::_ForwardSetup, values::AbstractMatrix, seeds::AbstractAr
     end
     return out
 end
-
-# `_each`, with an error inside a task rethrown as itself rather than wrapped in
-# a `CompositeException` of `TaskFailedException`s, so a refusal keeps its type
-# whether or not the work ran threaded.
-function _each_cause(f, n::Integer, threads::Bool)
-    try
-        _each(f, n, threads)
-    catch e
-        c = _task_cause(e)
-        c === e ? rethrow() : throw(c)
-    end
-    return nothing
-end
-_task_cause(e::CompositeException) = _task_cause(first(e.exceptions))
-_task_cause(e::TaskFailedException) = _task_cause(e.task.exception)
-_task_cause(e) = e
 
 # The cells reseed the global generator; a caller's stream is put back after.
 function _restoring_global_rng(f)

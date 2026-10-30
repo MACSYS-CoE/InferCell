@@ -245,4 +245,28 @@ end
         lw, ev = advance_window!(Xoshiro(3), e, sp, [dm.jump.u[s] for s in tmm.states], y1, ymet)
         @test isfinite(lw) && [e.jump.u[s] for s in tmm.states] == y1
     end
+
+    # KIM-68: `_each` hands out i as the threads free up, and the first error
+    # stops it, thrown as the serial loop's would be.
+    @testset "_each: every i once, and the serial loop's error, as itself ($(Threads.nthreads()) threads)" begin
+        for threads in (false, true), n in (0, 1, 2, max(1, Threads.nthreads() - 1), 50)
+            hits = zeros(Int, n)
+            InferCell._each(i -> (hits[i] += 1), n, threads)
+            @test all(==(1), hits)
+        end
+        # Two calls fail: the lower i's error is thrown, as its own type.
+        two = i -> i == 7 ? throw(DomainError(i, "seventh")) :
+                   i == 3 ? throw(ArgumentError("third")) : nothing
+        for threads in (false, true)
+            @test_throws ArgumentError InferCell._each(two, 20, threads)
+        end
+        @test_throws MetabolicBlockStalled InferCell._each(
+            i -> i == 2 && throw(MetabolicBlockStalled(1.0, 1, 0.5, :Unstable)), 4, true)
+        # An early failure stops the rest: with contiguous chunks, the other
+        # threads' chunks would all run.
+        ran = Threads.Atomic{Int}(0)
+        early = i -> (Threads.atomic_add!(ran, 1); i == 1 && error("the first"); sleep(0.001))
+        @test_throws ErrorException InferCell._each(early, 1000, true)
+        @test ran[] < 500
+    end
 end
