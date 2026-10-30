@@ -1,6 +1,46 @@
 # Handoff
 
-## Latest: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
+## Latest: KIM-68, M5 prep, at the gate (branch `tomkimpson/kim-68-m5-prep-predicts-threading-efficiency-gc-a-work-stealing`, 2026-10-31)
+
+**State: stage 1 done; waiting for the user's call at the gate** (the plan,
+`dev/notes/2026-10-30-kim68-plan.md`). No threading fix is made before that call:
+no GC flags, thread counts or processes, and no `Distributed`.
+
+**Stage 1, in commits on the branch from `93abbce`:**
+- the frozen reference (`test/fixtures/predict_reference.jl`, generated at `93abbce`
+  by job 19580684, dave10) and its test;
+- `_each` as a greedy scheduler that stops on the first error (`23ae259`);
+- E1 and E2's simplifications (`fbf6c23`); `src` is unchanged since;
+- `MetabolicBlockStalled` end to end (`403def1`);
+- `pilot_common.jl`, `launcher_guard.sh` and the diagnosis (`d9261a2` on).
+
+**Checks so far:**
+- the full suite at `6e2a45c`: 29,687 pass, job 19583252 (dave94, 1 h 18 m of its
+  1 h 30 m limit). No `src` or `test` change has followed it.
+- The bitwise old-against-new check, job 19581869 (dave61): every value is
+  byte-identical. It printed DIFFERENT only because the line naming each tree's
+  commit differs; the script now leaves that line out (`4049648`). **A clean
+  IDENTICAL run at the final head is still to do.**
+
+**The diagnosis** (`dev/scripts/threading_kim68_result.md`; archive
+`/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/threading/`, jobs
+19583235–19583244, report rerun 19586524 at `c25b659`):
+- the time is lost to GC inside the cells: idle share 0.03–0.06, GC 0.46 of the
+  wall at 16 threads and 0.79 at 64;
+- BLAS and mark threads are ruled out; `--gcthreads=32,1` (one concurrent sweep
+  thread) takes 64 threads from 464 s to 166 s on the 128 cells;
+- 4 processes × 16 threads take 135 s;
+- the allocation sites are KIM-71 (report only).
+
+**After the call:** any stage 2; spec §12's entry; this note in full; the bitwise
+check at the final head; the suite again if `src` or `test` changed; CI;
+`/check-PR`; merge with a merge commit; KIM-68 Done; the archive's `SHA256SUMS`.
+
+**Pushing:** SSH to GitHub failed from this shell on 2026-10-31 (publickey). It
+works over HTTPS with gh's token:
+`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/MACSYS-CoE/InferCell.git HEAD:refs/heads/<branch>`.
+
+## Earlier: M4, pilots and the freeze (branch `tomkimpson/m4-pilots-freeze-kim-35-39-62-63`, 2026-10-30)
 
 **Done:** one PR, one commit per issue, from `.worktrees/m4-pilots`, based on
 main at `27d3f88`. The plan approved on 2026-10-30 is copied verbatim into
