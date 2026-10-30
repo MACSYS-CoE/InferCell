@@ -96,9 +96,8 @@ before and after compare like for like). Nothing reads an evidence posterior.
      to 0.17 s.
    - This is one run, on one node. The node baselines span 24.8–28.1 s, about 13%,
      and the four default-like 64-thread runs 441–477 s, against a 2.8× change.
-   - Not measured: `,1` at 16 threads (where the default pause is already 0.14 s, but
-     GC is still 0.46 of the wall); fewer mark threads with `,1` (64 + 33 threads
-     oversubscribe 64 cores); and `predict`'s own call under the flag.
+   - Not measured here: `,1` at 16 threads, fewer mark threads with `,1`, and
+     `predict`'s own call under the flag. The confirmation (below) measured all three.
 5. **Separate processes avoid sharing one 64-thread heap.** 4 processes × 16 threads on
    one node finish in 135 s, efficiency 0.37.
    - Against the one 64-thread process, GC's share of the wall falls from 0.79 to 0.44,
@@ -144,6 +143,41 @@ efficiencies agreed at 16 threads too.)
   faster.
 - Whether these gaps are the parameter set, the commit or the node is not tested here.
 
+## The confirmation (the gate's call)
+
+At the gate the user chose `--gcthreads=N,1` for KIM-42, once three runs confirm it
+(spec §12, 2026-10-31). `dev/scripts/threading_kim68_confirm.sh` ran the `threaded`
+stage (the new `_each`, then one full `predict` call) at `3f76d43` (tag
+`kim68-run-3f76d43`), into
+`/fred/oz022/tkimpson/infercell-m5-kim68-2026-10-30/threading-confirm/`. Jobs:
+precompile 19605418 (dave4); `32,1` at 64 threads 19605419 (dave9, kept off
+dave13); `8,1` at 64 threads 19605420 (dave9); `8,1` at 16 threads 19605421
+(dave10); report 19605422 (dave3).
+
+| variant | node | threads | GC threads | loop | wall (s) | efficiency | serial median (s) | per-cell slowdown | GC share of wall | GC pauses | mean pause (s) | idle share | MaxRSS (GiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `--gcthreads=32,1` | dave9 | 64 | 32 + 1 sweep | greedy | **159** | 0.34 | 27.19 | 2.8 | 0.28 | 282 | 0.16 | 0.05 | 30.4 |
+| `--gcthreads=32,1` | dave9 | 64 | 32 + 1 sweep | predict | **150** | 0.36 | 27.19 | | | | | | 30.4 |
+| `--gcthreads=8,1` | dave9 | 64 | 8 + 1 sweep | greedy | **159** | 0.35 | 27.98 | 2.7 | 0.30 | 281 | 0.17 | 0.05 | 29.4 |
+| `--gcthreads=8,1` | dave9 | 64 | 8 + 1 sweep | predict | **154** | 0.36 | 27.98 | | | | | | 31.1 |
+| `--gcthreads=8,1` | dave10 | 16 | 8 + 1 sweep | greedy | **394** | 0.52 | 25.46 | 1.9 | 0.14 | 1,955 | 0.03 | 0.03 | 5.1 |
+| `--gcthreads=8,1` | dave10 | 16 | 8 + 1 sweep | predict | **392** | 0.52 | 25.46 | | | | | | 5.2 |
+
+In every run both Q's agree (the pass's and `predict`'s), no cell failed, and BLAS
+ran on one thread.
+
+1. **The gain reproduces on another node.** `32,1` at 64 threads gives 159 s on dave9
+   against 166 s on dave13, and `predict`'s own call 150 s, against 464–477 s at the
+   default.
+2. **The number of mark threads does not matter.** `8,1` gives the same wall at 64
+   threads as `32,1` (159 s; `predict` 154 s against 150 s). The sweep thread is the
+   gain.
+3. **The flag helps at 16 threads too.** `8,1` takes 394 s against the default's
+   551 s, efficiency 0.52 against 0.37. GC's share of the wall falls from 0.46 to
+   0.14, and the mean pause from 0.14 s to 0.03 s.
+4. **For KIM-42:** the flagged 64-thread walls span 150–166 s in four measurements on
+   two nodes, against 464–477 s at the default, a factor of 2.8–3.2.
+
 ## What it means for M5 (for the gate)
 
 The freeze's "about 24 h for each width on one node" (spec §12, 2026-10-30) is KIM-38's
@@ -153,9 +187,10 @@ Scaled by the measured walls, on the assumption that KIM-42's cells cost like th
 | setting | wall, 128 cells | per width, one node | core-h, three widths (frozen: 3,000–4,500) | needs |
 |---|---|---|---|---|
 | default, 64 threads | 464 s | about 24 h | 3,000–4,500 | nothing |
-| `--gcthreads=32,1`, 64 threads | 166 s | about 8.6 h | about 1,100–1,600 | a launcher flag |
+| `--gcthreads=N,1`, 64 threads (the gate's call; 4 measurements, 2 nodes) | 150–166 s | about 7.8–8.6 h | about 1,000–1,600 | a launcher flag |
 | 4 processes × 16 threads | 135 s | about 7 h | about 870–1,300 | the matrix split over processes and combined (KIM-40's combiner), and `predict`'s rules on splitting rows under completion |
 
 - M0 (KIM-40, KIM-41) runs single-core tasks, at the serial GC share of 0.027. This
   diagnosis does not change M0's estimate.
-- The user's call at the gate, and any confirmation run, are recorded in spec §12.
+- The user's call at the gate and the confirmation are recorded in spec §12,
+  2026-10-31.
