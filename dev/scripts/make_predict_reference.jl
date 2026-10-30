@@ -35,7 +35,8 @@ function main()
     for (name, run) in predict_reference_calls()
         t = @elapsed s = run(false)
         u = run(true)
-        isequal(s, u) || error("call $name: threaded differs from serial at $(_pref_diff(s, u))")
+        isequal(s, u) ||
+            error("call $name: threaded differs from serial at $(_pref_diff(s, u; rtol = 0.0, atol = 0.0))")
         push!(results, name => s)
         println("$name: $(round(t; digits = 1)) s serial, threaded equal")
         flush(stdout)
@@ -59,7 +60,8 @@ function main()
     Base.include_string(m, text)
     back = Base.invokelatest(getfield, m, :PREDICT_REFERENCE)
     for (name, r) in results
-        isequal(back[name], r) || error("call $name does not round-trip: $(_pref_diff(back[name], r))")
+        isequal(back[name], r) ||
+            error("call $name does not round-trip: $(_pref_diff(back[name], r; rtol = 0.0, atol = 0.0))")
     end
 
     open(OUT, "w") do io

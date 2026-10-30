@@ -101,37 +101,38 @@ function predict_reference_posterior()
     return (; names = p.names, values = p.values, sigma_b = p.sigma_b)
 end
 
-# Equal, with floats to `rtol` (NaN equal to NaN); everything else exactly.
-_pref_match(a::AbstractFloat, b::AbstractFloat; rtol) =
-    isequal(a, b) || isfinite(a) && isfinite(b) && isapprox(a, b; rtol)
-_pref_match(a::AbstractArray, b::AbstractArray; rtol) =
-    size(a) == size(b) && all(_pref_match(x, y; rtol) for (x, y) in zip(a, b))
-_pref_match(a::NamedTuple, b::NamedTuple; rtol) =
-    keys(a) == keys(b) && all(_pref_match(a[k], b[k]; rtol) for k in keys(a))
-_pref_match(a::Tuple, b::Tuple; rtol) =
-    length(a) == length(b) && all(_pref_match(x, y; rtol) for (x, y) in zip(a, b))
-_pref_match(a::Pair, b::Pair; rtol) =
-    _pref_match(a.first, b.first; rtol) && _pref_match(a.second, b.second; rtol)
-_pref_match(a, b; rtol) = isequal(a, b)
+# Equal, with floats to `rtol` and `atol` (NaN equal to NaN); everything else exactly.
+_pref_match(a::AbstractFloat, b::AbstractFloat; tol...) =
+    isequal(a, b) || isfinite(a) && isfinite(b) && isapprox(a, b; tol...)
+_pref_match(a::AbstractArray, b::AbstractArray; tol...) =
+    size(a) == size(b) && all(_pref_match(x, y; tol...) for (x, y) in zip(a, b))
+_pref_match(a::NamedTuple, b::NamedTuple; tol...) =
+    keys(a) == keys(b) && all(_pref_match(a[k], b[k]; tol...) for k in keys(a))
+_pref_match(a::Tuple, b::Tuple; tol...) =
+    length(a) == length(b) && all(_pref_match(x, y; tol...) for (x, y) in zip(a, b))
+_pref_match(a::Pair, b::Pair; tol...) =
+    _pref_match(a.first, b.first; tol...) && _pref_match(a.second, b.second; tol...)
+_pref_match(a, b; tol...) = isequal(a, b)
 
-# The first path at which two results differ, for the failure message.
-function _pref_diff(a, b, path = "")
-    _pref_match(a, b; rtol = 1e-8) && return nothing
+# The first path at which two results differ, for the failure message. The default
+# tolerance is the test's; the generator passes zero for an exact comparison.
+function _pref_diff(a, b, path = ""; rtol = 1e-6, atol = 1e-9)
+    _pref_match(a, b; rtol, atol) && return nothing
     if a isa NamedTuple && b isa NamedTuple && keys(a) == keys(b)
         for k in keys(a)
-            d = _pref_diff(a[k], b[k], "$path.$k")
+            d = _pref_diff(a[k], b[k], "$path.$k"; rtol, atol)
             d === nothing || return d
         end
     elseif (a isa AbstractArray && b isa AbstractArray && size(a) == size(b)) ||
            (a isa Tuple && b isa Tuple && length(a) == length(b))
         for (i, (x, y)) in enumerate(zip(a, b))
-            d = _pref_diff(x, y, "$path[$i]")
+            d = _pref_diff(x, y, "$path[$i]"; rtol, atol)
             d === nothing || return d
         end
     elseif a isa Pair && b isa Pair
-        d = _pref_diff(a.first, b.first, "$path.first")
+        d = _pref_diff(a.first, b.first, "$path.first"; rtol, atol)
         d === nothing || return d
-        return _pref_diff(a.second, b.second, "$path.second")
+        return _pref_diff(a.second, b.second, "$path.second"; rtol, atol)
     end
     return "$path: $(repr(a)) ≠ $(repr(b))"
 end
