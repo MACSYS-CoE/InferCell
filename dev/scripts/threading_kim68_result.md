@@ -46,7 +46,7 @@ before and after compare like for like). Nothing reads an evidence posterior.
 | default | 64 | 32 | predict | 477 | 0.11 | 26.09 | | | | | | | 31.7 |
 | `--gcthreads=32,1` | 64 | 32 + 1 sweep | greedy | **166** | **0.31** | 26.17 | 3.0 | 0.30 | 0.30 | 284 | 0.17 | 0.05 | 29.9 |
 | `--gcthreads=1` | 64 | 1 | greedy | 441 | 0.11 | 24.86 | 8.5 | 0.77 | 0.77 | 286 | 1.18 | 0.04 | 31.4 |
-| `OPENBLAS_NUM_THREADS=1` | 64 | 32 | greedy | 446 | 0.13 | 28.11 | 7.6 | 0.77 | 0.77 | 291 | 1.18 | 0.04 | 31.0 |
+| `OPENBLAS_NUM_THREADS=1` (BLAS was 1 in every run; item 2) | 64 | 32 | greedy | 446 | 0.13 | 28.11 | 7.6 | 0.77 | 0.77 | 291 | 1.18 | 0.04 | 31.0 |
 | 4 processes × 16 | 64 | 8 each | greedy | **135** | **0.37** | 24.83 | 2.6 | 0.45 | 0.44 | 2,238 | 0.11 | 0.06 | 4.3 each |
 
 **Serial** (dave3, 8 cells, one at a time): 25.90–31.15 s per cell, median 28.88 s; GC
@@ -65,8 +65,16 @@ before and after compare like for like). Nothing reads an evidence posterior.
      threads and the other at 64. The new scheduler is about errors (the lowest failing
      index's, thrown as itself; the rest of the work stopped), not speed. `predict`'s
      own wall matches the passes'.
-2. **BLAS is ruled out**, as the PR #123 review read it: one BLAS thread gives 446 s
-   against 464 s.
+2. **BLAS is not the cause, but this variant did not test it.** BLAS ran on one
+   thread in every run, the default included. The cluster's `/etc/profile.d` sets
+   `OMP_NUM_THREADS=1`, the jobs inherit it (`--export=ALL`), and OpenBLAS reads it
+   when `OPENBLAS_NUM_THREADS` is unset. Each log prints `BLAS 1`. (Corrected
+   2026-10-31: this item first read the variant as ruling BLAS out.)
+   - So the `OPENBLAS_NUM_THREADS=1` row repeats the default on another node. Its
+     446 s against 464 s is node-to-node variation, about 4%.
+   - BLAS threads cannot have oversubscribed the cores here. KIM-42's launcher
+     should set `OPENBLAS_NUM_THREADS=1` itself rather than rely on the site's
+     profile.
 3. **Parallel marking is not the cost.** One GC thread (441 s) does as well as 32
    (464 s).
 4. **The sweep is.** `--gcthreads=32,1` adds one concurrent sweep thread to the default
