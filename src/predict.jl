@@ -139,7 +139,10 @@ function _summary(mu, s2, nok, w, shift, forward)
     d = 1 - sum(abs2, v)
     raw = d > 0 ? sum(v[i] * (mu[i] - m)^2 for i in eachindex(mu) if ok[i]) / d : NaN
     if forward === :hybrid
-        mc = sum(v[i] * s2[i] / nok[i] for i in eachindex(mu) if ok[i])
+        # The noise E[σ̂²/n] adds to the reliability-weighted variance:
+        # Σ v(1 − v)τ / (1 − Σv²), which is Σ vτ only for equal weights (KIM-66).
+        mc = d > 0 ? sum(v[i] * (1 - v[i]) * s2[i] / nok[i] for i in eachindex(mu) if ok[i]) / d :
+                     NaN
         intrinsic = sum(v[i] * s2[i] for i in eachindex(mu) if ok[i])
     else
         mc, intrinsic = 0.0, NaN
@@ -252,8 +255,9 @@ corrected one, since the gap between them is part of the result (spec §12
 weight set, `summary` gives:
 - `mean`: the predicted population mean, δ-corrected when δ is given;
 - `var`: the spread of μ̂ over the matrix's pairs;
-- `mc`: E[σ̂²]/n, the Monte Carlo part of that spread, which the hybrid's finite
-  cells add;
+- `mc`: the Monte Carlo part of that spread, which the hybrid's finite cells
+  add: Σ v(1 − v)τ / (1 − Σv²) for normalised weights v and τ = σ̂²/n, which is
+  E[σ̂²]/n when the weights are equal;
 - `parameter_var`: `var − mc`. A negative difference is reported as 0, and
   `flagged`. Under two finished cells per pair (the default `n_cells = 1` among
   them), σ̂² does not exist, so `mc` and `parameter_var` are NaN and
@@ -267,9 +271,8 @@ Without completion, the rows are independent posterior draws, and
 every row shares the same K held draws, so with equal weights the held
 parameters' main effect enters `var` only in proportion M(K−1)/(MK−1), about
 (K−1)/K, and not at all at `n_held = 1`. Then `var` is a spread over the matrix, not the parameter variance.
-The total and its θ_I/θ_H split are not computed here, since their estimators on
-the crossed matrix are fixed in M4 (note §5.2). `mu`, `sigma2`, `viable` and the
-weights are what they need.
+The total and its θ_I/θ_H split on the crossed matrix are
+[`variance_split`](@ref)'s (note §5.2, KIM-66).
 
 **The intervention** (an [`Intervention`](@ref), such as a [`Knockdown`](@ref))
 is applied after the parameter draw. Its arm runs on the same seeds, and

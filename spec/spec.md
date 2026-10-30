@@ -4487,6 +4487,38 @@ No result changes.
     reverse constant, or of a name the composition lacks, is then refused before
     any cell runs. Before, it was refused only after the baseline cells (and
     under `delta = :ensemble`, after δ's whole baseline arm).
+- **The variance split on the crossed matrix, and the MC term (KIM-66).**
+  - **The summary's MC term** is now Σ v(1−v)τ / (1−Σv²), the noise in the
+    reliability-weighted variance for any normalised weights v. It was Σ vτ,
+    which is right only for equal weights (KIM-63's first item).
+  - **`variance_split(p; weights)`** gives, under one weight set:
+    - the total Var[μ];
+    - the I-first split, Var_I[E(μ | θ_I)] + E_I[Var(μ | θ_I)];
+    - the H-first split, Var_H[E(μ | θ_H)] + E_H[Var(μ | θ_H)];
+    - the held share in each order, and the gap between the orders;
+    - the noise it removed, and a flag on each negative component, which is
+      reported as 0.
+
+    It fixes no headline order. That is the freeze's.
+  - **The estimator.** Every moment is a weighted U-statistic on μ̂, centred
+    on its weighted mean.
+    - A product of two μ̂ enters only if they come from distinct draws of what
+      is averaged over. E(μ | θ_I)² uses distinct columns within a row, E(μ |
+      θ_H)² distinct rows within a column, and (Eμ)² distinct rows and columns.
+      So the cells' noise cancels from every product, and the shared columns of
+      the crossed design bias nothing. This is the bias note §5.2 names for the
+      plain variance of the row means.
+    - The one diagonal term, E[μ²], has τ = σ̂²/n removed.
+    - Without a mask, every component is exactly unbiased. Under V, the weights
+      are ratio estimates of the conditioned law, biased at O(1/K).
+    - **Centring was added after a smoke pass.** At R = 30, the masked estimate
+      moved with μ's mean. A mask's pair weights are not the weights, so the
+      U-statistics are not shift-invariant, and a Q of ~10⁵ particles would
+      swamp its own variance. Centred, the split agrees to 1e-12 with μ̂ moved
+      by 10⁵, masked or not, and the unmasked values are unchanged.
+  - **The simulation check** is `dev/scripts/variance_split_check_kim66.jl`. It
+    is declared in its header before its run, and its result goes in the
+    freeze entry.
 
 **Checks:**
 - A threaded-equals-serial testset (`test_predict.jl`), run at the suite's 4
@@ -4505,9 +4537,20 @@ No result changes.
   - the intervened counts are checked on made-up cells;
   - a knockdown of `:kcatR_R_ENO`, or of a missing name, is refused while a Q
     that counts its calls has been called 0 times.
+- KIM-66's tests (`test_predict_variance.jl`, and `test_predict.jl`'s
+  predictions), on made-up matrices with a known split, μ = a x + b y + g x y:
+  - every component is unbiased without a mask (400 replicates, within 4 SE);
+  - the split is invariant to a 10⁵ offset, masked or not;
+  - the rows-only and missing-μ̂ cases, and the undefined MC term;
+  - the new MC term is unbiased at v = (.7, .1, .1, .1) (20,000 replicates).
 
-**Unchanged:** the seed scheme, the stream, the restored global generator, and
-every recorded number.
+  On a real M0 prediction, the split equals `parameter_var`; on the threaded
+  reduced-model run, it equals the serial one.
+
+**Unchanged:**
+- the seed scheme, the stream, and the restored global generator;
+- every recorded result. The new MC term changes `summary.mc` only under
+  unequal weights, and only M3's smoke run (toy V, not a result) printed one.
 
 *Sections:* §12.
 
