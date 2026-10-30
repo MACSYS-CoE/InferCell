@@ -138,7 +138,7 @@ function _variance_split(mu::AbstractMatrix, τ::AbstractMatrix, w0::AbstractMat
         a, c, nr, nc = 0.0, total, 0, count(>(0), sum(w; dims = 1))
     end
     b, d = total - a, total - c
-    clip(x) = isnan(x) ? x : max(x, 0.0)
+    clip(x) = max(x, 0.0)          # max propagates NaN
     t = clip(total)
     return (; total = t, i_first = (; between = clip(a), within = clip(b)),
             h_first = (; between = clip(c), within = clip(d)),
