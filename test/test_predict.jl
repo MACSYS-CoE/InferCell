@@ -40,6 +40,12 @@ end
         @test !s.mc_undefined
         @test sum(values(p.statuses)) == 6
         @test p.effect_summary === nothing && p.delta === nothing
+        # KIM-66: with no held parameter, the whole variance is θ_I's, and it is
+        # the summary's parameter variance.
+        e = variance_split(p)
+        @test !e.held_varies && e.inferred_varies && e.h_first.between == 0
+        @test e.i_first.between == e.total && e.total ≈ s.parameter_var
+        @test_throws ArgumentError variance_split(p; weights = :joint)
     end
 
     @testset "mean field on M0, uncorrected and δ-corrected" begin
@@ -160,6 +166,9 @@ end
         @test same(s, t)
         @test s.provenance.threads == 1 && t.provenance.threads == Threads.nthreads()
         @test any(!isempty, t.cells_intervened)
+        for w in (:per_theta_I, :joint)
+            @test isequal(variance_split(s; weights = w), variance_split(t; weights = w))
+        end
 
         mkw = (; horizon = H, forward = :mean_field, delta = :ensemble, n_ref = 4,
                n_parameter_draws = 3)
