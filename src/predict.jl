@@ -76,6 +76,9 @@ draws (k = 1…K). Without completion there is one column.
     reason;
   - `threads`: the threads the cells ran on, 1 when not threaded. The result
     does not depend on it.
+
+  A [`combine_rows`](@ref) result holds one `fork_seed` and one `threads` per
+  block, and `block_rows`, each block's row count.
 """
 struct Prediction
     forward::Symbol
@@ -325,7 +328,7 @@ and its run, so the result is the serial one. A crossed matrix with completion
 is run by one call, threaded on one node: calls cannot share it, as above.
 Without completion (M0), the rows can also be split over calls, each with its
 own `rng` and disjoint `draws`, and a corrected mean field given one shared
-[`DeltaCorrection`](@ref).
+[`DeltaCorrection`](@ref). [`combine_rows`](@ref) puts the blocks back together.
 A reduced-model cell at 6,300 s allocates about 25 GiB, so at many threads garbage
 collection takes most of the time. Start Julia with one concurrent sweep thread,
 `--gcthreads=N,1`; the number of mark threads N did not matter (8 and 32 at 64
