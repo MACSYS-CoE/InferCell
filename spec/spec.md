@@ -4530,6 +4530,304 @@ group now), the Slurm script, and coverage's measurement and its artifact name.
 
 *Sections:* §5 (Environment: the `run_tests.slurm` line), §12.
 
+### 2026-10-31 — KIM-40: M0's run and its scoring, declared before the run (pre-registration; the user's calls)
+
+**Status: declared before any M0 job.** This fixes what the M4 freeze and KIM-69
+left to KIM-40: how M0's evidence run is laid out and seeded, how its row blocks
+are combined, how the truth and δ are computed, and how coverage and sharpness are
+scored. It covers KIM-41's ΔQ too, since it runs in the same calls. Every choice
+in the M4 freeze and in KIM-69's entry stands.
+
+**Trigger:** KIM-40 (Linear), with KIM-41 in the same calls. The plan the user approved on
+2026-10-31 is copied verbatim into `dev/notes/2026-10-31-kim40-plan.md`. The
+user's calls, 2026-10-31, each the recommended option:
+- the scoring uses central empirical-quantile intervals of the draws' μ̂, as they
+  are (below);
+- matched V7 and B7 blocks share cell seeds;
+- two PRs before launch (the combiner; then the launcher, this entry and the smoke
+  pass), and one after it for the results;
+- 150 tasks at once.
+
+**The run** (`dev/scripts/m0_evidence_kim40.{jl,sh}`). Its header holds every
+rule below.
+- **The posteriors:** for each dataset r = 1…50, V7 replicate r (exact) and B7
+  fit r (mixed, its two chains stacked).
+  - **V7:** `replicate<r>.jls` in
+    `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/`;
+  - **B7:** `r<r>/chain_{1,2}.jls`, with the `prep.jls` beside them that holds the
+    truth, in `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/`.
+  - **Pinned:** `prep` records the SHA-256 of all 200 files in the manifest and
+    in `inputs.sha256`. It checks B7's 150 against that archive's `SHA256SUMS`
+    (V7's archive has none), and `score` refuses if any file has changed since.
+- **The draws:** 100 per posterior, evenly spaced,
+  `round.(Int, range(1, N; length = 100))`. N is 556 for V7, after its burn-in of
+  100, and 400 for B7. They are cut into 10 blocks of 10 consecutive draws.
+- **The calls.** Each carries the KIM-41 knockdown, `Knockdown(; dose = 0.3)`,
+  at 600 s, with `completion = :none` and no viability rule.
+  - **The hybrid:** one `predict` call per block, single-core, with 887 cells per
+    draw.
+  - **The mean field:** one call per (r, p) on the hybrid's 100 draws, so the
+    draws are paired. It is reported uncorrected (`mu`) and δ-corrected.
+  - **δ:** one `DeltaCorrection` per (r, p), from 9,849 cells at θ_ref, the
+    posterior mean of log θ (`predict`'s default). It is computed as `predict`'s
+    own `delta = :ensemble` computes it, and passed to the mean field's call.
+  - **The truth** μ(θ*) and Δμ(θ*): a `predict` call on θ* alone, with 9,849
+    cells, so the truth runs the predictions' own code path. θ* is V7 replicate
+    r's stored truth. `prep` checks it against B7 fit r's to 1e-12 relative,
+    since V7 stores it on the log scale and B7 on the natural one (KIM-18 found
+    them identical).
+- **Tasks:** 1,150 single-core work tasks: 100 δ, then 50 truths, then 1,000
+  blocks, at most 150 at once. Then 100 `finish` tasks combine each (r, p)'s
+  blocks and run its mean field. One `score` job follows.
+- **Outputs:** they are never overwritten. A failed task is rerun by the
+  launcher's `missing` mode.
+  - **Two manual steps.** A failed `pre` or `prep` job, or a failed submission
+    of `prep`, leaves `jobs.tsv` and no `manifest.jls`, a directory neither mode
+    takes up: run mode refuses its `jobs.tsv`, and `missing`, once nothing is
+    queued, its lack of a manifest. The run then starts again in a fresh
+    directory; nothing costly has run by then. If a later submission fails
+    (work, finish or score), the jobs already accepted run, prep places the
+    manifest, and `missing` takes the directory up once they have left the
+    queue.
+  - After that, a task killed in the instant between moving its files leaves
+    the earlier ones without the last. `missing` reruns it, and it refuses,
+    naming them, until they are moved aside by hand.
+
+**Seeds** (KIM-40's, from M5's 19_500_000–19_599_999; KIM-41 shares them, and
+KIM-42 keeps 19_542_xxx):
+- block b of dataset r: rng `Xoshiro(19_540_000 + 10(r − 1) + (b − 1))`, the
+  same for V7 and B7;
+- δ for dataset r: the cell seeds `_cell_seeds(Xoshiro(19_541_000 + r), 9_849)`,
+  the same for V7 and B7;
+- the mean field for r: rng `Xoshiro(19_541_200 + r)`. It draws no cell seeds;
+- the truth for r: rng `Xoshiro(19_541_500 + r)`;
+- the smoke pass: 19_541_900 to 19_541_930.
+
+**Common cell seeds (KIM-70 asks this to be said): yes.** With explicit `draws`,
+`predict` draws its cell seeds from `rng` alone. So V7's block b and B7's block b
+run the same cells, at different θ. That removes most of the cells' noise from the
+inference-route comparison. A dataset's blocks run disjoint seeds. Its block, δ
+and truth seeds are checked disjoint in `finish`, and `score` checks V7's and
+B7's seeds equal.
+
+**The combiner** (`combine_rows`, `src/predict_combine.jl`; KIM-70's
+requirements). It merged as PR #131 (merge `3de0562`), after `/check-PR`. That
+review found no CRITICAL; its 2 MAJOR and 5 MINOR findings were fixed and gated
+over two rounds. The report is at
+`/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_131_2026-10-31.md`.
+- it recomputes the per-row results and every summary from the concatenated runs,
+  with `predict`'s own helpers, and never reads a block's summary;
+- the tests check it against one call. The mean field's blocks equal one call
+  over their rows, bit for bit. A hybrid call, sliced into blocks with wrong
+  summaries planted, recombines to it exactly. A whole block also combines after
+  a file round trip;
+- it refuses a δ that is not the blocks' one shared `DeltaCorrection`;
+- it refuses blocks with completion, repeated draws or repeated cell seeds, or
+  that differ in what a `Prediction` records of one prediction's rows.
+
+**Where the merged combiner departs from the approved plan.** Each departure was
+found or made in #131's review:
+- **Q:** the plan said Q would be compared "`isequal` on the definition". A
+  `Prediction` keeps only Q's label, so Q is compared by its label. The posterior
+  is compared by its `source`, and the composition by its reduction labels and
+  skipped parameters. A δ-corrected block's δ also keeps Q and the composition's
+  fingerprint, and those are compared too;
+- **held draws:** the plan listed a check on them. It is dropped, because
+  `completion = :none`, which is refused otherwise, leaves every block with none;
+- **δ:** the plan compared δ on its seeds, `delta`, `delta_intervened` and
+  fingerprint. The merged check compares every field but the runs, `quantity_def`
+  included;
+- **a hybrid block with a δ:** the plan said the combiner would refuse it.
+  `predict` already refuses δ on the hybrid, and the forward and settings checks
+  catch a mix, so the combiner adds no check of its own.
+
+None of these touches M0. Its Q is `:lactate_out`, its sources carry the file
+path, and `read_out` refuses an output written at another commit.
+
+No executable line of `predict` changes, only its docstring. So the freeze's
+old-against-new reproduction gate does not apply, and `test_predict_reference.jl`
+passes unchanged.
+
+**Scoring.** Per dataset, each arm's predictive sample is its 100 values, as they
+are.
+- **The arms:** {V7, B7} × {hybrid μ̂, mean field m(θ), mean field m(θ) + δ}. For
+  ΔQ they are the hybrid's paired effect, m(g_a θ) − m(θ), and that plus
+  δ_intervened − δ. A draw with no finished cell leaves the sample, and is
+  counted.
+- **The truth:** μ̂(θ*) and Δμ̂(θ*) from the truth's 9,849 cells, as they are.
+- **Primary:**
+  - **coverage:** the fraction of the 50 datasets whose truth lies in the
+    sample's central 50% and 90% intervals (`quantile`, type 7), with a binomial
+    SE;
+  - **sharpness:** the 90% interval's width, as its median over datasets, and
+    each dataset's width over V7-hybrid's (median and IQR).
+- **Secondary:**
+  - the truth's PIT (the fraction of the sample below it), in 10 bins;
+  - the standardised error (mean − truth)/SD, its mean and SD over datasets;
+  - each arm's shift from V7-hybrid, (mean − mean_ref)/SD_ref: the table's
+    effects.
+- **Reported beside them:**
+  - the hybrid's MC share, mc/var;
+  - the truth's and δ's SEs over the hybrid's √parameter_var, against KIM-69's
+    10% rules. For ΔQ each is the SE of its cells' paired effect, so δ's is the
+    SE of δ_intervened − δ, the correction ΔQ's arm adds;
+  - the intrinsic spread: the hybrid's E[σ̂²] and the truth's σ̂²(θ*), apart from
+    the estimand;
+  - the cells by status, at baseline and under the knockdown.
+
+**A calibrated arm's coverage, with 100 draws.** Since the intervals are used as
+they are, a calibrated arm does not cover at the nominal rate. Suppose the truth
+and the 100 values are exchangeable: the truth is one more draw from the same
+predictive. Then type-7 central intervals cover **88.2% at nominal 90% and about
+49% at nominal 50%**, whatever the distribution. That was checked by simulation:
+4×10⁵ replicates, normal and exponential, 88.2% and 48.9–49.0%.
+- **The PIT:** the truth falls in each bin from 0/10 to 8/10 with probability
+  10/101, and in the top bin with 11/101, since a truth above all 100 values has
+  PIT 1.
+- **The reference:** 88.2% and 49%, not 90% and 50%, are a calibrated arm's
+  coverage here. Over 50 datasets their binomial SEs are about 4.6 and 7.1
+  points.
+- **The mean-field arms** carry no MC term, so this is their reference as it
+  stands, for exchangeable draws.
+- **V7's draws** are thinned from a correlated chain (below), which pulls the
+  reference down, so for V7 88.2% is an upper reference. In an AR(1) simulation
+  of 100 draws (ρ = (100 − ESS)/(100 + ESS), the truth an independent
+  stationary draw), an ESS of 50 gives 87.8% and 48.6%, and an ESS of 25 gives
+  86.9% and 47.9%. B7's draws are MCMC too, but nearly independent: its
+  smallest bulk ESS is 81 of 400, and the median over fits 365 (AV6).
+- **The hybrid's values** carry its MC term, which widens its intervals. KIM-69's
+  arithmetic puts a normal predictive at about 92% for nominal 90% at a 10% MC
+  share, before this finite-sample effect.
+
+**What the scoring does not do**, said here so that no reading is chosen after
+the run:
+- it does not remove the hybrid's MC term or the truth's own error. KIM-69's
+  arithmetic puts a nominal 90% interval at about 92% for a normal predictive at
+  a 10% MC share;
+- the 100 draws are V7's correlated chain thinned (23 of 50 replicates have a
+  smallest bulk ESS under 100), so a V7 interval rests on fewer effective draws;
+- fifty datasets resolve coverage to about ±4 points at 90%.
+
+**Where the launcher departs from the approved plan.** The plan's header says
+departures are recorded here:
+- **the common-seeds check:** the plan put the check that V7's and B7's cell
+  seeds are equal in `finish`. It is in `score`, since a `finish` task holds one
+  posterior's blocks only;
+- **the truths:** the plan had `prep` check that V7's and B7's truths are
+  equal, σ_b included. It checks them to 1e-12 relative, σ_b included, since V7
+  stores them on the log scale and B7 on the natural one;
+- **added to the scoring:**
+  - the standardised error z, its mean and SD over datasets;
+  - δ's SE over the hybrid's √parameter_var, beside the truth's, for KIM-69's
+    10% rule on δ;
+  - `score_datasets.tsv`, one row per target, dataset, posterior and arm.
+
+  None of them changes a primary score.
+
+**This entry's own review** (`/check-PR` on #132, 2026-10-31). It found no
+CRITICAL, and 4 MAJOR and 10 MINOR findings. Each was fixed in its own commit,
+from `0d082c0` to `a995730`. The fix gate found all 14 resolved, and six new
+MINOR findings, fixed in a second round from `10c2fda` to `3608329`. Its gate
+found that round's code clean, and four wording errors, since corrected. The report is at
+`/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
+Besides the text above, the fixes changed the run in these ways:
+- **ΔQ's δ SE** is the paired SE described under Scoring. Before, it was
+  baseline Q's.
+- **The nodes:** every job keeps to milan's Zen3 nodes. The site widens
+  `--partition=milan` to turin-c, so the turin nodes are excluded: dave148–149
+  and gina18 by name, and any node `sinfo` marks `turin` at submission.
+- **`missing`:**
+  - it precompiles first;
+  - it refuses a tree at another commit or with another SMOKE, both kept in
+    `jobs.tsv`;
+  - it refuses if `squeue` fails, rather than reading that as nothing queued.
+- **Every stage:**
+  - refuses a dirty tree;
+  - reads an output only at the commit and SMOKE that wrote it.
+- **The inputs** are pinned, as described under the run.
+- **A task's files:** it writes them all under tmp/ before moving any, and
+  each record says where it ran: host, CPU, Julia version, array ids and the
+  full commit.
+- **`WALLTIME`** sets the work tasks' time limit, by default 24 h.
+
+None of these changes what is computed or scored, except the ΔQ δ SE beside
+the scores.
+
+**The smoke pass** (`SMOKE=1`). It ran four times:
+- at `4ba3ff5`, with the combiner before #131's review: jobs 19622876–19622880,
+  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke-2026-10-31/`;
+- at `97b0e62`, with the reviewed combiner merged in: jobs 19630912–19630916,
+  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke2-2026-10-31/`;
+- at `a995730`, with this PR's first round of fixes: jobs 19644898–19644902,
+  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke3-2026-10-31/`;
+- at `3608329`, with its second round: jobs 19646432–19646436, archived at
+  `/fred/oz022/tkimpson/infercell-m5-kim40-smoke4-2026-10-31/`. Later commits
+  change only text, and the order and wording of `missing`'s refusals.
+
+Each archive has a `SHA256SUMS`, and the last two a `sacct.tsv`. Every job of all
+four passes completed, and no job of the last two ran on a turin node. The four
+`score_datasets.tsv` files are byte-identical: neither review's fixes changed a
+score. The `score.md` tables of the first two are identical. Smoke 3 differs from
+them only in the ΔQ table's δ SE column, as the M1 fix intends, and smoke 4 is
+identical to smoke 3. The smoke is plumbing, not a result. It
+ran on B7's held-out `v6` fit, with chain 1 standing in for V7 and chain 2 for
+B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
+- **What ran:** every stage, each job completed, and the score tables were
+  written.
+- **What it checked:**
+  - `prep` checked the 100 evidence files: names, draw counts, and the truths,
+    which agree exactly;
+  - `finish` checked the paired draws and the disjoint block, δ and truth seeds;
+  - `score` checked that V7's and B7's cell seeds are equal;
+  - from smoke 3 on, `prep` pinned 203 input files (v6's three with the 200),
+    B7's 153 matching their archive, and `score` found them unchanged. Every
+    stage passed the dirty-tree check, and every record's `ran_on` names a
+    znver3 node.
+- **For sizing the run:**
+  - **memory:** each work task peaked at 1.7–2.0 GiB, nearly all of it Julia and
+    the compiled code. That was at 60 s. At 600 s, KIM-38's single-core cells job
+    (19560133) peaked at 2.0 GB, and a task's 20,000 or so cells add about 50 MB,
+    so `MEM=6G` leaves room;
+  - **disk:** the smoke's files come to about 2.4 KB per cell, which scales to
+    about 50 GB for the full run. That is an estimate, not a bound. At the
+    smoke's few cells per file, fixed overhead is most of a file (δ's files come
+    to about 1 KB per cell), but a 600 s cell may carry more records than a 60 s
+    one. The plan estimated about 20 GB. Either is far inside the group's /fred
+    quota (37 of 60 TB used).
+- **At 60 s most paired cells show ΔQ = 0 exactly**, since a knockdown changes Q
+  only through a transcription event. Every truth cell did, while the mean
+  field's effect is about −130. This is expected at 60 s, and was checked not to
+  be a bug. So the ΔQ table's SE ratios mean nothing in the smoke: they divide
+  by a spread that is zero or a roundoff residual (B7's δ ratio, 9.75e6, is 210
+  over √4.7e-10).
+
+**Before the launch:**
+- this entry and the launcher merged to main, after `/check-PR`;
+- KIM-70's docs pass merged;
+- the user's go-ahead for about 9,800 CPU-h (KIM-69's 4,999 + 4,808), about
+  65 h at 150 tasks at once;
+- a detached worktree at the merge commit, left untouched for the run. Nothing
+  loads InferCell from it but the run's jobs: the login node's CPU differs, and
+  outputs are read from another worktree at the same commit;
+- a start by about 14 November.
+
+**After the run**, before the result note:
+- `… missing` until every output exists, then `… progress` to confirm it;
+- the accounting, kept in the run's directory. Every job id in `jobs.tsv` (its
+  `commit` and `smoke` rows aside) goes through
+  `sacct -P -j <ids> --format=JobID,JobName,NodeList,State,ExitCode,Elapsed,MaxRSS,SubmitLine > sacct.tsv`.
+  It is checked that no task ran on a turin node, and that every record's
+  `ran_on.cpu_name` is `znver3`;
+- `sha256sum -c inputs.sha256`, then a `SHA256SUMS` over the outputs, for the
+  archive (KIM-43);
+- the result note, citing the job ids, `93abbce`, `5ec56d3` and the commit that
+  merges this entry.
+
+**Unchanged:** every choice in the M4 freeze and in KIM-69's entry, and every
+recorded result.
+
+*Sections:* §12.
+
 ### 2026-10-31 — KIM-69: M0's scale at the declared rules, with the panel (the user's decision)
 
 **Status: decided.** This fixes the one item the M4 freeze left open (2026-10-30,
