@@ -21,8 +21,8 @@
 #              (KIM-41).
 # Outputs, never overwritten: work/ (whole objects, which read back only at this
 # commit), work_plain/ and finish/ (plain values, readable at any commit),
-# score.md, score.jls and score_datasets.tsv. A file is written under tmp/ and
-# moved into place, so a killed task leaves no output.
+# score.md, score.jls and score_datasets.tsv. A task writes its files under tmp/
+# and only then moves them into place, so a killed task leaves no partial file.
 #
 # The design (frozen: the M4 freeze and KIM-69):
 # - Q = :lactate_out over M0_HORIZON_S = 600 s; the estimand is the population
@@ -154,16 +154,26 @@ finish_task(i) = (0 <= i < N_D * N_P || error("finish index $i is outside 0…$(
                   (; r = DATASETS[i ÷ N_P + 1], p = POSTERIORS[i % N_P + 1]))
 finish_name(i) = (t = finish_task(i); string(lpad(i, 3, '0'), "_r", t.r, "_", t.p))
 
-# Written under tmp/ and moved into place; an existing output is never replaced.
-function put(dir, name, x)
-    path = joinpath(OUT, dir, "$name.jls")
-    isfile(path) && error("$path exists; this run never overwrites an output")
-    mkpath(joinpath(OUT, "tmp"))
-    mkpath(joinpath(OUT, dir))
-    save(joinpath(OUT, "tmp"), name, x; stage = string(STAGE))
-    mv(joinpath(OUT, "tmp", "$name.jls"), path)
-    say("wrote $path")
+# An output is written in full under tmp/ (`staged`, by `write(tmp_path)`), and a
+# task's outputs are then moved into place in order (`place`), so a killed task
+# leaves no partial file. An existing output is never replaced.
+function staged(write, dir, file)
+    dest = joinpath(OUT, dir, file)
+    isfile(dest) && error("$dest exists; this run never overwrites an output")
+    tmp = joinpath(OUT, "tmp", dir, file)
+    mkpath(dirname(tmp))
+    write(tmp)
+    return tmp => dest
 end
+jls(dir, name, x) = staged(t -> save(dirname(t), name, x; stage = string(STAGE)), dir, "$name.jls")
+function place(moves...)
+    for (tmp, dest) in moves
+        mkpath(dirname(dest))
+        mv(tmp, dest)
+        say("wrote $dest")
+    end
+end
+put(dir, name, x) = place(jls(dir, name, x))
 
 # A saved output, refused unless this commit wrote it: a run is one commit.
 function read_out(dir, name)
@@ -227,7 +237,11 @@ end
 function work(i)
     t = task(i)
     name = work_name(i)
-    isfile(joinpath(OUT, "work", "$name.jls")) && error("work/$name exists")
+    have = filter(d -> isfile(joinpath(OUT, d, "$name.jls")), ["work_plain", "work"])
+    isempty(have) || error("$name is already in $(join(have, " and ")); this run never ",
+                           "overwrites an output", have == ["work_plain"] ?
+                           ". work_plain/ alone is left by a task killed between its two moves: " *
+                           "move it aside, then rerun" : "")
     say("work $name: $t")
     ms = collect(AbstractSubModel, m0_models())
     local x, p
@@ -265,9 +279,11 @@ function work(i)
     end
     say("work $name: $(round(sec / 3600; digits = 2)) h, maxrss $(round(Sys.maxrss() / 2^30; digits = 2)) GiB, ",
         "object $(round(Base.summarysize(x) / 2^20; digits = 1)) MiB")
-    put("work_plain", name, merge(p, (; seconds = sec, maxrss_gib = Sys.maxrss() / 2^30,
-                                      object_mib = Base.summarysize(x) / 2^20)))
-    put("work", name, x)
+    # work/ last: `missing` reads it as the task's output, so a task killed between
+    # the moves is rerun, and refused above until its orphan is moved aside.
+    place(jls("work_plain", name, merge(p, (; seconds = sec, maxrss_gib = Sys.maxrss() / 2^30,
+                                            object_mib = Base.summarysize(x) / 2^20))),
+          jls("work", name, x))
 end
 
 function finish(i)
