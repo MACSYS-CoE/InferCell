@@ -153,5 +153,11 @@ end
                                                                          (; n_cells = 4)))))])
         @test_throws ArgumentError combine_rows([b1, _comb_with(b2; provenance = merge(pv,
                                                      (; source = (kind = :other,))))])
+        @test_throws ArgumentError combine_rows([b1, _comb_with(b2; estimand = :other)])
+        extra = [pv.skipped; (; name = :not_a_parameter, reason = :inferred)]
+        @test_throws ArgumentError combine_rows([b1, _comb_with(b2; provenance = merge(pv,
+                                                     (; skipped = extra)))])
+        @test_throws ArgumentError combine_rows([b1, _comb_with(b2; provenance = merge(pv,
+                                                     (; version = v"0.0.1")))])
     end
 end
