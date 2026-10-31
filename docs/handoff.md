@@ -1,6 +1,6 @@
 # Handoff
 
-## Latest: KIM-40, M0's combiner merged; its launcher and pre-registration in review (2026-10-31)
+## Latest: KIM-40, M0's combiner merged; its launcher and pre-registration reviewed, awaiting merge (2026-10-31)
 
 **State: PR A merged, PR B open.** The plan the user approved on 2026-10-31 is
 `dev/notes/2026-10-31-kim40-plan.md`. Their four calls, each the recommended one:
@@ -24,24 +24,41 @@
       Q and for KIM-41's ΔQ;
     - `dev/scripts/m0_evidence_kim40.{jl,sh}`, the launcher;
     - the plan copy.
-  - **Smokes:**
-    - smoke 1 at `4ba3ff5` (jobs 19622876–19622880) passed, with the pre-review
+  - **Review:** `/check-PR` round 1 found no CRITICAL, and 4 MAJOR and 10 MINOR
+    findings, which were fixed one commit each (`0d082c0`…`a995730`). The MAJORs:
+    - ΔQ's δ SE now uses the paired SE;
+    - the launchers keep off turin, gina18 included;
+    - the 200 input files are pinned by SHA-256;
+    - §12 records the launcher's departures from the plan.
+
+    The fix gate found all 14 resolved, and six new MINOR findings, fixed in
+    `10c2fda`…`3608329`. Its gate found the code clean and four wording errors,
+    fixed in `fa5d016`. The report and its fix ledger are in
+    `/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
+  - **Smokes:** four, every job completed, all archived with `SHA256SUMS`, and
+    the four `score_datasets.tsv` files byte-identical:
+    - smoke 1 at `4ba3ff5` (jobs 19622876–19622880), with the pre-review
       combiner;
-    - smoke 2 at `97b0e62` (jobs 19630912–19630916) passed, on the reviewed
-      combiner. Its scores are byte-identical to smoke 1's.
-  - **Still to do:** `/check-PR`, then the user's merge go-ahead.
+    - smoke 2 at `97b0e62` (jobs 19630912–19630916), on the reviewed combiner;
+    - smoke 3 at `a995730` (jobs 19644898–19644902), after round 1's fixes;
+    - smoke 4 at `3608329` (jobs 19646432–19646436), after round 2's.
+  - **Still to do:** the user reads the final §12 entry and gives the merge
+    go-ahead.
 
 **Next:**
-1. PR B's review and merge.
+1. PR B's merge, on the user's go-ahead.
 2. KIM-70's docs pass, merged.
 3. The launch, with the user's go-ahead for about 9,800 CPU-h, by about 14
    November:
    - make a detached worktree at the merge commit;
    - run `dev/scripts/m0_evidence_kim40.sh /fred/oz022/tkimpson/infercell-m5-kim40-<date>`
      from it;
-   - leave the worktree untouched for the run, about 65 h at 150 tasks;
-   - after the run: `… missing` for failed tasks, and `… progress` to count
-     outputs.
+   - leave the worktree untouched for the run, about 65 h at 150 tasks, and
+     never load InferCell from it on the login node. To read outputs, use
+     another worktree at the same commit;
+   - after the run, §12's list: `… missing` until complete, the `sacct.tsv` dump
+     and the turin/znver3 audit, `sha256sum -c inputs.sha256`, and the outputs'
+     `SHA256SUMS`.
 4. The result note, citing the job ids, `93abbce`, `5ec56d3` and PR B's merge.
 
 ## Earlier: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)

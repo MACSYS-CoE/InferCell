@@ -4648,15 +4648,23 @@ Besides the text above, the fixes changed the run in these ways:
 None of these changes what is computed or scored, except the ΔQ δ SE beside
 the scores.
 
-**The smoke pass** (`SMOKE=1`). It ran twice:
+**The smoke pass** (`SMOKE=1`). It ran four times:
 - at `4ba3ff5`, with the combiner before #131's review: jobs 19622876–19622880,
   archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke-2026-10-31/`;
 - at `97b0e62`, with the reviewed combiner merged in: jobs 19630912–19630916,
-  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke2-2026-10-31/`.
+  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke2-2026-10-31/`;
+- at `a995730`, with this PR's first round of fixes: jobs 19644898–19644902,
+  archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke3-2026-10-31/`;
+- at `3608329`, with its second round: jobs 19646432–19646436, archived at
+  `/fred/oz022/tkimpson/infercell-m5-kim40-smoke4-2026-10-31/`. Later commits
+  change only text and one refusal message.
 
-Each archive has a `SHA256SUMS`. Every job of both passes completed. The two
-`score_datasets.tsv` files are byte-identical, and so are the `score.md` tables:
-the review's fixes changed no result. The smoke is plumbing, not a result. It
+Each archive has a `SHA256SUMS`, and the last two a `sacct.tsv`. Every job of all
+four passes completed, and no job of the last two ran on a turin node. The four
+`score_datasets.tsv` files are byte-identical: neither review's fixes changed a
+score. The `score.md` tables of the first two are identical. Smoke 3 differs from
+them only in the ΔQ table's δ SE column, as the M1 fix intends, and smoke 4 is
+identical to smoke 3. The smoke is plumbing, not a result. It
 ran on B7's held-out `v6` fit, with chain 1 standing in for V7 and chain 2 for
 B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 - **What ran:** every stage, each job completed, and the score tables were
@@ -4665,7 +4673,11 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
   - `prep` checked the 100 evidence files: names, draw counts, and the truths,
     which agree exactly;
   - `finish` checked the paired draws and the disjoint block, δ and truth seeds;
-  - `score` checked that V7's and B7's cell seeds are equal.
+  - `score` checked that V7's and B7's cell seeds are equal;
+  - from smoke 3 on, `prep` pinned 203 input files (v6's three with the 200),
+    B7's 153 matching their archive, and `score` found them unchanged. Every
+    stage passed the dirty-tree check, and every record's `ran_on` names a
+    znver3 node.
 - **For sizing the run:**
   - **memory:** each work task peaked at 1.7–2.0 GiB, nearly all of it Julia and
     the compiled code. That was at 60 s. At 600 s, KIM-38's single-core cells job
@@ -4680,7 +4692,9 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 - **At 60 s most paired cells show ΔQ = 0 exactly**, since a knockdown changes Q
   only through a transcription event. Every truth cell did, while the mean
   field's effect is about −130. This is expected at 60 s, and was checked not to
-  be a bug.
+  be a bug. So the ΔQ table's SE ratios mean nothing in the smoke: they divide
+  by a spread that is zero or a roundoff residual (B7's δ ratio, 9.75e6, is 210
+  over √4.7e-10).
 
 **Before the launch:**
 - this entry and the launcher merged to main, after `/check-PR`;
