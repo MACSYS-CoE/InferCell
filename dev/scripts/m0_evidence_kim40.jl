@@ -19,10 +19,13 @@
 #              mean field on the same 100 draws with the shared δ, and the checks.
 #   score      coverage and sharpness over the datasets, for Q (KIM-40) and ΔQ
 #              (KIM-41).
-# Outputs, never overwritten: work/ (whole objects, which read back only at this
-# commit), work_plain/ and finish/ (plain values, readable at any commit),
-# score.md, score.jls and score_datasets.tsv. A task writes its files under tmp/
-# and only then moves them into place, so a killed task leaves no partial file.
+# Outputs, never overwritten: work/ (whole objects, which deserialize only at this
+# commit), work_plain/ and finish/ (plain values, which deserialize at any
+# commit), score.md, score.jls and score_datasets.tsv. A task writes its files
+# under tmp/ and only then moves them into place, so a killed task leaves no
+# partial file. This script's stages read an output only at the commit and SMOKE
+# that wrote it (`read_out`), so the pre-registered score reads one run; a
+# re-score runs from the run's worktree.
 #
 # The design (frozen: the M4 freeze and KIM-69):
 # - Q = :lactate_out over M0_HORIZON_S = 600 s; the estimand is the population
