@@ -4492,9 +4492,16 @@ target is 15 minutes of headroom):
 - **`.github/workflows/test.yml`.**
   - `Unit tests (Julia 1.10, group N)` runs one group each, with the 90-minute
     ceiling. The two share one cache: the group is left out of its key.
-  - `Unit tests (Julia 1.10)`, the old check name, waits for both. If both
-    passed, it merges their tracefiles, summing each line's hits, and reports
-    coverage as before. It fails unless both passed.
+  - `Unit tests (Julia 1.10)`, the old check name, waits for both and fails
+    unless both passed. If both passed, it processes the two groups' raw `.cov`
+    counts together, as one job processes its own, and reports coverage as
+    before.
+  - **The counts are merged, not the groups' lcov files.** CoverageTools marks
+    every line of a function with no counts as code, from the source. The first
+    run summed two lcov files, and so took group 2's marks for the `~` lines of
+    `src/inference.jl`'s Turing models, which group 2 never runs. Julia's counts
+    from group 1 say those lines are not code. That gave 5,327 lines where main
+    has 5,321, with the same 5,107 hit (run 355, id 41181237195).
 - **`CONTRIBUTING.md`.** The test commands give the real times and the group
   switch. It no longer says the integration tests run on every PR.
 - **§5's line on `run_tests.slurm`** (Environment). It said the script sets an

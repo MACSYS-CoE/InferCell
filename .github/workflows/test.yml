@@ -5,9 +5,9 @@ name: Test
 # (CONTRIBUTING.md, "The integration suite is parked").
 #
 # The suite runs as two parallel jobs, one per test group (`test/runtests.jl`,
-# `INFERCELL_TEST_GROUP`). A third job merges their coverage and fails unless
-# both groups passed. It keeps the check name the single job had, "Unit tests
-# (Julia 1.10)" (KIM-65; spec §12, 2026-10-31).
+# `INFERCELL_TEST_GROUP`). A third job turns their coverage counts into one
+# report and fails unless both groups passed. It keeps the check name the
+# single job had, "Unit tests (Julia 1.10)" (KIM-65; spec §12, 2026-10-31).
 
 on:
   push:
@@ -59,76 +59,72 @@ jobs:
         env:
           INFERCELL_TEST_GROUP: ${{ matrix.group }}
 
-      - uses: julia-actions/julia-processcoverage@v1
+      # Julia's raw counts, not an lcov file, so that the coverage job can
+      # process both groups' counts at once, as one job processes its own.
+      # CoverageTools marks every line of a function with no counts as code,
+      # from the source. A group that never ran a function would mark lines
+      # that the other group's counts say are not code.
+      - name: Collect coverage counts
+        shell: bash
+        env:
+          GROUP: ${{ matrix.group }}
+        run: |
+          # The group in each name keeps the groups' files apart when their
+          # process ids match.
+          find src -name '*.cov' | while read -r f; do
+            mkdir -p "counts/$(dirname "$f")"
+            mv "$f" "counts/${f%.cov}.group${GROUP}.cov"
+          done
+          echo "Collected $(find counts -name '*.cov' | wc -l) coverage files."
 
-      - name: Upload lcov artifact
-        if: always() && hashFiles('lcov.info') != ''
+      - name: Upload coverage counts
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-lcov-julia${{ matrix.julia-version }}-group${{ matrix.group }}
-          path: lcov.info
-          if-no-files-found: ignore
-          retention-days: 14
+          name: coverage-counts-julia${{ matrix.julia-version }}-group${{ matrix.group }}
+          path: counts/
+          if-no-files-found: error
+          retention-days: 3
 
   coverage:
     name: Unit tests (Julia ${{ matrix.julia-version }})
     needs: test
     # Runs when a group fails too, so that this check fails rather than being
-    # skipped. Coverage is merged only when both groups passed: a group that
-    # fails uploads no tracefile, and the other's alone would read as the
-    # suite's coverage.
+    # skipped. Coverage is reported only when both groups passed: a group that
+    # fails uploads no counts, and the other's alone would read as the suite's
+    # coverage.
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         julia-version: ["1.10"]
     steps:
+      - uses: actions/checkout@v6
+        if: needs.test.result == 'success'
+
+      - uses: julia-actions/setup-julia@v3
+        if: needs.test.result == 'success'
+        with:
+          version: ${{ matrix.julia-version }}
+
+      # Into src/, beside the sources, where a single job's counts would be.
       - uses: actions/download-artifact@v8
         if: needs.test.result == 'success'
         with:
-          pattern: coverage-lcov-julia${{ matrix.julia-version }}-group*
-          path: groups
+          pattern: coverage-counts-julia${{ matrix.julia-version }}-group*
+          merge-multiple: true
+          path: .
 
-      - name: Merge coverage
+      - uses: julia-actions/julia-processcoverage@v1
         if: needs.test.result == 'success'
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(groups/*/lcov.info)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::Both groups passed but neither uploaded an lcov.info."
-            exit 1
-          fi
-          # Sum each line's hits over the groups' tracefiles, by file and line,
-          # and recount LF/LH (lines found / lines hit) per file.
-          awk -F'[:,]' '
-            /^SF:/ { sf = substr($0, 4); if (!(sf in nl)) order[++n] = sf; nl[sf] += 0; next }
-            /^DA:/ {
-              k = sf SUBSEP $2
-              if (!(k in hits)) line[sf, ++nl[sf]] = $2
-              hits[k] += $3
-              next
-            }
-            END {
-              for (i = 1; i <= n; i++) {
-                sf = order[i]; lf = 0; lh = 0
-                print "SF:" sf
-                for (j = 1; j <= nl[sf]; j++) {
-                  c = hits[sf, line[sf, j]]
-                  print "DA:" line[sf, j] "," c
-                  lf++; if (c > 0) lh++
-                }
-                print "LH:" lh; print "LF:" lf; print "end_of_record"
-              }
-            }
-          ' "${files[@]}" > lcov.info
-          echo "Merged ${#files[@]} tracefiles: ${files[*]}"
 
       - name: Summarise coverage
         if: needs.test.result == 'success'
         shell: bash
         run: |
+          for g in $(find src -name '*.cov' | sed -E 's/.*\.(group[^.]+)\.cov$/\1/' | sort -u); do
+            echo "$g: $(find src -name "*.$g.cov" | wc -l) coverage files"
+          done
           if [ ! -f lcov.info ]; then
             echo "No lcov.info produced; skipping coverage summary." >> "$GITHUB_STEP_SUMMARY"
             exit 0
