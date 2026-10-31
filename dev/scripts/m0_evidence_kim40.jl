@@ -449,6 +449,12 @@ function write_tsv(io, rows)
 end
 
 function main()
+    # A task loads the tree's code when it starts, so an edit made during the run
+    # would run under a commit that does not hold it. Checked as the launcher's
+    # guard checks, without git's optional locks, since many tasks run it at once.
+    dirty = read(`git --no-optional-locks status --porcelain -- :/src :/test :/dev/scripts
+                  :/Project.toml :/Manifest.toml`, String)
+    isempty(dirty) || error("the tree is dirty, so this task would not run $COMMIT:\n$dirty")
     mkpath(OUT)
     say("M0 evidence (KIM-40/41), stage $STAGE$(IDX >= 0 ? " $IDX" : ""), at $COMMIT, job $JOB, ",
         "$(Threads.nthreads()) thread(s)$(SMOKE ? ", SMOKE" : ""), on $(RAN_ON.host) ",
