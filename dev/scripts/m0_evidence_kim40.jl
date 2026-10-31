@@ -25,8 +25,9 @@
 # under tmp/ and only then moves them into place, so a killed task leaves no
 # partial file. This script's stages read an output only at the commit and SMOKE
 # that wrote it (`read_out`), so the pre-registered score reads one run. A
-# re-score runs from the run's worktree on a copy of its directory, since score
-# never replaces its own files.
+# re-score runs from a clean worktree at the run's commit, with its SMOKE, on a
+# copy of its directory without score.md, score_datasets.tsv and score.jls, since
+# score never replaces its own files.
 #
 # The design (frozen: the M4 freeze and KIM-69):
 # - Q = :lactate_out over M0_HORIZON_S = 600 s; the estimand is the population

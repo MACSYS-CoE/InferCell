@@ -4478,9 +4478,14 @@ rule below.
   blocks and run its mean field. One `score` job follows.
 - **Outputs:** they are never overwritten. A failed task is rerun by the
   launcher's `missing` mode.
-  - **The one manual step:** a task killed in the instant between moving its
-    files leaves the earlier ones without the last. `missing` reruns it, and it
-    refuses, naming them, until they are moved aside by hand.
+  - **Two manual steps.** Before `prep` has placed `manifest.jls`, a failed
+    `pre` or `prep`, or a failed submission after `pre`'s, leaves a directory
+    neither mode takes up: run mode refuses its `jobs.tsv`, and `missing` its
+    lack of a manifest. The run then starts again in a fresh directory; nothing
+    costly has run by then.
+  - After that, a task killed in the instant between moving its files leaves
+    the earlier ones without the last. `missing` reruns it, and it refuses,
+    naming them, until they are moved aside by hand.
 
 **Seeds** (KIM-40's, from M5's 19_500_000–19_599_999; KIM-41 shares them, and
 KIM-42 keeps 19_542_xxx):
@@ -4580,8 +4585,10 @@ predictive. Then type-7 central intervals cover **88.2% at nominal 90% and about
   stands, for exchangeable draws.
 - **V7's draws** are thinned from a correlated chain (below), which pulls the
   reference down, so for V7 88.2% is an upper reference. In an AR(1) simulation
-  of 100 draws, an ESS of 50 gives 87.8% and 48.7%, and an ESS of 25 gives 86.9%
-  and 47.9%.
+  of 100 draws (ρ = (100 − ESS)/(100 + ESS), the truth an independent
+  stationary draw), an ESS of 50 gives 87.8% and 48.6%, and an ESS of 25 gives
+  86.9% and 47.9%. B7's draws are MCMC too, but nearly independent: its
+  smallest bulk ESS is 81 of 400, and the median over fits 365 (AV6).
 - **The hybrid's values** carry its MC term, which widens its intervals. KIM-69's
   arithmetic puts a normal predictive at about 92% for nominal 90% at a 10% MC
   share, before this finite-sample effect.
@@ -4614,8 +4621,9 @@ departures are recorded here:
 **This entry's own review** (`/check-PR` on #132, 2026-10-31). It found no
 CRITICAL, and 4 MAJOR and 10 MINOR findings. Each was fixed in its own commit,
 from `0d082c0` to `a995730`. The fix gate found all 14 resolved, and six new
-MINOR findings, fixed in a second round from `10c2fda`, which was gated in
-turn. The report is at
+MINOR findings, fixed in a second round from `10c2fda` to `3608329`. Its gate
+found that round's code clean, and four wording errors in this entry, since
+corrected. The report is at
 `/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
 Besides the text above, the fixes changed the run in these ways:
 - **ΔQ's δ SE** is the paired SE described under Scoring. Before, it was
