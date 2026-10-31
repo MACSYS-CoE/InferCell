@@ -4508,6 +4508,23 @@ target is 15 minutes of headroom):
   offline flag that skips a quality check. Neither the script nor `runtests.jl`
   has ever set one.
 
+**Checks** (on the branch, by `workflow_dispatch`):
+- **Run 355** (id 41181237195, at `7e50db5`) passed. The groups ran 28,106 and
+  1,581 tests, 29,687 in all, main's count.
+  - It is the worst case seen. Both runners were slow: each group took about
+    2.15× its share of run 346. The new cache name also found no cache, so each
+    job first precompiled for 7 to 8 min.
+  - Group 1's job took 55m38s (45m56s of tests), and group 2's 48m19s (39m04s).
+    That leaves 34 minutes of headroom, against the 37 estimated.
+  - Its coverage was the summed lcov files' 5,107 of 5,327, fixed above.
+- **Run 360** (id 41185304232, at `4056080`) passed, and both jobs restored the
+  cache.
+  - Group 1 landed on a fast runner: its job took 22m13s (20m45s of tests).
+    Group 2 landed on a medium one: 30m41s (28m59s).
+  - Coverage is 96.0%, 5,107 of 5,321 lines, exactly main's (run 347).
+  - `Unit tests (Julia 1.10)` took 34 s.
+- **On main:** the done-when criterion needs a run there after the merge.
+
 **Unchanged:** every test and its size, 14a's cycles, the 90-minute ceiling (per
 group now), the Slurm script, and coverage's measurement and its artifact name.
 

@@ -1,6 +1,25 @@
 # Handoff
 
-## Latest: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
+## Latest: KIM-65, CI's unit suite in two parallel groups (branch `tomkimpson/kim-65-unit-cis-test-step-is-within-3-minutes-of-its-90-minute`, 2026-10-31)
+
+**State: built and passing on the branch; not yet merged.** The user chose option A:
+split the suite and keep coverage. The record is spec §12, 2026-10-31, "KIM-65:
+CI's unit suite runs as two parallel groups, split at phase 16a".
+- **Why:** the single job took 38 to 81 min of tests, by the runner it landed on.
+  Run 345 on main hit the 90-minute ceiling after a cold cache.
+- **What:** `INFERCELL_TEST_GROUP` (`1`, `2`, or unset for all) in
+  `test/runtests.jl`. CI runs one job per group, sharing one cache. A third job,
+  `Unit tests (Julia 1.10)`, processes both groups' raw coverage counts together
+  and fails unless both pass. Local and Slurm runs are unchanged.
+- **Checks:**
+  - Run 355: slow runners and a cold cache, the worst case seen. The jobs took
+    55m38s and 48m19s, 34 minutes of headroom.
+  - Run 360: 22m13s and 30m41s, with coverage at main's 96.0% (5,107 of 5,321).
+  - Both runs: 29,687 tests, main's count.
+- **To finish:** merge, then confirm at least 15 minutes of headroom on main's
+  first run, and close KIM-65.
+
+## Earlier: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
 
 **State: done.** The user chose option A: M0 runs at the declared rules, with the
 panel. The record is spec §12, 2026-10-31, "KIM-69: M0's scale at the declared
