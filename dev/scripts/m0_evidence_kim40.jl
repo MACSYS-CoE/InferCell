@@ -451,7 +451,8 @@ end
 function main()
     mkpath(OUT)
     say("M0 evidence (KIM-40/41), stage $STAGE$(IDX >= 0 ? " $IDX" : ""), at $COMMIT, job $JOB, ",
-        "$(Threads.nthreads()) thread(s)$(SMOKE ? ", SMOKE" : "")")
+        "$(Threads.nthreads()) thread(s)$(SMOKE ? ", SMOKE" : ""), on $(RAN_ON.host) ",
+        "($(RAN_ON.cpu_name), $(RAN_ON.cpu)), Julia $(RAN_ON.julia)")
     STAGE === :prep ? prep() : STAGE === :work ? work(IDX) : STAGE === :finish ? finish(IDX) :
     STAGE === :score ? score() : error("unknown stage $STAGE")
     say("done")

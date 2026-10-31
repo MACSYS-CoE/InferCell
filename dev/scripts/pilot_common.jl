@@ -7,8 +7,9 @@
 #   (`SMOKE=1` is a plumbing pass at tiny sizes, never a result);
 # - `V6`, B7's held-out `v6` fit, the posterior every pilot draws from;
 # - `say`, timestamped and flushed;
-# - `save` and `load`: .jls files carrying the commit, job, stage, threads, GC threads
-#   and time; a warning at 16 threads or more without a concurrent GC sweep thread;
+# - `save` and `load`: .jls files carrying the commit, job, stage, threads, GC threads,
+#   time, and where they ran (`RAN_ON`: host, CPU, Julia version, array ids); a
+#   warning at 16 threads or more without a concurrent GC sweep thread;
 # - `moments` and `net`: μ̂, σ̂² and the count per pair, and the spread net of the
 #   MC term;
 # - `plain`: a `Prediction` as plain arrays, Dicts and NamedTuples. It reads back
@@ -42,10 +43,17 @@ const GC_THREADS = (; total = Threads.ngcthreads(), sweep = _sweep_threads())
 
 say(x...) = (println(now(), " ", x...); flush(stdout))
 
+# Where a record was made. The node's CPU decides what compiled code it loads
+# (2026-10-23), so `cpu_name` is LLVM's name for it.
+const RAN_ON = (; host = gethostname(), cpu = Sys.cpu_info()[1].model, cpu_name = Sys.CPU_NAME,
+                julia = string(VERSION), array_job = get(ENV, "SLURM_ARRAY_JOB_ID", "none"),
+                array_task = get(ENV, "SLURM_ARRAY_TASK_ID", "none"))
+
 save(out, name, x; stage = "") =
     serialize(joinpath(out, "$name.jls"),
-              (; result = x, commit = COMMIT, job = JOB, stage, smoke = SMOKE,
-               threads = Threads.nthreads(), gc_threads = GC_THREADS, when = now()))
+              (; result = x, commit = COMMIT, commit_full = COMMIT_FULL, job = JOB, stage,
+               smoke = SMOKE, threads = Threads.nthreads(), gc_threads = GC_THREADS,
+               ran_on = RAN_ON, when = now()))
 load(out, name) = deserialize(joinpath(out, "$name.jls")).result
 
 # μ̂, σ̂² and the cell count of a quantity read from each pair's finished cells.
