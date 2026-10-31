@@ -31,16 +31,21 @@ One [`Prediction`](@ref) from row blocks of one prediction, run as separate
 - run on one posterior, with the same composition, forward, estimand, Q, horizon,
   intervention, settings (`n_parameter_draws` aside) and InferCell version. These
   are checked as a `Prediction` records them: Q by its label, the posterior by its
-  `source`, and the composition by its reduction labels and skipped parameters. A
-  `Prediction` keeps no Q function and no fingerprint of the composition, so two
-  closures with one label, or two compositions alike in those records, are not
-  told apart. Run a prediction's blocks from one script at one commit;
+  `source`, and the composition by its reduction labels and skipped parameters.
+  Without δ, a `Prediction` keeps no Q function and no fingerprint of the
+  composition, so two closures with one label, or two compositions alike in those
+  records, are not told apart. Run a prediction's blocks from one script at one
+  commit;
 - on disjoint `draws`, each block with its own `rng`. Two calls with the same
   `rng` draw the same cell seeds whatever their `draws`, and no two rows may share
   cell seeds (the E[σ²]/n correction). Blocks whose seeds repeat are refused;
 - for a corrected mean field, given one shared [`DeltaCorrection`](@ref) as
   `delta`, computed once with [`delta_correction`](@ref). A block that computed its
-  own (`delta = :ensemble`) is refused, and so are blocks whose δ differ.
+  own (`delta = :ensemble`) is refused, and so are blocks whose δ differ in any
+  field but its runs. The δ keeps Q itself and the composition's fingerprint, so
+  these blocks are told apart by both. Q is compared by `isequal`, as `predict`
+  compares it with δ, and an anonymous function read back from a file is not equal
+  to itself: give such blocks Q as a Symbol or a named function.
 
 **What it computes.** The per-row results (`mu`, `sigma2`, `n_ok`, `effect`,
 `effect_sigma2`) are recomputed from the concatenated runs. The `summary`,
