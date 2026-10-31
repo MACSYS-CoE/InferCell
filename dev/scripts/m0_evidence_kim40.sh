@@ -71,13 +71,16 @@ if [ "$mode" = missing ]; then
         { echo "nothing is missing from $outdir"; exit 0; }
 else
     [ -e "$outdir/jobs.tsv" ] && { echo "$outdir already holds a run; use missing" >&2; exit 1; }
-    record commit "$head"
-    record smoke "$smoke"
     work_list="0-$((nwork - 1))"
     fin_list="0-$((nfin - 1))"
 fi
 pre=$(sub $exp --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_pre \
           --wrap "$run -e 'using InferCell'")
+# Only once a job is accepted, so a failed first submission leaves no jobs.tsv.
+if [ "$mode" = run ]; then
+    record commit "$head"
+    record smoke "$smoke"
+fi
 record precompile "$pre"
 dep="--dependency=afterok:$pre --kill-on-invalid-dep=yes"
 if [ "$mode" = run ]; then
