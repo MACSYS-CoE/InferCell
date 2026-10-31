@@ -1413,10 +1413,11 @@ new dependency is genuinely needed, the depot must be populated from the login
 node first**, because compute nodes have no network and the failure mode is a
 job dying in seconds on a host-resolution error.
 
-Tests run through `sbatch test/run_tests.slurm`, which sets the offline flag that
-skips the one quality check needing the package registry. The integration gate
-is a separate environment variable and is off by default, so the Slurm job runs
-the fast suite only. Long-running work gets its own driver and Slurm wrapper
+Tests run through `sbatch test/run_tests.slurm`, at 4 threads. It sets no offline
+flag, and none of Aqua's checks needs the package registry. The integration gate
+and the test group (`INFERCELL_TEST_GROUP`, which CI uses to run the suite as two
+parallel jobs) are separate environment variables, both unset by default. So the
+Slurm job runs the whole fast suite and nothing else (§12, 2026-10-31, KIM-65). Long-running work gets its own driver and Slurm wrapper
 alongside the existing three, each self-asserting.
 
 ### Seeds, cost and what is regenerable
@@ -4426,6 +4427,84 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-10-31 — KIM-65: CI's unit suite runs as two parallel groups, split at phase 16a (the user's decision)
+
+**Status: decided and built.** CI runs the unit suite as two jobs, one per test
+group, and a third job merges their coverage. The tests, their sizes and the
+coverage report are unchanged. Local and Slurm runs still run the whole suite.
+
+**Trigger:** KIM-65. The unit job's test step was within minutes of its 90-minute
+limit (79m46s on #117, §12 2026-10-30). On main it then hit the limit: run 345
+(id 41141272833, at `1f51f2e`) restored no cache and spent 448 s precompiling.
+Its tests passed in 80m47s, the test step ended at 89m21s, and the job was
+cancelled at 90 min in its post steps. The issue is done when the unit job has at
+least 15 minutes of headroom on main.
+
+**What sets the time** (CI logs of runs 338 to 349):
+- **The runner, not the code.** Every run used the same image (ubuntu-24.04,
+  20261025.353.1). The test totals were:
+  - **fast:** 38m09s (run 338, main) and 39m50s (run 346, #130);
+  - **medium:** 61m15s (run 347, main) and 59m39s (run 349, #133);
+  - **slow:** 79m42s (run 343, #129) and 80m47s (run 345, main).
+  - Every testset scales by its run's ratio. Of the 12 completed runs since M3, 2
+    were fast, 5 medium and 5 slow, and run 345 was cancelled.
+- **Four testsets take 62% of a run.** In run 346 (39.5 min):
+  - 14a's balance checks take 11.6 min (29%). Its two full cycles at 6,300 s are
+    the ones §3 forbids shortening.
+  - 16a.9a's Gibbs chain takes 7.1 min, B5's mixed likelihood 3.0 and KIM-31's
+    forward 2.7.
+- **Coverage costs about 8%.** It was measured on this container's Julia 1.10.12,
+  with CI's `--check-bounds=yes` and one thread, each file run alone after the
+  shared doubles:
+  - 14a took 1,693 s without coverage and 1,802 s with it (+6.4%);
+  - B5 took 850 s and 943 s (+11.0%).
+  - A third file was not timed: the session's two-hour limit ended the run.
+- **The cache's miss in run 345 is not explained.** A cache is about 330 MB, so
+  it is not the size limit on its own. Caches are kept per branch, though, and
+  GitHub evicts the least recently used ones once a repository's total passes
+  10 GB, or any cache unused for 7 days.
+
+**The options** (worst case: run 345's slow runner, with a cold cache; the
+target is 15 minutes of headroom):
+- **A, chosen: split the suite into two parallel jobs and keep coverage.** The
+  split falls where phase 16a starts. In run 346 the groups take 21.2 min (54%)
+  and 18.3 min (46%), so on run 345's runner about 44 and 37 min. Each job
+  starts cold at worst, so the worst case is about 53 min of the 90, about 37
+  minutes of headroom. A slow runner's result also comes in about 45 minutes
+  instead of 85.
+- **B: drop coverage.** About 83 min at worst, so about 7 minutes of headroom,
+  short of the target on its own.
+- **C: raise the timeout to 120 minutes.** About 30 minutes of headroom today. The
+  headroom shrinks with every test M5 and M6 add, and a slow runner still takes
+  about 85 minutes to report.
+- **D: shrink the slowest tests.** 14a's cycles cannot be shortened (§3). The
+  next three take 7.1 min or less each, and each would need its own review.
+
+**What changed:**
+- **`test/runtests.jl`.** `INFERCELL_TEST_GROUP` picks the group:
+  - `1` runs Aqua through phase 15's observables;
+  - `2` runs phase 16a on, with the integration gate. It first includes the 11
+    shared doubles files, in group 1's order, but none of group 1's tests.
+  - Unset, or `all`, runs both, in the old order. Any other value is an error.
+  - No group-2 file uses a name that only a group-1 test file defines or imports.
+    That was checked by hand over the definitions and the `using` lines.
+- **`.github/workflows/test.yml`.**
+  - `Unit tests (Julia 1.10, group N)` runs one group each, with the 90-minute
+    ceiling. The two share one cache: the group is left out of its key.
+  - `Unit tests (Julia 1.10)`, the old check name, waits for both. If both
+    passed, it merges their tracefiles, summing each line's hits, and reports
+    coverage as before. It fails unless both passed.
+- **`CONTRIBUTING.md`.** The test commands give the real times and the group
+  switch. It no longer says the integration tests run on every PR.
+- **§5's line on `run_tests.slurm`** (Environment). It said the script sets an
+  offline flag that skips a quality check. Neither the script nor `runtests.jl`
+  has ever set one.
+
+**Unchanged:** every test and its size, 14a's cycles, the 90-minute ceiling (per
+group now), the Slurm script, and coverage's measurement and its artifact name.
+
+*Sections:* §5 (Environment: the `run_tests.slurm` line), §12.
 
 ### 2026-10-31 — KIM-69: M0's scale at the declared rules, with the panel (the user's decision)
 
