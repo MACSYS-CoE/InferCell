@@ -19,6 +19,9 @@ function _comb_posterior(ms, n; seed = 40)
                           collect(1:n), nothing, nothing, (kind = :test,))
 end
 
+# `x` written to a file and read back, as M0's `finish` reads its blocks and δ.
+_comb_copy(x) = deserialize(seekstart(let io = IOBuffer(); serialize(io, x); io; end))
+
 # `p` with some fields replaced.
 function _comb_with(p::Prediction; kw...)
     f = Dict{Symbol, Any}(n => getfield(p, n) for n in fieldnames(Prediction))
@@ -64,7 +67,7 @@ end
         kw = (; horizon = H, forward = :mean_field, delta = dc, intervention = kd)
         one = predict(ms, pd; kw..., draws = 1:4, rng = Xoshiro(10))
         # The second block's δ is a copy, as a block reads it back from a file.
-        dc2 = deserialize(seekstart(let io = IOBuffer(); serialize(io, dc); io; end))
+        dc2 = _comb_copy(dc)
         b1 = predict(ms, pd; kw..., draws = 1:2, rng = Xoshiro(11))
         b2 = predict(ms, pd; kw..., delta = dc2, draws = 3:4, rng = Xoshiro(12))
         c = combine_rows([b1, b2])
@@ -112,12 +115,13 @@ end
         kw = (; horizon = H, n_cells = 3, intervention = kd)
         b1 = predict(ms, pd; kw..., draws = [1, 3], rng = Xoshiro(21))
         b2 = predict(ms, pd; kw..., draws = [2, 4], rng = Xoshiro(22))
-        c = combine_rows([b1, b2])
+        c = combine_rows([b1, _comb_copy(b2)])          # a block read back from a file
         @test c.draws == [1, 3, 2, 4] && c.theta_I == vcat(b1.theta_I, b2.theta_I)
         @test c.seeds == cat(b1.seeds, b2.seeds; dims = 3) && allunique(c.seeds)
         @test isequal(c.mu, vcat(b1.mu, b2.mu)) && isequal(c.sigma2, vcat(b1.sigma2, b2.sigma2))
         @test isequal(c.effect, vcat(b1.effect, b2.effect))
-        @test c.cells == vcat(b1.cells, b2.cells)
+        @test isequal([(r.seed, r.q) for cs in c.cells for r in cs],
+                      [(r.seed, r.q) for cs in vcat(b1.cells, b2.cells) for r in cs])
         @test sum(values(c.statuses)) == 12 && sum(values(c.statuses_intervened)) == 12
         # Equal weights: the summary by hand, over all four rows.
         mu, s2, n = vec(c.mu), vec(c.sigma2), vec(c.n_ok)
