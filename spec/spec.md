@@ -4548,7 +4548,8 @@ are.
 - **Reported beside them:**
   - the hybrid's MC share, mc/var;
   - the truth's and δ's SEs over the hybrid's √parameter_var, against KIM-69's
-    10% rules;
+    10% rules. For ΔQ each is the SE of its cells' paired effect, so δ's is the
+    SE of δ_intervened − δ, the correction ΔQ's arm adds;
   - the intrinsic spread: the hybrid's E[σ̂²] and the truth's σ̂²(θ*), apart from
     the estimand;
   - the cells by status, at baseline and under the knockdown.

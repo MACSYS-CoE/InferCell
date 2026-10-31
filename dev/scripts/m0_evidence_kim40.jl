@@ -71,9 +71,11 @@
 #   bins. The standardised error (mean − truth)/SD. Each arm's shift from
 #   V7-hybrid, (mean − mean_ref)/SD_ref, the table's effects;
 # - **beside them.** The hybrid's MC share mc/var, and the truth's and δ's SEs
-#   over the hybrid's √parameter_var, against the 10% rules (KIM-69); the
-#   intrinsic spread E[σ̂²] (the hybrid's `intrinsic_var`) and the truth's σ̂²,
-#   apart from the estimand; the failed and starved cells.
+#   over the hybrid's √parameter_var, against the 10% rules (KIM-69). For ΔQ
+#   each is the SE of its cells' paired effect: for δ, that of δ_intervened − δ,
+#   the correction ΔQ's arm adds. The intrinsic spread E[σ̂²] (the hybrid's
+#   `intrinsic_var`) and the truth's σ̂², apart from the estimand. The failed and
+#   starved cells.
 #
 # SMOKE=1 is a plumbing pass, never a result. It runs dataset v6 only (B7's
 # held-out fit, not an evidence dataset), with its chain 1 standing in for V7 and
@@ -209,7 +211,11 @@ function work(i)
         seeds = InferCell._cell_seeds(Xoshiro(delta_seed(t.r)), N_REF)
         x = delta_correction(ms, haldane_values(metered(ms), InferCell._theta_ref(pd)), seeds;
                              horizon = H, intervention = KD, threads = false)
+        # The SE of δ_intervened − δ, ΔQ's correction: its cells are paired, as the
+        # truth's are.
+        e, es2, en = InferCell._moments(InferCell._paired_delta(x.hybrid, x.hybrid_intervened))
         p = (; t, x.hybrid_mean, x.hybrid_se, x.n_ok, x.delta, x.delta_intervened,
+             effect = e, effect_sigma2 = es2, effect_n = en, effect_se = sqrt(es2 / en),
              mean_field_q = x.mean_field.q, mean_field_intervened_q = x.mean_field_intervened.q,
              x.seeds, q = [c.q for c in x.hybrid], q_intervened = [c.q for c in x.hybrid_intervened],
              failed = count(c -> c.failure !== :none, x.hybrid),
@@ -303,7 +309,8 @@ function score()
             push!(rows, (; target, r, p, arm = a, truth, truth_se = tse,
                          score_arm(getproperty(smp, a), truth)...,
                          mc_share = s.mc / s.var, truth_se_ratio = tse / psd,
-                         delta_se_ratio = dpl[(r, p)].hybrid_se / psd,
+                         delta_se_ratio = (target === :q ? dpl[(r, p)].hybrid_se :
+                                           dpl[(r, p)].effect_se) / psd,
                          intrinsic_var = s.intrinsic_var,
                          truth_sigma2 = target === :q ? t.sigma2 : t.effect_sigma2,
                          failed = a === :hybrid ? f.hybrid.statuses : f.mean_field.statuses,
