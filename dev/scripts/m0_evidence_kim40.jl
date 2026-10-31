@@ -225,19 +225,24 @@ function prep()
             error("r$(u.r) $p: the draws are not $N_BLOCKS disjoint blocks")
     end
     tasks = [(; i, name = work_name(i), task(i)...) for i in 0:(N_WORK - 1)]
-    put(".", "manifest", (; evidence = rows, used, tasks, H, N_DRAWS, N_BLOCKS, N_CELLS, N_REF,
-                          N_TRUTH, dose = KD.dose, inputs = sums))
     # For `sha256sum -c inputs.sha256`.
-    write(joinpath(OUT, "inputs.sha256"), join(("$(s.sha256)  $(s.path)\n" for s in sums)))
-    open(joinpath(OUT, "manifest.tsv"), "w") do io
-        println(io, "index\tname\tkind\tdataset\tposterior\tblock\tdraws\trng")
-        for t in tasks
-            d = t.kind === :hybrid ? only(u for u in used if u.r == t.r).blocks[t.p][t.b] : Int[]
-            rng = t.kind === :hybrid ? block_seed(t.r, t.b) :
-                  t.kind === :delta ? delta_seed(t.r) : truth_seed(t.r)
-            println(io, join((t.i, t.name, t.kind, t.r, t.p, t.b, join(d, ","), rng), '\t'))
+    sha = staged(".", "inputs.sha256") do path
+        write(path, join(("$(s.sha256)  $(s.path)\n" for s in sums)))
+    end
+    tsv = staged(".", "manifest.tsv") do path
+        open(path, "w") do io
+            println(io, "index\tname\tkind\tdataset\tposterior\tblock\tdraws\trng")
+            for t in tasks
+                d = t.kind === :hybrid ? only(u for u in used if u.r == t.r).blocks[t.p][t.b] : Int[]
+                rng = t.kind === :hybrid ? block_seed(t.r, t.b) :
+                      t.kind === :delta ? delta_seed(t.r) : truth_seed(t.r)
+                println(io, join((t.i, t.name, t.kind, t.r, t.p, t.b, join(d, ","), rng), '\t'))
+            end
         end
     end
+    # manifest.jls last: `missing` reads it as prep's output.
+    place(sha, tsv, jls(".", "manifest", (; evidence = rows, used, tasks, H, N_DRAWS, N_BLOCKS,
+                                          N_CELLS, N_REF, N_TRUTH, dose = KD.dose, inputs = sums)))
 end
 
 function work(i)
