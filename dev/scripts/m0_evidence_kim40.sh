@@ -1,7 +1,8 @@
 #!/bin/bash
-# KIM-40 and KIM-41: M0's evidence run (dev/scripts/m0_evidence_kim40.jl). Run it
-# from a detached worktree at a pushed commit, and leave that worktree untouched
-# until the run ends: each task loads InferCell from it when the task starts.
+# KIM-40 and KIM-41: M0's evidence run (dev/scripts/m0_evidence_kim40.jl). It runs
+# the tree it lives in: keep a detached worktree at a pushed commit for the run,
+# call this launcher from it, and leave it untouched until the run ends, since
+# each task loads InferCell from it when the task starts.
 #   dev/scripts/m0_evidence_kim40.sh <outdir>
 #       the whole run: precompile, prep, the work array, finish, score;
 #   dev/scripts/m0_evidence_kim40.sh <outdir> missing
@@ -40,7 +41,8 @@ if [ "$mode" = progress ]; then
 fi
 [ "$mode" = run ] || [ "$mode" = missing ] || { echo "unknown mode $mode" >&2; exit 1; }
 
-cd "$(git rev-parse --show-toplevel)"
+# The tree this launcher lives in, wherever it is called from.
+cd "$(dirname "$(realpath "$0")")/../.."
 source dev/scripts/launcher_guard.sh
 script=dev/scripts/m0_evidence_kim40.jl
 exp="--export=ALL,SMOKE=$smoke"
