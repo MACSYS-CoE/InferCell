@@ -4478,11 +4478,14 @@ rule below.
   blocks and run its mean field. One `score` job follows.
 - **Outputs:** they are never overwritten. A failed task is rerun by the
   launcher's `missing` mode.
-  - **Two manual steps.** Before `prep` has placed `manifest.jls`, a failed
-    `pre` or `prep`, or a failed submission after `pre`'s, leaves a directory
-    neither mode takes up: run mode refuses its `jobs.tsv`, and `missing` its
-    lack of a manifest. The run then starts again in a fresh directory; nothing
-    costly has run by then.
+  - **Two manual steps.** A failed `pre` or `prep` job, or a failed submission
+    of `prep`, leaves `jobs.tsv` and no `manifest.jls`, a directory neither mode
+    takes up: run mode refuses its `jobs.tsv`, and `missing`, once nothing is
+    queued, its lack of a manifest. The run then starts again in a fresh
+    directory; nothing costly has run by then. If a later submission fails
+    (work, finish or score), the jobs already accepted run, prep places the
+    manifest, and `missing` takes the directory up once they have left the
+    queue.
   - After that, a task killed in the instant between moving its files leaves
     the earlier ones without the last. `missing` reruns it, and it refuses,
     naming them, until they are moved aside by hand.
@@ -4622,8 +4625,7 @@ departures are recorded here:
 CRITICAL, and 4 MAJOR and 10 MINOR findings. Each was fixed in its own commit,
 from `0d082c0` to `a995730`. The fix gate found all 14 resolved, and six new
 MINOR findings, fixed in a second round from `10c2fda` to `3608329`. Its gate
-found that round's code clean, and four wording errors in this entry, since
-corrected. The report is at
+found that round's code clean, and four wording errors, since corrected. The report is at
 `/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
 Besides the text above, the fixes changed the run in these ways:
 - **ΔQ's δ SE** is the paired SE described under Scoring. Before, it was
@@ -4657,7 +4659,7 @@ the scores.
   archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke3-2026-10-31/`;
 - at `3608329`, with its second round: jobs 19646432–19646436, archived at
   `/fred/oz022/tkimpson/infercell-m5-kim40-smoke4-2026-10-31/`. Later commits
-  change only text and one refusal message.
+  change only text, and the order and wording of `missing`'s refusals.
 
 Each archive has a `SHA256SUMS`, and the last two a `sacct.tsv`. Every job of all
 four passes completed, and no job of the last two ran on a turin node. The four

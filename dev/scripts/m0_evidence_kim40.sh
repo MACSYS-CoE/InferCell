@@ -56,11 +56,12 @@ arr() { sbatch --parsable "${nodes[@]}" --ntasks=1 --output="$outdir/logs/%x_%A_
 # succeeds: a task that compiled on its own could leave a cache the others refuse.
 head=$(git rev-parse HEAD)
 if [ "$mode" = missing ]; then
-    [ -f "$outdir/manifest.jls" ] ||
-        { echo "no $outdir/manifest.jls: prep never finished, so start again in a fresh outdir" >&2; exit 1; }
     queued=$(squeue -h -u "$USER" -n "$jobs") ||
         { echo "squeue failed, so whether the run has jobs queued is unknown" >&2; exit 1; }
     [ -z "$queued" ] || { echo "the run still has jobs in the queue; wait for them" >&2; exit 1; }
+    # Nothing is queued, so a missing manifest means prep failed or never ran.
+    [ -f "$outdir/manifest.jls" ] ||
+        { echo "no $outdir/manifest.jls: prep never finished, so start again in a fresh outdir" >&2; exit 1; }
     ran() { awk -F'\t' -v k="$1" '$1 == k { print $2; exit }' "$outdir/jobs.tsv"; }
     [ "$(ran commit)" = "$head" ] ||
         { echo "the run is at '$(ran commit)', this tree at $head" >&2; exit 1; }

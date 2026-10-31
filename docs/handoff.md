@@ -33,7 +33,9 @@
 
     The fix gate found all 14 resolved, and six new MINOR findings, fixed in
     `10c2fda`…`3608329`. Its gate found the code clean and four wording errors,
-    fixed in `fa5d016`. The report and its fix ledger are in
+    fixed in `fa5d016`. A last check of the text after that found the records
+    of smokes 3 and 4 true, and one of those corrections overreaching, which
+    was fixed in the commit after `f6ceb10`. The report and its fix ledger are in
     `/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
   - **Smokes:** four, every job completed, all archived with `SHA256SUMS`, and
     the four `score_datasets.tsv` files byte-identical:
