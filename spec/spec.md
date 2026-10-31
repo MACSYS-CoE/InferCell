@@ -4622,9 +4622,17 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
     which agree exactly;
   - `finish` checked the paired draws and the disjoint block, δ and truth seeds;
   - `score` checked that V7's and B7's cell seeds are equal.
-- **For sizing the run:** each work task peaked at 1.7–2.0 GiB, nearly all of it
-  Julia and the compiled code. The saved files come to about 2.4 KB per cell, so
-  about 50 GB for the full run.
+- **For sizing the run:**
+  - **memory:** each work task peaked at 1.7–2.0 GiB, nearly all of it Julia and
+    the compiled code. That was at 60 s. At 600 s, KIM-38's single-core cells job
+    (19560133) peaked at 2.0 GB, and a task's 20,000 or so cells add about 50 MB,
+    so `MEM=6G` leaves room;
+  - **disk:** the smoke's files come to about 2.4 KB per cell, which scales to
+    about 50 GB for the full run. That is an estimate, not a bound. At the
+    smoke's few cells per file, fixed overhead is most of a file (δ's files come
+    to about 1 KB per cell), but a 600 s cell may carry more records than a 60 s
+    one. The plan estimated about 20 GB. Either is far inside the group's /fred
+    quota (37 of 60 TB used).
 - **At 60 s most paired cells show ΔQ = 0 exactly**, since a knockdown changes Q
   only through a transcription event. Every truth cell did, while the mean
   field's effect is about −130. This is expected at 60 s, and was checked not to
@@ -4633,7 +4641,8 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 **Before the launch:**
 - this entry and the launcher merged to main, after `/check-PR`;
 - KIM-70's docs pass merged;
-- the user's go-ahead for about 9,900 CPU-h;
+- the user's go-ahead for about 9,800 CPU-h (KIM-69's 4,999 + 4,808), about
+  65 h at 150 tasks at once;
 - a detached worktree at the merge commit, left untouched for the run;
 - a start by about 14 November.
 

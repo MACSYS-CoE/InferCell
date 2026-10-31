@@ -12,7 +12,8 @@
 - **PR A, #131, merged as `3de0562`:** `combine_rows` (`src/predict_combine.jl`),
   KIM-70's combiner.
   - **Review:** `/check-PR` found no CRITICAL. Its 2 MAJOR and 5 MINOR findings
-    were fixed, then two fix-gate rounds returned MERGE. The report is in
+    were fixed. The first fix-gate round returned MERGE AFTER FIXES, for one
+    MINOR, and the second, after that fix, MERGE. The report is in
     `/fred/oz022/tkimpson/infercell-m5-kim40-tests/`.
   - **Suites:** 29,757/29,757 at `8308ba7` (job 19622826) and 29,760/29,760 at
     `4aa4a35` (job 19624883).
@@ -33,12 +34,12 @@
 **Next:**
 1. PR B's review and merge.
 2. KIM-70's docs pass, merged.
-3. The launch, with the user's go-ahead for about 9,900 CPU-h, by about 14
+3. The launch, with the user's go-ahead for about 9,800 CPU-h, by about 14
    November:
    - make a detached worktree at the merge commit;
    - run `dev/scripts/m0_evidence_kim40.sh /fred/oz022/tkimpson/infercell-m5-kim40-<date>`
      from it;
-   - leave the worktree untouched for the run, about 66 h at 150 tasks;
+   - leave the worktree untouched for the run, about 65 h at 150 tasks;
    - after the run: `… missing` for failed tasks, and `… progress` to count
      outputs.
 4. The result note, citing the job ids, `93abbce`, `5ec56d3` and PR B's merge.
