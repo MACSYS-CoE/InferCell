@@ -7,14 +7,16 @@
 # recomputed from them over all the rows, by the helpers `_assemble` uses. No
 # block's summary is read, so none is averaged (KIM-70).
 
-# Two blocks' δ are one correction when everything that defines and gives it
-# agrees. A δ read back from a file is a copy, so `===` cannot say this.
+# Two blocks' δ are one correction when every field agrees but its runs. A δ read
+# back from a file is a copy, so `===` cannot say this; and a `CellRun` has no
+# equality by content, so the runs are left to the seeds, means and counts they
+# gave. A field added to `DeltaCorrection` is compared unless listed here.
+const _DELTA_RUNS = (:hybrid, :mean_field, :hybrid_intervened, :mean_field_intervened)
 _same_delta(x::Nothing, y) = y === nothing
 _same_delta(x::DeltaCorrection, y) =
     y isa DeltaCorrection &&
-    all(f -> isequal(getfield(x, f), getfield(y, f)),
-        (:values, :horizon, :quantity, :modules, :fingerprint, :seeds, :hybrid_mean,
-         :hybrid_se, :n_ok, :delta, :intervention, :delta_intervened))
+    all(f -> f in _DELTA_RUNS || isequal(getfield(x, f), getfield(y, f)),
+        fieldnames(DeltaCorrection))
 
 """
     combine_rows(blocks) -> Prediction
@@ -26,14 +28,24 @@ One [`Prediction`](@ref) from row blocks of one prediction, run as separate
 - without completion (`completion = :none`), so the rows are independent
   posterior draws. With completion every row shares the same held draws, and one
   call must run the crossed matrix;
-- run on one posterior, with the same composition, forward, Q, horizon,
-  intervention and settings, `n_parameter_draws` aside;
+- run on one posterior, with the same composition, forward, estimand, Q, horizon,
+  intervention, settings (`n_parameter_draws` aside) and InferCell version. These
+  are checked as a `Prediction` records them: Q by its label, the posterior by its
+  `source`, and the composition by its reduction labels and skipped parameters.
+  Without δ, a `Prediction` keeps no Q function and no fingerprint of the
+  composition, so two closures with one label, or two compositions alike in those
+  records, are not told apart. Run a prediction's blocks from one script at one
+  commit;
 - on disjoint `draws`, each block with its own `rng`. Two calls with the same
   `rng` draw the same cell seeds whatever their `draws`, and no two rows may share
   cell seeds (the E[σ²]/n correction). Blocks whose seeds repeat are refused;
 - for a corrected mean field, given one shared [`DeltaCorrection`](@ref) as
   `delta`, computed once with [`delta_correction`](@ref). A block that computed its
-  own (`delta = :ensemble`) is refused, and so are blocks whose δ differ.
+  own (`delta = :ensemble`) is refused, and so are blocks whose δ differ in any
+  field but its runs. The δ keeps Q itself and the composition's fingerprint, so
+  these blocks are told apart by both. Q is compared by `isequal`, as `predict`
+  compares it with δ, and an anonymous function read back from a file is not equal
+  to itself: give such blocks Q as a Symbol or a named function.
 
 **What it computes.** The per-row results (`mu`, `sigma2`, `n_ok`, `effect`,
 `effect_sigma2`) are recomputed from the concatenated runs. The `summary`,
@@ -67,7 +79,6 @@ function combine_rows(blocks::AbstractVector{Prediction})
     same(p -> p.quantity, "quantity")
     same(p -> p.horizon, "horizon")
     same(p -> p.intervention, "intervention")
-    same(p -> (p.held, p.theta_H), "held draws")
     same(p -> merge(p.provenance.settings, (; n_parameter_draws = 0)), "settings")
     same(p -> p.provenance.source, "posterior")
     same(p -> (p.provenance.reductions, p.provenance.skipped), "composition")

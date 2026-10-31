@@ -76,6 +76,9 @@ draws (k = 1…K). Without completion there is one column.
     reason;
   - `threads`: the threads the cells ran on, 1 when not threaded. The result
     does not depend on it.
+
+  A [`combine_rows`](@ref) result holds one `fork_seed` and one `threads` per
+  block, and `block_rows`, each block's row count.
 """
 struct Prediction
     forward::Symbol

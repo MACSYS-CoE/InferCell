@@ -49,9 +49,10 @@ Without completion, a prediction's rows can be split over calls, each with its
 own `rng` and disjoint `draws`, as M0's evidence run does on single-core tasks.
 [`combine_rows`](@ref) puts the blocks back together. It recomputes every result
 over all the rows, and never averages the blocks' summaries. A corrected mean
-field's blocks share one [`DeltaCorrection`](@ref). Blocks run on the same `rng`
-would share cell seeds, and are refused. Two posteriors run on the same `rng`s
-and block shapes draw the same seeds, which gives their rows common cell seeds.
+field's blocks share one [`DeltaCorrection`](@ref). Hybrid blocks run on the
+same `rng` would share cell seeds, and are refused. Two posteriors run on the same
+`rng`s and block shapes draw the same seeds, which gives their rows common cell
+seeds.
 
 The toy models' [`posterior_predictive`](@ref) reads its posterior the same way,
 and forks the rng the same way. It draws without replacement, or by weight
