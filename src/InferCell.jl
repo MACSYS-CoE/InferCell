@@ -92,6 +92,7 @@ include("predict_intervention.jl")
 include("predict_forward.jl")
 include("predict_viability.jl")
 include("predict.jl")
+include("predict_combine.jl")
 include("predict_variance.jl")
 include("boundary.jl")
 
