@@ -4478,6 +4478,9 @@ rule below.
   blocks and run its mean field. One `score` job follows.
 - **Outputs:** they are never overwritten. A failed task is rerun by the
   launcher's `missing` mode.
+  - **The one manual step:** a task killed in the instant between moving its
+    files leaves the earlier ones without the last. `missing` reruns it, and it
+    refuses, naming them, until they are moved aside by hand.
 
 **Seeds** (KIM-40's, from M5's 19_500_000–19_599_999; KIM-41 shares them, and
 KIM-42 keeps 19_542_xxx):
@@ -4574,7 +4577,11 @@ predictive. Then type-7 central intervals cover **88.2% at nominal 90% and about
   coverage here. Over 50 datasets their binomial SEs are about 4.6 and 7.1
   points.
 - **The mean-field arms** carry no MC term, so this is their reference as it
-  stands.
+  stands, for exchangeable draws.
+- **V7's draws** are thinned from a correlated chain (below), which pulls the
+  reference down, so for V7 88.2% is an upper reference. In an AR(1) simulation
+  of 100 draws, an ESS of 50 gives 87.8% and 48.7%, and an ESS of 25 gives 86.9%
+  and 47.9%.
 - **The hybrid's values** carry its MC term, which widens its intervals. KIM-69's
   arithmetic puts a normal predictive at about 92% for nominal 90% at a 10% MC
   share, before this finite-sample effect.
@@ -4606,18 +4613,21 @@ departures are recorded here:
 
 **This entry's own review** (`/check-PR` on #132, 2026-10-31). It found no
 CRITICAL, and 4 MAJOR and 10 MINOR findings. Each was fixed in its own commit,
-from `0d082c0` to `a995730`, then gated. The report is at
+from `0d082c0` to `a995730`. The fix gate found all 14 resolved, and six new
+MINOR findings, fixed in a second round from `10c2fda`, which was gated in
+turn. The report is at
 `/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
 Besides the text above, the fixes changed the run in these ways:
 - **ΔQ's δ SE** is the paired SE described under Scoring. Before, it was
   baseline Q's.
 - **The nodes:** every job keeps to milan's Zen3 nodes. The site widens
-  `--partition=milan` to turin-c, so the turin nodes are excluded by name:
-  dave148–149 and gina18.
+  `--partition=milan` to turin-c, so the turin nodes are excluded: dave148–149
+  and gina18 by name, and any node `sinfo` marks `turin` at submission.
 - **`missing`:**
   - it precompiles first;
   - it refuses a tree at another commit or with another SMOKE, both kept in
-    `jobs.tsv`.
+    `jobs.tsv`;
+  - it refuses if `squeue` fails, rather than reading that as nothing queued.
 - **Every stage:**
   - refuses a dirty tree;
   - reads an output only at the commit and SMOKE that wrote it.
@@ -4669,7 +4679,9 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 - KIM-70's docs pass merged;
 - the user's go-ahead for about 9,800 CPU-h (KIM-69's 4,999 + 4,808), about
   65 h at 150 tasks at once;
-- a detached worktree at the merge commit, left untouched for the run;
+- a detached worktree at the merge commit, left untouched for the run. Nothing
+  loads InferCell from it but the run's jobs: the login node's CPU differs, and
+  outputs are read from another worktree at the same commit;
 - a start by about 14 November.
 
 **After the run**, before the result note:
@@ -4677,7 +4689,8 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 - the accounting, kept in the run's directory. Every job id in `jobs.tsv` (its
   `commit` and `smoke` rows aside) goes through
   `sacct -P -j <ids> --format=JobID,JobName,NodeList,State,ExitCode,Elapsed,MaxRSS,SubmitLine > sacct.tsv`.
-  It is checked that no task ran on dave148–149 or gina18;
+  It is checked that no task ran on a turin node, and that every record's
+  `ran_on.cpu_name` is `znver3`;
 - `sha256sum -c inputs.sha256`, then a `SHA256SUMS` over the outputs, for the
   archive (KIM-43);
 - the result note, citing the job ids, `93abbce`, `5ec56d3` and the commit that
