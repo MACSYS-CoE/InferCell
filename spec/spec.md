@@ -4604,6 +4604,32 @@ departures are recorded here:
 
   None of them changes a primary score.
 
+**This entry's own review** (`/check-PR` on #132, 2026-10-31). It found no
+CRITICAL, and 4 MAJOR and 10 MINOR findings. Each was fixed in its own commit,
+from `0d082c0` to `a995730`, then gated. The report is at
+`/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_132_2026-10-31.md`.
+Besides the text above, the fixes changed the run in these ways:
+- **ΔQ's δ SE** is the paired SE described under Scoring. Before, it was
+  baseline Q's.
+- **The nodes:** every job keeps to milan's Zen3 nodes. The site widens
+  `--partition=milan` to turin-c, so the turin nodes are excluded by name:
+  dave148–149 and gina18.
+- **`missing`:**
+  - it precompiles first;
+  - it refuses a tree at another commit or with another SMOKE, both kept in
+    `jobs.tsv`.
+- **Every stage:**
+  - refuses a dirty tree;
+  - reads an output only at the commit and SMOKE that wrote it.
+- **The inputs** are pinned, as described under the run.
+- **A task's files:** it writes them all under tmp/ before moving any, and
+  each record says where it ran: host, CPU, Julia version, array ids and the
+  full commit.
+- **`WALLTIME`** sets the work tasks' time limit, by default 24 h.
+
+None of these changes what is computed or scored, except the ΔQ δ SE beside
+the scores.
+
 **The smoke pass** (`SMOKE=1`). It ran twice:
 - at `4ba3ff5`, with the combiner before #131's review: jobs 19622876–19622880,
   archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke-2026-10-31/`;
