@@ -4561,6 +4561,24 @@ are.
     the estimand;
   - the cells by status, at baseline and under the knockdown.
 
+**A calibrated arm's coverage, with 100 draws.** Since the intervals are used as
+they are, a calibrated arm does not cover at the nominal rate. Suppose the truth
+and the 100 values are exchangeable: the truth is one more draw from the same
+predictive. Then type-7 central intervals cover **88.2% at nominal 90% and about
+49% at nominal 50%**, whatever the distribution. That was checked by simulation:
+4×10⁵ replicates, normal and exponential, 88.2% and 48.9–49.0%.
+- **The PIT:** the truth falls in each bin from 0/10 to 8/10 with probability
+  10/101, and in the top bin with 11/101, since a truth above all 100 values has
+  PIT 1.
+- **The reference:** 88.2% and 49%, not 90% and 50%, are a calibrated arm's
+  coverage here. Over 50 datasets their binomial SEs are about 4.6 and 7.1
+  points.
+- **The mean-field arms** carry no MC term, so this is their reference as it
+  stands.
+- **The hybrid's values** carry its MC term, which widens its intervals. KIM-69's
+  arithmetic puts a normal predictive at about 92% for nominal 90% at a 10% MC
+  share, before this finite-sample effect.
+
 **What the scoring does not do**, said here so that no reading is chosen after
 the run:
 - it does not remove the hybrid's MC term or the truth's own error. KIM-69's
