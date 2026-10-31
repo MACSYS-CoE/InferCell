@@ -4538,9 +4538,28 @@ the run:
   smallest bulk ESS under 100), so a V7 interval rests on fewer effective draws;
 - fifty datasets resolve coverage to about ±4 points at 90%.
 
+**The smoke pass** (`SMOKE=1`, at `4ba3ff5`; jobs 19622876–19622880; archive
+`/fred/oz022/tkimpson/infercell-m5-kim40-smoke-2026-10-31/`, with `SHA256SUMS`).
+It is plumbing, not a result. It ran on B7's held-out `v6` fit, with chain 1
+standing in for V7 and chain 2 for B7, at 60 s with tiny sizes. It read no
+evidence dataset's Q.
+- **What ran:** every stage, each job completed, and the score tables were
+  written.
+- **What it checked:**
+  - `prep` checked the 100 evidence files: names, draw counts, and the truths,
+    which agree exactly;
+  - `finish` checked the paired draws and the disjoint block, δ and truth seeds;
+  - `score` checked that V7's and B7's cell seeds are equal.
+- **For sizing the run:** each work task peaked at 1.8–2.0 GiB, nearly all of it
+  Julia and the compiled code. The saved files come to about 2.4 KB per cell, so
+  about 50 GB for the full run.
+- **At 60 s most paired cells show ΔQ = 0 exactly**, since a knockdown changes Q
+  only through a transcription event. Every truth cell did, while the mean
+  field's effect is about −130. This is expected at 60 s, and was checked not to
+  be a bug.
+
 **Before the launch:**
-- this entry and the launcher merged to main, after the smoke pass and
-  `/check-PR`;
+- this entry and the launcher merged to main, after `/check-PR`;
 - KIM-70's docs pass merged;
 - the user's go-ahead for about 9,900 CPU-h;
 - a detached worktree at the merge commit, left untouched for the run;
