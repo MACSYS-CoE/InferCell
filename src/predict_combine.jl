@@ -7,14 +7,16 @@
 # recomputed from them over all the rows, by the helpers `_assemble` uses. No
 # block's summary is read, so none is averaged (KIM-70).
 
-# Two blocks' δ are one correction when everything that defines and gives it
-# agrees. A δ read back from a file is a copy, so `===` cannot say this.
+# Two blocks' δ are one correction when every field agrees but its runs. A δ read
+# back from a file is a copy, so `===` cannot say this; and a `CellRun` has no
+# equality by content, so the runs are left to the seeds, means and counts they
+# gave. A field added to `DeltaCorrection` is compared unless listed here.
+const _DELTA_RUNS = (:hybrid, :mean_field, :hybrid_intervened, :mean_field_intervened)
 _same_delta(x::Nothing, y) = y === nothing
 _same_delta(x::DeltaCorrection, y) =
     y isa DeltaCorrection &&
-    all(f -> isequal(getfield(x, f), getfield(y, f)),
-        (:values, :horizon, :quantity, :modules, :fingerprint, :seeds, :hybrid_mean,
-         :hybrid_se, :n_ok, :delta, :intervention, :delta_intervened))
+    all(f -> f in _DELTA_RUNS || isequal(getfield(x, f), getfield(y, f)),
+        fieldnames(DeltaCorrection))
 
 """
     combine_rows(blocks) -> Prediction
