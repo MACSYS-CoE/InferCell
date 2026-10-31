@@ -4570,6 +4570,22 @@ the run:
   smallest bulk ESS under 100), so a V7 interval rests on fewer effective draws;
 - fifty datasets resolve coverage to about ±4 points at 90%.
 
+**Where the launcher departs from the approved plan.** The plan's header says
+departures are recorded here:
+- **the common-seeds check:** the plan put the check that V7's and B7's cell
+  seeds are equal in `finish`. It is in `score`, since a `finish` task holds one
+  posterior's blocks only;
+- **the truths:** the plan had `prep` check that V7's and B7's truths are
+  equal, σ_b included. It checks them to 1e-12 relative, σ_b included, since V7
+  stores them on the log scale and B7 on the natural one;
+- **added to the scoring:**
+  - the standardised error z, its mean and SD over datasets;
+  - δ's SE over the hybrid's √parameter_var, beside the truth's, for KIM-69's
+    10% rule on δ;
+  - `score_datasets.tsv`, one row per target, dataset, posterior and arm.
+
+  None of them changes a primary score.
+
 **The smoke pass** (`SMOKE=1`). It ran twice:
 - at `4ba3ff5`, with the combiner before #131's review: jobs 19622876–19622880,
   archived at `/fred/oz022/tkimpson/infercell-m5-kim40-smoke-2026-10-31/`;
