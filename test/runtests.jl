@@ -137,6 +137,7 @@ using Aqua
     include("test_predict_viability.jl")
     include("test_predict_intervention.jl")
     include("test_predict.jl")
+    include("test_predict_combine.jl")    # KIM-40: M0's row blocks
     include("test_predict_reference.jl")   # KIM-68: against the M4 freeze
     include("test_predict_variance.jl")
     include("test_predict_provenance.jl")

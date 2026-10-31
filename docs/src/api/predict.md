@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl), [`src/predict_variance.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_variance.jl).
+Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/predict_combine.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_combine.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl), [`src/predict_variance.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_variance.jl).
 
 ## The entry point
 
@@ -44,6 +44,14 @@ variants' weights and the matrix the split needs.
 On M0 no parameter is held, so `completion = :none`. That is the scored case. On
 the reduced model the held parameters come from their priors, and the result is
 unscored: no truth matches those data.
+
+Without completion, a prediction's rows can be split over calls, each with its
+own `rng` and disjoint `draws`, as M0's evidence run does on single-core tasks.
+[`combine_rows`](@ref) puts the blocks back together. It recomputes every result
+over all the rows, and never averages the blocks' summaries. A corrected mean
+field's blocks share one [`DeltaCorrection`](@ref). Blocks run on the same `rng`
+would share cell seeds, and are refused. Two posteriors run on the same `rng`s
+and block shapes draw the same seeds, which gives their rows common cell seeds.
 
 The toy models' [`posterior_predictive`](@ref) reads its posterior the same way,
 and forks the rng the same way. It draws without replacement, or by weight
@@ -123,5 +131,5 @@ the intrinsic noise. A dose of 0 gives ΔQ = 0 exactly.
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["predict.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl", "predict_variance.jl"]
+Pages = ["predict.jl", "predict_combine.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl", "predict_variance.jl"]
 ```
