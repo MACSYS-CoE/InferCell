@@ -6,8 +6,9 @@
 #   dev/scripts/m0_evidence_kim40.sh <outdir>
 #       the whole run: precompile, prep, the work array, finish, score;
 #   dev/scripts/m0_evidence_kim40.sh <outdir> missing
-#       once none of the run's jobs is queued: resubmits the work tasks that wrote
-#       no output, then finish for each (r, p) with none, then score;
+#       once none of the run's jobs is queued: precompiles, then resubmits the work
+#       tasks that wrote no output, then finish for each (r, p) with none, then
+#       score;
 #   dev/scripts/m0_evidence_kim40.sh <outdir> progress
 #       counts the outputs, and lists the run's jobs in the queue.
 # SMOKE=1 in the launcher's environment runs the smoke pass, and is passed to the
@@ -47,44 +48,48 @@ source dev/scripts/launcher_guard.sh
 script=dev/scripts/m0_evidence_kim40.jl
 exp="--export=ALL,SMOKE=$smoke"
 # `sub` (launcher_guard.sh), with each array task's log named by its index.
-arr() { sbatch --parsable --partition=milan --exclude='dave[148-149]' --ntasks=1 \
-               --output="$outdir/logs/%x_%A_%a.log" "$@"; }
+arr() { sbatch --parsable "${nodes[@]}" --ntasks=1 --output="$outdir/logs/%x_%A_%a.log" "$@"; }
 
-if [ "$mode" = run ]; then
-    [ -e "$outdir/jobs.tsv" ] && { echo "$outdir already holds a run; use missing" >&2; exit 1; }
-    pre=$(sub $exp --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_pre \
-              --wrap "$run -e 'using InferCell'")
-    record precompile "$pre"
-    prep=$(sub $exp --dependency=afterok:$pre --kill-on-invalid-dep=yes --cpus-per-task=1 \
-               --mem=16G --time=01:00:00 --job-name=${name}_prep \
-               --wrap "$run $script prep $outdir")
-    record prep "$prep"
-    work_list="0-$((nwork - 1))"; wdep="--dependency=afterok:$prep --kill-on-invalid-dep=yes"
-    fin_list="0-$((nfin - 1))"
-else
+# Both modes compile first, on the run's nodes, and nothing starts until that
+# succeeds: a task that compiled on its own could leave a cache the others refuse.
+if [ "$mode" = missing ]; then
     [ -f "$outdir/manifest.jls" ] || { echo "no $outdir/manifest.jls: start a run first" >&2; exit 1; }
     [ -z "$(squeue -h -u "$USER" -n "$jobs")" ] ||
         { echo "the run still has jobs in the queue; wait for them" >&2; exit 1; }
-    work_list=$(absent work $nwork 4); wdep=""
+    work_list=$(absent work $nwork 4)
     fin_list=$(absent finish $nfin 3)
+    [ -n "$work_list$fin_list" ] || [ ! -f "$outdir/score.jls" ] ||
+        { echo "nothing is missing from $outdir"; exit 0; }
+else
+    [ -e "$outdir/jobs.tsv" ] && { echo "$outdir already holds a run; use missing" >&2; exit 1; }
+    work_list="0-$((nwork - 1))"
+    fin_list="0-$((nfin - 1))"
+fi
+pre=$(sub $exp --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_pre \
+          --wrap "$run -e 'using InferCell'")
+record precompile "$pre"
+dep="--dependency=afterok:$pre --kill-on-invalid-dep=yes"
+if [ "$mode" = run ]; then
+    prep=$(sub $exp $dep --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_prep \
+               --wrap "$run $script prep $outdir")
+    record prep "$prep"
+    dep="--dependency=afterok:$prep --kill-on-invalid-dep=yes"
 fi
 
-fdep=""
 if [ -n "$work_list" ]; then
-    work=$(arr $exp $wdep --array="$work_list%${CONCURRENCY:-150}" --cpus-per-task=1 \
+    work=$(arr $exp $dep --array="$work_list%${CONCURRENCY:-150}" --cpus-per-task=1 \
                --mem=${MEM:-6G} --time=24:00:00 --job-name=${name}_work \
                --wrap "$run $script work $outdir \$SLURM_ARRAY_TASK_ID")
-    record work "$work"; fdep="--dependency=afterany:$work"
+    record work "$work"; dep="--dependency=afterany:$work"
 fi
-sdep=$fdep
 if [ -n "$fin_list" ]; then
-    fin=$(arr $exp $fdep --array="$fin_list" --cpus-per-task=1 --mem=16G --time=03:00:00 \
+    fin=$(arr $exp $dep --array="$fin_list" --cpus-per-task=1 --mem=16G --time=03:00:00 \
               --job-name=${name}_finish \
               --wrap "$run $script finish $outdir \$SLURM_ARRAY_TASK_ID")
-    record finish "$fin"; sdep="--dependency=afterany:$fin"
+    record finish "$fin"; dep="--dependency=afterany:$fin"
 fi
 if [ ! -f "$outdir/score.jls" ]; then
-    s=$(sub $exp $sdep --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_score \
+    s=$(sub $exp $dep --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=${name}_score \
             --wrap "$run $script score $outdir")
     record score "$s"
 fi

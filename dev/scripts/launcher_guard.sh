@@ -3,8 +3,9 @@
 # Before anything is made, it refuses an output directory inside any of the repo's
 # worktrees (the main checkout included), a dirty tree, and a HEAD on no remote
 # branch. Only then does it make $outdir/logs. It also defines:
-#   sub ...           sbatch on milan (dave148–149 excluded), one task, logging to
-#                     $outdir/logs, printing the job id;
+#   nodes             the sbatch flags for milan's Zen3 nodes (below);
+#   sub ...           sbatch on those nodes, one task, logging to $outdir/logs,
+#                     printing the job id;
 #   record name id    appends "name<TAB>id" to $outdir/jobs.tsv;
 #   run               the command prefix for Julia in a job's --wrap, with BLAS on
 #                     one thread unless the job's environment sets
@@ -29,8 +30,12 @@ if [ -z "$(git branch -r --contains HEAD)" ]; then
     echo "HEAD $(git rev-parse --short HEAD) is on no remote branch; push it first" >&2; exit 1
 fi
 mkdir -p "$outdir/logs"
-sub() { sbatch --parsable --partition=milan --exclude='dave[148-149]' --ntasks=1 \
-               --output="$outdir/logs/%x_%j.log" "$@"; }
+# The site widens --partition=milan to milan-c and turin-c, so the turin (Zen5)
+# nodes are excluded by name: dave148–149 in milan and gina18 in turin-c. A
+# package cache compiled on one is refused on Zen3 (2026-10-23), and every task
+# there then fails at `using InferCell` (KIM-40 review, 2026-10-31).
+nodes=(--partition=milan --exclude='dave[148-149],gina18')
+sub() { sbatch --parsable "${nodes[@]}" --ntasks=1 --output="$outdir/logs/%x_%j.log" "$@"; }
 record() { printf '%s\t%s\n' "$1" "$2" >> "$outdir/jobs.tsv"; }
 # Single quotes: the default is taken in the job, from its own environment.
 run='module load julia/1.10.5; OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1} julia --project'
