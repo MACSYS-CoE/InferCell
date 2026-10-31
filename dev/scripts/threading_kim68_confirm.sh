@@ -27,7 +27,7 @@ confirm() {     # label threads gcthreads [sbatch options]
     record "threaded$2_$1" "$id"
     all="$all:$id"
 }
-confirm gc32c1 64 32,1 --exclude='dave[13,148-149]'
+confirm gc32c1 64 32,1 --exclude="dave13,$excluded"    # replaces the guard's list, so extends it
 confirm gc8c1 64 8,1
 confirm gc8c1 16 8,1
 record report "$(sub "$ex" --dependency=afterany$all --cpus-per-task=1 --mem=8G --time=00:20:00 \
