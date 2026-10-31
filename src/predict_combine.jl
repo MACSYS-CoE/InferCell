@@ -26,8 +26,13 @@ One [`Prediction`](@ref) from row blocks of one prediction, run as separate
 - without completion (`completion = :none`), so the rows are independent
   posterior draws. With completion every row shares the same held draws, and one
   call must run the crossed matrix;
-- run on one posterior, with the same composition, forward, Q, horizon,
-  intervention and settings, `n_parameter_draws` aside;
+- run on one posterior, with the same composition, forward, estimand, Q, horizon,
+  intervention, settings (`n_parameter_draws` aside) and InferCell version. These
+  are checked as a `Prediction` records them: Q by its label, the posterior by its
+  `source`, and the composition by its reduction labels and skipped parameters. A
+  `Prediction` keeps no Q function and no fingerprint of the composition, so two
+  closures with one label, or two compositions alike in those records, are not
+  told apart. Run a prediction's blocks from one script at one commit;
 - on disjoint `draws`, each block with its own `rng`. Two calls with the same
   `rng` draw the same cell seeds whatever their `draws`, and no two rows may share
   cell seeds (the E[σ²]/n correction). Blocks whose seeds repeat are refused;
