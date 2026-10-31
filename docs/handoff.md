@@ -1,6 +1,26 @@
 # Handoff
 
-## Latest: KIM-68, M5 prep (branch `tomkimpson/kim-68-m5-prep-predicts-threading-efficiency-gc-a-work-stealing`, PR #129, 2026-10-31)
+## Latest: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
+
+**State: done.** The user chose option A: M0 runs at the declared rules, with the
+panel. The record is spec §12, 2026-10-31, "KIM-69: M0's scale at the declared
+rules, with the panel". It is a docs-only change, and the user waived
+`/check-PR` for it.
+- **The sizes:** 887 cells per draw, n_ref = n_truth = 9,849, 100 draws per
+  posterior, and the KIM-41 panel runs. They hold for all 50 datasets × both
+  posteriors, from the v6 sizing (job 19568624).
+- **The cost:** about 10,500 CPU-h for the package. M0 is about 9,800 of it, about
+  65 h at 150 tasks at once; KIM-42 then takes 8–9 h.
+- **The gate forces no cut if M0 starts by about 14 November.** If it starts
+  later, the cuts apply, and their order is KIM-70's open point.
+
+**Next in M5:**
+1. KIM-70's docs pass, including the gate's cut order and which 2 widths.
+2. KIM-40: the combiner for M0's row blocks (KIM-40 owns it), then M0's launcher.
+3. M0 (KIM-40 and KIM-41 together) by about 14 November, then KIM-42 on
+   `--gcthreads=N,1`.
+
+## Earlier: KIM-68, M5 prep (branch `tomkimpson/kim-68-m5-prep-predicts-threading-efficiency-gc-a-work-stealing`, PR #129, 2026-10-31)
 
 **State: done.** The diagnosis, the gate's call and its confirmation, the review
 (`/check-PR`, three rounds, MERGE) and every check at the final code head are in.

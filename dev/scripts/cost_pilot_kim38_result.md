@@ -89,8 +89,10 @@ At the first, superseded sizing it was about 1,900.
 
 ## The gate
 
-- **Not decided: M0's sizes are a todo (KIM-69).** On 2026-10-30 the user chose
-  to draft the paper first and revisit, rather than wait on the run.
+- **Decided on 2026-10-31 (KIM-69): the declared rules, with the panel** (spec
+  §12 2026-10-31, "KIM-69: M0's scale at the declared rules, with the panel").
+  Until then M0's scale was open: on 2026-10-30 the user chose to draft the paper
+  first and revisit, rather than wait on the run.
 - **The options and their cost.** Each total is the whole package, the reduced
   model's 736 CPU-h included.
   - **Keep the declared rules:** about 10,500 CPU-h.
