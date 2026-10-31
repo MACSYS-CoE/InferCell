@@ -8,7 +8,9 @@
 # Stages:
 #   prep       checks the 50 V7 replicates and the 50 B7 fits (names, truths,
 #              draw counts) and writes the manifest: each posterior's draws and
-#              blocks. It reads draws and truths, never Q.
+#              blocks, and the SHA-256 of the 200 input files (B7's checked
+#              against its archive's SHA256SUMS), which `score` checks again. It
+#              reads draws and truths, never Q.
 #   work i     one single-core task, i = 0…1,149:
 #              - 0…99: δ for (dataset r, posterior p);
 #              - 100…149: the truth for dataset r;
@@ -119,6 +121,16 @@ function posterior(r, p)
                        posterior_draws([joinpath(B7_DIR, "r$r", "chain_$c.jls") for c in 1:2])
 end
 
+# What `posterior` opens: V7's replicates, and B7's chains with the prep.jls beside
+# them, which holds B7's truth. The smoke pass also reads v6's.
+input_files() = vcat([joinpath(V7_DIR, "replicate$r.jls") for r in EVIDENCE],
+                     [joinpath(B7_DIR, "r$r", f) for r in EVIDENCE
+                      for f in ("chain_1.jls", "chain_2.jls", "prep.jls")],
+                     SMOKE ? [V6; joinpath(dirname(V6[1]), "prep.jls")] : String[])
+# Their SHA-256 sums, as `sha256sum` prints them: 64 hex digits, two spaces, the path.
+input_sums() = [(; sha256 = l[1:64], path = l[67:end])
+                for l in eachline(IOBuffer(read(`sha256sum $(input_files())`, String)))]
+
 all_draws(pd) = round.(Int, range(1, length(pd); length = N_DRAWS))
 block_draws(pd, b) = all_draws(pd)[((b - 1) * (N_DRAWS ÷ N_BLOCKS) + 1):(b * (N_DRAWS ÷ N_BLOCKS))]
 
@@ -161,6 +173,17 @@ function read_out(dir, name)
 end
 
 function prep()
+    # The inputs, pinned. B7's archive has its own SHA256SUMS, so its files are
+    # checked against it; V7's archive has none.
+    sums = input_sums()
+    b7 = dirname(B7_DIR)
+    archived = Dict(joinpath(b7, l[67:end]) => l[1:64] for l in eachline(joinpath(b7, "SHA256SUMS")))
+    for s in sums
+        startswith(s.path, b7 * "/") && get(archived, s.path, "") != s.sha256 &&
+            error("$(s.path): SHA-256 $(s.sha256), not its archive's $(get(archived, s.path, "(none)"))")
+    end
+    say("$(length(sums)) input files hashed; B7's $(count(s -> startswith(s.path, b7 * "/"), sums)) ",
+        "match their archive's SHA256SUMS")
     rows = map(EVIDENCE) do r
         v, b = posterior(r, :v7), posterior(r, :b7)
         v.names == b.names == M0_TARGETS || error("r$r: names $(v.names), $(b.names)")
@@ -187,7 +210,9 @@ function prep()
     end
     tasks = [(; i, name = work_name(i), task(i)...) for i in 0:(N_WORK - 1)]
     put(".", "manifest", (; evidence = rows, used, tasks, H, N_DRAWS, N_BLOCKS, N_CELLS, N_REF,
-                          N_TRUTH, dose = KD.dose))
+                          N_TRUTH, dose = KD.dose, inputs = sums))
+    # For `sha256sum -c inputs.sha256`.
+    write(joinpath(OUT, "inputs.sha256"), join(("$(s.sha256)  $(s.path)\n" for s in sums)))
     open(joinpath(OUT, "manifest.tsv"), "w") do io
         println(io, "index\tname\tkind\tdataset\tposterior\tblock\tdraws\trng")
         for t in tasks
@@ -290,6 +315,9 @@ function samples(f, target)
 end
 
 function score()
+    pinned, current = read_out(".", "manifest").inputs, input_sums()
+    pinned == current || error("the inputs changed since prep: ",
+                               join(unique(x.path for x in symdiff(pinned, current)), ", "))
     fin = Dict((x.r, x.p) => x for x in (read_out("finish", finish_name(i)) for i in 0:(N_D * N_P - 1)))
     tru = Dict(r => read_out("work_plain", work_name(work_index(:truth, r, :none, 0))) for r in DATASETS)
     dpl = Dict((r, p) => read_out("work_plain", work_name(work_index(:delta, r, p, 0)))

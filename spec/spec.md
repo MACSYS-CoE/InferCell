@@ -4449,6 +4449,13 @@ user's calls, 2026-10-31, each the recommended option:
 rule below.
 - **The posteriors:** for each dataset r = 1…50, V7 replicate r (exact) and B7
   fit r (mixed, its two chains stacked).
+  - **V7:** `replicate<r>.jls` in
+    `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/`;
+  - **B7:** `r<r>/chain_{1,2}.jls`, with the `prep.jls` beside them that holds the
+    truth, in `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/`.
+  - **Pinned:** `prep` records the SHA-256 of all 200 files in the manifest and
+    in `inputs.sha256`. It checks B7's 150 against that archive's `SHA256SUMS`
+    (V7's archive has none), and `score` refuses if any file has changed since.
 - **The draws:** 100 per posterior, evenly spaced,
   `round.(Int, range(1, N; length = 100))`. N is 556 for V7, after its burn-in of
   100, and 400 for B7. They are cut into 10 blocks of 10 consecutive draws.
