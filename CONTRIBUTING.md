@@ -18,12 +18,19 @@ dependency versions CI uses.
 ## Running tests
 
 ```bash
-# Unit tests only (~1 min, runs on every PR)
+# Unit tests (40–80 min on one core; CI runs them on every PR)
 julia --project -e 'using Pkg; Pkg.test()'
 
-# Unit + integration tests (~3 min, also runs on every PR)
+# One group, as each CI job runs it: 1 is Aqua through phase 15, 2 is phase 16a on
+INFERCELL_TEST_GROUP=2 julia --project -e 'using Pkg; Pkg.test()'
+
+# Unit + integration tests (parked: CI does not run them, see below)
 INFERCELL_INTEGRATION_TESTS=true julia --project -e 'using Pkg; Pkg.test()'
 ```
+
+`INFERCELL_TEST_GROUP` unset (or `all`) runs both groups, so a local run and
+`sbatch test/run_tests.slurm` run the whole suite. The integration tests, when
+enabled, run with group 2.
 
 Aqua quality checks (stale deps, missing compat bounds, unbound type
 parameters, undefined exports) run as part of the test suite — they need no
@@ -69,7 +76,7 @@ re-enable after an audit.
 
 | Check                  | Blocking? | Notes                                                     |
 | ---------------------- | --------- | --------------------------------------------------------- |
-| `Test`                 | Yes       | Unit tests + Aqua quality checks + coverage summary.      |
+| `Test`                 | Yes       | Unit tests + Aqua quality checks, as two parallel groups; `Unit tests (Julia 1.10)` merges their coverage and fails unless both pass. |
 | `Format`               | No (yet)  | JuliaFormatter diff; advisory until Stage 2.              |
 | `Documentation`        | Yes       | Documenter build of `docs/src/`; fails on an undocumented export or a dead `@ref`. |
 

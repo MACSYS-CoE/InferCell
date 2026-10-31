@@ -1,9 +1,29 @@
 # Handoff
 
-## Latest: KIM-40, M0's combiner merged; its launcher and pre-registration reviewed, awaiting merge (2026-10-31)
+## Latest: KIM-65, CI's unit suite in two parallel groups (branch `tomkimpson/kim-65-unit-cis-test-step-is-within-3-minutes-of-its-90-minute`, 2026-10-31)
 
-**State: PR A merged, PR B open.** The plan the user approved on 2026-10-31 is
-`dev/notes/2026-10-31-kim40-plan.md`. Their four calls, each the recommended one:
+**State: built and passing on the branch; not yet merged.** The user chose option A:
+split the suite and keep coverage. The record is spec §12, 2026-10-31, "KIM-65:
+CI's unit suite runs as two parallel groups, split at phase 16a".
+- **Why:** the single job took 38 to 81 min of tests, by the runner it landed on.
+  Run 345 on main hit the 90-minute ceiling after a cold cache.
+- **What:** `INFERCELL_TEST_GROUP` (`1`, `2`, or unset for all) in
+  `test/runtests.jl`. CI runs one job per group, sharing one cache. A third job,
+  `Unit tests (Julia 1.10)`, processes both groups' raw coverage counts together
+  and fails unless both pass. Local and Slurm runs are unchanged.
+- **Checks:**
+  - Run 355: slow runners and a cold cache, the worst case seen. The jobs took
+    55m38s and 48m19s, 34 minutes of headroom.
+  - Run 360: 22m13s and 30m41s, with coverage at main's 96.0% (5,107 of 5,321).
+  - Both runs: 29,687 tests, main's count.
+- **To finish:** merge, then confirm at least 15 minutes of headroom on main's
+  first run, and close KIM-65.
+
+## Earlier: KIM-40, M0's combiner, launcher and pre-registration merged (2026-10-31)
+
+**State: both PRs merged; the launch is next.** The plan the user approved on
+2026-10-31 is `dev/notes/2026-10-31-kim40-plan.md`. Their four calls, each the
+recommended one:
 - empirical-quantile scoring of the draws' μ̂ as they are;
 - cell seeds common to V7 and B7;
 - two PRs before the launch;
@@ -18,7 +38,7 @@
   - **Suites:** 29,757/29,757 at `8308ba7` (job 19622826) and 29,760/29,760 at
     `4aa4a35` (job 19624883).
   - **CI:** passes at `0b9b254`.
-- **PR B, #132, open (branch `tomkimpson/kim-40-m0-launcher`):**
+- **PR B, #132, merged as `9310ddb` (branch `tomkimpson/kim-40-m0-launcher`):**
   - **What it holds:**
     - spec §12's KIM-40 entry, the pre-registration of the run and its scoring for
       Q and for KIM-41's ΔQ;
@@ -44,13 +64,11 @@
     - smoke 2 at `97b0e62` (jobs 19630912–19630916), on the reviewed combiner;
     - smoke 3 at `a995730` (jobs 19644898–19644902), after round 1's fixes;
     - smoke 4 at `3608329` (jobs 19646432–19646436), after round 2's.
-  - **Still to do:** the user reads the final §12 entry and gives the merge
-    go-ahead.
+  - **Merged** on the user's go-ahead, 2026-10-31.
 
 **Next:**
-1. PR B's merge, on the user's go-ahead.
-2. KIM-70's docs pass, merged.
-3. The launch, with the user's go-ahead for about 9,800 CPU-h, by about 14
+1. KIM-70's docs pass, merged.
+2. The launch, with the user's go-ahead for about 9,800 CPU-h, by about 14
    November:
    - make a detached worktree at the merge commit;
    - run `dev/scripts/m0_evidence_kim40.sh /fred/oz022/tkimpson/infercell-m5-kim40-<date>`
@@ -61,7 +79,8 @@
    - after the run, §12's list: `… missing` until complete, the `sacct.tsv` dump
      and the turin/znver3 audit, `sha256sum -c inputs.sha256`, and the outputs'
      `SHA256SUMS`.
-4. The result note, citing the job ids, `93abbce`, `5ec56d3` and PR B's merge.
+3. The result note, citing the job ids, `93abbce`, `5ec56d3` and PR B's merge,
+   `9310ddb`.
 
 ## Earlier: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
 

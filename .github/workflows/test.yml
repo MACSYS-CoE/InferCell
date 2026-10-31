@@ -1,10 +1,13 @@
 name: Test
 
-# Fast PR-gating tests: unit suite + Aqua quality checks only.
-# Expensive Bayesian integration tests (NUTS/ABC-SMC) live in
-# `integration.yml` and run on push to main + weekly cron instead —
-# they're CPU-bound and don't fit in a sensible PR feedback loop on
-# free GitHub-hosted runners.
+# Fast PR-gating tests: unit suite + Aqua quality checks only. The Bayesian
+# integration tests (NUTS/ABC-SMC) are parked and no workflow runs them
+# (CONTRIBUTING.md, "The integration suite is parked").
+#
+# The suite runs as two parallel jobs, one per test group (`test/runtests.jl`,
+# `INFERCELL_TEST_GROUP`). A third job turns their coverage counts into one
+# report and fails unless both groups passed. It keeps the check name the
+# single job had, "Unit tests (Julia 1.10)" (KIM-65; spec §12, 2026-10-31).
 
 on:
   push:
@@ -22,18 +25,20 @@ permissions:
 
 jobs:
   test:
-    name: Unit tests (Julia ${{ matrix.julia-version }})
+    name: Unit tests (Julia ${{ matrix.julia-version }}, group ${{ matrix.group }})
     runs-on: ${{ matrix.os }}
-    # The ceiling covers a cold run that must precompile the full stack
-    # before it can save a cache. It was 40 min until phase 14a's full-cycle
-    # balance checks took the Slurm suite from ~11 to ~33 min (spec §12,
-    # 2026-09-25 F). CI then took 37m53 on PR #70, two minutes under 40.
+    # The ceiling is per group. As one job, the suite took 38 to 81 min of
+    # tests, by the runner it landed on. On main, run 345 (1f51f2e) hit the
+    # 90-min ceiling: 81 min of tests after 7.5 min precompiling with no
+    # cache. The groups are 54% and 46% of the suite, so the slowest runner
+    # seen gives about 44 min of tests a group, plus the cold start.
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         julia-version: ["1.10"]
         os: [ubuntu-latest]
+        group: ["1", "2"]
     steps:
       - uses: actions/checkout@v6
 
@@ -41,18 +46,85 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
 
+      # One cache for both groups, since the depot they build is the same.
+      # Without this, the group in the key would give each its own cache.
       - uses: julia-actions/cache@v3
+        with:
+          cache-name: julia-cache;workflow=${{ github.workflow }};job=${{ github.job }};julia-version=${{ matrix.julia-version }};os=${{ matrix.os }}
+          include-matrix: false
 
       - uses: julia-actions/julia-buildpkg@v1
 
       - uses: julia-actions/julia-runtest@v1
+        env:
+          INFERCELL_TEST_GROUP: ${{ matrix.group }}
+
+      # Julia's raw counts, not an lcov file, so that the coverage job can
+      # process both groups' counts at once, as one job processes its own.
+      # CoverageTools marks every line of a function with no counts as code,
+      # from the source. A group that never ran a function would mark lines
+      # that the other group's counts say are not code.
+      - name: Collect coverage counts
+        shell: bash
+        env:
+          GROUP: ${{ matrix.group }}
+        run: |
+          # The group in each name keeps the groups' files apart when their
+          # process ids match.
+          find src -name '*.cov' | while read -r f; do
+            mkdir -p "counts/$(dirname "$f")"
+            mv "$f" "counts/${f%.cov}.group${GROUP}.cov"
+          done
+          echo "Collected $(find counts -name '*.cov' | wc -l) coverage files."
+
+      - name: Upload coverage counts
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-counts-julia${{ matrix.julia-version }}-group${{ matrix.group }}
+          path: counts/
+          if-no-files-found: error
+          retention-days: 3
+
+  coverage:
+    name: Unit tests (Julia ${{ matrix.julia-version }})
+    needs: test
+    # Runs when a group fails too, so that this check fails rather than being
+    # skipped. Coverage is reported only when both groups passed: a group that
+    # fails uploads no counts, and the other's alone would read as the suite's
+    # coverage.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        julia-version: ["1.10"]
+    steps:
+      - uses: actions/checkout@v6
+        if: needs.test.result == 'success'
+
+      - uses: julia-actions/setup-julia@v3
+        if: needs.test.result == 'success'
+        with:
+          version: ${{ matrix.julia-version }}
+
+      # Into src/, beside the sources, where a single job's counts would be.
+      - uses: actions/download-artifact@v8
+        if: needs.test.result == 'success'
+        with:
+          pattern: coverage-counts-julia${{ matrix.julia-version }}-group*
+          merge-multiple: true
+          path: .
 
       - uses: julia-actions/julia-processcoverage@v1
+        if: needs.test.result == 'success'
 
       - name: Summarise coverage
-        if: always()
+        if: needs.test.result == 'success'
         shell: bash
         run: |
+          for g in $(find src -name '*.cov' | sed -E 's/.*\.(group[^.]+)\.cov$/\1/' | sort -u); do
+            echo "$g: $(find src -name "*.$g.cov" | wc -l) coverage files"
+          done
           if [ ! -f lcov.info ]; then
             echo "No lcov.info produced; skipping coverage summary." >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -72,10 +144,18 @@ jobs:
           fi
 
       - name: Upload lcov artifact
-        if: always() && hashFiles('lcov.info') != ''
+        if: needs.test.result == 'success' && hashFiles('lcov.info') != ''
         uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov-julia${{ matrix.julia-version }}
           path: lcov.info
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Require both groups to pass
+        if: always()
+        env:
+          GROUPS_RESULT: ${{ needs.test.result }}
+        run: |
+          echo "The groups' result: $GROUPS_RESULT"
+          test "$GROUPS_RESULT" = success
