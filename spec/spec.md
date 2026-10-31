@@ -4490,18 +4490,42 @@ and truth seeds are checked disjoint in `finish`, and `score` checks V7's and
 B7's seeds equal.
 
 **The combiner** (`combine_rows`, `src/predict_combine.jl`; KIM-70's
-requirements):
+requirements). It merged as PR #131 (merge `3de0562`), after `/check-PR`. That
+review found no CRITICAL; its 2 MAJOR and 5 MINOR findings were fixed and gated
+over two rounds. The report is at
+`/fred/oz022/tkimpson/infercell-m5-kim40-tests/PR_REVIEW_131_2026-10-31.md`.
 - it recomputes the per-row results and every summary from the concatenated runs,
   with `predict`'s own helpers, and never reads a block's summary;
 - the tests check it against one call. The mean field's blocks equal one call
   over their rows, bit for bit. A hybrid call, sliced into blocks with wrong
-  summaries planted, recombines to it exactly;
+  summaries planted, recombines to it exactly. A whole block also combines after
+  a file round trip;
 - it refuses a δ that is not the blocks' one shared `DeltaCorrection`;
 - it refuses blocks with completion, repeated draws or repeated cell seeds, or
-  that are not one prediction's rows.
+  that differ in what a `Prediction` records of one prediction's rows.
 
-No line of `predict` changes. So the freeze's old-against-new reproduction gate
-does not apply, and `test_predict_reference.jl` passes unchanged.
+**Where the merged combiner departs from the approved plan.** Each departure was
+found or made in #131's review:
+- **Q:** the plan said Q would be compared "`isequal` on the definition". A
+  `Prediction` keeps only Q's label, so Q is compared by its label. The posterior
+  is compared by its `source`, and the composition by its reduction labels and
+  skipped parameters. A δ-corrected block's δ also keeps Q and the composition's
+  fingerprint, and those are compared too;
+- **held draws:** the plan listed a check on them. It is dropped, because
+  `completion = :none`, which is refused otherwise, leaves every block with none;
+- **δ:** the plan compared δ on its seeds, `delta`, `delta_intervened` and
+  fingerprint. The merged check compares every field but the runs, `quantity_def`
+  included;
+- **a hybrid block with a δ:** the plan said the combiner would refuse it.
+  `predict` already refuses δ on the hybrid, and the forward and settings checks
+  catch a mix, so the combiner adds no check of its own.
+
+None of these touches M0. Its Q is `:lactate_out`, its sources carry the file
+path, and `read_out` refuses an output written at another commit.
+
+No executable line of `predict` changes, only its docstring. So the freeze's
+old-against-new reproduction gate does not apply, and `test_predict_reference.jl`
+passes unchanged.
 
 **Scoring.** Per dataset, each arm's predictive sample is its 100 values, as they
 are.
