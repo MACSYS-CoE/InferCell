@@ -346,6 +346,7 @@ function score()
     pinned, current = read_out(".", "manifest").inputs, input_sums()
     pinned == current || error("the inputs changed since prep: ",
                                join(unique(x.path for x in symdiff(pinned, current)), ", "))
+    say("the $(length(pinned)) input files are unchanged since prep")
     fin = Dict((x.r, x.p) => x for x in (read_out("finish", finish_name(i)) for i in 0:(N_D * N_P - 1)))
     tru = Dict(r => read_out("work_plain", work_name(work_index(:truth, r, :none, 0))) for r in DATASETS)
     dpl = Dict((r, p) => read_out("work_plain", work_name(work_index(:delta, r, p, 0)))
