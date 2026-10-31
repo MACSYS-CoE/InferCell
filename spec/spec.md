@@ -4637,6 +4637,17 @@ B7, at 60 s with tiny sizes. It read no evidence dataset's Q.
 - a detached worktree at the merge commit, left untouched for the run;
 - a start by about 14 November.
 
+**After the run**, before the result note:
+- `… missing` until every output exists, then `… progress` to confirm it;
+- the accounting, kept in the run's directory. Every job id in `jobs.tsv` (its
+  `commit` and `smoke` rows aside) goes through
+  `sacct -P -j <ids> --format=JobID,JobName,NodeList,State,ExitCode,Elapsed,MaxRSS,SubmitLine > sacct.tsv`.
+  It is checked that no task ran on dave148–149 or gina18;
+- `sha256sum -c inputs.sha256`, then a `SHA256SUMS` over the outputs, for the
+  archive (KIM-43);
+- the result note, citing the job ids, `93abbce`, `5ec56d3` and the commit that
+  merges this entry.
+
 **Unchanged:** every choice in the M4 freeze and in KIM-69's entry, and every
 recorded result.
 
