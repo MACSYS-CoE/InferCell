@@ -179,7 +179,8 @@ put(dir, name, x) = place(jls(dir, name, x))
 # one commit and one setting.
 function read_out(dir, name)
     x = deserialize(joinpath(OUT, dir, "$name.jls"))
-    x.commit == COMMIT || error("$dir/$name was written at $(x.commit), not $COMMIT")
+    length(x.commit) >= 7 && startswith(COMMIT_FULL, x.commit) ||
+        error("$dir/$name was written at $(x.commit), not $COMMIT")
     x.smoke == SMOKE || error("$dir/$name was written with SMOKE = $(x.smoke), not $SMOKE")
     return x.result
 end

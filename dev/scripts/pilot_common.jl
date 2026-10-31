@@ -3,8 +3,8 @@
 # dev/scripts includes it:
 #   include(joinpath(@__DIR__, "pilot_common.jl"))
 #
-# - the run's identity: `COMMIT`, `JOB`, and `SMOKE` (`SMOKE=1` is a plumbing pass
-#   at tiny sizes, never a result);
+# - the run's identity: `COMMIT` (short) and `COMMIT_FULL`, `JOB`, and `SMOKE`
+#   (`SMOKE=1` is a plumbing pass at tiny sizes, never a result);
 # - `V6`, B7's held-out `v6` fit, the posterior every pilot draws from;
 # - `say`, timestamped and flushed;
 # - `save` and `load`: .jls files carrying the commit, job, stage, threads, GC threads
@@ -21,6 +21,8 @@ using Statistics: mean, var
 using Dates
 
 const COMMIT = strip(read(`git rev-parse --short HEAD`, String))
+# The short form grows with the repo, so compare a saved COMMIT as its prefix.
+const COMMIT_FULL = strip(read(`git rev-parse HEAD`, String))
 const JOB = get(ENV, "SLURM_JOB_ID", "none")
 const SMOKE = get(ENV, "SMOKE", "0") == "1"
 const V6 = ["/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6/chain_$c.jls" for c in 1:2]
