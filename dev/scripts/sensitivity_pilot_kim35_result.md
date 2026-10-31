@@ -45,7 +45,8 @@ script's header lists them).
     - the log SDs, 0.11–0.19 for θ_I against 0.69.
 
     The file labels its sections with the nominal H (6300 s and 600 s), a label
-    fixed at `a742224`.
+    corrected in `08db217`, in the tree at `a742224`. *(Corrected 2026-10-31,
+    spec §12 KIM-70.)*
   - **So the reading and its quarter threshold were written knowing roughly how
     they would come out.** The approved rule (`dev/notes/2026-10-30-m4-plan.md`)
     is the blind one. Under it alone, this note would recommend changing Q.
@@ -95,4 +96,5 @@ script's header lists them).
   - θ_I's variance is resolved, at 2.5 SE. That is the split the paper reports.
 - **Drop `exported`.** It barely moves with any parameter.
 - **Do not use 600 s on the reduced model.** At 4 cells, neither group's
-  variance is resolved at 2 bootstrap SE.
+  variance in `lactate_out` is resolved at 2 bootstrap SE. `exported`'s Var_H
+  is, at 2.3 SE, but not its Var_I. *(Corrected 2026-10-31, spec §12 KIM-70.)*

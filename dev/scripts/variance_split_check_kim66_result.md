@@ -45,6 +45,7 @@ fallback KIM-66 declared (I-first only) is not needed.
 - At 100 × 20, one run's components vary by about 25–40%, and up to 64% for a
   small Var_I term (from `mc_se × √2000`). That is mostly the √(2/(K−1)) noise
   of 20 θ_H draws.
-- The held share, a ratio, largely cancels it.
+- That noise is expected to largely cancel in the held share, a ratio. The
+  check did not measure the share. *(Corrected 2026-10-31, spec §12 KIM-70.)*
 - The smallest component tested is 5–8% of the total. KIM-35 puts θ_I's share
   near 3%.

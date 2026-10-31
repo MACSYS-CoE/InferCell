@@ -1,10 +1,56 @@
 # Handoff
 
-## Latest: KIM-65, CI's unit suite in two parallel groups (branch `tomkimpson/kim-65-unit-cis-test-step-is-within-3-minutes-of-its-90-minute`, 2026-10-31)
+## Latest: KIM-70, the M4 freeze's leftover text points (branch `tomkimpson/kim-70-docs-pass-the-pr-123-reviews-leftover-minor-text-points-in-the-m4`, 2026-10-31)
 
-**State: built and passing on the branch; not yet merged.** The user chose option A:
-split the suite and keep coverage. The record is spec §12, 2026-10-31, "KIM-65:
-CI's unit suite runs as two parallel groups, split at phase 16a".
+**State: docs only, the last open §12 precondition for the M0 launch.** The record
+is spec §12, 2026-10-31, "KIM-70: the M4 freeze's leftover text points; the
+gate's cuts and KIM-42's K_d diagnostic made precise". The user waived
+`/check-PR` for it, as for KIM-69.
+- **The user's calls** (2026-10-31, each the recommended option):
+  - KIM-38's gate: the cuts are sequential (the panel first, then 2 widths), and
+    the 2 widths are 1 and 2;
+  - KIM-42's K_d diagnostic: `minima[:M_gtp_c]` below 2,018 and below 2,160
+    particles, as a bracket, over all 8 cells of every baseline pair, the kept
+    pairs as a second row, and every knockdown cell, per width.
+- **Already met:**
+  - the combiner and common seeds (KIM-40, #131);
+  - `logs/` before the guard (KIM-68);
+  - "M0's sizes are a todo" (KIM-69).
+- **Wording:** 21 points, corrected in place and marked *(Corrected 2026-10-31,
+  §12 KIM-70.)*. They are in the freeze, "`predict` made ready", KIM-69's open
+  point, the KIM-35, 37, 38 and 66 notes, `docs/src/api/predict.md` and this
+  file's M4 section. #123's body was edited on GitHub.
+- **Linear:**
+  - KIM-40 is back In Progress (the user's call). It had closed itself when #132
+    merged. It tracks the launch, the run and the result note.
+  - KIM-42's text gains the diagnostic and the freeze's "each component and the
+    share with an SE".
+
+**Next:**
+1. Merge this PR (a merge commit) once its CI passes.
+2. **The M0 launch** (KIM-40 and KIM-41), with the user's go-ahead for about
+   9,800 CPU-h. Once this PR merges, that go-ahead is the only item left on
+   §12's "Before the launch" list.
+   - Make a detached worktree at main's head after this merge.
+   - First check that the run's code is still `9310ddb`'s. This must print
+     nothing:
+     `git diff --stat 9310ddb HEAD -- src Project.toml Manifest.toml dev/scripts/m0_evidence_kim40.jl dev/scripts/m0_evidence_kim40.sh dev/scripts/launcher_guard.sh dev/scripts/pilot_common.jl`.
+   - Then follow the KIM-40 section's steps below.
+   - Launching early in the week of 2 November leaves about three weeks for
+     KIM-46 (§5.5) before M6's 27 November.
+3. **KIM-65:** close it once main's first run after #134 (`ea5b921`) shows at
+   least 15 minutes of headroom.
+4. **During the run, paper work:**
+   - KIM-44's force-push of `paper-1-draft` to `131f20b`. Check
+     `.worktrees/paper-1` for unpushed work first;
+   - KIM-67 before KIM-45 (§5.3);
+   - KIM-45, KIM-47 and KIM-49.
+
+## Earlier: KIM-65, CI's unit suite in two parallel groups (branch `tomkimpson/kim-65-unit-cis-test-step-is-within-3-minutes-of-its-90-minute`, 2026-10-31)
+
+**State: merged as `ea5b921` (#134).** The user chose option A: split the suite
+and keep coverage. The record is spec §12, 2026-10-31, "KIM-65: CI's unit suite
+runs as two parallel groups, split at phase 16a".
 - **Why:** the single job took 38 to 81 min of tests, by the runner it landed on.
   Run 345 on main hit the 90-minute ceiling after a cold cache.
 - **What:** `INFERCELL_TEST_GROUP` (`1`, `2`, or unset for all) in
@@ -16,8 +62,11 @@ CI's unit suite runs as two parallel groups, split at phase 16a".
     55m38s and 48m19s, 34 minutes of headroom.
   - Run 360: 22m13s and 30m41s, with coverage at main's 96.0% (5,107 of 5,321).
   - Both runs: 29,687 tests, main's count.
-- **To finish:** merge, then confirm at least 15 minutes of headroom on main's
-  first run, and close KIM-65.
+  - After main was merged in (`af02f4b`, run 41192945269): 47m40s and 42m24s,
+    all passing. The advisory JuliaFormatter job was cancelled at about 10 min,
+    as on the earlier head.
+- **To finish:** confirm at least 15 minutes of headroom on main's first run
+  after the merge, and close KIM-65.
 
 ## Earlier: KIM-40, M0's combiner, launcher and pre-registration merged (2026-10-31)
 
@@ -260,7 +309,7 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
   GTP is below K_d at about a fifth of rebuild instants even at dose 0 (KIM-37).
   - The fraction varies strongly with θ, and is not measured at the M0 posterior.
   - KIM-42 reports what `predict` can: the fraction of cells whose GTP ever
-    fell below K_d.
+    fell below about K_d (made precise in spec §12 2026-10-31, KIM-70).
   - This is a model-form caveat for KIM-47.
 - **V's acceptance.** At width 1, for one θ_I, V rejected none of 50 θ_H
   (KIM-35); the 95% upper bound is about 6%. The paper reports the acceptance at
@@ -276,8 +325,9 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
    `n_viability_cells = 4`.
 3. **The user drafts the paper next.** M5 waits on KIM-69, the M0 scale, which is
    revisited later. M5's first job is KIM-68: threading efficiency, likely GC
-   (0.16 at 64 threads; the results are unaffected), and the review's
-   simplifications.
+   (0.16 at 64 threads), and the review's simplifications. Any change to
+   `predict` must reproduce the frozen results, as the freeze requires; KIM-68's
+   did, bit for bit. *(Corrected 2026-10-31, spec §12 KIM-70.)*
    - KIM-67, B7's null-KS finding, needs triage.
    - KIM-70, the review's leftover MINORs. Three of them define M5 work: KIM-42's
      K_d diagnostic, an owner for combining M0's row blocks, and the order of
