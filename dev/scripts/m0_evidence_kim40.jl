@@ -366,16 +366,17 @@ function score()
     ref = Dict((x.target, x.r) => x for x in rows if x.p === :v7 && x.arm === :hybrid)
     rows = [merge(x, (; shift = (x.mean - ref[(x.target, x.r)].mean) / ref[(x.target, x.r)].sd,
                       width_ratio = x.width[0.9] / ref[(x.target, x.r)].width[0.9])) for x in rows]
-    put(".", "score", (; rows, levels = LEVELS, datasets = DATASETS))
-    write_score(rows)
+    # score.jls last: the launcher reads it as the stage's output.
+    place(staged(t -> open(io -> write_score(io, rows), t, "w"), ".", "score.md"),
+          staged(t -> open(io -> write_tsv(io, rows), t, "w"), ".", "score_datasets.tsv"),
+          jls(".", "score", (; rows, levels = LEVELS, datasets = DATASETS)))
 end
 
 pct(x) = string(round(100x; digits = 1), "%")
 r3(x) = round(x; sigdigits = 3)
 iqr(v) = "[$(r3(quantile(v, 0.25))), $(r3(quantile(v, 0.75)))]"
 
-function write_score(rows)
-    io = open(joinpath(OUT, "score.md"), "w")
+function write_score(io, rows)
     out(x...) = (println(io, x...); println(x...))
     out("# M0's crossed comparison (KIM-40) and ptsG panel (KIM-41): the scores\n")
     out("At $COMMIT, job $JOB, $(now()). $(SMOKE ? "**SMOKE: plumbing, not a result.** " : "")",
@@ -431,15 +432,15 @@ function write_score(rows)
         sm(k) = join(["$s $(sum(y -> Dict(getproperty(y, k))[s], x))" for s in CELL_STATUSES], ", ")
         out("| $(label(p, a)) | $(sm(:failed)) | $(sm(:failed_intervened)) |")
     end
-    close(io)
-    open(joinpath(OUT, "score_datasets.tsv"), "w") do io
-        println(io, "target\tdataset\tposterior\tarm\ttruth\ttruth_se\tmean\tsd\tlo50\thi50\tlo90\thi90\t",
-                "cover50\tcover90\tpit\tz\tshift\twidth_ratio\tmc_share\tn_no_q")
-        for y in rows
-            println(io, join((y.target, y.r, y.p, y.arm, y.truth, y.truth_se, y.mean, y.sd,
-                              y.intervals[0.5]..., y.intervals[0.9]..., y.cover[0.5], y.cover[0.9],
-                              y.pit, y.z, y.shift, y.width_ratio, y.mc_share, y.n_no_q), '\t'))
-        end
+end
+
+function write_tsv(io, rows)
+    println(io, "target\tdataset\tposterior\tarm\ttruth\ttruth_se\tmean\tsd\tlo50\thi50\tlo90\thi90\t",
+            "cover50\tcover90\tpit\tz\tshift\twidth_ratio\tmc_share\tn_no_q")
+    for y in rows
+        println(io, join((y.target, y.r, y.p, y.arm, y.truth, y.truth_se, y.mean, y.sd,
+                          y.intervals[0.5]..., y.intervals[0.9]..., y.cover[0.5], y.cover[0.9],
+                          y.pit, y.z, y.shift, y.width_ratio, y.mc_share, y.n_no_q), '\t'))
     end
 end
 
