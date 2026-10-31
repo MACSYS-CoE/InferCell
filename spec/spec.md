@@ -4427,6 +4427,130 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-31 — KIM-40: M0's run and its scoring, declared before the run (pre-registration; the user's calls)
+
+**Status: declared before any M0 job.** This fixes what the M4 freeze and KIM-69
+left to KIM-40: how M0's evidence run is laid out and seeded, how its row blocks
+are combined, how the truth and δ are computed, and how coverage and sharpness are
+scored. It covers KIM-41's ΔQ too, since it runs in the same calls. Every choice
+in the M4 freeze and in KIM-69's entry stands.
+
+**Trigger:** KIM-40 (Linear), with KIM-41 in the same calls. The plan the user approved on
+2026-10-31 is copied verbatim into `dev/notes/2026-10-31-kim40-plan.md`. The
+user's calls, 2026-10-31, each the recommended option:
+- the scoring uses central empirical-quantile intervals of the draws' μ̂, as they
+  are (below);
+- matched V7 and B7 blocks share cell seeds;
+- two PRs before launch (the combiner; then the launcher, this entry and the smoke
+  pass), and one after it for the results;
+- 150 tasks at once.
+
+**The run** (`dev/scripts/m0_evidence_kim40.{jl,sh}`). Its header holds every
+rule below.
+- **The posteriors:** for each dataset r = 1…50, V7 replicate r (exact) and B7
+  fit r (mixed, its two chains stacked).
+- **The draws:** 100 per posterior, evenly spaced,
+  `round.(Int, range(1, N; length = 100))`. N is 556 for V7, after its burn-in of
+  100, and 400 for B7. They are cut into 10 blocks of 10 consecutive draws.
+- **The calls.** Each carries the KIM-41 knockdown, `Knockdown(; dose = 0.3)`,
+  at 600 s, with `completion = :none` and no viability rule.
+  - **The hybrid:** one `predict` call per block, single-core, with 887 cells per
+    draw.
+  - **The mean field:** one call per (r, p) on the hybrid's 100 draws, so the
+    draws are paired. It is reported uncorrected (`mu`) and δ-corrected.
+  - **δ:** one `DeltaCorrection` per (r, p), from 9,849 cells at θ_ref, the
+    posterior mean of log θ (`predict`'s default). It is computed as `predict`'s
+    own `delta = :ensemble` computes it, and passed to the mean field's call.
+  - **The truth** μ(θ*) and Δμ(θ*): a `predict` call on θ* alone, with 9,849
+    cells, so the truth runs the predictions' own code path. θ* is V7 replicate
+    r's stored truth. `prep` checks it against B7 fit r's to 1e-12 relative,
+    since V7 stores it on the log scale and B7 on the natural one (KIM-18 found
+    them identical).
+- **Tasks:** 1,150 single-core work tasks: 100 δ, then 50 truths, then 1,000
+  blocks, at most 150 at once. Then 100 `finish` tasks combine each (r, p)'s
+  blocks and run its mean field. One `score` job follows.
+- **Outputs:** they are never overwritten. A failed task is rerun by the
+  launcher's `missing` mode.
+
+**Seeds** (KIM-40's, from M5's 19_500_000–19_599_999; KIM-41 shares them, and
+KIM-42 keeps 19_542_xxx):
+- block b of dataset r: rng `Xoshiro(19_540_000 + 10(r − 1) + (b − 1))`, the
+  same for V7 and B7;
+- δ for dataset r: the cell seeds `_cell_seeds(Xoshiro(19_541_000 + r), 9_849)`,
+  the same for V7 and B7;
+- the mean field for r: rng `Xoshiro(19_541_200 + r)`. It draws no cell seeds;
+- the truth for r: rng `Xoshiro(19_541_500 + r)`;
+- the smoke pass: 19_541_900 to 19_541_930.
+
+**Common cell seeds (KIM-70 asks this to be said): yes.** With explicit `draws`,
+`predict` draws its cell seeds from `rng` alone. So V7's block b and B7's block b
+run the same cells, at different θ. That removes most of the cells' noise from the
+inference-route comparison. A dataset's blocks run disjoint seeds. Its block, δ
+and truth seeds are checked disjoint in `finish`, and `score` checks V7's and
+B7's seeds equal.
+
+**The combiner** (`combine_rows`, `src/predict_combine.jl`; KIM-70's
+requirements):
+- it recomputes the per-row results and every summary from the concatenated runs,
+  with `predict`'s own helpers, and never reads a block's summary;
+- the tests check it against one call. The mean field's blocks equal one call
+  over their rows, bit for bit. A hybrid call, sliced into blocks with wrong
+  summaries planted, recombines to it exactly;
+- it refuses a δ that is not the blocks' one shared `DeltaCorrection`;
+- it refuses blocks with completion, repeated draws or repeated cell seeds, or
+  that are not one prediction's rows.
+
+No line of `predict` changes. So the freeze's old-against-new reproduction gate
+does not apply, and `test_predict_reference.jl` passes unchanged.
+
+**Scoring.** Per dataset, each arm's predictive sample is its 100 values, as they
+are.
+- **The arms:** {V7, B7} × {hybrid μ̂, mean field m(θ), mean field m(θ) + δ}. For
+  ΔQ they are the hybrid's paired effect, m(g_a θ) − m(θ), and that plus
+  δ_intervened − δ. A draw with no finished cell leaves the sample, and is
+  counted.
+- **The truth:** μ̂(θ*) and Δμ̂(θ*) from the truth's 9,849 cells, as they are.
+- **Primary:**
+  - **coverage:** the fraction of the 50 datasets whose truth lies in the
+    sample's central 50% and 90% intervals (`quantile`, type 7), with a binomial
+    SE;
+  - **sharpness:** the 90% interval's width, as its median over datasets, and
+    each dataset's width over V7-hybrid's (median and IQR).
+- **Secondary:**
+  - the truth's PIT (the fraction of the sample below it), in 10 bins;
+  - the standardised error (mean − truth)/SD, its mean and SD over datasets;
+  - each arm's shift from V7-hybrid, (mean − mean_ref)/SD_ref: the table's
+    effects.
+- **Reported beside them:**
+  - the hybrid's MC share, mc/var;
+  - the truth's and δ's SEs over the hybrid's √parameter_var, against KIM-69's
+    10% rules;
+  - the intrinsic spread: the hybrid's E[σ̂²] and the truth's σ̂²(θ*), apart from
+    the estimand;
+  - the cells by status, at baseline and under the knockdown.
+
+**What the scoring does not do**, said here so that no reading is chosen after
+the run:
+- it does not remove the hybrid's MC term or the truth's own error. KIM-69's
+  arithmetic puts a nominal 90% interval at about 92% for a normal predictive at
+  a 10% MC share;
+- the 100 draws are V7's correlated chain thinned (23 of 50 replicates have a
+  smallest bulk ESS under 100), so a V7 interval rests on fewer effective draws;
+- fifty datasets resolve coverage to about ±4 points at 90%.
+
+**Before the launch:**
+- this entry and the launcher merged to main, after the smoke pass and
+  `/check-PR`;
+- KIM-70's docs pass merged;
+- the user's go-ahead for about 9,900 CPU-h;
+- a detached worktree at the merge commit, left untouched for the run;
+- a start by about 14 November.
+
+**Unchanged:** every choice in the M4 freeze and in KIM-69's entry, and every
+recorded result.
+
+*Sections:* §12.
+
 ### 2026-10-31 — KIM-69: M0's scale at the declared rules, with the panel (the user's decision)
 
 **Status: decided.** This fixes the one item the M4 freeze left open (2026-10-30,
