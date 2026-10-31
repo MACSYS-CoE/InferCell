@@ -4427,6 +4427,95 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-31 — KIM-69: M0's scale at the declared rules, with the panel (the user's decision)
+
+**Status: decided.** This fixes the one item the M4 freeze left open (2026-10-30,
+below): M0's scale. That clears the freeze's launch gate 1. Every other choice in
+the freeze stands.
+
+**Trigger:** KIM-69 (GitHub #126). On 2026-10-30 the user chose to draft the paper
+first and decide this later. On 2026-10-31 they chose option A, the recommended
+one, from the four options KIM-69 lists.
+
+**M0's scale** (KIM-40 and KIM-41, Q = `lactate_out`, 600 s):
+- **the hybrid's cells per draw:** 887;
+- **n_ref for δ:** 9,849;
+- **n_truth for the truth μ(θ\*):** 9,849;
+- **the draw count:** 100 per posterior, evenly spaced over its draws, as the plan
+  says;
+- **the KIM-41 panel runs**, in the same calls as KIM-40, as the freeze sets out.
+
+These are the declared rules' sizes (the MC term at most 10% of the spread; the
+truth's and δ's SEs at most 10% of the predictive SD), from the resolved sizing
+(job 19568624, `sizing_resolved` at `82c14d6`): Var_θ = 2.81e7 ± 0.91e7 and
+σ² = 2.77e9.
+- **They hold for all 50 datasets × both posteriors.** They come from one held-out
+  posterior (v6) and are not re-sized per dataset. The 50 posteriors differ in
+  width, so the rules will be loose on some and tight on others. That is first
+  seen in M5.
+
+**The gate (KIM-38) is applied and forces no cut** if M0 starts by about 14
+November.
+- **M0** is about 4,999 + 4,808 CPU-h of single-core tasks: about 49 h at 200
+  tasks at once, 65 h at 150 (B7's concurrency), 98 h at 100.
+- **KIM-42** then takes about 8–9 h on 3 nodes with `--gcthreads=N,1` (§12
+  2026-10-31, KIM-68). The freeze's order binds: KIM-40 and KIM-41, then KIM-42.
+- So at 100 tasks the package takes about 4.5 days. From a 14 November start it
+  ends about 18–19 November, a day or more inside the gate.
+- If M0 starts later, the gate's cuts apply. Their order, and which 2 of the 3
+  widths would run, are KIM-70's open point and are not decided here.
+
+**Cost:** about 10,500 CPU-h for the package, KIM-42's 736 CPU-h of work included
+(about 1,000–1,600 core-h held, by KIM-68's figures).
+- It is projected from the median per-cell times (M0 hybrid 1.74 s, knocked down
+  1.67 s; p90 2.25 s and 2.23 s). The mean sets the total, and may run higher.
+- No CPU-h budget for M5 is set in this spec or the completion plan. The gate is a
+  date.
+
+**Why the declared rules** (the recommendation the user accepted):
+- **The gate forces no cut**, so the rules stand as declared. Each cheaper option
+  would be a change made after seeing the sizing, for cost alone.
+- **The MC rule protects the comparison.**
+  - Under the rule, n_cells = (1 − f)/f · σ²/Var_θ, where f is the MC share of μ̂'s
+    spread: 887 at f = 0.1, about 230 at f = 0.3.
+  - The cells' noise widens the hybrid's spread of μ̂ by 1/√(1 − f) in SD: about
+    5% at 10%, about 20% at 30%. The mean field runs one solve per draw and has no
+    such term.
+  - The hybrid's spread over θ is about 1.3× the mean field's in SD (1.7× in
+    variance, 1.3 SE apart). At 30%, the cells' noise alone would make about
+    two-thirds of that gap. At 10% it makes about a fifth.
+  - For a normal predictive, a nominal 90% interval would cover about 92% at
+    f = 0.1 and about 95% at f = 0.3. Fifty datasets resolve coverage to about ±4
+    points (one binomial SE at 90%). This is arithmetic, not a measurement.
+  - It assumes intervals built from the draws' μ̂ as they are. KIM-40's scoring is
+    not written yet.
+- **The margin covers the sizing's own error.** If Var_θ is 1 SE lower
+  (1.90e7), 887 cells give an MC share of about 14%; 230 would give about 39%.
+
+**The options not taken** (package totals, as KIM-69 lists them). Had a cut been
+forced, the recommended order was B, then C, then D:
+- **B, halve the draws to 50:** about 6,300 CPU-h. Each dataset's interval would
+  rest on fewer draws, but neither forward model would be biased.
+- **C, cut the panel:** about 5,700. It loses the scored ptsG result. Chosen for
+  cost rather than forced by the date, it would be a post-pilot change.
+- **D, relax the rules** (MC ≤ 30%; the truth's and δ's SEs ≤ 20%): about 3,300.
+  It confounds the comparison, as above.
+
+**Still open before the M0 launch:**
+- KIM-40's combiner for M0's row blocks (KIM-40 owns it, §12 2026-10-31,
+  KIM-68), with KIM-70's requirements for it;
+- KIM-70's docs pass;
+- M0's launcher.
+
+KIM-40 and KIM-41 cite this entry and the commit that merges it to main.
+
+**Review:** none. The user waived `/check-PR` for this docs-only entry.
+
+**Unchanged:** every other choice in the M4 freeze entry, and every recorded
+result.
+
+*Sections:* §12.
+
 ### 2026-10-31 — KIM-68: `predict`'s scheduler and pools, reproduced against the freeze; the threading diagnosis (M5 prep; the user's calls)
 
 **Status: built and measured.** These are code changes to `predict`'s threading
