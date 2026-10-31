@@ -175,10 +175,12 @@ function place(moves...)
 end
 put(dir, name, x) = place(jls(dir, name, x))
 
-# A saved output, refused unless this commit wrote it: a run is one commit.
+# A saved output, refused unless this commit wrote it with this SMOKE: a run is
+# one commit and one setting.
 function read_out(dir, name)
     x = deserialize(joinpath(OUT, dir, "$name.jls"))
     x.commit == COMMIT || error("$dir/$name was written at $(x.commit), not $COMMIT")
+    x.smoke == SMOKE || error("$dir/$name was written with SMOKE = $(x.smoke), not $SMOKE")
     return x.result
 end
 
@@ -242,6 +244,7 @@ function work(i)
                            "overwrites an output", have == ["work_plain"] ?
                            ". work_plain/ alone is left by a task killed between its two moves: " *
                            "move it aside, then rerun" : "")
+    read_out(".", "manifest")    # the run's commit and SMOKE, before hours of work
     say("work $name: $t")
     ms = collect(AbstractSubModel, m0_models())
     local x, p

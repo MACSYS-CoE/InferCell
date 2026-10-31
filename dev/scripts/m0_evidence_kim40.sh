@@ -6,14 +6,16 @@
 #   dev/scripts/m0_evidence_kim40.sh <outdir>
 #       the whole run: precompile, prep, the work array, finish, score;
 #   dev/scripts/m0_evidence_kim40.sh <outdir> missing
-#       once none of the run's jobs is queued: precompiles, then resubmits the work
-#       tasks that wrote no output, then finish for each (r, p) with none, then
-#       score;
+#       once none of the run's jobs is queued, from a tree at the run's commit and
+#       with the run's SMOKE (both kept in jobs.tsv): precompiles, then resubmits
+#       the work tasks that wrote no output, then finish for each (r, p) with
+#       none, then score;
 #   dev/scripts/m0_evidence_kim40.sh <outdir> progress
 #       counts the outputs, and lists the run's jobs in the queue.
 # SMOKE=1 in the launcher's environment runs the smoke pass, and is passed to the
-# jobs. CONCURRENCY (default 150) caps the work array's running tasks, and MEM
-# (default 6G) is each work task's memory.
+# jobs. CONCURRENCY (default 150) caps the work array's running tasks, MEM
+# (default 6G) is each work task's memory, and WALLTIME (default 24:00:00) its
+# time limit.
 # finish and score wait on `afterany`, so a failed task never leaves a job pending
 # forever: they refuse on a missing input, and `missing` fills it in.
 # Job ids go to <outdir>/jobs.tsv, logs to <outdir>/logs.
@@ -52,16 +54,25 @@ arr() { sbatch --parsable "${nodes[@]}" --ntasks=1 --output="$outdir/logs/%x_%A_
 
 # Both modes compile first, on the run's nodes, and nothing starts until that
 # succeeds: a task that compiled on its own could leave a cache the others refuse.
+head=$(git rev-parse HEAD)
 if [ "$mode" = missing ]; then
     [ -f "$outdir/manifest.jls" ] || { echo "no $outdir/manifest.jls: start a run first" >&2; exit 1; }
-    [ -z "$(squeue -h -u "$USER" -n "$jobs")" ] ||
-        { echo "the run still has jobs in the queue; wait for them" >&2; exit 1; }
+    queued=$(squeue -h -u "$USER" -n "$jobs") ||
+        { echo "squeue failed, so whether the run has jobs queued is unknown" >&2; exit 1; }
+    [ -z "$queued" ] || { echo "the run still has jobs in the queue; wait for them" >&2; exit 1; }
+    ran() { awk -F'\t' -v k="$1" '$1 == k { print $2; exit }' "$outdir/jobs.tsv"; }
+    [ "$(ran commit)" = "$head" ] ||
+        { echo "the run is at '$(ran commit)', this tree at $head" >&2; exit 1; }
+    [ "$(ran smoke)" = "$smoke" ] ||
+        { echo "the run has SMOKE='$(ran smoke)', this launcher SMOKE=$smoke" >&2; exit 1; }
     work_list=$(absent work $nwork 4)
     fin_list=$(absent finish $nfin 3)
     [ -n "$work_list$fin_list" ] || [ ! -f "$outdir/score.jls" ] ||
         { echo "nothing is missing from $outdir"; exit 0; }
 else
     [ -e "$outdir/jobs.tsv" ] && { echo "$outdir already holds a run; use missing" >&2; exit 1; }
+    record commit "$head"
+    record smoke "$smoke"
     work_list="0-$((nwork - 1))"
     fin_list="0-$((nfin - 1))"
 fi
@@ -78,7 +89,7 @@ fi
 
 if [ -n "$work_list" ]; then
     work=$(arr $exp $dep --array="$work_list%${CONCURRENCY:-150}" --cpus-per-task=1 \
-               --mem=${MEM:-6G} --time=24:00:00 --job-name=${name}_work \
+               --mem=${MEM:-6G} --time=${WALLTIME:-24:00:00} --job-name=${name}_work \
                --wrap "$run $script work $outdir \$SLURM_ARRAY_TASK_ID")
     record work "$work"; dep="--dependency=afterany:$work"
 fi
