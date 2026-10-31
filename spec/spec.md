@@ -4525,7 +4525,7 @@ knockdown"):
   frozen results (KIM-68's did, bit for bit). "Below K_d" gains its "about".
 - **PR #123's body:** "below K_d" gains its "about".
 
-**Review:** not yet; to be recorded at merge.
+**Review:** none. The user waived `/check-PR` for this docs-only entry.
 
 **Unchanged:** every decision in the M4 freeze and in KIM-69's and KIM-40's
 entries, every recorded result, and every script that ran.
