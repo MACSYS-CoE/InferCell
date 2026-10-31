@@ -1,6 +1,49 @@
 # Handoff
 
-## Latest: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
+## Latest: KIM-40, M0's combiner merged; its launcher and pre-registration in review (2026-10-31)
+
+**State: PR A merged, PR B open.** The plan the user approved on 2026-10-31 is
+`dev/notes/2026-10-31-kim40-plan.md`. Their four calls, each the recommended one:
+- empirical-quantile scoring of the draws' μ̂ as they are;
+- cell seeds common to V7 and B7;
+- two PRs before the launch;
+- 150 tasks at once.
+
+- **PR A, #131, merged as `3de0562`:** `combine_rows` (`src/predict_combine.jl`),
+  KIM-70's combiner.
+  - **Review:** `/check-PR` found no CRITICAL. Its 2 MAJOR and 5 MINOR findings
+    were fixed, then two fix-gate rounds returned MERGE. The report is in
+    `/fred/oz022/tkimpson/infercell-m5-kim40-tests/`.
+  - **Suites:** 29,757/29,757 at `8308ba7` (job 19622826) and 29,760/29,760 at
+    `4aa4a35` (job 19624883).
+  - **CI:** passes at `0b9b254`.
+- **PR B, #132, open (branch `tomkimpson/kim-40-m0-launcher`):**
+  - **What it holds:**
+    - spec §12's KIM-40 entry, the pre-registration of the run and its scoring for
+      Q and for KIM-41's ΔQ;
+    - `dev/scripts/m0_evidence_kim40.{jl,sh}`, the launcher;
+    - the plan copy.
+  - **Smokes:**
+    - smoke 1 at `4ba3ff5` (jobs 19622876–19622880) passed, with the pre-review
+      combiner;
+    - smoke 2 at `97b0e62` (jobs 19630912–19630916) passed, on the reviewed
+      combiner. Its scores are byte-identical to smoke 1's.
+  - **Still to do:** `/check-PR`, then the user's merge go-ahead.
+
+**Next:**
+1. PR B's review and merge.
+2. KIM-70's docs pass, merged.
+3. The launch, with the user's go-ahead for about 9,900 CPU-h, by about 14
+   November:
+   - make a detached worktree at the merge commit;
+   - run `dev/scripts/m0_evidence_kim40.sh /fred/oz022/tkimpson/infercell-m5-kim40-<date>`
+     from it;
+   - leave the worktree untouched for the run, about 66 h at 150 tasks;
+   - after the run: `… missing` for failed tasks, and `… progress` to count
+     outputs.
+4. The result note, citing the job ids, `93abbce`, `5ec56d3` and PR B's merge.
+
+## Earlier: KIM-69, M0's scale decided (branch `tomkimpson/kim-69-m0-scale`, 2026-10-31)
 
 **State: done.** The user chose option A: M0 runs at the declared rules, with the
 panel. The record is spec §12, 2026-10-31, "KIM-69: M0's scale at the declared
