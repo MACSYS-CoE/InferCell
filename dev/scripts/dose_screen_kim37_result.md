@@ -56,7 +56,9 @@ draws). Every dose up to 0.5 is admissible, with or without the starving draws.
   Draws 14 and 19 are the two excluded in the second table.
 - **No trend with dose.** On the same seeds, the starved counts per dose are 3,
   2, 1, 2, 3 and 2. At 0.3 only draw 19 starves, and it starves at baseline. So
-  the screen shows cells near the starvation threshold, not a dose effect.
+  the screen shows cells near the starvation threshold, with no dose trend
+  detectable at 2 cells per draw per dose. *(Corrected 2026-10-31, spec §12
+  KIM-70.)*
   Under V at baseline, intervened failures are part of the prediction, and are
   counted.
 - **The reduced model's baseline is already near K_d, at dose 0.** GTP is below
@@ -82,4 +84,5 @@ draws). Every dose up to 0.5 is admissible, with or without the starving draws.
   K_d at about a fifth of the rebuild instants.
 - **What M5 can check.** `predict` keeps each cell's smallest GTP, not the
   fraction of instants, so KIM-42 reports the fraction of its cells whose GTP
-  ever fell below about K_d (the freeze, §12).
+  ever fell below about K_d (the freeze, §12; its thresholds and cells are
+  declared in §12 2026-10-31, KIM-70).

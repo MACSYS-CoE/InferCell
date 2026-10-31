@@ -4428,6 +4428,110 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-10-31 — KIM-70: the M4 freeze's leftover text points; the gate's cuts and KIM-42's K_d diagnostic made precise (the user's calls)
+
+**Status: declared before any M5 evidence job.** This is a docs pass. It makes two
+items the M4 freeze left loose precise, as the user decided, and corrects wording
+in the freeze, two other §12 entries, four pilot notes, the `predict` docs page
+and the handoff. No frozen decision and no recorded result changes. KIM-70 set the
+rule: where a point refines a pre-registered item, it is declared here and the
+freeze's text stands, with a pointer; where a point corrects wording, the text is
+corrected in place and marked *(Corrected 2026-10-31, §12 KIM-70.)*.
+
+**Trigger:** KIM-70 (Linear), the MINOR text points left after the last round of
+PR #123's `/check-PR` (the M4 freeze). On 2026-10-30 the user chose to merge the
+freeze as reviewed and fix these in a docs pass before M5's first job. The
+review's report is at
+`/fred/oz022/tkimpson/infercell-m4-checks-2026-10-30/PR_REVIEW_123_2026-10-30.md`.
+The user's calls, 2026-10-31, each the recommended option:
+- the gate's 2 widths are 1 and 2;
+- KIM-42's K_d diagnostic counts every cell of every pair.
+
+**KIM-38's gate, made precise** (the freeze, "The scale"; KIM-69's entry left
+both points open):
+- **The cuts are sequential.** If M0 would push the package past about 20
+  November, the KIM-41 panel is cut first. KIM-42 runs 2 widths, not 3, only if
+  the package would still end past about 20 November with the panel cut.
+- **The 2 widths are 1 and 2.** Width 1 is the nominal prior, kept so that
+  KIM-42's headline sentence can be stated at it. Width 2 is kept over ½ because
+  it is expected to test V's filter harder. Width ½ is the one dropped.
+- A cut chosen for cost rather than forced by the date is a post-pilot change,
+  and is recorded as one (KIM-69's entry says so of the panel).
+- If M0 starts by about 14 November, neither cut applies (KIM-69).
+
+**KIM-42's K_d diagnostic, made precise** (the freeze, "The dose": "the fraction
+of its cells whose GTP ever fell below about K_d, at baseline and under the
+knockdown"):
+- **The measure:** a cell counts if `minima[:M_gtp_c]`, its smallest GTP over the
+  run in particles (`CellRun.minima`), is below the threshold.
+- **Two thresholds, reported as a bracket.** K_d is 0.1 mM. Below 2,018 particles
+  (K_d at the initial volume) gives a lower bound on the fraction, and below 2,160
+  (at 1.07× that volume, since the volume grows about 7% over a cycle) an upper
+  bound.
+- **The cells, at each width:**
+  - at baseline, all 8 cells of every pair, μ̂'s 4 and V's 4, before V filters;
+  - at baseline, the same for the pairs V keeps, as a second row;
+  - under the knockdown, every cell, which run on the kept pairs only.
+
+  Each row gives the count and the fraction at both thresholds.
+- It is a diagnostic for KIM-47's model-form caveat. It is not scored, and it
+  gates nothing.
+- KIM-42's Linear text carries it, with the freeze's "each component and the
+  share with an SE".
+
+**Already met elsewhere.** KIM-70 listed these points; nothing more is done here:
+- **Combining M0's row blocks.** KIM-40 owns it. `combine_rows` (PR #131, merge
+  `3de0562`) recomputes every summary from the concatenated rows, is tested
+  against one call, and refuses blocks that do not share one `DeltaCorrection`.
+  V7's and B7's matched blocks share cell seeds (§12 2026-10-31, KIM-40).
+- **`logs/` before the guard refuses.** `launcher_guard.sh`, which M5's launchers
+  use, refuses before it makes `logs/` (§12 2026-10-31, KIM-68). The M4 launcher
+  KIM-70 named ran at `a742224` and `82c14d6`, and is not edited.
+- **"M0's sizes are a todo"** in `cost_pilot_kim38_result.md` went when KIM-69's
+  entry rewrote that note's gate section.
+
+**Wording, corrected in place:**
+- **The freeze:**
+  - its status line says "the entry that fixes M0's scale", not "sizes";
+  - the KIM-35 smoke's label was "corrected in `08db217`, in the tree at
+    `a742224`", not "fixed at `a742224`". The smoke, at `657081e`, printed the
+    nominal H; `08db217` prints the run's own;
+  - "at 600 s, neither group's variance is resolved" holds for `lactate_out`
+    only. `exported`'s Var_H is resolved there (4.4e−6 ± 1.9e−6, 2.3 SE), though
+    not its Var_I (KIM-35's table);
+  - the dose screen shows "no dose trend detectable", not "not a dose effect".
+    It ran 2 cells per draw per dose;
+  - "Cut the panel" is labelled a post-pilot change when it is chosen for cost;
+  - its Review list gains `exported`'s two-horizon result (`c56f5a6`) and
+    `c02c19c`'s two fixes: the mean field's refusal under V, and the `_tshow`
+    test.
+- **"`predict` made ready for M5"** (2026-10-30): "the M0 crossed comparison runs
+  one call per dataset and posterior anyway" was stale against the freeze's row
+  blocks.
+- **KIM-69's entry:** its open point now points here.
+- **The notes:**
+  - `variance_split_check_kim66_result.md`: the held share "is expected to"
+    cancel the noise, and the check did not measure it, as the freeze says;
+  - `sensitivity_pilot_kim35_result.md`: the smoke's label and the 600 s
+    sentence, as in the freeze;
+  - `dose_screen_kim37_result.md`: "no dose trend detectable", and a pointer to
+    the diagnostic declared here;
+  - `cost_pilot_kim38_result.md`: "Cut the panel" as a post-pilot change, and
+    the gate's widths.
+- **`docs/src/api/predict.md`:** KIM-66's bias of up to about 6% was found "on
+  its test cases". The check did not cover θ_I's regime, near 3%.
+- **`docs/handoff.md`** (the M4 section): "the results are unaffected" now
+  defers to the freeze's rule that any change to `predict` must reproduce the
+  frozen results (KIM-68's did, bit for bit). "Below K_d" gains its "about".
+- **PR #123's body:** "below K_d" gains its "about".
+
+**Review:** not yet; to be recorded at merge.
+
+**Unchanged:** every decision in the M4 freeze and in KIM-69's and KIM-40's
+entries, every recorded result, and every script that ran.
+
+*Sections:* §12.
+
 ### 2026-10-31 — KIM-65: CI's unit suite runs as two parallel groups, split at phase 16a (the user's decision)
 
 **Status: decided and built.** CI runs the unit suite as two jobs, one per test
@@ -4864,7 +4968,9 @@ November.
 - So at 100 tasks the package takes about 4.5 days. From a 14 November start it
   ends about 18–19 November, a day or more inside the gate.
 - If M0 starts later, the gate's cuts apply. Their order, and which 2 of the 3
-  widths would run, are KIM-70's open point and are not decided here.
+  widths would run, are KIM-70's open point and are not decided here. *(Decided
+  2026-10-31, §12 KIM-70: the cuts are sequential, and the 2 widths are 1 and
+  2.)*
 
 **Cost:** about 10,500 CPU-h for the package, KIM-42's 736 CPU-h of work included
 (about 1,000–1,600 core-h held, by KIM-68's figures).
@@ -5182,7 +5288,8 @@ per draw, n_ref, n_truth, its draw count, and whether the KIM-41 panel runs.
 That is a todo (KIM-69, the user's call), decided in a later §12 entry before any
 KIM-40 or KIM-41 job. This is launch gate 1. Every other item below was fixed on
 held-out pilots, before the first M5 job. M5's result notes cite the commit that
-merges this entry to main, and the entry that fixes M0's sizes.
+merges this entry to main, and the entry that fixes M0's scale. *(Corrected
+2026-10-31, §12 KIM-70.)*
 
 **Trigger:** M4 in Linear (KIM-35 to KIM-39, KIM-66).
 - **Where the pilots ran:** at `a742224` (tag `m4-pilots-a742224`), and the
@@ -5297,7 +5404,8 @@ horizon, in particles, from `carbon_accounts` on the metered composition.
       explanation the reading reaches.
 
     The file labels its sections with the nominal H (6300 s and 600 s), a label
-    fixed at `a742224`. The reading and its quarter threshold were written after
+    corrected in `08db217`, in the tree at `a742224`. *(Corrected 2026-10-31,
+    §12 KIM-70.)* The reading and its quarter threshold were written after
     seeing that output.
     So the approved rule's verdict, not the reading's, is the one made blind.
     Under the approved rule alone, the note would have recommended changing Q.
@@ -5312,8 +5420,9 @@ horizon, in particles, from `carbon_accounts` on the metered composition.
     gives the attribution the paper reports.
 - **`exported`** is about 0.998 and flat: every elasticity is ≤ 5e−3. It fails at
   both horizons: for both groups at 6,300 s, and on θ_I at 600 s.
-- **At 600 s on the reduced model**, neither group's variance is resolved at 2
-  bootstrap SE.
+- **At 600 s on the reduced model**, neither group's variance in `lactate_out`
+  is resolved at 2 bootstrap SE. `exported`'s Var_H is (4.4e−6 ± 1.9e−6, 2.3
+  SE), but not its Var_I. *(Corrected 2026-10-31, §12 KIM-70.)*
 
 **The estimand.** It is the population mean μ(θ) of Q over cells. The intrinsic
 spread E[σ²] is reported separately, from the hybrid only. The mean field is
@@ -5348,6 +5457,7 @@ admissible dose in {0.1, 0.2, 0.3}.
     reports, as a diagnostic, the fraction of its cells whose GTP ever fell below
     about K_d, at baseline and under the knockdown. K_d is 0.1 mM, about 2,018
     particles at the initial volume; the volume grows about 7% over a cycle.
+    *(Made precise 2026-10-31, §12 KIM-70: the thresholds and the cells.)*
   - **Starvation shows no trend with dose.** Of the 240 cells (40 per dose),
     13 starved, from 4 draws:
     - draw 19 at baseline and at every dose but 0.2 (9 cells);
@@ -5356,7 +5466,8 @@ admissible dose in {0.1, 0.2, 0.3}.
 
     On the same seeds the counts per dose are 3, 2, 1, 2, 3 and 2. At 0.3 only
     draw 19 starves, and it starves at baseline. So the screen shows cells near
-    the starvation threshold, not a dose effect. Under V at baseline,
+    the starvation threshold, with no dose trend detectable at 2 cells per draw
+    per dose. *(Corrected 2026-10-31, §12 KIM-70.)* Under V at baseline,
     intervened failures are part of the prediction, and are counted.
   - **A post-approval addition:** judging the reduced model with and without its
     baseline-starving draws was added in the script, not in the approved plan. It
@@ -5409,7 +5520,8 @@ on M0.
   decided in a §12 entry before any KIM-40 or KIM-41 job.
 - **KIM-38's declared gate still binds**, and is applied with that decision. If
   the run would pass about 20 November: first cut the KIM-41 panel, then run 2
-  widths, not 3, on the reduced model.
+  widths, not 3, on the reduced model. *(Made precise 2026-10-31, §12 KIM-70:
+  the cuts are sequential, and the 2 widths are 1 and 2.)*
 - **M0, the crossed comparison (KIM-40) and the knockdown panel (KIM-41):**
   - 50 datasets × {V7 exact, B7 mixed}. The plan's 100 draws each are evenly
     spaced over the posterior's draws. The draw count is open with the rest.
@@ -5435,7 +5547,9 @@ on M0.
   - **The options KIM-69 records.** Each total is the whole package, the reduced
     model's 736 CPU-h included.
     - **Keep the declared rules:** about 10,500 CPU-h.
-    - **Cut the panel**, KIM-38's first cut: about 5,700.
+    - **Cut the panel**, KIM-38's first cut: about 5,700. Chosen for cost rather
+      than forced by the date, it is a post-pilot change, recorded as one.
+      *(Corrected 2026-10-31, §12 KIM-70.)*
     - **Halve the draws:** about 6,300. This is a post-pilot change, recorded as
       one.
     - **Relax the rules** (MC ≤ 30%; the truth's and δ's SEs ≤ 20%): about 3,300
@@ -5518,14 +5632,19 @@ Corrected here before merge:
 - post-freeze changes to `predict` must reproduce the frozen results;
 - the post-approval additions, marked as such;
 - the archives' readability, and the commits and tags the runs name;
-- the approved plan, copied into the repo.
+- the approved plan, copied into the repo;
+- `exported`'s result at both horizons (`c56f5a6`, round 2). *(Added
+  2026-10-31, §12 KIM-70.)*
 
 In the code, each fix in its own commit:
 - the δ fingerprint no longer moves with `Main`'s imports;
 - under V, `predict` requires `n_viability_cells`;
 - a pair without τ leaves the split, and is counted;
 - the docstrings;
-- a guard in `sizing_resolved`'s launcher.
+- a guard in `sizing_resolved`'s launcher;
+- the mean field's refusal under V names its one legal value, and the `_tshow`
+  test tells a fix from a bug (`c02c19c`, round 2). *(Added 2026-10-31, §12
+  KIM-70.)*
 
 Checks:
 - the suite at `f7b1693`, before the fixes (job 19565485): 29,645 of 29,645;
@@ -5575,7 +5694,9 @@ No result changes.
     reduced-model budget) is one call, run threaded on one node. Calls still
     cannot share one, as the entry below explains. Without completion (M0), rows
     can still be split over calls, each with its own rng and disjoint `draws`.
-    The M0 crossed comparison runs one call per dataset and posterior anyway.
+    The M0 crossed comparison splits each dataset and posterior's rows into
+    blocks, one call each, and combines them (the freeze; §12 2026-10-31,
+    KIM-40). *(Corrected 2026-10-31, §12 KIM-70.)*
 - **The M3 review's MINORs (KIM-63, items 2 to 5).** Item 1, the MC term, moves
   to KIM-66.
   - **δ's reuse check.** A `DeltaCorrection` now keeps:

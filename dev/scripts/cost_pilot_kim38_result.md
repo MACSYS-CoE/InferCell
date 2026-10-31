@@ -96,13 +96,15 @@ At the first, superseded sizing it was about 1,900.
 - **The options and their cost.** Each total is the whole package, the reduced
   model's 736 CPU-h included.
   - **Keep the declared rules:** about 10,500 CPU-h.
-  - **Cut the panel:** about 5,700.
+  - **Cut the panel:** about 5,700. Chosen for cost rather than forced by the
+    date, it is a post-pilot change. *(Corrected 2026-10-31, spec §12 KIM-70.)*
   - **Halve the draws:** about 6,300. This is a post-pilot change.
   - **Relax the rules** (MC ≤ 30%; the truth's and δ's SEs ≤ 20%): about 3,300,
     of which 2,500 is M0 with the panel. This is a post-pilot change.
 - **Against the gate's 20 November.** At the declared rules, about 3 days at 200
   cores, plus KIM-68 first. So M5 would need to start by about 12–14 November.
-  KIM-38's gate (cut the panel, then 2 widths) still binds.
+  KIM-38's gate (cut the panel, then 2 widths: 1 and 2, spec §12 2026-10-31,
+  KIM-70) still binds.
 - **Caveats:**
   - The sizes come from one held-out posterior (v6). Posterior widths vary across
     the 50 datasets, and the rules may be loose or tight on some.

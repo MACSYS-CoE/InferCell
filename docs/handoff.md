@@ -260,7 +260,7 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
   GTP is below K_d at about a fifth of rebuild instants even at dose 0 (KIM-37).
   - The fraction varies strongly with θ, and is not measured at the M0 posterior.
   - KIM-42 reports what `predict` can: the fraction of cells whose GTP ever
-    fell below K_d.
+    fell below about K_d (made precise in spec §12 2026-10-31, KIM-70).
   - This is a model-form caveat for KIM-47.
 - **V's acceptance.** At width 1, for one θ_I, V rejected none of 50 θ_H
   (KIM-35); the 95% upper bound is about 6%. The paper reports the acceptance at
@@ -276,8 +276,9 @@ they made two further calls: they re-confirmed Q, and they left M0's scale open.
    `n_viability_cells = 4`.
 3. **The user drafts the paper next.** M5 waits on KIM-69, the M0 scale, which is
    revisited later. M5's first job is KIM-68: threading efficiency, likely GC
-   (0.16 at 64 threads; the results are unaffected), and the review's
-   simplifications.
+   (0.16 at 64 threads), and the review's simplifications. Any change to
+   `predict` must reproduce the frozen results, as the freeze requires; KIM-68's
+   did, bit for bit. *(Corrected 2026-10-31, spec §12 KIM-70.)*
    - KIM-67, B7's null-KS finding, needs triage.
    - KIM-70, the review's leftover MINORs. Three of them define M5 work: KIM-42's
      K_d diagnostic, an owner for combining M0's row blocks, and the order of

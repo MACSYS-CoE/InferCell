@@ -34,7 +34,8 @@ matrix, [`variance_split`](@ref) gives the total and the θ_I/θ_H split in both
 orders, from weighted U-statistics in which the cells' noise and the shared
 columns cancel. Without a viability rule it is unbiased. Under one, the weights
 are ratio estimates of the conditioned law, and the estimate is biased; a
-simulation check (KIM-66) found that bias at up to about 6% at M = 100, K = 20.
+simulation check (KIM-66) found that bias at up to about 6% at M = 100, K = 20,
+on its test cases.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
 the dose, which conditioned variant is the headline, and which order of the split
