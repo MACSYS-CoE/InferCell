@@ -54,8 +54,8 @@ if [ "$mode" = missing ]; then
         { echo "the run has SMOKE='$(ran smoke)', this launcher SMOKE=$smoke" >&2; exit 1; }
     widths=""
     for i in 0 1 2; do
-        if [ ! -f "$outdir/prediction_w$i.jls" ]; then
-            for f in w$i plain_w$i; do
+        if [ ! -f "$outdir/w$i.jls" ]; then
+            for f in prediction_w$i plain_w$i; do
                 [ ! -f "$outdir/$f.jls" ] ||
                     { echo "$outdir/$f.jls is left by a task killed between its moves; move it aside" >&2; exit 1; }
             done

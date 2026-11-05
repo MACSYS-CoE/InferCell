@@ -10,9 +10,9 @@
 #             one node (a crossed matrix cannot be split over calls);
 #   report    the tables, in budget.md and budget_rows.tsv;
 #   secheck   the SE method's check on made-up matrices (below). No cell runs.
-# Outputs, never overwritten: w<i>.jls (the numbers `report` reads, as plain values),
-# plain_w<i>.jls (`plain`, every cell with its minima and accounts) and
-# prediction_w<i>.jls (the whole `Prediction`, which opens only at this commit).
+# Outputs, never overwritten, in the order a width writes them: prediction_w<i>.jls (the
+# whole `Prediction`, which opens only at this commit), plain_w<i>.jls (`plain`, every
+# cell with its minima and accounts) and w<i>.jls (the numbers `report` reads, plain).
 #
 # The design (frozen):
 # - `d11_models()` at 6,300 s (`COREA_CYCLE_S`), the hybrid only, Q = :lactate_out;
@@ -55,7 +55,8 @@
 #
 # SMOKE=1 is a plumbing pass, never a result. It runs B7's held-out `v6` fit, at
 # 630 s, 4 draws × 3 held × 2 + 2 cells, on 8 threads, with 2 row blocks, and reads
-# no evidence posterior.
+# no evidence posterior. Its V alone has a floor, M_gtp_c ≥ 3,800, so that V rejects
+# pairs and those paths run; the run's V has none.
 
 include(joinpath(@__DIR__, "pilot_common.jl"))
 using Random
@@ -74,8 +75,9 @@ const H = SMOKE ? COREA_CYCLE_S / 10 : COREA_CYCLE_S
 const N_DRAWS, N_HELD, N_CELLS, N_V, N_ROW_BLOCKS = SMOKE ? (4, 3, 2, 2, 2) : (100, 20, 4, 4, 10)
 const SEED = SMOKE ? 19_542_900 : 19_542_000
 const KD = Knockdown(; dose = 0.3)
-const RULE = ViabilityRule(; label = "M4 freeze, KIM-36", allow_clipped = true,
-                           min_viable_fraction = 0.5, starved_fraction = 0.5)
+const RULE = ViabilityRule(; label = SMOKE ? "smoke: a floor, so that V rejects" : "M4 freeze, KIM-36",
+                           allow_clipped = true, min_viable_fraction = 0.5, starved_fraction = 0.5,
+                           floors = SMOKE ? [:M_gtp_c => 3800.0] : Pair{Symbol, Float64}[])
 const K_D_THRESHOLDS = (2018.0, 2160.0)     # §12 KIM-70: a lower and an upper bound
 const LAWS = (:per_theta_I, :joint)
 
@@ -135,6 +137,9 @@ function width_stage(i)
                                n_viability_cells = N_V, quantity = :lactate_out,
                                intervention = KD, rng = Xoshiro(SEED))
     say("predict took $(round(sec / 3600; digits = 2)) h; statuses $(_sorted(p.statuses))")
+    # Saved first, so that nothing below can lose the hours above.
+    put("prediction_w$i", p)
+    put("plain_w$i", plain(p; cells = true, full = true))
     effect_n = [InferCell._moments(InferCell._paired_delta(p.cells[j], p.cells_intervened[j]))[3]
                 for j in CartesianIndices(p.cells)]
     kept = p.viable
@@ -150,8 +155,6 @@ function width_stage(i)
                 effect_summary = p.effect_summary, statuses = _sorted(p.statuses),
                 statuses_intervened = _sorted(p.statuses_intervened),
                 v_cell_counts = _sorted(reasons), kd, seconds = sec))
-    put("plain_w$i", plain(p; cells = true, full = true))
-    put("prediction_w$i", p)
 end
 
 # ---- the numbers
@@ -237,6 +240,7 @@ function report()
         out("\n## $title\n")
         out("| width | weights | mean ± SE | √Var(μ) ± SE | I first: between, within | H first: between, within | gap | held share, I first | held share, H first |")
         out("|---|---|---|---|---|---|---|---|---|")
+        notes = String[]
         for r in recs, law in LAWS
             mu, τ = target === :q ? (r.mu, r.sigma2 ./ r.n_ok) : (r.effect, r.effect_sigma2 ./ r.effect_n)
             b = estimate(mu, τ, r.viable, law; n_blocks = N_ROW_BLOCKS)
@@ -249,9 +253,11 @@ function report()
             for f in keys(s)
                 println(tsv, join([r.width, target, law, f, getfield(e, f), getfield(s, f)], '\t'))
             end
-            e.flagged + e.dropped > 0 && out("\nWidth $(r.width), $law: $(e.flagged) components ",
-                                             "came out negative and are reported as 0; $(e.dropped) pairs dropped.\n")
+            e.flagged + e.dropped > 0 &&
+                push!(notes, "Width $(r.width), $law: $(e.flagged) components came out negative " *
+                             "and are reported as 0; $(e.dropped) pairs dropped.")
         end
+        isempty(notes) || out("\n", join(notes, "\n"))
     end
 
     out("\n## The law of total variance, Q (per_theta_I)\n")
