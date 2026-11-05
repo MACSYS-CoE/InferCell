@@ -1,6 +1,28 @@
 # Handoff
 
-## Latest: KIM-70, the M4 freeze's leftover text points (branch `tomkimpson/kim-70-docs-pass-the-pr-123-reviews-leftover-minor-text-points-in-the-m4`, 2026-10-31)
+## Latest: KIM-40 and KIM-41, M0's results (branch `tomkimpson/kim-40-41-m0-evidence-result`, 2026-11-05)
+
+**State: M0 has run and passed its after-run audit.** The record is
+`dev/scripts/m0_evidence_kim40_result.md` and spec §12, 2026-11-05. The outputs are at
+`/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01/`, with `SHA256SUMS`.
+- **Q:** the exact and mixed posteriors with the hybrid cover at the declared reference
+  (92% and 88%, against 88.2%), with B7 18% narrower. B7 with the mean field is about 1
+  SE low.
+- **ΔQ:** fails the 10% rules on all 50 datasets. The user's decision: no rerun; state
+  the limit in prose. The effect's sign and scale are recovered on all 50.
+- **Task 587** was resubmitted by hand (job 19827688) after root cancelled it.
+
+**Next:**
+1. Review and merge this PR.
+2. **KIM-42,** the reduced model's unscored budget, once the user has had it explained
+   and gives the go-ahead. About 8–9 h on 3 nodes with `--gcthreads=N,1`.
+3. **KIM-43:** the archive. `SHA256SUMS` is written, and the run directory is outside
+   `.worktrees/`.
+4. **KIM-46** (§5.5) after KIM-42, then the other paper issues. `paper/STATUS.md`
+   still says M0 is running. `.worktrees/paper-1` needs
+   `git reset --hard 240e8fa` if that has not been done.
+
+## Earlier: KIM-70, the M4 freeze's leftover text points (branch `tomkimpson/kim-70-docs-pass-the-pr-123-reviews-leftover-minor-text-points-in-the-m4`, 2026-10-31)
 
 **State: docs only, the last open §12 precondition for the M0 launch.** The record
 is spec §12, 2026-10-31, "KIM-70: the M4 freeze's leftover text points; the
