@@ -4477,7 +4477,7 @@ for KIM-43.
 **Unchanged:** every choice in the M4 freeze, KIM-69's and KIM-40's entries, and every
 recorded result. No score was recomputed.
 
-**Review:** none yet, when this entry was written; the PR records any.
+**Review:** none. The user waived `/check-PR` for this PR (2026-11-05).
 
 *Sections:* §12.
 
