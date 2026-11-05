@@ -4428,6 +4428,59 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-05 — KIM-40 and KIM-41: M0's run as it went, and ΔQ not rerun (the user's decision)
+
+**Status: run complete, audited; decided.** The results are in
+`dev/scripts/m0_evidence_kim40_result.md`. M0 ran at `ed179c2` with the design and
+scoring the KIM-40 entry declares (below), into
+`/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01/`: jobs 19684097–19684101 and
+19827688.
+
+**The decision.** ΔQ fails KIM-69's 10% rules on all 50 datasets under both
+posteriors: the median MC share is 0.50 (V7) and 0.54 (B7), and the truth's SE is
+about 0.3 of the parameter SD. The user decided on 2026-11-05 not to rerun or resize
+the panel, and to state the limit in prose beside its numbers.
+- **Why:** InferCell's deliverable is the software framework, and the paper is an
+  add-on to it. Meeting the rules on ΔQ needs about 9× the cells per draw, the truth's
+  and δ's, on the order of 100,000 CPU-h at this run's rates, and only at the median
+  dataset.
+- **What can still be said:** every arm's 90% interval excludes zero with the truth's
+  sign on all 50 datasets, and each true effect is at least 11 of its SEs from zero.
+- **What cannot:** these ΔQ coverages are not clean calibration numbers. By arithmetic
+  from the same table, the hybrid's 98% and 96% are what cell noise of this share gives.
+  So they say its intervals are conservative, not that it is calibrated. B7's
+  mean-field arms are low (at nominal 50%, 32% and 26%, against 49%), and at these
+  sizes the noise and the route cannot be separated.
+- **KIM-69's rationale for its sizes** was Q's. It stands for Q, where V7 meets the
+  rules on all 50 and B7's medians sit on the limit (25 and 27 datasets over).
+- **Also unchanged:** the panel's role as the only validation behind the reduced
+  model's knockdown prediction, within this limit.
+
+**How the run departed from the entry's procedure.** One task: work task 587 was
+cancelled by root on gina12, 2 minutes after starting, with no output, and for no
+cause visible from here. `scontrol requeue` refused it. At the user's request it was
+resubmitted by hand as job 19827688 while the array ran, not by `missing` after the
+queue cleared. It used the launcher's flags, the run's tree and the same seed, with
+gina12 also excluded, and its id is in `jobs.tsv`. Scores were not touched: they ran
+once, on the complete set, and the entry's other rules held.
+
+**Cost against the projection:** 12,978 CPU-h and 95 h, against KIM-69's 9,807 and
+65 h, which were projected from median per-cell times. The start was 13 days ahead of
+the gate's 14 November, so no cut follows. KIM-42's own estimate (about 8–9 h on 3
+nodes) rests on KIM-68's timings, and has not been rechecked against this.
+
+**The after-run list** (the KIM-40 entry) is done: `sacct.tsv`; the `ran_on` audit
+(`dev/scripts/m0_audit.{jl,sh}`, job 20002599, 2,402 records, all `znver3`, none on a
+turin node); `sha256sum -c inputs.sha256`; and `SHA256SUMS` over 3,662 output files,
+for KIM-43.
+
+**Unchanged:** every choice in the M4 freeze, KIM-69's and KIM-40's entries, and every
+recorded result. No score was recomputed.
+
+**Review:** none yet, when this entry was written; the PR records any.
+
+*Sections:* §12.
+
 ### 2026-10-31 — KIM-70: the M4 freeze's leftover text points; the gate's cuts and KIM-42's K_d diagnostic made precise (the user's calls)
 
 **Status: declared before any M5 evidence job.** This is a docs pass. It makes two
