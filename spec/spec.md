@@ -4428,6 +4428,72 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-05 — KIM-42: the reduced model's budget, pre-registered, and its SE gate's near miss (the user's decision)
+
+**Status: pre-registered, not run.** The design is the M4 freeze's (`93abbce`) with
+KIM-70's K_d diagnostic. This entry and the header of
+`dev/scripts/reduced_budget_kim42.jl` declare what those left to the script. The budget
+is unscored: it has no truth, so nothing it produces is a calibration result.
+
+**Declared before the run:**
+- **θ_I:** V7 replicate 1, pinned by its SHA-256 as in M0's prep, at 100 evenly spaced
+  draws. Its smallest bulk ESS is 39, so they are about 39 effective. Its stored truth
+  is never read.
+- **Seeds:** `Xoshiro(19_542_000)` at every width, so the widths share their cells' seeds
+  and their θ_H draws, scaled. `report` checks this. Differences between widths lose most
+  of the cells' noise, but the three do not average to one less noisy estimate.
+- **The headline:** the held share in the I-first order, E_I[Var(μ | θ_I)] / Var(μ),
+  under `per_theta_I` at width 1, with H first and the gap beside it. `joint` weights are
+  reported beside it. ΔQ's split is secondary.
+- **The SE:** a two-way delete-a-group jackknife, the two variances added. Rows are
+  deleted in 10 blocks of 10 consecutive draws, because V7's chain is autocorrelated, and
+  columns one at a time. Each deletion recomputes V's weights and `_variance_split`.
+- **Descriptive only:** correlations of log θ_I with log θ_H under each weight set, and
+  each parameter's first-order attribution. Twenty columns cannot separate the held
+  parameters.
+
+**The gate, and the decision.** The script declared that if the held share's ratio of
+mean SE to empirical SD fell outside [0.7, 1.5] in any case, the work would stop and ask
+the user. `secheck` (job 20008627, at `d3a544e`; no later commit touches the method) ran
+12 cases on made-up 100 × 20 matrices, 2,000 replicates each, and **failed narrowly in 2:**
+- **The two failures:** the ratio is 1.56 (iid rows) and 1.51 (AR(1) rows, ρ = 0.44) in
+  the shape with θ_I near 3% and the dependent mask. There the share's mean is about
+  0.994, against a ceiling of 1, and the interval of ±2 SE holds the estimate 99.6–99.8%
+  of the time. So the SE is too wide, not too narrow.
+- **The other 10 cases:** 1.00–1.07. Over all 12, the H-first share's ratio is 1.00–1.22.
+- **The between-θ_I variance in those two cases:** `i_between`'s ratio is 1.53 and 1.52,
+  yet ±2 SE holds its estimate only about 80% of the time, because the estimate is small,
+  clipped at 0 and skewed. So its SE is not conservative in the same sense, and is not to
+  be read as a normal interval.
+
+The user decided on 2026-11-05 to accept the method as it stands. The result note, not
+`report`, states that when the held share is near 1, as may be expected here, its SE can
+be about 50% too wide.
+
+**Smoke passes.** Each is a plumbing pass, never a result.
+- **The first** (jobs 20008623–25, at `d3a544e`) completed, but V accepted every pair, so
+  the rejected paths did not run.
+- **The second** (jobs 20009002–04, at `bc126cf`) gave the smoke's V alone a floor, and
+  V's acceptance was 0.92, 0.83 and 0.58 at widths ½, 1 and 2. Every stage completed, no
+  row failed, knockdown cells followed the kept pairs, and the correlations were nonzero.
+- **What the smoke cannot test:** at 4 × 3 pairs its shares can exceed 1 and some of its
+  SEs are NaN, because `total` can be clipped to 0. Whether that recurs at 100 × 20 is read
+  from the real report's flags.
+
+`bc126cf` also saves each width's `Prediction` before anything is derived from it, so that
+a bug in the derived numbers cannot lose the width's hours.
+
+**The cost.** §12 2026-10-31, KIM-68, gives about 8–9 h on 3 nodes and 1,000–1,600 core-h.
+M0 overran its projections by about 32% in CPU-h and 45% in wall-clock, and that has not
+been tested on KIM-42's cells. So allow 11–13 h and up to about 2,500 core-h. Each width's
+job asks for 24 h, 64 threads and 192G.
+
+**Review:** the user waived `/check-PR` for this PR on 2026-11-05. It has had no
+adversarial review of its code. What tests it is the SE check and the two smoke passes.
+
+**Before the launch:** this PR merged, then the user's go-ahead. The run goes from a
+detached worktree at the merge commit, on its own output directory.
+
 ### 2026-11-05 — KIM-40 and KIM-41: M0's run as it went, and ΔQ not rerun (the user's decision)
 
 **Status: run complete, audited; decided.** The results are in

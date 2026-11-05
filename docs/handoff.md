@@ -1,6 +1,28 @@
 # Handoff
 
-## Latest: KIM-40 and KIM-41, M0's results (branch `tomkimpson/kim-40-41-m0-evidence-result`, 2026-11-05)
+## Latest: KIM-42, the reduced model's budget, pre-registered (branch `tomkimpson/kim-42-evidence-reduced-model-uncertainty-budget-unscored`, 2026-11-05)
+
+**State: built and tested, not run.** The record is spec §12, 2026-11-05, and the header
+of `dev/scripts/reduced_budget_kim42.jl`. The launcher is
+`dev/scripts/reduced_budget_kim42.sh`.
+- **SE gate:** failed narrowly in 2 of 12 cases, on the conservative side (ratios 1.56
+  and 1.51, where the held share is about 0.994). The user accepted the method as it
+  stands.
+- **Smoke:** the second pass (jobs 20009002–04) ran with V rejecting pairs and completed.
+  Its shares and SEs mean nothing at 4 × 3 pairs.
+- **Review:** the user waived `/check-PR`.
+
+**Next:**
+1. Merge this PR.
+2. **The launch, with the user's go-ahead.** Allow 11–13 h on 3 nodes and up to about
+   2,500 core-h. From a detached worktree at the merge commit:
+   `dev/scripts/reduced_budget_kim42.sh /fred/oz022/tkimpson/infercell-m5-kim42-<date>`.
+   Use its `progress` mode to watch, and `missing` once no job of the run is queued.
+3. **The result note,** with the report's flags read. Then **KIM-43,** the archive, and
+   **KIM-46** (§5.5). `paper/STATUS.md` still says M0 is running. `.worktrees/paper-1`
+   needs `git reset --hard 240e8fa` if that has not been done.
+
+## Earlier: KIM-40 and KIM-41, M0's results (branch `tomkimpson/kim-40-41-m0-evidence-result`, 2026-11-05)
 
 **State: M0 has run and passed its after-run audit.** The record is
 `dev/scripts/m0_evidence_kim40_result.md` and spec §12, 2026-11-05. The outputs are at
