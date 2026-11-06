@@ -14,7 +14,7 @@ observables and synthetic data, is done (#78). Phase 16, specified in
 `spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30), closed at M0 on
 2026-10-28 (#105–#110). The v0.3.0 claim is §1's, as amended on 2026-10-29 (§12,
 "v0.3.0 launch decisions").
-**Created:** 2026-09-03  ·  **Last amended:** 2026-10-30
+**Created:** 2026-09-03  ·  **Last amended:** 2026-11-06
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -4427,6 +4427,194 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-11-06 — KIM-43: the evidence archive
+
+**Status: built and verified.** M5's runs and the inputs they read are copied to
+`/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`, 13 GB, by
+`dev/scripts/archive_predict_kim43.sh` (job 20150322, at `e237a18`). `README.md` there lists the
+contents and where the headline numbers are, and `PROVENANCE.tsv` gives each directory's commit
+and job ids.
+
+**The checks.** Before copying: the sources' own `SHA256SUMS`, the two hashes the result notes
+quote, M0's 200 pinned inputs, and the V6 chains against B7's `SHA256SUMS`. After copying: the
+same checksums on the copies, and a byte-for-byte comparison for the SE check, which had none.
+The archive's `SHA256SUMS` covers 3,940 files, with SHA-256 `1f2e3fce1f6768044fa4e3b9ce50c544d165b22f0782f99cefd5afab5bb47d06`,
+and passed `sha256sum -c` in the build and again in a separate job, 20151374.
+
+**The paper's numbers are not traced yet.** The issue also asks that they trace to this archive,
+but `numbers.tex` has no M5 entries and §5.5 is a placeholder. KIM-46 writes them, citing these
+files, so the tracing happens there. No fixture needed regenerating: `predict_reference.jl` is
+KIM-68's frozen reference at `93abbce`, not evidence.
+
+**Review:** the user waived `/check-PR`.
+
+**Unchanged:** every result, and the original directories, which the result notes still cite.
+
+*Sections:* §12.
+
+### 2026-11-06 — KIM-42: the reduced model's budget, run (unscored)
+
+**Status: run complete; not a calibration result.** The results are in
+`dev/scripts/reduced_budget_kim42_result.md`. The run went at `f23fd06`, on the user's
+go-ahead of 2026-11-05, with the design and SE method the entry below declares, into
+`/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05/`: jobs 20041038, 20041039 (array;
+tasks 20041245, 20041246, 20041039) and 20041040. All completed. The note's derived figures
+rest on login-node checks with no job ids, in
+`/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06/`.
+
+**The headline, as declared:** the held share in the I-first order, under `per_theta_I`
+at width 1, is 0.908 ± 0.041 (H first 0.898 ± 0.042). It is 0.631 ± 0.102 at width ½ and
+0.980 ± 0.009 at width 2. The caveat the entry below requires applies at width 2, not
+width 1.
+
+**What the report's flags showed.** The entry below left this to be read from the real
+report. Q's split has no flag, `NaN` or share above 1. ΔQ's split is not resolved: its
+Var(μ) came out negative and is reported as 0 at widths 1 and 2, so its shares are not
+numbers. ΔQ's means stand. Per the user's decision on M0's ΔQ (the 2026-11-05 entry), the
+limit is stated in prose, with no rerun proposed.
+
+**Stated in the result note, not changed here:**
+- The completion plan's sentence, "parameters no measurement supports", is not claimed as
+  written. θ_H are 15 `:asserted` promoter strengths, with medians from a proteomics proxy
+  and a spread this project chose, and θ_I's data are synthetic. The note states what the
+  run supports instead, a split among the 20 drawn parameters; the user can still change
+  its wording.
+- 92–98% of cells reach GTP below K_d at least once, 68–72% reach exactly 0, and 70–90% clip
+  at least once. The run stores no time below K_d, but GTP clip counts bound it from below:
+  above half the run in 0, 28 and 704 of 8,000 cells. It stores no elasticities. V allows
+  clipping, and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
+- §6 has no row for the budget. Whether it gets one is the user's call.
+- The M4 freeze's "7 and 11 of 200 cells clipped" (KIM-35) describes cells at V6's θ_I, not
+  θ_I in general. On V7 replicate 1's θ_I the rate is far higher, which the note attributes
+  at widths ½ and 1, short of a cell-level test, to krnadeg. So the clipping, K_d and Var(μ) figures hold for
+  that replicate.
+
+**Cost:** 1,978 core-h held and 9.39–12.03 h per width, against the 11–13 h and 2,500
+core-h allowed.
+
+**Unchanged:** every choice in the M4 freeze and in the entry below.
+
+*Sections:* §12.
+
+### 2026-11-05 — KIM-42: the reduced model's budget, pre-registered, and its SE gate's near miss (the user's decision)
+
+**Status: pre-registered, not run.** The design is the M4 freeze's (`93abbce`) with
+KIM-70's K_d diagnostic. This entry and the header of
+`dev/scripts/reduced_budget_kim42.jl` declare what those left to the script. The budget
+is unscored: it has no truth, so nothing it produces is a calibration result.
+
+**Declared before the run:**
+- **θ_I:** V7 replicate 1, pinned by its SHA-256 as in M0's prep, at 100 evenly spaced
+  draws. Its smallest bulk ESS is 39, so they are about 39 effective. Its stored truth
+  is never read.
+- **Seeds:** `Xoshiro(19_542_000)` at every width, so the widths share their cells' seeds
+  and their θ_H draws, scaled. `report` checks this. Differences between widths lose most
+  of the cells' noise, but the three do not average to one less noisy estimate.
+- **The headline:** the held share in the I-first order, E_I[Var(μ | θ_I)] / Var(μ),
+  under `per_theta_I` at width 1, with H first and the gap beside it. `joint` weights are
+  reported beside it. ΔQ's split is secondary.
+- **The SE:** a two-way delete-a-group jackknife, the two variances added. Rows are
+  deleted in 10 blocks of 10 consecutive draws, because V7's chain is autocorrelated, and
+  columns one at a time. Each deletion recomputes V's weights and `_variance_split`.
+- **Descriptive only:** correlations of log θ_I with log θ_H under each weight set, and
+  each parameter's first-order attribution. Twenty columns cannot separate the held
+  parameters.
+
+**The gate, and the decision.** The script declared that if the held share's ratio of
+mean SE to empirical SD fell outside [0.7, 1.5] in any case, the work would stop and ask
+the user. `secheck` (job 20008627, at `d3a544e`; no later commit touches the method) ran
+12 cases on made-up 100 × 20 matrices, 2,000 replicates each, and **failed narrowly in 2:**
+- **The two failures:** the ratio is 1.56 (iid rows) and 1.51 (AR(1) rows, ρ = 0.44) in
+  the shape with θ_I near 3% and the dependent mask. There the share's mean is about
+  0.994, against a ceiling of 1, and the interval of ±2 SE holds the estimate 99.6–99.8%
+  of the time. So the SE is too wide, not too narrow.
+- **The other 10 cases:** 1.00–1.07. Over all 12, the H-first share's ratio is 1.00–1.22.
+- **The between-θ_I variance in those two cases:** `i_between`'s ratio is 1.53 and 1.52,
+  yet ±2 SE holds its estimate only about 80% of the time, because the estimate is small,
+  clipped at 0 and skewed. So its SE is not conservative in the same sense, and is not to
+  be read as a normal interval.
+
+The user decided on 2026-11-05 to accept the method as it stands. The result note, not
+`report`, states that when the held share is near 1, as may be expected here, its SE can
+be about 50% too wide.
+
+**Smoke passes.** Each is a plumbing pass, never a result.
+- **The first** (jobs 20008623–25, at `d3a544e`) completed, but V accepted every pair, so
+  the rejected paths did not run.
+- **The second** (jobs 20009002–04, at `bc126cf`) gave the smoke's V alone a floor, and
+  V's acceptance was 0.92, 0.83 and 0.58 at widths ½, 1 and 2. Every stage completed, no
+  row failed, knockdown cells followed the kept pairs, and the correlations were nonzero.
+- **What the smoke cannot test:** at 4 × 3 pairs its shares can exceed 1 and some of its
+  SEs are NaN, because `total` can be clipped to 0. Whether that recurs at 100 × 20 is read
+  from the real report's flags.
+
+`bc126cf` also saves each width's `Prediction` before anything is derived from it, so that
+a bug in the derived numbers cannot lose the width's hours.
+
+**The cost.** §12 2026-10-31, KIM-68, gives about 8–9 h on 3 nodes and 1,000–1,600 core-h.
+M0 overran its projections by about 32% in CPU-h and 45% in wall-clock, and that has not
+been tested on KIM-42's cells. So allow 11–13 h and up to about 2,500 core-h. Each width's
+job asks for 24 h, 64 threads and 192G.
+
+**Review:** the user waived `/check-PR` for this PR on 2026-11-05. It has had no
+adversarial review of its code. What tests it is the SE check and the two smoke passes.
+
+**Before the launch:** this PR merged, then the user's go-ahead. The run goes from a
+detached worktree at the merge commit, on its own output directory.
+
+### 2026-11-05 — KIM-40 and KIM-41: M0's run as it went, and ΔQ not rerun (the user's decision)
+
+**Status: run complete, audited; decided.** The results are in
+`dev/scripts/m0_evidence_kim40_result.md`. M0 ran at `ed179c2` with the design and
+scoring the KIM-40 entry declares (below), into
+`/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01/`: jobs 19684097–19684101 and
+19827688.
+
+**The decision.** ΔQ fails KIM-69's 10% rules on all 50 datasets under both
+posteriors: the median MC share is 0.50 (V7) and 0.54 (B7), and the truth's SE is
+about 0.3 of the parameter SD. The user decided on 2026-11-05 not to rerun or resize
+the panel, and to state the limit in prose beside its numbers.
+- **Why:** InferCell's deliverable is the software framework, and the paper is an
+  add-on to it. Meeting the rules on ΔQ needs about 9× the cells per draw, the truth's
+  and δ's, on the order of 100,000 CPU-h at this run's rates, and only at the median
+  dataset.
+- **What can still be said:** every arm's 90% interval excludes zero with the truth's
+  sign on all 50 datasets, and each true effect is at least 11 of its SEs from zero.
+- **What cannot:** these ΔQ coverages are not clean calibration numbers. By arithmetic
+  from the same table, the hybrid's 98% and 96% are what cell noise of this share gives.
+  So they say its intervals are conservative, not that it is calibrated. B7's
+  mean-field arms are low (at nominal 50%, 32% and 26%, against 49%), and at these
+  sizes the noise and the route cannot be separated.
+- **KIM-69's rationale for its sizes** was Q's. It stands for Q, where V7 meets the
+  rules on all 50 and B7's medians sit on the limit (25 and 27 datasets over).
+- **Also unchanged:** the panel's role as the only validation behind the reduced
+  model's knockdown prediction, within this limit.
+
+**How the run departed from the entry's procedure.** One task: work task 587 was
+cancelled by root on gina12, 2 minutes after starting, with no output, and for no
+cause visible from here. `scontrol requeue` refused it. At the user's request it was
+resubmitted by hand as job 19827688 while the array ran, not by `missing` after the
+queue cleared. It used the launcher's flags, the run's tree and the same seed, with
+gina12 also excluded, and its id is in `jobs.tsv`. Scores were not touched: they ran
+once, on the complete set, and the entry's other rules held.
+
+**Cost against the projection:** 12,978 CPU-h and 95 h, against KIM-69's 9,807 and
+65 h, which were projected from median per-cell times. The start was 13 days ahead of
+the gate's 14 November, so no cut follows. KIM-42's own estimate (about 8–9 h on 3
+nodes) rests on KIM-68's timings, and has not been rechecked against this.
+
+**The after-run list** (the KIM-40 entry) is done: `sacct.tsv`; the `ran_on` audit
+(`dev/scripts/m0_audit.{jl,sh}`, job 20002599, 2,402 records, all `znver3`, none on a
+turin node); `sha256sum -c inputs.sha256`; and `SHA256SUMS` over 3,662 output files,
+for KIM-43.
+
+**Unchanged:** every choice in the M4 freeze, KIM-69's and KIM-40's entries, and every
+recorded result. No score was recomputed.
+
+**Review:** none. The user waived `/check-PR` for this PR (2026-11-05).
+
+*Sections:* §12.
 
 ### 2026-10-31 — KIM-70: the M4 freeze's leftover text points; the gate's cuts and KIM-42's K_d diagnostic made precise (the user's calls)
 

@@ -1,6 +1,67 @@
 # Handoff
 
-## Latest: KIM-70, the M4 freeze's leftover text points (branch `tomkimpson/kim-70-docs-pass-the-pr-123-reviews-leftover-minor-text-points-in-the-m4`, 2026-10-31)
+## Latest: KIM-43, the evidence archive (branch `tomkimpson/kim-43-archive-the-evidence-package-with-sha256sums`, 2026-11-06)
+
+**State: built and verified.** The archive is
+`/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`. Its `SHA256SUMS` covers 3,940 files
+and has the hash `1f2e3fce1f676804…`. The record is spec §12, 2026-11-06; the build script
+and the archive's README are `dev/scripts/archive_predict_kim43*`.
+- **Jobs:** build 20150322 at `e237a18`; a separate `sha256sum -c`, 20151374.
+- **Originals:** copied, not moved, so the result notes' paths still hold.
+
+**Next:**
+1. **KIM-46** (§5.5), which this unblocks. It adds the M5 entries to `numbers.tex`, each citing a
+   file in the archive; the README's table says which. That completes KIM-43's "the paper's
+   numbers trace to this archive", which could not be met before the numbers existed. KIM-46
+   also fills the Availability section's "draws archive" placeholder on `paper-1-draft`.
+2. **KIM-54:** the public deposit. Nothing in the archive is published. It is 13 GB, so what goes
+   on Zenodo is still to be decided.
+
+## Earlier: KIM-42, the reduced model's budget, pre-registered (branch `tomkimpson/kim-42-evidence-reduced-model-uncertainty-budget-unscored`, 2026-11-05)
+
+**State: built and tested, not run.** The record is spec §12, 2026-11-05, and the header
+of `dev/scripts/reduced_budget_kim42.jl`. The launcher is
+`dev/scripts/reduced_budget_kim42.sh`.
+- **SE gate:** failed narrowly in 2 of 12 cases, on the conservative side (ratios 1.56
+  and 1.51, where the held share is about 0.994). The user accepted the method as it
+  stands.
+- **Smoke:** the second pass (jobs 20009002–04) ran with V rejecting pairs and completed.
+  Its shares and SEs mean nothing at 4 × 3 pairs.
+- **Review:** the user waived `/check-PR`.
+
+**Next:**
+1. Merge this PR.
+2. **The launch, with the user's go-ahead.** Allow 11–13 h on 3 nodes and up to about
+   2,500 core-h. From a detached worktree at the merge commit:
+   `dev/scripts/reduced_budget_kim42.sh /fred/oz022/tkimpson/infercell-m5-kim42-<date>`.
+   Use its `progress` mode to watch, and `missing` once no job of the run is queued.
+3. **The result note,** with the report's flags read. Then **KIM-43,** the archive, and
+   **KIM-46** (§5.5). `paper/STATUS.md` still says M0 is running. `.worktrees/paper-1`
+   needs `git reset --hard 240e8fa` if that has not been done.
+
+## Earlier: KIM-40 and KIM-41, M0's results (branch `tomkimpson/kim-40-41-m0-evidence-result`, 2026-11-05)
+
+**State: M0 has run and passed its after-run audit.** The record is
+`dev/scripts/m0_evidence_kim40_result.md` and spec §12, 2026-11-05. The outputs are at
+`/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01/`, with `SHA256SUMS`.
+- **Q:** the exact and mixed posteriors with the hybrid cover at the declared reference
+  (92% and 88%, against 88.2%), with B7 18% narrower. B7 with the mean field is about 1
+  SE low.
+- **ΔQ:** fails the 10% rules on all 50 datasets. The user's decision: no rerun; state
+  the limit in prose. The effect's sign and scale are recovered on all 50.
+- **Task 587** was resubmitted by hand (job 19827688) after root cancelled it.
+
+**Next:**
+1. Review and merge this PR.
+2. **KIM-42,** the reduced model's unscored budget, once the user has had it explained
+   and gives the go-ahead. About 8–9 h on 3 nodes with `--gcthreads=N,1`.
+3. **KIM-43:** the archive. `SHA256SUMS` is written, and the run directory is outside
+   `.worktrees/`.
+4. **KIM-46** (§5.5) after KIM-42, then the other paper issues. `paper/STATUS.md`
+   still says M0 is running. `.worktrees/paper-1` needs
+   `git reset --hard 240e8fa` if that has not been done.
+
+## Earlier: KIM-70, the M4 freeze's leftover text points (branch `tomkimpson/kim-70-docs-pass-the-pr-123-reviews-leftover-minor-text-points-in-the-m4`, 2026-10-31)
 
 **State: docs only, the last open §12 precondition for the M0 launch.** The record
 is spec §12, 2026-10-31, "KIM-70: the M4 freeze's leftover text points; the

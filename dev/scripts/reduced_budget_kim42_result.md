@@ -1,0 +1,251 @@
+# KIM-42: the reduced model's uncertainty budget (M5). UNSCORED
+
+**This is not a calibration result.** No truth is compared with anything here. It shows
+that the method runs at this scale, and what the budget looks like on the reduced model.
+
+**Run:** `dev/scripts/reduced_budget_kim42.sh` at `f23fd06` (main), into
+`/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05/` (`budget.md`, `budget_rows.tsv`,
+`jobs.tsv`, `sacct.tsv`, `SHA256SUMS`). The design is the M4 freeze's (`93abbce`), with
+KIM-70's K_d diagnostic and the §12 2026-11-05 pre-registration.
+
+**Where the numbers come from.** The budget's numbers come from `budget.md` or
+`budget_rows.tsv`, unless they are marked as derived. Derived ones are computed from
+`w*.jls`, `plain_w*.jls` or `prediction_w*.jls`, which open only at `f23fd06`, and from V7's
+50 fits and V6's chains where the text names them. The scripts and logs are in
+`/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06/`: login-node checks with no job
+ids, listed in its `README.md`. The SE check's readings come from
+`/fred/oz022/tkimpson/infercell-m5-kim42-secheck-2026-11-05/secheck.tsv` (job 20008627, at
+`d3a544e`). `predict`'s hours come from `logs/`, and core-h, `TotalCPU` and MaxRSS from
+`sacct.tsv`. A regeneration should be compared against `budget_rows.tsv`. Julia came from
+the cluster's `julia/1.10.5` module, while the Manifest was resolved on 1.10.11.
+
+- **Jobs:** precompile 20041038; widths 20041039 (array), whose tasks 0, 1 and 2 have the
+  raw ids 20041245, 20041246 and 20041039; report 20041040. All completed with exit 0.
+- **Time and cost:** `predict` took 9.39 h, 9.42 h and 12.03 h at widths ½, 1 and 2,
+  against 8–9 h estimated and 11–13 h allowed. The jobs held 1,978 core-h, within the
+  2,500 allowed and above the 1,000–1,600 estimated. Their `TotalCPU` is about 1,295 h,
+  against the freeze's 736 CPU-h of work. The largest MaxRSS was 43.4 GiB, against 192G.
+- **After the run:** all three widths ran on `znver3` (dave118, dave116, dave308), and
+  `SHA256SUMS` covers 18 files. Its own SHA-256 starts `99d912fb68179769`. It replaces the
+  first version (`d2245461a99ead0d`) because `sacct.tsv` was re-exported on 2026-11-06 with
+  steps, `TotalCPU`, MaxRSS and `SubmitLine`. The old `sacct.tsv` had the SHA-256
+  `07f75db745096f8dc98cb946c2bdb98da81ad7ff41ee0145b12488b5dcb0e7a5`; putting that back in
+  the file gives the first version's hash, so the other 17 lines did not change. All 18 pass
+  `sha256sum -c`. V7 replicate 1's hash was checked against M0's pin at the start of each
+  width. `report` checked that the widths share their cells' seeds. No separate
+  `ran_on` audit was run; none was declared for this run.
+
+## The headline
+
+**At the default prior width, the held parameters account for 90.8% ± 4.1% of the
+variance of μ** (I first, `per_theta_I`), and 89.8% ± 4.2% with H first. The share is
+of Var(μ), the parameter uncertainty in `lactate_out` at 6,300 s. It is not a share of a
+new cell's variance, which also holds the cells' own spread: of that, the held
+parameters' part is 72% at width 1 (derived, from the two tables below).
+
+**The number depends strongly on the prior width,** so it is not a property of the
+model alone:
+
+| width | mean Q ± SE | √Var(μ) ± SE | between θ_I ± SE | held share, I first | held share, H first | gap ± SE |
+|---|---|---|---|---|---|---|
+| ½ | 8.7986e+06 ± 1.7e+05 | 7.518e+05 ± 8.1e+04 | 2.08e+11 ± 4.8e+10 | 0.631 ± 0.102 | 0.640 ± 0.098 | -5.05e+09 ± 4.9e+09 |
+| 1 | 9.5765e+06 ± 3.3e+05 | 1.473e+06 ± 2e+05 | 1.99e+11 ± 5.6e+10 | **0.908 ± 0.041** | 0.898 ± 0.042 | 2.23e+10 ± 1.3e+10 |
+| 2 | 1.2835e+07 ± 8.5e+05 | 3.835e+06 ± 5.3e+05 | 2.9e+11 ± 1.4e+11 | 0.980 ± 0.009 | 0.978 ± 0.008 | 3.63e+10 ± 1e+11 |
+
+- **Why the share moves:** θ_I's between-draw variance stays within its SEs across the
+  widths, and θ_I's draws are the same at each. The held variance grows, from 3.57e+11
+  to 1.97e+12 to 1.44e+13.
+- **Order:** the two orders differ by about a point or less, and no gap is more than
+  about 1.7 of its SEs from zero. The interaction is small relative to Var(μ), though it is
+  not resolved relative to θ_I's term.
+- **The mean moves too:** Q's mean rises about 46% from width ½ to width 2 (a ratio of
+  1.459 ± 0.079, paired, derived).
+- **The widths are not independent estimates.** They share their cells' seeds and their
+  θ_H draws, scaled. Twenty columns set the held variance at all three.
+
+**How to read the SEs.** These are the declared two-way jackknife, on 100 rows that are
+about 39 effective.
+- **Width 1:** 0.908 sits near `secheck`'s held-dominant shape (shares 0.92–0.93, ratios
+  of mean SE to empirical SD 1.01–1.07), so its SE is about right on those made-up
+  matrices.
+- **Width 2:** 0.980 is near the ceiling, between `secheck`'s cases at 0.97 (ratios 1.04)
+  and those at 0.994, where it failed narrowly (1.51 and 1.56). So its held-share SE may
+  be too wide, by up to about 50% (§12 2026-11-05). Its between-θ_I SE is not to be read
+  as a normal interval there: in those failing cases, ±2 SE held that estimate only about
+  80% of the time.
+
+**The sentence the plan aimed for is not claimed as written.** "x% of this prediction's
+uncertainty comes from parameters no measurement supports" overstates this run in two
+ways. θ_H are 15 promoter strengths marked `:asserted`
+(`src/organisms/coreA/transcription.jl`): their medians rest on proteomics through a proxy,
+protein copy number over 180, but no measurement sets their width. And θ_I's posterior
+comes from V7 replicate 1, a fit to M0's synthetic data, so the 9% is not what real
+measurements would leave. What the run supports:
+
+*At the default prior width, among the 20 parameters drawn and on V7 replicate 1's θ_I, about
+91% ± 4% of Var(μ), the parameter uncertainty in `lactate_out` at 6,300 s, comes from the 15
+promoter strengths that M0's fit cannot reach because their genes are cut from M0. Their medians are a proteomics proxy, their spread
+(geometric SD 2) is this project's choice, and the share runs from 63% at half that spread
+to 98% at double.*
+
+Every other constant is held fixed or derived, so this is a split among these 20 drawn
+parameters only. The widths scale the log-scale σ at a fixed median, which gives geometric
+SDs of 1.41, 2 and 4.
+
+**What the 9% rests on.** θ_I's share comes from one replicate of V7's 50, fitted at 600 s
+and carried to 6,300 s. The range from 63% to 98% varies only θ_H's width, not θ_I's
+posterior. And the transfer assumes θ_I's posterior would not move if θ_H's counterparts in
+M0, the enzyme counts and carrier totals it holds fixed, did. The predictive note (§3.2) states that this is untested and that the paper says so.
+
+## The filter
+
+| width | acceptance | ESS, `per_theta_I` | ESS, `joint` | largest abs corr(log θ_I, log θ_H) | clean | clipped | starved |
+|---|---|---|---|---|---|---|---|
+| ½ | 1.0000 | 2000 | 2000 | 0.000 | 2402 | 5598 | 0 |
+| 1 | 1.0000 | 2000 | 2000 | 0.000 | 2101 | 5871 | 28 |
+| 2 | 0.9355 | 1869 | 1871 | 0.046 | 788 | 6508 | 704 |
+
+The cell columns count μ̂'s 8,000 baseline cells at each width, before V. No row failed,
+and no cell failed or fell below a floor.
+- **V acted only at width 2,** and removed 6.45% of pairs. At ½ and 1 it kept everything,
+  so the two weight sets are identical there and the correlations are zero by
+  construction. Even at width 2 it induces almost none. V acts by θ_H column there: three
+  of the 20 keep 0.14, 0.58 and 0.99 of their rows, and the rest keep all of them (derived).
+  So V's effect at width 2 rests on 3 of 20 θ_H draws, and the ESS columns overstate how
+  well it is known.
+- **Clipping is the common state here.** 70%, 74% and 90% of those cells clipped at least
+  once (derived, clipped and starved cells together, since a starved cell has clipped),
+  which V's frozen rule allows. Starved cells are 0%, 0.35% and 8.8% (derived).
+- **Why so much more than KIM-35 at widths ½ and 1, probably: θ_I, not the drawing of θ_H.**
+  At width 2, θ_H's spread adds clipping of its own (90%, and 8.8% starved). KIM-35's arm H
+  drew the same 15 promoters from the same prior and clipped 5.5% of 200 cells at 6,300 s,
+  with θ_I at V6's fit. The evidence, all derived and none of it in the declared report:
+  - Width ½ still clips 70%, so narrowing θ_H does not remove it.
+  - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows.
+  - Across those rows' krnadeg deciles at width 1, the clipped fraction falls at every
+    step, from 84% to 61%. The trend holds at width 2, though not at every step.
+  - In mean-field solves (`a5.jl` and `a5.out` in the checks directory, at each fit's
+    posterior mean of log θ with θ_H nominal), minimum GTP is 7,280 particles at V6's point and 4,404 at replicate 1's. Swapping
+    krnadeg alone to V6's value gives 7,292. Swaps of S_0607, S_0779 and kcatF_R_ENO
+    leave it within about 30 of 4,404; kcatF_R_FBA's swap did not finish.
+
+  Mean-field solves never clip, so they show a shift in minimum GTP and not clipping itself.
+  That swap was not run on stochastic cells, and no run has replicate 1's θ_I with θ_H
+  nominal, so the link is unproven at the cell level. Replicate 1 is not an outlier: by
+  posterior mean of log θ, its krnadeg ranks 32nd lowest of V7's 50, and only 6 of the 50
+  reach V6's value. **So the clipping, K_d and Var(μ) figures here hold for replicate 1's
+  θ_I, and another replicate could give different ones.**
+
+## The cells' own spread
+
+| width | Var(μ) | E[σ²] | Var(μ) / (Var(μ) + E[σ²]) |
+|---|---|---|---|
+| ½ | 5.652e+11 | 4.446e+11 | 0.5597 |
+| 1 | 2.169e+12 | 5.671e+11 | 0.7928 |
+| 2 | 1.47e+13 | 1.741e+12 | 0.8941 |
+
+σ_b is not used: it enters only for a future noisy observation, not for Q.
+
+## ΔQ under the knockdown (secondary): its split is not resolved
+
+**At 4 cells per pair, this run cannot resolve the parameter variance of ΔQ, so it has no
+variance split for ΔQ.** Cell noise swamps it. The estimate of Var(μ) came out negative
+and is reported as 0 at widths 1 and 2, and at width ½ it is about 0.25 of its SE from
+zero. The total is clipped to 0 and is the shares' denominator, so the report prints `NaN`
+(0/0) and `Inf` (positive/0) for the shares at widths 1 and 2. Some of the jackknife's
+deleted-group totals hit the same 0, so the shares' SEs are `NaN` at all three. That is
+arithmetic, not a failed computation, and those entries are not numbers to quote.
+
+ΔQ's mean is defined, on the kept pairs at dose 0.3:
+
+| width | mean ΔQ ± SE |
+|---|---|
+| ½ | -1.1831e+05 ± 9.4e+03 |
+| 1 | -98421 ± 1.4e+04 |
+| 2 | -39525 ± 3.2e+04 |
+
+The interval of ±2 SE reaches zero at width 2. No intervened cell failed at any width. M0's
+ΔQ has the same kind of limit, stated in prose beside its numbers (§12 2026-11-05).
+
+**"Not resolved" describes the split, and does not mean ΔQ ignores θ_H's width.** The mean
+shrinks as the prior widens: the paired contrast from width ½ to width 2 is +7.88e+04 ±
+2.94e+04, about 2.7 SE (derived, same jackknife). As a fraction of mean Q, ΔQ is -1.34% ±
+0.11%, -1.03% ± 0.14% and -0.31% ± 0.25% (derived).
+
+## K_d diagnostic, for KIM-47
+
+Not scored, and it gates nothing. The fraction of cells whose `minima[:M_gtp_c]` fell
+below 2,018 particles (a lower bound) and 2,160 (an upper bound):
+
+| width | baseline, all 8 of every pair | baseline, kept pairs | knockdown, kept pairs |
+|---|---|---|---|
+| ½ | 0.9694–0.9776 (15,511–15,642 of 16,000) | 0.9694–0.9776 (15,511–15,642 of 16,000) | 0.9624–0.9706 (7,699–7,765 of 8,000) |
+| 1 | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9391–0.9500 (7,513–7,600 of 8,000) |
+| 2 | 0.9325–0.9441 (14,920–15,106 of 16,000) | 0.9278–0.9403 (13,888–14,074 of 14,968) | 0.9176–0.9340 (6,867–6,990 of 7,484) |
+
+**So nearly every cell reaches the threshold at least once.** A cell counts in that table
+if its GTP was *ever* below the threshold.
+
+**Time below the threshold.** The run stores no time below K_d, but its clip counts bound
+part of it from below (derived). A GTP clip leaves the pool at exactly 0 after that second's
+debit, the same point in the hook where the dose screen read GTP, at 1 s spacing rather than
+60 s. So a cell's GTP clips, as a share of its 6,300 drains, are a lower bound on the share
+of those post-debit instants with GTP below K_d. Of μ̂'s 8,000 baseline cells at each width:
+
+| width | reach exactly 0 | median GTP clips, among cells that clip GTP | bound above 21% | bound above 50% |
+|---|---|---|---|---|
+| ½ | 5,442 (68%) | 10 | 25 | 0 |
+| 1 | 5,539 (69%) | 27 | 262 | 28 |
+| 2 | 5,773 (72%) | 274 | 1,622 | 704 |
+
+- **The 0** is what the clamp writes when a debit exceeds the pool, so it marks a state of
+  the model and not a measured depletion. Reaching it is the same event as a GTP clip, in
+  all but 3 of the 24,000 cells.
+- **Some cells reach the regime the dose screen reported, and the bound undercounts them at
+  every width.** That screen, at width 1 with θ_I drawn from its prior rather than this
+  posterior, found GTP below K_d for 21–55% of rebuild instants in 12 of 20 draws, and for
+  none in 6 (§12 2026-10-30), which the freeze ties to the one-way reduction's basis failing.
+  The bound counts only instants at exactly 0, so the table's counts are floors. The 704 are
+  width 2's starved cells, whose bound runs from 50% to 82%.
+- **The bound says nothing about time between 0 and K_d.** Between 21% and 29% of the 8,000
+  go below 2,018 without clipping GTP at all, so their bound is 0. Short time at 0 does not
+  mean short time below K_d. Replays of a few hand-picked cells, not part of the run, found
+  8%, 20.5% and 34.3% below K_d for width 1 cells with 27, 128 and 486 clips, and 24% for a
+  width 2 cell with 274. Width 1 has 1,388 cells with at least 128 clips and 555 with at
+  least 486. Being hand-picked, the replays do not turn those counts into a rate, but width 1
+  is not clear of the regime.
+- **The largest counts come mostly from a few θ_H draws, before V.** At width 2, two of the 20
+  θ_H columns hold 81% of the 704 and 48% of the 1,622, and they are the two V thins most.
+  Among V's kept pairs, width 2 has 1,120 above 21% and 302 above 50%, of 7,484.
+- **The run stores no elasticities,** so it shows the pool reaching this regime, not the
+  basis failure itself.
+
+KIM-47's table should carry these numbers.
+
+## Attribution (descriptive)
+
+First-order correlations with the line means, at width 1. Twenty columns cannot separate
+the held parameters.
+- **θ_I:** krnadeg r = -0.95, S_JCVISYN3A_0607 r = -0.37, S_JCVISYN3A_0779 r = 0.23,
+  kcatF_R_ENO r = -0.10, kcatF_R_FBA r = 0.03.
+- **θ_H, largest 5:** S_JCVISYN3A_0221 r = 0.67, S_JCVISYN3A_0220 r = 0.55,
+  S_JCVISYN3A_0651 r = 0.50, S_JCVISYN3A_0131 r = 0.49, S_JCVISYN3A_0606 r = 0.48.
+
+## What this does not show
+
+- It is not calibration, on the reduced model or anywhere else.
+- It says nothing about how the reduced model compares with real measurements.
+- Its code had no adversarial review before the run: the user waived `/check-PR` for
+  #151. What tested it was the SE check and the two smoke passes.
+
+## For KIM-43's archive
+
+The run's directory does not hold everything this note rests on. The archive also needs:
+- the SE check's directory and the checks directory (both above);
+- V7's 50 fits, `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/`,
+  whose replicate 1 is the run's input, recorded with an `inputs.sha256` as M0's run has;
+- V6's chains, `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6/`, and KIM-35's
+  run, `/fred/oz022/tkimpson/infercell-m4-kim35-2026-10-30/`.
+
+**Done:** all of this is in `/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`, whose
+`README.md` lists it. `inputs/inputs.sha256` pins replicate 1 and the V6 chains.
