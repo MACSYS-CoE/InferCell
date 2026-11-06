@@ -174,12 +174,37 @@ below 2,018 particles (a lower bound) and 2,160 (an upper bound):
 | 1 | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9391–0.9500 (7,513–7,600 of 8,000) |
 | 2 | 0.9325–0.9441 (14,920–15,106 of 16,000) | 0.9278–0.9403 (13,888–14,074 of 14,968) | 0.9176–0.9340 (6,867–6,990 of 7,484) |
 
-**So the model-form caveat reaches nearly every cell, not some draws.** The dose screen,
-with θ_I drawn from its prior rather than this posterior, found GTP below K_d for 21–55%
-of rebuild instants in 12 of 20 draws, and for none in 6 (§12 2026-10-30). It said the
-one-way reduction's basis does not hold over the cycle on those draws. A cell counts here
-if its GTP was *ever* below the threshold, so this says how many cells reach it and not
-for how long. KIM-47's table should carry these numbers.
+**So nearly every cell reaches the threshold at least once.** A cell counts in that table
+if its GTP was *ever* below the threshold.
+
+**Time below the threshold.** The run stores no time below K_d, but its clip counts bound
+part of it from below (derived). A GTP clip leaves the pool at exactly 0 after that second's
+debit, the same point in the hook where the dose screen read GTP, at 1 s spacing rather than
+60 s. So a cell's GTP clips, as a share of its 6,300 drains, are a lower bound on the share
+of those post-debit instants with GTP below K_d. Of μ̂'s 8,000 baseline cells at each width:
+
+| width | reach exactly 0 | median GTP clips, among cells that clip GTP | bound above 21% | bound above 50% |
+|---|---|---|---|---|
+| ½ | 5,442 (68%) | 10 | 25 | 0 |
+| 1 | 5,539 (69%) | 27 | 262 | 28 |
+| 2 | 5,773 (72%) | 274 | 1,622 | 704 |
+
+- **The 0** is what the clamp writes when a debit exceeds the pool, so it marks a state of
+  the model and not a measured depletion. Reaching it is the same event as a GTP clip, in
+  all but 3 of the 24,000 cells.
+- **At width 2, a substantial minority reach the regime the dose screen reported.** That
+  screen, with θ_I drawn from its prior rather than this posterior, found GTP below K_d for
+  21–55% of rebuild instants in 12 of 20 draws, and for none in 6 (§12 2026-10-30), which the
+  freeze ties to the one-way reduction's basis failing. The 704 are width 2's starved cells,
+  whose bound runs from 50% to 82%. At widths ½ and 1 the bound is small.
+- **The bound says nothing about time between 0 and K_d.** Between 21% and 29% of these cells
+  go below 2,018 without clipping GTP at all, so their bound is 0. Short time at 0 does not
+  mean short time below K_d: replays of a few hand-picked cells, not part of the run, found
+  8% below K_d for a width 1 cell with 27 clips, and 24% for a width 2 cell with 274.
+- **The run stores no elasticities,** so it shows the pool reaching this regime, not the
+  basis failure itself.
+
+KIM-47's table should carry these numbers.
 
 ## Attribution (descriptive)
 

@@ -4453,8 +4453,10 @@ limit is stated in prose, with no rerun proposed.
   and a spread this project chose, and θ_I's data are synthetic. The note states what the
   run supports instead, a split among the 20 drawn parameters; the user can still change
   its wording.
-- 92–98% of cells reach GTP below K_d, and 70–90% clip at least once. V allows clipping,
-  and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
+- 92–98% of cells reach GTP below K_d at least once, 68–72% reach exactly 0, and 70–90% clip
+  at least once. The run stores no time below K_d, but GTP clip counts bound it from below:
+  above half the run in 0, 28 and 704 of 8,000 cells. It stores no elasticities. V allows
+  clipping, and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
 - §6 has no row for the budget. Whether it gets one is the user's call.
 - The M4 freeze's "7 and 11 of 200 cells clipped" (KIM-35) describes cells at V6's θ_I, not
   θ_I in general. On V7 replicate 1's θ_I the rate is far higher, which the note traces,
