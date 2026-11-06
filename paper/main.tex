@@ -1,80 +1,116 @@
-%%%%%%%% InferCell paper 1: ICML 2026 two-column format, [preprint] mode %%%%%%%%
-% Journal-agnostic draft (target: Cell Systems or PLOS Computational Biology).
-% Build: latexmk -pdf main.tex
+% InferCell paper 1, in the PLOS LaTeX template (version 3.8, April 2026), for PLOS
+% Computational Biology. Build: latexmk -pdf main.tex
+%
+% Before submission (PLOS asks for these; they would break the preprint build):
+% - flatten the \input files into one .tex with latexpand;
+% - remove the \includegraphics and upload each figure separately;
+% - remove the placeholder macros from macros.tex once nothing uses them.
 
-\documentclass{article}
+\documentclass[10pt,letterpaper]{article}
+\usepackage[top=0.85in,left=2.75in,footskip=0.75in]{geometry}
 
-\usepackage{microtype}
-\usepackage{graphicx}
-\graphicspath{{figures/}}
-\usepackage{booktabs}
-\usepackage{nicefrac}
-\usepackage{hyperref}
-\newcommand{\theHalgorithm}{\arabic{algorithm}}
-
-% [preprint] shows authors and drops the review-mode footer.
-\usepackage[preprint]{icml2026}
-
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{amsfonts}
-\usepackage{mathtools}
-\usepackage{xcolor}
-\usepackage[capitalize,noabbrev]{cleveref}
-
-\hypersetup{
-    hidelinks,
-    colorlinks = true,
-    citecolor  = cyan,
-    urlcolor   = black,
-    linkcolor  = magenta,
-    pdftitle   = {InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A},
-    pdfauthor  = {Tom Kimpson},
+\usepackage{amsmath,amssymb}
+\usepackage{changepage}
+\usepackage{textcomp,marvosym}
+\usepackage{cite}
+\usepackage{nameref,hyperref}
+\usepackage[right]{lineno}
+\usepackage[nopatch=eqnum]{microtype}
+\DisableLigatures[f]{encoding = *, family = * }
+\usepackage[table]{xcolor}
+\usepackage{array}
+\newcolumntype{+}{!{\vrule width 2pt}}
+\newlength\savedwidth
+\newcommand\thickcline[1]{%
+  \noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
+  \cline{#1}%
+  \noalign{\vskip\arrayrulewidth}%
+  \noalign{\global\arrayrulewidth\savedwidth}%
 }
+\newcommand\thickhline{\noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
+\hline
+\noalign{\global\arrayrulewidth\savedwidth}}
+
+\raggedright
+\setlength{\parindent}{0.5cm}
+\textwidth 5.25in
+\textheight 8.75in
+
+\usepackage[aboveskip=1pt,labelfont=bf,labelsep=period,justification=raggedright,singlelinecheck=off]{caption}
+\renewcommand{\figurename}{Fig}
+
+\bibliographystyle{plos2025}
+
+\makeatletter
+\renewcommand{\@biblabel}[1]{\quad#1.}
+\makeatother
+
+\usepackage{lastpage,fancyhdr,graphicx}
+\usepackage{epstopdf}
+\pagestyle{fancy}
+\fancyhf{}
+\rfoot{\thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrule}{\hrule height 2pt \vspace{2mm}}
+\fancyheadoffset[L]{2.25in}
+\fancyfootoffset[L]{2.25in}
+\lfoot{\today}
+
+%% User packages and macros
+\usepackage{booktabs}
+\usepackage{mathtools}
+\graphicspath{{figures/}}
+\usepackage[capitalize,noabbrev]{cleveref}
+\crefname{figure}{Fig}{Figs}
+\Crefname{figure}{Fig}{Figs}
+\crefname{equation}{Eq}{Eqs}
+\Crefname{equation}{Eq}{Eqs}
+\hypersetup{hidelinks,
+  pdftitle={InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A},
+  pdfauthor={Tom Kimpson}}
 
 \input{macros}
 \input{numbers}
 \input{tables/modelform_counts}
 
-\icmltitlerunning{InferCell: compositional inference for whole-cell models}
-
 \begin{document}
+\vspace*{0.2in}
 
-\twocolumn[
-  \icmltitle{InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A}
+\begin{flushleft}
+{\Large
+\textbf{InferCell: a compositional inference framework for whole-cell modelling,
+demonstrated on reduced JCVI-syn3A}
+}
+\newline
+\\
+Tom Kimpson\textsuperscript{1*}
+\\
+\bigskip
+\textbf{1} \placeholder{Affiliation: Dept/Program/Center, Institution Name, City, State, Country}
+\\
+\bigskip
 
-  \begin{icmlauthorlist}
-    \icmlauthor{Tom Kimpson}{aff1}
-    \icmlauthor{\placeholder{Co-authors}}{aff1}
-  \end{icmlauthorlist}
+* \placeholder{Corresponding author's email}
 
-  \icmlaffiliation{aff1}{\placeholder{Affiliations}}
-
-  \icmlcorrespondingauthor{Tom Kimpson}{\placeholder{email}}
-
-  \icmlkeywords{whole-cell modelling, Bayesian inference, uncertainty quantification,
-    hybrid stochastic models, simulation-based calibration, JCVI-syn3A}
-
-  \vskip 0.3in
-]
-
-\printAffiliationsAndNotice{}
+\end{flushleft}
 
 \input{sections/00-abstract}
+
+\clearpage
+\newgeometry{top=0.85in,left=1in,right=1in,footskip=0.75in}
+\linenumbers
+
 \input{sections/01-intro}
 \input{sections/02-design}
 \input{sections/03-model}
 \input{sections/04-seam}
 \input{sections/05-results}
 \input{sections/06-discussion}
+\input{sections/07-methods}
 \input{sections/08-availability}
 
-\bibliography{references}
-\bibliographystyle{icml2026}
+\nolinenumbers
 
-\newpage
-\appendix
-\onecolumn
-\input{sections/07-methods}
+\bibliography{references}
 
 \end{document}

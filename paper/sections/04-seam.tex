@@ -24,7 +24,7 @@ graph} says which data streams move which parameters. In the reduced \syn{} mode
 coupling graph is two-way, but the information graph is sparse and points mostly in
 one direction.
 
-\begin{figure}[t]
+\begin{figure}[!ht]
 \centering
 \placeholderfig{\columnwidth}{4.5cm}{Figure 3: the coupling, likelihood and
 information graphs of the reduced model, side by side. To be drawn.}
@@ -40,7 +40,7 @@ over the interface,
   \lambda_B(u) = \int p(D_B \mid \theta_B, u)\, p(\theta_B)\, \mathrm{d}\theta_B .
 \end{equation}
 The joint posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. A
-\emph{statistical cut} drops $\lambda_B$ \citep{plummer2015cuts}. It changes the
+\emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. It changes the
 target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
 reduction} instead removes a weak edge from the simulator and keeps full Bayesian
 inference. For the question we ask, only the second kind keeps the information we
@@ -57,7 +57,7 @@ small: an elasticity of \pn{gain.txlo}--\pn{gain.txhi} for transcription and
 saturated. The half-saturation constant of RNA polymerase for its nucleotides is
 \pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
 
-\begin{table}[t]
+\begin{table}[!ht]
 \caption{Gain and information in each direction across the boundary. Information is
 the ratio of posterior to prior standard deviation from a linearised bound, at
 200 cells and 10\% assay noise; the bracket is the ratio that noise alone gives.}
@@ -88,8 +88,8 @@ planned test at 1,000 cells, so we do not extend it to the full reduced model.
 \subsection{Why no parameter is shared}
 
 The standard modular methods pass messages through shared parameters: cuts and
-semi-modular inference \citep{plummer2015cuts,carmona2020semimodular}, and Markov
-melding \citep{goudie2019joining}. In the reduced model no parameter is shared, so
+semi-modular inference \cite{plummer2015cuts,carmona2020semimodular}, and Markov
+melding \cite{goudie2019joining}. In the reduced model no parameter is shared, so
 these methods have nothing to pass while we condition on the stochastic path. The
 exact sampler does what is left: it conditions on the path, and it updates the path
 with all the data. In this sense the exact sampler is modular inference with nothing

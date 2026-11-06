@@ -9,7 +9,7 @@ that report the two inference routes that the prediction rests on
 (\cref{sec:exact,sec:jensen,sec:approx}) and their cost (\cref{sec:cost}). Results
 marked \emph{unscored} are not compared with any truth. For the scored results, the
 test is calibration: over many datasets, a 90\% credible interval must contain the
-truth about 90\% of the time \citep{talts2018validating}.
+truth about 90\% of the time \cite{talts2018validating}.
 
 \subsection{A prediction on the reduced model and its uncertainty budget (unscored)}
 \label{sec:budget}
@@ -53,7 +53,7 @@ spread, and of that total the held parameters' part at the default width is
 rises by a factor of \pn{budget.meanratio}~$\pm$~\pn{budget.meanratiose} from the
 narrowest width to the widest.
 
-\begin{table}[t]
+\begin{table}[!ht]
 \caption{The reduced model's uncertainty budget, \textbf{unscored}, on one exact M0
 posterior's $\theta_I$. Width scales the log-scale prior width of $\theta_H$ at a fixed
 median. $Q$ is lactate exported over \pn{model.cycle}\,s, in millions of particles, and
@@ -106,7 +106,7 @@ anywhere else, and it does not compare the reduced model with real measurements.
 posterior of $\theta_I$ is a fit to M0's synthetic data over \pn{mzero.horizon}\,s, so
 its small share is not what real measurements would leave.
 
-\begin{figure}[t]
+\begin{figure}[!ht]
 \centering
 \placeholderfig{\columnwidth}{4.5cm}{Figure: the budget by prior width. To be drawn.}
 \caption{\textbf{Where the uncertainty of the prediction comes from (unscored).}
@@ -136,7 +136,7 @@ calibrated arm's intervals cover \pn{pred.ref90}\% at nominal 90\% and about
 about \pn{pred.se90} and \pn{pred.se50} points. Those are the references we compare
 with.
 
-\begin{table*}[t]
+\begin{table}[!ht]
 \caption{M0's crossed comparison, \textbf{scored} against the truth over \pn{vseven.R}
 datasets, as percentage coverage $\pm$ one standard error. Width is the median ratio of
 the 90\% interval to that of the exact posterior with the hybrid. The references at these
@@ -158,7 +158,7 @@ Mixed & Mean field & \pn{pred.q.mm.c} & \pn{pred.q.mm.n} & \pn{pred.q.mm.w} & \p
 Mixed & Mean field $+\,\delta$ & \pn{pred.q.md.c} & \pn{pred.q.md.n} & \pn{pred.q.md.w} & \pn{pred.d.md.c} & \pn{pred.d.md.n} & \pn{pred.d.md.w} \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
 \paragraph{Lactate export.} The exact posterior with the hybrid, and the mixed posterior
 with the hybrid, cover at the reference (\cref{tab:crossed,fig:crossed}). The exact arm
@@ -193,27 +193,27 @@ covers at the expected rate on $Q$, and it gets the sign and scale of the knockd
 right. This panel is the only validation behind the reduced model's knockdown
 prediction. It does not test the transfer from M0 into the reduced model.
 
-\begin{figure*}[t]
+\begin{figure}[!ht]
 \centering
 \placeholderfig{0.9\textwidth}{5cm}{Figure: M0's coverage and sharpness per arm, for $Q$
 and $\Delta Q$. To be drawn.}
 \caption{\textbf{The same pipeline scored on M0.} \placeholder{Caption.}}
 \label{fig:crossed}
-\end{figure*}
+\end{figure}
 
 \subsection{The exact sampler is calibrated on M0}
 \label{sec:exact}
 
 \paragraph{Convergence.} We ran \pn{vsix.chains} chains of \pn{vsix.sweeps} sweeps on
 one M0 dataset of \pn{mzero.cells} cells. The rank-normalised $\Rhat$
-\citep{vehtari2021rank} is at most \pn{vsix.rhat}, and the bulk effective sample
+\cite{vehtari2021rank} is at most \pn{vsix.rhat}, and the bulk effective sample
 size is at least \pn{vsix.ess} for every parameter. This reference run cost
 \pn{vsix.cpuh} CPU-hours.
 
 \paragraph{Calibration.} We drew \pn{vseven.R} parameter sets from the prior,
 simulated one dataset from each, and fitted each dataset with one chain. For each
 parameter we compared the empirical CDF of the ranks of the truth with a
-simultaneous band \citep{sailynoja2022graphical}, at a joint level of 95\% over the
+simultaneous band \cite{sailynoja2022graphical}, at a joint level of 95\% over the
 \pn{mzero.npar} parameters. All \pn{mzero.npar} parameters stay inside their bands
 (\cref{fig:calibration}a). The largest deviation is \pn{vseven.maxdev}, for the
 transcript decay rate, where the band allows \pn{vseven.band}. We also read coverage off the same ranks, for central credible intervals at five
@@ -234,7 +234,7 @@ of the \pn{vseven.R} replicates the smallest bulk effective sample size is below
 The production chain separates the FBA constant from its matched null by a small
 margin, \pn{ften.fbamargin} standard deviations.
 
-\begin{figure*}[t]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=0.48\textwidth]{f8_rank_ecdf.pdf}\hfill
 \includegraphics[width=0.48\textwidth]{f10_marginals.pdf}
@@ -243,7 +243,7 @@ margin, \pn{ften.fbamargin} standard deviations.
 posteriors from a production-length chain against the reference.
 \placeholder{Restyle both panels to one figure with shared fonts; label panels.}}
 \label{fig:calibration}
-\end{figure*}
+\end{figure}
 
 \subsection{The cost of the formalism swap is declared and measured}
 \label{sec:jensen}
@@ -342,14 +342,14 @@ fall short of $\Rhat \le 1.02$ and a bulk effective sample size of 100. The wors
 $\Rhat$ is \pn{mix.rhat} and the smallest effective sample size is \pn{mix.ess}. The
 calibration result is unchanged without those replicates.
 
-\begin{figure*}[t]
+\begin{figure}[!ht]
 \centering
 \placeholderfig{0.9\textwidth}{5cm}{Figure 5: the mixed route against the exact
 sampler on M0. Marginals and the rank-ECDF. To be drawn.}
 \caption{\textbf{The mixed route against the exact sampler on M0.}
 \placeholder{Caption.}}
 \label{fig:approx}
-\end{figure*}
+\end{figure}
 
 \subsection{What the budget leaves out: model form}
 \label{sec:modelform}
@@ -361,7 +361,7 @@ what we know of its effect on $Q$. Only the formalism swap is measured, because 
 has a column in the crossed design. Every other reduction is declared and not bounded, so
 the budget does not cover the full uncertainty a modeller should carry.
 
-\begin{table*}[t]
+\begin{table}[!ht]
 \caption{The model-form table. Counts come from \texttt{reduction\_declarations} on the
 reduced model (\pn{red.total} declarations) and on M0 (\pn{mz.total}), and S1 File lists
 each one. Effect is the effect on $Q$.}
@@ -383,7 +383,7 @@ Membrane growth: frozen baseline area and a calibrated footprint, with capped ge
 Other module notes (\pn{red.model_note} on the reduced model, \pn{mz.model_note} on M0) & Both & Declared, not bounded \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
 \paragraph{The one-way coupling on the reduced model.} The elasticities that justify this
 reduction hold while GTP stays well above the half-saturation constant of RNA polymerase.
@@ -410,9 +410,9 @@ posteriors. The mixed route costs far less on M0, but we have not calibrated it 
 reduced model. The cost is the number of simulations, not the time of one. One cycle
 of the full reduced model takes \pn{model.cyclewall}\,s, and a fast
 implementation of the full \syn{} model is the subject of a companion paper
-\citep{kimpson2026whole}.
+\cite{kimpson2026whole}.
 
-\begin{table}[t]
+\begin{table}[!ht]
 \caption{CPU-hours per posterior.}
 \label{tab:cost}
 \centering

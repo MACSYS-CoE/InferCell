@@ -1,13 +1,13 @@
 \section{InferCell: an inference-first design}
 \label{sec:design}
 
-\IC{} is written in Julia \citep{bezanson2017julia}. It uses the SciML solvers for
-ODEs and jump processes \citep{rackauckas2017differentialequations}. This section
+\IC{} is written in Julia \cite{bezanson2017julia}. It uses the SciML solvers for
+ODEs and jump processes \cite{rackauckas2017differentialequations}. This section
 gives the design ideas. The documentation gives the full interface
-(\cref{sec:availability}). \Cref{fig:architecture} shows the parts and how they
+(see Software and data availability). \Cref{fig:architecture} shows the parts and how they
 connect.
 
-\begin{figure*}[t]
+\begin{figure}[!ht]
 \centering
 \placeholderfig{0.9\textwidth}{6cm}{Figure 1 (F11): the architecture. Parameters
 with provenance feed modules; modules declare formalism and edges; the resolver
@@ -16,7 +16,7 @@ mean-field ODE; inference routines attach to each data stream. To be drawn.}
 \caption{\textbf{The \IC{} architecture.} \placeholder{Caption to be written with the
 figure.}}
 \label{fig:architecture}
-\end{figure*}
+\end{figure}
 
 \subsection{Parameters are distributions with a source}
 
@@ -47,7 +47,7 @@ Rate-constant edges cross every minute, when the stochastic block rebuilds its r
 constants from the metabolite pools. The set of kinds is closed. A module cannot
 invent a new kind of coupling without a change to the framework.
 
-\begin{table}[t]
+\begin{table}[!ht]
 \caption{The \pn{fw.edgekinds} edge kinds and their clocks.}
 \label{tab:edges}
 \centering
@@ -106,7 +106,7 @@ exactly, as linear ODEs. \IC{} derives these equations from the same propensitie
 and update rules that the jump modules use, so the two descriptions cannot drift
 apart. With the swap, the composed model becomes one ODE problem with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
-\citep{revels2016forwardmode} passes through this problem and its callbacks. We test
+\cite{revels2016forwardmode} passes through this problem and its callbacks. We test
 the gradients against central differences to a relative error of $\pn{fw.adtol}$.
 
 \paragraph{What is and is not differentiable.} The exact hybrid is not
@@ -127,13 +127,13 @@ many cells. \IC{} has two inference routes.
 \begin{itemize}
   \item \textbf{The exact route.} A three-block Gibbs sampler conditions on the
   stochastic path. It updates the paths by conditional sequential Monte Carlo
-  \citep{andrieu2010particle}, the metabolic constants by slice sampling, and the
+  \cite{andrieu2010particle}, the metabolic constants by slice sampling, and the
   gene-expression constants from exact one-dimensional conditionals
   (\cref{sec:sampler}).
   \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep
   an exact likelihood, and the bulk metabolites get a Gaussian likelihood centred on
   the mean-field model. The route uses the gradients of the swap with the No-U-Turn
-  Sampler \citep{hoffman2014nouturn}. It is an approximation, and
+  Sampler \cite{hoffman2014nouturn}. It is an approximation, and
   \cref{sec:approx} compares it with the exact route on M0.
 \end{itemize}
 

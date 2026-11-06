@@ -1,9 +1,6 @@
 \section{Methods}
 \label{sec:methods}
 
-\placeholder{Venue decides the form: STAR Methods (Cell Systems) or a Methods section
-after the Discussion (PLOS CB). Content is the same.}
-
 \subsection{The hybrid driver}
 \label{sec:driver}
 
@@ -19,7 +16,7 @@ following, in order:
   (deferred-cost edges), clipped at zero as in the published model;
   \item every 60\,s, rebuild the stochastic rate constants from the pools;
   \item step the jump block by 1\,s with Gillespie's direct method
-  \citep{gillespie1977exact}.
+  \cite{gillespie1977exact}.
 \end{enumerate}
 On the jump clock the rebuilt constants therefore take effect at $60m - 1$\,s. Pools
 are written back as molecule counts under a declared rounding policy. A recorded path
@@ -49,9 +46,9 @@ GMP. The prior on the assay noise is $\sigb \sim \mathrm{LogNormal}(\log 0.2,\, 
 The sampler is a three-block Gibbs scan with the stochastic path as a latent variable.
 \begin{enumerate}
   \item \textbf{Paths.} Conditional sequential Monte Carlo over 60\,s windows
-  \citep{andrieu2010particle}, with particle Gibbs at $N = \pn{mzero.N}$ particles. Each
+  \cite{andrieu2010particle}, with particle Gibbs at $N = \pn{mzero.N}$ particles. Each
   particle is a snapshot of the driver. Transcripts are proposed as exact
-  endpoint-conditioned birth--death bridges \citep{hobolth2009simulation}, so every
+  endpoint-conditioned birth--death bridges \cite{hobolth2009simulation}, so every
   proposal agrees with the observed transcript counts. The other reactions are then
   simulated given the transcripts. The weight is the bulk metabolite likelihood
   times each gene's transition probability. Cells are updated in turn, because the
@@ -116,9 +113,9 @@ support, or a solve that does not succeed, has a log density of $-\infty$.
 For each of $R = \pn{vseven.R}$ replicates we drew a parameter set from the prior,
 simulated a dataset, and ran one chain of \pn{mzero.sweeps} sweeps from a prior draw. We dropped
 \pn{mzero.burn} sweeps and thinned the rest to $L = \pn{mzero.L}$ draws. The rank of the truth among the
-draws is uniform if the sampler is calibrated \citep{talts2018validating}. We tested
+draws is uniform if the sampler is calibrated \cite{talts2018validating}. We tested
 each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
-\citep{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass
+\cite{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass
 rule was fixed before any rank was computed.
 
 \subsection{Prediction}
@@ -173,9 +170,9 @@ draws.
 
 All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its AMD
 \texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind each result. The commits and checksums are in the evidence archive
-and the result notes named in \cref{sec:availability}.
+and the result notes named under Software and data availability.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \caption{The runs behind the results. Hours are from Slurm accounting. The mixed route's
 omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held.}
 \label{tab:compute}

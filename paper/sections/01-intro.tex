@@ -3,10 +3,10 @@
 
 A whole-cell model simulates a cell from its molecular parts. The first such model
 described \textit{Mycoplasma genitalium} with \pn{lit.karrsub} coupled submodels
-\citep{karr2012whole}. Later models covered \textit{Escherichia coli}
-\citep{macklin2020simultaneous} and the minimal cell \syn{}, first well stirred
-\citep{thornburg2022fundamental} and then in space and time over a full cell cycle
-\citep{thornburg2026bringing}. Each one joins
+\cite{karr2012whole}. Later models covered \textit{Escherichia coli}
+\cite{macklin2020simultaneous} and the minimal cell \syn{}, first well stirred
+\cite{thornburg2022fundamental} and then in space and time over a full cell cycle
+\cite{thornburg2026bringing}. Each one joins
 metabolism, gene expression, growth and division in one simulation, and each
 reproduces measured behaviour of a real cell.
 
@@ -31,7 +31,7 @@ ask which data would reduce that uncertainty.
 Bayesian inference answers both questions. It treats each parameter as a
 distribution, updates the distribution with data, and propagates the result into
 predictions. Systems biology argued for this approach long ago
-\citep{babtie2017how}. Whole-cell models still do not use it, for the
+\cite{babtie2017how}. Whole-cell models still do not use it, for the
 following reasons.
 
 \begin{enumerate}
@@ -50,17 +50,17 @@ following reasons.
   \item \emph{No shared parameters.} In the published \syn{} model, no rate
   constant appears in both blocks. The blocks couple only through state. The
   standard methods for modular inference pass information through shared
-  parameters \citep{plummer2015cuts,jacob2017better,carmona2020semimodular}.
+  parameters \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
   Here they have nothing to pass.
 \end{enumerate}
 
 \Cref{tab:frameworks} compares current whole-cell frameworks on these points.
 Thornburg and coworkers balanced the metabolic parameters of \syn{} against each
-other with a Bayesian method \citep{thornburg2022fundamental}. That step used
+other with a Bayesian method \cite{thornburg2022fundamental}. That step used
 literature values for metabolism only. It did not infer parameters from dynamic
 data through the coupled model.
 
-\begin{table*}[t]
+\begin{table}[!ht]
 \caption{Capabilities of whole-cell modelling frameworks. A tick means that the
 framework does this as part of its design. \placeholder{Every cell to be checked
 against each framework's code and papers before submission.}}
@@ -72,14 +72,14 @@ against each framework's code and papers before submission.}}
 & Priors & Provenance & Inference & Declared \\
 & & in model & on dynamics & reductions \\
 \midrule
-\textit{M.\ genitalium} \citep{karr2012whole} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-\textit{E.\ coli} \citep{macklin2020simultaneous} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-Vivarium \citep{agmon2022vivarium} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-\syn{} \citep{thornburg2022fundamental,thornburg2026bringing} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\textit{M.\ genitalium} \cite{karr2012whole} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\textit{E.\ coli} \cite{macklin2020simultaneous} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+Vivarium \cite{agmon2022vivarium} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
+\syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
 \IC{} (this work) & \checkmark & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
 \subsection{This work}
 
