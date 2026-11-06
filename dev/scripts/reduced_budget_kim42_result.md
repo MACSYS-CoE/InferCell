@@ -138,10 +138,10 @@ and no cell failed or fell below a floor.
 **At 4 cells per pair, this run cannot resolve the parameter variance of ΔQ, so it has no
 variance split for ΔQ.** Cell noise swamps it. The estimate of Var(μ) came out negative
 and is reported as 0 at widths 1 and 2, and at width ½ it is about 0.25 of its SE from
-zero. The components are clipped one by one and so no longer sum, which is why the report
-prints `NaN` and `Inf` for the shares at widths 1 and 2 and `NaN` for the SEs of all
-three. That is arithmetic, not a failed computation, and those entries are not numbers
-to quote.
+zero. The total is clipped to 0 and is the shares' denominator, so the report prints `NaN`
+(0/0) and `Inf` (positive/0) for the shares at widths 1 and 2. Some of the jackknife's
+deleted-group totals hit the same 0, so the shares' SEs are `NaN` at all three. That is
+arithmetic, not a failed computation, and those entries are not numbers to quote.
 
 ΔQ's mean is defined, on the kept pairs at dose 0.3:
 
@@ -153,6 +153,11 @@ to quote.
 
 The interval of ±2 SE reaches zero at width 2. No intervened cell failed at any width. M0's
 ΔQ has the same kind of limit, stated in prose beside its numbers (§12 2026-11-05).
+
+**"Not resolved" describes the split, and does not mean ΔQ ignores θ_H's width.** The mean
+shrinks as the prior widens: the paired contrast from width ½ to width 2 is +7.88e+04 ±
+2.94e+04, about 2.7 SE (derived, same jackknife). As a fraction of mean Q, ΔQ is -1.34% ±
+0.11%, -1.03% ± 0.14% and -0.31% ± 0.25% (derived).
 
 ## K_d diagnostic, for KIM-47
 
