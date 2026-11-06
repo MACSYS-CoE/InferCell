@@ -108,9 +108,11 @@ its small share is not what real measurements would leave.
 
 \begin{figure}[!ht]
 \centering
-\placeholderfig{\columnwidth}{4.5cm}{Figure: the budget by prior width. To be drawn.}
-\caption{\textbf{Where the uncertainty of the prediction comes from (unscored).}
-\placeholder{Caption.}}
+\includegraphics[width=\textwidth]{fig_budget.pdf}
+\caption{\textbf{Where the uncertainty of the prediction comes from (unscored).} No truth is
+compared with anything here, and all of it rests on one exact M0 posterior's $\theta_I$. A: the
+share of $\mathrm{Var}(\mu)$ held by the \pn{budget.nH} promoter strengths, in both nested
+orders, $\pm$ one standard error. B: mean lactate export $\pm \sqrt{\mathrm{Var}(\mu)}$.}
 \label{fig:budget}
 \end{figure}
 
@@ -195,9 +197,11 @@ prediction. It does not test the transfer from M0 into the reduced model.
 
 \begin{figure}[!ht]
 \centering
-\placeholderfig{0.9\textwidth}{5cm}{Figure: M0's coverage and sharpness per arm, for $Q$
-and $\Delta Q$. To be drawn.}
-\caption{\textbf{The same pipeline scored on M0.} \placeholder{Caption.}}
+\includegraphics[width=\textwidth]{fig_crossed.pdf}
+\caption{\textbf{The same pipeline scored on M0.} Each arm is a posterior and a forward model,
+over \pn{vseven.R} datasets. Coverage is $\pm$ one standard error, and the dashed lines are the
+references of \cref{tab:crossed}. A: lactate export. B: the knockdown's effect, whose coverage
+does not meet the sizing rules in the text. Width is against the exact posterior with the hybrid.}
 \label{fig:crossed}
 \end{figure}
 
@@ -238,12 +242,10 @@ margin, \pn{ften.fbamargin} standard deviations.
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.48\textwidth]{f8_rank_ecdf.pdf}\hfill
-\includegraphics[width=0.48\textwidth]{f10_marginals.pdf}
-\caption{\textbf{The exact sampler on M0.} (a) Rank-ECDF of the truth over
-\pn{vseven.R} prior-drawn datasets, against simultaneous 95\% bands. (b) Marginal
-posteriors from a production-length chain against the reference.
-\placeholder{Restyle both panels to one figure with shared fonts; label panels.}}
+\includegraphics[width=\textwidth]{fig_calibration.pdf}
+\caption{\textbf{The exact sampler on M0.} A: rank-ECDF of the truth over \pn{vseven.R}
+prior-drawn datasets, against simultaneous bands at a joint level of 95\%. B: marginal
+posteriors from a production-length chain against the reference on one dataset.}
 \label{fig:calibration}
 \end{figure}
 
@@ -349,10 +351,11 @@ calibration result is unchanged without those replicates.
 
 \begin{figure}[!ht]
 \centering
-\placeholderfig{0.9\textwidth}{5cm}{Figure 5: the mixed route against the exact
-sampler on M0. Marginals and the rank-ECDF. To be drawn.}
-\caption{\textbf{The mixed route against the exact sampler on M0.}
-\placeholder{Caption.}}
+\includegraphics[width=\textwidth]{fig_mixed.pdf}
+\caption{\textbf{The mixed route against the exact sampler on M0.} A: rank-ECDFs of both routes
+over the same \pn{mix.R} datasets, against the same bands. B: marginal posteriors on the reference
+dataset. The gaps on the ptsG promoter, the decay rate and enolase are the ones the text reports, and
+their cause is open.}
 \label{fig:approx}
 \end{figure}
 

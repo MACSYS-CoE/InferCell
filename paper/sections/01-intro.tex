@@ -46,8 +46,7 @@ following reasons.
 \begin{enumerate}
   \item \emph{No place for uncertainty.} The frameworks store parameters as
   floating-point values in a dictionary. The source of each value is in a
-  spreadsheet or a supplement, not in the model. When two sources disagree, the code
-  picks one without a record.
+  spreadsheet, a flat file or a supplement, and rarely with the value in the model.
   \item \emph{Mixed formalisms.} Metabolism is a set of ordinary differential
   equations (ODEs). Gene expression is a stochastic jump process. The two exchange
   state on a fixed clock. No single likelihood and no standard sampler covers both.
@@ -70,24 +69,33 @@ literature values for metabolism only. It did not infer parameters from dynamic
 data through the coupled model.
 
 \begin{table}[!ht]
-\caption{Capabilities of whole-cell modelling frameworks. A tick means that the
-framework does this as part of its design. \placeholder{Every cell to be checked
-against each framework's code and papers before submission.}}
+\caption{\textbf{Capabilities of whole-cell modelling frameworks.} Each column asks whether the
+framework does this as part of its design. Notes follow the table.}
 \label{tab:frameworks}
 \centering
 \small
-\begin{tabular}{@{}lcccc@{}}
+\begin{tabular}{@{}lllll@{}}
 \toprule
 & Priors & Provenance & Inference & Declared \\
 & & in model & on dynamics & reductions \\
 \midrule
-\textit{M.\ genitalium} \cite{karr2012whole} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-\textit{E.\ coli} \cite{macklin2020simultaneous} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-Vivarium \cite{agmon2022vivarium} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-\syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & \placeholder{?} & \placeholder{?} & \placeholder{?} & \placeholder{?} \\
-\IC{} (this work) & \checkmark & \checkmark & \checkmark & \checkmark \\
+\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Fit, no posterior & No \\
+\textit{E.\ coli} \cite{macklin2020simultaneous} & No & Partial (b) & Fit, no posterior & Partial (c) \\
+Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
+\syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & Partial (d) & Partial (e) & One block (f) & Partial (g) \\
+\IC{} (this work) & Yes & Yes & On M0 & Yes \\
 \bottomrule
 \end{tabular}
+\begin{flushleft}\footnotesize
+(a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
+(b) Annotated flat files, with some sources blank. (c) Adjustments as hard-coded tables in the
+fitting code. (d) Metabolic priors in the balancing input, with their means used in simulation.
+(e) Sources in pre-balancing flat files, and not in the balanced table. (f) Bayesian parameter
+balancing of metabolism on literature values, then further adjustment. (g) Patches noted in code
+and files. Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.md}, from the
+papers' main text and each framework's public code. We did not read the supplements, and for the
+2026 \syn{} model we read the preprint.
+\end{flushleft}
 \end{table}
 
 \subsection{This work}

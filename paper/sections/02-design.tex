@@ -9,12 +9,12 @@ connect.
 
 \begin{figure}[!ht]
 \centering
-\placeholderfig{0.9\textwidth}{6cm}{Figure 1 (F11): the architecture. Parameters
-with provenance feed modules; modules declare formalism and edges; the resolver
-checks the composition; the composed model runs as the exact hybrid or as one
-mean-field ODE; inference routines attach to each data stream. To be drawn.}
-\caption{\textbf{The \IC{} architecture.} \placeholder{Caption to be written with the
-figure.}}
+\includegraphics[width=\textwidth]{fig_architecture.pdf}
+\caption{\textbf{The \IC{} architecture.} Parameters carry a prior, a source and a label.
+Modules declare their states, formalism and typed edges. The resolver checks the composition
+and collects the declared reductions. The composed model runs as the exact hybrid or as one
+mean-field ODE problem, and each description has an inference route. \texttt{predict} takes
+a posterior from either route, a forward description and an optional intervention.}
 \label{fig:architecture}
 \end{figure}
 
