@@ -75,8 +75,10 @@ Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn
 So metabolite data can inform the ptsG promoter, a gene-expression parameter that
 they never measure. Transcript data carry almost no information about the enolase
 constant, a metabolic parameter. We report the second result as a measured null, not
-as a failure. \placeholder{FBA under transcripts only is open; K2 at 1,000 cells
-decides it (16b.5).}
+as a failure. On M0 at \pn{mzero.cells} cells, the exact sampler's divergence under
+transcripts only is \pn{tsplit.eno}\,nat for enolase and \pn{tsplit.fba}\,nat for
+aldolase, each below its noise floor. That read-off is M0's. We did not run the
+planned test at 1,000 cells, so we do not extend it to the full reduced model.
 
 \subsection{Why no parameter is shared}
 
@@ -87,5 +89,5 @@ these methods have nothing to pass while we condition on the stochastic path. Th
 exact sampler does what is left: it conditions on the path, and it updates the path
 with all the data. In this sense the exact sampler is modular inference with nothing
 dropped. When the paths are integrated out, a gene-expression parameter appears in
-both the transcript factor and the metabolite factor. The approximate route uses
-this structure.
+both the transcript factor and the metabolite factor. The mixed route uses this
+structure.

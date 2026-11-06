@@ -92,23 +92,67 @@ one-ODE mean-field model. At the zero-step limit the two agree to
 mean-field solve takes \pn{rii.mzero}\,s on M0 and \pn{rii.corealo}--\pn{rii.coreahi}\,s
 on the full reduced model.
 
-\placeholder{AV6 (B7) decides whether the remaining gap moves the posterior. Add one
-sentence with the answer.}
+With $\delta$ in place, what remains at the level of the posterior is small on
+average over datasets, and larger on one dataset for a reason we have not found
+(\cref{sec:approx}).
 
-\subsection{The approximate posterior agrees with the exact one on M0}
+\subsection{The mixed route on M0: calibrated, with small declared discrepancies}
 \label{sec:approx}
 
-\placeholder{B7 / AV6, not run. Refit the \pn{vseven.R} V7 datasets with the
-approximate route. Report: overlaid marginals and the ptsG--ENO contour against the
-exact posterior; rank-ECDF of the approximate route; cost per posterior against
-\pn{ften.cpuh} CPU-hours. Gate: M0 carries a metabolite $\to$ ptsG signal (linearised
-ratio \pn{info.mzeroptsg} against a noise bracket of \pn{info.mzerobracket}; met).}
+We refitted the \pn{mix.R} datasets of the exact sampler's calibration with the mixed
+route, using \pn{mix.chains} chains of \pn{mix.nadapt} adaptation and \pn{mix.ndraw}
+sampling steps per dataset.
+
+\paragraph{Calibration and cost.} The mixed route passes simulation-based calibration
+on all \pn{mzero.npar} parameters over the \pn{mix.R} datasets, using the bands of
+\cref{sec:exact} (\cref{fig:approx}). The largest deviation is \pn{mix.sbcmax}, for
+the transcript decay rate. A posterior costs a median of \pn{mix.cpuh} CPU-hours
+(range \pn{mix.cpuhlo}--\pn{mix.cpuhhi}), against \pn{ften.cpuh}--\pn{cost.exacthi}
+for the exact sampler. That median counts completed jobs only: a fault in the
+starting optimiser lost another \pn{mix.lost} CPU-hours across the whole run.
+
+\paragraph{Discrepancies against the exact posteriors.} Over the \pn{mix.R} datasets,
+the largest mean bias against the exact posteriors is \pn{mix.biasmax}~$\pm$~
+\pn{mix.biasse} posterior standard deviations, for the decay rate. The median ratio of
+standard deviations per parameter is between \pn{mix.sdlo} and \pn{mix.sdhi}. On the
+single reference dataset of \cref{sec:exact}, the ptsG promoter, the decay rate and
+enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations from the exact
+reference, about \pn{mix.gapfloor} above the matched noise floor. Re-estimating $S$ at
+the posterior mean does not close this gap, and its cause is open. A calibration test
+over many datasets does not exclude a gap of this size on one dataset, so we report
+both.
+
+\paragraph{Holding $S$ fixed.} $S$ is computed once, at a reference parameter value.
+A sensitivity check re-estimated it at the posterior mean on three datasets. The
+marginals moved detectably on \pn{mix.ksfired} comparisons, each by at most
+\pn{mix.ksmargin} standard deviations over its floor. Against a matched null of two
+identical fits, two of the five are about twice the noise, one is 1.3 times it, and
+two are within it.
+
+\paragraph{One data stream at a time.} On the reference dataset under transcripts only,
+none of the five marginals we compared differs detectably from the exact fit: the
+Wasserstein distance is \pn{mix.txlo}--\pn{mix.txhi} exact standard deviations, each
+below its noise floor. Under metabolites only, enolase, the decay rate and $\sigb$
+differ detectably, by small margins, and aldolase does not. The exact fit has an
+effective sample size of only \pn{mix.krnadegess} for the decay rate. Each floor is one sample of the
+noise, so these margins are not precise, and we have not tested whether they share a
+cause with the gap above.
+The mixed route shrinks the ptsG promoter under metabolites only, to \pn{mix.ptsgbulk}
+of its prior standard deviation, against \pn{info.mzeroptsg} from the linearised bound.
+The exact fit under metabolites only did not mix for this parameter, so this result has
+no exact comparison.
+
+\paragraph{Limits.} In \pn{mix.lowconv} of the \pn{mix.R} replicates the two chains
+fall short of $\Rhat \le 1.02$ and a bulk effective sample size of 100. The worst
+$\Rhat$ is \pn{mix.rhat} and the smallest effective sample size is \pn{mix.ess}. The
+calibration result is unchanged without those replicates.
 
 \begin{figure*}[t]
 \centering
-\placeholderfig{0.9\textwidth}{5cm}{Figure 5: approximate against exact on M0.
-Overlaid marginals, the ptsG--ENO contour, rank-ECDF, and a cost bar. Not run (B7).}
-\caption{\textbf{Approximate against exact.} \placeholder{Caption.}}
+\placeholderfig{0.9\textwidth}{5cm}{Figure 5: the mixed route against the exact
+sampler on M0. Marginals and the rank-ECDF. To be drawn.}
+\caption{\textbf{The mixed route against the exact sampler on M0.}
+\placeholder{Caption.}}
 \label{fig:approx}
 \end{figure*}
 
@@ -172,7 +216,7 @@ Route & M0 & Reduced model \\
 \midrule
 Exact, reference & \pn{vsix.cpuh} & --- \\
 Exact, production & \pn{ften.cpuh} & $\sim$\pn{cost.fullscale} (projected) \\
-Approximate & \placeholder{B7} & \placeholder{B8} \\
+Mixed & \pn{mix.cpuh} & \placeholder{B8} \\
 \bottomrule
 \end{tabular}
 \end{table}

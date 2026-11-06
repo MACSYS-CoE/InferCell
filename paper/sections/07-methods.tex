@@ -39,7 +39,9 @@ Each synthetic dataset has $C$ cells (\pn{mzero.cells} on M0), observed every 60
   \mathcal{N}(\log \bar{x}, \sigb^2)$. The assay noise $\sigb$ is a free parameter.
 \end{itemize}
 We use bulk metabolites because a per-cell metabolite panel cannot be measured.
-\placeholder{State the panel (M0\_PANEL) and the prior on $\sigb$.}
+The panel has \pn{mzero.npanel} pools: G6P, F6P, intracellular and extracellular
+lactate, G3P, DHAP, charged tRNA, phosphate, 3PG, 2PG, FDP, ATP, ADP, AMP, GTP, GDP and
+GMP. The prior on the assay noise is $\sigb \sim \mathrm{LogNormal}(\log 0.2,\, 1)$.
 
 \subsection{The exact sampler}
 \label{sec:sampler}
@@ -94,9 +96,19 @@ reduction:
 \end{itemize}
 The bulk factor is $\mathcal{N}\!\left(\log z;\ \log \max(\bar{x}_{\mathrm{MF}}(\theta), 1)
 + \delta,\ \sigb^2 I + S\right)$, with $\delta$ and $S$ from an ensemble of the exact
-hybrid at a reference parameter value, and the floor of one molecule.
-\placeholder{B5: state how S is estimated (delta method over 800 cells) and the
-sampler settings once built.}
+hybrid at a reference parameter value, and the floor of one molecule. The reference
+value is the maximum a posteriori estimate at $\delta = 0$ and $S = 0$, recorded per
+dataset. The ensemble has \pn{mix.nref} cells, on seeds disjoint from the dataset's. We
+take $\delta$ as the log difference between the ensemble's mean and the mean field at
+the reference value, per pool and save. We take $S$ by the delta method, as the
+covariance of the per-cell panel counts divided by $\bar{x}\bar{x}^{\mathsf{T}} C$,
+elementwise. On M0 it is full rank, with \pn{mzero.npanel} pools at ten saves.
+
+The sampler is the No-U-Turn Sampler on the log of the \pn{mzero.npar} parameters, with
+the exact sampler's priors. Each fit has \pn{mix.chains} chains of \pn{mix.nadapt}
+adaptation and \pn{mix.ndraw} sampling steps, started \pn{mix.jitter} prior standard
+deviations from the reference value. A parameter value outside the transcript factor's
+support, or a solve that does not succeed, has a log density of $-\infty$.
 
 \subsection{Simulation-based calibration}
 \label{sec:sbc}

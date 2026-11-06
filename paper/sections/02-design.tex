@@ -130,14 +130,18 @@ many cells. \IC{} has two inference routes.
   \citep{andrieu2010particle}, the metabolic constants by slice sampling, and the
   gene-expression constants from exact one-dimensional conditionals
   (\cref{sec:sampler}).
-  \item \textbf{The approximate route} (in development). The paths are integrated
-  out. The transcripts keep an exact likelihood, and the bulk metabolites get a
-  Gaussian likelihood centred on the mean-field model. The route is designed to use
-  the gradients of the swap with the No-U-Turn Sampler \citep{hoffman2014nouturn}.
-  \placeholder{B5: built and tested; give the interface in one sentence.}
+  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep
+  an exact likelihood, and the bulk metabolites get a Gaussian likelihood centred on
+  the mean-field model. The route uses the gradients of the swap with the No-U-Turn
+  Sampler \citep{hoffman2014nouturn}. It is an approximation, and
+  \cref{sec:approx} compares it with the exact route on M0.
 \end{itemize}
 
-\placeholder{B6, the dispatcher: a module declares its formalism and a stream
-declares its observation model; the dispatcher picks the route. Not built. If it is
-not built before submission, reword this section as a design principle and remove
-the claim.}
+One function, \texttt{infer}, runs inference, and \texttt{inference\_route} chooses
+the route from the composition and the data. An all-ODE composition with
+time-series data takes the No-U-Turn Sampler, and an all-jump composition takes
+approximate Bayesian computation. A hybrid composition with cell and bulk data has
+the two routes above, and the user must name one, because one is a reference and the
+other an approximation. Anything else is refused, with an error that says why. The
+cell-data routes are built for M0's gene expression (\cref{sec:model}), and we have
+demonstrated them only on M0.

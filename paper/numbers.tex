@@ -95,3 +95,39 @@
 \pndef{rii.mzero}{1.1}% docs/handoff.md (s per M0 600 s solve)
 \pndef{rii.corealo}{9}% docs/handoff.md (s per 6,300 s solve)
 \pndef{rii.coreahi}{12}% same
+
+%% --- B7 and B7.8: the mixed route on M0 -------------------------------------
+%% All from dev/scripts/av6_89_b7_result.md (merge job 19292232 at 8da6045; B7.8 job 19411150).
+\pndef{mix.R}{50}% "SBC (rule 3)"
+\pndef{mix.sbcmax}{0.183}% same, largest |ECDF - z| (krnadeg)
+\pndef{mix.cpuh}{6.57}% "KC (rule 7)", median per posterior, from sacct
+\pndef{mix.cpuhlo}{5.04}% same
+\pndef{mix.cpuhhi}{13.08}% same
+\pndef{mix.lost}{274.1}% "Runs", CPU-h lost to the MAP fault, in no replicate's cost
+\pndef{cost.exacthi}{678}% spec/phases/16-recovery.md §12 16a.11 table, V7's mean per replicate
+\pndef{mix.biasmax}{0.095}% "Against V7 over the 50", krnadeg
+\pndef{mix.biasse}{0.050}% same
+\pndef{mix.sdlo}{0.92}% same, median SD ratio, lowest parameter
+\pndef{mix.sdhi}{1.07}% same, highest parameter
+\pndef{mix.gaplo}{0.42}% "m0_v6 against V6", ENO
+\pndef{mix.gaphi}{0.56}% same, krnadeg
+\pndef{mix.gapfloor}{0.3}% same, margins 0.301-0.355 over the largest matched null
+\pndef{mix.lowconv}{17}% "Convergence", replicates short of Rhat <= 1.02 and ESS >= 100
+\pndef{mix.rhat}{1.046}% same, worst Rhat (1.0463)
+\pndef{mix.ess}{81}% same, smallest bulk ESS
+\pndef{mix.ksfired}{5 of 18}% "KS (rule 6)"
+\pndef{mix.ksmargin}{0.027}% summary, largest excess over the floor (r12 ENO: 0.216 - 0.197 = 0.019; v6 S_0607: 0.213 - 0.186 = 0.027)
+\pndef{mix.txlo}{0.051}% "B7.8", transcripts only, W1 / exact SD
+\pndef{mix.txhi}{0.097}% same
+\pndef{mix.krnadegess}{39}% "B7.8", the exact met_only fit's ESS for krnadeg
+\pndef{mix.ptsgbulk}{0.676}% "B7.8", ptsG under metabolites only, SD / prior SD
+\pndef{mix.nref}{800}% "Runs", reference ensemble cells
+\pndef{mix.jitter}{0.25}% same, start jitter in prior SD
+\pndef{mix.nadapt}{200}% same
+\pndef{mix.ndraw}{200}% same
+\pndef{mix.chains}{2}% same
+
+%% --- M0's observation model and the reverse read-off ------------------------
+\pndef{mzero.npanel}{17}% M0_PANEL, src/organisms/coreA/m0.jl
+\pndef{tsplit.eno}{0.0041}% spec/phases/16-recovery.md 16b.5, job 19395555
+\pndef{tsplit.fba}{0.0081}% same
