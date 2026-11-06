@@ -340,6 +340,19 @@ forward ensemble of the full two-way model, and held fixed across θ.
 
 ## 12. Amendment log
 
+### 2026-11-06 — B7's matched KS null is not degenerate (KIM-67)
+
+**Finding:** the null arm used distinct chains, and B7.8's and the paper's text need no change. The
+byte-identical chains KIM-67 found are in `/fred/oz022/tkimpson/infercell-89-b7-nullsmoke-2026-10-27/`,
+the output of smoke job 19334381, which ran on copied chains by design (`av6_89_b7_result.md`,
+"Matched null"). That directory's `av6_ks_null.md` is the report with W1 = 0.000. The real null's chains,
+`run/null_v6/chain_{1,2}.jls` and `run/null_low1/chain_{1,2}.jls` in
+`/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/`, have SHA-256 values that differ from their
+bases `run/v6` and `run/r12`, and that archive's `av6_ks_null.md` (job 19334380) reports the nonzero W1
+values in the result note. Nothing was rerun.
+
+*Sections:* §12.
+
 ### 2026-10-29 — B8 parked outside v0.3.0 and paper 1; corea_dataset brought to main (KIM-17)
 
 **Status: decided** (the user, 2026-10-29). The record is `spec/spec.md` §12
