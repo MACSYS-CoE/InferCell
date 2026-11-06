@@ -4453,8 +4453,9 @@ limit is stated in prose, with no rerun proposed.
   and a spread this project chose, and θ_I's data are synthetic. The note states what the
   run supports instead, a split among the 20 drawn parameters; the user can still change
   its wording.
-- 92–98% of cells reach GTP below K_d, and 70–90% clip at least once. V allows clipping,
-  and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
+- 92–98% of cells reach GTP below K_d at least once, 68–72% reach exactly 0, usually
+  briefly, and 70–90% clip at least once. The run stores no time below K_d. V allows
+  clipping, and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
 - §6 has no row for the budget. Whether it gets one is the user's call.
 
 **Cost:** 1,978 core-h held and 9.39–12.03 h per width, against the 11–13 h and 2,500
