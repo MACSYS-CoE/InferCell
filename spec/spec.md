@@ -4428,6 +4428,31 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-06 — KIM-43: the evidence archive
+
+**Status: built and verified.** M5's runs and the inputs they read are copied to
+`/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`, 13 GB, by
+`dev/scripts/archive_predict_kim43.sh` (job 20150322, at `e237a18`). `README.md` there lists the
+contents and where the headline numbers are, and `PROVENANCE.tsv` gives each directory's commit
+and job ids.
+
+**The checks.** Before copying: the sources' own `SHA256SUMS`, the two hashes the result notes
+quote, M0's 200 pinned inputs, and the V6 chains against B7's `SHA256SUMS`. After copying: the
+same checksums on the copies, and a byte-for-byte comparison for the SE check, which had none.
+The archive's `SHA256SUMS` covers 3,940 files, with SHA-256 `1f2e3fce1f6768044fa4e3b9ce50c544d165b22f0782f99cefd5afab5bb47d06`,
+and passed `sha256sum -c` in the build and again in a separate job, 20151374.
+
+**The paper's numbers are not traced yet.** The issue also asks that they trace to this archive,
+but `numbers.tex` has no M5 entries and §5.5 is a placeholder. KIM-46 writes them, citing these
+files, so the tracing happens there. No fixture needed regenerating: `predict_reference.jl` is
+KIM-68's frozen reference at `93abbce`, not evidence.
+
+**Review:** the user waived `/check-PR`.
+
+**Unchanged:** every result, and the original directories, which the result notes still cite.
+
+*Sections:* §12.
+
 ### 2026-11-06 — KIM-42: the reduced model's budget, run (unscored)
 
 **Status: run complete; not a calibration result.** The results are in

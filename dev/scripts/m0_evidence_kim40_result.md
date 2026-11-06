@@ -3,7 +3,8 @@
 **Run:** `dev/scripts/m0_evidence_kim40.sh` at `ed179c2` (main; the run's code is
 `9310ddb`'s, checked before launch), into
 `/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01/` (`SHA256SUMS`, `jobs.tsv`,
-`sacct.tsv`, `audit.txt`, `score.md`, `score_datasets.tsv`).
+`sacct.tsv`, `audit.txt`, `score.md`, `score_datasets.tsv`). Archived with its inputs by
+KIM-43, in `/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/runs/m0-kim40-kim41/`.
 - **The design:** the M4 freeze (`93abbce`), KIM-69's scale (`5ec56d3`), and the
   scoring KIM-40 declared before the run (`9310ddb`), with KIM-70's docs pass
   (`ed179c2`).
