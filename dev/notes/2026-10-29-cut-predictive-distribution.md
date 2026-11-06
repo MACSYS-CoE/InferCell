@@ -17,8 +17,8 @@ recorded. The choices it leaves open are named, and are fixed in M4's freeze ent
 - θ_I: the inferred dynamical parameters, M0's five targets (`M0_TARGETS`).
 - σ_b: the bulk observation noise. It is inferred beside θ_I, but it is not a cell
   parameter and never enters a forward simulation.
-- θ_H: the held parameters, the rest of the reduced model's informed constants.
-  They are completed from priors, not inferred.
+- θ_H: the held parameters, on the reduced model the 15 promoter strengths M0 cuts,
+  marked `:asserted`. They are completed from priors, not inferred.
 - ξ: intrinsic noise, meaning one cell's stochastic trajectory, fixed by its seed.
 - D: the data, M0's cell and bulk record.
 - V: the viability event, a declared rule on simulated summaries (KIM-36).

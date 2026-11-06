@@ -82,9 +82,9 @@ protein copy number over 180, but no measurement sets their width. And θ_I's po
 comes from V7 replicate 1, a fit to M0's synthetic data, so the 9% is not what real
 measurements would leave. What the run supports:
 
-*At the default prior width, about 91% ± 4% of Var(μ), the parameter uncertainty in
-`lactate_out` at 6,300 s, comes from the 15 promoter strengths that M0's fit cannot reach
-because their genes are cut from M0. Their medians are a proteomics proxy, their spread
+*At the default prior width, among the 20 parameters drawn and on V7 replicate 1's θ_I, about
+91% ± 4% of Var(μ), the parameter uncertainty in `lactate_out` at 6,300 s, comes from the 15
+promoter strengths that M0's fit cannot reach because their genes are cut from M0. Their medians are a proteomics proxy, their spread
 (geometric SD 2) is this project's choice, and the share runs from 63% at half that spread
 to 98% at double.*
 
@@ -95,7 +95,7 @@ SDs of 1.41, 2 and 4.
 **What the 9% rests on.** θ_I's share comes from one replicate of V7's 50, fitted at 600 s
 and carried to 6,300 s. The range from 63% to 98% varies only θ_H's width, not θ_I's
 posterior. And the transfer assumes θ_I's posterior would not move if θ_H's counterparts in
-M0 did. The predictive note (§3.2) states that this is untested and that the paper says so.
+M0, the enzyme counts and carrier totals it holds fixed, did. The predictive note (§3.2) states that this is untested and that the paper says so.
 
 ## The filter
 
@@ -111,24 +111,28 @@ and no cell failed or fell below a floor.
   so the two weight sets are identical there and the correlations are zero by
   construction. Even at width 2 it induces almost none. V acts by θ_H column there: three
   of the 20 keep 0.14, 0.58 and 0.99 of their rows, and the rest keep all of them (derived).
-  So its effective sample is 20 draws, whatever the ESS columns say about the weights.
+  So V's effect at width 2 rests on 3 of 20 θ_H draws, and the ESS columns overstate how
+  well it is known.
 - **Clipping is the common state here.** 70%, 74% and 90% of those cells clipped at least
   once (derived, clipped and starved cells together, since a starved cell has clipped),
   which V's frozen rule allows. Starved cells are 0%, 0.35% and 8.8% (derived).
-- **Why so much more than KIM-35, probably: θ_I, not the drawing of θ_H.** KIM-35's arm H
+- **Why so much more than KIM-35 at widths ½ and 1, probably: θ_I, not the drawing of θ_H.**
+  At width 2, θ_H's spread adds clipping of its own (90%, and 8.8% starved). KIM-35's arm H
   drew the same 15 promoters from the same prior and clipped 5.5% of 200 cells at 6,300 s,
   with θ_I at V6's fit. The evidence, all derived and none of it in the declared report:
   - Width ½ still clips 70%, so narrowing θ_H does not remove it.
   - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows.
   - Across those rows' krnadeg deciles at width 1, the clipped fraction falls at every
-    step, from 84% to 61%.
+    step, from 84% to 61%. The trend holds at width 2, though not at every step.
   - In mean-field solves (`a5.jl` and `a5.out` in the checks directory, at each fit's
     posterior mean of log θ with θ_H nominal), minimum GTP is 7,280 particles at V6's point and 4,404 at replicate 1's. Swapping
     krnadeg alone to V6's value gives 7,292. Swaps of S_0607, S_0779 and kcatF_R_ENO
     leave it within about 30 of 4,404; kcatF_R_FBA's swap did not finish.
 
-  That swap was not run on stochastic cells, so the link is unproven at the cell level.
-  Replicate 1 is not an outlier: its krnadeg ranks 32nd of V7's 50, and only 6 of the 50
+  Mean-field solves never clip, so they show a shift in minimum GTP and not clipping itself.
+  That swap was not run on stochastic cells, and no run has replicate 1's θ_I with θ_H
+  nominal, so the link is unproven at the cell level. Replicate 1 is not an outlier: by
+  posterior mean of log θ, its krnadeg ranks 32nd lowest of V7's 50, and only 6 of the 50
   reach V6's value. **So the clipping, K_d and Var(μ) figures here hold for replicate 1's
   θ_I, and another replicate could give different ones.**
 

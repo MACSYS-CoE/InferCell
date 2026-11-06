@@ -4461,8 +4461,8 @@ limit is stated in prose, with no rerun proposed.
   clipping, and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
 - §6 has no row for the budget. Whether it gets one is the user's call.
 - The M4 freeze's "7 and 11 of 200 cells clipped" (KIM-35) describes cells at V6's θ_I, not
-  θ_I in general. On V7 replicate 1's θ_I the rate is far higher, which the note traces,
-  short of a cell-level test, to krnadeg. So the clipping, K_d and Var(μ) figures hold for
+  θ_I in general. On V7 replicate 1's θ_I the rate is far higher, which the note attributes
+  at widths ½ and 1, short of a cell-level test, to krnadeg. So the clipping, K_d and Var(μ) figures hold for
   that replicate.
 
 **Cost:** 1,978 core-h held and 9.39–12.03 h per width, against the 11–13 h and 2,500
