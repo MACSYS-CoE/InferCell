@@ -201,15 +201,22 @@ of those post-debit instants with GTP below K_d. Of μ̂'s 8,000 baseline cells 
 - **The 0** is what the clamp writes when a debit exceeds the pool, so it marks a state of
   the model and not a measured depletion. Reaching it is the same event as a GTP clip, in
   all but 3 of the 24,000 cells.
-- **At width 2, a substantial minority reach the regime the dose screen reported.** That
-  screen, with θ_I drawn from its prior rather than this posterior, found GTP below K_d for
-  21–55% of rebuild instants in 12 of 20 draws, and for none in 6 (§12 2026-10-30), which the
-  freeze ties to the one-way reduction's basis failing. The 704 are width 2's starved cells,
-  whose bound runs from 50% to 82%. At widths ½ and 1 the bound is small.
-- **The bound says nothing about time between 0 and K_d.** Between 21% and 29% of these cells
+- **Some cells reach the regime the dose screen reported, and the bound undercounts them at
+  every width.** That screen, at width 1 with θ_I drawn from its prior rather than this
+  posterior, found GTP below K_d for 21–55% of rebuild instants in 12 of 20 draws, and for
+  none in 6 (§12 2026-10-30), which the freeze ties to the one-way reduction's basis failing.
+  The bound counts only instants at exactly 0, so the table's counts are floors. The 704 are
+  width 2's starved cells, whose bound runs from 50% to 82%.
+- **The bound says nothing about time between 0 and K_d.** Between 21% and 29% of the 8,000
   go below 2,018 without clipping GTP at all, so their bound is 0. Short time at 0 does not
-  mean short time below K_d: replays of a few hand-picked cells, not part of the run, found
-  8% below K_d for a width 1 cell with 27 clips, and 24% for a width 2 cell with 274.
+  mean short time below K_d. Replays of a few hand-picked cells, not part of the run, found
+  8%, 20.5% and 34.3% below K_d for width 1 cells with 27, 128 and 486 clips, and 24% for a
+  width 2 cell with 274. Width 1 has 1,388 cells with at least 128 clips and 555 with at
+  least 486. Being hand-picked, the replays do not turn those counts into a rate, but width 1
+  is not clear of the regime.
+- **The largest counts come mostly from a few θ_H draws, before V.** At width 2, two of the 20
+  θ_H columns hold 81% of the 704 and 48% of the 1,622, and they are the two V thins most.
+  Among V's kept pairs, width 2 has 1,120 above 21% and 302 above 50%, of 7,484.
 - **The run stores no elasticities,** so it shows the pool reaching this regime, not the
   basis failure itself.
 
