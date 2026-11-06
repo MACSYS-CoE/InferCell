@@ -14,7 +14,7 @@ observables and synthetic data, is done (#78). Phase 16, specified in
 `spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30), closed at M0 on
 2026-10-28 (#105–#110). The v0.3.0 claim is §1's, as amended on 2026-10-29 (§12,
 "v0.3.0 launch decisions").
-**Created:** 2026-09-03  ·  **Last amended:** 2026-10-30
+**Created:** 2026-09-03  ·  **Last amended:** 2026-11-06
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -4427,6 +4427,50 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-11-06 — KIM-42: the reduced model's budget, run (unscored)
+
+**Status: run complete; not a calibration result.** The results are in
+`dev/scripts/reduced_budget_kim42_result.md`. The run went at `f23fd06`, on the user's
+go-ahead of 2026-11-05, with the design and SE method the entry below declares, into
+`/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05/`: jobs 20041038, 20041039 (array;
+tasks 20041245, 20041246, 20041039) and 20041040. All completed. The note's derived figures
+rest on login-node checks with no job ids, in
+`/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06/`.
+
+**The headline, as declared:** the held share in the I-first order, under `per_theta_I`
+at width 1, is 0.908 ± 0.041 (H first 0.898 ± 0.042). It is 0.631 ± 0.102 at width ½ and
+0.980 ± 0.009 at width 2. The caveat the entry below requires applies at width 2, not
+width 1.
+
+**What the report's flags showed.** The entry below left this to be read from the real
+report. Q's split has no flag, `NaN` or share above 1. ΔQ's split is not resolved: its
+Var(μ) came out negative and is reported as 0 at widths 1 and 2, so its shares are not
+numbers. ΔQ's means stand. Per the user's decision on M0's ΔQ (the 2026-11-05 entry), the
+limit is stated in prose, with no rerun proposed.
+
+**Stated in the result note, not changed here:**
+- The completion plan's sentence, "parameters no measurement supports", is not claimed as
+  written. θ_H are 15 `:asserted` promoter strengths, with medians from a proteomics proxy
+  and a spread this project chose, and θ_I's data are synthetic. The note states what the
+  run supports instead, a split among the 20 drawn parameters; the user can still change
+  its wording.
+- 92–98% of cells reach GTP below K_d at least once, 68–72% reach exactly 0, and 70–90% clip
+  at least once. The run stores no time below K_d, but GTP clip counts bound it from below:
+  above half the run in 0, 28 and 704 of 8,000 cells. It stores no elasticities. V allows
+  clipping, and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
+- §6 has no row for the budget. Whether it gets one is the user's call.
+- The M4 freeze's "7 and 11 of 200 cells clipped" (KIM-35) describes cells at V6's θ_I, not
+  θ_I in general. On V7 replicate 1's θ_I the rate is far higher, which the note attributes
+  at widths ½ and 1, short of a cell-level test, to krnadeg. So the clipping, K_d and Var(μ) figures hold for
+  that replicate.
+
+**Cost:** 1,978 core-h held and 9.39–12.03 h per width, against the 11–13 h and 2,500
+core-h allowed.
+
+**Unchanged:** every choice in the M4 freeze and in the entry below.
+
+*Sections:* §12.
 
 ### 2026-11-05 — KIM-42: the reduced model's budget, pre-registered, and its SE gate's near miss (the user's decision)
 
