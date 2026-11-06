@@ -351,6 +351,54 @@ sampler on M0. Marginals and the rank-ECDF. To be drawn.}
 \label{fig:approx}
 \end{figure*}
 
+\subsection{What the budget leaves out: model form}
+\label{sec:modelform}
+
+A prediction's uncertainty has four sources: inferred parameters, held parameters,
+intrinsic noise and model form. The first three have numbers in \cref{sec:budget}. Model
+form does not have one. Each reduction is listed in \cref{tab:modelform} and marked by
+what we know of its effect on $Q$. Only the formalism swap is measured, because only it
+has a column in the crossed design. Every other reduction is declared and not bounded, so
+the budget does not cover the full uncertainty a modeller should carry.
+
+\begin{table*}[t]
+\caption{The model-form table. Counts come from \texttt{reduction\_declarations} on the
+reduced model (\pn{red.total} declarations) and on M0 (\pn{mz.total}), and S1 File lists
+each one. Effect is the effect on $Q$.}
+\label{tab:modelform}
+\centering
+\small
+\begin{tabular}{@{}p{0.4\textwidth}p{0.12\textwidth}p{0.42\textwidth}@{}}
+\toprule
+Reduction & Applies to & Effect \\
+\midrule
+Formalism swap: stochastic gene expression replaced by its mean & Both & \textbf{Measured} on M0: a shift of \pn{pred.q.fshift} standard deviations at the same width, which $\delta$ removes (\cref{sec:predm0}) \\
+Transfer of the M0 posterior into the reduced model, where the proteins M0 holds are expressed stochastically & Reduced model & Declared, not tested. A test (fit M0 to reduced-model data by the mixed route, predict, and score) is neither designed nor costed \\
+\pn{mzero.heldenz} enzyme counts held at proteomics copy numbers, and \pn{mzero.heldpts} carrier totals at their initial values & M0 & Declared, not bounded \\
+One-way nucleotide coupling: the pools' effect on the rate constants rests on elasticities of \pn{gain.txlo}--\pn{gain.tl} & Both & Declared, not bounded, and in question on the reduced model: see the text \\
+Clamped CTP and UTP pools (\pn{red.clamp}) & Both & Declared, not bounded \\
+Lumped tRNA charging, in the ODE block (\pn{red.lumping} lumping, \pn{red.formalism} formalism) & Both & Declared, not bounded \\
+Asserted priors (\pn{red.asserted_prior} on the reduced model, \pn{mz.asserted_prior} on M0), and priors the driver overwrites (\pn{red.discarded_prior}) & Both & The \pn{budget.nH} promoter widths are varied in \cref{tab:budget}; the rest are declared, not bounded \\
+Membrane growth: frozen baseline area and a calibrated footprint, with capped geometry (\pn{red.exogenous_growth}, \pn{red.calibrated_constant}, \pn{red.capped_rate_law_geometry}) & Both & Declared, not bounded \\
+Other module notes (\pn{red.model_note} on the reduced model, \pn{mz.model_note} on M0) & Both & Declared, not bounded \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{The one-way coupling on the reduced model.} The elasticities that justify this
+reduction hold while GTP stays well above the half-saturation constant of RNA polymerase.
+At the default width, \pn{kd.lo}--\pn{kd.hi}\% of baseline cells fall below it at least
+once, and \pn{kd.zero}\% reach exactly zero. Clip counts bound the time below it from below:
+\pn{kd.boundn} of \pn{budget.ncellsbase} cells spend more than \pn{kd.boundpct}\% of their
+post-debit instants at zero. This bound says nothing about time between zero and the
+threshold, so it undercounts. An earlier screen, with the inferred parameters drawn from
+their priors rather than this posterior, found GTP below the threshold at
+\pn{kd.screenlo}--\pn{kd.screenhi}\% of rebuild instants in \pn{kd.screenn} of 20 draws,
+and at none in \pn{kd.screenzero}. On those draws the basis does not hold over the full
+cycle, whatever the dose. On M0 the same screen found GTP below the threshold at no
+instant at the chosen dose. So this caveat applies to the reduced model and not to the
+scored system, and the scored check does not cover it.
+
 \subsection{Cost}
 \label{sec:cost}
 
