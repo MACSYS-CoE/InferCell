@@ -12,8 +12,7 @@ a prior width that we chose. M0 is the check behind them: the posterior-to-predi
 the number of genes and the length of the record, and the full reduced model is
 already above our budget. The mixed route removes the stochastic paths from
 the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
-and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. So the metabolites constrain the paths together, and a single draw of paths
-per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
+and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. If $\mathcal{R}$ is near those bounds, the metabolites constrain the paths together, and a single draw of paths per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
 in this regime (\cref{sec:approx}). We have not tested it on the full reduced model.
 
 \paragraph{The observation model sets the interface.} The three graphs of
