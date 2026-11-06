@@ -50,7 +50,7 @@ against approximate; the reverse-coupling gain range (0.04–0.09); the
 replication counts (V7's 50; 5.3's injections); 95% coverage per target; ptsG
 shrinkage under metabolites only, with ENO's null under transcripts only.
 
-## 1. Introduction: why inference, and why nobody does it
+## 1. Introduction: why inference, and why point estimates are not calibrated posteriors
 
 **Content:**
 - Whole-cell models simulate a cell from its parts (Karr 2012, Macklin 2020,
@@ -322,6 +322,7 @@ before citing. Entries marked † are not yet cited anywhere in the repo.
 
 **Parameters in whole-cell and systems-biology models**
 - Babtie and Stumpf (2017), *J. R. Soc. Interface*. The case for inference in whole-cell models.
+- Karr et al. (2015), *PLoS Comput. Biol.* 11(5): e1004096. DREAM8: point estimation of 30 parameters in a whole-cell model, no posteriors.
 - †Lubitz et al. (2010), *J. Phys. Chem. B*. Parameter balancing, the method behind the metabolic priors.
 - †Gutenkunst et al. (2007), *PLoS Comput. Biol.* Sloppiness.
 - †*Increasing certainty in systems biology models using Bayesian multimodel inference*, *Nat. Commun.* (2025). Authors to check.

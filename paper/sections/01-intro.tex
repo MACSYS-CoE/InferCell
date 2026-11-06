@@ -30,8 +30,17 @@ ask which data would reduce that uncertainty.
 
 Bayesian inference answers both questions. It treats each parameter as a
 distribution, updates the distribution with data, and propagates the result into
-predictions. Systems biology argued for this approach long ago
-\cite{babtie2017how}. Whole-cell models still do not use it, for the
+predictions. Systems biology argued for this approach long ago \cite{babtie2017how}.
+Whole-cell parameters have been estimated, but as point estimates and not as calibrated
+posteriors. In the DREAM8 challenge, teams recovered \pn{dream.nparam} parameters of a
+modified \textit{M.\ genitalium} model, \pn{dream.nmod} changed and \pn{dream.nmod} unchanged,
+scored against that one known truth \cite{karr2015summary}. Parameter error and prediction
+error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{dream.rtop}
+among the top solutions, and the authors note that several parameter sets give similar
+system-level phenotypes. A single estimate cannot express that, and a posterior can
+\cite{gutenkunst2007universally}. No team used automatic differentiation, and the
+authors asked for automated reduced models and for data on single-cell variation over
+time. Whole-cell models still do not report posteriors over their parameters, for the
 following reasons.
 
 \begin{enumerate}

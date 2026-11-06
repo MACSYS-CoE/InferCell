@@ -210,7 +210,9 @@ one M0 dataset of \pn{mzero.cells} cells. The rank-normalised $\Rhat$
 size is at least \pn{vsix.ess} for every parameter. This reference run cost
 \pn{vsix.cpuh} CPU-hours.
 
-\paragraph{Calibration.} We drew \pn{vseven.R} parameter sets from the prior,
+\paragraph{Calibration.} A test against one known truth, as in DREAM8
+\cite{karr2015summary}, cannot show whether a posterior's width is right. So we drew
+\pn{vseven.R} parameter sets from the prior,
 simulated one dataset from each, and fitted each dataset with one chain. For each
 parameter we compared the empirical CDF of the ranks of the truth with a
 simultaneous band \cite{sailynoja2022graphical}, at a joint level of 95\% over the
@@ -327,7 +329,10 @@ two are within it.
 \paragraph{One data stream at a time.} On the reference dataset under transcripts only,
 none of the five marginals we compared differs detectably from the exact fit: the
 Wasserstein distance is \pn{mix.txlo}--\pn{mix.txhi} exact standard deviations, each
-below its noise floor. Under metabolites only, enolase, the decay rate and $\sigb$
+below its noise floor. The decay rate's posterior variance shrinks by \pn{mix.krnadegtx}\% under transcripts only:
+the autocorrelation in a time-resolved single-cell record separates it from the promoter
+strength, a pair that RNA-seq snapshots constrain only as a product \cite{karr2015summary}.
+Under metabolites only, enolase, the decay rate and $\sigb$
 differ detectably, by small margins, and aldolase does not. The exact fit has an
 effective sample size of only \pn{mix.krnadegess} for the decay rate. Each floor is one sample of the
 noise, so these margins are not precise, and we have not tested whether they share a

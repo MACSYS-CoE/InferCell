@@ -98,7 +98,7 @@ MC4D is the exception, not the rule. Almost every whole-cell model ever built is
 
 The Luthey-Schulten lab is the only group that has made spatial resolution central to whole-cell modelling, first with the 3D minimal cell (Thornburg et al. 2022) and then MC4D. This is their distinctive contribution to the field.
 
-The landscape is clear: the field has pushed toward more spatial resolution (MC4D) and more biological completeness (Karr 2012, Macklin 2020). Nobody has pushed toward inference. That is the gap InferCell fills.
+The landscape is clear: the field has pushed toward more spatial resolution (MC4D) and more biological completeness (Karr 2012, Macklin 2020). Whole-cell parameters have been point-estimated (DREAM8; Karr et al. 2015), but no one has produced calibrated posteriors across a stochastic–deterministic boundary. That is the gap InferCell fills.
 
 ## Why spatial whole-cell models only exist for minimal cells
 
