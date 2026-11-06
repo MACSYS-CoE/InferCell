@@ -121,8 +121,76 @@ each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
 \citep{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass
 rule was fixed before any rank was computed.
 
+\subsection{Prediction}
+\label{sec:prediction}
+
+\paragraph{What was fixed in advance.} We fixed the quantity $Q$, the estimand, the
+viability rule, the dose and the variance split on pilots with held-out parameters and
+seeds, before any evidence run, and recorded them in the project's amendment log. The
+pilot's sensitivity rule for $Q$ asked $\theta_I$ to hold at least 5\% of the parameter
+variance at \pn{model.cycle}\,s, and lactate export did not meet it
+(\pn{pilot.share}\%~$\pm$~\pn{pilot.sharese}\%). We kept $Q$, on a reading written after a
+small trial run and before the full pilot: the failure counts against $Q$ only if
+$\theta_I$'s elasticities are under a quarter of $\theta_H$'s, and they are not
+(\pn{pilot.elI} against \pn{pilot.elH}). The small share comes from the tight posterior.
+
+\paragraph{Estimand.} For a parameter draw, $\hat\mu(\theta)$ is the mean of $Q$ over
+$n$ hybrid cells with fresh seeds. Its noise is $\sigma^2(\theta)/n$, and we subtract the
+mean of that term from the spread over draws. The intrinsic spread is reported
+separately, from the hybrid only.
+
+\paragraph{Completion and viability.} On the reduced model, $\theta_H$ is drawn from its
+prior, and width scales its log-scale standard deviation at a fixed median. A cell is
+failed, starved, below a floor, clipped or clean, in that order of precedence, and a cell
+is starved if some counter clipped at more than half its drains. A parameter pair is
+viable if at least half of \pn{budget.ncellspair} separate cells are viable, where clipped
+cells count as viable. We condition $\theta_H$ on viability per draw of $\theta_I$, so
+$\theta_I$'s marginal stays the M0 posterior, given at least one viable $\theta_H$ for it.
+The joint variant gave the same shares to the reported precision.
+
+\paragraph{The variance split.} With a crossed matrix of $\hat\mu$ we use weighted
+U-statistics on the centred values, and we report both nested orders. We checked the
+estimator's bias by simulation on known splits. The standard errors are a two-way
+jackknife, checked on synthetic matrices with the same structure. Near a share of one that
+check failed narrowly, so the widest setting's standard error may be too wide by up to
+about half.
+
+\paragraph{The intervention.} A knockdown at dose $d$ scales the ptsG promoter strength
+by $1 - d$ after the parameter draw, and the effect is paired on common seeds. We assume
+that the intervention acts only through that parameter, that the posterior fitted to
+unperturbed data carries over unchanged, and that the model stays valid at the dose. $V$
+is read at baseline: a rejected pair is not run under the intervention, and a cell that
+fails only under it is counted as part of the prediction. The largest dose in
+$\{0.1, 0.2, 0.3\}$ that kept M0's pools in their regime was \pn{budget.dose}.
+
+\paragraph{Scoring on M0.} Each posterior contributes \pn{pred.ndraws} draws at
+\pn{pred.ncells} cells each. The truth and the offset $\delta$ each use \pn{pred.nref}
+cells. Coverage counts the truth's estimated value inside the central interval of the
+draws.
+
 \subsection{Compute}
 \label{sec:compute}
 
-All runs used the OzSTAR cluster. \placeholder{Hardware, total CPU-hours, and a table
-of every job behind each number, from the result files.}
+All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its AMD
+\texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind each result. The commits and checksums are in the evidence archive
+and the result notes named in \cref{sec:availability}.
+
+\begin{table}[h]
+\caption{The runs behind the results. Hours are from Slurm accounting. The mixed route's
+omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held.}
+\label{tab:compute}
+\centering
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+Run & Slurm jobs & CPU-hours \\
+\midrule
+Exact reference & \pn{compute.vsixjobs} & \pn{vsix.cpuh} \\
+Exact calibration & \pn{compute.vsevenjobs} & \pn{vseven.cpuh} \\
+Exact, production chain & \pn{compute.ftenjobs} & \pn{ften.cpuh} \\
+Mixed route & \pn{compute.bsevenjobs} & \pn{compute.bsevencpuh} \\
+M0 scoring & \pn{compute.mzerojobs} & \pn{compute.mzerocpuh} \\
+Reduced-model budget & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh} \\
+\bottomrule
+\end{tabular}
+\end{table}

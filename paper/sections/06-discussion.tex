@@ -29,6 +29,13 @@ measured against a more detailed composition. The formalism swap is such a reduc
 We do not claim that the more detailed composition is the truth about the cell. We
 claim that each choice of description is declared, and that its cost is measured.
 
+The prediction of \cref{sec:budget} uses the other tool, a cut, and it does so on
+purpose. There the choice is not between two ways of inferring one model. No data
+reach the held parameters at all, and an exact posterior on the reduced model is out of
+reach. So the cut says plainly what the prediction is: a modular transfer of an M0
+posterior, with the other parameters at their priors. Its cost is not measured, and it
+is declared.
+
 \subsection{Limitations}
 
 \begin{itemize}
@@ -39,11 +46,13 @@ claim that each choice of description is declared, and that its cost is measured
   reduced model. \placeholder{O3: build the generic registry, or narrow the
   framework claim to ``demonstrated on one organism''.}
   \item \emph{Asserted priors.} Many priors have no width in their source, so we set
-  the width. The uncertainty budget (\cref{sec:budget}) reports how much this choice
-  matters. \placeholder{Once built.}
+  the width. This choice matters: the held share of the budget runs from
+  \pn{budget.heldpctlo}\% to \pn{budget.heldpcthi}\% across the widths we tried
+  (\cref{sec:budget}).
   \item \emph{Exact calibration at small scale only.} Coverage of the exact sampler
   at the full reduced model is out of reach at about \pn{cost.fullscale} CPU-hours per
-  posterior.
+  posterior. The reduced model's prediction is therefore unscored, and it rests on one
+  posterior and on a transfer we have not tested.
   \item \emph{Weak reverse coupling.} The mixed route relies on the small
   elasticities of the rebuild (\pn{gain.txlo}--\pn{gain.tl}). A perturbation that
   drains the nucleotide pools toward the half-saturation constant would remove this

@@ -127,6 +127,126 @@
 \pndef{mix.ndraw}{200}% same
 \pndef{mix.chains}{2}% same
 
+%% --- KIM-42: the reduced model's budget (UNSCORED) ---------------------------
+%% Archive: infercell-predict-archive-2026-11-06/runs/budget-kim42/ (budget.md, budget_rows.tsv), job 20041040 at f23fd06.
+%% "derived" = dev/scripts/reduced_budget_kim42_result.md, computed from w*.jls by runs/checks-kim42/.
+\pndef{budget.nI}{five}% M0_TARGETS; note, notation
+\pndef{budget.nH}{15}% promoter strengths M0 cuts; note
+\pndef{budget.ndrawn}{20}% note, supported sentence
+\pndef{budget.nrows}{100}% budget.md header
+\pndef{budget.ncols}{20}% same
+\pndef{budget.ncellspair}{4}% same, baseline cells per pair
+\pndef{budget.dose}{0.3}% same
+\pndef{budget.heldpct}{91}% budget.md 0.908, note's supported sentence
+\pndef{budget.heldpctse}{4}% budget.md 0.041
+\pndef{budget.heldpctlo}{63}% budget.md 0.631
+\pndef{budget.heldpcthi}{98}% budget.md 0.980
+\pndef{budget.heldnewcell}{72}% derived, note "The headline"
+\pndef{budget.meanratio}{1.459}% derived, note "The mean moves too"
+\pndef{budget.meanratiose}{0.079}% same
+\pndef{budget.gsdlo}{1.41}% note, widths
+\pndef{budget.gsdone}{2}% same
+\pndef{budget.gsdhi}{4}% same
+\pndef{budget.qlo}{8.80}% budget.md 8.7986e+06
+\pndef{budget.qone}{9.58}% budget.md 9.5765e+06
+\pndef{budget.qhi}{12.84}% budget.md 1.2835e+07
+\pndef{budget.sdlo}{0.75}% budget.md 7.518e+05
+\pndef{budget.sdone}{1.47}% budget.md 1.473e+06
+\pndef{budget.sdhi}{3.84}% budget.md 3.835e+06
+\pndef{budget.sharelo}{$0.631 \pm 0.102$}% budget.md, I first, per_theta_I
+\pndef{budget.shareone}{$0.908 \pm 0.041$}% same
+\pndef{budget.sharehi}{$0.980 \pm 0.009$}% same; note: this SE may be too wide
+\pndef{budget.acclo}{1.000}% budget.md acceptance
+\pndef{budget.accone}{1.000}% same
+\pndef{budget.acchi}{0.9355}% same
+\pndef{budget.rejected}{6.45}% note "The filter", 1 - 0.9355
+\pndef{budget.cliplo}{70}% derived, note "The filter"
+\pndef{budget.clipone}{74}% same
+\pndef{budget.cliphi}{90}% same
+\pndef{budget.starvelo}{0}% same
+\pndef{budget.starveone}{0.35}% same
+\pndef{budget.starvehi}{8.8}% same
+\pndef{budget.dqlo}{$-118 \pm 9$}% budget.md -1.1831e+05 +- 9.4e+03
+\pndef{budget.dqone}{$-98 \pm 14$}% budget.md -98421 +- 1.4e+04
+\pndef{budget.dqhi}{$-40 \pm 32$}% budget.md -39525 +- 3.2e+04
+\pndef{budget.dqpct}{1.03}% derived, note "ΔQ under the knockdown"
+\pndef{budget.dqpctse}{0.14}% same
+\pndef{budget.ncellsbase}{8{,}000}% note "The filter", mu-hat's baseline cells per width
+\pndef{budget.clipdechi}{84}% derived, note "The filter", krnadeg deciles at width 1
+\pndef{budget.clipdeclo}{61}% same
+\pndef{pred.ncells}{887}% runs/m0-kim40-kim41/score.md header
+\pndef{pred.nref}{9{,}849}% same, n_ref = n_truth
+
+%% --- KIM-40, KIM-41: M0's crossed comparison (SCORED) ------------------------
+%% Archive: infercell-predict-archive-2026-11-06/runs/m0-kim40-kim41/score.md, job 19684101 at ed179c2.
+%% The references come from dev/scripts/m0_evidence_kim40_result.md, "How to read the coverage".
+\pndef{mzero.ngenes}{2}% M0_GENES
+\pndef{cost.fullcoverage}{1.0 million}% spec/phases/16-recovery.md §12, the 16a.11 entry
+\pndef{pilot.share}{3.3}% spec/spec.md §12 2026-10-30, M4 freeze, "Q, O4 final" (KIM-35)
+\pndef{pilot.sharese}{1.5}% same
+\pndef{pilot.elI}{0.056}% same, median |d ln Q / d ln theta| for theta_I
+\pndef{pilot.elH}{0.047}% same, for theta_H
+\pndef{pred.ndraws}{100}% score.md header
+\pndef{pred.ref90}{88.2}% result note
+\pndef{pred.ref50}{49}% same
+\pndef{pred.se90}{4.6}% same
+\pndef{pred.se50}{7.1}% same
+\pndef{pred.q.eh.c}{$62.0 \pm 6.9$}% score.md, Q
+\pndef{pred.q.eh.n}{$92.0 \pm 3.8$}% same
+\pndef{pred.q.em.c}{$58.0 \pm 7.0$}% same
+\pndef{pred.q.em.n}{$94.0 \pm 3.4$}% same
+\pndef{pred.q.em.w}{0.988}% same
+\pndef{pred.q.ed.c}{$56.0 \pm 7.0$}% same
+\pndef{pred.q.ed.n}{$90.0 \pm 4.2$}% same
+\pndef{pred.q.ed.w}{0.988}% same
+\pndef{pred.q.mh.c}{$50.0 \pm 7.1$}% same
+\pndef{pred.q.mh.n}{$88.0 \pm 4.6$}% same
+\pndef{pred.q.mh.w}{0.823}% same
+\pndef{pred.q.mm.c}{$54.0 \pm 7.0$}% same
+\pndef{pred.q.mm.n}{$82.0 \pm 5.4$}% same
+\pndef{pred.q.mm.w}{0.772}% same
+\pndef{pred.q.md.c}{$48.0 \pm 7.1$}% same
+\pndef{pred.q.md.n}{$84.0 \pm 5.2$}% same
+\pndef{pred.q.md.w}{0.772}% same
+\pndef{pred.d.eh.c}{$62.0 \pm 6.9$}% score.md, ΔQ
+\pndef{pred.d.eh.n}{$98.0 \pm 2.0$}% same
+\pndef{pred.d.em.c}{$46.0 \pm 7.0$}% same
+\pndef{pred.d.em.n}{$90.0 \pm 4.2$}% same
+\pndef{pred.d.em.w}{0.733}% same
+\pndef{pred.d.ed.c}{$48.0 \pm 7.1$}% same
+\pndef{pred.d.ed.n}{$88.0 \pm 4.6$}% same
+\pndef{pred.d.ed.w}{0.733}% same
+\pndef{pred.d.mh.c}{$52.0 \pm 7.1$}% same
+\pndef{pred.d.mh.n}{$96.0 \pm 2.8$}% same
+\pndef{pred.d.mh.w}{0.964}% same
+\pndef{pred.d.mm.c}{$32.0 \pm 6.6$}% same
+\pndef{pred.d.mm.n}{$86.0 \pm 4.9$}% same
+\pndef{pred.d.mm.w}{0.635}% same
+\pndef{pred.d.md.c}{$26.0 \pm 6.2$}% same
+\pndef{pred.d.md.n}{$78.0 \pm 5.9$}% same
+\pndef{pred.d.md.w}{0.635}% same
+\pndef{pred.q.eh.sehigh}{1.8}% result note, Q
+\pndef{pred.q.mixnarrow}{18}% same, 1 - 0.823
+\pndef{pred.q.fshift}{0.14}% same (score.md 0.136)
+\pndef{pred.q.rshift}{$-0.11$}% same
+\pndef{pred.q.cheaplo}{82}% score.md
+\pndef{pred.q.cheaphi}{84}% same
+\pndef{pred.q.maxse}{1.4}% result note
+\pndef{pred.dqmedian}{$-20{,}400$}% result note; read from score_datasets.tsv after the run
+\pndef{pred.dqmcv}{0.503}% score.md, ΔQ, V7's MC share
+\pndef{pred.dqcost}{100{,}000}% result note "The 10% rules"
+
+%% --- Compute (Methods), from each run's result note --------------------------
+\pndef{compute.vsixjobs}{18276511--14, 18276515, 18420986--90}% dev/scripts/v6_16a9b_result.md
+\pndef{compute.vsevenjobs}{18276794, 18628508, 18689602}% dev/scripts/v7_16a9b_result.md
+\pndef{compute.ftenjobs}{18751635}% dev/scripts/f10_16a10_result.md
+\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32}% dev/scripts/av6_89_b7_result.md
+\pndef{compute.bsevencpuh}{391.9}% same, completed jobs; 274.1 more lost to the MAP fault
+\pndef{compute.mzerojobs}{19684097--101, 19827688}% dev/scripts/m0_evidence_kim40_result.md
+\pndef{compute.mzerocpuh}{12{,}978}% same
+\pndef{compute.budgetjobs}{20041038--40}% dev/scripts/reduced_budget_kim42_result.md
+\pndef{compute.budgetcpuh}{1{,}978}% same, core-hours held
+
 %% --- M0's observation model and the reverse read-off ------------------------
 \pndef{mzero.npanel}{17}% M0_PANEL, src/organisms/coreA/m0.jl
 \pndef{tsplit.eno}{0.0041}% spec/phases/16-recovery.md 16b.5, job 19395555
