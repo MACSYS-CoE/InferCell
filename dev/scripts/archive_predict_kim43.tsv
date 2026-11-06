@@ -1,0 +1,9 @@
+directory	issue	commit	design_commits	jobs	original_path	result_note
+runs/m0-kim40-kim41	KIM-40,KIM-41	ed179c2	93abbce,5ec56d3,9310ddb	precompile 19684097; prep 19684098; work 19684099, 19827688 (task 587); finish 19684100; score 19684101; audit 20002599	/fred/oz022/tkimpson/infercell-m5-kim40-2026-11-01	dev/scripts/m0_evidence_kim40_result.md
+runs/budget-kim42	KIM-42	f23fd06	93abbce,ed179c2	precompile 20041038; widths 20041039 (raw ids 20041245, 20041246, 20041039); report 20041040	/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05	dev/scripts/reduced_budget_kim42_result.md
+runs/secheck-kim42	KIM-42	d3a544e		precompile 20008626; secheck 20008627	/fred/oz022/tkimpson/infercell-m5-kim42-secheck-2026-11-05	dev/scripts/reduced_budget_kim42_result.md
+runs/checks-kim42	KIM-42	f23fd06		none: login-node checks	/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06	dev/scripts/reduced_budget_kim42_result.md
+runs/pilot-kim35	KIM-35	a742224		precompile 19560137; arms 19560138, 19560139, 19560140, 19560141; local 19560142, 19560143; merge 19560144	/fred/oz022/tkimpson/infercell-m4-kim35-2026-10-30	dev/scripts/sensitivity_pilot_kim35_result.md
+inputs/v7-fits	V7	dfe570a		replicates 18276794, 18628508; merge 18689602 (at 0ff6cff)	/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b	dev/scripts/v7_16a9b_result.md
+inputs/b7-chains	B7	7a102fc,6526b45,8da6045		run/jobs.tsv in the B7 archive	/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run	dev/scripts/av6_89_b7_result.md
+inputs/b7-v6	B7	7a102fc		run/jobs.tsv in the B7 archive	/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6	dev/scripts/av6_89_b7_result.md
