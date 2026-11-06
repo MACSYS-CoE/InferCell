@@ -246,3 +246,6 @@ The run's directory does not hold everything this note rests on. The archive als
   whose replicate 1 is the run's input, recorded with an `inputs.sha256` as M0's run has;
 - V6's chains, `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6/`, and KIM-35's
   run, `/fred/oz022/tkimpson/infercell-m4-kim35-2026-10-30/`.
+
+**Done:** all of this is in `/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`, whose
+`README.md` lists it. `inputs/inputs.sha256` pins replicate 1 and the V6 chains.

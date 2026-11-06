@@ -1,6 +1,23 @@
 # Handoff
 
-## Latest: KIM-42, the reduced model's budget, pre-registered (branch `tomkimpson/kim-42-evidence-reduced-model-uncertainty-budget-unscored`, 2026-11-05)
+## Latest: KIM-43, the evidence archive (branch `tomkimpson/kim-43-archive-the-evidence-package-with-sha256sums`, 2026-11-06)
+
+**State: built and verified.** The archive is
+`/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`. Its `SHA256SUMS` covers 3,940 files
+and has the hash `1f2e3fce1f676804…`. The record is spec §12, 2026-11-06; the build script
+and the archive's README are `dev/scripts/archive_predict_kim43*`.
+- **Jobs:** build 20150322 at `e237a18`; a separate `sha256sum -c`, 20151374.
+- **Originals:** copied, not moved, so the result notes' paths still hold.
+
+**Next:**
+1. **KIM-46** (§5.5), which this unblocks. It adds the M5 entries to `numbers.tex`, each citing a
+   file in the archive; the README's table says which. That completes KIM-43's "the paper's
+   numbers trace to this archive", which could not be met before the numbers existed. KIM-46
+   also fills the Availability section's "draws archive" placeholder on `paper-1-draft`.
+2. **KIM-54:** the public deposit. Nothing in the archive is published. It is 13 GB, so what goes
+   on Zenodo is still to be decided.
+
+## Earlier: KIM-42, the reduced model's budget, pre-registered (branch `tomkimpson/kim-42-evidence-reduced-model-uncertainty-budget-unscored`, 2026-11-05)
 
 **State: built and tested, not run.** The record is spec §12, 2026-11-05, and the header
 of `dev/scripts/reduced_budget_kim42.jl`. The launcher is
