@@ -60,13 +60,21 @@ about 39 effective.
 
 **The sentence the plan aimed for is not claimed as written.** "x% of this prediction's
 uncertainty comes from parameters no measurement supports" overstates this run in two
-ways. θ_H are the reduced model's *informed* constants, completed from priors (the
-predictive note, §1), so they are unconstrained by this fit's data, not by all
-measurement. And θ_I's posterior comes from V7 replicate 1, a fit to M0's synthetic data,
-so the 9% is not what real measurements would leave. What the run supports: *at the
-default prior width, about 91% of this prediction's parameter uncertainty comes from
-parameters this fit's data do not constrain, and that share runs from 63% to 98% as the
-priors go from half to double.*
+ways. θ_H are 15 promoter strengths marked `:asserted`
+(`src/organisms/coreA/transcription.jl`): their medians rest on proteomics through a proxy,
+protein copy number over 180, but no measurement sets their width. And θ_I's posterior
+comes from V7 replicate 1, a fit to M0's synthetic data, so the 9% is not what real
+measurements would leave. What the run supports:
+
+*At the default prior width, about 91% ± 4% of Var(μ), the parameter uncertainty in
+`lactate_out` at 6,300 s, comes from the 15 promoter strengths that M0's fit cannot reach
+because their genes are cut from M0. Their medians are a proteomics proxy, their spread
+(geometric SD 2) is this project's choice, and the share runs from 63% at half that spread
+to 98% at double.*
+
+Every other constant is held fixed or derived, so this is a split among these 20 drawn
+parameters only. The widths scale the log-scale σ at a fixed median, which gives geometric
+SDs of 1.41, 2 and 4.
 
 ## The filter
 

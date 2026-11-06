@@ -4449,8 +4449,10 @@ limit is stated in prose, with no rerun proposed.
 
 **Stated in the result note, not changed here:**
 - The completion plan's sentence, "parameters no measurement supports", is not claimed as
-  written, because θ_H are informed constants and θ_I's data are synthetic. Its wording
-  is the user's call.
+  written. θ_H are 15 `:asserted` promoter strengths, with medians from a proteomics proxy
+  and a spread this project chose, and θ_I's data are synthetic. The note states what the
+  run supports instead, a split among the 20 drawn parameters; the user can still change
+  its wording.
 - 92–98% of cells reach GTP below K_d, and 70–90% clip at least once. V allows clipping,
   and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
 - §6 has no row for the budget. Whether it gets one is the user's call.
