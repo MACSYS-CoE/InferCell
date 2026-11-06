@@ -51,8 +51,10 @@ model alone:
   widths, and θ_I's draws are the same at each. The held variance grows, from 3.57e+11
   to 1.97e+12 to 1.44e+13.
 - **Order:** the two orders differ by about a point or less, and no gap is more than
-  about 1.7 of its SEs from zero. The interaction is small on this scale.
-- **The mean moves too:** Q's mean rises about 46% from width ½ to width 2 (derived).
+  about 1.7 of its SEs from zero. The interaction is small relative to Var(μ), though it is
+  not resolved relative to θ_I's term.
+- **The mean moves too:** Q's mean rises about 46% from width ½ to width 2 (a ratio of
+  1.459 ± 0.079, paired, derived).
 - **The widths are not independent estimates.** They share their cells' seeds and their
   θ_H draws, scaled. Twenty columns set the held variance at all three.
 
@@ -102,7 +104,9 @@ The cell columns count μ̂'s 8,000 baseline cells at each width, before V. No r
 and no cell failed or fell below a floor.
 - **V acted only at width 2,** and removed 6.45% of pairs. At ½ and 1 it kept everything,
   so the two weight sets are identical there and the correlations are zero by
-  construction. Even at width 2 it induces almost none.
+  construction. Even at width 2 it induces almost none. V acts by θ_H column there: three
+  of the 20 keep 0.14, 0.58 and 0.99 of their rows, and the rest keep all of them (derived).
+  So its effective sample is 20 draws, whatever the ESS columns say about the weights.
 - **Clipping is the common state here.** 70%, 74% and 90% of those cells clipped at least
   once (derived, clipped and starved cells together, since a starved cell has clipped),
   which V's frozen rule allows. Starved cells are 0%, 0.35% and 8.8% (derived).
@@ -166,9 +170,9 @@ below 2,018 particles (a lower bound) and 2,160 (an upper bound):
 
 | width | baseline, all 8 of every pair | baseline, kept pairs | knockdown, kept pairs |
 |---|---|---|---|
-| ½ | 0.9694–0.9776 (n = 16,000) | 0.9694–0.9776 (16,000) | 0.9624–0.9706 (8,000) |
-| 1 | 0.9467–0.9576 (16,000) | 0.9467–0.9576 (16,000) | 0.9391–0.9500 (8,000) |
-| 2 | 0.9325–0.9441 (16,000) | 0.9278–0.9403 (14,968) | 0.9176–0.9340 (7,484) |
+| ½ | 0.9694–0.9776 (15,511–15,642 of 16,000) | 0.9694–0.9776 (15,511–15,642 of 16,000) | 0.9624–0.9706 (7,699–7,765 of 8,000) |
+| 1 | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9391–0.9500 (7,513–7,600 of 8,000) |
+| 2 | 0.9325–0.9441 (14,920–15,106 of 16,000) | 0.9278–0.9403 (13,888–14,074 of 14,968) | 0.9176–0.9340 (6,867–6,990 of 7,484) |
 
 **So nearly every cell reaches the threshold at least once; the run does not say for how
 long.** A cell counts here if its GTP was *ever* below the threshold. The freeze ties the
@@ -202,3 +206,10 @@ the held parameters.
 - It says nothing about how the reduced model compares with real measurements.
 - Its code had no adversarial review before the run: the user waived `/check-PR` for
   #151. What tested it was the SE check and the two smoke passes.
+
+## For KIM-43's archive
+
+The run's directory does not hold everything this note rests on. The archive also needs the
+SE check's directory (above) and V7 replicate 1,
+`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/replicate1.jls`,
+recorded with an `inputs.sha256` as M0's run has.
