@@ -94,10 +94,9 @@ and no cell failed or fell below a floor.
   which V's frozen rule allows. Starved cells are 0%, 0.35% and 8.8% (derived).
 - **Why so much more than KIM-35, probably: θ_I, not the drawing of θ_H.** KIM-35's arm H
   drew the same 15 promoters from the same prior and clipped 5.5% of 200 cells at 6,300 s,
-  with θ_I at V6's fit. The evidence, all derived and none of it from this run's own design:
+  with θ_I at V6's fit. The evidence, all derived and none of it in the declared report:
   - Width ½ still clips 70%, so narrowing θ_H does not remove it.
-  - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows. The other four
-    parameters' swaps below barely move GTP.
+  - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows.
   - Across those rows' krnadeg deciles at width 1, the clipped fraction falls at every
     step, from 84% to 61%.
   - In mean-field solves (a review check on the login node at `f23fd06`, with no job id),
