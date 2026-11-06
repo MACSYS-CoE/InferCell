@@ -91,9 +91,24 @@ and no cell failed or fell below a floor.
   construction. Even at width 2 it induces almost none.
 - **Clipping is the common state here.** 70%, 74% and 90% of those cells clipped at least
   once (derived, clipped and starved cells together, since a starved cell has clipped),
-  which V's frozen rule allows. On M0, with no held parameters drawn, the
-  figure was 0.77% under V7 (`m0_evidence_kim40_result.md`). Starved cells are 0%, 0.35%
-  and 8.8% (derived).
+  which V's frozen rule allows. Starved cells are 0%, 0.35% and 8.8% (derived).
+- **Why so much more than KIM-35, probably: θ_I, not the drawing of θ_H.** KIM-35's arm H
+  drew the same 15 promoters from the same prior and clipped 5.5% of 200 cells at 6,300 s,
+  with θ_I at V6's fit. The evidence, all derived and none of it from this run's own design:
+  - Width ½ still clips 70%, so narrowing θ_H does not remove it.
+  - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows. The other four
+    parameters' swaps below barely move GTP.
+  - Across those rows' krnadeg deciles at width 1, the clipped fraction falls at every
+    step, from 84% to 61%.
+  - In mean-field solves (a review check on the login node at `f23fd06`, with no job id),
+    minimum GTP is 7,280 particles at V6's point and 4,404 at replicate 1's. Swapping
+    krnadeg alone to V6's value gives 7,292. Swaps of S_0607, S_0779 and kcatF_R_ENO
+    leave it within about 30 of 4,404; kcatF_R_FBA's swap did not finish.
+
+  That swap was not run on stochastic cells, so the link is unproven at the cell level.
+  Replicate 1 is not an outlier: its krnadeg ranks 32nd of V7's 50, and only 6 of the 50
+  reach V6's value. **So the clipping, K_d and Var(μ) figures here hold for replicate 1's
+  θ_I, and another replicate could give different ones.**
 
 ## The cells' own spread
 
