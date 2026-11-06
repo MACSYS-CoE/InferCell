@@ -9,8 +9,11 @@ that the method runs at this scale, and what the budget looks like on the reduce
 KIM-70's K_d diagnostic and the §12 2026-11-05 pre-registration.
 
 **Where the numbers come from.** The budget's numbers come from `budget.md` or
-`budget_rows.tsv`, unless they are marked as derived; derived ones are computed from
-`w*.jls`, `plain_w*.jls` or `prediction_w*.jls`. The SE check's readings come from
+`budget_rows.tsv`, unless they are marked as derived. Derived ones are computed from
+`w*.jls`, `plain_w*.jls` or `prediction_w*.jls`, which open only at `f23fd06`, and from V7's
+50 fits and V6's chains where the text names them. The scripts and logs are in
+`/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06/`: login-node checks with no job
+ids, listed in its `README.md`. The SE check's readings come from
 `/fred/oz022/tkimpson/infercell-m5-kim42-secheck-2026-11-05/secheck.tsv` (job 20008627, at
 `d3a544e`). `predict`'s hours come from `logs/`, and core-h, `TotalCPU` and MaxRSS from
 `sacct.tsv`. A regeneration should be compared against `budget_rows.tsv`. Julia came from
@@ -25,8 +28,10 @@ the cluster's `julia/1.10.5` module, while the Manifest was resolved on 1.10.11.
 - **After the run:** all three widths ran on `znver3` (dave118, dave116, dave308), and
   `SHA256SUMS` covers 18 files. Its own SHA-256 starts `99d912fb68179769`. It replaces the
   first version (`d2245461a99ead0d`) because `sacct.tsv` was re-exported on 2026-11-06 with
-  steps, `TotalCPU`, MaxRSS and `SubmitLine`; the other 17 files' hashes did not change, and
-  all 18 pass `sha256sum -c`. V7 replicate 1's hash was checked against M0's pin at the start of each
+  steps, `TotalCPU`, MaxRSS and `SubmitLine`. The old `sacct.tsv` had the SHA-256
+  `07f75db745096f8dc98cb946c2bdb98da81ad7ff41ee0145b12488b5dcb0e7a5`; putting that back in
+  the file gives the first version's hash, so the other 17 lines did not change. All 18 pass
+  `sha256sum -c`. V7 replicate 1's hash was checked against M0's pin at the start of each
   width. `report` checked that the widths share their cells' seeds. No separate
   `ran_on` audit was run; none was declared for this run.
 
@@ -117,8 +122,8 @@ and no cell failed or fell below a floor.
   - krnadeg is 9.66 at V6's point and 3.59–5.70 on these 100 rows.
   - Across those rows' krnadeg deciles at width 1, the clipped fraction falls at every
     step, from 84% to 61%.
-  - In mean-field solves (a review check on the login node at `f23fd06`, with no job id),
-    minimum GTP is 7,280 particles at V6's point and 4,404 at replicate 1's. Swapping
+  - In mean-field solves (`a5.jl` and `a5.out` in the checks directory, at each fit's
+    posterior mean of log θ with θ_H nominal), minimum GTP is 7,280 particles at V6's point and 4,404 at replicate 1's. Swapping
     krnadeg alone to V6's value gives 7,292. Swaps of S_0607, S_0779 and kcatF_R_ENO
     leave it within about 30 of 4,404; kcatF_R_FBA's swap did not finish.
 
@@ -224,7 +229,9 @@ the held parameters.
 
 ## For KIM-43's archive
 
-The run's directory does not hold everything this note rests on. The archive also needs the
-SE check's directory (above) and V7 replicate 1,
-`/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/replicate1.jls`,
-recorded with an `inputs.sha256` as M0's run has.
+The run's directory does not hold everything this note rests on. The archive also needs:
+- the SE check's directory and the checks directory (both above);
+- V7's 50 fits, `/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/`,
+  whose replicate 1 is the run's input, recorded with an `inputs.sha256` as M0's run has;
+- V6's chains, `/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run/v6/`, and KIM-35's
+  run, `/fred/oz022/tkimpson/infercell-m4-kim35-2026-10-30/`.

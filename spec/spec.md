@@ -4434,7 +4434,9 @@ fabricated task list.
 `dev/scripts/reduced_budget_kim42_result.md`. The run went at `f23fd06`, on the user's
 go-ahead of 2026-11-05, with the design and SE method the entry below declares, into
 `/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05/`: jobs 20041038, 20041039 (array;
-tasks 20041245, 20041246, 20041039) and 20041040. All completed.
+tasks 20041245, 20041246, 20041039) and 20041040. All completed. The note's derived figures
+rest on login-node checks with no job ids, in
+`/fred/oz022/tkimpson/infercell-m5-kim42-checks-2026-11-06/`.
 
 **The headline, as declared:** the held share in the I-first order, under `per_theta_I`
 at width 1, is 0.908 ± 0.041 (H first 0.898 ± 0.042). It is 0.631 ± 0.102 at width ½ and
