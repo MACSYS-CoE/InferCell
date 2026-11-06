@@ -104,7 +104,7 @@ handshake. The exact sampler (\cref{sec:sampler}) depends on this.
 order. So the equations for the means of the transcript and protein counts close
 exactly, as linear ODEs. \IC{} derives these equations from the same propensities
 and update rules that the jump modules use, so the two descriptions cannot drift
-apart. With the swap, the whole cell becomes one ODE problem with callbacks for the
+apart. With the swap, the composed model becomes one ODE problem with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
 \citep{revels2016forwardmode} passes through this problem and its callbacks. We test
 the gradients against central differences to a relative error of $\pn{fw.adtol}$.

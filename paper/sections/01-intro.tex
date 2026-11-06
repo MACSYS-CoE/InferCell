@@ -83,10 +83,11 @@ Vivarium \citep{agmon2022vivarium} & \placeholder{?} & \placeholder{?} & \placeh
 
 \subsection{This work}
 
-We present \IC{}, a framework that puts inference first. We do not claim that full
-Bayesian inference over every parameter of a whole-cell model is possible today. We
-claim that the framework must support inference as a basic operation, so that a
-modeller can apply it where the data and the budget allow. Our contributions are:
+We present \IC{}, a compositional inference framework demonstrated on reduced \syn{}.
+We do not claim an all-parameter posterior, calibrated inference on the reduced model,
+or a biological finding. We claim that a framework can make inference a basic operation,
+so that a modeller can apply it where the data and the budget allow. Our contributions
+are:
 
 \begin{enumerate}
   \item \textbf{A design for inference-first composition} (\cref{sec:design}). Every
@@ -95,16 +96,21 @@ modeller can apply it where the data and the budget allow. Our contributions are
   complete before it runs, and it lists every departure from the published model.
   \item \textbf{One interface with two descriptions} (\cref{sec:design}). The same
   gene-expression modules run as an exact stochastic process or as mean-field ODEs.
-  In the second form the whole cell compiles to one ODE problem that automatic
+  In the second form the composed model compiles to one ODE problem that automatic
   differentiation can pass through.
   \item \textbf{A reduced model of \syn{} with a real boundary} (\cref{sec:model}).
   It keeps \pn{model.rxn} metabolic reactions and \pn{model.genes} genes from the
   published model, and it keeps the two-way coupling between them.
-  \item \textbf{A map of how information crosses the boundary}
-  (\cref{sec:seam}), and calibrated inference across it (\cref{sec:results}). An
+  \item \textbf{A map of how information crosses the boundary} (\cref{sec:seam}), and
+  calibrated inference on M0, a two-gene slice of the model (\cref{sec:results}). An
   exact sampler gives a calibrated reference. A mixed route passes the same test at a
   fraction of the cost, with small declared discrepancies.
+  \item \textbf{Forward and intervention predictions on the reduced model}
+  (\cref{sec:budget}), which combine an M0 posterior modularly with
+  viability-conditioned uncertainty in the remaining parameters. They are unscored, and
+  we score the same pipeline on M0 (\cref{sec:predm0}).
 \end{enumerate}
 
-\placeholder{Last paragraph: a one-sentence statement of the main result, written
-after B7 and B8.}
+Our main result is that one framework carries a whole-cell model from declared priors,
+through calibrated inference on the slice where calibration can be checked, to
+predictions on the larger model with their uncertainty and their declared limits.
