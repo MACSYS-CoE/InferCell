@@ -174,22 +174,12 @@ below 2,018 particles (a lower bound) and 2,160 (an upper bound):
 | 1 | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9467–0.9576 (15,148–15,321 of 16,000) | 0.9391–0.9500 (7,513–7,600 of 8,000) |
 | 2 | 0.9325–0.9441 (14,920–15,106 of 16,000) | 0.9278–0.9403 (13,888–14,074 of 14,968) | 0.9176–0.9340 (6,867–6,990 of 7,484) |
 
-**So nearly every cell reaches the threshold at least once; the run does not say for how
-long.** A cell counts here if its GTP was *ever* below the threshold. The freeze ties the
-one-way reduction's basis failure to fractions of rebuild instants: the dose screen, with
-θ_I drawn from its prior rather than this posterior, found GTP below K_d for 21–55% of
-them in 12 of 20 draws, and for none in 6 (§12 2026-10-30). This run stores no such
-fraction, so it does not show that the failure reaches these cells.
-
-**Many go well below the threshold, usually briefly** (derived from μ̂'s 8,000 baseline
-cells at each width):
-- 68%, 69% and 72% reach exactly 0 GTP, a real state of the model. It is the same event as
-  a GTP clip, in all but 3 of the 24,000 cells.
-- Among the cells that clip GTP, the median time clipped is 10, 27 and 274 of the run's
-  6,300 drains.
-- At width 2, 12.2% of them, the 704 starved cells, are clipped for over half the run.
-
-KIM-47's table should carry these numbers.
+**So the model-form caveat reaches nearly every cell, not some draws.** The dose screen,
+with θ_I drawn from its prior rather than this posterior, found GTP below K_d for 21–55%
+of rebuild instants in 12 of 20 draws, and for none in 6 (§12 2026-10-30). It said the
+one-way reduction's basis does not hold over the cycle on those draws. A cell counts here
+if its GTP was *ever* below the threshold, so this says how many cells reach it and not
+for how long. KIM-47's table should carry these numbers.
 
 ## Attribution (descriptive)
 
