@@ -81,8 +81,9 @@ and no cell failed or fell below a floor.
 - **V acted only at width 2,** and removed 6.45% of pairs. At ½ and 1 it kept everything,
   so the two weight sets are identical there and the correlations are zero by
   construction. Even at width 2 it induces almost none.
-- **Clipping is the common state here.** 70%, 73% and 81% of those cells clipped at least
-  once (derived), which V's frozen rule allows. On M0, with no held parameters drawn, the
+- **Clipping is the common state here.** 70%, 74% and 90% of those cells clipped at least
+  once (derived, clipped and starved cells together, since a starved cell has clipped),
+  which V's frozen rule allows. On M0, with no held parameters drawn, the
   figure was 0.77% under V7 (`m0_evidence_kim40_result.md`). Starved cells are 0%, 0.35%
   and 8.8% (derived).
 

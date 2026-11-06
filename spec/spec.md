@@ -4451,7 +4451,7 @@ limit is stated in prose, with no rerun proposed.
 - The completion plan's sentence, "parameters no measurement supports", is not claimed as
   written, because θ_H are informed constants and θ_I's data are synthetic. Its wording
   is the user's call.
-- 92–98% of cells reach GTP below K_d, and 70–81% clip at least once. V allows clipping,
+- 92–98% of cells reach GTP below K_d, and 70–90% clip at least once. V allows clipping,
   and V's rule is unchanged. KIM-47's table should carry the K_d numbers.
 - §6 has no row for the budget. Whether it gets one is the user's call.
 
