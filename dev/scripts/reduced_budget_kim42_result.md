@@ -85,6 +85,11 @@ Every other constant is held fixed or derived, so this is a split among these 20
 parameters only. The widths scale the log-scale σ at a fixed median, which gives geometric
 SDs of 1.41, 2 and 4.
 
+**What the 9% rests on.** θ_I's share comes from one replicate of V7's 50, fitted at 600 s
+and carried to 6,300 s. The range from 63% to 98% varies only θ_H's width, not θ_I's
+posterior. And the transfer assumes θ_I's posterior would not move if θ_H's counterparts in
+M0 did. The predictive note (§3.2) states that this is untested and that the paper says so.
+
 ## The filter
 
 | width | acceptance | ESS, `per_theta_I` | ESS, `joint` | largest abs corr(log θ_I, log θ_H) | clean | clipped | starved |
