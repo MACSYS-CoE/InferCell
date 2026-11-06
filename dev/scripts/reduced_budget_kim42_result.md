@@ -6,8 +6,15 @@ that the method runs at this scale, and what the budget looks like on the reduce
 **Run:** `dev/scripts/reduced_budget_kim42.sh` at `f23fd06` (main), into
 `/fred/oz022/tkimpson/infercell-m5-kim42-2026-11-05/` (`budget.md`, `budget_rows.tsv`,
 `jobs.tsv`, `sacct.tsv`, `SHA256SUMS`). The design is the M4 freeze's (`93abbce`), with
-KIM-70's K_d diagnostic and the §12 2026-11-05 pre-registration. Every number below
-comes from `budget.md` or `budget_rows.tsv`, unless it is marked as derived.
+KIM-70's K_d diagnostic and the §12 2026-11-05 pre-registration.
+
+**Where the numbers come from.** The budget's numbers come from `budget.md` or
+`budget_rows.tsv`, unless they are marked as derived; derived ones are computed from
+`w*.jls`, `plain_w*.jls` or `prediction_w*.jls`. The SE check's readings come from
+`/fred/oz022/tkimpson/infercell-m5-kim42-secheck-2026-11-05/secheck.tsv` (job 20008627, at
+`d3a544e`). `predict`'s hours come from `logs/`, and core-h, `TotalCPU` and MaxRSS from
+`sacct.tsv`. A regeneration should be compared against `budget_rows.tsv`. Julia came from
+the cluster's `julia/1.10.5` module, while the Manifest was resolved on 1.10.11.
 
 - **Jobs:** precompile 20041038; widths 20041039 (array), whose tasks 0, 1 and 2 have the
   raw ids 20041245, 20041246 and 20041039; report 20041040. All completed with exit 0.
@@ -16,8 +23,10 @@ comes from `budget.md` or `budget_rows.tsv`, unless it is marked as derived.
   2,500 allowed and above the 1,000–1,600 estimated. Their `TotalCPU` is about 1,295 h,
   against the freeze's 736 CPU-h of work. The largest MaxRSS was 43.4 GiB, against 192G.
 - **After the run:** all three widths ran on `znver3` (dave118, dave116, dave308), and
-  `SHA256SUMS` covers 18 files, checked straight after writing. Its own SHA-256 starts
-  `d2245461a99ead0d`. V7 replicate 1's hash was checked against M0's pin at the start of each
+  `SHA256SUMS` covers 18 files. Its own SHA-256 starts `99d912fb68179769`. It replaces the
+  first version (`d2245461a99ead0d`) because `sacct.tsv` was re-exported on 2026-11-06 with
+  steps, `TotalCPU`, MaxRSS and `SubmitLine`; the other 17 files' hashes did not change, and
+  all 18 pass `sha256sum -c`. V7 replicate 1's hash was checked against M0's pin at the start of each
   width. `report` checked that the widths share their cells' seeds. No separate
   `ran_on` audit was run; none was declared for this run.
 
