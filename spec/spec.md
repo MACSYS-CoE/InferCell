@@ -4447,6 +4447,8 @@ but `numbers.tex` has no M5 entries and §5.5 is a placeholder. KIM-46 writes th
 files, so the tracing happens there. No fixture needed regenerating: `predict_reference.jl` is
 KIM-68's frozen reference at `93abbce`, not evidence.
 
+**Review:** the user waived `/check-PR`.
+
 **Unchanged:** every result, and the original directories, which the result notes still cite.
 
 *Sections:* §12.
