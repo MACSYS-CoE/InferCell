@@ -12,6 +12,8 @@ dest = joinpath(out, "bulk_check.md")
 isfile(dest) && error("$dest exists; this run never overwrites an output")
 commit = strip(read(`git rev-parse HEAD`, String))
 startswith(commit, "dfe570a") || error("this tree is at $commit, not V7's dfe570a")
+isempty(read(`git status --porcelain -- src Project.toml Manifest.toml`, String)) ||
+    error("the tree at dfe570a has uncommitted changes, so this would not be V7's code")
 
 x = deserialize(joinpath(out, "data.jls"))
 ds = m0_dataset(16_200_001; ncells = 50)

@@ -4496,8 +4496,9 @@ and does not stop the work, since the posterior is unchanged.
   lognormal and bimodal cells. These are throwaway numpy simulations from the reviews of this work, not
   scripts in this repository.
 
-**Cost.** About 500 CPU-h used, and about 680 CPU-h allocated, since the rates behind the design's
-estimate are `TotalCPU` and Slurm allocates whole cores. Panel C's wall limit is 24 h, as KIM-42's was:
+**Cost.** About 500 CPU-h used, the design's estimate from `TotalCPU`, and about 680 core-h allocated,
+since Slurm allocates whole cores: 75 for A, half of M0's two-arm blocks, and 200 and 400 for B and C,
+at KIM-42's 90.6 allocated core-seconds per cell at width 1. Panel C's wall limit is 24 h, as KIM-42's was:
 it has no checkpoint, and released constants may slow it past KIM-42's rates.
 
 *Sections:* §12.

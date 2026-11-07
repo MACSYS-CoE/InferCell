@@ -219,7 +219,7 @@ function published_truth()
     return parse(Float64, r[col("truth")])
 end
 
-# Every exact check on the replays. A mismatch stops the work.
+# Every check: the replays, exact, then the dataset and the meter ratio. A failure stops the work.
 function replay_checks!(c::Checks)
     fin = archived("m0-kim40-kim41/finish/000_r1_v7.jls")
     for b in 1:A_BLOCKS

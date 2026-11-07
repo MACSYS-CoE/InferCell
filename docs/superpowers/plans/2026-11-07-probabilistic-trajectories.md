@@ -189,7 +189,7 @@ Branch from `main` at Task 2's merge, in a new worktree.
 
 **Interfaces:**
 - Consumes: `predict(...; trajectory, every)`, `trajectory_bands`, `trajectory_split`; `pilot_common.jl` (`save`, `plain`, `say`, `SMOKE`, `COMMIT`); `launcher_guard.sh`.
-- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total, mc, flagged, mc_undefined, dropped`), and `checks.md`.
+- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total, mc, flagged, mc_undefined, dropped`), `data.jls`, `replay.md`, `bulk_check.md` and `checks.md`.
 
 | Stage | What it runs | Slurm |
 |---|---|---|
@@ -198,16 +198,16 @@ Branch from `main` at Task 2's merge, in a new worktree.
 | `b` | as in the design's replay call, at 6,300 s | 64 threads, 192 GB, 8 h |
 | `c_precheck` | `RELEASED` composition, `:viability_conditioned_prior`, the frozen `RULE`, draws `round.(Int, range(1, 556; length = 4))`, `n_held = 5`, 4 + 4 cells, `rng = Xoshiro(19_543_001)` | 16 threads, 48 GB, 2 h |
 | `c` | the same, 40 draws, `n_held = 50`, `rng = Xoshiro(19_543_000)` | 64 threads, 192 GB, 24 h |
-| `data` | `m0_dataset(16_200_001; ncells = 50)`; assert the truth equals replicate 1's | 1 core, 8 GB, 1 h |
+| `data` | `m0_dataset(16_200_001; ncells = 50)`, recording how its truth and σ_b differ from replicate 1's | 1 core, 8 GB, 1 h |
 | `replay` | every check below, `replay.md`; gates `c` | 1 core, 16 GB, 1 h |
 | `report` | the same checks, TSVs, `checks.md` | 1 core, 16 GB, 1 h |
 
 `RELEASED`: `d11_models()`, with `ms[1]` and `ms[3]` rebuilt, freeing every currently fixed `kcatF_*`, `kcatR_*` and `km_*` plus ENO's and FBA's. Stop if `5 + length(p.held)` is not 82, or if any `kcatR_*` is held.
 
 `replay` stops, and writes which value differed, unless all of these hold, the first two exactly (`==`):
-- panel B: `p.mu == w1.mu`, from `<archive>/runs/budget-kim42/w1.jls`;
+- panel B: `p.mu == w1.mu`, and its seeds and θ_H, from `<archive>/runs/budget-kim42/w1.jls`;
 - panel A: each block's `mu` equals the row in `<archive>/runs/m0-kim40-kim41/finish/*_r1_v7.jls` `.hybrid.mu`, and the truth's mean equals `truth` for dataset 1, posterior v7, in `score_datasets.tsv`, to its printed digits;
-- the regenerated dataset's truth equals replicate 1's recorded truth, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1% relative (1e-9 was too strong; see §12). Write that ratio R to `checks.md`; it rescales the data onto Q's axis.
+- the regenerated dataset's truth and σ_b equal replicate 1's recorded values, within 1e-12 relative, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1% relative (1e-9 was too strong; see §12). Write that ratio R to `replay.md` and `checks.md`; it rescales the data onto Q's axis.
 
 - [ ] **Step 1: Write the §12 entry**
 

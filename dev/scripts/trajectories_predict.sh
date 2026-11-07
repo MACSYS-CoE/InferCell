@@ -6,11 +6,12 @@
 #       precompile, the release's pre-check, the two replays, the dataset, then every check;
 #   dev/scripts/trajectories_predict.sh <outdir> rest
 #       the release, then the report. It refuses unless replay.md ends in ALL PASS (a smoke
-#       pass goes on regardless), and refuses a second time;
+#       pass goes on regardless), and refuses a second time. `rerun c` needs ALL PASS too;
 #   dev/scripts/trajectories_predict.sh <outdir> bulk <a worktree at dfe570a>
 #       compares the dataset's bulk data with V7's commit, in bulk_check.md;
 #   dev/scripts/trajectories_predict.sh <outdir> rerun <stage> [<array spec, for a>]
-#       one stage again, once its output has been moved aside;
+#       one stage again, once its output has been moved aside. It waits only on precompile,
+#       so rerun `replay` or `report` after the stages they read have finished;
 #   dev/scripts/trajectories_predict.sh <outdir> progress
 #       lists what is written, and the run's jobs in the queue.
 # SMOKE=1 in the launcher's environment runs the smoke pass, and is passed to the jobs.
@@ -52,8 +53,9 @@ else
     [ "$(ran smoke)" = "$smoke" ] ||
         { echo "the run has SMOKE='$(ran smoke)', this launcher SMOKE=$smoke" >&2; exit 1; }
 fi
-if [ "$mode" = rest ]; then
-    [ -z "$(ran c)" ] || { echo "the release is already job $(ran c)" >&2; exit 1; }
+[ "$mode" != rest ] || [ -z "$(ran c)" ] ||
+    { echo "the release is already job $(ran c); to run it again, use rerun c" >&2; exit 1; }
+if [ "$mode" = rest ] || { [ "$mode" = rerun ] && [ "${3:-}" = c ]; }; then
     if [ "$smoke" != 1 ] && [ "$(tail -n 1 "$outdir/replay.md" 2>/dev/null)" != "ALL PASS" ]; then
         echo "$outdir/replay.md does not end in ALL PASS, so the release does not go ahead" >&2
         exit 1
