@@ -3,6 +3,15 @@
 [`predict`](@ref) can keep time series, and you can ask it what happens to their
 uncertainty when a fixed parameter is released to its prior.
 
+**What these bands are.** The examples use a posterior fitted to M0's synthetic data and
+carry it to the reduced syn3A model, where no truth exists. The result is unscored, so the
+bands show what the framework's assumptions imply, and they are not calibrated predictions
+for a real cell. See [the reduced syn3A model](reduced-syn3a.md).
+
+**What they cost.** Each example runs 3,200 cells at 6,300 s, about 58 core-hours at
+65 core-seconds per cell. Run them through a scheduler, with `--gcthreads=N,1` on many
+threads ([`predict`](@ref) explains why), or try a short `horizon` and few draws first.
+
 ## Recording a trajectory
 
 Pass `trajectory`, a list of ODE-block species. Every run keeps them, in particles,
@@ -11,15 +20,16 @@ every `every` seconds and at the horizon:
 ```julia
 using InferCell, Random
 
-pd = posterior_draws("replicate1.jls")
+pd = posterior_draws("replicate1.jls")   # a posterior written by `infer`; see the API page
 p = predict(d11_models(), pd; horizon = COREA_CYCLE_S, completion = :prior,
             n_parameter_draws = 40, n_held = 20, n_cells = 4, rng = Xoshiro(1),
             trajectory = [InferCell.LAC_EXPORT_METER, :M_gtp_c], every = 60.0)
 ```
 
-Recording reads what the run already holds, so it changes no cell, no draw and no
-result. A species outside the ODE block is refused before any cell runs. On the
-hybrid, `every` must be a whole number of handshakes.
+On the hybrid, recording reads what the run already holds, so it changes no cell, no draw
+and no result, and `every` must be a whole number of handshakes. On the mean field, `every`
+must stay at 60, because the saves set what its minima, and so a viability floor, can see. A
+species outside the ODE block is refused before any cell runs.
 
 ## Three layers of uncertainty
 
@@ -37,8 +47,13 @@ the exported lactate Q(t).
 
 The `pairs` layer is a quantile of each pair's mean over its cells, so it also holds
 the Monte Carlo noise of those few cells, about σ̂²/n. [`trajectory_split`](@ref) gives
-the variance split at each time with that noise removed, and its last value for the
-metered export is [`variance_split`](@ref)'s result for Q.
+the variance split at each time with that noise removed. With `baseline = true`, its last
+value for the metered export is [`variance_split`](@ref)'s result for Q. Early in a run the
+noise can outweigh the spread: `flagged` marks the times where a component came out
+negative, and a share there can exceed 1 or be `NaN`.
+
+A cell that fails holds no trajectory, so it leaves the bands at every time and is counted
+in `b.n_failed`. The bands at early times are therefore those of the cells that finished.
 
 ## Releasing a parameter to its prior
 
@@ -63,9 +78,10 @@ constant, not drawn ([`held_parameters`](@ref) says so in `skipped`).
 
 Three things to keep in mind:
 
-- **A reverse constant goes with its forward constant and its Michaelis constants.**
-  To release a Michaelis constant, free the reaction's `kcatR_*` too. The build refuses
-  otherwise and names the constant it needs.
+- **Free a reaction's reverse constant with its forward constant or a Michaelis constant.**
+  `predict` derives `kcatR_*` and writes it, so it has to be free. Without it, the
+  constructor passes and `predict` refuses when the first cell writes it, naming the
+  constant.
 - **A release is a sensitivity to priors, not a posterior.** The released constants are
   not fitted, and the inferred parameters were fitted with those constants at their
   nominal values, so the cut assumption is stressed harder the more you release.
@@ -74,6 +90,11 @@ Three things to keep in mind:
   band. Michaelis constants have a median of 3.6. The example above shows the usage and
   does not claim that lactate dehydrogenase matters.
 
-Released parameters can starve cells. A [`ViabilityRule`](@ref) conditions on the cells
-that stay viable, and `trajectory_bands(p, s; weights = ones(M, K))` gives the band
-without it.
+Released parameters can starve cells. To condition on that, run `predict` with
+`completion = :viability_conditioned_prior`, a [`ViabilityRule`](@ref) as `viability`, and
+`n_viability_cells`. The rule accepts or rejects a parameter pair, by the fraction of its
+cells that stay viable. It does not filter cells, so a starved cell in a kept pair stays in
+every band. The bands then default to the `:per_theta_I` weights, and
+`weights = :joint` gives the other variant ([`viability_weights`](@ref)).
+`trajectory_bands(p, s; weights = ones(size(p.mu)))` gives species `s`'s band without the
+rule.

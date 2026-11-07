@@ -37,8 +37,8 @@ in a paper script.
 - a reader could take panel A as validating panels B or C. The transfer from M0 to the reduced model is
   untested, and the caption must say so;
 - the band reads as a prediction about a real cell. All of it rests on synthetic data;
-- panel C reads as a posterior over 82 parameters. It is a sensitivity to priors, and 62 of those
-  parameters were never fitted;
+- panel C reads as a posterior over 82 parameters. It is a sensitivity to priors, and only 5 of those
+  parameters were fitted;
 - the replicate or the released set is picked after looking at which looks best. Both are fixed in this
   document, before the runs.
 
@@ -124,7 +124,7 @@ by default, or a list of ODE-block species to keep, with a sampling grid (`every
 `CellRun` keeps them. `_cell` already holds the `ValidationRun`, whose `ode` is recorded at every
 handshake and is discarded today, so this adds no simulation. The default has to leave results bit for
 bit identical: `test/fixtures/predict_reference.jl` is the guard. `CellRun` gains a field, so existing
-`CellRun`s in archived `.jls` files will not open at the new commit. This run reads `w*.jls`, which
+`CellRun`s in archived `.jls` files will not open at the new commit. This run reads `w*.jls` and `finish/*.jls`, which
 hold none, and the `.jls` files open only at their run's commit anyway. A docs page covers trajectories
 and release.
 
@@ -139,7 +139,7 @@ and release.
   archived values exactly. The builder reads the seeds from `dev/scripts/m0_evidence_kim40.jl`.
 - Panel C: a new run with a new seed from M5's unused range, 40 draws × 50 held × (4 + 4) cells, under
   the frozen `ViabilityRule`. More columns than panel B, since 62 more parameters make 20 columns too
-  few and V acts by column. A crossed matrix cannot be topped up, and starvation only shows over the
+  few and V, which accepts pairs, conditions each row across its columns. A crossed matrix cannot be topped up, and starvation only shows over the
   full cycle, so a pre-check comes first: 20 pairs × 8 cells at 6,300 s, about 3 CPU-h. **Whatever the
   acceptance, the run goes ahead and the number is reported,** since heavy starvation is itself what
   release shows. Below 10% of pairs kept, the figure drops the filled conditioned band and shows the
