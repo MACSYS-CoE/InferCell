@@ -3,8 +3,7 @@
 
 All results use synthetic data, and the priors are asserted. We first show what the
 framework predicts on the reduced \syn{} model, where no truth can be checked
-(\cref{sec:budget}). We then ask whether such a prediction can be trusted, and score
-the same pipeline on M0, where a truth is known (\cref{sec:predm0}). The sections after
+(\cref{sec:budget}). We then ask how far such a prediction can be trusted, and score its posterior-to-prediction step on M0, where a truth is known (\cref{sec:predm0}). The sections after
 that report the two inference routes that the prediction rests on
 (\cref{sec:exact,sec:jensen,sec:approx}) and their cost (\cref{sec:cost}). Results
 marked \emph{unscored} are not compared with any truth. For the scored results, the
@@ -107,10 +106,10 @@ orders, $\pm$ one standard error. B: mean lactate export, in particles, with bar
 \label{fig:budget}
 \end{figure}
 
-\subsection{Scoring the same pipeline on M0}
+\subsection{Scoring the posterior-to-prediction step on M0}
 \label{sec:predm0}
 
-\paragraph{Why M0, and why scoring stops there.} M0 is the largest slice of the reduced model where the exact route can check a truth. It keeps the same reactions, blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
+\paragraph{Why M0, and why scoring stops there.} M0 is a slice of the reduced model small enough for the exact route to check a truth. It keeps all the metabolic reactions and the same blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
 One exact posterior on the reduced model is projected at about \pn{cost.fullscale}
 CPU-hours, and calibration needs \pn{mzero.cells} of them, about \pn{cost.fullcoverage} CPU-hours. We have not costed the same test by the mixed route.
 
@@ -168,14 +167,13 @@ so the truth's error counts against them. The mixed posterior with the mean fiel
 rest cannot be separated from that route's narrower intervals at these sizes. Meeting the
 rules would cost on the order of \pn{pred.dqcost} CPU-hours, and we did not run it.
 
-\paragraph{What this supports.} On M0, the pipeline behind the reduced model's prediction
-covers at the expected rate on $Q$, and it gets the sign of the knockdown right. This panel is the only validation behind the reduced model's knockdown
+\paragraph{What this supports.} On M0, the posterior-to-prediction step covers at the expected rate on $Q$, and it gets the sign of the knockdown right. This panel is the only validation behind the reduced model's knockdown
 prediction. It does not test the transfer from M0 into the reduced model.
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=\textwidth]{fig_crossed.pdf}
-\caption{\textbf{The same pipeline scored on M0.} Each arm is a posterior and a forward model,
+\caption{\textbf{The posterior-to-prediction step scored on M0.} Each arm is a posterior and a forward model,
 over \pn{vseven.R} datasets, with \pn{pred.ndraws} draws per posterior. Blue circles are the exact posterior and orange squares the mixed. Coverage is $\pm$ one standard error, and the dashed lines are the references of \pn{pred.ref50}\% and \pn{pred.ref90}\%. A: lactate export. B: the knockdown's effect, whose coverage
 does not meet the sizing rules in the text. Width is the median ratio to the exact posterior with the hybrid, with its interquartile range.}
 \label{fig:crossed}
@@ -196,8 +194,7 @@ size is at least \pn{vsix.ess} for every parameter. This reference run cost
 simulated one dataset from each, and fitted each dataset with one chain. For each
 parameter we compared the empirical CDF of the ranks of the truth with a
 simultaneous band \cite{sailynoja2022graphical}, at a joint level of 95\% over the
-\pn{mzero.npar} parameters. All \pn{mzero.npar} parameters stay inside their bands, a test that detects only large miscalibration at this size. A sampler that returned the prior would also pass, so we note that the posteriors contract: on the reference dataset, the mixed route's variance shrinks by \pn{mix.shrinklo}--\pn{mix.shrinkhi} of the prior's
-(\cref{fig:calibration}A). The largest deviation is \pn{vseven.maxdev}, for the
+\pn{mzero.npar} parameters. All \pn{mzero.npar} parameters stay inside their bands (\cref{fig:calibration}A), a test that detects only large miscalibration at this size. A sampler that returned the prior would also pass, so we note that the exact reference does contract: on its dataset the posterior variance is about \pn{vsix.shrinklo}--\pn{vsix.shrinkhi}\% below the prior's. The largest deviation is \pn{vseven.maxdev}, for the
 transcript decay rate, where the band allows \pn{vseven.band}. We also read coverage off the same ranks, for central credible intervals at five
 levels from 50\% to 99\%. In \pn{vseven.cov} parameter--level pairs the coverage is
 inside the binomial 95\% band. One or two misses over 30 pairs are expected by chance.
@@ -235,7 +232,7 @@ their own drains. The difference is a Jensen gap.
 \paragraph{The cause.} The gap is largest for GTP, where the mean field sits
 \pn{jg.gtplo}--\pn{jg.gtphi}\% below the population mean. We traced it to
 cell-to-cell variation in the drains. When every cell receives the mean field's
-drains, the mean over cells equals the mean field to three significant figures. At our three test parameter sets, the enzyme counts, the per-cell feedback and the clip at zero did not account for the GTP gap. A possible mechanism, which we have not tested, is that only the saturable enzymes PGK3 and PYK3 regenerate GTP. If GTP is convex in the spend, the population mean sits above GTP at the mean spend.
+drains, the gap closes. At our three test parameter sets, the enzyme counts, the per-cell feedback and the clip at zero did not account for the GTP gap. A possible mechanism, which we have not tested, is that only the saturable enzymes PGK3 and PYK3 regenerate GTP. If GTP is convex in the spend, the population mean sits above GTP at the mean spend.
 
 \paragraph{The correction.} We treat the gap as a declared reduction and correct it
 with an offset $\delta$, the log difference between the mean of a reference
@@ -255,7 +252,7 @@ implies, and we do not use it as a stopping rule.
   $\delta$.
 \end{itemize}
 
-\paragraph{The mean-field model is the limit of the hybrid's pinned path.} The hybrid exchanges state every second. When the driver follows the mean-field path, this path converges to the one-ODE mean-field model as the step shrinks. That is a limit of the deterministic path, and not of the stochastic hybrid, whose gap is the subject above. At the zero-step limit the two agree to
+\paragraph{The mean-field model is the limit of the hybrid's pinned path.} The hybrid exchanges state every second. When the driver follows the mean-field path, this path converges to the one-ODE mean-field model as the step shrinks. That is a limit of the deterministic path, and not of the stochastic hybrid, whose gap is the subject above. Extrapolated to a zero step, the two agree to
 \pn{rii.maxdelta} in log concentration at all five test parameter sets. One
 mean-field solve takes \pn{rii.mzero}\,s on M0 and \pn{rii.corealo}--\pn{rii.coreahi}\,s
 on the full reduced model.

@@ -38,8 +38,7 @@ error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{
 among the top solutions, and the authors note that several parameter sets give similar
 system-level phenotypes. A single estimate cannot express that, and a posterior can
 \cite{gutenkunst2007universally}. No team used automatic differentiation, and the authors ask for automated reduced models and for data on single-cell variation over
-time. Whole-cell models still do not report posteriors over their parameters, for the
-following reasons.
+time. Apart from Bayesian balancing of metabolic parameters, we know of no whole-cell model that reports posteriors over its parameters, and we see the following reasons.
 
 \begin{enumerate}
   \item \emph{No place for uncertainty.} The frameworks store parameters as
@@ -123,7 +122,7 @@ are:
   \item \textbf{Forward and intervention predictions on the reduced model}
   (\cref{sec:budget}), which combine an M0 posterior modularly with
   viability-conditioned uncertainty in the remaining parameters. They are unscored, and
-  we score the same pipeline on M0 (\cref{sec:predm0}).
+  we score the posterior-to-prediction step on M0 (\cref{sec:predm0}).
 \end{enumerate}
 
 Our main result is that one framework carries a reduced whole-cell model from declared priors, through inference calibrated on the slice where calibration can be checked, to unscored predictions on the reduced model, with the limits of those predictions declared.

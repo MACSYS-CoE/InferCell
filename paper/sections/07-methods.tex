@@ -136,7 +136,7 @@ separately, from the hybrid only.
 \paragraph{Completion and viability.} On the reduced model, $\theta_H$ is drawn from its
 prior, and width scales its log-scale standard deviation at a fixed median. A cell is
 failed, starved, below a floor, clipped or clean, in that order of precedence, and a cell
-is starved if some counter clipped at more than half its drains. A cell is viable unless it failed or starved, so clipped cells count, and a parameter pair is viable if at least half of \pn{budget.ncellspair} separate cells are. We condition $\theta_H$ on viability per draw of $\theta_I$, so
+is starved if some counter clipped at more than half its drains. A cell is viable unless it failed, starved or fell below a floor, and we set no floors, so clipped cells count, and a parameter pair is viable if at least half of \pn{budget.ncellspair} separate cells are. We condition $\theta_H$ on viability per draw of $\theta_I$, so
 $\theta_I$'s marginal stays the M0 posterior, given at least one viable $\theta_H$ for it.
 A joint variant, which also reweights $\theta_I$, gave the same shares to the reported precision at the one width where the rule acted.
 
@@ -163,7 +163,7 @@ draws.
 \label{sec:compute}
 
 All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its AMD
-\texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind each result. The commits and checksums are in the evidence archive
+\texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind the main results. The commits and checksums are in the evidence archive
 and the result notes named under Software and data availability.
 
 \begin{table}[!ht]

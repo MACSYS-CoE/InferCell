@@ -29,7 +29,7 @@ with open(os.path.join(HERE, "modelform_counts.tex"), "w") as f:
         f.write(f"\\pndef{{{WORDS[comp]}.total}}{{{n}}}\n")
 
 with open(os.path.join(HERE, "S1_File_reductions.tsv"), "w", newline="") as f:
-    w = csv.writer(f, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\", lineterminator="\n")
+    w = csv.writer(f, delimiter="\t", quoting=csv.QUOTE_NONE, quotechar=None, lineterminator="\n")
     w.writerow(["composition", "category", "subject", "description"])
     for r in rows:
         w.writerow([r["composition"], r["category"], r["subject"],

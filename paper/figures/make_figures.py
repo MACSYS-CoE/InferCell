@@ -7,7 +7,7 @@ Run from the repository root:
 Inputs, read and never written:
 - the KIM-43 evidence archive: runs/m0-kim40-kim41/score_datasets.tsv and
   runs/budget-kim42/budget_rows.tsv;
-- B7's run directory: av6_replicates.tsv, av6_bands.tsv, av6_v6_draws.tsv;
+- paper/figures/data: av6_replicates.tsv, av6_bands.tsv, av6_v6_draws.tsv, copied from B7's run;
 - dev/scripts/f10_16a10_draws.tsv and dev/scripts/v7_16a9b_ranks.tsv.
 """
 import csv
@@ -24,7 +24,7 @@ from scipy.stats import gaussian_kde
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 ARCHIVE = "/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06"
-B7_RUN = "/fred/oz022/tkimpson/infercell-89-b7-archive-2026-10-27/run"
+B7_RUN = os.path.join(HERE, "data")  # copies of three B7 outputs, unchanged
 
 # Validated together: slot 1 and 2 of the reference categorical palette.
 EXACT, MIXED = "#2a78d6", "#eb6834"
@@ -110,14 +110,14 @@ def ecdf_row(axes, z, lo, hi, curves):
     for p, ax in enumerate(axes):
         R = len(curves[0][0])
         ax.fill_between(z, lo / R - z, hi / R - z, color=BAND, lw=0, step="mid",
-                        label="Simultaneous 95% band")
+                        label="Band, joint 95% over six parameters")
         for ranks, colour, label in curves:
             zz, d = ecdf_diff(ranks[:, p], len(z))
             ax.step(zz, d, where="mid", color=colour, label=label)
         ax.axhline(0, color=MUTED, lw=0.5)
         ax.set_title(LABELS[NAMES[p]])
-        ax.set_xlabel("Rank")
-    axes[0].set_ylabel("ECDF − rank")
+        ax.set_xlabel("Fractional rank")
+    axes[0].set_ylabel("ECDF − fractional rank")
 
 
 def fig_calibration(b7):

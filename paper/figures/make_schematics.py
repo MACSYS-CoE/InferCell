@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The paper's two schematic figures, written to this directory as PDFs.
+"""The paper's three schematic figures, written to this directory as PDFs.
 
 Run from the repository root: python3 paper/figures/make_schematics.py
 They read no data. fig_graphs' edge styles follow the paper's boundary section.

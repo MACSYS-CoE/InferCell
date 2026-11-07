@@ -5,10 +5,14 @@ TinyTeX on `PATH` (`~/.TinyTeX/bin/x86_64-linux`, TeX Live 2026). The system TeX
 PLOS template. **Venue:** PLOS Computational Biology, Methods, in PLOS's template (v3.8).
 **Title:** *InferCell: a compositional inference framework for whole-cell modelling, demonstrated on
 reduced JCVI-syn3A*. **Tracking:** Linear, milestone "M6 Paper 1 complete".
-**Review:** `PRE_SUBMISSION_REVIEW_2026-11-07.md` holds what was fixed and what is left.
+**Review:** the pre-submission review is kept outside the repository, in
+`/fred/oz022/tkimpson/infercell-m6-review-2026-11-07/`.
+**Dependencies:** Python with matplotlib 3.7 or later, scipy and numpy; TinyTeX with the PLOS template's
+packages (lastpage, changepage, marvosym, epstopdf-pkg, cite, lineno, fancyhdr, caption, booktabs,
+mathtools, microtype, cleveref, xcolor, colortbl).
 
 **Numbers:** every quoted number is a `\pn{key}` in `numbers.tex`, with its source.
-**Figures:** `figures/make_figures.py` (data, from the KIM-43 archive) and `figures/make_schematics.py`.
+**Figures:** `figures/make_figures.py` (data, from the KIM-43 archive and `figures/data/`) and `figures/make_schematics.py`.
 **Tables:** the model-form counts are generated: `tables/reductions_dump.jl` (Slurm job 20165612,
 package source identical to main at `3c677a1`), then `tables/make_modelform.py`. Table 1's evidence
 is `tables/frameworks_sources.md`.

@@ -1,3 +1,5 @@
+*Written for the first draft: its style file and key counts predate the PLOS template. The cited entries were rechecked against CrossRef on 2026-11-07.*
+
 # references.bib verification report (2026-10-23)
 
 Every entry in `references.bib` was checked against the live source below on

@@ -194,8 +194,9 @@
 \pndef{pred.mixbreachhi}{27}% same, truth SE over 10%
 \pndef{pred.dzlo}{0.74}% score.md, dQ, V7 hybrid
 \pndef{pred.dzhi}{1.27}% same, B7 mean field with delta
-\pndef{mix.shrinklo}{0.89}% dev/scripts/av6_89_b7_result.md, stream arms, v6, FBA 0.888
-\pndef{mix.shrinkhi}{0.997}% same, sigma_b
+\pndef{vsix.shrinklo}{89}% derived: V6's SD (v6_16a9b_result.md) against the prior SD implied by av6_89_b7_result.md's v6 stream arm, FBA
+\pndef{vsix.shrinkhi}{99.6}% same, sigma_b
+
 \pndef{mix.mcselo}{9}% same, "Against V7 over the 50"
 \pndef{mix.mcsehi}{22}% same
 \pndef{pred.ndraws}{100}% score.md header
@@ -266,8 +267,8 @@
 \pndef{compute.vsixjobs}{18157561--65, 18271545, 18276511--15, 18420986--90}% dev/scripts/phase16_ledger.md; v6_16a9b_result.md
 \pndef{compute.vsevenjobs}{18276794, 18628508, 18689602}% dev/scripts/v7_16a9b_result.md
 \pndef{compute.ftenjobs}{18751635}% dev/scripts/f10_16a10_result.md
-\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32, 19334375--80, 19411150}% dev/scripts/av6_89_b7_result.md
-\pndef{compute.bsevencpuh}{391.9}% same, completed jobs; 274.1 more lost to the MAP fault
+\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32, 19334375--76, 19334378--80, 19411150}% dev/scripts/av6_89_b7_result.md
+\pndef{compute.bsevencpuh}{402.4}% dev/scripts/phase16_ledger.md: 391.9 for the batches, 10.49 null, 0.05 B7.8; 274.1 more lost to the MAP fault
 \pndef{compute.mzerojobs}{19684097--101, 19827688}% dev/scripts/m0_evidence_kim40_result.md
 \pndef{compute.mzerocpuh}{12{,}978}% same
 \pndef{compute.budgetjobs}{20041038--40}% dev/scripts/reduced_budget_kim42_result.md
