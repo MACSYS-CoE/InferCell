@@ -20,6 +20,7 @@ makedocs(;
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
         "The reduced syn3A model" => "user-guide/reduced-syn3a.md",
+        "Prediction uncertainty over time" => "user-guide/prediction-uncertainty.md",
         "Toy models" => [
             "ODE inference (NUTS)" => "user-guide/ode-inference.md",
             "SSA inference (ABC-SMC)" => "user-guide/ssa-inference.md",
