@@ -166,13 +166,13 @@ All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its A
 \texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind the main results. The commits and checksums are in the evidence archive
 and the result notes named under Software and data availability.
 
-\begin{table}[!ht]
+\begin{table*}[t]
 \caption{\textbf{The runs behind the results.} Hours are from Slurm accounting. The mixed route's
 omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held.}
 \label{tab:compute}
 \centering
-\small
-\begin{tabular}{@{}llr@{}}
+\footnotesize
+\begin{tabular}{@{}lp{0.62\textwidth}r@{}}
 \toprule
 Run & Slurm jobs & CPU-hours \\
 \midrule
@@ -184,4 +184,4 @@ M0 scoring & \pn{compute.mzerojobs} & \pn{compute.mzerocpuh} \\
 Reduced-model budget & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}

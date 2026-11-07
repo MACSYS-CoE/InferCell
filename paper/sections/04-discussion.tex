@@ -1,22 +1,19 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\IC{} supports exact stochastic and mean-field descriptions across a coupled ODE--jump
-boundary. On M0, both inference routes pass simulation-based calibration, with small
-declared discrepancies. An M0 posterior, combined as a modular transfer with viability-conditioned
-uncertainty in the remaining parameters, gives forward and intervention predictions on
-the reduced model. Those predictions are unscored, and their budget depends strongly on
-a prior width that we chose. M0 is the check behind them: the posterior-to-prediction step covers lactate export at the expected rate there, though that does not test the completion or the transfer into the reduced model.
+\IC{} carried one demonstration from a test system through posteriors to predictions. On M0, both inference routes pass simulation-based calibration, with small
+declared discrepancies, and the posterior-to-prediction step covers lactate export at the expected rate. On the reduced model the predictions are unscored, and their budget depends strongly on
+a prior width that we chose. The M0 check does not test the completion or the transfer into the reduced model.
 
 \paragraph{What scales and what does not.} Exact inference is calibrated on M0, and it stops there. The cost of an exact posterior grows with
 the number of genes and the length of the record, and the full reduced model is
 already above our budget. The mixed route removes the stochastic paths from
 the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
 and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. If $\mathcal{R}$ is near those bounds, the metabolites constrain the paths together, and a single draw of paths per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
-in this regime (\cref{sec:approx}). We have not tested it on the full reduced model.
+in this regime (\cref{sec:posteriors}). We have not tested it on the full reduced model.
 
 \paragraph{The observation model sets the interface.} The three graphs of
-\cref{sec:seam} suggest a working rule, from one model and two directions. Single-cell data inform the parameters of their
+\cref{sec:info} suggest a working rule, from one model and two directions. Single-cell data inform the parameters of their
 own module. Information between modules travels on bulk observables, and it follows
 the gain of the coupling. A modeller can compute the gains before any inference. In this work they anticipated the transcript null. For the other direction the evidence is thinner: on one dataset the mixed route shrinks the ptsG promoter by less than the linearised bound projected, and the exact sampler did not measure it.
 

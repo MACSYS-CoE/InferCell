@@ -7,7 +7,8 @@ Run from the repository root:
 Inputs, read and never written:
 - the KIM-43 evidence archive: runs/m0-kim40-kim41/score_datasets.tsv and
   runs/budget-kim42/budget_rows.tsv;
-- paper/figures/data: av6_replicates.tsv, av6_bands.tsv, av6_v6_draws.tsv, copied from B7's run;
+- paper/figures/data: av6_replicates.tsv, av6_bands.tsv, av6_v6_draws.tsv, copied from B7's run,
+  and budget_mu.tsv, from the archive by paper/figures/budget_dump.jl;
 - dev/scripts/f10_16a10_draws.tsv and dev/scripts/v7_16a9b_ranks.tsv.
 """
 import csv
@@ -29,7 +30,7 @@ B7_RUN = os.path.join(HERE, "data")  # copies of three B7 outputs, unchanged
 # Validated together: slot 1 and 2 of the reference categorical palette.
 EXACT, MIXED = "#2a78d6", "#eb6834"
 INK, MUTED, BAND = "#0b0b0b", "#52514e", "#e4e3df"
-WIDTH = 6.5  # PLOS text width with \newgeometry, inches
+WIDTH = 6.5  # arxiv.sty text width, inches: these figures span both columns
 
 plt.rcParams.update({
     "font.family": "sans-serif", "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
@@ -143,12 +144,12 @@ def fig_mixed(b7):
     mixed = np.array([[float(r["log_" + n]) for n in NAMES] for r in m])
     fig = plt.figure(figsize=(WIDTH, 4.2), layout="constrained")
     top, bottom = fig.subfigures(2, 1)
-    a = top.subplots(1, 6, sharey=True)
-    ecdf_row(a, z, lo, hi, [(exact_ranks(), EXACT, "Exact"), (mixed_ranks(b7), MIXED, "Mixed")])
+    a = top.subplots(1, 6)
+    density_row(a, ref, mixed, "Mixed", MIXED)
     legend_row(top, a)
     panel(top, "A")
-    b = bottom.subplots(1, 6)
-    density_row(b, ref, mixed, "Mixed", MIXED)
+    b = bottom.subplots(1, 6, sharey=True)
+    ecdf_row(b, z, lo, hi, [(exact_ranks(), EXACT, "Exact"), (mixed_ranks(b7), MIXED, "Mixed")])
     legend_row(bottom, b)
     panel(bottom, "B")
     save(fig, "fig_mixed")
@@ -176,18 +177,59 @@ def fig_budget(archive):
     a.legend(loc="lower right")
     a.set_title("A", loc="left", fontweight="bold", fontsize=9)
     a.set_title("UNSCORED", loc="right", color=MUTED, fontweight="bold")
-    mean = [get(w, "mean") for w in widths]
-    total = [np.sqrt(get(w, "total")[0]) for w in widths]
-    b.errorbar(x, [m[0] / 1e6 for m in mean], yerr=[t / 1e6 for t in total], fmt="o", ms=5,
-               color=EXACT)
+    # Each point averages many pairs, so it shows one parameter block's reach, with the other
+    # block averaged out. Pairs the viability rule rejected are left out.
+    mu = rows(os.path.join(HERE, "data", "budget_mu.tsv"))
+    rng = np.random.default_rng(1)
+    for k, w in enumerate(widths):
+        kept = [r for r in mu if float(r["width"]) == w and r["viable"] == "true"]
+        for key, off, marker, colour, label in (("row", -0.16, "o", EXACT, r"one draw of $\theta_I$"),
+                                                ("column", 0.16, "s", MIXED, r"one draw of $\theta_H$")):
+            groups = {}
+            for r in kept:
+                groups.setdefault(r[key], []).append(float(r["mu"]))
+            y = np.array([np.mean(v) for v in groups.values()]) / 1e6
+            b.scatter(k + off + rng.uniform(-0.09, 0.09, len(y)), y, s=7, marker=marker, color=colour,
+                      alpha=0.55, lw=0, label=label if k == 0 else None)
     b.set_xticks(x, tick)
     b.set_xlim(-0.5, 2.5)
     b.set_ylim(bottom=0)
     b.set_xlabel(r"Prior width of $\theta_H$")
-    b.set_ylabel("Lactate exported, millions of particles")
+    b.set_ylabel("Lactate exported, millions")
+    b.legend(loc="upper left", handletextpad=0.2)
     b.set_title("B", loc="left", fontweight="bold", fontsize=9)
     b.set_title("UNSCORED", loc="right", color=MUTED, fontweight="bold")
     save(fig, "fig_budget")
+
+
+def fig_predict_m0(archive):
+    d = rows(os.path.join(archive, "runs/m0-kim40-kim41/score_datasets.tsv"))
+    fig, axes = plt.subplots(1, 4, figsize=(WIDTH, 2.05), layout="constrained")
+    panels = (("q", "v7", 1e6, "Export, exact", EXACT, "o", "millions"),
+              ("q", "b7", 1e6, "Export, mixed", MIXED, "s", "millions"),
+              ("dq", "v7", 1e3, "Knockdown, exact", EXACT, "o", "thousands"),
+              ("dq", "b7", 1e3, "Knockdown, mixed", MIXED, "s", "thousands"))
+    for ax, letter, (target, post, scale, title, colour, marker, unit) in zip(axes, "ABCD", panels):
+        sel = [r for r in d if r["target"] == target and r["posterior"] == post and r["arm"] == "hybrid"]
+        assert len(sel) == 50, (target, post, len(sel))
+        t, m, lo, hi = (np.array([float(r[k]) for r in sel]) / scale
+                        for k in ("truth", "mean", "lo90", "hi90"))
+        # One range per quantity, over both posteriors, so panels of a quantity compare directly.
+        both = [r for r in d if r["target"] == target and r["arm"] == "hybrid"]
+        low = min(min(float(r["truth"]), float(r["lo90"])) for r in both) / scale
+        high = max(max(float(r["truth"]), float(r["hi90"])) for r in both) / scale
+        pad = 0.05 * (high - low)
+        lim = [low - pad, high + pad]
+        ax.plot(lim, lim, color=MUTED, lw=0.8, ls="--")
+        ax.errorbar(t, m, yerr=[m - lo, hi - m], fmt=marker, ms=2.5, lw=0.8, color=colour)
+        ax.set_xlim(lim)
+        ax.set_ylim(lim)
+        ax.set_aspect("equal")
+        ax.set_title(title, loc="left", x=0.02)
+        ax.set_xlabel(f"Truth, {unit}")
+        ax.set_ylabel(f"Predicted, {unit}")
+        ax.text(-0.04, 1.045, letter, transform=ax.transAxes, fontweight="bold", fontsize=9, ha="right")
+    save(fig, "fig_predict_m0")
 
 
 ARMS = [("v7", "hybrid", "Exact, hybrid"), ("v7", "mean_field", "Exact, mean field"),
@@ -236,4 +278,5 @@ if __name__ == "__main__":
     fig_calibration(b7)
     fig_mixed(b7)
     fig_budget(archive)
+    fig_predict_m0(archive)
     fig_crossed(archive)

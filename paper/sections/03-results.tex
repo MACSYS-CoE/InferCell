@@ -1,0 +1,415 @@
+\section{Results}
+\label{sec:results}
+
+We follow one demonstration in three steps: a test system, the posteriors \IC{} gives on it, and
+the probabilistic predictions those posteriors support. All results use synthetic data, and the
+priors are asserted. Results marked \emph{unscored} are not compared with any truth. For the scored
+results, the test is calibration: over many datasets, a 90\% credible interval must contain the
+truth about 90\% of the time \cite{talts2018validating}.
+
+\subsection{The test system: a reduced model of \syn{}, and M0}
+\label{sec:model}
+
+We test \IC{} on a model reduced from the well-stirred \syn{} model of
+Thornburg and coworkers~\cite{thornburg2022fundamental}. The reduction keeps the best-measured region of
+the cell and removes about \pn{model.removed} of it (\cref{fig:model}).
+
+\begin{itemize}
+  \item \textbf{Metabolism:} \pn{model.rxn} reactions in \pn{model.odemodules} ODE
+  modules: glycolysis to lactate, sugar transport and lactate export, nucleotide
+  recycling, and a lumped step for tRNA charging.
+  \item \textbf{Gene expression:} \pn{model.jumprxn} reactions in
+  \pn{model.jumpmodules} jump modules: transcription, transcript decay and
+  translation for \pn{model.genes} genes, and membrane insertion for the one
+  membrane protein, the glucose transporter PtsG.
+  \item \textbf{State:} \pn{model.species} dynamic species and \pn{model.chemostats}
+  held species, each named once in a registry with its initial value, prior width
+  and source.
+\end{itemize}
+
+The two blocks couple in both directions, as in the published model. Enzyme counts
+set metabolic rates, and the costs of transcription and translation drain the
+nucleotide and charged-tRNA pools. In the other direction, the pools set the
+transcription and translation rate constants at each one-minute rebuild. Membrane
+protein counts set the cell's area and volume. No rate constant appears in both
+blocks. This property comes from the published model, not from our reduction.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_model.pdf}
+\caption{\textbf{The reduced \syn{} model.} The four metabolic modules (ODE) and three gene-expression modules (jump), and what crosses between them. Arrows run between the blocks, not the boxes they touch. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. The orange arrow is the weak return. Supplementary File S1 lists each departure from the published model.}
+\label{fig:model}
+\end{figure*}
+
+The model makes no claim about \syn{} itself. With most of the cell removed, it
+cannot reproduce the doubling time, the metabolite levels or the proteome of the
+real organism. The code refuses to report a doubling time, so that no result can
+be compared with these quantities by mistake. The model's purpose is to give a
+real ODE--stochastic boundary from a published whole-cell model, at a size where an
+exact posterior is affordable.
+
+An exact posterior on the full reduced model
+costs too much (\cref{tab:cost}). We therefore also use M0, the reduced model cut
+to two genes over \pn{mzero.horizon}\,s. The two genes are GAPD, whose promoter is
+the best determined, and ptsG, the membrane transporter. All metabolism stays. The
+other enzyme counts are held at their measured copy numbers, and this hold is a
+declared reduction. M0 has \pn{mzero.npar} free parameters: the two promoter
+strengths, the transcript decay rate, the forward catalytic constants of enolase
+(ENO) and aldolase (FBA), and the bulk assay noise $\sigb$. All the posteriors in this
+paper are on M0.
+
+\subsection{Posteriors on M0}
+\label{sec:posteriors}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_mixed.pdf}
+\caption{\textbf{Posteriors on M0, by both routes.} A: marginal posteriors of the natural log of each parameter on the reference dataset: the exact reference as a filled blue density, and the mixed route as the orange line. The ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations apart, and the cause is open. B: rank-ECDFs of both routes
+over the same \pn{mix.R} prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and each line is the rank-ECDF minus the fractional rank.}
+\label{fig:approx}
+\end{figure*}
+
+\paragraph{The posteriors.} \Cref{fig:approx}A shows both routes on one M0 dataset of
+\pn{mzero.cells} cells. The exact reference is \pn{vsix.chains} chains of \pn{vsix.sweeps} sweeps. Its rank-normalised $\Rhat$
+\cite{vehtari2021rank} is at most \pn{vsix.rhat}, and its bulk effective sample
+size is at least \pn{vsix.ess} for every parameter. The mixed route, which depends on a bulk covariance $S$ computed once from a hybrid ensemble (\cref{sec:meanfield}), uses
+\pn{mix.chains} chains of \pn{mix.nadapt} adaptation and \pn{mix.ndraw}
+sampling steps per dataset. On this dataset the ptsG promoter, the decay rate and
+enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations from the exact
+reference, about \pn{mix.gapfloor} above the matched noise floor, the largest distance between chains run under identical settings. Re-estimating $S$ at
+the posterior mean does not close this gap, and its cause is open.
+
+\paragraph{Are they calibrated?} A test against one known truth, as in DREAM8
+\cite{karr2015summary}, cannot show whether a posterior's width is right. So we drew
+\pn{vseven.R} parameter sets from the prior,
+simulated one dataset from each, and fitted each dataset by each route, with one chain for the exact route. For each
+parameter we compared the empirical CDF of the ranks of the truth with a
+simultaneous band \cite{sailynoja2022graphical}, at a joint level of 95\% over the
+\pn{mzero.npar} parameters. On both routes all \pn{mzero.npar} parameters stay inside their bands (\cref{fig:approx}B), a test that detects only large miscalibration at this size. A sampler that returned the prior would also pass, so we note that the exact reference does contract: on its dataset the posterior variance is about \pn{vsix.shrinklo}--\pn{vsix.shrinkhi}\% below the prior's. The largest deviation is \pn{vseven.maxdev} on the exact route and \pn{mix.sbcmax} on the mixed route, both for the
+transcript decay rate, where the band allows \pn{vseven.band}. A calibration test
+over many datasets does not exclude a gap of the size above on one dataset, so we report
+both. \Cref{app:posteriors} gives the coverage read from the exact ranks.
+
+\paragraph{What they cost.} A mixed posterior costs a median of \pn{mix.cpuh} CPU-hours
+(range \pn{mix.cpuhlo}--\pn{mix.cpuhhi}), against \pn{ften.cpuh}--\pn{cost.exacthi}
+for the exact sampler (\cref{tab:cost}). That median counts completed jobs only: a fault in the
+starting optimiser lost another \pn{mix.lost} CPU-hours across the whole run. The long reference run cost
+\pn{vsix.cpuh} CPU-hours. A production-length exact chain, about one-\pn{ften.speedup}th of that, is not distinguishable from the reference on
+any marginal (\cref{app:posteriors}). An exact posterior on
+the full reduced model is projected at about \pn{cost.fullscale} CPU-hours, above
+our bound of \pn{cost.kone} CPU-hours per posterior. Exact inference therefore
+stops at M0. The mixed route costs far less on M0, but we have not calibrated it on the
+reduced model. The cost is the number of simulations, not the time of one. One cycle
+of the full reduced model takes \pn{model.cyclewall}\,s, and a fast
+implementation of the full \syn{} model is the subject of a companion paper
+\cite{kimpson2026whole}.
+
+\begin{table}[t]
+\caption{\textbf{CPU-hours per posterior.} The mixed route's value is a median over completed jobs.}
+\label{tab:cost}
+\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Route & M0 & Reduced model \\
+\midrule
+Exact, reference & \pn{vsix.cpuh} & --- \\
+Exact, production & \pn{ften.cpuh}--\pn{cost.exacthi} & $\sim$\pn{cost.fullscale} (projected) \\
+Mixed & \pn{mix.cpuh} & not run \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{How closely the routes agree.} Over the \pn{mix.R} datasets,
+the largest mean bias of the mixed route against the exact posteriors is \pn{mix.biasmax}~$\pm$~\pn{mix.biasse} posterior standard deviations, for the decay rate. The median ratio of standard deviations per parameter is between \pn{mix.sdlo} and \pn{mix.sdhi}, and per parameter \pn{mix.mcselo}--\pn{mix.mcsehi} of the datasets differ from the exact fit by more than three of its Monte Carlo standard errors.
+
+\paragraph{Limits.} The calibration results hold for M0 only. In \pn{vseven.lowess}
+of the \pn{vseven.R} exact replicates the smallest bulk effective sample size is below 100, and autocorrelated draws can distort ranks. In \pn{mix.lowconv} of the \pn{mix.R} mixed replicates the two chains
+fall short of $\Rhat \le 1.02$ and a bulk effective sample size of 100. The worst
+$\Rhat$ is \pn{mix.rhat} and the smallest effective sample size is \pn{mix.ess}. The
+mixed calibration result is unchanged without those replicates, as a sensitivity check only, since dropping them is a selection.
+
+\subsection{What the mean-field swap costs}
+\label{sec:jensen}
+
+The mixed route rests on the mean-field swap, which replaces the stochastic gene expression with its mean. The
+means of transcripts and proteins are exact, but metabolism is nonlinear. A
+metabolism fed the mean drain differs from the mean over cells of metabolisms fed
+their own drains. The difference is a Jensen gap.
+
+The gap is largest for GTP, where the mean field sits
+\pn{jg.gtplo}--\pn{jg.gtphi}\% below the population mean. We traced it to
+cell-to-cell variation in the drains. When every cell receives the mean field's
+drains, the gap closes. At our three test parameter sets, the enzyme counts, the per-cell feedback and the clip at zero did not account for the GTP gap. A possible mechanism, which we have not tested, is that only the saturable enzymes PGK3 and PYK3 regenerate GTP. If GTP is convex in the spend, the population mean sits above GTP at the mean spend.
+
+We treat the gap as a declared reduction and correct it
+with an offset $\delta$, the log difference between the mean of a reference
+ensemble and the mean field at one reference parameter set. Our reference is the
+most detailed composition we have, the exact hybrid, and not the truth about the
+cell. Without $\delta$, the gap would move the transcript decay rate by
+\pn{jg.biaslo}--\pn{jg.biashi} posterior standard deviations. With $\delta$, the remaining bias has a root mean square within about one standard deviation, and single targets reach 1.9. Both figures are linearised. We report the gap with a goodness check (\cref{app:swap}) and with this bias, and we do not use it as a stopping rule. With $\delta$ in place, what remains at the level of the posterior is small on
+average over datasets, and larger on one dataset for a reason we have not found
+(\cref{sec:posteriors}).
+
+\subsection{What each data stream informs}
+\label{sec:info}
+
+Our claims rest on calibration on M0, and not on a measured transfer of
+information across the boundary by the exact sampler. Still, the posteriors say something about the
+boundary. A coupled model has three graphs, and they need not agree
+(\cref{fig:graphs}). The \emph{coupling graph} says which module drives which
+state. The \emph{likelihood graph} says which likelihood factors depend on which
+parameters once the stochastic paths are integrated out. The \emph{information
+graph} says which data streams move which parameters. In the reduced \syn{} model the
+coupling graph is two-way, but the information graph is sparse and points mostly in
+one direction.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_graphs.pdf}
+\caption{\textbf{Three graphs of one model.} A: the coupling is two-way, with a strong drive
+from gene expression to the pools and a weak one back. Line width shows gain. B: once the
+paths are integrated out, the gene-expression parameters $\theta_G$ enter both factors,
+and the metabolic parameters $\theta_M$ reach the transcript factor only weakly (dotted). C:
+what the data move. Solid: each stream informs its own module, on both routes. Dashed: metabolites
+to gene expression, shown by the linearised bound and the mixed route, with no exact result.
+Dotted: transcripts to metabolism, a null read-off on M0.}
+\label{fig:graphs}
+\end{figure*}
+
+The strength of each coupling direction predicts where information flows
+(\cref{tab:gain}). From gene expression to the pools the gain is of order one. The
+pools turn over in seconds to minutes, and the drains from gene expression are a
+large part of that turnover. From the pools back to the rate constants the gain is
+small: an elasticity of \pn{gain.txlo}--\pn{gain.txhi} for transcription and
+\pn{gain.tl} for translation. The gain is small because the published rate laws are
+saturated. The elasticity here is $\partial \ln k / \partial \ln c$, of a rate constant $k$ in a pool $c$. The published law's dissociation constant $K_d$ for RNA polymerase and its nucleotides is \pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
+
+\begin{table}[t]
+\caption{\textbf{Gain and information in each direction across the boundary.} Information is the ratio of posterior to prior standard deviation at 200 cells. The ptsG value is a linearised bound at 10\% assay noise, and its bracket is the ratio that noise alone gives. The ENO value limits what transcripts can inform, since they are a function of the path: a Gaussian approximation from the path's Fisher information, linearised at one truth, from 40 cells scaled to 200, with no assay noise.}
+\label{tab:gain}
+\centering
+\small
+\begin{tabular}{@{}P{0.3\columnwidth}P{0.27\columnwidth}P{0.33\columnwidth}@{}}
+\toprule
+Direction & Gain & Information \\
+\midrule
+Gene expression $\to$ pools & order one & ptsG from metabolites only: \pn{info.ptsg} (bracket \pn{info.ptsgbracket}) \\
+Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn{gain.tl} (translation) & ENO from transcripts only: \pn{info.enotx} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Metabolites to gene expression.} The linearised bound says that metabolite data can inform the ptsG promoter, a
+gene-expression parameter that they never measure. On M0 the mixed route shows this
+shrinkage, to \pn{mix.ptsgbulk} of the prior standard deviation. That is less shrinkage than the bound of \pn{info.mzeroptsg} projects, and that calculation's own split-half noise ratio is \pn{info.mzerobracket}. The exact fit under metabolites only did not mix for
+this parameter, so on the exact sampler this direction is unmeasured, and we do not claim
+it there.
+
+\paragraph{Transcripts to metabolism.} Transcript data carry almost no information about the enolase constant, a
+metabolic parameter. We report that result as a null, not as a failure. On M0 at \pn{mzero.cells} cells, the exact sampler's divergence under
+transcripts only is \pn{tsplit.eno}\,nat for enolase and \pn{tsplit.fba}\,nat for
+aldolase, each below its noise floor. That read-off is M0's. We did not run the
+planned test at 1,000 cells, so we do not extend it to the full reduced model.
+
+\paragraph{One data stream at a time, by both routes.} On the reference dataset under transcripts only,
+none of the five marginals we compared differs detectably between the routes: the
+Wasserstein distance is \pn{mix.txlo}--\pn{mix.txhi} exact standard deviations, each
+below its noise floor. The decay rate's posterior variance shrinks by \pn{mix.krnadegtx}\% under transcripts only:
+the autocorrelation in a time-resolved single-cell record separates it from the promoter
+strength, where RNA-seq data inform only the product of synthesis rate and half-life \cite{karr2015summary}.
+Under metabolites only, enolase, the decay rate and $\sigb$
+differ detectably, by small margins, and aldolase does not. The exact fit has an
+effective sample size of only \pn{mix.krnadegess} for the decay rate. Each floor is one sample of the
+noise, so these margins are not precise, and we have not tested whether they share a
+cause with the gap of \cref{sec:posteriors}.
+
+\subsection{Probabilistic predictions on M0, scored}
+\label{sec:predm0}
+
+\paragraph{What we predict.} The quantity $Q$ is the lactate a cell exports, in particles, and the estimand is its population
+mean $\mu(\theta)$. The intervention is a knockdown that scales the ptsG promoter strength
+by $1 - d$, at dose $d = \pn{budget.dose}$, with paired seeds, and its effect is $\Delta Q$. We fixed the quantity, the estimand, the viability rule and the
+intervention on held-out pilots before any evidence run (\cref{sec:prediction}).
+
+\paragraph{Why M0, and why scoring stops there.} M0 is a slice of the reduced model small enough for the exact route to check a truth. It keeps all the metabolic reactions and the same blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
+One exact posterior on the reduced model is projected at about \pn{cost.fullscale}
+CPU-hours, and calibration needs \pn{mzero.cells} of them, about \pn{cost.fullcoverage} CPU-hours. We have not costed the same test by the mixed route.
+
+\paragraph{The design.} For each of \pn{vseven.R} datasets with known truth, we pushed
+two posteriors through three forward models. The posteriors are the exact sampler's and the mixed route's (\cref{sec:posteriors}). The forward models are the
+hybrid, the mean field, and the mean field with an offset $\delta_Q$ for this quantity, taken from a new hybrid ensemble. On M0 nothing is completed from a prior, so there is
+no viability filter. We fixed the scoring before the run. With \pn{pred.ndraws} draws, a
+calibrated arm's intervals cover \pn{pred.ref90}\% at nominal 90\% and about
+\pn{pred.ref50}\% at nominal 50\%, with standard errors over \pn{vseven.R} datasets of
+about \pn{pred.se90} and \pn{pred.se50} points. Those are the references we compare with. They are approximate: thinning lowers them slightly, and the hybrid's Monte Carlo term raises its own coverage, to about \pn{pred.mcup}\% at nominal 90\%. \Cref{fig:predict} shows the predictions themselves with the hybrid, and \cref{fig:crossed} and \cref{tab:crossed} score all six arms.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_predict_m0.pdf}
+\caption{\textbf{Probabilistic predictions on M0, against the truth.} Each point is one of \pn{vseven.R} datasets, with the predictive mean and 90\% interval from the hybrid, and the dashed line is equality. A, B: lactate export. C, D: the knockdown's effect, whose coverage does not meet the sizing rules in the text. Blue circles use the exact posterior and orange squares the mixed. The truths were drawn from the prior, so they span a range wider than the intervals, and closeness to the line reflects that range too. Coverage (\cref{fig:crossed}) is the test.}
+\label{fig:predict}
+\end{figure*}
+
+\paragraph{Lactate export.} The exact posterior with the hybrid, and the mixed posterior
+with the hybrid, cover at the reference (\cref{fig:crossed}). The exact arm
+is high at nominal 50\%, by \pn{pred.q.eh.sehigh} standard errors. The mixed route's
+intervals are about \pn{pred.q.mixnarrow}\% narrower. Changing the forward description
+shifts the prediction by \pn{pred.q.fshift} standard deviations at the same width, and $\delta_Q$ removes that shift. Changing the inference route shifts it by \pn{pred.q.rshift} standard deviations. The mixed route's narrower intervals sit beside marginal standard deviations close to the exact ones (\cref{sec:posteriors}), and we have not examined whether the routes differ in the dependence between parameters. The cheapest route, the mixed posterior with the mean field, covers
+\pn{pred.q.cheaplo}--\pn{pred.q.cheaphi}\% at nominal 90\%, about one standard error low, with a $z$-score standard deviation of \pn{pred.zlo}--\pn{pred.zhi}. Its small shift without $\delta_Q$ is the two effects nearly cancelling, not the absence of
+either. \pn{vseven.R} datasets cannot separate these arms at 90\%: all six are within \pn{pred.q.maxse} of the reference's standard errors. The mixed posterior's sizes sit on the limit, with the sizing rules below missed on \pn{pred.mixbreachlo}--\pn{pred.mixbreachhi} datasets.
+
+\paragraph{The knockdown effect.} A model fitted to unperturbed data predicts the effect of the knockdown with the right sign, and $z$-scores with standard deviations of \pn{pred.dzlo}--\pn{pred.dzhi}. The sign is a weak test, because less transporter is expected to lower export. The true effect has a median of
+\pn{pred.dqmedian} particles, and every arm's 90\% interval excludes zero with the right
+sign on all \pn{vseven.R} datasets. We read this off after the run. These coverages are
+not a clean calibration. We sized the run on $Q$, with the rules that cell noise be at
+most 10\% of the spread and the truth's standard error at most 10\% of the predictive
+standard deviation. The panel fails both rules for $\Delta Q$ on all \pn{vseven.R}
+datasets, because pairing removes little of the cells' spread: the noise share has a
+median of \pn{pred.dqmcv} under the exact posterior. By arithmetic, and not by a measurement, that noise accounts for the hybrid arms being too wide. The mean-field arms carry no such term,
+so the truth's error counts against them. The mixed posterior with the mean field is the one arm well below the reference: \pn{pred.d.mm.c}\% and \pn{pred.d.md.c}\% at nominal 50\%, and
+\pn{pred.d.md.n}\% at nominal 90\% with $\delta$. Noise explains part of that, and the
+rest cannot be separated from that route's narrower intervals at these sizes. Meeting the
+rules would cost on the order of \pn{pred.dqcost} CPU-hours, and we did not run it.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_crossed.pdf}
+\caption{\textbf{The posterior-to-prediction step scored on M0.} Each arm is a posterior and a forward model,
+over \pn{vseven.R} datasets, with \pn{pred.ndraws} draws per posterior. Blue circles are the exact posterior and orange squares the mixed. Coverage is $\pm$ one standard error, and the dashed lines are the references of \pn{pred.ref50}\% and \pn{pred.ref90}\%. A: lactate export. B: the knockdown's effect, whose coverage
+does not meet the sizing rules in the text. Width is the median ratio to the exact posterior with the hybrid, with its interquartile range.}
+\label{fig:crossed}
+\end{figure*}
+
+\paragraph{What this supports.} On M0, the posterior-to-prediction step covers at the expected rate on $Q$, and it gets the sign of the knockdown right. This panel is the only validation behind the reduced model's knockdown
+prediction below. It does not test the transfer from M0 into the reduced model.
+
+\subsection{Probabilistic predictions on the reduced model, unscored}
+\label{sec:budget}
+
+We now predict the same quantities on the reduced model, over one published cycle of \pn{model.cycle}\,s, against \pn{mzero.horizon}\,s on M0. No truth is checked here.
+
+\paragraph{The parameters are a modular transfer.} We use the cut of \cref{sec:predictapi} with M0 as the fitted model. The \pn{budget.nI} inferred parameters $\theta_I$ come from one exact posterior on M0, one of the fits of \cref{sec:posteriors}, with the assay noise left out. Fifteen promoter strengths $\theta_H$ belong to genes that M0 removes. We use the cut because an exact posterior
+on the reduced model is out of reach (\cref{tab:cost}). M0 fits $\theta_I$ with the counterparts of $\theta_H$ fixed, so this transfer assumes that the posterior
+of $\theta_I$ would not move if they varied. We have not tested that assumption.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_budget.pdf}
+\caption{\textbf{What the reduced model's prediction rests on (unscored).} No truth is compared with anything here, and all of it rests on one exact M0 posterior's $\theta_I$, with \pn{budget.nrows} by \pn{budget.ncols} parameter pairs over \pn{model.cycle}\,s. A: the
+share of $\mathrm{Var}(\mu)$ held by the \pn{budget.nH} promoter strengths, in both nested
+orders, $\pm$ one standard error. B: predicted lactate export per parameter draw. A blue circle is one draw of $\theta_I$, averaged over the draws of $\theta_H$, and an orange square is one draw of $\theta_H$, averaged over the draws of $\theta_I$. Pairs the viability rule rejected are left out, and horizontal jitter is for legibility. Each pair has \pn{budget.ncellspair} cells, so the points also carry some cell noise.}
+\label{fig:budget}
+\end{figure*}
+
+\paragraph{The prediction and its budget.} We ran \pn{budget.nrows} draws of $\theta_I$ crossed with
+\pn{budget.ncols} draws of $\theta_H$, at each of three prior widths
+(\cref{tab:budget,fig:budget}). At the default width, among the \pn{budget.ndrawn}
+parameters drawn and on this one posterior's $\theta_I$, about
+\pn{budget.heldpct}\%~$\pm$~\pn{budget.heldpctse}\% of the parameter uncertainty in
+lactate export comes from the \pn{budget.nH} promoter strengths that M0's fit cannot
+reach. \Cref{fig:budget}B shows this directly: the spread across draws of $\theta_H$ grows with the prior width, and the spread across draws of $\theta_I$ changes much less. Their medians are a proteomics proxy, and their spread (geometric standard
+deviation \pn{budget.gsdone}) is our choice. The share runs from
+\pn{budget.heldpctlo}\% at half that log-scale width to \pn{budget.heldpcthi}\% at double. The
+two nested orders of the split differ by about a point or less. Every other constant is
+held fixed or derived, so this is a split among these \pn{budget.ndrawn} parameters
+only, and it is not a property of the model alone.
+
+The share is of the variance of $\mu$. A new cell's variance also holds the cell's own
+spread, and of that total the held parameters' part at the default width is
+\pn{budget.heldnewcell}\%. The prediction itself moves with the prior too: mean export
+rises by a factor of \pn{budget.meanratio}~$\pm$~\pn{budget.meanratiose} from the
+narrowest width to the widest.
+
+\begin{table*}[t]
+\caption{\textbf{The reduced model's uncertainty budget.} \textbf{Unscored}, on one exact M0
+posterior's $\theta_I$. Width scales the log-scale prior width of $\theta_H$ at a fixed
+median. $Q$ is lactate exported over \pn{model.cycle}\,s, in millions of particles, and
+$\Delta Q$ is the mean effect of the knockdown in thousands. Held share is the share of
+$\mathrm{Var}(\mu)$, with $\theta_I$ first in the nested split. Cell rows count the
+\pn{budget.ncellsbase} baseline cells before viability filtering. A starved cell has also
+clipped.}
+\label{tab:budget}
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Width & $\times\tfrac12$ & $\times 1$ & $\times 2$ \\
+\midrule
+Geometric SD of $\theta_H$ & \pn{budget.gsdlo} & \pn{budget.gsdone} & \pn{budget.gsdhi} \\
+Mean $Q$ & \pn{budget.qlo} & \pn{budget.qone} & \pn{budget.qhi} \\
+$\sqrt{\mathrm{Var}(\mu)}$ & \pn{budget.sdlo} & \pn{budget.sdone} & \pn{budget.sdhi} \\
+Held share & \pn{budget.sharelo} & \pn{budget.shareone} & \pn{budget.sharehi} \\
+Pairs kept by $V$ & \pn{budget.acclo} & \pn{budget.accone} & \pn{budget.acchi} \\
+Cells clipped & \pn{budget.cliplo}\% & \pn{budget.clipone}\% & \pn{budget.cliphi}\% \\
+Cells starved & \pn{budget.starvelo}\% & \pn{budget.starveone}\% & \pn{budget.starvehi}\% \\
+Mean $\Delta Q$ & \pn{budget.dqlo} & \pn{budget.dqone} & \pn{budget.dqhi} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{The knockdown.} At the default width, mean lactate export falls
+by \pn{budget.dqpct}\%~$\pm$~\pn{budget.dqpctse}\%. This effect shrinks as the prior
+widens, and at the widest setting its interval of two standard errors reaches zero. At
+\pn{budget.ncellspair} cells per pair, the run cannot resolve the parameter variance of
+$\Delta Q$, because cell noise swamps it. So we report its mean and no variance split
+for it.
+
+\paragraph{Viability and validity.} The viability rule rejected nothing at the two
+narrower widths, so there the conditioning removed nothing. At the widest it removed
+\pn{budget.rejected}\% of pairs, all from three of the \pn{budget.ncols} draws of
+$\theta_H$. Clipping is the common state in this run, and the rule allows it: most cells
+clip a pool at least once (\cref{tab:budget}). A likely cause is this posterior's transcript decay rate, which is low against the reference dataset's, though not an outlier among the \pn{vseven.R} fits. Across the decay rate's deciles at the default width, the clipped
+fraction falls from \pn{budget.clipdechi}\% to \pn{budget.clipdeclo}\%. We have not shown
+this link on stochastic cells. Nearly every cell's GTP falls at least once below $K_d$, the regime where the small elasticities of \cref{sec:info} are in question. The run stores no elasticities, so it shows the pool
+reaching that regime and not the basis failing. These figures, and the parameter variance,
+hold for this one posterior, and another could give different ones.
+
+\paragraph{What this does not show.} It is not calibration, on the reduced model or
+anywhere else, and it does not compare the reduced model with real measurements. The
+posterior of $\theta_I$ is a fit to M0's synthetic data over \pn{mzero.horizon}\,s, so
+its small share is not what real measurements would leave.
+
+\subsection{What the predictions leave out: model form}
+\label{sec:modelform}
+
+A prediction's uncertainty has four sources: inferred parameters, held parameters,
+intrinsic noise and model form. The first three have numbers in \cref{sec:budget}. Model
+form does not have one. Each reduction is listed in \cref{tab:modelform} and marked by
+what we know of its effect on $Q$. Only the formalism swap is measured, because only it
+has a column in the crossed design. Every other reduction is declared and not bounded, so
+the budget does not cover the full uncertainty a modeller should carry.
+
+\begin{table*}[t]
+\caption{\textbf{The model-form table.} Counts come from \texttt{reduction\_declarations} on the
+reduced model (\pn{red.total} departures) and on M0 (\pn{mz.total}). Supplementary File S1 lists each one, with two driver-policy records that are not departures. Effect is the effect on $Q$.}
+\label{tab:modelform}
+\centering
+\small
+\begin{tabular}{@{}p{0.4\textwidth}p{0.12\textwidth}p{0.42\textwidth}@{}}
+\toprule
+Reduction & Applies to & Effect \\
+\midrule
+Formalism swap: stochastic gene expression replaced by its mean & Both & \textbf{Measured} on M0: a shift of \pn{pred.q.fshift} standard deviations at the same width, which $\delta$ removes (\cref{sec:predm0}) \\
+Transfer of the M0 posterior into the reduced model, where the proteins M0 holds are expressed stochastically & Reduced model & Declared, not tested. A test (fit M0 to reduced-model data by the mixed route, predict, and score) is neither designed nor costed \\
+\pn{mzero.heldenz} enzyme counts held at proteomics copy numbers, and \pn{mzero.heldpts} carrier totals at their initial values & M0 & Declared, not bounded \\
+One-way nucleotide reduction: the model keeps both directions, but the mixed route and our reading of information treat the pools' effect on rate constants as weak, on elasticities of \pn{gain.txlo}--\pn{gain.tl} & Both & Declared, not bounded, and in question on the reduced model: see the text \\
+Clamped CTP and UTP pools (\pn{red.clamp}) & Both & Declared, not bounded \\
+Lumped tRNA charging, in the ODE block (\pn{red.lumping} lumping, \pn{red.formalism} formalism) & Both & Declared, not bounded \\
+Asserted priors (\pn{red.asserted_prior} on the reduced model, \pn{mz.asserted_prior} on M0), and priors the driver overwrites (\pn{red.discarded_prior}) & Both & The \pn{budget.nH} promoter widths are varied in \cref{tab:budget}; the rest are declared, not bounded \\
+Membrane growth: frozen baseline area and a calibrated footprint, with capped geometry (\pn{red.exogenous_growth}, \pn{red.calibrated_constant}, \pn{red.capped_rate_law_geometry}) & Both & Declared, not bounded \\
+Other module notes (\pn{red.model_note} on the reduced model, \pn{mz.model_note} on M0) & Both & Declared, not bounded \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{The one-way reduction on the reduced model.} The elasticities that justify this reduction hold while GTP stays well above $K_d$. At the default width, \pn{kd.lo}--\pn{kd.hi}\% of baseline cells fall below it at least once, and \pn{kd.zero}\% reach exactly zero. Clip counts give a lower limit on the time spent below it:
+\pn{kd.boundn} of \pn{budget.ncellsbase} cells spend more than \pn{kd.boundpct}\% of their
+post-debit instants at zero. This bound says nothing about time between zero and the
+threshold, so it undercounts. An earlier screen, with the inferred parameters drawn from
+their priors rather than this posterior, found GTP below the threshold at
+\pn{kd.screenlo}--\pn{kd.screenhi}\% of rebuild instants in \pn{kd.screenn} of 20 draws,
+and at none in \pn{kd.screenzero}. On those draws the basis does not hold over the full
+cycle, whatever the dose. On M0 the same screen found GTP below the threshold at no
+instant at the chosen dose. So this caveat applies to the reduced model and not to the
+scored system, and the scored check does not cover it.

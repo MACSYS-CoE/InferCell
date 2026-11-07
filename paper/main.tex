@@ -1,116 +1,93 @@
-% InferCell paper 1, in the PLOS LaTeX template (version 3.8, April 2026), for PLOS
-% Computational Biology. Build: latexmk -pdf main.tex
-%
-% Before submission (PLOS asks for these; they would break the preprint build):
-% - flatten the \input files into one .tex with latexpand;
-% - remove the \includegraphics and upload each figure separately;
-% - remove the placeholder macros from macros.tex once nothing uses them.
+% InferCell paper 1. Build: latexmk -pdf main.tex
+\documentclass[twocolumn]{article}
 
-\documentclass[10pt,letterpaper]{article}
-\usepackage[top=0.85in,left=2.75in,footskip=0.75in]{geometry}
-
-\usepackage{amsmath,amssymb}
-\usepackage{changepage}
-\usepackage{textcomp,marvosym}
-\usepackage{cite}
-\usepackage{nameref,hyperref}
-\usepackage[right]{lineno}
-\usepackage[nopatch=eqnum]{microtype}
-\DisableLigatures[f]{encoding = *, family = * }
-\usepackage[table]{xcolor}
-\usepackage{array}
-\newcolumntype{+}{!{\vrule width 2pt}}
-\newlength\savedwidth
-\newcommand\thickcline[1]{%
-  \noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
-  \cline{#1}%
-  \noalign{\vskip\arrayrulewidth}%
-  \noalign{\global\arrayrulewidth\savedwidth}%
+\usepackage[hyperfootnotes=false]{hyperref}
+\hypersetup{
+	hidelinks,
+	colorlinks = true,
+	citecolor = cyan,
+	urlcolor = black,
+	linkcolor = magenta
 }
-\newcommand\thickhline{\noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 2pt}%
-\hline
-\noalign{\global\arrayrulewidth\savedwidth}}
-
-\raggedright
-\setlength{\parindent}{0.5cm}
-\textwidth 5.25in
-\textheight 8.75in
-
-\usepackage[aboveskip=1pt,labelfont=bf,labelsep=period,justification=raggedright,singlelinecheck=off]{caption}
-\renewcommand{\figurename}{Fig}
-
-\bibliographystyle{plos2025}
-
-\makeatletter
-\renewcommand{\@biblabel}[1]{\quad#1.}
-\makeatother
-
-\usepackage{lastpage,fancyhdr,graphicx}
-\usepackage{epstopdf}
-\pagestyle{fancy}
-\fancyhf{}
-\rfoot{\thepage/\pageref{LastPage}}
-\renewcommand{\headrulewidth}{0pt}
-\renewcommand{\footrule}{\hrule height 2pt \vspace{2mm}}
-\fancyheadoffset[L]{2.25in}
-\fancyfootoffset[L]{2.25in}
-\lfoot{\today}
-
-%% User packages and macros
-\usepackage{booktabs}
+\usepackage{arxiv}
+\usepackage{amsmath,amssymb}
 \usepackage{mathtools}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{microtype}
+\usepackage{graphicx}
 \graphicspath{{figures/}}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{doi}
+\usepackage{xcolor}
+\usepackage[title]{appendix}
 \usepackage[capitalize,noabbrev]{cleveref}
-\crefname{figure}{Fig}{Figs}
-\Crefname{figure}{Fig}{Figs}
-\crefname{equation}{Eq}{Eqs}
-\Crefname{equation}{Eq}{Eqs}
-\hypersetup{hidelinks,
-  pdftitle={InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A},
-  pdfauthor={Tom Kimpson}}
+\crefname{figure}{Fig.}{Figs.}
+\Crefname{figure}{Figure}{Figures}
+\crefname{appendix}{Appendix}{Appendices}
+\Crefname{appendix}{Appendix}{Appendices}
+
+% A ragged column, for narrow table cells.
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 \input{macros}
 \input{numbers}
 \input{tables/modelform_counts}
 
-\begin{document}
-\vspace*{0.2in}
+\title{InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A}
 
-\begin{flushleft}
-{\Large
-\textbf{InferCell: a compositional inference framework for whole-cell modelling,
-demonstrated on reduced JCVI-syn3A}
+\renewcommand{\shorttitle}{InferCell: compositional inference for whole-cell modelling}
+
+\usepackage{authblk}
+\renewcommand\Authfont{\bfseries}
+\setlength{\affilsep}{0em}
+\newbox{\orcid}\sbox{\orcid}{\includegraphics[scale=0.06]{orcid.pdf}}
+
+\author[1,2]{%
+	\href{https://orcid.org/0000-0002-6542-6032}{\usebox{\orcid}\hspace{1mm}Tom Kimpson\textsuperscript{*}}%
 }
-\newline
-\\
-Tom Kimpson\textsuperscript{1*}
-\\
-\bigskip
-\textbf{1} \placeholder{Affiliation: Dept/Program/Center, Institution Name, City, State, Country}
-\\
-\bigskip
+\affil[1]{School of Mathematics and Statistics, The University of Melbourne, Parkville, VIC 3010, Australia}
+\affil[2]{ARC Centre of Excellence for the Mathematical Analysis of Cellular Systems (MACSYS), The University of Melbourne, Parkville, VIC 3010, Australia}
 
-* \placeholder{Corresponding author's email}
+\hypersetup{
+pdftitle={InferCell: a compositional inference framework for whole-cell modelling, demonstrated on reduced JCVI-syn3A},
+pdfauthor={Tom Kimpson},
+pdfkeywords={whole-cell model, JCVI-syn3A, Bayesian inference, hybrid simulation, uncertainty quantification, Julia},
+}
 
-\end{flushleft}
+\begin{document}
+\makeatletter
+\twocolumn[
+\begin{@twocolumnfalse}
+\maketitle
 
 \input{sections/00-abstract}
 
-\clearpage
-\newgeometry{top=0.85in,left=1in,right=1in,footskip=0.75in}
-\linenumbers
+\keywords{whole-cell model \and JCVI-syn3A \and Bayesian inference \and hybrid simulation \and uncertainty quantification \and Julia}
+\vspace{1em}
+\end{@twocolumnfalse}
+]
+\makeatother
+% \thanks is lost inside \twocolumn[...], so set the footnote by hand
+{\renewcommand{\thefootnote}{*}\footnotetext{Corresponding author: \texttt{tom.kimpson@unimelb.edu.au}}}
 
 \input{sections/01-intro}
-\input{sections/02-design}
-\input{sections/03-model}
-\input{sections/04-seam}
-\input{sections/05-results}
-\input{sections/06-discussion}
-\input{sections/07-methods}
-\input{sections/08-availability}
+\input{sections/02-infercell}
+\input{sections/03-results}
+\input{sections/04-discussion}
+\input{sections/05-availability}
 
-\nolinenumbers
-
+\bibliographystyle{unsrtnat}
 \bibliography{references}
+
+\clearpage
+\begin{appendices}
+\crefalias{section}{appendix}
+\input{sections/A-methods}
+\input{sections/B-supporting}
+\end{appendices}
 
 \end{document}

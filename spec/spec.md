@@ -14,7 +14,7 @@ observables and synthetic data, is done (#78). Phase 16, specified in
 `spec/phases/16-recovery.md` as 16a and 16b (§12, 2026-09-30), closed at M0 on
 2026-10-28 (#105–#110). The v0.3.0 claim is §1's, as amended on 2026-10-29 (§12,
 "v0.3.0 launch decisions").
-**Created:** 2026-09-03  ·  **Last amended:** 2026-11-06
+**Created:** 2026-09-03  ·  **Last amended:** 2026-11-07
 
 This is the authoritative document for the Core A′ work. It supersedes
 `openspec/`, which moves to `dev/archive/openspec/` and is retained only so its
@@ -4427,6 +4427,22 @@ fabricated task list.
 ---
 
 ## 12. Amendment log
+
+### 2026-11-07 — Paper 1: two-column format, venue open, and a new story (the user's decisions)
+
+**The venue.** The user replaced the PLOS template with the two-column `arxiv.sty` preprint format of
+their other papers. The venue is now open, which supersedes the KIM-15 venue decision below, including
+its Author Summary. The PLOS preamble, `plos2025.bst` and the Author Summary are in git history.
+
+**The story.** The Results now run: a test system, then posteriors (M0 only), then predictions (scored
+on M0, then unscored on the reduced model). This supersedes the 2026-11-01 framing, which led with the
+reduced model. No run, number or claim changed: the same 250 `\pn` keys and 28 citations appear before
+and after.
+
+**What is new in the paper.** Fig. 5 shows predictions against truth for M0's 50 datasets, from the
+KIM-43 archive's `score_datasets.tsv`. Panel B of Fig. 7 now shows the reduced model's prediction per
+parameter draw, from `paper/figures/data/budget_mu.tsv`, which `paper/figures/budget_dump.jl` writes from
+the archive. Neither needed a new simulation. Details are in `paper/STATUS.md`.
 
 ### 2026-11-06 — KIM-43: the evidence archive
 
