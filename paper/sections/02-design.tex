@@ -48,7 +48,7 @@ constants from the metabolite pools. The set of kinds is closed. A module cannot
 invent a new kind of coupling without a change to the framework.
 
 \begin{table}[!ht]
-\caption{The \pn{fw.edgekinds} edge kinds and their clocks.}
+\caption{\textbf{The \pn{fw.edgekinds} edge kinds and their clocks.}}
 \label{tab:edges}
 \centering
 \small
@@ -81,8 +81,7 @@ model is an object, not a comment. A reduction label has a category (one of
 \pn{fw.redcats}, such as a clamp, a lumped step, a smoothed counter or an asserted
 prior) and a reason. The framework collects labels from three places: the edges,
 the parameter records and the modules. One call returns the full list for a
-composed model. This list is how we report the cost of each choice in
-\cref{sec:results}.
+composed model. We report this list in \cref{sec:modelform}, and we measure the effect of only one entry on it.
 
 \subsection{One interface, two descriptions}
 \label{sec:twodesc}
@@ -93,16 +92,14 @@ Gene expression in \IC{} has one interface and two descriptions.
 metabolic modules run as ODEs. A driver steps the two blocks in turn, as the
 published model does. Every second it writes protein counts into the metabolic rate
 laws, steps the ODEs, debits the costs of the stochastic events, and steps the jump
-process. Every minute it rebuilds the stochastic rate constants from the pools. We
-did not wrap this in one solver object on purpose. A single jump problem over an ODE
+process. Every minute it rebuilds the stochastic rate constants from the pools. We deliberately did not wrap this in one solver object. A single jump problem over an ODE
 problem would let the propensities follow the pools continuously. That is a
 different model from the published one. The driver can also record a stochastic path
 and replay it exactly. A replay matches the original run bit for bit at every
 handshake. The exact sampler (\cref{sec:sampler}) depends on this.
 
 \paragraph{The mean-field swap.} The gene-expression network of the model is first
-order. So the equations for the means of the transcript and protein counts close
-exactly, as linear ODEs. \IC{} derives these equations from the same propensities
+order. So, given the rate constants, the equations for the means of the transcript and protein counts close exactly, as linear ODEs. \IC{} derives these equations from the same propensities
 and update rules that the jump modules use, so the two descriptions cannot drift
 apart. With the swap, the composed model becomes one ODE problem with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
@@ -130,9 +127,7 @@ many cells. \IC{} has two inference routes.
   \cite{andrieu2010particle}, the metabolic constants by slice sampling, and the
   gene-expression constants from exact one-dimensional conditionals
   (\cref{sec:sampler}).
-  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep
-  an exact likelihood, and the bulk metabolites get a Gaussian likelihood centred on
-  the mean-field model. The route uses the gradients of the swap with the No-U-Turn
+  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a birth--death likelihood given the mean-field pools, and the bulk metabolites get a Gaussian likelihood centred on the mean-field model, in the spirit of a synthetic likelihood \cite{wood2010statistical,price2018bayesian}. The route uses the gradients of the swap with the No-U-Turn
   Sampler \cite{hoffman2014nouturn}. It is an approximation, and
   \cref{sec:approx} compares it with the exact route on M0.
 \end{itemize}

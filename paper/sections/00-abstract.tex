@@ -1,42 +1,36 @@
 \section*{Abstract}
-Whole-cell models simulate a living cell from its molecular parts. They fix every
-parameter to one value, so each prediction is a single sample with no error bar.
-The models cannot say how much of a prediction the data support. Inference is hard
-because the models mix deterministic and stochastic formalisms, the stochastic paths
-are latent, and no parameter is shared across the boundary between the two blocks.
-We present \IC{}, a compositional inference framework for whole-cell modelling,
-written in Julia and demonstrated on a reduced model of the minimal cell \syn{}. Every
-parameter is a prior distribution with a recorded source. Modules couple through typed
-edges, and the framework checks the composition and lists every reduction from the
-published model. \IC{} supports exact stochastic and mean-field descriptions across a
-coupled ODE--jump boundary. On M0, a two-gene slice of the model, both inference routes
-pass simulation-based calibration over \pn{vseven.R} datasets, with small declared
-discrepancies. The mixed route costs a median of \pn{mix.cpuh} CPU-hours per posterior,
-against \pn{ften.cpuh}--\pn{cost.exacthi} for the exact sampler. Its largest mean bias
-against the exact posteriors is \pn{mix.biasmax}~$\pm$~\pn{mix.biasse} standard
-deviations, and on one dataset three parameters sit \pn{mix.gaplo}--\pn{mix.gaphi}
-standard deviations from the exact reference, for a reason still open. We then combine
-an M0 posterior modularly with viability-conditioned uncertainty in the remaining
-parameters, to make forward and intervention predictions on the reduced model. These
-predictions are unscored. At the default prior width, among the \pn{budget.ndrawn}
-parameters drawn and on one posterior, about \pn{budget.heldpct}\% of the parameter
-uncertainty in lactate export comes from \pn{budget.nH} promoter strengths that the fit
-cannot reach, and that share runs from \pn{budget.heldpctlo}\% to \pn{budget.heldpcthi}\%
-as their asserted prior width changes. Scored on M0, the same pipeline covers lactate
-export at the expected rate, and it gets the sign and scale of a knockdown's effect right.
-The data are synthetic and the priors asserted. We claim no all-parameter posterior, no
+Whole-cell models simulate a living cell from its molecular parts. They usually fix each
+parameter at one value, so a prediction does not say how much of it the data support.
+Inference is hard because the models mix deterministic and stochastic formalisms, the
+stochastic paths are latent, and no parameter is shared between the two. We present
+\IC{}, a compositional inference framework demonstrated on a reduced model of the minimal cell \syn{}. Parameters carry priors and sources, and the framework checks each composition and lists its declared reductions. \IC{} supports exact stochastic and
+mean-field descriptions across a coupled ODE--jump boundary, with two inference routes:
+an exact sampler, and a cheaper mixed route that integrates out the stochastic paths. On
+M0, a two-gene slice, both routes pass simulation-based calibration over
+\pn{vseven.R} datasets, with small declared discrepancies. The mixed route costs a median of
+\pn{mix.cpuh} CPU-hours per posterior, against \pn{ften.cpuh}--\pn{cost.exacthi}. On the one
+dataset with a long exact reference, three parameters sit
+\pn{mix.gaplo}--\pn{mix.gaphi} standard deviations from it, and the cause is open. We then carry an M0 posterior into the reduced model, with viability-conditioned
+uncertainty in the remaining parameters, to make forward and intervention predictions.
+These predictions are unscored. At the default prior width, among the \pn{budget.ndrawn}
+parameters drawn and on one posterior, about \pn{budget.heldpct}\%~$\pm$~\pn{budget.heldpctse}\%
+of the parameter uncertainty in lactate export comes from \pn{budget.nH} promoter strengths
+that the fit cannot reach, and that share runs from \pn{budget.heldpctlo}\% to
+\pn{budget.heldpcthi}\% as their asserted prior width changes. On M0, posterior-to-prediction
+scoring covers lactate export at the expected rate, and a knockdown's effect has the right
+sign, though those intervals are not a clean calibration. The data are synthetic. The
+framework shows what a prediction rests on. We claim no all-parameter posterior, no
 calibrated inference on the reduced model, and no biological finding.
 
 \section*{Author summary}
-Computer models of living cells combine hundreds of chemical reactions and the
-expression of many genes. They are usually run with one fixed value for every unknown
+Computer models of living cells combine many chemical reactions and genes. They are usually run with one fixed value for every unknown
 rate, so they give an answer with no measure of how sure that answer is. We built
 \IC{}, a software framework in which every rate carries a range of plausible values and
-a record of where it came from, and in which every simplification of the model is listed.
+a record of where it came from, and every declared simplification is listed.
 We tested it on a simplified model of a minimal bacterium, using data simulated from the
 model itself, so that the true answer was known. On a small part of the model, two ways of
 estimating the rates gave uncertainty ranges that contained the truth as often as they
-should, and the cheaper way cost roughly a hundredth as much. We then predicted how much
+should, and the cheaper way cost under a fiftieth as much. We then predicted, with no truth to check against, how much
 lactate the larger model's cells export, and how a gene knockdown changes that. Most of
 the uncertainty in that prediction came from rates our data could not reach, and how much
 depended on a range we had chosen ourselves. We make no claim about real cells. Our aim is

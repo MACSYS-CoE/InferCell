@@ -110,6 +110,27 @@ def fig_graphs():
     plt.close(fig)
 
 
+def fig_model():
+    fig, ax = canvas(6.5, 3.1)
+    ax.text(0.14, 0.95, "ODE block: metabolism", ha="center", fontweight="bold", color=INK)
+    ax.text(0.86, 0.95, "Jump block: gene expression", ha="center", fontweight="bold", color=INK)
+    for i, t in enumerate(("Glycolysis to lactate", "Sugar transport and\nlactate export",
+                           "Nucleotide recycling", "Lumped tRNA charging")):
+        box(ax, 0.01, 0.7 - i * 0.215, 0.26, 0.17, t)
+    for i, t in enumerate(("Transcription", "Transcript decay", "Translation and\nmembrane insertion")):
+        box(ax, 0.73, 0.62 - i * 0.26, 0.26, 0.2, t)
+    for y, t, col, lw, a0, a1 in (
+            (0.73, "Catalytic edges: protein counts\ninto rate laws, 1 s", ACCENT, 1.5, 0.725, 0.275),
+            (0.51, "Deferred costs: drains\non the pools, 1 s", ACCENT, 1.5, 0.725, 0.275),
+            (0.29, "Volume edges: membrane proteins\nset the geometry, each step", ACCENT, 1.5, 0.725, 0.275),
+            (0.07, "Rate constants: pools\ninto jump rates, 60 s", ACCENT2, 0.8, 0.275, 0.725)):
+        arrow(ax, (a0, y), (a1, y), color=col, lw=lw)
+        ax.text(0.5, y + 0.02, t, ha="center", va="bottom", fontsize=8, color=INK)
+    fig.savefig(os.path.join(HERE, "fig_model.pdf"), metadata={"CreationDate": None})
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_architecture()
+    fig_model()
     fig_graphs()

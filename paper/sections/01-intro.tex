@@ -15,8 +15,7 @@ parameters from the literature, sets each to one value, and integrates forward i
 time. The output is one trajectory. That trajectory is one sample from the
 distribution of trajectories that the parameter knowledge allows. The model does not
 know the width of that distribution. When a model predicts a doubling time, a reader
-cannot tell whether the prediction holds for every plausible parameter set or depends
-on a few uncertain values.
+cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Sensitivity analyses vary parameters \cite{macklin2020simultaneous}, but they do not say what the data support.
 
 The missing error bar is a gap in the scientific reasoning. Every parameter in a
 whole-cell model is uncertain. A rate measured in one organism, at one temperature,
@@ -30,7 +29,7 @@ ask which data would reduce that uncertainty.
 
 Bayesian inference answers both questions. It treats each parameter as a
 distribution, updates the distribution with data, and propagates the result into
-predictions. Systems biology argued for this approach long ago \cite{babtie2017how}.
+predictions. This approach has been argued for whole-cell models \cite{babtie2017how}.
 Whole-cell parameters have been estimated, but as point estimates and not as calibrated
 posteriors. In the DREAM8 challenge, teams recovered \pn{dream.nparam} parameters of a
 modified \textit{M.\ genitalium} model, \pn{dream.nmod} changed and \pn{dream.nmod} unchanged,
@@ -38,8 +37,7 @@ scored against that one known truth \cite{karr2015summary}. Parameter error and 
 error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{dream.rtop}
 among the top solutions, and the authors note that several parameter sets give similar
 system-level phenotypes. A single estimate cannot express that, and a posterior can
-\cite{gutenkunst2007universally}. No team used automatic differentiation, and the
-authors asked for automated reduced models and for data on single-cell variation over
+\cite{gutenkunst2007universally}. No team used automatic differentiation, and the authors ask for automated reduced models and for data on single-cell variation over
 time. Whole-cell models still do not report posteriors over their parameters, for the
 following reasons.
 
@@ -59,10 +57,10 @@ following reasons.
   constant appears in both blocks. The blocks couple only through state. The
   standard methods for modular inference pass information through shared
   parameters \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
-  Here they have nothing to pass.
+  Here those methods do not apply directly.
 \end{enumerate}
 
-\Cref{tab:frameworks} compares current whole-cell frameworks on these points.
+\Cref{tab:frameworks} compares current whole-cell frameworks on four design features.
 Thornburg and coworkers balanced the metabolic parameters of \syn{} against each
 other with a Bayesian method \cite{thornburg2022fundamental}. That step used
 literature values for metabolism only. It did not infer parameters from dynamic
@@ -79,7 +77,7 @@ framework does this as part of its design. Notes follow the table.}
 & Priors & Provenance & Inference & Declared \\
 & & in model & on dynamics & reductions \\
 \midrule
-\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Fit, no posterior & No \\
+\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Fit, no posterior & Not applicable \\
 \textit{E.\ coli} \cite{macklin2020simultaneous} & No & Partial (b) & Fit, no posterior & Partial (c) \\
 Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
 \syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & Partial (d) & Partial (e) & One block (f) & Partial (g) \\
@@ -87,7 +85,7 @@ Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
 \bottomrule
 \end{tabular}
 \begin{flushleft}\footnotesize
-(a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
+These columns are \IC{}'s own design aims, so the comparison favours it, and the fits in the other rows used real data where ours are synthetic. (a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
 (b) Annotated flat files, with some sources blank. (c) Adjustments as hard-coded tables in the
 fitting code. (d) Metabolic priors in the balancing input, with their means used in simulation.
 (e) Sources in pre-balancing flat files, and not in the balanced table. (f) Bayesian parameter
@@ -119,7 +117,7 @@ are:
   It keeps \pn{model.rxn} metabolic reactions and \pn{model.genes} genes from the
   published model, and it keeps the two-way coupling between them.
   \item \textbf{A map of how information crosses the boundary} (\cref{sec:seam}), and
-  calibrated inference on M0, a two-gene slice of the model (\cref{sec:results}). An
+  calibrated inference on M0, a two-gene slice of the model, which we define in \cref{sec:model} (\cref{sec:results}). An
   exact sampler gives a calibrated reference. A mixed route passes the same test at a
   fraction of the cost, with small declared discrepancies.
   \item \textbf{Forward and intervention predictions on the reduced model}
@@ -128,6 +126,4 @@ are:
   we score the same pipeline on M0 (\cref{sec:predm0}).
 \end{enumerate}
 
-Our main result is that one framework carries a whole-cell model from declared priors,
-through calibrated inference on the slice where calibration can be checked, to
-predictions on the larger model with their uncertainty and their declared limits.
+Our main result is that one framework carries a reduced whole-cell model from declared priors, through inference calibrated on the slice where calibration can be checked, to unscored predictions on the reduced model, with the limits of those predictions declared.

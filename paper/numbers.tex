@@ -56,7 +56,7 @@
 \pndef{info.ptsgbracket}{0.19}% same
 \pndef{info.eno}{0.13}% same
 \pndef{info.enobracket}{0.75}% same
-\pndef{info.enotx}{0.999}% spec/spec.md §1 (ENO under transcripts only)
+\pndef{info.enotx}{0.999}% dev/scripts/eno_path_information_16a7_result.md, path Fisher bound
 \pndef{info.Rmzero}{64}% sensitivity_88_m0_result.md, sigma_b 10%
 \pndef{info.Rcorea}{70}% sensitivity_88_corea_result.md, C=200, sigma_b 10%
 
@@ -186,6 +186,18 @@
 \pndef{pilot.sharese}{1.5}% same
 \pndef{pilot.elI}{0.056}% same, median |d ln Q / d ln theta| for theta_I
 \pndef{pilot.elH}{0.047}% same, for theta_H
+\pndef{pred.clip}{0.77}% dev/scripts/m0_evidence_kim40_result.md, "The cells", exact, hybrid
+\pndef{pred.mcup}{92}% same, "How to read the coverage"
+\pndef{pred.zlo}{1.17}% score.md, Q, B7 mean field
+\pndef{pred.zhi}{1.21}% same, with delta
+\pndef{pred.mixbreachlo}{25}% score.md, Q, B7's MC share over 10%
+\pndef{pred.mixbreachhi}{27}% same, truth SE over 10%
+\pndef{pred.dzlo}{0.74}% score.md, dQ, V7 hybrid
+\pndef{pred.dzhi}{1.27}% same, B7 mean field with delta
+\pndef{mix.shrinklo}{0.89}% dev/scripts/av6_89_b7_result.md, stream arms, v6, FBA 0.888
+\pndef{mix.shrinkhi}{0.997}% same, sigma_b
+\pndef{mix.mcselo}{9}% same, "Against V7 over the 50"
+\pndef{mix.mcsehi}{22}% same
 \pndef{pred.ndraws}{100}% score.md header
 \pndef{pred.ref90}{88.2}% result note
 \pndef{pred.ref50}{49}% same
@@ -251,10 +263,10 @@
 \pndef{kd.screenzero}{6}% same
 
 %% --- Compute (Methods), from each run's result note --------------------------
-\pndef{compute.vsixjobs}{18276511--14, 18276515, 18420986--90}% dev/scripts/v6_16a9b_result.md
+\pndef{compute.vsixjobs}{18157561--65, 18271545, 18276511--15, 18420986--90}% dev/scripts/phase16_ledger.md; v6_16a9b_result.md
 \pndef{compute.vsevenjobs}{18276794, 18628508, 18689602}% dev/scripts/v7_16a9b_result.md
 \pndef{compute.ftenjobs}{18751635}% dev/scripts/f10_16a10_result.md
-\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32}% dev/scripts/av6_89_b7_result.md
+\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32, 19334375--80, 19411150}% dev/scripts/av6_89_b7_result.md
 \pndef{compute.bsevencpuh}{391.9}% same, completed jobs; 274.1 more lost to the MAP fault
 \pndef{compute.mzerojobs}{19684097--101, 19827688}% dev/scripts/m0_evidence_kim40_result.md
 \pndef{compute.mzerocpuh}{12{,}978}% same

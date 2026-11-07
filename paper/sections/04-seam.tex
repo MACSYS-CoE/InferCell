@@ -40,11 +40,10 @@ Dotted: transcripts to metabolism, a null read-off on M0.}
 Write $u$ for the trajectory at the interface: enzyme counts and drains in one
 direction, pools in the other. For a pair of modules $A \to B$ with data $D_A$ and
 $D_B$, the forward message is $p(u \mid D_A)$. The backward message is a likelihood
-over the interface,
-\begin{equation}
+over the interface. For a one-way coupling, with $D_A$ and $D_B$ independent given $u$, \begin{equation}
   \lambda_B(u) = \int p(D_B \mid \theta_B, u)\, p(\theta_B)\, \mathrm{d}\theta_B .
 \end{equation}
-The joint posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. A
+The joint posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. With feedback, as here, the messages alternate rather than close in one pass. A
 \emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. It changes the
 target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
 reduction} instead removes a weak edge from the simulator and keeps full Bayesian
@@ -59,13 +58,10 @@ pools turn over in seconds to minutes, and the drains from gene expression are a
 large part of that turnover. From the pools back to the rate constants the gain is
 small: an elasticity of \pn{gain.txlo}--\pn{gain.txhi} for transcription and
 \pn{gain.tl} for translation. The gain is small because the published rate laws are
-saturated. The half-saturation constant of RNA polymerase for its nucleotides is
-\pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
+saturated. The elasticity here is $\partial \ln k / \partial \ln c$, of a rate constant $k$ in a pool $c$. The published law's dissociation constant $K_d$ for RNA polymerase and its nucleotides is \pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
 
 \begin{table}[!ht]
-\caption{Gain and information in each direction across the boundary. Information is
-the ratio of posterior to prior standard deviation from a linearised bound, at
-200 cells and 10\% assay noise; the bracket is the ratio that noise alone gives.}
+\caption{\textbf{Gain and information in each direction across the boundary.} Information is the ratio of posterior to prior standard deviation at 200 cells and 10\% assay noise. The ptsG value is a linearised bound, and its bracket is the ratio that noise alone gives. The ENO value is a bound from the path's Fisher information.}
 \label{tab:gain}
 \centering
 \small
@@ -81,8 +77,7 @@ Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn
 
 So the linearised bound says that metabolite data can inform the ptsG promoter, a
 gene-expression parameter that they never measure. On M0 the mixed route shows this
-shrinkage, to \pn{mix.ptsgbulk} of the prior standard deviation, which is less than the
-bound of \pn{info.mzeroptsg} projects. The exact fit under metabolites only did not mix for
+shrinkage, to \pn{mix.ptsgbulk} of the prior standard deviation. That is less shrinkage than the bound of \pn{info.mzeroptsg} projects, and it sits at the bound's noise bracket of \pn{info.mzerobracket}, so it is a weak signal. The exact fit under metabolites only did not mix for
 this parameter, so on the exact sampler this direction is unmeasured, and we do not claim
 it there. Transcript data carry almost no information about the enolase constant, a
 metabolic parameter. We report that result as a null, not as a failure. On M0 at \pn{mzero.cells} cells, the exact sampler's divergence under

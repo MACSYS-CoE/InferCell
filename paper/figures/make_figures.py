@@ -33,7 +33,7 @@ WIDTH = 6.5  # PLOS text width with \newgeometry, inches
 
 plt.rcParams.update({
     "font.family": "sans-serif", "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
-    "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 7, "legend.frameon": False,
+    "xtick.labelsize": 8, "ytick.labelsize": 8, "legend.fontsize": 8, "legend.frameon": False,
     "axes.spines.top": False, "axes.spines.right": False, "axes.edgecolor": MUTED,
     "xtick.color": MUTED, "ytick.color": MUTED, "axes.labelcolor": INK, "lines.linewidth": 1.5,
     "pdf.fonttype": 42,
@@ -103,7 +103,7 @@ def density_row(axes, ref, other, label, colour):
         ax.set_title(LABELS[NAMES[p]])
         ax.set_yticks([])
         ax.spines["left"].set_visible(False)
-        ax.set_xlabel("log value")
+        ax.set_xlabel("ln(value)")
 
 
 def ecdf_row(axes, z, lo, hi, curves):
@@ -116,8 +116,8 @@ def ecdf_row(axes, z, lo, hi, curves):
             ax.step(zz, d, where="mid", color=colour, label=label)
         ax.axhline(0, color=MUTED, lw=0.5)
         ax.set_title(LABELS[NAMES[p]])
-        ax.set_xlabel("Fractional rank")
-    axes[0].set_ylabel("ECDF minus rank")
+        ax.set_xlabel("Rank")
+    axes[0].set_ylabel("ECDF − rank")
 
 
 def fig_calibration(b7):
@@ -184,7 +184,7 @@ def fig_budget(archive):
     b.set_xlim(-0.5, 2.5)
     b.set_ylim(bottom=0)
     b.set_xlabel(r"Prior width of $\theta_H$")
-    b.set_ylabel("Lactate exported, millions")
+    b.set_ylabel("Lactate exported, millions of particles")
     b.set_title("B", loc="left", fontweight="bold", fontsize=9)
     b.set_title("UNSCORED", loc="right", color=MUTED, fontweight="bold")
     save(fig, "fig_budget")
