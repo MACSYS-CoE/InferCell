@@ -164,6 +164,7 @@ TEST_GROUP in ("all", "1", "2") ||
         include("test_predict_intervention.jl")
         include("test_predict.jl")
         include("test_predict_combine.jl")    # KIM-40: M0's row blocks
+        include("test_predict_trajectory.jl")  # KIM-86: time series and their bands
         include("test_predict_reference.jl")   # KIM-68: against the M4 freeze
         include("test_predict_variance.jl")
         include("test_predict_provenance.jl")

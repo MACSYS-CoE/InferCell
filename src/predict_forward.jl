@@ -48,7 +48,11 @@ Fields:
   aside. It is read at every handshake for the hybrid, and only at the saves for
   the mean field;
 - `accounts`: [`carbon_accounts`](@ref) for the run, or `nothing` when it failed
-  or is unmetered.
+  or is unmetered;
+- `trajectory`: the recorded species, when `trajectory` was asked for: `t` in
+  seconds, `species`, and `values`, one row per time and one column per species, in
+  particles (each state at the factor it was held at, as `carbon_accounts` reads
+  them). It is `nothing` when nothing was recorded or the run failed.
 """
 struct CellRun
     seed::Int
@@ -59,7 +63,11 @@ struct CellRun
     clips::Vector{NamedTuple}
     minima::Dict{Symbol, Float64}
     accounts::Union{Nothing, NamedTuple}
+    trajectory::Union{Nothing, NamedTuple{(:t, :species, :values)}}
 end
+
+CellRun(seed, q, failure, message, drains, clips, minima, accounts) =
+    CellRun(seed, q, failure, message, drains, clips, minima, accounts, nothing)
 
 _failed_cell(seed, failure, message) =
     CellRun(seed, NaN, failure, message, 0, NamedTuple[], Dict{Symbol, Float64}(), nothing)
@@ -81,12 +89,27 @@ _quantity_label(f) = Symbol(string(f))
 
 const _METERS = (GLC_UPTAKE_METER, LAC_EXPORT_METER)
 
-function _cell(seed, run::ValidationRun, quantity, drains, clips)
+# The asked-for species on the setup's grid, in particles. Hybrid times accumulate
+# handshake by handshake, so a grid time is matched to within roundoff.
+function _record(f, run::ValidationRun)
+    isempty(f.trajectory) && return nothing
+    rows = map(f.grid) do t
+        i = searchsortedfirst(run.t, t - 1e-6)
+        i <= length(run.t) && abs(run.t[i] - t) <= 1e-6 ||
+            error("the run has no state at the grid time $t s")
+        i
+    end
+    cols = [findfirst(==(s), run.ode_names) for s in f.trajectory]
+    values = [run.ode[i][j] * run.factor[i] for i in rows, j in cols]
+    return (; t = copy(f.grid), species = copy(f.trajectory), values)
+end
+
+function _cell(seed, run::ValidationRun, quantity, drains, clips, f)
     minima = Dict{Symbol, Float64}(r.species => r.min_particles
                                    for r in particle_floor(run) if !(r.species in _METERS))
     accounts = LAC_EXPORT_METER in run.ode_names ? carbon_accounts(run) : nothing
     return CellRun(seed, _quantity(quantity, run), :none, "", drains,
-                   collect(NamedTuple, clips), minima, accounts)
+                   collect(NamedTuple, clips), minima, accounts, _record(f, run))
 end
 
 # What a forward description needs, built once per prediction.
@@ -96,19 +119,49 @@ struct _ForwardSetup
     horizon::Float64
     route::Union{Nothing, MeanFieldRoute}
     saveat::Vector{Float64}
+    trajectory::Vector{Symbol}
+    grid::Vector{Float64}
+end
+
+_time_grid(h, every) = sort(unique(vcat(collect(0.0:Float64(every):h), h)))
+
+# What to record, refused if it cannot be: a misspelled or jump-block species, or
+# a grid the hybrid's handshakes do not fall on. It returns `_forward_setup`'s
+# keywords. Without `trajectory`, `every` stays at its default, so the mean field's
+# saves, and the minima it reads at them, are as ever. `interval` gives the
+# handshake in seconds; only the hybrid reads it.
+function _recording(ms, forward, trajectory, every, interval)
+    if trajectory === nothing
+        every == 60 || throw(ArgumentError(
+            "`every` is the grid of a recorded trajectory, and no `trajectory` was asked for"))
+        return (; trajectory = Symbol[], every = 60.0)
+    end
+    isempty(trajectory) && throw(ArgumentError(
+        "`trajectory` names no species; leave it out to record nothing"))
+    bad = setdiff(trajectory, _block_names(ms, :ode))
+    isempty(bad) || throw(ArgumentError(
+        "$bad cannot be recorded: `trajectory` takes the ODE block's species"))
+    every > 0 || throw(ArgumentError("`every` must be positive, got $every"))
+    if forward === :hybrid
+        dt = interval()
+        k = round(Int, every / dt)
+        k >= 1 && k * dt ≈ every || throw(ArgumentError(
+            "every = $every s is not a whole number of $dt s handshakes"))
+    end
+    return (; trajectory = collect(Symbol, trajectory), every = Float64(every))
 end
 
 function _forward_setup(models, forward::Symbol; horizon::Real, every::Real = 60.0,
-                        complete::Bool = true)
+                        complete::Bool = true, trajectory::Vector{Symbol} = Symbol[])
     forward in (:hybrid, :mean_field) || throw(ArgumentError(
         "forward must be :hybrid or :mean_field, not :$forward"))
     horizon > 0 || throw(ArgumentError("horizon must be positive, got $horizon"))
     ms = collect(AbstractSubModel, models)
     h = Float64(horizon)
-    forward === :hybrid && return _ForwardSetup(forward, ms, h, nothing, Float64[])
+    grid = isempty(trajectory) ? Float64[] : _time_grid(h, every)
+    forward === :hybrid && return _ForwardSetup(forward, ms, h, nothing, Float64[], trajectory, grid)
     rt = build_mean_field_problem(ms; tspan = (0.0, h), complete)
-    saveat = sort(unique(vcat(collect(0.0:Float64(every):h), h)))
-    return _ForwardSetup(forward, ms, h, rt, saveat)
+    return _ForwardSetup(forward, ms, h, rt, _time_grid(h, every), trajectory, grid)
 end
 
 # One hybrid cell, fixed by its seed. A metabolic block that stops is a failed
@@ -125,7 +178,7 @@ function _hybrid_cell(f::_ForwardSetup, values, seed::Integer, quantity)
             "horizon $(f.horizon) is not a whole number of $(d.interval) s handshakes"))
         rec = ClipRecord(d)
         run = validation_run!(ms, d, n; moieties = Moiety[], clips = rec)
-        return _cell(Int(seed), run, quantity, rec.drains, clip_summary(rec))
+        return _cell(Int(seed), run, quantity, rec.drains, clip_summary(rec), f)
     catch e
         e isa MetabolicBlockStalled || rethrow()
         return _failed_cell(Int(seed), :not_advanced, sprint(showerror, e))
@@ -155,7 +208,7 @@ function _mean_field_cell(f::_ForwardSetup, values, quantity)
     end
     successful_retcode(sol) || return _failed_cell(0, :retcode,
                                                    "the solve ended with retcode $(sol.retcode)")
-    return _cell(0, _route_run(rt, sol), quantity, 0, NamedTuple[])
+    return _cell(0, _route_run(rt, sol), quantity, 0, NamedTuple[], f)
 end
 
 # Every run of a matrix of parameter sets at once, the pairs whose values are
@@ -201,9 +254,14 @@ function _restoring_global_rng(f)
     end
 end
 
+# The composition's handshake, in seconds. A build may read the global generator.
+_interval(ms) = _restoring_global_rng(() -> build_problem(ms; tspan = (0.0, 1.0),
+                                                          complete = true)).interval
+
 """
     forward_cells(models, values, seeds; forward = :hybrid, horizon,
-                  quantity = :lactate_out, threads) -> Vector{CellRun}
+                  quantity = :lactate_out, trajectory = nothing, every = 60.0,
+                  threads) -> Vector{CellRun}
 
 Run `models` at the parameter writes `values` (`name => value` pairs, written as
 given). Unlike [`intervention_cells`](@ref) and [`delta_correction`](@ref), this
@@ -217,35 +275,43 @@ first.
 `quantity` is `:lactate_out` (the lactate exported over the run, in particles),
 `:exported` (the fraction of the lactate formed that left the cell), or a function
 of the run's [`ValidationRun`](@ref). The global generator is restored afterwards.
-With `threads`, the hybrid's cells run threaded, with the same result.
+With `threads`, the hybrid's cells run threaded, with the same result. `trajectory`
+and `every` record time series, as for [`predict`](@ref).
 """
 function forward_cells(models::AbstractVector{<:AbstractSubModel}, values,
                        seeds::AbstractVector{<:Integer}; forward::Symbol = :hybrid,
                        horizon::Real, quantity = :lactate_out,
-                       threads::Bool = Threads.nthreads() > 1)
+                       trajectory::Union{Nothing, AbstractVector{Symbol}} = nothing,
+                       every::Real = 60.0, threads::Bool = Threads.nthreads() > 1)
     _check_quantity(quantity)
-    f = _forward_setup(metered(models), forward; horizon)
+    ms = metered(models)
+    f = _forward_setup(ms, forward; horizon,
+                       _recording(ms, forward, trajectory, every, () -> _interval(ms))...)
     return _restoring_global_rng(() -> _run_cells(f, values, seeds, quantity; threads))
 end
 
 """
     intervention_cells(models, values, a, seeds; forward = :hybrid, horizon,
-                       quantity = :lactate_out, threads) -> (; baseline, intervened, delta)
+                       quantity = :lactate_out, trajectory = nothing, every = 60.0,
+                       threads) -> (; baseline, intervened, delta)
 
 Two arms on the same seeds: `values`, and `values` under intervention `a`
 ([`intervene`](@ref)). Each hybrid cell is paired with itself. Both arms derive
 their reverse constants from what they run ([`haldane_values`](@ref)), which
 [`forward_cells`](@ref) leaves to its caller. `delta` is the paired effect Q_intervened −
-Q_baseline for each cell, `NaN` where either arm failed. `threads` is as for
-`forward_cells`.
+Q_baseline for each cell, `NaN` where either arm failed. `threads`, `trajectory`
+and `every` are as for `forward_cells`.
 """
 function intervention_cells(models::AbstractVector{<:AbstractSubModel}, values,
                             a::Intervention, seeds::AbstractVector{<:Integer};
                             forward::Symbol = :hybrid, horizon::Real,
                             quantity = :lactate_out,
-                            threads::Bool = Threads.nthreads() > 1)
+                            trajectory::Union{Nothing, AbstractVector{Symbol}} = nothing,
+                            every::Real = 60.0, threads::Bool = Threads.nthreads() > 1)
     _check_quantity(quantity)
-    f = _forward_setup(metered(models), forward; horizon)
+    ms = metered(models)
+    f = _forward_setup(ms, forward; horizon,
+                       _recording(ms, forward, trajectory, every, () -> _interval(ms))...)
     vals = haldane_values(f.models, Pair{Symbol, Float64}[n => Float64(v) for (n, v) in values])
     base, int = _restoring_global_rng() do
         _run_cells(f, vals, seeds, quantity; threads),
