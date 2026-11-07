@@ -20,7 +20,7 @@ every `every` seconds and at the horizon:
 ```julia
 using InferCell, Random
 
-pd = posterior_draws("replicate1.jls")   # a posterior written by `infer`; see the API page
+pd = posterior_draws("replicate1.jls")   # a saved fit of M0; the API page lists what it reads
 p = predict(d11_models(), pd; horizon = COREA_CYCLE_S, completion = :prior,
             n_parameter_draws = 40, n_held = 20, n_cells = 4, rng = Xoshiro(1),
             trajectory = [InferCell.LAC_EXPORT_METER, :M_gtp_c], every = 60.0)
@@ -50,7 +50,8 @@ the Monte Carlo noise of those few cells, about σ̂²/n. [`trajectory_split`](@
 the variance split at each time with that noise removed. With `baseline = true`, its last
 value for the metered export is [`variance_split`](@ref)'s result for Q. Early in a run the
 noise can outweigh the spread: `flagged` marks the times where a component came out
-negative, and a share there can exceed 1 or be `NaN`.
+negative, and a share there can exceed 1 or be `NaN`. Read a share only where `flagged` and
+`mc_undefined` are false and `total > 0`.
 
 A cell that fails holds no trajectory, so it leaves the bands at every time and is counted
 in `b.n_failed`. The bands at early times are therefore those of the cells that finished.
