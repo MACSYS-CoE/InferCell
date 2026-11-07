@@ -1,0 +1,82 @@
+\section{Supporting results}
+\label{app:supporting}
+
+\subsection{The exact sampler on M0}
+\label{app:posteriors}
+
+\paragraph{Coverage.} We read coverage off the ranks of \cref{fig:calibration}A, for central credible intervals at five
+levels from 50\% to 99\%. In \pn{vseven.cov} parameter--level pairs the coverage is
+inside the binomial 95\% band. One or two misses over 30 pairs are expected by chance.
+The one miss is the decay rate at 99\%, where $L = \pn{mzero.L}$ draws per chain give
+the coarsest ranks.
+
+\paragraph{A production-length chain matches the reference.} One chain of the
+length we used in the calibration runs is not distinguishable from the reference on
+any marginal (\cref{fig:calibration}B). The means differ by at most
+\pn{ften.dmean} reference standard deviations, and the ratio of standard deviations
+is between \pn{ften.sdlo} and \pn{ften.sdhi}. This chain cost \pn{ften.cpuh}
+CPU-hours. Its effective sample size is low, so this comparison has low resolving power.
+The production chain separates the FBA constant from its matched null by a small
+margin, \pn{ften.fbamargin} standard deviations.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_calibration.pdf}
+\caption{\textbf{The exact sampler on M0.} A: rank-ECDF of the truth over \pn{vseven.R}
+prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and the line is the rank-ECDF minus the fractional rank. B: marginal posteriors of the natural log of each parameter on one dataset: the reference as a filled blue density, and a production-length chain as the orange line.}
+\label{fig:calibration}
+\end{figure*}
+
+\subsection{The mixed route: holding $S$ fixed}
+\label{app:sfixed}
+
+$S$ is computed once, at a reference parameter value.
+A sensitivity check re-estimated it at the posterior mean on three datasets. The
+marginals moved detectably on \pn{mix.ksfired} comparisons, each by at most
+\pn{mix.ksmargin} standard deviations over its floor. Against a matched null of two
+identical fits, two of the five are about twice the noise, one is 1.3 times it, and
+two are within it.
+
+\subsection{The mean-field swap: goodness check and limit}
+\label{app:swap}
+
+\paragraph{The goodness check.} The check as first written fails a description known to be correct
+in about half of all cases: a correct description passes only
+\pn{jg.kgnulllo}--\pn{jg.kgnullhi}\% of the time. We therefore compare the check
+with its own null distribution. With $\delta$, the mean field falls inside the
+null's 95\% range at \pn{jg.deltain} targets, against \pn{jg.mfin} without
+$\delta$.
+
+\paragraph{The mean-field model is the limit of the hybrid's pinned path.} The hybrid exchanges state every second. When the driver follows the mean-field path, this path converges to the one-ODE mean-field model as the step shrinks. That is a limit of the deterministic path, and not of the stochastic hybrid, whose gap is the subject of \cref{sec:jensen}. Extrapolated to a zero step, the two agree to
+\pn{rii.maxdelta} in log concentration at all five test parameter sets. One
+mean-field solve takes \pn{rii.mzero}\,s on M0 and \pn{rii.corealo}--\pn{rii.coreahi}\,s
+on the full reduced model.
+
+\subsection{M0's crossed comparison}
+\label{app:crossed}
+
+\Cref{tab:crossed} gives the coverages and widths that \cref{fig:crossed} plots.
+
+\begin{table*}[t]
+\caption{\textbf{M0's crossed comparison.} \textbf{Scored} against the truth over \pn{vseven.R}
+datasets, as percentage coverage $\pm$ one standard error. Width is the median ratio of
+the 90\% interval to that of the exact posterior with the hybrid. The references at these
+sizes are \pn{pred.ref50}\% and \pn{pred.ref90}\%. The $\Delta Q$ columns do not meet the
+sizing rules in \cref{sec:predm0}, so they are not clean calibration numbers.}
+\label{tab:crossed}
+\centering
+\small
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+& & \multicolumn{3}{c}{$Q$, lactate export} & \multicolumn{3}{c}{$\Delta Q$, knockdown effect} \\
+Posterior & Forward & 50\% & 90\% & Width & 50\% & 90\% & Width \\
+\midrule
+Exact & Hybrid & \pn{pred.q.eh.c} & \pn{pred.q.eh.n} & 1 & \pn{pred.d.eh.c} & \pn{pred.d.eh.n} & 1 \\
+Exact & Mean field & \pn{pred.q.em.c} & \pn{pred.q.em.n} & \pn{pred.q.em.w} & \pn{pred.d.em.c} & \pn{pred.d.em.n} & \pn{pred.d.em.w} \\
+Exact & Mean field $+\,\delta$ & \pn{pred.q.ed.c} & \pn{pred.q.ed.n} & \pn{pred.q.ed.w} & \pn{pred.d.ed.c} & \pn{pred.d.ed.n} & \pn{pred.d.ed.w} \\
+Mixed & Hybrid & \pn{pred.q.mh.c} & \pn{pred.q.mh.n} & \pn{pred.q.mh.w} & \pn{pred.d.mh.c} & \pn{pred.d.mh.n} & \pn{pred.d.mh.w} \\
+Mixed & Mean field & \pn{pred.q.mm.c} & \pn{pred.q.mm.n} & \pn{pred.q.mm.w} & \pn{pred.d.mm.c} & \pn{pred.d.mm.n} & \pn{pred.d.mm.w} \\
+Mixed & Mean field $+\,\delta$ & \pn{pred.q.md.c} & \pn{pred.q.md.n} & \pn{pred.q.md.w} & \pn{pred.d.md.c} & \pn{pred.d.md.n} & \pn{pred.d.md.w} \\
+\bottomrule
+\end{tabular}
+\end{table*}
