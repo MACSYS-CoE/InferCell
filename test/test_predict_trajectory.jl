@@ -279,6 +279,7 @@ end
         @test length(s.flagged) == length(s.t) == length(s.mc_undefined) == length(s.dropped)
         @test s.flagged[end] == any(values(v.flagged))
         @test s.mc_undefined[end] == v.mc_undefined && s.dropped[end] == v.dropped
+        @test length(s.mc) == length(s.t) && s.mc[end] == v.mc
 
         one = predict(m0, pd; horizon = 60.0, n_cells = 1, rng = Xoshiro(3), threads = false,
                       trajectory = [M])
@@ -297,6 +298,15 @@ end
         noisy = trajectory_split(p, M)
         @test all(noisy.flagged) && all(==(0), noisy.total)
         @test all(isnan, noisy.held_share.i_first)
+        @test all(==(2500), noisy.mc)
+
+        # Rows and columns that cancel, without noise: a component clips with the total
+        # above 0, so `flagged` is more than the total's sign, and the share exceeds 1.
+        means = [1.0 -1.0; -1.0 1.0; 0.0 0.0]
+        foreach(i -> p.cells[i] = [at(c, means[i]) for c in p.cells[i]], eachindex(p.cells))
+        cancel = trajectory_split(p, M)
+        @test all(cancel.flagged) && all(>(0), cancel.total)
+        @test all(>(1), cancel.held_share.i_first)
 
         # Nothing varies at all: nothing comes out negative, and the share still means nothing.
         pairs_at((0, 0))

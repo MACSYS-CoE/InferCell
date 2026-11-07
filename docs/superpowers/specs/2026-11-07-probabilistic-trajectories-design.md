@@ -1,6 +1,6 @@
 # Probabilistic trajectories: design
 
-Status: approved by the author, 2026-11-07. Nothing here has run except the pilot in §6.
+Status: approved by the author, 2026-11-07. `spec.md` §12's entry of 2026-11-08 records what has run and what changed.
 
 ## Intent
 
@@ -64,7 +64,8 @@ A new `fig_trajectories`, full width. It adds to `fig_predict_m0` and does not r
 because this posterior feeds the reduced model, and it is not chosen for how it looks. Three species, each with the posterior band and the true population mean:
 - lactate exported, `Q` over time. **The fit did see this, noisily:** `M_lac__L_e` is in `M0_PANEL` and
   its only dynamics are the export flux over the medium's volume ratio. So the panel overlays those
-  data, rescaled, and the caption says the quantity is observed;
+  data, rescaled, and the caption says the quantity is observed. The rescaling is close and not exact:
+  the two differ by a fraction of a percent as the cell grows (`spec.md` §12, 2026-11-08);
 - GTP, `M_gtp_c`, also in the panel, with its bulk data and a lighter outer band for a new bulk
   measurement (σ_b added);
 - pyruvate, `M_pyr_c`, which is not in the panel. This is the one curve that is a prediction of
@@ -124,8 +125,8 @@ by default, or a list of ODE-block species to keep, with a sampling grid (`every
 `CellRun` keeps them. `_cell` already holds the `ValidationRun`, whose `ode` is recorded at every
 handshake and is discarded today, so this adds no simulation. The default has to leave results bit for
 bit identical: `test/fixtures/predict_reference.jl` is the guard. `CellRun` gains a field, so existing
-`CellRun`s in archived `.jls` files will not open at the new commit. This run reads `w*.jls`, `finish/*.jls` and `score_datasets.tsv`, which
-hold none, and the `.jls` files open only at their run's commit anyway. A docs page covers trajectories
+`CellRun`s in archived `.jls` files will not open at the new commit. This run reads V7's `replicate1.jls`, `w*.jls`, `finish/*.jls` and `score_datasets.tsv`, which
+hold none. The archives that do, `prediction_w*.jls` and `work/`, open only at their run's commit anyway. A docs page covers trajectories
 and release.
 
 **Replay, for the published endpoints.** Run from a pinned commit in a detached worktree.
