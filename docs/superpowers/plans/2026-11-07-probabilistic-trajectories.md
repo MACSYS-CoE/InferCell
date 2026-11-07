@@ -189,7 +189,7 @@ Branch from `main` at Task 2's merge, in a new worktree.
 
 **Interfaces:**
 - Consumes: `predict(...; trajectory, every)`, `trajectory_bands`, `trajectory_split`; `pilot_common.jl` (`save`, `plain`, `say`, `SMOKE`, `COMMIT`); `launcher_guard.sh`.
-- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total`), and `checks.md`.
+- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total, mc, flagged, mc_undefined, dropped`), `data.jls`, `replay.md`, `bulk_check.md` and `checks.md`.
 
 | Stage | What it runs | Slurm |
 |---|---|---|
@@ -197,16 +197,17 @@ Branch from `main` at Task 2's merge, in a new worktree.
 | `a 0` | the truth, as `m0_evidence_kim40.jl` builds it: `n_cells = 9_849`, `rng = Xoshiro(19_541_501)`, no intervention | 1 core, 6 GB, 14 h |
 | `b` | as in the design's replay call, at 6,300 s | 64 threads, 192 GB, 8 h |
 | `c_precheck` | `RELEASED` composition, `:viability_conditioned_prior`, the frozen `RULE`, draws `round.(Int, range(1, 556; length = 4))`, `n_held = 5`, 4 + 4 cells, `rng = Xoshiro(19_543_001)` | 16 threads, 48 GB, 2 h |
-| `c` | the same, 40 draws, `n_held = 50`, `rng = Xoshiro(19_543_000)` | 64 threads, 192 GB, 12 h |
-| `data` | `m0_dataset(16_200_001; ncells = 50)`; assert the truth equals replicate 1's | 1 core, 8 GB, 1 h |
-| `report` | checks, TSVs, `checks.md` | 1 core, 16 GB, 1 h |
+| `c` | the same, 40 draws, `n_held = 50`, `rng = Xoshiro(19_543_000)` | 64 threads, 192 GB, 24 h |
+| `data` | `m0_dataset(16_200_001; ncells = 50)`, recording how its truth and σ_b differ from replicate 1's | 1 core, 8 GB, 1 h |
+| `replay` | every check below, `replay.md`; gates `c` | 1 core, 16 GB, 1 h |
+| `report` | the same checks, TSVs, `checks.md` | 1 core, 16 GB, 1 h |
 
 `RELEASED`: `d11_models()`, with `ms[1]` and `ms[3]` rebuilt, freeing every currently fixed `kcatF_*`, `kcatR_*` and `km_*` plus ENO's and FBA's. Stop if `5 + length(p.held)` is not 82, or if any `kcatR_*` is held.
 
-`report` stops, and writes which value differed, unless all of these hold exactly (`==`):
-- panel B: `p.mu == w1.mu`, from `<archive>/runs/budget-kim42/w1.jls`;
+`replay` stops, and writes which value differed, unless all of these hold, the first two exactly (`==`):
+- panel B: `p.mu == w1.mu`, and its seeds and θ_H, from `<archive>/runs/budget-kim42/w1.jls`;
 - panel A: each block's `mu` equals the row in `<archive>/runs/m0-kim40-kim41/finish/*_r1_v7.jls` `.hybrid.mu`, and the truth's mean equals `truth` for dataset 1, posterior v7, in `score_datasets.tsv`, to its printed digits;
-- the regenerated dataset's truth equals replicate 1's recorded truth, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1e-9 relative. Write that ratio R to `checks.md`; it rescales the data onto Q's axis.
+- the regenerated dataset's truth and σ_b equal replicate 1's recorded values, within 1e-12 relative, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1% relative (1e-9 was too strong; see §12). Write that ratio R to `replay.md` and `checks.md`; it rescales the data onto Q's axis.
 
 - [ ] **Step 1: Write the §12 entry**
 
@@ -223,7 +224,7 @@ Expected: no error and no `:error` or `:incomplete` expression in the result.
 
 - [ ] **Step 4: Push, then smoke from a detached worktree at the pushed commit**
 
-Run: `SMOKE=1 dev/scripts/trajectories_predict.sh run <scratch outdir>`, then read every TSV.
+Run: `SMOKE=1 dev/scripts/trajectories_predict.sh <scratch outdir> run`, then `rest`, then read every TSV.
 Expected: all stages complete, TSVs have the columns above, and bands are ordered.
 
 - [ ] **Step 5: Commit and PR the driver and §12 entry to `main`, gated with `/check-PR`**
@@ -239,20 +240,20 @@ git commit -m "dev: trajectory runs, pre-registered, with exact replay checks"
 - Create: `dev/scripts/trajectories_predict_result.md`
 - Output: `/fred/oz022/tkimpson/infercell-trajectories-2026-11-<dd>/`, with `SHA256SUMS`
 
-- [ ] **Step 1: Launch `c_precheck`, `a` and `b` from a detached worktree at the merged commit**
+- [ ] **Step 1: Launch `c_precheck`, `a`, `b` and `data` from a detached worktree at the merged commit**
 
-Run: `dev/scripts/trajectories_predict.sh run <outdir>`; poll with `progress`.
+Run: `dev/scripts/trajectories_predict.sh <outdir> run`; poll with `progress`.
 Expected: jobs complete with exit 0.
 
-- [ ] **Step 2: Read `checks.md` for the replay**
+- [ ] **Step 2: Read `replay.md`**
 
-Expected: every exact check passes. On any mismatch stop, diagnose, and tell the author before more compute. Tell them the pre-check's acceptance as well.
+Expected: every check passes. On any mismatch stop, diagnose, and tell the author before more compute. Tell them the pre-check's acceptance and wall time as well, and set `CWALL` from the wall time if 24 h looks short.
 
-- [ ] **Step 3: Launch `c`, then `data` and `report`**
+- [ ] **Step 3: Launch `c`, then `report`, with `<outdir> rest`**
 
 - [ ] **Step 4: Confirm the data match V7's commit**
 
-One job at `dfe570a` in a detached worktree: `m0_dataset(16_200_001; ncells = 50).bulk` equals the regenerated `bulk`, exactly. A difference goes in the note and the caption says the data are regenerated at the later commit; it does not stop the work, since the posterior is unchanged.
+Run: `<outdir> bulk <a detached worktree at dfe570a>`, which writes `bulk_check.md`: `m0_dataset(16_200_001; ncells = 50).bulk` against the regenerated `bulk`, exactly. A difference goes in the note and the caption says the data are regenerated at the later commit; it does not stop the work, since the posterior is unchanged.
 
 - [ ] **Step 5: Write the result note**
 
