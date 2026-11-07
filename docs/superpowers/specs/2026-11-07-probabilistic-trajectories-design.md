@@ -124,8 +124,8 @@ by default, or a list of ODE-block species to keep, with a sampling grid (`every
 `CellRun` keeps them. `_cell` already holds the `ValidationRun`, whose `ode` is recorded at every
 handshake and is discarded today, so this adds no simulation. The default has to leave results bit for
 bit identical: `test/fixtures/predict_reference.jl` is the guard. `CellRun` gains a field, so existing
-`CellRun`s in archived `.jls` files will not open at the new commit. This run reads `w*.jls`, `finish/*.jls` and `score_datasets.tsv`, which
-hold none, and the `.jls` files open only at their run's commit anyway. A docs page covers trajectories
+`CellRun`s in archived `.jls` files will not open at the new commit. This run reads V7's `replicate1.jls`, `w*.jls`, `finish/*.jls` and `score_datasets.tsv`, which
+hold none. The archives that do, `prediction_w*.jls` and `work/`, open only at their run's commit anyway. A docs page covers trajectories
 and release.
 
 **Replay, for the published endpoints.** Run from a pinned commit in a detached worktree.

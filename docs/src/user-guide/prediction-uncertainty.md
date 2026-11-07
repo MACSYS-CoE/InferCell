@@ -50,8 +50,10 @@ the Monte Carlo noise of those few cells, about σ̂²/n. [`trajectory_split`](@
 the variance split at each time with that noise removed. With `baseline = true`, its last
 value for the metered export is [`variance_split`](@ref)'s result for Q. Early in a run the
 noise can outweigh the spread: `flagged` marks the times where a component came out
-negative, and a share there can exceed 1 or be `NaN`. Read a share only where `flagged` and
-`mc_undefined` are false and `total > 0`.
+negative, and a share there can exceed 1 or be `NaN`. A share is a number between 0 and 1 where
+`flagged` and `mc_undefined` are false and `total > 0`, with `NaN` still possible under very sparse
+weights. That does not make it signal: `total` can still be cell noise, so compare it with `mc`, the
+noise removed, and read a share only where `total` is well above it.
 
 A cell that fails holds no trajectory, so it leaves the bands at every time and is counted
 in `b.n_failed`. The bands at early times are therefore those of the cells that finished.

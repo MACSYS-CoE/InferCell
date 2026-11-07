@@ -9,9 +9,9 @@
 # s_k = (k − 1) w_k + (n − 1) Σ_{i<k} w_i at q s_n. Equal weights give s_k ∝ k − 1,
 # which is `Statistics.quantile`. A value with zero weight is not there. It is not the
 # quantile of the data repeated by weight, and at very unequal weights it interpolates
-# across a heavy value. KIM-86's check-PR simulated that on a 40 × 50 matrix at 10%
-# acceptance or more: about 5% of an SD on average, about 10% for a single band, and
-# larger as the kept pairs fall.
+# across a heavy value. KIM-86's check-PR simulated that on a 40 × 50 matrix at 11–12%
+# acceptance: 1–3% of an SD on average and inward, so bands come out narrower, 5–13% at
+# the 95th percentile of a single band, and larger as the kept pairs fall.
 function _weighted_quantile(x::AbstractVector, w::AbstractVector, q::Real)
     keep = findall(>(0), w)
     isempty(keep) && throw(ArgumentError("no value carries weight"))
@@ -138,17 +138,19 @@ end
 """
     trajectory_split(p::Prediction, species; weights = first(keys(p.weights)),
                      baseline = false)
-        -> (; t, held_share = (; i_first, h_first), total, flagged, mc_undefined, dropped)
+        -> (; t, held_share = (; i_first, h_first), total, mc, flagged, mc_undefined, dropped)
 
 [`variance_split`](@ref) at each recorded time after t = 0, on the pair means μ̂(t)
 with their noise τ(t) = σ̂²(t)/n. Each result is a vector over `t`. With
 `baseline = true` and the metered export, the last time is `variance_split`'s result
 for Q. `weights` is as for [`trajectory_bands`](@ref).
 
-Read a share only where `flagged` and `mc_undefined` are false and `total > 0`. Early in
-a run the cells' noise can outweigh the spread, so a component comes out negative and is
-reported as 0. A share there can exceed 1, or be `NaN` when `total` is 0. `flagged` says
-some component did, and `mc_undefined` and `dropped` are `variance_split`'s, at each time.
+Early in a run the cells' noise can outweigh the spread, so a component comes out negative
+and is reported as 0. A share there can exceed 1, or be `NaN` when `total` is 0. `flagged`
+says some component did, and `mc`, `mc_undefined` and `dropped` are `variance_split`'s, at
+each time. A share lies between 0 and 1 where `flagged` and `mc_undefined` are false and
+`total > 0`, though very sparse weights can still leave it `NaN`. That does not make it
+signal: `total` can still be cell noise, so read a share only where `total` is well above `mc`.
 """
 function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p.weights)),
                           baseline::Bool = false)
@@ -164,7 +166,7 @@ function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p
     return (; t = t[times],
             held_share = (; i_first = [s.held_share.i_first for s in splits],
                           h_first = [s.held_share.h_first for s in splits]),
-            total = [s.total for s in splits],
+            total = [s.total for s in splits], mc = [s.mc for s in splits],
             flagged = [any(values(s.flagged)) for s in splits],
             mc_undefined = [s.mc_undefined for s in splits],
             dropped = [s.dropped for s in splits])

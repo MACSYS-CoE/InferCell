@@ -189,7 +189,7 @@ Branch from `main` at Task 2's merge, in a new worktree.
 
 **Interfaces:**
 - Consumes: `predict(...; trajectory, every)`, `trajectory_bands`, `trajectory_split`; `pilot_common.jl` (`save`, `plain`, `say`, `SMOKE`, `COMMIT`); `launcher_guard.sh`.
-- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total`), and `checks.md`.
+- Produces, in `<outdir>`: `a_block_<b>.jls`, `a_truth.jls`, `b.jls`, `c_precheck.jls`, `c.jls`, and `tsv/traj_{a,b,c}.tsv` with columns `panel, arm, species, layer, weights, t, mean, lo50, hi50, lo90, hi90`, `tsv/traj_a_truth.tsv` (`species, t, mean, se`), `tsv/traj_a_data.tsv` (`species, t, value`), `tsv/traj_split.tsv` (`t, held_share_i_first, held_share_h_first, total, mc, flagged, mc_undefined, dropped`), and `checks.md`.
 
 | Stage | What it runs | Slurm |
 |---|---|---|
