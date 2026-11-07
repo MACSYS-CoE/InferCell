@@ -4430,7 +4430,7 @@ fabricated task list.
 
 ### 2026-11-08 — Probabilistic trajectories: runs and figure, pre-registered
 
-**Status: declared before any run.** The user asked for a time series with a shaded band in paper 1
+**Status: declared before any production run; only smoke passes and the design's pilot have run.** The user asked for a time series with a shaded band in paper 1
 and approved the design, `docs/superpowers/specs/2026-11-07-probabilistic-trajectories-design.md`.
 The driver is `dev/scripts/trajectories_predict.jl`, and KIM-87 tracks the runs. These runs add no
 new inference and **no new scored claim**: panel A replays published numbers for one dataset, and
@@ -4439,8 +4439,8 @@ panels B and C on the reduced model stay unscored.
 **The posterior.** V7 replicate 1, exact route, SHA-256
 `d1a4500b59433352076d8b3d28a44df6fde992343f92fb88960ebee4f1ebf759`, chosen because it feeds the
 reduced model and not for how it looks. Recorded in every panel, every 60 s: the lactate export
-meter, `M_lac__L_e`, `M_gtp_c` and `M_pyr_c`. `M_pyr_c` is the one panel A species outside
-`M0_PANEL`. Q is observed through `M_lac__L_e`, so panel A's Q is no out-of-sample curve.
+meter, `M_lac__L_e`, `M_gtp_c` and `M_pyr_c`. `M_pyr_c` is the one panel A species the fit never
+saw in any form. Q is observed through `M_lac__L_e`, so panel A's Q is no out-of-sample curve.
 
 | Panel | What runs | Draws × held × cells | Seed |
 |---|---|---|---|
@@ -4460,22 +4460,29 @@ parameters: 5 inferred, 15 held promoters and 62 released. Reverse constants are
 and not drawn. The driver stops if the count is not 82 or any `kcatR_*` is held. The set does not
 change without an entry here.
 
-**The checks, all exact, and a mismatch stops the work before more compute:**
+**The checks.** All run in the `replay` stage, before panel C, and the launcher refuses to start
+panel C unless `replay.md` ends in `ALL PASS`. Any failure stops the work. The first two are exact,
+and the inputs they read are pinned to the archive's checksums.
 - panel B's μ̂, seeds and θ_H equal KIM-42's `w1.jls`;
 - each panel A block's μ̂ equals its rows in M0's `finish/000_r1_v7.jls`, and the truth's mean equals
   `truth` for dataset 1 in M0's `score_datasets.tsv`;
-- the regenerated dataset's truth equals replicate 1's, within 1e-12 relative, since V7 stores logs;
+- the regenerated dataset's truth and σ_b equal replicate 1's, within 1e-12 relative, since V7 stores
+  logs;
 - the ratio of exported lactate to `M_lac__L_e`'s change is constant over time and across 10 truth
-  cells, within 1% relative, and the note reports the largest deviation. That ratio rescales the data
-  onto Q's axis. The design's "1e-9" was too strong: the smoke run found the ratio starts at exactly
-  100,000 and falls as a cell grows, by up to 0.06% over 240 s, because the meter counts particles at
-  the volume they crossed while the recorded `M_lac__L_e` is undiluted lactate times a factor that
-  grows with the cell. 1% is small against Q's predictive SD of 1.8% of its mean, and no production run
-  had read this check when it changed.
+  cells, within 1% relative. That ratio rescales the data onto Q's axis.
 
-A job at V7's commit `dfe570a` then compares the regenerated bulk data with those of that commit. A
-difference goes in the note and the caption and does not stop the work, since the posterior is
-unchanged.
+The ratio's 1% is a sanity bound and does not measure the overlay's accuracy: it is 0.57 of Q's
+predictive SD, 1.8% of its mean. The note and the caption report the deviation actually measured. The
+plan and this entry's first version said 1e-9, which the smoke pass failed. A diagnostic (job 20264913)
+found the ratio starts at 100,000, drifts slightly either way early on, and then mostly falls, by up
+to 0.09% over 240 s, or about 0.05 SD. The code gives the reason, which was not measured directly:
+the meter counts particles at the volume they crossed, while the recorded `M_lac__L_e` is undiluted
+lactate times a factor that grows with the cell. No production run had read this check when it
+changed.
+
+A job at V7's commit `dfe570a` then compares the regenerated bulk data with those of that commit
+(`trajectories_predict.sh <outdir> bulk <worktree>`). A difference goes in the note and the caption
+and does not stop the work, since the posterior is unchanged.
 
 **What the figure may do, fixed now:**
 - Panel C runs whatever its pre-check's acceptance is, and the number is reported. Below 10% of pairs
@@ -4483,10 +4490,15 @@ unchanged.
   filled band otherwise uses `per_theta_I`, and `joint` goes in the note.
 - The held-share sub-panel shows a time only where `flagged` and `mc_undefined` are false and
   `total > mc`. Clipping alone does not catch a share that is cell noise: at zero true spread on a
-  40 × 20 × 4 matrix, 8.9% of replicates pass the weaker `total > 0` test, with a median share of
-  0.83. `total > mc` removes those times: it passed in 0 of 4,000 noise-only trials at each of
-  40 × 20 × 4, 100 × 20 × 4 and 40 × 50 × 4. Both figures come from throwaway numpy simulations
-  during KIM-86's review, not from a script in this repository.
+  40 × 20 × 4 matrix, 8.9% of replicates have `flagged` false and `total > 0`, with a median share of
+  0.83. Adding `total > mc` removes those times: it passed in none of 1,500 noise-only trials through
+  a port of the split's estimator, at each of 40 × 20, 100 × 20 and 40 × 50 pairs, under Gaussian,
+  lognormal and bimodal cells. These are throwaway numpy simulations from the reviews of this work, not
+  scripts in this repository.
+
+**Cost.** About 500 CPU-h used, and about 680 CPU-h allocated, since the rates behind the design's
+estimate are `TotalCPU` and Slurm allocates whole cores. Panel C's wall limit is 24 h, as KIM-42's was:
+it has no checkpoint, and released constants may slow it past KIM-42's rates.
 
 *Sections:* §12.
 

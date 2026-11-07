@@ -1,6 +1,6 @@
 # Probabilistic trajectories: design
 
-Status: approved by the author, 2026-11-07. Nothing here has run except the pilot in §6.
+Status: approved by the author, 2026-11-07. `spec.md` §12's entry of 2026-11-08 records what has run and what changed.
 
 ## Intent
 

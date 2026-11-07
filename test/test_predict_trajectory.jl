@@ -281,7 +281,7 @@ end
         @test s.mc_undefined[end] == v.mc_undefined && s.dropped[end] == v.dropped
         @test length(s.mc) == length(s.t) && s.mc[end] == v.mc
 
-        one =predict(m0, pd; horizon = 60.0, n_cells = 1, rng = Xoshiro(3), threads = false,
+        one = predict(m0, pd; horizon = 60.0, n_cells = 1, rng = Xoshiro(3), threads = false,
                       trajectory = [M])
         @test trajectory_split(one, M; baseline = true).mc_undefined == [true]
 

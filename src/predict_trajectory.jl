@@ -146,11 +146,12 @@ with their noise τ(t) = σ̂²(t)/n. Each result is a vector over `t`. With
 for Q. `weights` is as for [`trajectory_bands`](@ref).
 
 Early in a run the cells' noise can outweigh the spread, so a component comes out negative
-and is reported as 0. A share there can exceed 1, or be `NaN` when `total` is 0. `flagged`
-says some component did, and `mc`, `mc_undefined` and `dropped` are `variance_split`'s, at
-each time. A share lies between 0 and 1 where `flagged` and `mc_undefined` are false and
-`total > 0`, though very sparse weights can still leave it `NaN`. That does not make it
-signal: `total` can still be cell noise, so read a share only where `total` is well above `mc`.
+and is reported as 0. A share there can exceed 1, or be `Inf` or `NaN` when `total` is 0.
+`flagged` says some component did, and `mc`, `mc_undefined` and `dropped` are
+`variance_split`'s, at each time. A share lies between 0 and 1 where `flagged` and
+`mc_undefined` are false and `total > 0`, though very sparse weights can still leave it `NaN`.
+That does not make it signal: `total` can still be cell noise, so read a share only where
+`total` also exceeds `mc`.
 """
 function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p.weights)),
                           baseline::Bool = false)
