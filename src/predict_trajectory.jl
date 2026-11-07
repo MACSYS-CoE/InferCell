@@ -9,8 +9,9 @@
 # s_k = (k − 1) w_k + (n − 1) Σ_{i<k} w_i at q s_n. Equal weights give s_k ∝ k − 1,
 # which is `Statistics.quantile`. A value with zero weight is not there. It is not the
 # quantile of the data repeated by weight, and at very unequal weights it interpolates
-# across a heavy value. KIM-86's check-PR measured that at about 5% of an SD or less on
-# a 40 × 50 matrix at 10% acceptance or more, and larger as the kept pairs fall.
+# across a heavy value. KIM-86's check-PR simulated that on a 40 × 50 matrix at 10%
+# acceptance or more: about 5% of an SD on average, about 10% for a single band, and
+# larger as the kept pairs fall.
 function _weighted_quantile(x::AbstractVector, w::AbstractVector, q::Real)
     keep = findall(>(0), w)
     isempty(keep) && throw(ArgumentError("no value carries weight"))
@@ -144,10 +145,10 @@ with their noise τ(t) = σ̂²(t)/n. Each result is a vector over `t`. With
 `baseline = true` and the metered export, the last time is `variance_split`'s result
 for Q. `weights` is as for [`trajectory_bands`](@ref).
 
-Read a share only where `flagged` is false. Early in a run the cells' noise can outweigh
-the spread, so a component comes out negative and is reported as 0. A share there can
-exceed 1, or be `NaN` when `total` is 0. `flagged` says some component did, and
-`mc_undefined` and `dropped` are `variance_split`'s, at each time.
+Read a share only where `flagged` and `mc_undefined` are false and `total > 0`. Early in
+a run the cells' noise can outweigh the spread, so a component comes out negative and is
+reported as 0. A share there can exceed 1, or be `NaN` when `total` is 0. `flagged` says
+some component did, and `mc_undefined` and `dropped` are `variance_split`'s, at each time.
 """
 function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p.weights)),
                           baseline::Bool = false)
