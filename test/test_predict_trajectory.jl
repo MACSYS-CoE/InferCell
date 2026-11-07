@@ -224,6 +224,9 @@ end
         v = haldane_values(metered(m0), draw_values(pd, 1))
         @test_throws ArgumentError forward_cells(m0, v, Int[]; horizon = 120.0,
                                                  forward = :mean_field, trajectory = S, every = 30.0)
+        # A forward that is neither route is told so, and not told about the mean field.
+        @test_throws "forward must be" forward_cells(m0, v, Int[]; horizon = 120.0, forward = :nope,
+                                                     trajectory = S, every = 30.0)
     end
 
     @testset "S4: a valid every, the default rng, and q with and without recording" begin
@@ -280,6 +283,30 @@ end
         one = predict(m0, pd; horizon = 60.0, n_cells = 1, rng = Xoshiro(3), threads = false,
                       trajectory = [M])
         @test trajectory_split(one, M; baseline = true).mc_undefined == [true]
+
+        # The cells rewritten, so that each column reports what it says it does.
+        tr = p.cells[1, 1][1].trajectory
+        at(c, x) = InferCell.CellRun(c.seed, c.q, c.failure, c.message, c.drains, c.clips, c.minima,
+                                     c.accounts, (; t = tr.t, species = tr.species,
+                                                  values = fill(Float64(x), size(tr.values))))
+        pairs_at(xs) = foreach(i -> p.cells[i] = [at(p.cells[i][r], xs[r]) for r in 1:2],
+                               eachindex(p.cells))
+
+        # Every pair has one mean and its cells far apart: all the spread is noise.
+        pairs_at((50, 150))
+        noisy = trajectory_split(p, M)
+        @test all(noisy.flagged) && all(==(0), noisy.total)
+        @test all(isnan, noisy.held_share.i_first)
+
+        # Nothing varies at all: nothing comes out negative, and the share still means nothing.
+        pairs_at((0, 0))
+        still = trajectory_split(p, M)
+        @test !any(still.flagged) && all(==(0), still.total)
+        @test all(isnan, still.held_share.i_first)
+
+        # A pair left with one cell has no noise estimate, so it leaves the weights.
+        p.cells[1, 1] = p.cells[1, 1][1:1]
+        @test all(==(1), trajectory_split(p, M).dropped)
     end
 
     @testset "S2: levels are fractions" begin

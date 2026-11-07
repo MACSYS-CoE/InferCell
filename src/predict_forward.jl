@@ -147,7 +147,7 @@ function _recording(ms, forward, trajectory, every, interval)
         k = round(Int, every / dt)
         k >= 1 && k * dt ≈ every || throw(ArgumentError(
             "every = $every s is not a whole number of $dt s handshakes"))
-    else
+    elseif forward === :mean_field
         every == 60 || throw(ArgumentError(
             "on the mean field `every` must be 60: it sets the saves, and the minima, which a " *
             "viability floor reads, are read at the saves, so another grid would change the result"))
