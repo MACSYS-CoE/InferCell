@@ -262,7 +262,8 @@ corrected one, since the gap between them is part of the result (spec §12
 (`CellRun`'s `trajectory`), in particles, every `every` seconds and at the horizon.
 On the hybrid `every` must be a whole number of handshakes. Recording reads what
 the run holds anyway, so it changes no cell and no draw. A species outside the ODE
-block is refused before any cell runs.
+block is refused before any cell runs. [`trajectory_bands`](@ref) and
+[`trajectory_split`](@ref) read the result.
 
 **The completion policy:**
 - `completion = :none` runs the posterior as it stands, as on M0, where no

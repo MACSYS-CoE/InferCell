@@ -94,6 +94,7 @@ include("predict_viability.jl")
 include("predict.jl")
 include("predict_combine.jl")
 include("predict_variance.jl")
+include("predict_trajectory.jl")
 include("boundary.jl")
 
 export InferParameter, free_params, rate_params, ic_params, obs_params,
