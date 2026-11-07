@@ -13,10 +13,12 @@
 #   c_precheck   the release, 4 draws × 5 held × (4 + 4) cells, for its acceptance;
 #   c            the release, 40 draws × 50 held × (4 + 4) cells, under M4's frozen rule;
 #   data         the regenerated M0 dataset 1, and its truth against the fit's;
-#   replay       the exact checks on a and b, in replay.md, and stops on a mismatch;
-#   report       the same checks, the TSVs and checks.md.
-# Outputs, never overwritten: <stage>.jls files (whole `Prediction`s, which open only at
-# this commit), and tsv/. Each is written under tmp/ and then moved into place.
+#   replay       every check on a, b and data, in replay.md. Panel C waits on it;
+#   report       the same checks, then the TSVs and checks.md.
+# Outputs: <stage>.jls files (whole `Prediction`s, which open only at this commit). A stage
+# refuses at its start if its output exists, and writes under tmp/ before moving into place.
+# tsv/ appears only once `report`'s checks have passed. replay.md and checks.md are written
+# as they go, and only a last line of ALL PASS says they passed.
 #
 # Seeds, from M5's range. Panel A blocks 19_540_000 + (b − 1), truth 19_541_501, M0's
 # own for dataset r = 1. Panel B 19_542_000, KIM-42's. Panel C 19_543_000, its pre-check
@@ -40,6 +42,11 @@ const IDX = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : -1
 const V7_R1 = "/fred/oz022/tkimpson/infercell-16a9b-archive-2026-10-17/v7/sbc_v7_16a9b/replicate1.jls"
 const V7_R1_SHA256 = "d1a4500b59433352076d8b3d28a44df6fde992343f92fb88960ebee4f1ebf759"
 const ARCHIVE = "/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/runs"
+# From the archive's SHA256SUMS.
+const ARCHIVE_SHA256 = Dict(
+    "budget-kim42/w1.jls" => "32fe44468f336963ea9555eb33df7f9d5d62c9c8127bd58a77dbb1f4ad17d9c6",
+    "m0-kim40-kim41/finish/000_r1_v7.jls" => "d8a2a52198fda4ffad51e013710ae0c71538295248a1ec6e8246627187d01a61",
+    "m0-kim40-kim41/score_datasets.tsv" => "a61ae99502d89a48dc1afa74df6e97494e40aa2ab933885ad2f4568588d1b6dd")
 const DATASET_SEED = 16_200_001
 
 const M_ = LAC_EXPORT_METER
@@ -72,9 +79,11 @@ const RULE = ViabilityRule(; label = SMOKE ? "smoke: a floor, so that V rejects"
                            floors = SMOKE ? [:M_gtp_c => 3800.0] : Pair{Symbol, Float64}[])
 
 # ---- files
+fresh(name) = isfile(joinpath(OUT, "$name.jls")) &&
+    error("$name.jls exists in $OUT; this run never overwrites an output")
 function put(name, x)
+    fresh(name)
     dest = joinpath(OUT, "$name.jls")
-    isfile(dest) && error("$dest exists; this run never overwrites an output")
     tmp = joinpath(OUT, "tmp")
     mkpath(tmp)
     save(tmp, name, x; stage = string(STAGE))
@@ -87,24 +96,29 @@ function read_out(name)
     x.smoke == SMOKE || error("$name was written with SMOKE = $(x.smoke), not $SMOKE")
     return x.result
 end
+function pinned(path, sha)
+    got = first(split(read(`sha256sum $path`, String)))
+    got == sha || error("$path has SHA-256 $got, not $sha")
+    return path
+end
+archive_file(rel) = pinned(joinpath(ARCHIVE, rel), ARCHIVE_SHA256[rel])
 # A published run's plain record, which opens at any commit.
-archived(parts...) = deserialize(joinpath(ARCHIVE, parts...)).result
+archived(rel) = deserialize(archive_file(rel)).result
 
-function posterior()
-    SMOKE && return posterior_draws(V6)
-    got = first(split(read(`sha256sum $V7_R1`, String)))
-    got == V7_R1_SHA256 || error("$V7_R1 has SHA-256 $got, not the one M0 pinned")
-    pd = posterior_draws(V7_R1)
+function v7()
+    pd = posterior_draws(pinned(V7_R1, V7_R1_SHA256))
     length(pd) == 556 && pd.names == M0_TARGETS ||
         error("V7 replicate 1: $(length(pd)) draws of $(pd.names)")
     return pd
 end
+posterior() = SMOKE ? posterior_draws(V6) : v7()
 even_draws(pd, n) = round.(Int, range(1, length(pd); length = n))
 block_draws(pd, b) = even_draws(pd, A_DRAWS)[((b - 1) * (A_DRAWS ÷ A_BLOCKS) + 1):(b * (A_DRAWS ÷ A_BLOCKS))]
 
 # ---- the runs
 function stage_a(i)
     0 <= i <= A_BLOCKS || error("a's index $i is outside 0…$A_BLOCKS")
+    fresh(i == 0 ? "a_truth" : "a_block_$i")
     ms = collect(AbstractSubModel, m0_models())
     if i == 0
         truth = (SMOKE ? posterior_draws(V6) : posterior()).truth
@@ -123,6 +137,7 @@ function stage_a(i)
 end
 
 function stage_b()
+    fresh("b")
     pd = posterior()
     p = predict(d11_models(), pd; horizon = H_R, draws = even_draws(pd, B_DRAWS),
                 completion = :prior, n_held = B_HELD, n_cells = B_CELLS, width = 1,
@@ -155,6 +170,7 @@ function check_released(ms, pd)
 end
 
 function stage_c(name, draws, held, seed)
+    fresh(name)
     pd = posterior()
     ms = released_models()
     check_released(ms, pd)
@@ -167,11 +183,13 @@ function stage_c(name, draws, held, seed)
 end
 
 function stage_data()
+    fresh("data")
     ds = m0_dataset(DATASET_SEED; ncells = 50)
-    fit = posterior_draws(V7_R1).truth
+    fit = v7().truth
     dev = maximum(abs(v / fit[n] - 1) for (n, v) in ds.truth.values if n in M0_TARGETS)
     put("data", (; times = ds.times, bulk = ds.bulk, panel = collect(M0_PANEL), sigma = ds.sigma,
-                 truth = ds.truth.values, truth_rel_dev = dev))
+                 truth = ds.truth.values, truth_rel_dev = dev,
+                 sigma_rel_dev = abs(ds.sigma / fit[:sigma_b] - 1)))
 end
 
 # ---- the report
@@ -192,7 +210,7 @@ first_diff(a, b) = size(a) != size(b) ? "sizes $(size(a)), $(size(b))" :
                     i === nothing ? "" : "first at $i: $(a[i]) against $(b[i])")
 
 function published_truth()
-    rows = split.(readlines(joinpath(ARCHIVE, "m0-kim40-kim41", "score_datasets.tsv")), '\t')
+    rows = split.(readlines(archive_file("m0-kim40-kim41/score_datasets.tsv")), '\t')
     hdr = rows[1]
     col(n) = findfirst(==(n), hdr)
     r = only(x for x in rows[2:end]
@@ -203,7 +221,7 @@ end
 
 # Every exact check on the replays. A mismatch stops the work.
 function replay_checks!(c::Checks)
-    fin = archived("m0-kim40-kim41", "finish", "000_r1_v7.jls")
+    fin = archived("m0-kim40-kim41/finish/000_r1_v7.jls")
     for b in 1:A_BLOCKS
         p = read_out("a_block_$b")
         rows = ((b - 1) * (A_DRAWS ÷ A_BLOCKS) + 1):(b * (A_DRAWS ÷ A_BLOCKS))
@@ -215,11 +233,32 @@ function replay_checks!(c::Checks)
     check!(c, "panel A truth: the mean equals M0's published truth", t.mu[1, 1] == pub,
            "$(t.mu[1, 1]) against $pub")
     b = read_out("b")
-    w1 = archived("budget-kim42", "w1.jls")
+    w1 = archived("budget-kim42/w1.jls")
     check!(c, "panel B: μ̂ equals KIM-42's width 1", isequal(b.mu, w1.mu), first_diff(b.mu, w1.mu))
     check!(c, "panel B: the seeds equal KIM-42's width 1", b.seeds == w1.seeds)
     check!(c, "panel B: θ_H equals KIM-42's width 1", b.theta_H == w1.theta_H)
-    return b, w1
+
+    # The dataset, and the rescaling of its lactate onto Q's axis.
+    data = read_out("data")
+    check!(c, "the regenerated dataset's truth equals replicate 1's", data.truth_rel_dev < 1e-12,
+           "largest relative difference $(data.truth_rel_dev)")
+    check!(c, "the regenerated dataset's σ_b equals replicate 1's", data.sigma_rel_dev < 1e-12,
+           "relative difference $(data.sigma_rel_dev)")
+    ratios = Float64[]
+    for cell in first(filter(x -> x.trajectory !== nothing, t.cells[1, 1]), 10)
+        tr = cell.trajectory
+        dq = tr.values[2:end, 1] .- tr.values[1, 1]
+        dl = tr.values[2:end, 2] .- tr.values[1, 2]
+        append!(ratios, dq ./ dl)
+    end
+    R = median(ratios)
+    spread = maximum(abs.(ratios ./ R .- 1))
+    # Not exact: the meter counts particles at the volume they crossed, and the
+    # recorded M_lac__L_e is undiluted lactate times a factor that grows with the cell.
+    check!(c, "export over M_lac__L_e's change is constant within 1%", spread < 0.01,
+           "R = $R, largest relative deviation $spread, over $(length(ratios)) cell-times")
+    println(c.io, "\nR = $R\n")
+    return b
 end
 
 function stage_replay()
@@ -280,35 +319,19 @@ end
 function stage_report()
     dest = joinpath(OUT, "checks.md")
     isfile(dest) && error("$dest exists; this run never overwrites an output")
-    tsv = joinpath(OUT, "tsv")
+    isdir(joinpath(OUT, "tsv")) && error("$OUT/tsv exists; this run never overwrites an output")
+    tsv = joinpath(OUT, "tmp", "tsv")
     mkpath(tsv)
     open(dest, "w") do io
         println(io, "# Trajectories: checks at $COMMIT, job $JOB, $(now())\n")
         c = Checks(io, String[])
-        b, w1 = replay_checks!(c)
+        b = replay_checks!(c)
+        isempty(c.failed) || finish_checks(c)      # stops here, except on a smoke pass
 
         a = combine_rows([read_out("a_block_$i") for i in 1:A_BLOCKS])
         t = read_out("a_truth")
         cp = read_out("c")
         data = read_out("data")
-
-        # The dataset, and the rescaling of its lactate onto Q's axis.
-        check!(c, "the regenerated dataset's truth equals replicate 1's", data.truth_rel_dev < 1e-12,
-               "largest relative difference $(data.truth_rel_dev)")
-        ratios = Float64[]
-        for cell in t.cells[1, 1][1:min(10, end)]
-            tr = cell.trajectory
-            dq = tr.values[2:end, 1] .- tr.values[1, 1]
-            dl = tr.values[2:end, 2] .- tr.values[1, 2]
-            append!(ratios, dq ./ dl)
-        end
-        R = median(ratios)
-        spread = maximum(abs.(ratios ./ R .- 1))
-        # Not exact: the meter counts particles at the volume they crossed, and the
-        # recorded M_lac__L_e is undiluted lactate times a factor that grows with the cell.
-        check!(c, "export over M_lac__L_e's change is constant within 1%", spread < 0.01,
-               "R = $R, largest relative deviation $spread, over $(length(ratios)) cell-times")
-        println(io, "\nR = $R\n")
 
         # TSVs: panel A.
         open(joinpath(tsv, "traj_a.tsv"), "w") do f
@@ -376,20 +399,25 @@ function stage_report()
         statuses = _sorted(cp.statuses)
         n_all = sum(last, statuses)
         starved = cp.statuses[:starved] / n_all
-        med(w) = InferCell._weighted_quantile(vec(cp.mu), vec(w), 0.5)
+        ok = isfinite.(cp.mu)     # a pair with no finished cell has no mean to rank
+        med(w) = InferCell._weighted_quantile(cp.mu[ok], w[ok], 0.5)
         unc = med(ones(M, K))
         println(io, "$M × $K pairs, drawn parameters $(5 + length(cp.held)), kept pairs $kept, acceptance $acc")
         println(io, "per_theta_I: ", cp.conditioning.per_theta_I)
         println(io, "joint: ", cp.conditioning.joint)
         println(io, "statuses of μ̂'s cells: $statuses; starved fraction $starved")
-        println(io, "median of pair means at the end: panel B ", median(vec(b.mu)), ", released unconditioned ", unc,
+        println(io, "median of pair means at the end: panel B ", median(filter(isfinite, vec(b.mu))), ", released unconditioned ", unc,
                 kept > 0 ? ", released per_theta_I $(med(cp.weights.per_theta_I)), joint $(med(cp.weights.joint))" : "")
         acc < 0.1 && println(io, "\nBELOW 10% KEPT: the figure drops the filled conditioned band and shows the unconditioned one, labelled.")
+        mv(tsv, joinpath(OUT, "tsv"))
         finish_checks(c)
     end
 end
 
 function main()
+    # A job can start hours after the launcher's own check of the tree.
+    dirty = read(`git status --porcelain -- src test dev/scripts Project.toml Manifest.toml`, String)
+    isempty(dirty) || error("the tree at $COMMIT has uncommitted changes:\n$dirty")
     mkpath(OUT)
     say("trajectories, stage $STAGE $IDX, at $COMMIT, job $JOB, $(Threads.nthreads()) thread(s), ",
         "GC $(GC_THREADS), on $(RAN_ON.host) ($(RAN_ON.cpu_name))")
