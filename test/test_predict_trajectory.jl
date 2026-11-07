@@ -211,3 +211,81 @@ end
         @test any(s -> s.name === :kcatR_R_LDH_L && s.reason === :haldane_derived, h.skipped)
     end
 end
+
+@testset "KIM-86: what check-PR found" begin
+    M = LAC_EXPORT_METER
+    S = [M, :M_gtp_c]
+    pd = _trajectory_test_posterior()
+    m0 = collect(AbstractSubModel, m0_models())
+
+    @testset "M1: the mean field's saves stay at 60 s, since its minima read them" begin
+        @test_throws ArgumentError predict(m0, pd; horizon = 120.0, forward = :mean_field,
+                                           trajectory = S, every = 30.0)
+        v = haldane_values(metered(m0), draw_values(pd, 1))
+        @test_throws ArgumentError forward_cells(m0, v, Int[]; horizon = 120.0,
+                                                 forward = :mean_field, trajectory = S, every = 30.0)
+    end
+
+    @testset "S4: a valid every, the default rng, and q with and without recording" begin
+        e = predict(m0, pd; horizon = 120.0, draws = [1], n_cells = 1, rng = Xoshiro(7),
+                    threads = false, trajectory = S, every = 120.0)
+        n = predict(m0, pd; horizon = 120.0, draws = [1], n_cells = 1, rng = Xoshiro(7),
+                    threads = false)
+        @test e.cells[1, 1][1].trajectory.t == [0.0, 120.0]
+        @test isequal(e.mu, n.mu) && e.cells[1, 1][1].minima == n.cells[1, 1][1].minima
+
+        # `_recording` must leave the global stream alone: a default-rng call forks from it.
+        at(; kw...) = (Random.seed!(860);
+                       predict(m0, pd; horizon = 60.0, draws = [1], n_cells = 1, threads = false, kw...))
+        @test at().seeds == at(; trajectory = S).seeds
+
+        v = haldane_values(metered(m0), draw_values(pd, 1))
+        Random.seed!(861)
+        a = forward_cells(m0, v, [11]; horizon = 60.0, threads = false)
+        s1 = rand()
+        Random.seed!(861)
+        b = forward_cells(m0, v, [11]; horizon = 60.0, threads = false, trajectory = S)
+        s2 = rand()
+        @test only(a).q == only(b).q && only(a).minima == only(b).minima
+        @test s1 == s2      # `_interval`'s build put the global generator back
+    end
+
+    @testset "S4: rows and cells under unequal weights" begin
+        p = predict(d11_models(), pd; horizon = 60.0, completion = :prior, n_held = 2,
+                    n_parameter_draws = 3, n_cells = 2, rng = Xoshiro(3), threads = false,
+                    trajectory = [M])
+        w = [1.0 3.0; 2.0 0.0; 1.0 1.0]
+        b = trajectory_bands(p, M; baseline = true, weights = w)
+        W = sum(w)
+        @test b.pairs.mean[end] ≈ sum(w .* p.mu) / W rtol = 1e-12
+        @test b.rows.mean[end] ≈ sum(w .* p.mu) / W rtol = 1e-12
+        @test b.cells.mean[end] ≈ sum(w .* p.mu) / W rtol = 1e-12
+        rowmeans = [(w[m, 1] * p.mu[m, 1] + w[m, 2] * p.mu[m, 2]) / sum(w[m, :]) for m in 1:3]
+        @test b.rows.lo[0.9][end] ≈
+              InferCell._weighted_quantile(rowmeans, vec(sum(w; dims = 2)), 0.05) rtol = 1e-12
+        qs = [c.q for k in 1:2 for m in 1:3 for c in p.cells[m, k]]
+        cw = [w[m, k] / 2 for k in 1:2 for m in 1:3 for _ in 1:2]
+        @test b.cells.hi[0.9][end] ≈ InferCell._weighted_quantile(qs, cw, 0.95) rtol = 1e-12
+    end
+
+    @testset "M2: the split over time says when a component clipped" begin
+        p = predict(d11_models(), pd; horizon = 120.0, completion = :prior, n_held = 2,
+                    n_parameter_draws = 3, n_cells = 2, rng = Xoshiro(3), threads = false,
+                    trajectory = [M])
+        s, v = trajectory_split(p, M; baseline = true), variance_split(p)
+        @test length(s.flagged) == length(s.t) == length(s.mc_undefined) == length(s.dropped)
+        @test s.flagged[end] == any(values(v.flagged))
+        @test s.mc_undefined[end] == v.mc_undefined && s.dropped[end] == v.dropped
+
+        one = predict(m0, pd; horizon = 60.0, n_cells = 1, rng = Xoshiro(3), threads = false,
+                      trajectory = [M])
+        @test trajectory_split(one, M; baseline = true).mc_undefined == [true]
+    end
+
+    @testset "S2: levels are fractions" begin
+        p = predict(m0, pd; horizon = 60.0, draws = [1, 2], n_cells = 1, rng = Xoshiro(3),
+                    threads = false, trajectory = [M])
+        @test_throws ArgumentError trajectory_bands(p, M; levels = (90,))
+        @test_throws ArgumentError trajectory_bands(p, M; levels = (0.0,))
+    end
+end

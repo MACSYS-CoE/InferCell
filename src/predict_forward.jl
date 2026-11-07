@@ -127,9 +127,9 @@ _time_grid(h, every) = sort(unique(vcat(collect(0.0:Float64(every):h), h)))
 
 # What to record, refused if it cannot be: a misspelled or jump-block species, or
 # a grid the hybrid's handshakes do not fall on. It returns `_forward_setup`'s
-# keywords. Without `trajectory`, `every` stays at its default, so the mean field's
-# saves, and the minima it reads at them, are as ever. `interval` gives the
-# handshake in seconds; only the hybrid reads it.
+# keywords. `every` stays at 60 s on the mean field, recording or not, so its saves,
+# and the minima it reads at them, are as ever. `interval` gives the handshake in
+# seconds; only the hybrid reads it.
 function _recording(ms, forward, trajectory, every, interval)
     if trajectory === nothing
         every == 60 || throw(ArgumentError(
@@ -147,6 +147,10 @@ function _recording(ms, forward, trajectory, every, interval)
         k = round(Int, every / dt)
         k >= 1 && k * dt ≈ every || throw(ArgumentError(
             "every = $every s is not a whole number of $dt s handshakes"))
+    else
+        every == 60 || throw(ArgumentError(
+            "on the mean field `every` must be 60: it sets the saves, and the minima, which a " *
+            "viability floor reads, are read at the saves, so another grid would change the result"))
     end
     return (; trajectory = collect(Symbol, trajectory), every = Float64(every))
 end
