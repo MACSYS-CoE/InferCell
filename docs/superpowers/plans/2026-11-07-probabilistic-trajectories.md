@@ -206,7 +206,7 @@ Branch from `main` at Task 2's merge, in a new worktree.
 `report` stops, and writes which value differed, unless all of these hold exactly (`==`):
 - panel B: `p.mu == w1.mu`, from `<archive>/runs/budget-kim42/w1.jls`;
 - panel A: each block's `mu` equals the row in `<archive>/runs/m0-kim40-kim41/finish/*_r1_v7.jls` `.hybrid.mu`, and the truth's mean equals `truth` for dataset 1, posterior v7, in `score_datasets.tsv`, to its printed digits;
-- the regenerated dataset's truth equals replicate 1's recorded truth, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1e-9 relative. Write that ratio R to `checks.md`; it rescales the data onto Q's axis.
+- the regenerated dataset's truth equals replicate 1's recorded truth, and `M_lac__L_e`'s meter ratio is constant across t on the truth, within 1% relative (1e-9 was too strong; see §12). Write that ratio R to `checks.md`; it rescales the data onto Q's axis.
 
 - [ ] **Step 1: Write the §12 entry**
 

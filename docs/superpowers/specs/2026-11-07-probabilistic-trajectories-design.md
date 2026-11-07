@@ -64,7 +64,8 @@ A new `fig_trajectories`, full width. It adds to `fig_predict_m0` and does not r
 because this posterior feeds the reduced model, and it is not chosen for how it looks. Three species, each with the posterior band and the true population mean:
 - lactate exported, `Q` over time. **The fit did see this, noisily:** `M_lac__L_e` is in `M0_PANEL` and
   its only dynamics are the export flux over the medium's volume ratio. So the panel overlays those
-  data, rescaled, and the caption says the quantity is observed;
+  data, rescaled, and the caption says the quantity is observed. The rescaling is close and not exact:
+  the two differ by a fraction of a percent as the cell grows (`spec.md` §12, 2026-11-08);
 - GTP, `M_gtp_c`, also in the panel, with its bulk data and a lighter outer band for a new bulk
   measurement (σ_b added);
 - pyruvate, `M_pyr_c`, which is not in the panel. This is the one curve that is a prediction of

@@ -4466,7 +4466,12 @@ change without an entry here.
   `truth` for dataset 1 in M0's `score_datasets.tsv`;
 - the regenerated dataset's truth equals replicate 1's, within 1e-12 relative, since V7 stores logs;
 - the ratio of exported lactate to `M_lac__L_e`'s change is constant over time and across 10 truth
-  cells, within 1e-9 relative. That ratio rescales the data onto Q's axis.
+  cells, within 1% relative, and the note reports the largest deviation. That ratio rescales the data
+  onto Q's axis. The design's "1e-9" was too strong: the smoke run found the ratio starts at exactly
+  100,000 and falls as a cell grows, by up to 0.06% over 240 s, because the meter counts particles at
+  the volume they crossed while the recorded `M_lac__L_e` is undiluted lactate times a factor that
+  grows with the cell. 1% is small against Q's predictive SD of 1.8% of its mean, and no production run
+  had read this check when it changed.
 
 A job at V7's commit `dfe570a` then compares the regenerated bulk data with those of that commit. A
 difference goes in the note and the caption and does not stop the work, since the posterior is

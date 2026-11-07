@@ -304,8 +304,10 @@ function stage_report()
         end
         R = median(ratios)
         spread = maximum(abs.(ratios ./ R .- 1))
-        check!(c, "export over M_lac__L_e's change is constant", spread < 1e-9,
-               "R = $R, largest relative deviation $spread, over 10 cells")
+        # Not exact: the meter counts particles at the volume they crossed, and the
+        # recorded M_lac__L_e is undiluted lactate times a factor that grows with the cell.
+        check!(c, "export over M_lac__L_e's change is constant within 1%", spread < 0.01,
+               "R = $R, largest relative deviation $spread, over $(length(ratios)) cell-times")
         println(io, "\nR = $R\n")
 
         # TSVs: panel A.
