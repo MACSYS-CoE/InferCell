@@ -7,7 +7,10 @@
 
 # Type 7 generalised by weight: order the values, and interpolate on
 # s_k = (k − 1) w_k + (n − 1) Σ_{i<k} w_i at q s_n. Equal weights give s_k ∝ k − 1,
-# which is `Statistics.quantile`. A value with zero weight is not there.
+# which is `Statistics.quantile`. A value with zero weight is not there. It is not the
+# quantile of the data repeated by weight, and at very unequal weights it interpolates
+# across a heavy value. KIM-86's check-PR measured that at about 5% of an SD or less on
+# a 40 × 50 matrix at 10% acceptance or more, and larger as the kept pairs fall.
 function _weighted_quantile(x::AbstractVector, w::AbstractVector, q::Real)
     keep = findall(>(0), w)
     isempty(keep) && throw(ArgumentError("no value carries weight"))
@@ -94,12 +97,19 @@ unconditioned band under a viability rule. A pair with zero weight is absent. In
 `rows`, each row carries its pairs' total.
 
 `baseline = true` subtracts each cell's own value at t = 0, so the metered export
-gives Q(t). A failed cell holds no trajectory: it is skipped, and the weighted pairs'
+gives Q(t). A failed cell holds no trajectory: it is skipped at every time, so the
+bands at early times are those of the cells that finished, and the weighted pairs'
 failed cells are counted in `n_failed`. A pair with no finished cell leaves the
-weights.
+weights. Weighted quantiles are type 7 generalised by weight, and equal `Statistics.quantile`
+at equal weights.
+
+On the mean field each pair has one run, so `cells` repeats `pairs` and is no new-cell
+band. The bands read the runs as they are, so δ, a scalar at the horizon, is not in them.
 """
 function trajectory_bands(p::Prediction, species::Symbol; weights = first(keys(p.weights)),
                           levels = (0.5, 0.9), baseline::Bool = false)
+    all(l -> 0 < l < 1, levels) || throw(ArgumentError(
+        "levels are fractions of the distribution, between 0 and 1, not $levels"))
     t, vals = _trajectory_values(p, species, baseline)
     w0 = _weight_matrix(p, weights)
     w = [size(vals[i], 1) > 0 ? Float64(w0[i]) : 0.0 for i in CartesianIndices(vals)]
@@ -126,12 +136,18 @@ end
 
 """
     trajectory_split(p::Prediction, species; weights = first(keys(p.weights)),
-                     baseline = false) -> (; t, held_share = (; i_first, h_first), total)
+                     baseline = false)
+        -> (; t, held_share = (; i_first, h_first), total, flagged, mc_undefined, dropped)
 
 [`variance_split`](@ref) at each recorded time after t = 0, on the pair means μ̂(t)
 with their noise τ(t) = σ̂²(t)/n. Each result is a vector over `t`. With
 `baseline = true` and the metered export, the last time is `variance_split`'s result
 for Q. `weights` is as for [`trajectory_bands`](@ref).
+
+Read a share only where `flagged` is false. Early in a run the cells' noise can outweigh
+the spread, so a component comes out negative and is reported as 0. A share there can
+exceed 1, or be `NaN` when `total` is 0. `flagged` says some component did, and
+`mc_undefined` and `dropped` are `variance_split`'s, at each time.
 """
 function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p.weights)),
                           baseline::Bool = false)
@@ -147,7 +163,10 @@ function trajectory_split(p::Prediction, species::Symbol; weights = first(keys(p
     return (; t = t[times],
             held_share = (; i_first = [s.held_share.i_first for s in splits],
                           h_first = [s.held_share.h_first for s in splits]),
-            total = [s.total for s in splits])
+            total = [s.total for s in splits],
+            flagged = [any(values(s.flagged)) for s in splits],
+            mc_undefined = [s.mc_undefined for s in splits],
+            dropped = [s.dropped for s in splits])
 end
 
 export trajectory_bands, trajectory_split
