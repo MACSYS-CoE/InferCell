@@ -1,0 +1,128 @@
+\section{Introduction}
+\label{sec:intro}
+
+A whole-cell model simulates a cell from its molecular parts. The first such model
+described \textit{Mycoplasma genitalium} with \pn{lit.karrsub} coupled submodels
+\cite{karr2012whole}. Later models covered \textit{Escherichia coli}
+\cite{macklin2020simultaneous} and the minimal cell \syn{}, first well stirred
+\cite{thornburg2022fundamental} and then in space and time over a full cell cycle
+\cite{thornburg2026bringing}. Each one joins
+metabolism, gene expression, growth and division in one simulation, and each
+reproduces measured behaviour of a real cell.
+
+All of these models are forward simulators. Each one takes hundreds or thousands of kinetic
+parameters from the literature, sets each to one value, and integrates forward in
+time. The output is one trajectory. That trajectory is one sample from the
+distribution of trajectories that the parameter knowledge allows. The model does not
+know the width of that distribution. When a model predicts a doubling time, a reader
+cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Sensitivity analyses vary parameters \cite{macklin2020simultaneous}, but they do not say what the data support.
+
+The missing error bar is a gap in the scientific reasoning. Every parameter in a
+whole-cell model is uncertain. A rate measured in one organism, at one temperature,
+in one medium, is then used in another organism under other conditions. The
+uncertainty is real, and it propagates through coupled nonlinear dynamics into every
+prediction. A framework that stores each parameter as a single number has no place
+to put this uncertainty. It cannot ask how uncertain a prediction is, and it cannot
+ask which data would reduce that uncertainty.
+
+\subsection{Why whole-cell models do not do inference}
+
+Bayesian inference answers both questions. It treats each parameter as a
+distribution, updates the distribution with data, and propagates the result into
+predictions. This approach has been argued for whole-cell models \cite{babtie2017how}.
+Whole-cell parameters have been estimated, but as point estimates and not as calibrated
+posteriors. In the DREAM8 challenge, teams recovered \pn{dream.nparam} parameters of a
+modified \textit{M.\ genitalium} model, \pn{dream.nmod} changed and \pn{dream.nmod} unchanged,
+scored against that one known truth \cite{karr2015summary}. Parameter error and prediction
+error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{dream.rtop}
+among the top solutions, and the authors note that several parameter sets give similar
+system-level phenotypes. A single estimate cannot express that, and a posterior can
+\cite{gutenkunst2007universally}. No team used automatic differentiation, and the authors ask for automated reduced models and for data on single-cell variation over
+time. Apart from Bayesian balancing of metabolic parameters, we know of no whole-cell model that reports posteriors over its parameters, and we see the following reasons.
+
+\begin{enumerate}
+  \item \emph{No place for uncertainty.} The frameworks store parameters as
+  floating-point values in a dictionary. The source of each value is in a
+  spreadsheet, a flat file or a supplement, and rarely with the value in the model.
+  \item \emph{Mixed formalisms.} Metabolism is a set of ordinary differential
+  equations (ODEs). Gene expression is a stochastic jump process. The two exchange
+  state on a fixed clock. No single likelihood and no standard sampler covers both.
+  \item \emph{Latent paths.} The stochastic block has a hidden path: the exact
+  times of each transcription and translation event. The likelihood of the data
+  integrates over all such paths, and that integral has no closed form.
+  \item \emph{Cost.} Inference needs many simulations. For a whole-cell model the
+  number of simulations, not the cost of one, sets the budget.
+  \item \emph{No shared parameters.} In the published \syn{} model, no rate
+  constant appears in both blocks. The blocks couple only through state. The
+  standard methods for modular inference pass information through shared
+  parameters \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
+  Here those methods do not apply directly.
+\end{enumerate}
+
+\Cref{tab:frameworks} compares current whole-cell frameworks on four design features.
+Thornburg and coworkers balanced the metabolic parameters of \syn{} against each
+other with a Bayesian method \cite{thornburg2022fundamental}. That step used
+literature values for metabolism only. It did not infer parameters from dynamic
+data through the coupled model.
+
+\begin{table}[!ht]
+\caption{\textbf{Capabilities of whole-cell modelling frameworks.} Each column asks whether the
+framework does this as part of its design. Notes follow the table.}
+\label{tab:frameworks}
+\centering
+\small
+\begin{tabular}{@{}lllll@{}}
+\toprule
+& Priors & Provenance & Inference & Declared \\
+& & in model & on dynamics & reductions \\
+\midrule
+\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Fit, no posterior & Not applicable \\
+\textit{E.\ coli} \cite{macklin2020simultaneous} & No & Partial (b) & Fit, no posterior & Partial (c) \\
+Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
+\syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & Partial (d) & Partial (e) & One block (f) & Partial (g) \\
+\IC{} (this work) & Yes & Yes & On M0 & Yes \\
+\bottomrule
+\end{tabular}
+\begin{flushleft}\footnotesize
+These columns are \IC{}'s own design aims, so the comparison favours it, and the fits in the other rows used real data where ours are synthetic. (a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
+(b) Annotated flat files, with some sources blank. (c) Adjustments as hard-coded tables in the
+fitting code. (d) Metabolic priors in the balancing input, with their means used in simulation.
+(e) Sources in pre-balancing flat files, and not in the balanced table. (f) Bayesian parameter
+balancing of metabolism on literature values, then further adjustment. (g) Patches noted in code
+and files. Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.md}, from the
+papers' main text and each framework's public code. We did not read the supplements, and for the
+2026 \syn{} model we read the preprint.
+\end{flushleft}
+\end{table}
+
+\subsection{This work}
+
+We present \IC{}, a compositional inference framework demonstrated on reduced \syn{}.
+We do not claim an all-parameter posterior, calibrated inference on the reduced model,
+or a biological finding. We claim that a framework can make inference a basic operation,
+so that a modeller can apply it where the data and the budget allow. Our contributions
+are:
+
+\begin{enumerate}
+  \item \textbf{A design for inference-first composition} (\cref{sec:design}). Every
+  parameter is a prior with a recorded source. Modules couple through
+  \pn{fw.edgekinds} kinds of typed edge. The framework checks that a composition is
+  complete before it runs, and it lists every departure from the published model.
+  \item \textbf{One interface with two descriptions} (\cref{sec:design}). The same
+  gene-expression modules run as an exact stochastic process or as mean-field ODEs.
+  In the second form the composed model compiles to one ODE problem that automatic
+  differentiation can pass through.
+  \item \textbf{A reduced model of \syn{} with a real boundary} (\cref{sec:model}).
+  It keeps \pn{model.rxn} metabolic reactions and \pn{model.genes} genes from the
+  published model, and it keeps the two-way coupling between them.
+  \item \textbf{A map of how information crosses the boundary} (\cref{sec:seam}), and
+  calibrated inference on M0, a two-gene slice of the model, which we define in \cref{sec:model} (\cref{sec:results}). An
+  exact sampler gives a calibrated reference. A mixed route passes the same test at a
+  fraction of the cost, with small declared discrepancies.
+  \item \textbf{Forward and intervention predictions on the reduced model}
+  (\cref{sec:budget}), which combine an M0 posterior modularly with
+  viability-conditioned uncertainty in the remaining parameters. They are unscored, and
+  we score the posterior-to-prediction step on M0 (\cref{sec:predm0}).
+\end{enumerate}
+
+Our main result is that one framework carries a reduced whole-cell model from declared priors, through inference calibrated on the slice where calibration can be checked, to unscored predictions on the reduced model, with the limits of those predictions declared.

@@ -1,0 +1,64 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\IC{} supports exact stochastic and mean-field descriptions across a coupled ODE--jump
+boundary. On M0, both inference routes pass simulation-based calibration, with small
+declared discrepancies. An M0 posterior, combined as a modular transfer with viability-conditioned
+uncertainty in the remaining parameters, gives forward and intervention predictions on
+the reduced model. Those predictions are unscored, and their budget depends strongly on
+a prior width that we chose. M0 is the check behind them: the posterior-to-prediction step covers lactate export at the expected rate there, though that does not test the completion or the transfer into the reduced model.
+
+\paragraph{What scales and what does not.} Exact inference is calibrated on M0, and it stops there. The cost of an exact posterior grows with
+the number of genes and the length of the record, and the full reduced model is
+already above our budget. The mixed route removes the stochastic paths from
+the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
+and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. If $\mathcal{R}$ is near those bounds, the metabolites constrain the paths together, and a single draw of paths per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
+in this regime (\cref{sec:approx}). We have not tested it on the full reduced model.
+
+\paragraph{The observation model sets the interface.} The three graphs of
+\cref{sec:seam} suggest a working rule, from one model and two directions. Single-cell data inform the parameters of their
+own module. Information between modules travels on bulk observables, and it follows
+the gain of the coupling. A modeller can compute the gains before any inference. In this work they anticipated the transcript null. For the other direction the evidence is thinner: on one dataset the mixed route shrinks the ptsG promoter by less than the linearised bound projected, and the exact sampler did not measure it.
+
+\paragraph{Reductions as approximations to inference.} A dynamical reduction changes
+the simulator and keeps full Bayesian inference. A statistical cut keeps the
+simulator and changes the target. We prefer the first, because its cost can be
+measured against a more detailed composition. The formalism swap is such a reduction.
+We do not claim that the more detailed composition is the truth about the cell. We claim that each choice of description is declared, and that the swap's cost is measured on M0.
+
+The prediction of \cref{sec:budget} uses the other tool, a cut, and it does so on
+purpose. There the choice is not between two ways of inferring one model. No data
+reach the held parameters at all, and an exact posterior on the reduced model is out of
+reach. So the cut says plainly what the prediction is: a modular transfer of an M0
+posterior, with the other parameters at their priors. Its cost is not measured, and it
+is declared (\cref{tab:modelform}).
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item \emph{Synthetic data only.} The data come from the model itself. Real
+  assays need observation models for unknown cell numbers in bulk metabolomics and
+  for capture efficiency in single-cell RNA counts.
+  \item \emph{One organism, one reduction.} We demonstrate the framework on reduced
+  \syn{} only, and it has no generic organism registry. Generality across organisms needs
+  a second implementation.
+  \item \emph{Asserted priors.} Many priors have no width in their source, so we set
+  the width. This choice matters: the held share of the budget runs from
+  \pn{budget.heldpctlo}\% to \pn{budget.heldpcthi}\% across the widths we tried
+  (\cref{sec:budget}).
+  \item \emph{Exact calibration at small scale only.} Coverage of the exact sampler
+  at the full reduced model is out of reach at about \pn{cost.fullscale} CPU-hours per
+  posterior. The reduced model's prediction is therefore unscored, and it rests on one
+  posterior and on a transfer we have not tested.
+  \item \emph{Weak reverse coupling.} The mixed route relies on the small
+  elasticities of the rebuild (\pn{gain.txlo}--\pn{gain.tl}). On the reduced model about \pn{kd.hi}\% of baseline cells already fall below $K_d$ at least once (\cref{sec:modelform}), so this basis is in question there without any perturbation.
+\end{itemize}
+
+\subsection{Future work}
+
+Four directions follow. The first is the method's own limits: conditioning the bulk factor on the observed transcripts, sampling paths only for pools near the one-particle floor, and handling strong-feedback regimes. The second is scale and data: the full well-stirred
+\syn{} model through the fast port of the companion paper \cite{kimpson2026whole}, then
+real measurements. The third is comparing model structure and formalisms, which the swap
+makes possible, by predictive scores rather than Bayes factors. The fourth is goal-directed
+inference and experimental design: which parts of a coupled simulator must be kept, and
+which latent variables inferred, to keep the information a prediction needs?

@@ -1,0 +1,187 @@
+\section{Methods}
+\label{sec:methods}
+
+\subsection{The hybrid driver}
+\label{sec:driver}
+
+The driver keeps two blocks with separate state: metabolite pools in mM as floating
+point values, and molecule counts as integers. One handshake step does the
+following, in order:
+\begin{enumerate}
+  \item update growth and cell geometry from the membrane protein counts;
+  \item write the protein counts into the metabolic rate laws (catalytic edges);
+  \item step the ODE block by 1\,s (Rodas5P, absolute tolerance $\pn{fw.abstol}$, relative
+  tolerance $\pn{fw.reltol}$);
+  \item debit the pools by the costs of the stochastic events of the previous step
+  (deferred-cost edges), clipped at zero as in the published model;
+  \item every 60\,s, rebuild the stochastic rate constants from the pools;
+  \item step the jump block by 1\,s with Gillespie's direct method
+  \cite{gillespie1977exact}.
+\end{enumerate}
+On the jump clock the rebuilt constants therefore take effect at $60m - 1$\,s. Pools
+are written back as molecule counts under a declared rounding policy. A recorded path
+can be replayed: the replay applies the recorded firings instead of drawing new ones,
+and it returns the log density of the path and its sufficient statistics (event
+counts and exposures).
+
+\subsection{Observation model}
+\label{sec:obs}
+
+Each synthetic dataset has $C$ cells (\pn{mzero.cells} on M0), observed every 60\,s.
+\begin{itemize}
+  \item \textbf{Transcripts:} the exact count of each gene's transcripts in each cell
+  at each save.
+  \item \textbf{Bulk metabolites:} one measurement per pool per save of the mean over
+  the $C$ cells, $\bar{x}$, with lognormal noise: $\log z \sim
+  \mathcal{N}(\log \bar{x}, \sigb^2)$. The assay noise $\sigb$ is a free parameter.
+\end{itemize}
+We use bulk metabolites because a per-cell metabolite panel cannot be measured.
+The panel has \pn{mzero.npanel} pools: G6P, F6P, intracellular and extracellular
+lactate, G3P, DHAP, charged tRNA, phosphate, 3PG, 2PG, FDP, ATP, ADP, AMP, GTP, GDP and
+GMP. The prior on the assay noise is $\sigb \sim \mathrm{LogNormal}(\log 0.2,\, 1)$.
+
+\subsection{The exact sampler}
+\label{sec:sampler}
+
+The sampler is a three-block Gibbs scan with the stochastic path as a latent variable.
+\begin{enumerate}
+  \item \textbf{Paths.} Conditional sequential Monte Carlo over 60\,s windows
+  \cite{andrieu2010particle}, with particle Gibbs at $N = \pn{mzero.N}$ particles. Each
+  particle is a snapshot of the driver. Transcripts are proposed as exact
+  endpoint-conditioned birth--death bridges \cite{hobolth2009simulation}, so every
+  proposal agrees with the observed transcript counts. The other reactions are then
+  simulated given the transcripts. The weight is the bulk metabolite likelihood
+  times each gene's transition probability. Cells are updated in turn, because the
+  bulk likelihood couples them.
+  \item \textbf{Metabolic constants and $\sigb$.} A univariate slice step on each log
+  parameter, given the paths. Reverse constants follow from the forward ones and the
+  equilibrium constants.
+  \item \textbf{Gene-expression constants.} Given the path, each promoter strength
+  and the decay rate have an exact one-dimensional conditional of the form
+  $n u - e^{u} A + \log p(u)$, where $n$ is the event count and $A$ the exposure. We
+  sample it by a slice step.
+\end{enumerate}
+The sampler is written directly, not in a probabilistic programming language. The
+path update needs ancestor sampling and exact snapshots of the driver, and a general
+framework could not provide them without sharing solver state between particles.
+Runs can be checkpointed and resumed bit for bit, and the threaded sweep is bit for
+bit equal to the serial one.
+
+\subsection{The transcript factor}
+\label{sec:txfactor}
+
+When the paths are integrated out, each gene's transcripts form a birth--death chain
+with a piecewise-constant birth rate, observed exactly every 60\,s. The likelihood of
+one cell's record is a product of transition probabilities. We compute them by
+uniformisation with tridiagonal products, truncated where the remaining mass is below
+$\pn{fw.trunc}$. The cap on the count is fixed per dataset, and the number of terms comes
+from the primal value, so the factor is differentiable in the rates.
+
+\subsection{The mean-field route}
+\label{sec:meanfield}
+
+The swap replaces the three jump modules with one mean-field module. Its equations
+are generated from the jump modules' own propensities and update rules. The composed
+model is one ODE problem. Four edges change form, and each change is a declared
+reduction:
+\begin{itemize}
+  \item catalytic edges read the mean protein counts;
+  \item drains are continuous and not clipped, and the solve stops if a pool becomes
+  negative;
+  \item the rebuild is a discrete callback at $60m - 1$\,s and at $t = 0$;
+  \item growth is continuous.
+\end{itemize}
+The offset $\delta$ plays the part of a model-discrepancy term \cite{kennedy2001bayesian}, fixed at one reference value. The bulk factor is $\mathcal{N}\!\left(\log z;\ \log \max(\bar{x}_{\mathrm{MF}}(\theta), 1)
++ \delta,\ \sigb^2 I + S\right)$, with $\delta$ and $S$ from an ensemble of the exact
+hybrid at a reference parameter value, and with $\bar{x}$ floored at one molecule. The route multiplies this factor by the transcript factor, so it ignores that both read the same cells. The reference
+value is the maximum a posteriori estimate at $\delta = 0$ and $S = 0$, recorded per
+dataset. The ensemble has \pn{mix.nref} cells, on seeds disjoint from the dataset's. We
+take $\delta$ as the log difference between the ensemble's mean and the mean field at
+the reference value, per pool and save. We take $S$ by the delta method, $S_{ij} = \mathrm{Cov}_{ij} / (C \bar{x}_i \bar{x}_j)$, for the covariance $\mathrm{Cov}$ of the per-cell panel counts. On M0 it is full rank, with \pn{mzero.npanel} pools at ten saves.
+
+The sampler is the No-U-Turn Sampler on the log of the \pn{mzero.npar} parameters, with
+the exact sampler's priors. Each fit has \pn{mix.chains} chains of \pn{mix.nadapt}
+adaptation and \pn{mix.ndraw} sampling steps, started \pn{mix.jitter} prior standard
+deviations from the reference value. A parameter value outside the transcript factor's
+support, or a solve that does not succeed, has a log density of $-\infty$.
+
+\subsection{Simulation-based calibration}
+\label{sec:sbc}
+
+For each of $R = \pn{vseven.R}$ replicates we drew a parameter set from the prior,
+simulated a dataset, and ran one chain of \pn{mzero.sweeps} sweeps from a prior draw. We dropped
+\pn{mzero.burn} sweeps and thinned the rest to $L = \pn{mzero.L}$ draws. For near-independent draws, the rank of the truth among them is uniform if the sampler is calibrated \cite{talts2018validating}. We tested
+each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
+\cite{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass
+rule was fixed before any rank was computed.
+
+\subsection{Prediction}
+\label{sec:prediction}
+
+\paragraph{What was fixed in advance.} We fixed the quantity $Q$, the estimand, the
+viability rule, the dose and the variance split on pilots with held-out parameters and
+seeds, before any evidence run, and recorded them in the project's amendment log. The
+pilot's sensitivity rule for $Q$ asked $\theta_I$ to hold at least 5\% of the parameter
+variance at \pn{model.cycle}\,s, and lactate export did not meet it
+(\pn{pilot.share}\%~$\pm$~\pn{pilot.sharese}\%). We kept $Q$, on a reading written after a
+small trial run and before the full pilot: the failure counts against $Q$ only if
+$\theta_I$'s elasticities are under a quarter of $\theta_H$'s, and they are not
+(\pn{pilot.elI} against \pn{pilot.elH}). That reading suggests the small share comes from the tight posterior.
+
+\paragraph{Estimand.} For a parameter draw, $\hat\mu(\theta)$ is the mean of $Q$ over
+$n$ hybrid cells with fresh seeds. Its noise is $\sigma^2(\theta)/n$, and we subtract the
+mean of that term from the spread over draws. The intrinsic spread is reported
+separately, from the hybrid only.
+
+\paragraph{Completion and viability.} On the reduced model, $\theta_H$ is drawn from its
+prior, and width scales its log-scale standard deviation at a fixed median. A cell is
+failed, starved, below a floor, clipped or clean, in that order of precedence, and a cell
+is starved if some counter clipped at more than half its drains. A cell is viable unless it failed, starved or fell below a floor, and we set no floors, so clipped cells count, and a parameter pair is viable if at least half of \pn{budget.ncellspair} separate cells are. We condition $\theta_H$ on viability per draw of $\theta_I$, so
+$\theta_I$'s marginal stays the M0 posterior, given at least one viable $\theta_H$ for it.
+A joint variant, which also reweights $\theta_I$, gave the same shares to the reported precision at the one width where the rule acted.
+
+\paragraph{The variance split.} The held share with $\theta_I$ first is \begin{equation} \frac{\mathrm{E}_{\theta_I}\!\left[\mathrm{Var}(\mu \mid \theta_I)\right]}{\mathrm{Var}(\mu)} , \end{equation} and with $\theta_H$ first it is $\mathrm{Var}_{\theta_H}(\mathrm{E}[\mu \mid \theta_H]) / \mathrm{Var}(\mu)$ \cite{saltelli2010variance}. The gap between them is the interaction plus any dependence the rule induces. With a crossed matrix of $\hat\mu$ we use weighted U-statistics on the centred values, and we report both orders. We checked the
+estimator's bias by simulation on known splits. The standard errors are a two-way
+jackknife, checked on synthetic matrices with the same structure. Near a share of one that
+check failed narrowly, so the widest setting's standard error may be too wide by up to
+about half.
+
+\paragraph{The intervention.} A knockdown at dose $d$ scales the ptsG promoter strength
+by $1 - d$ after the parameter draw, and the effect is paired on common seeds. We assume
+that the intervention acts only through that parameter, that the posterior fitted to
+unperturbed data carries over unchanged, and that the model stays valid at the dose, which the screen below supports on M0 and which is in question on the reduced model (\cref{sec:modelform}). $V$
+is read at baseline: a rejected pair is not run under the intervention, and a cell that
+fails only under it is counted as part of the prediction. The largest dose in
+$\{0.1, 0.2, 0.3\}$ that kept M0's pools in their regime was \pn{budget.dose}.
+
+\paragraph{Scoring on M0.} Each posterior contributes \pn{pred.ndraws} draws at
+\pn{pred.ncells} cells each. The truth and the offset $\delta_Q$, a difference in $Q$ itself and not the log offset of \cref{sec:meanfield}, each use \pn{pred.nref}
+cells. Coverage counts the truth's estimated value inside the central interval of the
+draws.
+
+\subsection{Compute}
+\label{sec:compute}
+
+All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its AMD
+\texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind the main results. The commits and checksums are in the evidence archive
+and the result notes named under Software and data availability.
+
+\begin{table}[!ht]
+\caption{\textbf{The runs behind the results.} Hours are from Slurm accounting. The mixed route's
+omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held.}
+\label{tab:compute}
+\centering
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+Run & Slurm jobs & CPU-hours \\
+\midrule
+Exact reference & \pn{compute.vsixjobs} & \pn{vsix.cpuh} \\
+Exact calibration & \pn{compute.vsevenjobs} & \pn{vseven.cpuh} \\
+Exact, production chain & \pn{compute.ftenjobs} & \pn{ften.cpuh} \\
+Mixed route & \pn{compute.bsevenjobs} & \pn{compute.bsevencpuh} \\
+M0 scoring & \pn{compute.mzerojobs} & \pn{compute.mzerocpuh} \\
+Reduced-model budget & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh} \\
+\bottomrule
+\end{tabular}
+\end{table}

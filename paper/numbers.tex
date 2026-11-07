@@ -1,0 +1,287 @@
+%% Every number quoted in the text, with its source. Use \pn{key}.
+%% Typed by hand from the result files named on each line (no generator yet).
+%% An undefined key stops the build.
+\makeatletter
+\DeclareRobustCommand{\pn}[1]{\@ifundefined{pn@#1}{\PackageError{numbers}{Undefined paper number `#1'}{Add it to numbers.tex.}\textbf{??}}{\@nameuse{pn@#1}}}
+\providecommand{\pndef}[2]{\@namedef{pn@#1}{#2}}
+\makeatother
+
+%% --- The reduced syn3A model --------------------------------------------
+\pndef{model.rxn}{22}% spec/spec.md §2 table; docs/src/user-guide/reduced-syn3a.md
+\pndef{model.odemodules}{four}% spec/spec.md §0
+\pndef{model.genes}{17}% spec/spec.md §0
+\pndef{model.jumpmodules}{three}% spec/spec.md §0
+\pndef{model.jumprxn}{52}% src/organisms/coreA (agent survey of the registry)
+\pndef{model.species}{32}% COREA_SPECIES dynamic species, src/organisms/coreA/registry.jl
+\pndef{model.chemostats}{5}% COREA_SPECIES chemostats
+\pndef{model.removed}{92\%}% spec/spec.md §0
+\pndef{model.cycle}{6{,}300}% COREA_CYCLE_S, seconds
+\pndef{model.cyclewall}{32.2}% spec task 13.7, job 17298242 (s per cycle, warm)
+\pndef{model.handshake}{5.11}% spec task 13.7 (ms per handshake)
+
+%% --- Framework -------------------------------------------------------------
+\pndef{fw.edgekinds}{seven}% src/edges.jl EDGE_KINDS
+\pndef{fw.redcats}{16}% src/labels.jl REDUCTION_CATEGORIES
+\pndef{fw.tests}{28{,}709}% docs/handoff.md, suite job 19042448 at 67c9eef
+
+\pndef{fw.resolvererrors}{twenty}% src/resolver.jl, about 20 classes of error (agent survey)
+\pndef{fw.abstol}{10^{-10}}% src/handshake.jl, Rodas5P abstol
+\pndef{fw.reltol}{10^{-8}}% src/handshake.jl, Rodas5P reltol
+\pndef{fw.adtol}{10^{-6}}% spec/phases/approximate-method.md AV3
+\pndef{fw.trunc}{10^{-12}}% src/transcript_factor.jl truncation mass
+\pndef{lit.karrsub}{28}% Karr et al. 2012
+
+%% --- M0 ---------------------------------------------------------------------
+\pndef{mzero.cells}{50}% spec/phases/16-recovery.md D16.4
+\pndef{mzero.horizon}{600}% M0_HORIZON_S, src/organisms/coreA/m0.jl
+\pndef{mzero.npar}{six}% M0_TARGETS (5) + sigma_b
+\pndef{mzero.N}{20}% particles, dev/scripts/v7_16a9b_result.md
+\pndef{mzero.sweeps}{656}% same
+\pndef{mzero.burn}{100}% same
+\pndef{mzero.L}{100}% same
+
+%% --- Gains (F1) -----------------------------------------------------------
+\pndef{gain.txlo}{0.044}% spec/spec.md ~L3093 (0.043742)
+\pndef{gain.txhi}{0.051}% spec/spec.md ~L3093 (0.050579)
+\pndef{gain.gtplo}{0.008}% spec/spec.md ~L3093 (0.0078915)
+\pndef{gain.gtphi}{0.012}% spec/spec.md ~L3093 (0.0117062)
+\pndef{gain.tl}{0.091}% dev/scripts/translation_diagnostics_result.md (median 0.0910)
+\pndef{gain.kd}{0.1}% RNAPOL_KD, mM, src/organisms/coreA/transcription.jl:50
+\pndef{gain.atp}{3.65}% ATP, mM, discussion note §6
+
+%% --- Information bounds (track A) ----------------------------------------
+\pndef{info.mzeroptsg}{0.47}% dev/scripts/sensitivity_88_m0_result.md
+\pndef{info.mzerobracket}{0.68}% same
+\pndef{info.ptsg}{0.10}% dev/scripts/sensitivity_88_corea_result.md, C=200, sigma_b 10%
+\pndef{info.ptsgbracket}{0.19}% same
+\pndef{info.eno}{0.13}% same
+\pndef{info.enobracket}{0.75}% same
+\pndef{info.enotx}{0.999}% dev/scripts/eno_path_information_16a7_result.md, path Fisher bound
+\pndef{info.Rmzero}{64}% sensitivity_88_m0_result.md, sigma_b 10%
+\pndef{info.Rcorea}{70}% sensitivity_88_corea_result.md, C=200, sigma_b 10%
+
+%% --- V6, V7, F10 (the exact reference) -------------------------------------
+\pndef{vsix.chains}{4}% dev/scripts/v6_16a9b_result.md
+\pndef{vsix.sweeps}{1{,}650}% same
+\pndef{vsix.rhat}{1.007}% same
+\pndef{vsix.ess}{1{,}081}% same (bulk)
+\pndef{vsix.cpuh}{6{,}810}% same (6,809.7)
+\pndef{vseven.R}{50}% dev/scripts/v7_16a9b_result.md
+\pndef{vseven.maxdev}{0.164}% same (krnadeg)
+\pndef{vseven.band}{0.244}% same
+\pndef{vseven.cov}{29 of 30}% spec/phases/16-recovery.md §12 2026-10-22
+\pndef{vseven.lowess}{23}% replicates with min bulk ESS < 100
+\pndef{vseven.cpuh}{33{,}900}% v7_16a9b_result.md
+\pndef{ften.cpuh}{507.5}% dev/scripts/f10_16a10_result.md
+\pndef{ften.dmean}{0.12}% same, max |Δmean|/SD_ref
+\pndef{ften.sdlo}{0.91}% same
+\pndef{ften.sdhi}{1.19}% same
+\pndef{ften.fbamargin}{0.020}% same
+\pndef{ften.speedup}{13}% 6,810 / 507.5
+\pndef{cost.fullscale}{21{,}000}% spec/phases/16-recovery.md §12 2026-10-22 (projected)
+\pndef{cost.kone}{1{,}000}% spec §8 K1 bound, CPU-h per posterior
+
+%% --- Track B: the formalism swap --------------------------------------------
+\pndef{jg.gtplo}{10}% dev/scripts/jensen_rethink_89_result.md (% GTP below)
+\pndef{jg.gtphi}{16}% same
+\pndef{jg.deltain}{26 of 28}% same (δ inside KG's null)
+\pndef{jg.mfin}{5 of 28}% same (uncorrected)
+\pndef{jg.kgnulllo}{36}% same (% a right description passes KG)
+\pndef{jg.kgnullhi}{56}% same
+\pndef{jg.biaslo}{2.4}% dev/scripts/jensen_bias_89_result.md (krnadeg, posterior SD)
+\pndef{jg.biashi}{3.1}% same
+\pndef{jg.cpuh}{48}% jensen_rethink_89_result.md
+\pndef{rii.maxdelta}{0.0122}% dev/scripts/route_ii_89_result.md
+\pndef{rii.mzero}{1.1}% docs/handoff.md (s per M0 600 s solve)
+\pndef{rii.corealo}{9}% docs/handoff.md (s per 6,300 s solve)
+\pndef{rii.coreahi}{12}% same
+
+%% --- B7 and B7.8: the mixed route on M0 -------------------------------------
+%% All from dev/scripts/av6_89_b7_result.md (merge job 19292232 at 8da6045; B7.8 job 19411150).
+\pndef{mix.R}{50}% "SBC (rule 3)"
+\pndef{mix.sbcmax}{0.183}% same, largest |ECDF - z| (krnadeg)
+\pndef{mix.cpuh}{6.57}% "KC (rule 7)", median per posterior, from sacct
+\pndef{mix.cpuhlo}{5.04}% same
+\pndef{mix.cpuhhi}{13.08}% same
+\pndef{mix.lost}{274.1}% "Runs", CPU-h lost to the MAP fault, in no replicate's cost
+\pndef{cost.exacthi}{678}% spec/phases/16-recovery.md §12 16a.11 table, V7's mean per replicate
+\pndef{mix.biasmax}{0.095}% "Against V7 over the 50", krnadeg
+\pndef{mix.biasse}{0.050}% same
+\pndef{mix.sdlo}{0.92}% same, median SD ratio, lowest parameter
+\pndef{mix.sdhi}{1.07}% same, highest parameter
+\pndef{mix.gaplo}{0.42}% "m0_v6 against V6", ENO
+\pndef{mix.gaphi}{0.56}% same, krnadeg
+\pndef{mix.gapfloor}{0.3}% same, margins 0.301-0.355 over the largest matched null
+\pndef{mix.lowconv}{17}% "Convergence", replicates short of Rhat <= 1.02 and ESS >= 100
+\pndef{mix.rhat}{1.046}% same, worst Rhat (1.0463)
+\pndef{mix.ess}{81}% same, smallest bulk ESS
+\pndef{mix.ksfired}{5 of 18}% "KS (rule 6)"
+\pndef{mix.ksmargin}{0.027}% summary, largest excess over the floor (r12 ENO: 0.216 - 0.197 = 0.019; v6 S_0607: 0.213 - 0.186 = 0.027)
+\pndef{mix.txlo}{0.051}% "B7.8", transcripts only, W1 / exact SD
+\pndef{mix.txhi}{0.097}% same
+\pndef{mix.krnadegess}{39}% "B7.8", the exact met_only fit's ESS for krnadeg
+\pndef{mix.ptsgbulk}{0.676}% "B7.8", ptsG under metabolites only, SD / prior SD
+\pndef{mix.nref}{800}% "Runs", reference ensemble cells
+\pndef{mix.jitter}{0.25}% same, start jitter in prior SD
+\pndef{mix.nadapt}{200}% same
+\pndef{mix.ndraw}{200}% same
+\pndef{mix.chains}{2}% same
+
+%% --- KIM-42: the reduced model's budget (UNSCORED) ---------------------------
+%% Archive: infercell-predict-archive-2026-11-06/runs/budget-kim42/ (budget.md, budget_rows.tsv), job 20041040 at f23fd06.
+%% "derived" = dev/scripts/reduced_budget_kim42_result.md, computed from w*.jls by runs/checks-kim42/.
+\pndef{budget.nI}{five}% M0_TARGETS; note, notation
+\pndef{budget.nH}{15}% promoter strengths M0 cuts; note
+\pndef{budget.ndrawn}{20}% note, supported sentence
+\pndef{budget.nrows}{100}% budget.md header
+\pndef{budget.ncols}{20}% same
+\pndef{budget.ncellspair}{4}% same, baseline cells per pair
+\pndef{budget.dose}{0.3}% same
+\pndef{budget.heldpct}{91}% budget.md 0.908, note's supported sentence
+\pndef{budget.heldpctse}{4}% budget.md 0.041
+\pndef{budget.heldpctlo}{63}% budget.md 0.631
+\pndef{budget.heldpcthi}{98}% budget.md 0.980
+\pndef{budget.heldnewcell}{72}% derived, note "The headline"
+\pndef{budget.meanratio}{1.459}% derived, note "The mean moves too"
+\pndef{budget.meanratiose}{0.079}% same
+\pndef{budget.gsdlo}{1.41}% note, widths
+\pndef{budget.gsdone}{2}% same
+\pndef{budget.gsdhi}{4}% same
+\pndef{budget.qlo}{8.80}% budget.md 8.7986e+06
+\pndef{budget.qone}{9.58}% budget.md 9.5765e+06
+\pndef{budget.qhi}{12.84}% budget.md 1.2835e+07
+\pndef{budget.sdlo}{0.75}% budget.md 7.518e+05
+\pndef{budget.sdone}{1.47}% budget.md 1.473e+06
+\pndef{budget.sdhi}{3.84}% budget.md 3.835e+06
+\pndef{budget.sharelo}{$0.631 \pm 0.102$}% budget.md, I first, per_theta_I
+\pndef{budget.shareone}{$0.908 \pm 0.041$}% same
+\pndef{budget.sharehi}{$0.980 \pm 0.009$}% same; note: this SE may be too wide
+\pndef{budget.acclo}{1.000}% budget.md acceptance
+\pndef{budget.accone}{1.000}% same
+\pndef{budget.acchi}{0.9355}% same
+\pndef{budget.rejected}{6.45}% note "The filter", 1 - 0.9355
+\pndef{budget.cliplo}{70}% derived, note "The filter"
+\pndef{budget.clipone}{74}% same
+\pndef{budget.cliphi}{90}% same
+\pndef{budget.starvelo}{0}% same
+\pndef{budget.starveone}{0.35}% same
+\pndef{budget.starvehi}{8.8}% same
+\pndef{budget.dqlo}{$-118 \pm 9$}% budget.md -1.1831e+05 +- 9.4e+03
+\pndef{budget.dqone}{$-98 \pm 14$}% budget.md -98421 +- 1.4e+04
+\pndef{budget.dqhi}{$-40 \pm 32$}% budget.md -39525 +- 3.2e+04
+\pndef{budget.dqpct}{1.03}% derived, note "ΔQ under the knockdown"
+\pndef{budget.dqpctse}{0.14}% same
+\pndef{budget.ncellsbase}{8{,}000}% note "The filter", mu-hat's baseline cells per width
+\pndef{budget.clipdechi}{84}% derived, note "The filter", krnadeg deciles at width 1
+\pndef{budget.clipdeclo}{61}% same
+\pndef{pred.ncells}{887}% runs/m0-kim40-kim41/score.md header
+\pndef{pred.nref}{9{,}849}% same, n_ref = n_truth
+
+%% --- KIM-40, KIM-41: M0's crossed comparison (SCORED) ------------------------
+%% Archive: infercell-predict-archive-2026-11-06/runs/m0-kim40-kim41/score.md, job 19684101 at ed179c2.
+%% The references come from dev/scripts/m0_evidence_kim40_result.md, "How to read the coverage".
+\pndef{mzero.ngenes}{2}% M0_GENES
+\pndef{cost.fullcoverage}{1.0 million}% spec/phases/16-recovery.md §12, the 16a.11 entry
+\pndef{pilot.share}{3.3}% spec/spec.md §12 2026-10-30, M4 freeze, "Q, O4 final" (KIM-35)
+\pndef{pilot.sharese}{1.5}% same
+\pndef{pilot.elI}{0.056}% same, median |d ln Q / d ln theta| for theta_I
+\pndef{pilot.elH}{0.047}% same, for theta_H
+\pndef{pred.clip}{0.77}% dev/scripts/m0_evidence_kim40_result.md, "The cells", exact, hybrid
+\pndef{pred.mcup}{92}% same, "How to read the coverage"
+\pndef{pred.zlo}{1.17}% score.md, Q, B7 mean field
+\pndef{pred.zhi}{1.21}% same, with delta
+\pndef{pred.mixbreachlo}{25}% score.md, Q, B7's MC share over 10%
+\pndef{pred.mixbreachhi}{27}% same, truth SE over 10%
+\pndef{pred.dzlo}{0.74}% score.md, dQ, V7 hybrid
+\pndef{pred.dzhi}{1.27}% same, B7 mean field with delta
+\pndef{vsix.shrinklo}{89}% derived: V6's SD (v6_16a9b_result.md) against the prior SD implied by av6_89_b7_result.md's v6 stream arm, FBA
+\pndef{vsix.shrinkhi}{99.6}% same, sigma_b
+
+\pndef{mix.mcselo}{9}% same, "Against V7 over the 50"
+\pndef{mix.mcsehi}{22}% same
+\pndef{pred.ndraws}{100}% score.md header
+\pndef{pred.ref90}{88.2}% result note
+\pndef{pred.ref50}{49}% same
+\pndef{pred.se90}{4.6}% same
+\pndef{pred.se50}{7.1}% same
+\pndef{pred.q.eh.c}{$62.0 \pm 6.9$}% score.md, Q
+\pndef{pred.q.eh.n}{$92.0 \pm 3.8$}% same
+\pndef{pred.q.em.c}{$58.0 \pm 7.0$}% same
+\pndef{pred.q.em.n}{$94.0 \pm 3.4$}% same
+\pndef{pred.q.em.w}{0.988}% same
+\pndef{pred.q.ed.c}{$56.0 \pm 7.0$}% same
+\pndef{pred.q.ed.n}{$90.0 \pm 4.2$}% same
+\pndef{pred.q.ed.w}{0.988}% same
+\pndef{pred.q.mh.c}{$50.0 \pm 7.1$}% same
+\pndef{pred.q.mh.n}{$88.0 \pm 4.6$}% same
+\pndef{pred.q.mh.w}{0.823}% same
+\pndef{pred.q.mm.c}{$54.0 \pm 7.0$}% same
+\pndef{pred.q.mm.n}{$82.0 \pm 5.4$}% same
+\pndef{pred.q.mm.w}{0.772}% same
+\pndef{pred.q.md.c}{$48.0 \pm 7.1$}% same
+\pndef{pred.q.md.n}{$84.0 \pm 5.2$}% same
+\pndef{pred.q.md.w}{0.772}% same
+\pndef{pred.d.eh.c}{$62.0 \pm 6.9$}% score.md, ΔQ
+\pndef{pred.d.eh.n}{$98.0 \pm 2.0$}% same
+\pndef{pred.d.em.c}{$46.0 \pm 7.0$}% same
+\pndef{pred.d.em.n}{$90.0 \pm 4.2$}% same
+\pndef{pred.d.em.w}{0.733}% same
+\pndef{pred.d.ed.c}{$48.0 \pm 7.1$}% same
+\pndef{pred.d.ed.n}{$88.0 \pm 4.6$}% same
+\pndef{pred.d.ed.w}{0.733}% same
+\pndef{pred.d.mh.c}{$52.0 \pm 7.1$}% same
+\pndef{pred.d.mh.n}{$96.0 \pm 2.8$}% same
+\pndef{pred.d.mh.w}{0.964}% same
+\pndef{pred.d.mm.c}{$32.0 \pm 6.6$}% same
+\pndef{pred.d.mm.n}{$86.0 \pm 4.9$}% same
+\pndef{pred.d.mm.w}{0.635}% same
+\pndef{pred.d.md.c}{$26.0 \pm 6.2$}% same
+\pndef{pred.d.md.n}{$78.0 \pm 5.9$}% same
+\pndef{pred.d.md.w}{0.635}% same
+\pndef{pred.q.eh.sehigh}{1.8}% result note, Q
+\pndef{pred.q.mixnarrow}{18}% same, 1 - 0.823
+\pndef{pred.q.fshift}{0.14}% same (score.md 0.136)
+\pndef{pred.q.rshift}{$-0.11$}% same
+\pndef{pred.q.cheaplo}{82}% score.md
+\pndef{pred.q.cheaphi}{84}% same
+\pndef{pred.q.maxse}{1.4}% result note
+\pndef{pred.dqmedian}{$-20{,}400$}% result note; read from score_datasets.tsv after the run
+\pndef{pred.dqmcv}{0.503}% score.md, ΔQ, V7's MC share
+\pndef{pred.dqcost}{100{,}000}% result note "The 10% rules"
+
+%% --- KIM-47: the model-form table -------------------------------------------
+%% Counts: tables/modelform_counts.tex. K_d figures: dev/scripts/reduced_budget_kim42_result.md, "K_d diagnostic".
+\pndef{mzero.heldenz}{12}% tables/S1_File_reductions.tsv, HeldEnzymeCounts
+\pndef{mzero.heldpts}{3}% same (ptsI, ptsH, crr)
+\pndef{kd.lo}{94.7}% note, baseline, width 1, 0.9467
+\pndef{kd.hi}{95.8}% same, 0.9576
+\pndef{kd.zero}{69}% note, "reach exactly 0", width 1
+\pndef{kd.boundn}{262}% note, "bound above 21%", width 1
+\pndef{kd.boundpct}{21}% same
+\pndef{kd.screenlo}{21}% spec/spec.md §12 2026-10-30, M4 freeze, "The dose"
+\pndef{kd.screenhi}{55}% same
+\pndef{kd.screenn}{12}% same
+\pndef{kd.screenzero}{6}% same
+
+%% --- Compute (Methods), from each run's result note --------------------------
+\pndef{compute.vsixjobs}{18157561--65, 18271545, 18276511--15, 18420986--90}% dev/scripts/phase16_ledger.md; v6_16a9b_result.md
+\pndef{compute.vsevenjobs}{18276794, 18628508, 18689602}% dev/scripts/v7_16a9b_result.md
+\pndef{compute.ftenjobs}{18751635}% dev/scripts/f10_16a10_result.md
+\pndef{compute.bsevenjobs}{19177653--19177825, 19238017--56, 19292223--32, 19334375--76, 19334378--80, 19411150}% dev/scripts/av6_89_b7_result.md
+\pndef{compute.bsevencpuh}{402.4}% dev/scripts/phase16_ledger.md: 391.9 for the batches, 10.49 null, 0.05 B7.8; 274.1 more lost to the MAP fault
+\pndef{compute.mzerojobs}{19684097--101, 19827688}% dev/scripts/m0_evidence_kim40_result.md
+\pndef{compute.mzerocpuh}{12{,}978}% same
+\pndef{compute.budgetjobs}{20041038--40}% dev/scripts/reduced_budget_kim42_result.md
+\pndef{compute.budgetcpuh}{1{,}978}% same, core-hours held
+
+%% --- DREAM8, checked against the PDF (doi 10.1371/journal.pcbi.1004096) --------
+\pndef{dream.nparam}{30}% Fig 1F's caption
+\pndef{dream.nmod}{15}% same
+\pndef{dream.rall}{0.57}% Fig 1's caption, log-log
+\pndef{dream.rtop}{0.04}% same, top solutions of the five most active teams
+\pndef{mix.krnadegtx}{98.9}% dev/scripts/av6_89_b7_result.md, stream arms, tx_v6, 0.989
+
+%% --- M0's observation model and the reverse read-off ------------------------
+\pndef{mzero.npanel}{17}% M0_PANEL, src/organisms/coreA/m0.jl
+\pndef{tsplit.eno}{0.0041}% spec/phases/16-recovery.md 16b.5, job 19395555
+\pndef{tsplit.fba}{0.0081}% same

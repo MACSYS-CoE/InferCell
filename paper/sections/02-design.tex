@@ -1,0 +1,142 @@
+\section{InferCell: an inference-first design}
+\label{sec:design}
+
+\IC{} is written in Julia \cite{bezanson2017julia}. It uses the SciML solvers for
+ODEs and jump processes \cite{rackauckas2017differentialequations}. This section
+gives the design ideas. The documentation gives the full interface
+(see Software and data availability). \Cref{fig:architecture} shows the parts and how they
+connect.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=\textwidth]{fig_architecture.pdf}
+\caption{\textbf{The \IC{} architecture.} Parameters carry a prior, a source and a label.
+Modules declare their states, formalism and typed edges. The resolver checks the composition
+and collects the declared reductions. The composed model runs as the exact hybrid or as one
+mean-field ODE problem, and each description has an inference route. \texttt{predict} takes
+a posterior from either route, a forward description and an optional intervention.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Parameters are distributions with a source}
+
+Each parameter in \IC{} is an object that holds a value, a prior distribution, a
+role and a record of its source. The record names the file, the table and the
+identifier the value came from, and the values that other files give for the same
+identifier. Each parameter also has one of four labels for how well its prior is
+informed:
+\begin{itemize}
+  \item \emph{balanced}: the value and width come from a balanced parameter table;
+  \item \emph{prior default}: the source gives no width, so the prior is wide;
+  \item \emph{asserted}: the source gives no uncertainty, so we set the prior;
+  \item \emph{not imported}: the parameter is not in the source.
+\end{itemize}
+The loader does not choose silently between two files that disagree. It stops and
+asks for a decision, and the decision is then part of the record. A user can ask
+the composed model which priors no measurement supports. That question has a
+direct answer, because the answer is in the model and not in a supplement.
+
+\subsection{Modules couple through typed edges}
+
+A module declares its states, its parameters and its formalism: ODE or jump. It
+also declares how it touches the rest of the cell. \IC{} has \pn{fw.edgekinds} kinds
+of coupling edge (\cref{tab:edges}). Each kind says what crosses the edge and on
+which clock. Mass and currency edges act inside the ODE solve. Catalytic edges
+and deferred costs cross every second, at the handshake between the two blocks.
+Rate-constant edges cross every minute, when the stochastic block rebuilds its rate
+constants from the metabolite pools. The set of kinds is closed. A module cannot
+invent a new kind of coupling without a change to the framework.
+
+\begin{table}[!ht]
+\caption{\textbf{The \pn{fw.edgekinds} edge kinds and their clocks.}}
+\label{tab:edges}
+\centering
+\small
+\begin{tabular}{@{}p{0.27\columnwidth}p{0.45\columnwidth}p{0.18\columnwidth}@{}}
+\toprule
+Edge & What crosses & Clock \\
+\midrule
+Mass & a shared continuous state & ODE solve \\
+Currency & flux through a shared pool (ATP, GTP) & ODE solve \\
+Catalytic & a protein count into a rate law & 1\,s \\
+Deferred cost & jump-side cost, debited one step later & 1\,s \\
+Rate constant & pools into stochastic rate constants & 60\,s \\
+Volume & membrane proteins into cell geometry, and back & each step \\
+Clamped & a dependence replaced by a constant & declared only \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Before anything runs, a resolver reads all the edges and builds the coupling graph.
+It checks the composition for about \pn{fw.resolvererrors} kinds of error. Examples are a state that
+two modules integrate, an edge that names a species no module owns, and a moiety
+that is consumed but never produced. In complete mode it refuses to build a model
+with an unowned state or a stranded moiety. A composition that runs is therefore
+a composition that the framework has checked.
+
+\subsection{Every reduction is declared}
+
+Any model of a cell leaves things out. In \IC{} each departure from the published
+model is an object, not a comment. A reduction label has a category (one of
+\pn{fw.redcats}, such as a clamp, a lumped step, a smoothed counter or an asserted
+prior) and a reason. The framework collects labels from three places: the edges,
+the parameter records and the modules. One call returns the full list for a
+composed model. We report this list in \cref{sec:modelform}, and we measure the effect of only one entry on it.
+
+\subsection{One interface, two descriptions}
+\label{sec:twodesc}
+
+Gene expression in \IC{} has one interface and two descriptions.
+
+\paragraph{The exact hybrid.} The stochastic modules run as a jump process, and the
+metabolic modules run as ODEs. A driver steps the two blocks in turn, as the
+published model does. Every second it writes protein counts into the metabolic rate
+laws, steps the ODEs, debits the costs of the stochastic events, and steps the jump
+process. Every minute it rebuilds the stochastic rate constants from the pools. We deliberately did not wrap this in one solver object. A single jump problem over an ODE
+problem would let the propensities follow the pools continuously. That is a
+different model from the published one. The driver can also record a stochastic path
+and replay it exactly. A replay matches the original run bit for bit at every
+handshake. The exact sampler (\cref{sec:sampler}) depends on this.
+
+\paragraph{The mean-field swap.} The gene-expression network of the model is first
+order. So, given the rate constants, the equations for the means of the transcript and protein counts close exactly, as linear ODEs. \IC{} derives these equations from the same propensities
+and update rules that the jump modules use, so the two descriptions cannot drift
+apart. With the swap, the composed model becomes one ODE problem with callbacks for the
+one-minute rebuild. Forward-mode automatic differentiation
+\cite{revels2016forwardmode} passes through this problem and its callbacks. We test
+the gradients against central differences to a relative error of $\pn{fw.adtol}$.
+
+\paragraph{What is and is not differentiable.} The exact hybrid is not
+differentiable, because the published model is not. The published model clips a
+drained pool at zero and rounds pools to whole molecules. Both make the model a step
+function of its parameters. The exact sampler therefore uses no gradients. The
+mean-field description gives gradients for the parts of inference that need them.
+The cost of the swap is a declared reduction, and we measure it
+(\cref{sec:jensen}).
+
+\subsection{Inference attaches to each data stream}
+\label{sec:api}
+
+A data stream declares its observation model. In this paper there are two streams:
+exact transcript counts per cell, and bulk metabolite measurements of the mean over
+many cells. \IC{} has two inference routes.
+
+\begin{itemize}
+  \item \textbf{The exact route.} A three-block Gibbs sampler conditions on the
+  stochastic path. It updates the paths by conditional sequential Monte Carlo
+  \cite{andrieu2010particle}, the metabolic constants by slice sampling, and the
+  gene-expression constants from exact one-dimensional conditionals
+  (\cref{sec:sampler}).
+  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a birth--death likelihood given the mean-field pools, and the bulk metabolites get a Gaussian likelihood centred on the mean-field model, in the spirit of a synthetic likelihood \cite{wood2010statistical,price2018bayesian}. The route uses the gradients of the swap with the No-U-Turn
+  Sampler \cite{hoffman2014nouturn}. It is an approximation, and
+  \cref{sec:approx} compares it with the exact route on M0.
+\end{itemize}
+
+One function, \texttt{infer}, runs inference, and \texttt{inference\_route} chooses
+the route from the composition and the data. An all-ODE composition with
+time-series data takes the No-U-Turn Sampler, and an all-jump composition takes
+approximate Bayesian computation. A hybrid composition with cell and bulk data has
+the two routes above, and the user must name one, because one is a reference and the
+other an approximation. Anything else is refused, with an error that says why. The
+cell-data routes are built for M0's gene expression (\cref{sec:model}), and we have
+demonstrated them only on M0.

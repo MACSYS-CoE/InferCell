@@ -6,6 +6,17 @@ are in [`2026-10-19-inference-framing-discussion.md`](2026-10-19-inference-frami
 (A4 to A6). Nothing here is a claim yet: every result marked *not built* or
 *running* must exist before its sentence is written.
 
+**Superseded in part (2026-10-23).** The draft now lives in `paper/` (branch
+`paper-1-draft`); see `paper/STATUS.md`. Since this outline was written:
+- F10 is done (`dev/scripts/f10_16a10_result.md`), not running.
+- §4.3 predates the 2026-10-23 decision (`spec/phases/approximate-method.md` §12):
+  the reference is the most detailed composition, not the truth, and the Jensen gap
+  is a declared reduction corrected by δ, with KG reported, not gated.
+- The measured R (64 on M0, 70 on the reduced model, at σ_b 10%) replaces the
+  estimates in the discussion note's §7.
+- The paper is journal-agnostic (Cell Systems or PLOS Computational Biology), and its
+  lead is framework plus problem: *InferCell: inference-first whole-cell modelling*.
+
 ## Title, tagline, message
 
 **Working titles:**
@@ -39,7 +50,7 @@ against approximate; the reverse-coupling gain range (0.04–0.09); the
 replication counts (V7's 50; 5.3's injections); 95% coverage per target; ptsG
 shrinkage under metabolites only, with ENO's null under transcripts only.
 
-## 1. Introduction: why inference, and why nobody does it
+## 1. Introduction: why inference, and why point estimates are not calibrated posteriors
 
 **Content:**
 - Whole-cell models simulate a cell from its parts (Karr 2012, Macklin 2020,
@@ -311,6 +322,7 @@ before citing. Entries marked † are not yet cited anywhere in the repo.
 
 **Parameters in whole-cell and systems-biology models**
 - Babtie and Stumpf (2017), *J. R. Soc. Interface*. The case for inference in whole-cell models.
+- Karr et al. (2015), *PLoS Comput. Biol.* 11(5): e1004096. DREAM8: point estimation of 30 parameters in a whole-cell model, no posteriors.
 - †Lubitz et al. (2010), *J. Phys. Chem. B*. Parameter balancing, the method behind the metabolic priors.
 - †Gutenkunst et al. (2007), *PLoS Comput. Biol.* Sloppiness.
 - †*Increasing certainty in systems biology models using Bayesian multimodel inference*, *Nat. Commun.* (2025). Authors to check.
