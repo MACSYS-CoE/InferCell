@@ -4428,6 +4428,63 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-08 — Probabilistic trajectories: runs and figure, pre-registered
+
+**Status: declared before any run.** The user asked for a time series with a shaded band in paper 1
+and approved the design, `docs/superpowers/specs/2026-11-07-probabilistic-trajectories-design.md`.
+The driver is `dev/scripts/trajectories_predict.jl`, and KIM-87 tracks the runs. These runs add no
+new inference and **no new scored claim**: panel A replays published numbers for one dataset, and
+panels B and C on the reduced model stay unscored.
+
+**The posterior.** V7 replicate 1, exact route, SHA-256
+`d1a4500b59433352076d8b3d28a44df6fde992343f92fb88960ebee4f1ebf759`, chosen because it feeds the
+reduced model and not for how it looks. Recorded in every panel, every 60 s: the lactate export
+meter, `M_lac__L_e`, `M_gtp_c` and `M_pyr_c`. `M_pyr_c` is the one panel A species outside
+`M0_PANEL`. Q is observed through `M_lac__L_e`, so panel A's Q is no out-of-sample curve.
+
+| Panel | What runs | Draws × held × cells | Seed |
+|---|---|---|---|
+| A | M0, 600 s, 10 blocks | 100 × 887 | `19_540_000 + (b − 1)` |
+| A, truth | M0, 600 s, no intervention | 1 × 9,849 | `19_541_501` |
+| A, new-bulk band | resamples 50 cells of a row with its σ_b, 20,000 times per time | | `19_543_002` |
+| B | reduced model, 6,300 s, width 1, `:prior` | 100 × 20 × 4 | `19_542_000` |
+| C, pre-check | released, `:viability_conditioned_prior` | 4 × 5 × (4 + 4) | `19_543_001` |
+| C | released, `:viability_conditioned_prior`, width 1, M4's frozen rule | 40 × 50 × (4 + 4) | `19_543_000` |
+| Dataset | `m0_dataset(16_200_001; ncells = 50)`, not a new draw | | |
+
+Smoke passes use seeds from `19_543_900`.
+
+**The released set.** Every fixed `kcatF_*`, `kcatR_*` and `km_*` of `CentralGlycolysis` and
+`NucleotideRecycling`, with ENO's and FBA's, which `d11_models` frees already. That draws 82
+parameters: 5 inferred, 15 held promoters and 62 released. Reverse constants are derived by Haldane
+and not drawn. The driver stops if the count is not 82 or any `kcatR_*` is held. The set does not
+change without an entry here.
+
+**The checks, all exact, and a mismatch stops the work before more compute:**
+- panel B's μ̂, seeds and θ_H equal KIM-42's `w1.jls`;
+- each panel A block's μ̂ equals its rows in M0's `finish/000_r1_v7.jls`, and the truth's mean equals
+  `truth` for dataset 1 in M0's `score_datasets.tsv`;
+- the regenerated dataset's truth equals replicate 1's, within 1e-12 relative, since V7 stores logs;
+- the ratio of exported lactate to `M_lac__L_e`'s change is constant over time and across 10 truth
+  cells, within 1e-9 relative. That ratio rescales the data onto Q's axis.
+
+A job at V7's commit `dfe570a` then compares the regenerated bulk data with those of that commit. A
+difference goes in the note and the caption and does not stop the work, since the posterior is
+unchanged.
+
+**What the figure may do, fixed now:**
+- Panel C runs whatever its pre-check's acceptance is, and the number is reported. Below 10% of pairs
+  kept, the figure drops the filled conditioned band and shows the unconditioned one, labelled. The
+  filled band otherwise uses `per_theta_I`, and `joint` goes in the note.
+- The held-share sub-panel shows a time only where `flagged` and `mc_undefined` are false and
+  `total > mc`. Clipping alone does not catch a share that is cell noise: at zero true spread on a
+  40 × 20 × 4 matrix, 8.9% of replicates pass the weaker `total > 0` test, with a median share of
+  0.83. `total > mc` removes those times: it passed in 0 of 4,000 noise-only trials at each of
+  40 × 20 × 4, 100 × 20 × 4 and 40 × 50 × 4. Both figures come from throwaway numpy simulations
+  during KIM-86's review, not from a script in this repository.
+
+*Sections:* §12.
+
 ### 2026-11-06 — KIM-43: the evidence archive
 
 **Status: built and verified.** M5's runs and the inputs they read are copied to
