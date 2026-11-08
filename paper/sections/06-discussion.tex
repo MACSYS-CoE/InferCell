@@ -1,21 +1,15 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\IC{} carried one demonstration from a test system through posteriors to predictions. On M0, both inference routes pass simulation-based calibration, with small
-declared discrepancies, and the posterior-to-prediction step covers lactate export at the expected rate, though the data measure export noisily through extracellular lactate, and how far that drives the posterior is unmeasured. A knockdown's effect, which the data did not see, has the right sign but not a clean calibration. On the reduced model the predictions are unscored, and their budget depends strongly on
-a prior width that we chose. Any user can release fixed constants to their priors, and releasing \pn{traj.nreleased} of them raises the predicted mean GTP at the end of the cycle about fivefold among viable pairs, unscored and on one posterior (\cref{sec:trajectories}). The M0 check does not test the completion or the transfer into the reduced model.
-
-\paragraph{What scales and what does not.} Exact inference is calibrated on M0, and it stops there. The cost of an exact posterior grows with
-the number of genes and the length of the record, and the full reduced model is
-already above our budget. The mixed route removes the stochastic paths from
-the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
-and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. If $\mathcal{R}$ is near those bounds, the metabolites constrain the paths together, and a single draw of paths per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
-in this regime (\cref{sec:posteriors}). We have not tested it on the full reduced model.
-
-\paragraph{The observation model sets the interface.} The three graphs of
-\cref{sec:info} suggest a working rule, from one model and two directions. Single-cell data inform the parameters of their
-own module. Information between modules travels on bulk observables, and it follows
-the gain of the coupling. A modeller can compute the gains before any inference. In this work they anticipated the transcript null. For the other direction the evidence is thinner: on one dataset the mixed route shrinks the ptsG promoter by less than the linearised bound projected, and the exact sampler did not measure it.
+\IC{} carried one reduced whole-cell model from declared priors to predictions. On M0, both
+inference routes pass simulation-based calibration, with small declared discrepancies, and the
+posterior-to-prediction step covers lactate export at the expected rate and gets the sign of a
+knockdown right. On the reduced model, the unscored predictions say what they rest on: most of
+their parameter uncertainty sits in promoter strengths that no data reach, and that share depends
+strongly on a prior width that we chose. Any user can release fixed constants to their priors,
+and releasing \pn{traj.nreleased} of them raises the predicted mean GTP at the end of the cycle
+about fivefold among viable pairs (\cref{sec:release}). The limits of each step are collected
+below.
 
 \paragraph{Reductions as approximations to inference.} A dynamical reduction changes
 the simulator and keeps full Bayesian inference. A statistical cut keeps the
@@ -30,6 +24,18 @@ reach. So the cut says plainly what the prediction is: a modular transfer of an 
 posterior, with the other parameters at their priors. Its cost is not measured, and it
 is declared (\cref{tab:modelform}).
 
+\paragraph{What scales and what does not.} Exact inference is calibrated on M0, and it stops there. The cost of an exact posterior grows with
+the number of genes and the length of the record, and the full reduced model is
+already above our budget. The mixed route removes the stochastic paths from
+the sampler. Two quantities limit it. The first is the Jensen gap, which we declare
+and correct (\cref{sec:jensen}). The second is $\mathcal{R}$, the variance of the bulk log-likelihood over the stochastic paths. As an upper bound, at nominal parameters, $\mathcal{R}$ is about \pn{info.Rmzero} on M0 at \pn{mzero.cells} cells and \pn{info.Rcorea} on the full reduced model at 200 cells, both at 10\% assay noise. If $\mathcal{R}$ is near those bounds, the metabolites constrain the paths together, and a single draw of paths per parameter value is not enough. On M0, the Gaussian bulk factor passes calibration
+in this regime (\cref{sec:posteriors}). We have not tested it on the full reduced model.
+
+\paragraph{The observation model sets the interface.} The three graphs of
+\cref{sec:info} suggest a working rule, from one model and two directions. Single-cell data inform the parameters of their
+own module. Information between modules travels on bulk observables, and it follows
+the gain of the coupling. A modeller can compute the gains before any inference. In this work they anticipated the transcript null. For the other direction the evidence is thinner: on one dataset the mixed route shrinks the ptsG promoter by less than the linearised bound projected, and the exact sampler did not measure it.
+
 \subsection{Limitations}
 
 \begin{itemize}
@@ -43,6 +49,11 @@ is declared (\cref{tab:modelform}).
   the width. This choice matters: the held share of the budget runs from
   \pn{budget.heldpctlo}\% to \pn{budget.heldpcthi}\% across the widths we tried
   (\cref{sec:budget}).
+  \item \emph{What the M0 scoring tests.} The data measure lactate export noisily through
+  extracellular lactate, and how far that stream drives the posterior is unmeasured. The
+  knockdown's effect, which the data did not see, has the right sign but not a clean
+  calibration (\cref{sec:predm0}). The scoring does not test the completion or the transfer
+  into the reduced model.
   \item \emph{Exact calibration at small scale only.} Coverage of the exact sampler
   at the full reduced model is out of reach at about \pn{cost.fullscale} CPU-hours per
   posterior. The reduced model's prediction is therefore unscored, and it rests on one
