@@ -560,10 +560,11 @@ dropped. Returns [`generate_dataset`](@ref)'s record without t = 0, with `sigma`
 the saves at `0 < t ≤ fit_to` ([`COREA_FIT_S`](@ref) for the pilot). It is a cut of
 the full run, not a shorter run, because the driver also records at its final
 step (an off-grid `horizon` would add a save `mixed_setup` refuses) and the
-transcript noise is drawn over the whole record. The window's latent state,
-transcripts and noisy observations are the full record's first saves, and so is
-its bulk, whose noise is drawn pools fastest. The default `fit_to = horizon` keeps
-every save.
+transcript noise is drawn over the whole record. The bulk is drawn on the full
+record too and then cut, since `randn` over a different-sized array is not a
+prefix of the same seed's draws. So the window's latent state, transcripts, noisy
+observations and bulk are the full record's first saves. The default
+`fit_to = horizon` keeps every save.
 """
 function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
                        horizon::Real = COREA_CYCLE_S, fit_to::Real = horizon,
@@ -579,9 +580,12 @@ function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
                        Modality(:transcript, :poisson, [transcript_state(g) for g in genes]))
     ds = generate_dataset(truth, cells; models, horizon, noise, noise_seed,
                           scales = Dict(:sigma_metabolite => σ), names = targets)
+    saves = findall(>(0), ds.times)
+    bulk = observe_bulk(ds.latent[:, :, saves], ds.species, M0_PANEL; sigma = σ,
+                        noise_seed = bulk_seed)
     keep = findall(t -> 0 < t <= fit_to + 1e-9, ds.times)
+    bulk = bulk[:, findall(in(keep), saves)]
     latent = ds.latent[:, :, keep]
-    bulk = observe_bulk(latent, ds.species, M0_PANEL; sigma = σ, noise_seed = bulk_seed)
     return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
             sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
