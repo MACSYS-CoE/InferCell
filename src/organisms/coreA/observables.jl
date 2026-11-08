@@ -526,8 +526,19 @@ function corea_draws(replicate_seed::Integer; ncells::Integer = 200, models = d1
 end
 
 """
+    COREA_FIT_S
+
+The reduced-model pilot's fit window, 3150 s: the first half of one
+[`COREA_CYCLE_S`](@ref) cycle (Linear KIM-89, Spec D2, decided 2026-11-09). The
+second half is the later horizon the predictions are scored on, and the data
+never see it. 3150 s is off the 60 s save grid, so a window to `COREA_FIT_S`
+holds 52 saves, the last at 3120 s.
+"""
+const COREA_FIT_S = COREA_CYCLE_S / 2
+
+"""
     corea_dataset(replicate_seed; ncells = 200, horizon = COREA_CYCLE_S,
-                  targets = D11_TARGETS) -> NamedTuple
+                  fit_to = horizon, targets = D11_TARGETS) -> NamedTuple
 
 One synthetic dataset (an injection) on the reduced syn3A model, everything drawn from one recorded seed, as
 [`m0_dataset`](@ref) draws an M0 replicate. Built for B8's AV7, which is parked;
@@ -543,11 +554,22 @@ The [`M0_PANEL`](@ref) metabolites, A2's panel, are observed in bulk at σ, floo
 one particle, and every transcribed gene's transcripts exactly. The t = 0 save is
 dropped. Returns [`generate_dataset`](@ref)'s record without t = 0, with `sigma`,
 `replicate_seed`, `noise`, `bulk` and `bulk_seed` added, as `m0_dataset` does, and
-`targets`.
+`targets` and `fit_to`.
+
+`fit_to` is the fit window: the cells run to `horizon`, and the record keeps only
+the saves at `0 < t ≤ fit_to` ([`COREA_FIT_S`](@ref) for the pilot). It is a cut of
+the full run, not a shorter run, because the driver also records at its final
+step (an off-grid `horizon` would add a save `mixed_setup` refuses) and the
+transcript noise is drawn over the whole record. The window's latent state,
+transcripts and noisy observations are the full record's first saves, and so is
+its bulk, whose noise is drawn pools fastest. The default `fit_to = horizon` keeps
+every save.
 """
 function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
-                       horizon::Real = COREA_CYCLE_S,
+                       horizon::Real = COREA_CYCLE_S, fit_to::Real = horizon,
                        targets::AbstractVector{Symbol} = D11_TARGETS)
+    60 <= fit_to <= horizon || throw(ArgumentError(
+        "fit_to must be from one save (60 s) to the horizon $horizon s, not $fit_to s"))
     models = d11_models()
     (; truth, σ, cells, noise_seed, bulk_seed) =
         corea_draws(replicate_seed; ncells, models, targets)
@@ -557,16 +579,16 @@ function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
                        Modality(:transcript, :poisson, [transcript_state(g) for g in genes]))
     ds = generate_dataset(truth, cells; models, horizon, noise, noise_seed,
                           scales = Dict(:sigma_metabolite => σ), names = targets)
-    keep = findall(>(0), ds.times)
+    keep = findall(t -> 0 < t <= fit_to + 1e-9, ds.times)
     latent = ds.latent[:, :, keep]
     bulk = observe_bulk(latent, ds.species, M0_PANEL; sigma = σ, noise_seed = bulk_seed)
     return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
             sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
-            bulk, bulk_seed, targets = collect(Symbol, targets))
+            bulk, bulk_seed, targets = collect(Symbol, targets), fit_to = Float64(fit_to))
 end
 
-export corea_dataset, corea_draws
+export corea_dataset, corea_draws, COREA_FIT_S
 export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble

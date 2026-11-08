@@ -63,6 +63,33 @@ using Distributions: LogNormal
         @test corea_dataset(17_200_001; ncells = 2, horizon = 120.0).targets == D11_TARGETS
     end
 
+    # KIM-89's fit window (Spec D2): a cut of the full run, so the window's saves
+    # are the full record's first ones at the same seed.
+    @testset "corea_dataset's fit window: a prefix of the full run" begin
+        kw = (; ncells = 2, horizon = 300.0, targets = COREA_TARGETS)
+        full = corea_dataset(17_200_001; kw...)
+        win = corea_dataset(17_200_001; kw..., fit_to = 150.0)   # off the 60 s grid
+        @test full.times == 60.0 .* (1:5) && full.fit_to == 300.0
+        @test win.times == [60.0, 120.0] && win.fit_to == 150.0
+        k = 1:2
+        @test win.latent == full.latent[:, :, k]
+        @test win.transcripts == full.transcripts[:, :, k]
+        @test win.observed == full.observed[:, :, k]
+        @test win.bulk == full.bulk[:, k]
+        @test win.truth.values == full.truth.values && win.sigma == full.sigma
+        @test win.seeds == full.seeds && win.bulk_seed == full.bulk_seed
+        @test_throws ArgumentError corea_dataset(17_200_001; kw..., fit_to = 301.0)
+        @test_throws ArgumentError corea_dataset(17_200_001; kw..., fit_to = 59.0)
+        # mixed_setup takes the windowed record: its saves are every 60 s.
+        sw = mixed_setup(win; models = d11_models(), targets = COREA_TARGETS)
+        @test sw.saves == [60.0, 120.0] && length(sw.logz) == 2 * length(M0_PANEL)
+        # At production size: the window keeps 52 of the cycle's 105 saves, the
+        # last at 3120 s.
+        @test COREA_FIT_S == 3150.0 == COREA_CYCLE_S / 2
+        grid = 60.0 .* (1:round(Int, COREA_CYCLE_S / 60))
+        @test length(grid) == 105 && count(<=(COREA_FIT_S), grid) == 52 && grid[52] == 3120.0
+    end
+
     @testset "the 200 injections' seeds, at production size" begin
         reps = 17_200_000 .+ (1:200)
         # Replicate seeds disjoint from V7's and A2's.
