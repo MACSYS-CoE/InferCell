@@ -4428,6 +4428,26 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-08 — Probabilistic trajectories: run (unscored)
+
+**Status: run complete, every check passed.** The results are in
+`dev/scripts/trajectories_predict_result.md`. The runs went at `554ee2b` into
+`/fred/oz022/tkimpson/infercell-trajectories-2026-11-08/`, which is the archive. Its
+`SHA256SUMS` covers 47 files, with SHA-256 `d0abcd983e9506ff4092c404314e320629607a008e4080b4fd30efbfff5d0905`.
+Panel C started only after `replay.md` ended in `ALL PASS`.
+
+- Panels A and B replay M0's and KIM-42's published numbers exactly, and the regenerated dataset
+  and its bulk data at `dfe570a` are equal to them. The ratio's largest deviation was 0.245%, about
+  0.14 of Q's SD, inside the 1% bound.
+- Panel C's acceptance is 0.623, so the figure shows the filled conditioned band. `joint` agrees
+  with `per_theta_I`.
+- The allocation was 666.9 core-h and 454.9 CPU-h were used, against about 680 and 500. A took
+  60.6 core-h, not the entry below's 75.
+
+Nothing in the entry below changed.
+
+*Sections:* §12.
+
 ### 2026-11-08 — Probabilistic trajectories: runs and figure, pre-registered
 
 **Status: declared before any production run; only smoke passes and the design's pilot have run.** The user asked for a time series with a shaded band in paper 1
