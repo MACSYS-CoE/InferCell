@@ -102,7 +102,8 @@ We do not claim an all-parameter posterior, calibrated inference on the reduced 
 or a biological finding. We claim that a framework can make inference a basic operation,
 so that a modeller can apply it where the data and the budget allow.
 
-\Cref{sec:design} describes the framework. Every parameter is a prior with a recorded source.
+\Cref{sec:design} describes the framework, and each of its parts answers one of the obstacles
+above. Every parameter is a prior with a recorded source.
 Modules couple through \pn{fw.edgekinds} kinds of typed edge. The framework checks that a
 composition is complete before it runs, and it lists every departure from the published model.
 The same gene-expression modules run as an exact stochastic process or as mean-field ODEs, and in
@@ -111,11 +112,11 @@ pass through.
 
 \Cref{sec:model} sets out the test system: a reduced model of \syn{} that keeps \pn{model.rxn}
 metabolic reactions, \pn{model.genes} genes and the two-way coupling between them, and M0, a two-gene
-slice small enough to check. \Cref{sec:results} then follows one demonstration in two steps. First
-come the posteriors: on M0, an exact sampler gives a calibrated reference, and a mixed route
-passes the same test at a fraction of the cost, with small declared discrepancies
-(\cref{sec:posteriors,sec:jensen,sec:info}). Second come probabilistic predictions: scored against the
-truth on M0 (\cref{sec:predm0}), then unscored on the reduced model, where an M0 posterior is combined
-modularly with viability-conditioned uncertainty in the remaining parameters (\cref{sec:budget}).
+slice small enough to check. \Cref{sec:inference} gives the posteriors: on M0, an exact sampler
+gives a calibrated reference, and a mixed route passes the same test at a fraction of the cost,
+with small declared discrepancies. \Cref{sec:predictions} turns them into probabilistic
+predictions: scored against the truth on M0, then unscored on the reduced model, where an M0
+posterior is combined modularly with viability-conditioned uncertainty in the remaining
+parameters. \Cref{sec:discussion} draws the lessons and collects the limits.
 
 Our main result is that one framework carries a reduced whole-cell model from declared priors, through inference calibrated on the slice where calibration can be checked, to unscored predictions on the reduced model, with the limits of those predictions declared.

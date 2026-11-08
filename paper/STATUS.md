@@ -37,8 +37,12 @@ is `tables/frameworks_sources.md`.
 - **The story (the author, 2026-11-07, replacing the 2026-11-01 "lead with the reduced model"):** a test
   system, then posteriors (M0 only), then predictions (scored on M0, then unscored on the reduced model).
   The transfer is assumed, not tested, and a test is likely paper 2. Since 2026-11-08 the test system
-  is its own section (§3, `03-testsystem.tex`) between InferCell and Results, so the order is intro,
-  InferCell, test system, Results, Discussion. It is not titled "Validation": the model makes no
+  is its own section (§3, `03-testsystem.tex`), and Results is split in two (§4 Inference on M0,
+  §5 From posterior to prediction), so the order is intro, InferCell, test system, inference,
+  prediction, discussion. §2 opens by mapping the intro's five obstacles to its parts. §2.5 frames
+  cross-module inference as a question the framework lets you ask, and §4.3 as a first look.
+  Each results subsection gathers its caveats in a closing "Limits" paragraph, and the Discussion
+  collects them in Limitations. The test system is not titled "Validation": the model makes no
   claim about syn3A.
 - **On the exact sampler the forward direction is unmeasured,** so do not claim ptsG shrinks under
   metabolites only on that route. Option (b), about 550 CPU-h, would be needed.

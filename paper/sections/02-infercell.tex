@@ -7,6 +7,16 @@ gives the design ideas. The documentation gives the full interface
 (see Software and data availability). \Cref{fig:architecture} shows the parts and how they
 connect.
 
+Each part answers one of the five obstacles of the introduction. Parameters that carry a
+prior and a source give uncertainty a place in the model (\cref{sec:params}), and so does
+a list of every reduction (\cref{sec:reductions}). Typed edges let ODE and jump modules
+compose under one checked interface (\cref{sec:edges}), and the same gene expression runs
+as an exact stochastic process or as mean-field ODEs (\cref{sec:twodesc}). The boundary
+shares no parameter, so we say what inference across it can mean (\cref{sec:seam}). Two
+inference routes then handle the latent paths and the cost: the exact route samples the
+paths, and the cheaper mixed route integrates them out (\cref{sec:api}). Last,
+\texttt{predict} turns a posterior into a prediction (\cref{sec:predictapi}).
+
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_architecture.pdf}
@@ -19,6 +29,7 @@ a posterior from either route, a forward description and an optional interventio
 \end{figure*}
 
 \subsection{Parameters are distributions with a source}
+\label{sec:params}
 
 Each parameter in \IC{} is an object that holds a value, a prior distribution, a
 role and a record of its source. The record names the file, the table and the
@@ -37,6 +48,7 @@ the composed model which priors no measurement supports. That question has a
 direct answer, because the answer is in the model and not in a supplement.
 
 \subsection{Modules couple through typed edges}
+\label{sec:edges}
 
 A module declares its states, its parameters and its formalism: ODE or jump. It
 also declares how it touches the rest of the cell. \IC{} has \pn{fw.edgekinds} kinds
@@ -75,6 +87,7 @@ with an unowned state or a stranded moiety. A composition that runs is therefore
 a composition that the framework has checked.
 
 \subsection{Every reduction is declared}
+\label{sec:reductions}
 
 Any model of a cell leaves things out. In \IC{} each departure from the published
 model is an object, not a comment. A reduction label has a category (one of
@@ -149,6 +162,10 @@ dropped. When the paths are integrated out, a gene-expression parameter appears 
 both the transcript factor and the metabolite factor. The mixed route uses this
 structure.
 
+The framework makes the third question one that a modeller can ask of any composition. In
+this paper we take only a first look at it, on M0 (\cref{sec:info}). Our claims rest on
+calibration, and not on a measured transfer of information across the boundary.
+
 \subsection{Inference attaches to each data stream}
 \label{sec:api}
 
@@ -215,6 +232,6 @@ p = predict(ms, posterior;
 }
 \noindent The first four names are the constants the reduced model already frees, and
 \texttt{n\_held} is the number of draws of $\theta_H$ for each draw of $\theta_I$. Reverse
-constants are derived from equilibrium constants and not drawn. \Cref{sec:trajectories}
+constants are derived from equilibrium constants and not drawn. \Cref{sec:release}
 releases \pn{traj.nreleased} constants this way. A release is a sensitivity to priors and not a
 posterior, since the fit held those constants at their nominal values.
