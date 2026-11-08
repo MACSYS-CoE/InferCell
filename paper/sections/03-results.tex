@@ -407,8 +407,9 @@ pools. Its band is at most \pn{traj.pyrwidth} particles wide at a level of about
 \pn{traj.pyrlevel}, under \pn{traj.pyrpct}\%.
 
 \paragraph{On the reduced model.} Row B splits the band into its layers. The draws of $\theta_I$
-alone give the narrowest band. Adding $\theta_H$ widens it most, and the spread of a new cell adds
-little more. The middle layer also holds the Monte Carlo noise of \pn{budget.ncellspair} cells per
+alone give the narrowest band. Early in the cycle the spread of a new cell widens it as much as
+$\theta_H$ does, or more, for GTP until about \pn{traj.cellsgtp} minutes. By the end of the
+cycle $\theta_H$ adds most of the width, and a new cell adds little more. The middle layer also holds the Monte Carlo noise of \pn{budget.ncellspair} cells per
 pair, about \pn{traj.mc}\% of its variance at the end of the cycle. In the first \pn{traj.hide}
 minutes that noise exceeds the parameter variance, so we do not show the variance split there.
 After that, the share of $\mathrm{Var}(\mu)$ from $\theta_H$ stays between \pn{traj.sharelo} and
