@@ -2,8 +2,8 @@
 \label{sec:discussion}
 
 \IC{} carried one demonstration from a test system through posteriors to predictions. On M0, both inference routes pass simulation-based calibration, with small
-declared discrepancies, and the posterior-to-prediction step covers lactate export at the expected rate. On the reduced model the predictions are unscored, and their budget depends strongly on
-a prior width that we chose. The M0 check does not test the completion or the transfer into the reduced model.
+declared discrepancies, and the posterior-to-prediction step covers lactate export at the expected rate, though the data measure export noisily through extracellular lactate. On the reduced model the predictions are unscored, and their budget depends strongly on
+a prior width that we chose. Any user can release fixed constants to their priors, and releasing \pn{traj.nreleased} of them moves the predicted GTP several-fold (\cref{sec:trajectories}). The M0 check does not test the completion or the transfer into the reduced model.
 
 \paragraph{What scales and what does not.} Exact inference is calibrated on M0, and it stops there. The cost of an exact posterior grows with
 the number of genes and the length of the record, and the full reduced model is

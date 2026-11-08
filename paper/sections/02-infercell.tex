@@ -195,3 +195,25 @@ their priors and a viability rule $V$. The distribution is a cut in the sense of
 and not a joint posterior under the second model. The data do not update
 $\theta_H$, and $\theta_H$ does not feed back into $\theta_I$. A variance split then says how much
 of the prediction's parameter uncertainty belongs to each block (\cref{sec:prediction}).
+
+Which parameters are held is the user's choice. Freeing a fixed constant in its module's
+constructor adds it to $\theta_H$, and \texttt{predict} draws it from its prior. Here a user
+releases lactate dehydrogenase's forward constant and records GTP's time course:
+{\footnotesize
+\begin{verbatim}
+ms = d11_models()
+ms[1] = CentralGlycolysis(
+  enzymes = :translated,
+  free = [:kcatF_R_ENO, :kcatR_R_ENO,
+          :kcatF_R_FBA, :kcatR_R_FBA,
+          :kcatF_R_LDH_L, :kcatR_R_LDH_L])
+p = predict(ms, posterior;
+  horizon = COREA_CYCLE_S,
+  completion = :prior, n_held = 20,
+  n_cells = 4, trajectory = [:M_gtp_c])
+\end{verbatim}
+}
+\noindent The first four names are the constants the reduced model already frees. The reverse
+constant is derived from the equilibrium constant and not drawn. \Cref{sec:trajectories}
+releases \pn{traj.nreleased} constants this way. A release is a sensitivity to priors and not a
+posterior, since the fit held those constants at their nominal values.

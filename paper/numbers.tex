@@ -281,6 +281,35 @@
 \pndef{dream.rtop}{0.04}% same, top solutions of the five most active teams
 \pndef{mix.krnadegtx}{98.9}% dev/scripts/av6_89_b7_result.md, stream arms, tx_v6, 0.989
 
+%% --- KIM-87: trajectories (panel A SCORED replay; B and C UNSCORED) -----------
+%% Archive: infercell-trajectories-2026-11-08 (checks.md, job 20293798; replay.md, job 20271501), at 554ee2b.
+%% Note: dev/scripts/trajectories_predict_result.md. "fig" = computed from paper/figures/data/traj_*.tsv.
+\pndef{traj.seed}{16{,}200{,}001}% the note, "Dataset"; m0_dataset(16_200_001; ncells = 50)
+\pndef{traj.every}{60}% spec §12 2026-11-08, "every 60 s"
+\pndef{traj.ratio}{0.25}% replay.md, largest relative deviation 0.0024508
+\pndef{traj.pyrwidth}{59}% fig, traj_a.tsv, M_pyr_c rows, widest 90% band after t = 0, 59.0
+\pndef{traj.pyrlevel}{91{,}000}% fig, same, mean 91,014 at 600 s
+\pndef{traj.pyrpct}{0.07}% fig, same, widest band over mean, 0.065%
+\pndef{traj.mc}{6}% checks.md, mc / var = 0.064 at 6,300 s
+\pndef{traj.hide}{6}% fig, traj_split.tsv, times hidden by the rule: 60--360 s
+\pndef{traj.sharelo}{0.84}% fig, traj_split.tsv, smallest shown share, I first, 0.838
+\pndef{traj.sharehi}{0.91}% traj_split.tsv, largest shown share, the final 0.908
+\pndef{traj.nreleased}{62}% checks.md, drawn parameters 82 = 5 + 15 + 62
+\pndef{traj.ndrawn}{82}% same
+\pndef{traj.npairs}{2{,}000}% checks.md, 40 x 50 pairs
+\pndef{traj.kept}{1{,}246}% checks.md, kept pairs
+\pndef{traj.acc}{62}% checks.md, acceptance 0.623
+\pndef{traj.starved}{38}% checks.md, starved fraction 0.379
+\pndef{traj.medunc}{11}% checks.md, median of pair means, unconditioned 8.454e6 vs B 9.545e6, -11.4%
+\pndef{traj.medrule}{3}% checks.md, per_theta_I 9.816e6 vs B 9.545e6, +2.8%
+\pndef{traj.widthB}{4.9}% fig, traj_b.tsv, export pairs 90% width at 6,300 s, millions, 4.89
+\pndef{traj.widthC}{7.1}% fig, traj_c.tsv, per_theta_I, same, 7.13
+\pndef{traj.stop}{0.65}% fig, traj_c.tsv, unconditioned export pairs lo90 at 6,300 s, millions, 0.652
+\pndef{traj.gtpB}{4{,}800}% fig, traj_b.tsv, M_gtp_c mean at 6,300 s, 4,847
+\pndef{traj.gtpC}{25{,}000}% fig, traj_c.tsv, per_theta_I M_gtp_c mean at 6,300 s, 25,268
+\pndef{traj.gtpcap}{40{,}000}% fig, traj_c.tsv, M_gtp_c pairs hi90, 39,812 at 6,300 s
+\pndef{traj.cpuh}{455}% the note, "Time and cost", 454.9 CPU-h
+
 %% --- M0's observation model and the reverse read-off ------------------------
 \pndef{mzero.npanel}{17}% M0_PANEL, src/organisms/coreA/m0.jl
 \pndef{tsplit.eno}{0.0041}% spec/phases/16-recovery.md 16b.5, job 19395555

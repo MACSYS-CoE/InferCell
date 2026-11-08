@@ -12,7 +12,9 @@ reduced JCVI-syn3A*. **Tracking:** Linear, milestone "M6 Paper 1 complete".
 `main.tex`'s preamble (`authblk` comes from TeX Live's `preprint` package).
 
 **Numbers:** every quoted number is a `\pn{key}` in `numbers.tex`, with its source.
-**Figures:** `figures/make_figures.py` (data, from the KIM-43 archive and `figures/data/`) and `figures/make_schematics.py`. `figures/budget_dump.jl` writes `figures/data/budget_mu.tsv` from the archive.
+**Figures:** `figures/make_figures.py` (data, from the KIM-43 archive and `figures/data/`) and `figures/make_schematics.py`. `figures/budget_dump.jl` writes `figures/data/budget_mu.tsv` from the archive. `fig_trajectories` reads
+`figures/data/traj_*.tsv`, copied from `/fred/oz022/tkimpson/infercell-trajectories-2026-11-08/tsv/`
+(KIM-87, `dev/scripts/trajectories_predict_result.md` on main); that archive is not yet in the KIM-54 deposit.
 **Tables:** the model-form counts are generated: `tables/reductions_dump.jl` (Slurm job 20165612,
 package source identical to main at `3c677a1`), then `tables/make_modelform.py`. Table 1's evidence
 is `tables/frameworks_sources.md`.
