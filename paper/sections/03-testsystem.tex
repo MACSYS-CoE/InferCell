@@ -1,0 +1,101 @@
+\section{The test system}
+\label{sec:model}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_model.pdf}
+\caption{\textbf{The reduced \syn{} model.} The four metabolic modules (ODE) and three gene-expression modules (jump), and what crosses between them. Arrows run between the blocks, not the boxes they touch. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. The orange arrow is the weak return. Supplementary File S1 lists each departure from the published model.}
+\label{fig:model}
+\end{figure*}
+
+We demonstrate \IC{} on one test system at two sizes. The \emph{reduced model} is a
+published whole-cell model of \syn{} cut down to its best-measured region. It keeps a real
+boundary between ODE metabolism and stochastic gene expression. \emph{M0} is a slice of the
+reduced model small enough for an exact posterior to be checked against a known truth.
+\Cref{tab:sizes} compares the two and lists the results that use each. All the data are synthetic.
+
+\subsection{The reduced model}
+\label{sec:reduced}
+
+We test \IC{} on a model reduced from the well-stirred \syn{} model of
+Thornburg and coworkers~\cite{thornburg2022fundamental}. The reduction keeps the best-measured region of
+the cell and removes about \pn{model.removed} of it (\cref{fig:model}).
+
+\begin{itemize}
+  \item \textbf{Metabolism:} \pn{model.rxn} reactions in \pn{model.odemodules} ODE
+  modules: glycolysis to lactate, sugar transport and lactate export, nucleotide
+  recycling, and a lumped step for tRNA charging.
+  \item \textbf{Gene expression:} \pn{model.jumprxn} reactions in
+  \pn{model.jumpmodules} jump modules: transcription, transcript decay and
+  translation for \pn{model.genes} genes, and membrane insertion for the one
+  membrane protein, the glucose transporter PtsG.
+  \item \textbf{State:} \pn{model.species} dynamic species and \pn{model.chemostats}
+  held species, each named once in a registry with its initial value, prior width
+  and source.
+\end{itemize}
+
+The two blocks couple in both directions, as in the published model. Enzyme counts
+set metabolic rates, and the costs of transcription and translation drain the
+nucleotide and charged-tRNA pools. In the other direction, the pools set the
+transcription and translation rate constants at each one-minute rebuild. Membrane
+protein counts set the cell's area and volume. No rate constant appears in both
+blocks. This property comes from the published model, not from our reduction.
+
+The model makes no claim about \syn{} itself. With most of the cell removed, it
+cannot reproduce the doubling time, the metabolite levels or the proteome of the
+real organism. The code refuses to report a doubling time, so that no result can
+be compared with these quantities by mistake. The model's purpose is to give a
+real ODE--stochastic boundary from a published whole-cell model, at a size where
+inference can be studied.
+
+\subsection{M0, a slice small enough to check}
+\label{sec:m0}
+
+An exact posterior on the full reduced model is projected at about \pn{cost.fullscale}
+CPU-hours, above our bound of \pn{cost.kone} CPU-hours per posterior
+(\cref{sec:posteriors}). A calibration test needs many posteriors, so we also use M0.
+M0 keeps all the metabolic reactions, and the same blocks and code. It cuts gene expression to
+\pn{mzero.ngenes} of the \pn{model.genes} genes, and it runs for \pn{mzero.horizon}\,s
+instead of the reduced model's cycle of \pn{model.cycle}\,s. The two genes are GAPD, whose
+promoter is the best determined, and ptsG, the membrane transporter. M0 holds
+\pn{mzero.heldenz} enzyme counts, at their measured copy numbers, and \pn{mzero.heldpts}
+carrier totals fixed. These holds are declared reductions.
+
+M0 has \pn{mzero.npar} free parameters: the two promoter strengths, the transcript decay rate,
+the forward catalytic constants of enolase (ENO) and aldolase (FBA), and the bulk assay noise
+$\sigb$. All the posteriors in this paper are on M0. The predictions on the reduced model reuse
+an M0 posterior for the parameters the two models share. They draw the promoter strengths of
+the other genes from their prior, at three prior widths, and a viability rule drops the draws
+that fail (\cref{sec:budget}).
+
+\begin{table}[t]
+\caption{\textbf{The two sizes of the test system.} The reduced model's parameters are those
+varied in its predictions: the \pn{budget.nI} inferred on M0, and the promoter strengths of
+the genes M0 removes, drawn from the prior and filtered for viability.}
+\label{tab:sizes}
+\centering
+\small
+\begin{tabular}{@{}P{1.9cm}P{2.6cm}P{2.6cm}@{}}
+\toprule
+ & Reduced model & M0 \\
+\midrule
+Metabolic reactions & \pn{model.rxn} & \pn{model.rxn} \\
+Stochastic genes & \pn{model.genes} & \pn{mzero.ngenes} \\
+Horizon & \pn{model.cycle}\,s & \pn{mzero.horizon}\,s \\
+Parameters & \pn{budget.nI} from M0, \pn{budget.nH} from the prior & \pn{mzero.npar}, inferred \\
+Results & unscored predictions (\cref{sec:budget,sec:trajectories}) & posteriors (\cref{sec:posteriors,sec:info}), scored predictions (\cref{sec:predm0,sec:trajectories}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Synthetic data and the test}
+\label{sec:data}
+
+Each synthetic dataset follows \pn{mzero.cells} cells of M0, simulated at a known parameter set
+and observed every 60\,s. It has two streams: the exact transcript count of each gene in each
+cell, and a bulk panel of \pn{mzero.npanel} metabolite pools, each the mean over cells with
+lognormal assay noise (\cref{sec:obs}). The priors are asserted.
+
+Results marked \emph{unscored} are not compared with any truth. For the scored results, the
+test is calibration: over many datasets, a 90\% credible interval must contain the truth about
+90\% of the time \cite{talts2018validating}.

@@ -36,7 +36,10 @@ is `tables/frameworks_sources.md`.
   differentiable. Keep the scoping in the InferCell section.
 - **The story (the author, 2026-11-07, replacing the 2026-11-01 "lead with the reduced model"):** a test
   system, then posteriors (M0 only), then predictions (scored on M0, then unscored on the reduced model).
-  The transfer is assumed, not tested, and a test is likely paper 2.
+  The transfer is assumed, not tested, and a test is likely paper 2. Since 2026-11-08 the test system
+  is its own section (§3, `03-testsystem.tex`) between InferCell and Results, so the order is intro,
+  InferCell, test system, Results, Discussion. It is not titled "Validation": the model makes no
+  claim about syn3A.
 - **On the exact sampler the forward direction is unmeasured,** so do not claim ptsG shrinks under
   metabolites only on that route. Option (b), about 550 CPU-h, would be needed.
 - **Word rule:** "detectable" or "declared" discrepancies, not "resolved". "The reduced syn3A model", not

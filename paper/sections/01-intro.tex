@@ -109,12 +109,12 @@ The same gene-expression modules run as an exact stochastic process or as mean-f
 the second form the composed model compiles to one ODE problem that automatic differentiation can
 pass through.
 
-\Cref{sec:results} then follows one demonstration through three steps. First comes a test system:
-a reduced model of \syn{} that keeps \pn{model.rxn} metabolic reactions, \pn{model.genes} genes and
-the two-way coupling between them, and M0, a two-gene slice small enough to check (\cref{sec:model}).
-Second come the posteriors: on M0, an exact sampler gives a calibrated reference, and a mixed route
+\Cref{sec:model} sets out the test system: a reduced model of \syn{} that keeps \pn{model.rxn}
+metabolic reactions, \pn{model.genes} genes and the two-way coupling between them, and M0, a two-gene
+slice small enough to check. \Cref{sec:results} then follows one demonstration in two steps. First
+come the posteriors: on M0, an exact sampler gives a calibrated reference, and a mixed route
 passes the same test at a fraction of the cost, with small declared discrepancies
-(\cref{sec:posteriors,sec:jensen,sec:info}). Third come probabilistic predictions: scored against the
+(\cref{sec:posteriors,sec:jensen,sec:info}). Second come probabilistic predictions: scored against the
 truth on M0 (\cref{sec:predm0}), then unscored on the reduced model, where an M0 posterior is combined
 modularly with viability-conditioned uncertainty in the remaining parameters (\cref{sec:budget}).
 
