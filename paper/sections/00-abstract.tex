@@ -1,37 +1,23 @@
-\section*{Abstract}
+\begin{abstract}
 Whole-cell models simulate a living cell from its molecular parts. They usually fix each
 parameter at one value, so a prediction does not say how much of it the data support.
 Inference is hard because the models mix deterministic and stochastic formalisms, the
 stochastic paths are latent, and no parameter is shared between the two. We present
-\IC{}, a compositional inference framework demonstrated on a reduced model of the minimal cell \syn{}. Parameters carry priors and sources, and the framework checks each composition and lists its declared reductions. \IC{} supports exact stochastic and
+\IC{}, a compositional inference framework. Parameters carry priors and sources, and the framework checks each composition and lists its declared reductions. \IC{} supports exact stochastic and
 mean-field descriptions across a coupled ODE--jump boundary, with two inference routes:
-an exact sampler, and a cheaper mixed route that integrates out the stochastic paths. On
-M0, a two-gene slice, both routes pass simulation-based calibration over
+an exact sampler, and a cheaper mixed route that integrates out the stochastic paths. We demonstrate it on a reduced model of the minimal cell \syn{} and on M0, a two-gene slice of that model. On M0, both routes pass simulation-based calibration over
 \pn{vseven.R} datasets, with small declared discrepancies. The mixed route costs a median of
 \pn{mix.cpuh} CPU-hours per posterior, against \pn{ften.cpuh}--\pn{cost.exacthi}. On the one
 dataset with a long exact reference, three parameters sit
-\pn{mix.gaplo}--\pn{mix.gaphi} standard deviations from it, and the cause is open. We then carry an M0 posterior into the reduced model, with viability-conditioned
+\pn{mix.gaplo}--\pn{mix.gaphi} standard deviations from it, and the cause is open. Posterior-to-prediction
+scoring on M0 covers lactate export at the expected rate, a quantity the data measure noisily through extracellular lactate. A knockdown's effect, which the data do not measure, has the right
+sign, though those intervals are not a clean calibration. We then carry an M0 posterior into the reduced model, with viability-conditioned
 uncertainty in the remaining parameters, to make forward and intervention predictions.
 These predictions are unscored. At the default prior width, among the \pn{budget.ndrawn}
 parameters drawn and on one posterior, about \pn{budget.heldpct}\%~$\pm$~\pn{budget.heldpctse}\%
 of the parameter uncertainty in lactate export comes from \pn{budget.nH} promoter strengths
 that the fit cannot reach, and that share runs from \pn{budget.heldpctlo}\% to
-\pn{budget.heldpcthi}\% as their asserted prior width changes. On M0, posterior-to-prediction
-scoring covers lactate export at the expected rate, and a knockdown's effect has the right
-sign, though those intervals are not a clean calibration. The data are synthetic. The
+\pn{budget.heldpcthi}\% as their asserted prior width changes. The data are synthetic. The
 framework shows what a prediction rests on. We claim no all-parameter posterior, no
 calibrated inference on the reduced model, and no biological finding.
-
-\section*{Author summary}
-Computer models of living cells combine many chemical reactions and genes. They are usually run with one fixed value for every unknown
-rate, so they give an answer with no measure of how sure that answer is. We built
-\IC{}, a software framework in which every rate carries a range of plausible values and
-a record of where it came from, and every declared simplification is listed.
-We tested it on a simplified model of a minimal bacterium, using data simulated from the
-model itself, so that the true answer was known. On a small part of the model, two ways of
-estimating the rates gave uncertainty ranges that contained the truth as often as they
-should, and the cheaper way cost far less. We then predicted, with no truth to check against, how much
-lactate the larger model's cells export, and how a gene knockdown changes that. Most of
-the uncertainty in that prediction came from rates our data could not reach, and how much
-depended on a range we had chosen ourselves. We make no claim about real cells. Our aim is
-a tool that shows what a model's predictions rest on.
+\end{abstract}

@@ -1,4 +1,4 @@
-\section{InferCell: an inference-first design}
+\section{InferCell}
 \label{sec:design}
 
 \IC{} is written in Julia \cite{bezanson2017julia}. It uses the SciML solvers for
@@ -7,16 +7,16 @@ gives the design ideas. The documentation gives the full interface
 (see Software and data availability). \Cref{fig:architecture} shows the parts and how they
 connect.
 
-\begin{figure}[!ht]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{fig_architecture.pdf}
+\includegraphics[width=\linewidth]{fig_architecture.pdf}
 \caption{\textbf{The \IC{} architecture.} Parameters carry a prior, a source and a label.
 Modules declare their states, formalism and typed edges. The resolver checks the composition
 and collects the declared reductions. The composed model runs as the exact hybrid or as one
 mean-field ODE problem, and each description has an inference route. \texttt{predict} takes
 a posterior from either route, a forward description and an optional intervention.}
 \label{fig:architecture}
-\end{figure}
+\end{figure*}
 
 \subsection{Parameters are distributions with a source}
 
@@ -47,12 +47,12 @@ Rate-constant edges cross every minute, when the stochastic block rebuilds its r
 constants from the metabolite pools. The set of kinds is closed. A module cannot
 invent a new kind of coupling without a change to the framework.
 
-\begin{table}[!ht]
+\begin{table}[t]
 \caption{\textbf{The \pn{fw.edgekinds} edge kinds and their clocks.}}
 \label{tab:edges}
 \centering
 \small
-\begin{tabular}{@{}p{0.27\columnwidth}p{0.45\columnwidth}p{0.18\columnwidth}@{}}
+\begin{tabular}{@{}P{0.25\columnwidth}P{0.47\columnwidth}P{0.18\columnwidth}@{}}
 \toprule
 Edge & What crosses & Clock \\
 \midrule
@@ -114,6 +114,41 @@ mean-field description gives gradients for the parts of inference that need them
 The cost of the swap is a declared reduction, and we measure it
 (\cref{sec:jensen}).
 
+\subsection{Inference across a boundary with no shared parameter}
+\label{sec:seam}
+
+Three problems are often treated as one.
+\begin{itemize}
+  \item \emph{Local inference:} what do a module's own data say about its own
+  parameters?
+  \item \emph{Uncertainty propagation:} given the uncertain output of one module,
+  how uncertain is the next module?
+  \item \emph{Cross-module inference:} do the data of one module inform the
+  parameters of another, when the two share no parameter?
+\end{itemize}
+The third problem is the hard one. Write $u$ for the trajectory at the interface: enzyme
+counts and drains in one direction, pools in the other. For a pair of modules $A \to B$ with
+data $D_A$ and $D_B$, the forward message is $p(u \mid D_A)$. The backward message is a
+likelihood over the interface. For a one-way coupling, with $D_A$ and $D_B$ independent given $u$, \begin{equation}
+  \lambda_B(u) = \int p(D_B \mid \theta_B, u)\, p(\theta_B)\, \mathrm{d}\theta_B .
+\end{equation}
+The joint posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. With feedback, as here, the messages alternate rather than close in one pass. A
+\emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. It changes the
+target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
+reduction} instead removes a weak edge from the simulator and keeps full Bayesian
+inference. For cross-module inference, only the second kind keeps the information we
+want: metabolite data that inform a gene-expression parameter.
+
+The standard modular methods pass messages through shared parameters: cuts and
+semi-modular inference \cite{plummer2015cuts,carmona2020semimodular}, and Markov
+melding \cite{goudie2019joining}. In the reduced model of \cref{sec:model} no parameter is shared, so
+these methods have nothing to pass while we condition on the stochastic path. The
+exact sampler does what is left: it conditions on the path, and it updates the path
+with all the data. In this sense the exact sampler is modular inference with nothing
+dropped. When the paths are integrated out, a gene-expression parameter appears in
+both the transcript factor and the metabolite factor. The mixed route uses this
+structure.
+
 \subsection{Inference attaches to each data stream}
 \label{sec:api}
 
@@ -129,7 +164,7 @@ many cells. \IC{} has two inference routes.
   (\cref{sec:sampler}).
   \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a birth--death likelihood given the mean-field pools, and the bulk metabolites get a Gaussian likelihood centred on the mean-field model, in the spirit of a synthetic likelihood \cite{wood2010statistical,price2018bayesian}. The route uses the gradients of the swap with the No-U-Turn
   Sampler \cite{hoffman2014nouturn}. It is an approximation, and
-  \cref{sec:approx} compares it with the exact route on M0.
+  \cref{sec:posteriors} compares it with the exact route on M0.
 \end{itemize}
 
 One function, \texttt{infer}, runs inference, and \texttt{inference\_route} chooses
@@ -140,3 +175,46 @@ the two routes above, and the user must name one, because one is a reference and
 other an approximation. Anything else is refused, with an error that says why. The
 cell-data routes are built for M0's gene expression (\cref{sec:model}), and we have
 demonstrated them only on M0.
+
+\subsection{From posterior to prediction}
+\label{sec:predictapi}
+
+The function \texttt{predict} takes a posterior, a forward description and an optional
+intervention, and it returns a predictive distribution for a chosen quantity. The composition
+it predicts on may have parameters the fit never reached. We call those the held parameters
+$\theta_H$, and the fitted ones the inferred parameters $\theta_I$. The held parameters get only
+their priors and a viability rule $V$. The distribution is a cut in the sense of Plummer
+\cite{plummer2015cuts}, with the first module a different model $M_{\mathrm{fit}}$ from the second,
+\begin{equation}
+  \begin{aligned}
+  p_{\mathrm{cut}}(\theta_I, \theta_H \mid D, V)
+  &= p(\theta_I \mid D, M_{\mathrm{fit}}) \\
+  &\quad \times p(\theta_H \mid \theta_I, V),
+  \end{aligned}
+\end{equation}
+and not a joint posterior under the second model. The data do not update
+$\theta_H$, and $\theta_H$ does not feed back into $\theta_I$. A variance split then says how much
+of the prediction's parameter uncertainty belongs to each block (\cref{sec:prediction}).
+
+Which parameters are held is the user's choice. Freeing a fixed constant in its module's
+constructor adds it to $\theta_H$, and \texttt{predict} draws it from its prior. Here a user
+releases lactate dehydrogenase's forward constant and records GTP's time course:
+{\footnotesize
+\begin{verbatim}
+ms = d11_models()
+ms[1] = CentralGlycolysis(
+  enzymes = :translated,
+  free = [:kcatF_R_ENO, :kcatR_R_ENO,
+          :kcatF_R_FBA, :kcatR_R_FBA,
+          :kcatF_R_LDH_L, :kcatR_R_LDH_L])
+p = predict(ms, posterior;
+  horizon = COREA_CYCLE_S,
+  completion = :prior, n_held = 20,
+  n_cells = 4, trajectory = [:M_gtp_c])
+\end{verbatim}
+}
+\noindent The first four names are the constants the reduced model already frees, and
+\texttt{n\_held} is the number of draws of $\theta_H$ for each draw of $\theta_I$. Reverse
+constants are derived from equilibrium constants and not drawn. \Cref{sec:trajectories}
+releases \pn{traj.nreleased} constants this way. A release is a sensitivity to priors and not a
+posterior, since the fit held those constants at their nominal values.

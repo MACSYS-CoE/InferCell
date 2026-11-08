@@ -65,7 +65,7 @@ other with a Bayesian method \cite{thornburg2022fundamental}. That step used
 literature values for metabolism only. It did not infer parameters from dynamic
 data through the coupled model.
 
-\begin{table}[!ht]
+\begin{table*}[t]
 \caption{\textbf{Capabilities of whole-cell modelling frameworks.} Each column asks whether the
 framework does this as part of its design. Notes follow the table.}
 \label{tab:frameworks}
@@ -93,36 +93,29 @@ and files. Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.m
 papers' main text and each framework's public code. We did not read the supplements, and for the
 2026 \syn{} model we read the preprint.
 \end{flushleft}
-\end{table}
+\end{table*}
 
 \subsection{This work}
 
 We present \IC{}, a compositional inference framework demonstrated on reduced \syn{}.
 We do not claim an all-parameter posterior, calibrated inference on the reduced model,
 or a biological finding. We claim that a framework can make inference a basic operation,
-so that a modeller can apply it where the data and the budget allow. Our contributions
-are:
+so that a modeller can apply it where the data and the budget allow.
 
-\begin{enumerate}
-  \item \textbf{A design for inference-first composition} (\cref{sec:design}). Every
-  parameter is a prior with a recorded source. Modules couple through
-  \pn{fw.edgekinds} kinds of typed edge. The framework checks that a composition is
-  complete before it runs, and it lists every departure from the published model.
-  \item \textbf{One interface with two descriptions} (\cref{sec:design}). The same
-  gene-expression modules run as an exact stochastic process or as mean-field ODEs.
-  In the second form the composed model compiles to one ODE problem that automatic
-  differentiation can pass through.
-  \item \textbf{A reduced model of \syn{} with a real boundary} (\cref{sec:model}).
-  It keeps \pn{model.rxn} metabolic reactions and \pn{model.genes} genes from the
-  published model, and it keeps the two-way coupling between them.
-  \item \textbf{A map of how information crosses the boundary} (\cref{sec:seam}), and
-  calibrated inference on M0, a two-gene slice of the model, which we define in \cref{sec:model} (\cref{sec:results}). An
-  exact sampler gives a calibrated reference. A mixed route passes the same test at a
-  fraction of the cost, with small declared discrepancies.
-  \item \textbf{Forward and intervention predictions on the reduced model}
-  (\cref{sec:budget}), which combine an M0 posterior modularly with
-  viability-conditioned uncertainty in the remaining parameters. They are unscored, and
-  we score the posterior-to-prediction step on M0 (\cref{sec:predm0}).
-\end{enumerate}
+\Cref{sec:design} describes the framework. Every parameter is a prior with a recorded source.
+Modules couple through \pn{fw.edgekinds} kinds of typed edge. The framework checks that a
+composition is complete before it runs, and it lists every departure from the published model.
+The same gene-expression modules run as an exact stochastic process or as mean-field ODEs, and in
+the second form the composed model compiles to one ODE problem that automatic differentiation can
+pass through.
+
+\Cref{sec:results} then follows one demonstration through three steps. First comes a test system:
+a reduced model of \syn{} that keeps \pn{model.rxn} metabolic reactions, \pn{model.genes} genes and
+the two-way coupling between them, and M0, a two-gene slice small enough to check (\cref{sec:model}).
+Second come the posteriors: on M0, an exact sampler gives a calibrated reference, and a mixed route
+passes the same test at a fraction of the cost, with small declared discrepancies
+(\cref{sec:posteriors,sec:jensen,sec:info}). Third come probabilistic predictions: scored against the
+truth on M0 (\cref{sec:predm0}), then unscored on the reduced model, where an M0 posterior is combined
+modularly with viability-conditioned uncertainty in the remaining parameters (\cref{sec:budget}).
 
 Our main result is that one framework carries a reduced whole-cell model from declared priors, through inference calibrated on the slice where calibration can be checked, to unscored predictions on the reduced model, with the limits of those predictions declared.
