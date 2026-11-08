@@ -4428,6 +4428,101 @@ fabricated task list.
 
 ## 12. Amendment log
 
+### 2026-11-08 — Probabilistic trajectories: run (unscored)
+
+**Status: run complete, every check passed.** The results are in
+`dev/scripts/trajectories_predict_result.md`. The runs went at `554ee2b` into
+`/fred/oz022/tkimpson/infercell-trajectories-2026-11-08/`, which is the archive. Its
+`SHA256SUMS` covers 47 files, with SHA-256 `d0abcd983e9506ff4092c404314e320629607a008e4080b4fd30efbfff5d0905`.
+Panel C started only after `replay.md` ended in `ALL PASS`.
+
+- Panels A and B replay M0's and KIM-42's published numbers exactly, and the regenerated dataset
+  and its bulk data at `dfe570a` are equal to them. The ratio's largest deviation was 0.245%, about
+  0.14 of Q's SD, inside the 1% bound.
+- Panel C's acceptance is 0.623, so the figure shows the filled conditioned band. `joint` agrees
+  with `per_theta_I`.
+- The allocation was 666.9 core-h and 454.9 CPU-h were used, against about 680 and 500. A took
+  60.6 core-h, not the entry below's 75.
+
+Nothing in the entry below changed.
+
+*Sections:* §12.
+
+### 2026-11-08 — Probabilistic trajectories: runs and figure, pre-registered
+
+**Status: declared before any production run; only smoke passes and the design's pilot have run.** The user asked for a time series with a shaded band in paper 1
+and approved the design, `docs/superpowers/specs/2026-11-07-probabilistic-trajectories-design.md`.
+The driver is `dev/scripts/trajectories_predict.jl`, and KIM-87 tracks the runs. These runs add no
+new inference and **no new scored claim**: panel A replays published numbers for one dataset, and
+panels B and C on the reduced model stay unscored.
+
+**The posterior.** V7 replicate 1, exact route, SHA-256
+`d1a4500b59433352076d8b3d28a44df6fde992343f92fb88960ebee4f1ebf759`, chosen because it feeds the
+reduced model and not for how it looks. Recorded in every panel, every 60 s: the lactate export
+meter, `M_lac__L_e`, `M_gtp_c` and `M_pyr_c`. `M_pyr_c` is the one panel A species the fit never
+saw in any form. Q is observed through `M_lac__L_e`, so panel A's Q is no out-of-sample curve.
+
+| Panel | What runs | Draws × held × cells | Seed |
+|---|---|---|---|
+| A | M0, 600 s, 10 blocks | 100 × 887 | `19_540_000 + (b − 1)` |
+| A, truth | M0, 600 s, no intervention | 1 × 9,849 | `19_541_501` |
+| A, new-bulk band | resamples 50 cells of a row with its σ_b, 20,000 times per time | | `19_543_002` |
+| B | reduced model, 6,300 s, width 1, `:prior` | 100 × 20 × 4 | `19_542_000` |
+| C, pre-check | released, `:viability_conditioned_prior` | 4 × 5 × (4 + 4) | `19_543_001` |
+| C | released, `:viability_conditioned_prior`, width 1, M4's frozen rule | 40 × 50 × (4 + 4) | `19_543_000` |
+| Dataset | `m0_dataset(16_200_001; ncells = 50)`, not a new draw | | |
+
+Smoke passes use seeds from `19_543_900`.
+
+**The released set.** Every fixed `kcatF_*`, `kcatR_*` and `km_*` of `CentralGlycolysis` and
+`NucleotideRecycling`, with ENO's and FBA's, which `d11_models` frees already. That draws 82
+parameters: 5 inferred, 15 held promoters and 62 released. Reverse constants are derived by Haldane
+and not drawn. The driver stops if the count is not 82 or any `kcatR_*` is held. The set does not
+change without an entry here.
+
+**The checks.** All run in the `replay` stage, before panel C, and the launcher refuses to start
+panel C unless `replay.md` ends in `ALL PASS`. Any failure stops the work. The first two are exact,
+and the inputs they read are pinned to the archive's checksums.
+- panel B's μ̂, seeds and θ_H equal KIM-42's `w1.jls`;
+- each panel A block's μ̂ equals its rows in M0's `finish/000_r1_v7.jls`, and the truth's mean equals
+  `truth` for dataset 1 in M0's `score_datasets.tsv`;
+- the regenerated dataset's truth and σ_b equal replicate 1's, within 1e-12 relative, since V7 stores
+  logs;
+- the ratio of exported lactate to `M_lac__L_e`'s change is constant over time and across 10 truth
+  cells, within 1% relative. That ratio rescales the data onto Q's axis.
+
+The ratio's 1% is a sanity bound and does not measure the overlay's accuracy: it is 0.57 of Q's
+predictive SD, 1.8% of its mean. The note and the caption report the deviation actually measured. The
+plan and this entry's first version said 1e-9, which the smoke pass failed. A diagnostic (job 20264913)
+found the ratio starts at 100,000, drifts slightly either way early on, and then mostly falls, by up
+to 0.09% over 240 s, or about 0.05 SD. The code gives the reason, which was not measured directly:
+the meter counts particles at the volume they crossed, while the recorded `M_lac__L_e` is undiluted
+lactate times a factor that grows with the cell. No production run had read this check when it
+changed.
+
+A job at V7's commit `dfe570a` then compares the regenerated bulk data with those of that commit
+(`trajectories_predict.sh <outdir> bulk <worktree>`). A difference goes in the note and the caption
+and does not stop the work, since the posterior is unchanged.
+
+**What the figure may do, fixed now:**
+- Panel C runs whatever its pre-check's acceptance is, and the number is reported. Below 10% of pairs
+  kept, the figure drops the filled conditioned band and shows the unconditioned one, labelled. The
+  filled band otherwise uses `per_theta_I`, and `joint` goes in the note.
+- The held-share sub-panel shows a time only where `flagged` and `mc_undefined` are false and
+  `total > mc`. Clipping alone does not catch a share that is cell noise: at zero true spread on a
+  40 × 20 × 4 matrix, 8.9% of replicates have `flagged` false and `total > 0`, with a median share of
+  0.83. Adding `total > mc` removes those times: it passed in none of 1,500 noise-only trials through
+  a port of the split's estimator, at each of 40 × 20, 100 × 20 and 40 × 50 pairs, under Gaussian,
+  lognormal and bimodal cells. These are throwaway numpy simulations from the reviews of this work, not
+  scripts in this repository.
+
+**Cost.** About 500 CPU-h used, the design's estimate from `TotalCPU`, and about 680 core-h allocated,
+since Slurm allocates whole cores: 75 for A, half of M0's two-arm blocks, and 200 and 400 for B and C,
+at KIM-42's 90.6 allocated core-seconds per cell at width 1. Panel C's wall limit is 24 h, as KIM-42's was:
+it has no checkpoint, and released constants may slow it past KIM-42's rates.
+
+*Sections:* §12.
+
 ### 2026-11-07 — Paper 1: two-column format, venue open, and a new story (the user's decisions)
 
 **The venue.** The user replaced the PLOS template with the two-column `arxiv.sty` preprint format of

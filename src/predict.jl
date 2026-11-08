@@ -230,6 +230,7 @@ end
             intervention = nothing, delta = :none, theta_ref = nothing, n_ref = 100,
             rng = Random.default_rng(), n_parameter_draws = length(posterior),
             draws = nothing, n_cells = 1, n_viability_cells = nothing,
+            trajectory = nothing, every = 60.0,
             threads = Threads.nthreads() > 1) -> Prediction
 
 The predictive distribution of the quantity Q given the data, for the composition
@@ -256,6 +257,15 @@ posterior mean of log θ_I, with every held parameter at its nominal value. A
 checked against this prediction. The uncorrected mean field is kept beside the
 corrected one, since the gap between them is part of the result (spec §12
 2026-10-29, O4).
+
+**Time series.** `trajectory` lists ODE-block species to record in every run
+(`CellRun`'s `trajectory`), in particles, every `every` seconds and at the horizon.
+Recording reads what the run holds anyway, so it changes no cell and no draw. On the
+hybrid `every` must be a whole number of handshakes. On the mean field it must stay
+at 60, since the saves decide what its minima, and so a viability floor, can see. A
+species outside the ODE block, and `every` with no `trajectory`, are refused before
+any cell runs. [`trajectory_bands`](@ref) and [`trajectory_split`](@ref) read the
+result.
 
 **The completion policy:**
 - `completion = :none` runs the posterior as it stands, as on M0, where no
@@ -348,7 +358,8 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                  draws::Union{Nothing, AbstractVector{<:Integer}} = nothing,
                  n_cells::Integer = 1,
                  n_viability_cells::Union{Nothing, Integer} = nothing,
-                 threads::Bool = Threads.nthreads() > 1)
+                 trajectory::Union{Nothing, AbstractVector{Symbol}} = nothing,
+                 every::Real = 60.0, threads::Bool = Threads.nthreads() > 1)
     # Refuse before any work.
     forward in PREDICT_FORWARDS || throw(ArgumentError(
         "forward must be one of $PREDICT_FORWARDS, not :$forward"))
@@ -415,6 +426,7 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         "$badh cannot be held: each must be a free parameter that is not inferred, not " *
         "written by the driver, and not a derived reverse constant ($(hp.skipped))"))
     delta isa DeltaCorrection && _check_delta(delta, ms, Float64(horizon), quantity, intervention)
+    recording = _recording(ms, forward, trajectory, every, () -> driver.interval)
 
     fork = rand(rng, UInt64)
     stream = Xoshiro(fork)
@@ -447,7 +459,7 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
         isdisjoint(vseeds, seeds) && (dc === nothing || isdisjoint(vseeds, dc.seeds)) ||
             error("V's seeds meet the prediction's; draw again")
 
-        f = _forward_setup(ms, forward; horizon)
+        f = _forward_setup(ms, forward; horizon, recording...)
         θI = [draw_values(pd, r) for r in rows]
         plain = [vcat(θI[m], θH[k]) for m in 1:M, k in 1:K]
         base = map(x -> haldane_values(ms, x), plain)
@@ -478,7 +490,8 @@ function predict(models::AbstractVector{<:AbstractSubModel}, pd::PosteriorDraws;
                     n_cells = nc, n_viability_cells = nv, intervention,
                     delta = delta isa DeltaCorrection ? :cached : delta,
                     n_ref = delta === :ensemble ? n_ref : 0,
-                    viability = viability === nothing ? nothing : viability.label)
+                    viability = viability === nothing ? nothing : viability.label,
+                    recording.trajectory, recording.every)
         _assemble(ms, pd, f, quantity, rows, θI, hnames, θH, seeds, cells, cells_i, decisions,
                   vseeds, vcells, completion, viability, intervention, dc, hp, fork, settings,
                   labels, threads ? Threads.nthreads() : 1)

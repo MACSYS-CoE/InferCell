@@ -4,7 +4,7 @@ CurrentModule = InferCell
 
 # Prediction
 
-Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/predict_combine.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_combine.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl), [`src/predict_variance.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_variance.jl).
+Source: [`src/predict.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict.jl), [`src/predict_combine.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_combine.jl), [`src/posterior_draws.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/posterior_draws.jl), [`src/predict_completion.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_completion.jl), [`src/predict_forward.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_forward.jl), [`src/predict_viability.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_viability.jl), [`src/predict_intervention.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_intervention.jl), [`src/predict_variance.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_variance.jl), [`src/predict_trajectory.jl`](https://github.com/MACSYS-CoE/InferCell/blob/main/src/predict_trajectory.jl).
 
 ## The entry point
 
@@ -36,6 +36,11 @@ columns cancel. Without a viability rule it is unbiased. Under one, the weights
 are ratio estimates of the conditioned law, and the estimate is biased; a
 simulation check (KIM-66) found that bias at up to about 6% at M = 100, K = 20,
 on its test cases.
+
+With `trajectory`, every run keeps a time series of the species you name.
+[`trajectory_bands`](@ref) and [`trajectory_split`](@ref) read them as uncertainty
+bands and a variance split over time. [Prediction uncertainty over time](../user-guide/prediction-uncertainty.md)
+shows them, and how to release a fixed parameter to its prior.
 
 What `predict` leaves to the freeze (KIM-36, KIM-39): which Q, the viability rule,
 the dose, which conditioned variant is the headline, and which order of the split
@@ -133,5 +138,5 @@ the intrinsic noise. A dose of 0 gives ΔQ = 0 exactly.
 
 ```@autodocs
 Modules = [InferCell]
-Pages = ["predict.jl", "predict_combine.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl", "predict_variance.jl"]
+Pages = ["predict.jl", "predict_combine.jl", "posterior_draws.jl", "predict_completion.jl", "predict_intervention.jl", "predict_forward.jl", "predict_viability.jl", "predict_variance.jl", "predict_trajectory.jl"]
 ```
