@@ -283,8 +283,8 @@
 
 %% --- KIM-87: trajectories (panel A SCORED replay; B and C UNSCORED) -----------
 %% Archive: infercell-trajectories-2026-11-08 (checks.md, job 20293798; replay.md, job 20271501), at 554ee2b.
-%% Note: dev/scripts/trajectories_predict_result.md. "fig" = computed from paper/figures/data/traj_*.tsv.
-\pndef{traj.seed}{16{,}200{,}001}% the note, "Dataset"; m0_dataset(16_200_001; ncells = 50)
+%% Note: dev/scripts/trajectories_predict_result.md (on main from #159). "fig" = computed from paper/figures/data/traj_*.tsv.
+\pndef{traj.seed}{16\_200\_001}% the note, "Dataset"; m0_dataset(16_200_001; ncells = 50)
 \pndef{traj.every}{60}% spec §12 2026-11-08, "every 60 s"
 \pndef{traj.ratio}{0.25}% replay.md, largest relative deviation 0.0024508
 \pndef{traj.pyrwidth}{59}% fig, traj_a.tsv, M_pyr_c rows, widest 90% band after t = 0, 59.0
@@ -293,6 +293,7 @@
 \pndef{traj.mc}{6}% checks.md, mc / var = 0.064 at 6,300 s
 \pndef{traj.hide}{6}% fig, traj_split.tsv, times hidden by the rule: 60--360 s
 \pndef{traj.cellsgtp}{20}% fig, traj_b.tsv, M_gtp_c: cells layer adds more 90% width than theta_H up to ~19 min (1,140 s)
+\pndef{traj.kdcell}{41}% fig, traj_b.tsv, M_gtp_c cells lo90 first below 2,160 at 2,460 s
 \pndef{traj.sharelo}{0.84}% fig, traj_split.tsv, smallest shown share, I first, 0.838
 \pndef{traj.sharehi}{0.91}% traj_split.tsv, largest shown share, the final 0.908
 \pndef{traj.nreleased}{62}% checks.md, drawn parameters 82 = 5 + 15 + 62
@@ -309,7 +310,6 @@
 \pndef{traj.gtpB}{4{,}800}% fig, traj_b.tsv, M_gtp_c mean at 6,300 s, 4,847
 \pndef{traj.gtpC}{25{,}000}% fig, traj_c.tsv, per_theta_I M_gtp_c mean at 6,300 s, 25,268
 \pndef{traj.gtpcap}{40{,}000}% fig, traj_c.tsv, M_gtp_c pairs hi90, 39,812 at 6,300 s
-\pndef{traj.cpuh}{455}% the note, "Time and cost", 454.9 CPU-h
 
 %% --- M0's observation model and the reverse read-off ------------------------
 \pndef{mzero.npanel}{17}% M0_PANEL, src/organisms/coreA/m0.jl

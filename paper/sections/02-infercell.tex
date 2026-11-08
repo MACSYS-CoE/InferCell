@@ -213,7 +213,8 @@ p = predict(ms, posterior;
   n_cells = 4, trajectory = [:M_gtp_c])
 \end{verbatim}
 }
-\noindent The first four names are the constants the reduced model already frees. The reverse
-constant is derived from the equilibrium constant and not drawn. \Cref{sec:trajectories}
+\noindent The first four names are the constants the reduced model already frees, and
+\texttt{n\_held} is the number of draws of $\theta_H$ for each draw of $\theta_I$. Reverse
+constants are derived from equilibrium constants and not drawn. \Cref{sec:trajectories}
 releases \pn{traj.nreleased} constants this way. A release is a sensitivity to priors and not a
 posterior, since the fit held those constants at their nominal values.

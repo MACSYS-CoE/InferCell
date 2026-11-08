@@ -9,7 +9,7 @@ Inputs, read and never written:
   runs/budget-kim42/budget_rows.tsv;
 - paper/figures/data: av6_replicates.tsv, av6_bands.tsv, av6_v6_draws.tsv, copied from B7's run,
   budget_mu.tsv, from the archive by paper/figures/budget_dump.jl, and traj_*.tsv, copied unchanged
-  from the trajectory runs' tsv/ (infercell-trajectories-2026-11-08, dev/scripts/trajectories_predict_result.md);
+  from the trajectory runs' tsv/ (infercell-trajectories-2026-11-08; dev/scripts/trajectories_predict_result.md on main, #159);
 - dev/scripts/f10_16a10_draws.tsv and dev/scripts/v7_16a9b_ranks.tsv.
 """
 import csv
@@ -337,7 +337,7 @@ def fig_trajectories():
     row[0].plot(t / 60, v * RATIO / 1e3, "o", ms=3, mfc="white", mec=INK, mew=0.7, label="Data")
     row[0].plot(tt / 60, meter / 1e3, color=INK, lw=0.8, ls=(0, (3, 1.5)), label="Truth")
     row[0].set_ylabel("Thousands")
-    row[0].set_title("Lactate exported, observed")
+    row[0].set_title("Lactate exported, via lactate")
     shade(row[1], band(a, "M_gtp_c", "new_bulk"), 1e3, LIGHT)
     shade(row[1], band(a, "M_gtp_c", "rows"), 1e3, EXACT)
     t, v = obs("M_gtp_c")
@@ -372,7 +372,7 @@ def fig_trajectories():
         m = band(b, species, "rows")
         row[k].plot(m["t"] / 60, m["mean"] / scale, color=INK, lw=1, label="Predictive mean")
     end = band(b, "lac_export_meter", "rows")["mean"][-1]
-    assert abs(end / 9.5765e6 - 1) < 1e-4, end  # KIM-42's mean Q at width 1
+    assert abs(end / 9.5765e6 - 1) < 6e-6, end  # KIM-42's mean Q at width 1
     row[0].set_ylabel("Millions")
     row[0].set_title("Lactate exported")
     row[1].set_ylabel("Thousands")
@@ -384,6 +384,7 @@ def fig_trajectories():
     for name, colour, label in (("held_share_i_first", EXACT, r"$\theta_I$ first"),
                                 ("held_share_h_first", MIXED, r"$\theta_H$ first")):
         row[2].plot(ts, [float(r[name]) for r in shown], color=colour, label=label)
+    assert float(split[-1]["t"]) == 6300.0
     final = float(split[-1]["held_share_i_first"])
     assert round(final, 3) == 0.908, final  # KIM-42's headline at width 1
     row[2].set_ylim(0, 1)
