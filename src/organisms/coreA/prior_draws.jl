@@ -289,6 +289,19 @@ const D11_TARGETS = [promoter_param(:JCVISYN3A_0607), promoter_param(:JCVISYN3A_
                      :kcatF_R_ENO, :kcatF_R_FBA]
 
 """
+    COREA_TARGETS
+
+The reduced syn3A model's free parameters for inference by the mixed route,
+apart from σ, which is drawn separately: all seventeen promoter strengths, in
+the transcription module's gene order, then the decay constant and the enolase
+and aldolase forward constants. Twenty names, the union of the uncertainty
+budget's θ_I and θ_H (Linear KIM-89, Spec D1, decided 2026-11-09). With σ_b
+the chain has 21 coordinates. [`D11_TARGETS`](@ref) is the six-name subset.
+"""
+const COREA_TARGETS = vcat([promoter_param(l) for (l, _) in TRANSCRIPTION_LOCI],
+                           [:krnadeg, :kcatF_R_ENO, :kcatF_R_FBA])
+
+"""
     d11_models(; smoothing = nothing) -> Vector{AbstractSubModel}
 
 The assembled composition with D11's two ODE targets freed, and the reverse
@@ -303,5 +316,5 @@ function d11_models(; smoothing::Union{Nothing, Real} = nothing)
 end
 
 export HaldaneRelation, haldane_relations, equilibrium_constant,
-       nominal_parameter_values, draw_parameters, haldane_values, assert_haldane, D11_TARGETS,
+       nominal_parameter_values, draw_parameters, haldane_values, assert_haldane, D11_TARGETS, COREA_TARGETS,
        d11_models

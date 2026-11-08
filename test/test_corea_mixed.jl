@@ -9,6 +9,7 @@ using InferCell
 using InferCell: _mixed_solve
 using ForwardDiff
 using Random
+using Distributions: LogNormal
 
 @testset "corea_dataset and the mixed likelihood on the reduced model" begin
     # B8.2: an injection, drawn from one recorded seed.
@@ -41,6 +42,27 @@ using Random
         @test c.σ != a.sigma && c.truth.values != a.truth.values
     end
 
+    # KIM-89's free set (Spec D1): twenty names, the dataset's truth over all of
+    # them, and a different stream from D11's six at the same seed.
+    @testset "COREA_TARGETS and a truth over it" begin
+        genes = [g.locus for g in read_transcription_genes()]
+        @test COREA_TARGETS == vcat(promoter_param.(genes),
+                                    [:krnadeg, :kcatF_R_ENO, :kcatF_R_FBA])
+        @test length(COREA_TARGETS) == 20 && allunique(COREA_TARGETS)
+        @test D11_TARGETS ⊆ COREA_TARGETS
+        ms = d11_models()
+        @test all(n -> InferCell._parameter_by_name(ms, n).prior isa LogNormal, COREA_TARGETS)
+        a = corea_dataset(17_200_001; ncells = 2, horizon = 120.0, targets = COREA_TARGETS)
+        @test a.targets == COREA_TARGETS
+        @test first.(a.truth.values)[1:20] == COREA_TARGETS
+        check_truth(ms, a.truth; names = COREA_TARGETS)
+        nominal = nominal_parameter_values(ms)
+        @test all(nv -> nv[2] != nominal[nv[1]], a.truth.values[1:20])
+        d6 = corea_draws(17_200_001; ncells = 2)
+        @test a.sigma != d6.σ && a.seeds != d6.cells
+        @test corea_dataset(17_200_001; ncells = 2, horizon = 120.0).targets == D11_TARGETS
+    end
+
     @testset "the 200 injections' seeds, at production size" begin
         reps = 17_200_000 .+ (1:200)
         # Replicate seeds disjoint from V7's and A2's.
@@ -49,10 +71,11 @@ using Random
         # Within an injection, cells, reference cells and chains never meet
         # (reference_seeds and mixed_chain_seeds refuse it); chains never meet
         # across injections either. Reference and cell seeds are UInt32 draws, so
-        # across injections they may coincide, at different truths.
+        # across injections they may coincide, at different truths. The draws
+        # are the pilot's, over COREA_TARGETS (KIM-92).
         chains = Int[]
         for r in reps
-            d = corea_draws(r)
+            d = corea_draws(r; targets = COREA_TARGETS)
             ds = (; replicate_seed = r, seeds = d.cells)
             refs = reference_seeds(ds, 800)
             ch = reduce(vcat, [mixed_chain_seeds(ds, 16; arm) for arm in 0:3])
@@ -66,10 +89,11 @@ using Random
         @test isdisjoint(chains, v7)
     end
 
-    # B8.3: Core A′ in mixed_setup, AV3 and B7.3's stream identities.
+    # B8.3: the reduced model in mixed_setup, AV3 and B7.3's stream identities,
+    # on KIM-89's free set: the pilot's own setup.
     H = 180.0
-    ds = corea_dataset(17_200_001; ncells = 2, horizon = H)
-    corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = D11_TARGETS, kw...)
+    ds = corea_dataset(17_200_001; ncells = 2, horizon = H, targets = COREA_TARGETS)
+    corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = COREA_TARGETS, kw...)
     s = corea()
     truth = Dict(ds.truth.values)
     xt = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
@@ -79,9 +103,10 @@ using Random
     A = randn(rng, n, 4)
     δ, Σ = 0.02 .* randn(rng, n), 1e-3 .* (A * A')
 
-    @testset "the setup on Core A′" begin
-        @test mixed_parameter_names(s) == vcat([Symbol(:log_, t) for t in D11_TARGETS],
+    @testset "the setup on the reduced model" begin
+        @test mixed_parameter_names(s) == vcat([Symbol(:log_, t) for t in COREA_TARGETS],
                                                :log_sigma_b)
+        @test length(mixed_parameter_names(s)) == 21
         @test s.loci == [g.locus for g in read_transcription_genes()]
         @test length(s.factors) == 2
         @test s.saves == [60.0, 120.0, 180.0] && s.switches == [0.0, 59.0, 119.0, 179.0]
@@ -90,7 +115,7 @@ using Random
         @test all(x -> isfinite(mixed_logdensity(s, x)), xs)
     end
 
-    @testset "AV3 on Core A′ at two x" begin
+    @testset "AV3 on the reduced model at two x, 21 coordinates" begin
         tight = with_reference(corea(; abstol = 1e-14, reltol = 1e-12), δ, Σ)
         ℓ(z) = mixed_logdensity(tight, z)
         for x in xs
@@ -104,7 +129,7 @@ using Random
         end
     end
 
-    @testset "streams on Core A′: each factor alone" begin
+    @testset "streams on the reduced model: each factor alone" begin
         both = with_reference(corea(; streams = (:bulk, :tx)), δ, Σ)
         txo = with_reference(corea(; streams = (:tx,)), δ, Σ)
         bulko = with_reference(corea(; streams = (:bulk,)), δ, Σ)
