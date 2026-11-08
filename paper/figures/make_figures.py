@@ -337,7 +337,7 @@ def fig_trajectories():
     row[0].plot(t / 60, v * RATIO / 1e3, "o", ms=3, mfc="white", mec=INK, mew=0.7, label="Data")
     row[0].plot(tt / 60, meter / 1e3, color=INK, lw=0.8, ls=(0, (3, 1.5)), label="Truth")
     row[0].set_ylabel("Thousands")
-    row[0].set_title("Lactate exported, via lactate")
+    row[0].set_title("Lactate exported; data: lactate out")
     shade(row[1], band(a, "M_gtp_c", "new_bulk"), 1e3, LIGHT)
     shade(row[1], band(a, "M_gtp_c", "rows"), 1e3, EXACT)
     t, v = obs("M_gtp_c")
@@ -372,7 +372,7 @@ def fig_trajectories():
         m = band(b, species, "rows")
         row[k].plot(m["t"] / 60, m["mean"] / scale, color=INK, lw=1, label="Predictive mean")
     end = band(b, "lac_export_meter", "rows")["mean"][-1]
-    assert abs(end / 9.5765e6 - 1) < 6e-6, end  # KIM-42's mean Q at width 1
+    assert round(end, -2) == 9576500, end  # KIM-42's mean Q at width 1
     row[0].set_ylabel("Millions")
     row[0].set_title("Lactate exported")
     row[1].set_ylabel("Thousands")
