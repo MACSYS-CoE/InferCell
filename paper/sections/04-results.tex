@@ -1,62 +1,9 @@
 \section{Results}
 \label{sec:results}
 
-We follow one demonstration in three steps: a test system, the posteriors \IC{} gives on it, and
-the probabilistic predictions those posteriors support. All results use synthetic data, and the
-priors are asserted. Results marked \emph{unscored} are not compared with any truth. For the scored
-results, the test is calibration: over many datasets, a 90\% credible interval must contain the
-truth about 90\% of the time \cite{talts2018validating}.
-
-\subsection{The test system: a reduced model of \syn{}, and M0}
-\label{sec:model}
-
-We test \IC{} on a model reduced from the well-stirred \syn{} model of
-Thornburg and coworkers~\cite{thornburg2022fundamental}. The reduction keeps the best-measured region of
-the cell and removes about \pn{model.removed} of it (\cref{fig:model}).
-
-\begin{itemize}
-  \item \textbf{Metabolism:} \pn{model.rxn} reactions in \pn{model.odemodules} ODE
-  modules: glycolysis to lactate, sugar transport and lactate export, nucleotide
-  recycling, and a lumped step for tRNA charging.
-  \item \textbf{Gene expression:} \pn{model.jumprxn} reactions in
-  \pn{model.jumpmodules} jump modules: transcription, transcript decay and
-  translation for \pn{model.genes} genes, and membrane insertion for the one
-  membrane protein, the glucose transporter PtsG.
-  \item \textbf{State:} \pn{model.species} dynamic species and \pn{model.chemostats}
-  held species, each named once in a registry with its initial value, prior width
-  and source.
-\end{itemize}
-
-The two blocks couple in both directions, as in the published model. Enzyme counts
-set metabolic rates, and the costs of transcription and translation drain the
-nucleotide and charged-tRNA pools. In the other direction, the pools set the
-transcription and translation rate constants at each one-minute rebuild. Membrane
-protein counts set the cell's area and volume. No rate constant appears in both
-blocks. This property comes from the published model, not from our reduction.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\linewidth]{fig_model.pdf}
-\caption{\textbf{The reduced \syn{} model.} The four metabolic modules (ODE) and three gene-expression modules (jump), and what crosses between them. Arrows run between the blocks, not the boxes they touch. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. The orange arrow is the weak return. Supplementary File S1 lists each departure from the published model.}
-\label{fig:model}
-\end{figure*}
-
-The model makes no claim about \syn{} itself. With most of the cell removed, it
-cannot reproduce the doubling time, the metabolite levels or the proteome of the
-real organism. The code refuses to report a doubling time, so that no result can
-be compared with these quantities by mistake. The model's purpose is to give a
-real ODE--stochastic boundary from a published whole-cell model, at a size where an
-exact posterior is affordable.
-
-An exact posterior on the full reduced model
-costs too much (\cref{tab:cost}). We therefore also use M0, the reduced model cut
-to two genes over \pn{mzero.horizon}\,s. The two genes are GAPD, whose promoter is
-the best determined, and ptsG, the membrane transporter. All metabolism stays. The
-other enzyme counts are held at their measured copy numbers, and this hold is a
-declared reduction. M0 has \pn{mzero.npar} free parameters: the two promoter
-strengths, the transcript decay rate, the forward catalytic constants of enolase
-(ENO) and aldolase (FBA), and the bulk assay noise $\sigb$. All the posteriors in this
-paper are on M0.
+We follow the demonstration on the test system of \cref{sec:model} in two steps: the posteriors
+\IC{} gives on M0, and the probabilistic predictions those posteriors support, scored on M0 and
+unscored on the reduced model.
 
 \subsection{Posteriors on M0}
 \label{sec:posteriors}
@@ -232,7 +179,7 @@ mean $\mu(\theta)$. The intervention is a knockdown that scales the ptsG promote
 by $1 - d$, at dose $d = \pn{budget.dose}$, with paired seeds, and its effect is $\Delta Q$. We fixed the quantity, the estimand, the viability rule and the
 intervention on held-out pilots before any evidence run (\cref{sec:prediction}).
 
-\paragraph{Why M0, and why scoring stops there.} M0 is a slice of the reduced model small enough for the exact route to check a truth. It keeps all the metabolic reactions and the same blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
+\paragraph{Why M0, and why scoring stops there.} M0 is the slice of the reduced model small enough for the exact route to check a truth (\cref{sec:m0}). It holds the other enzyme counts fixed and runs for \pn{mzero.horizon}\,s, so this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
 One exact posterior on the reduced model is projected at about \pn{cost.fullscale}
 CPU-hours, and calibration needs \pn{mzero.cells} of them, about \pn{cost.fullcoverage} CPU-hours. We have not costed the same test by the mixed route.
 
