@@ -117,71 +117,87 @@ using Distributions: LogNormal
     end
 
     # B8.3: the reduced model in mixed_setup, AV3 and B7.3's stream identities,
-    # on KIM-89's free set: the pilot's own setup.
-    H = 180.0
-    ds = corea_dataset(17_200_001; ncells = 2, horizon = H, targets = COREA_TARGETS)
-    corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = COREA_TARGETS, kw...)
-    s = corea()
-    truth = Dict(ds.truth.values)
-    xt = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
-    xs = [xt, mixed_prior_median(s)]
-    n = length(M0_PANEL) * 3
-    rng = Xoshiro(13)
-    A = randn(rng, n, 4)
-    δ, Σ = 0.02 .* randn(rng, n), 1e-3 .* (A * A')
+    # on KIM-89's free set: the pilot's own setup. One tight route (ii) solve
+    # takes minutes here (Slurm 20358816: 211 s at 180 s; the gradient 598 s), so
+    # AV3 and the per-stream sweeps, about 5 h each, run only with
+    # INFERCELL_SLOW_TESTS=true (KIM-91). The unit suite keeps the setup and the
+    # stream identities, at the default tolerances and a 120 s horizon.
+    function corea_case(H)
+        ds = corea_dataset(17_200_001; ncells = 2, horizon = H, targets = COREA_TARGETS)
+        corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = COREA_TARGETS, kw...)
+        s = corea()
+        truth = Dict(ds.truth.values)
+        xt = vcat([log(truth[n]) for n in s.names], log(ds.sigma))
+        n = length(M0_PANEL) * length(s.saves)
+        rng = Xoshiro(13)
+        A = randn(rng, n, 4)
+        return (; ds, corea, s, xt, xs = [xt, mixed_prior_median(s)], n,
+                δ = 0.02 .* randn(rng, n), Σ = 1e-3 .* (A * A'))
+    end
+    # Gradient against central differences, coordinate by coordinate.
+    function av3_check(ℓ, x; nonzero = true)
+        g = ForwardDiff.gradient(ℓ, x)
+        @test all(isfinite, g)
+        nonzero && @test all(!iszero, g)
+        for j in eachindex(x)
+            e = zeros(length(x))
+            e[j] = 1e-4
+            @test g[j] ≈ (ℓ(x + e) - ℓ(x - e)) / 2e-4 rtol = 1e-6
+        end
+    end
 
+    c = corea_case(120.0)
     @testset "the setup on the reduced model" begin
+        s = c.s
         @test mixed_parameter_names(s) == vcat([Symbol(:log_, t) for t in COREA_TARGETS],
                                                :log_sigma_b)
         @test length(mixed_parameter_names(s)) == 21
         @test s.loci == [g.locus for g in read_transcription_genes()]
         @test length(s.factors) == 2
-        @test s.saves == [60.0, 120.0, 180.0] && s.switches == [0.0, 59.0, 119.0, 179.0]
+        @test s.saves == [60.0, 120.0] && s.switches == [0.0, 59.0, 119.0]
         @test Set(s.forwards) == Set([:kcatF_R_ENO, :kcatF_R_FBA])
-        @test length(s.logz) == n
-        @test all(x -> isfinite(mixed_logdensity(s, x)), xs)
-    end
-
-    @testset "AV3 on the reduced model at two x, 21 coordinates" begin
-        tight = with_reference(corea(; abstol = 1e-14, reltol = 1e-12), δ, Σ)
-        ℓ(z) = mixed_logdensity(tight, z)
-        for x in xs
-            g = ForwardDiff.gradient(ℓ, x)
-            @test all(isfinite, g) && all(!iszero, g)
-            for j in eachindex(x)
-                e = zeros(length(x))
-                e[j] = 1e-4
-                @test g[j] ≈ (ℓ(x + e) - ℓ(x - e)) / 2e-4 rtol = 1e-6
-            end
-        end
+        @test length(s.logz) == c.n
+        @test all(x -> isfinite(mixed_logdensity(s, x)), c.xs)
     end
 
     @testset "streams on the reduced model: each factor alone" begin
+        (; s, corea, δ, Σ) = c
         both = with_reference(corea(; streams = (:bulk, :tx)), δ, Σ)
         txo = with_reference(corea(; streams = (:tx,)), δ, Σ)
         bulko = with_reference(corea(; streams = (:bulk,)), δ, Σ)
-        x = xt
+        x = c.xt
         θ = exp.(x[1:length(s.names)])
         r = _mixed_solve(s, θ)
         k = route_transcription_rates(s, r.sol, r.p)
         μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
         ltx = transcript_loglik(s.factors, k, μ)
-        lbulk = bulk_loglik(both, mean_field_log_bulk(s, r.sol), ds.sigma)
+        lbulk = bulk_loglik(both, mean_field_log_bulk(s, r.sol), c.ds.sigma)
         @test mixed_logdensity(both, x) === mixed_logdensity(with_reference(s, δ, Σ), x)
         @test mixed_loglik(both, x) === ltx + lbulk
         @test mixed_loglik(txo, x) === ltx
         @test mixed_loglik(bulko, x) === lbulk
         @test mixed_logdensity(txo, x) == mixed_log_prior(s, x) + ltx
         @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
-        for st in ((:tx,), (:bulk,))
-            tight = with_reference(corea(; abstol = 1e-14, reltol = 1e-12, streams = st), δ, Σ)
-            ℓ(z) = mixed_logdensity(tight, z)
-            g = ForwardDiff.gradient(ℓ, x)
-            for j in eachindex(x)
-                e = zeros(length(x))
-                e[j] = 1e-4
-                @test g[j] ≈ (ℓ(x + e) - ℓ(x - e)) / 2e-4 rtol = 1e-6
+    end
+
+    if get(ENV, "INFERCELL_SLOW_TESTS", "false") == "true"
+        cs = corea_case(180.0)
+        tight(; kw...) = with_reference(cs.corea(; abstol = 1e-14, reltol = 1e-12, kw...),
+                                        cs.δ, cs.Σ)
+        @testset "AV3 on the reduced model at two x, 21 coordinates" begin
+            @test cs.s.saves == [60.0, 120.0, 180.0]
+            t = tight()
+            for x in cs.xs
+                av3_check(z -> mixed_logdensity(t, z), x)
             end
         end
+        @testset "AV3 on the reduced model, each stream alone" begin
+            for st in ((:tx,), (:bulk,))
+                t = tight(; streams = st)
+                av3_check(z -> mixed_logdensity(t, z), cs.xt; nonzero = false)
+            end
+        end
+    else
+        @info "test_corea_mixed.jl: AV3 on the reduced model skipped; set INFERCELL_SLOW_TESTS=true"
     end
 end
