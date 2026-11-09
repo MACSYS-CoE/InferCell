@@ -248,12 +248,14 @@ function run_extend(out, c)
     base = load(out, "chain_$c")
     seed = mixed_chain_seeds(f.ds, NCHAIN; arm = ARM_EXTEND)[c]
     rng = Xoshiro(seed)
-    # No new adaptation: NUTS with zero adaptation steps continues from the saved
-    # state's step size and mass matrix.
-    t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(0, TARGET_ACCEPT), base.ndraw;
-                                initial_state = base.chain.info.samplerstate, progress = false,
-                                save_state = true,
+    # No new adaptation: `resume_from` continues from the saved state, with its step
+    # size and mass matrix, and Turing runs it with nadapts = 0. (Turing 0.39 ignores
+    # `initial_state` unless `resume_from` is given, and would start afresh.)
+    t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(NADAPT, TARGET_ACCEPT), base.ndraw;
+                                resume_from = base.chain, progress = false, save_state = true,
                                 callback = progress_callback("extend $c", base.ndraw))
+    ε0, ε1 = base.chain[:step_size][end], unique(chain[:step_size])
+    ε1 == [ε0] || error("the extension's step size $ε1 is not the chain's adapted $ε0")
     save(out, "extend_$c", (; c, seed, chain, seconds = t, ndraw = base.ndraw); stage = "extend")
     say(@sprintf("extend %d: %d more iterations in %.1f h", c, base.ndraw, t / 3600))
 end
