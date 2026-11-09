@@ -38,8 +38,13 @@ using Printf
 using Random
 using LinearAlgebra
 using Statistics: median, std, cor, quantile
+using Turing
 using Turing: sample, NUTS
 using MCMCChains
+const DPPL = Turing.DynamicPPL
+const AHMC = Turing.Inference.AHMC
+const LDP = Turing.Inference.LogDensityProblems
+const AMCMC = Turing.Inference.AbstractMCMC
 using MCMCChains: MCMCDiagnosticTools
 const MDT = MCMCDiagnosticTools
 
@@ -255,17 +260,37 @@ function run_chain(out, c)
     say(@sprintf("chain %d: %d + %d iterations in %.1f h", c, NADAPT, NDRAW, t / 3600))
 end
 
+# A saved HMC state with its Hamiltonian rebuilt on `model` (see run_extend).
+function fresh_state(rng, model, spl, st)
+    ldf = DPPL.LogDensityFunction(model, st.vi,
+                                  DPPL.SamplingContext(rng, spl, DPPL.leafcontext(model.context));
+                                  adtype = spl.alg.adtype)
+    h = AHMC.Hamiltonian(st.hamiltonian.metric, Base.Fix1(LDP.logdensity, ldf),
+                         Base.Fix1(LDP.logdensity_and_gradient, ldf))
+    z = AHMC.phasepoint(h, st.z.θ, st.z.r)
+    return Turing.Inference.HMCState(st.vi, st.i, st.kernel, h, z, st.adaptor)
+end
+
 function run_extend(out, c)
     f = fit_setup(out)
     base = load(out, "chain_$c")
     seed = mixed_chain_seeds(f.ds, NCHAIN; arm = ARM_EXTEND)[c]
     rng = Xoshiro(seed)
-    # No new adaptation: `resume_from` continues from the saved state, with its step
-    # size and mass matrix, and Turing runs it with nadapts = 0. (Turing 0.39 ignores
-    # `initial_state` unless `resume_from` is given, and would start afresh.)
-    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), base.ndraw;
-                                resume_from = base.chain, progress = false, save_state = true,
-                                callback = progress_callback("extend $c", base.ndraw))
+    # No new adaptation: the chain continues from its saved state (position, step size,
+    # mass matrix, adaptor) with nadapts = 0, as Turing's `resume_from` runs it. But the
+    # saved state's Hamiltonian holds the chain job's log density, whose ODE function
+    # wrappers do not survive deserialisation (every smoke extension failed with
+    # NoFunctionWrapperFoundError, jobs 20468632–35; diagnosed in 20481840). So the
+    # Hamiltonian is rebuilt on this process's model, as Turing's initialstep builds it,
+    # and the rest of the state is kept. On a toy model across two processes this gives
+    # resume_from's draws bitwise (2026-11-10).
+    model, spl = mixed_model(f.s), DPPL.Sampler(nuts())
+    state = fresh_state(rng, model, spl, base.chain.info.samplerstate)
+    t = @elapsed chain = AMCMC.mcmcsample(rng, model, spl, base.ndraw;
+                                          chain_type = MCMCChains.Chains, initial_state = state,
+                                          nadapts = 0, discard_initial = 0, progress = false,
+                                          save_state = true,
+                                          callback = progress_callback("extend $c", base.ndraw))
     ε0, ε1 = base.chain[:step_size][end], unique(chain[:step_size])
     ε1 == [ε0] || error("the extension's step size $ε1 is not the chain's adapted $ε0")
     save(out, "extend_$c", (; c, seed, chain, seconds = t, ndraw = base.ndraw); stage = "extend")
