@@ -502,14 +502,21 @@ function generate_dataset(truth::NamedTuple, seeds::AbstractVector{<:Integer};
 end
 
 """
-    corea_draws(replicate_seed; ncells = 200, models = d11_models()) -> NamedTuple
+    corea_draws(replicate_seed; ncells = 200, models = d11_models(),
+                targets = D11_TARGETS) -> NamedTuple
 
 [`corea_dataset`](@ref)'s draws without its cells: `(truth, σ, cells, noise_seed,
-bulk_seed)`, in the order it draws them.
+bulk_seed)`, in the order it draws them. The truth is drawn over `targets`, first.
+
+A different `targets` is a different dataset at the same seed, not the same cells
+with a larger truth: the truth's draws come first from the replicate's generator,
+so twenty names (the pilot's [`COREA_TARGETS`](@ref)) leave σ, the cell seeds and
+both noise seeds different from six names' ([`D11_TARGETS`](@ref)).
 """
-function corea_draws(replicate_seed::Integer; ncells::Integer = 200, models = d11_models())
+function corea_draws(replicate_seed::Integer; ncells::Integer = 200, models = d11_models(),
+                     targets::AbstractVector{Symbol} = D11_TARGETS)
     rng = Xoshiro(replicate_seed)
-    truth = draw_truth(rng, models; names = D11_TARGETS, purpose = :calibration)
+    truth = draw_truth(rng, models; names = targets, purpose = :calibration)
     σ = rand(rng, SIGMA_MET_PRIOR)
     cells = Int.(rand(rng, UInt32, ncells))
     allunique(cells) || error("replicate $replicate_seed drew a repeated cell seed")
@@ -519,14 +526,26 @@ function corea_draws(replicate_seed::Integer; ncells::Integer = 200, models = d1
 end
 
 """
-    corea_dataset(replicate_seed; ncells = 200, horizon = COREA_CYCLE_S) -> NamedTuple
+    COREA_FIT_S
+
+The reduced-model pilot's fit window, 3150 s: the first half of one
+[`COREA_CYCLE_S`](@ref) cycle (Linear KIM-89, Spec D2, decided 2026-11-09). The
+second half is the later horizon the predictions are scored on, and the data
+never see it. 3150 s is off the 60 s save grid, so a window to `COREA_FIT_S`
+holds 52 saves, the last at 3120 s.
+"""
+const COREA_FIT_S = COREA_CYCLE_S / 2
+
+"""
+    corea_dataset(replicate_seed; ncells = 200, horizon = COREA_CYCLE_S,
+                  fit_to = horizon, targets = D11_TARGETS) -> NamedTuple
 
 One synthetic dataset (an injection) on the reduced syn3A model, everything drawn from one recorded seed, as
 [`m0_dataset`](@ref) draws an M0 replicate. Built for B8's AV7, which is parked;
-its later use is a scored recovery test, with a known truth on the reduced model,
-separate from the unscored reduced-model prediction (spec/spec.md §12 2026-10-29,
-"v0.3.0 launch decisions"). It draws:
-- a truth over [`D11_TARGETS`](@ref) on [`d11_models`](@ref), drawn from the prior
+its use now is the reduced-model pilot's scored recovery, with a known truth on
+the reduced model (Linear KIM-89, KIM-92), passing `targets = COREA_TARGETS`. It
+draws, by [`corea_draws`](@ref):
+- a truth over `targets` on [`d11_models`](@ref), drawn from the prior
   Haldane-consistently;
 - σ from [`SIGMA_MET_PRIOR`](@ref), the sampler's own prior;
 - `ncells` cell seeds, a noise seed and a bulk seed, drawn last in that order.
@@ -534,28 +553,48 @@ separate from the unscored reduced-model prediction (spec/spec.md §12 2026-10-2
 The [`M0_PANEL`](@ref) metabolites, A2's panel, are observed in bulk at σ, floored at
 one particle, and every transcribed gene's transcripts exactly. The t = 0 save is
 dropped. Returns [`generate_dataset`](@ref)'s record without t = 0, with `sigma`,
-`replicate_seed`, `noise`, `bulk` and `bulk_seed` added, as `m0_dataset` does.
+`replicate_seed`, `noise`, `bulk` and `bulk_seed` added, as `m0_dataset` does, and
+`targets`, `horizon` and `fit_to`: a window's noise is drawn over the run to
+`horizon`, so regenerating it needs both.
+
+`fit_to` is the fit window: the cells run to `horizon`, and the record keeps only
+the saves at `0 < t ≤ fit_to` ([`COREA_FIT_S`](@ref) for the pilot). It is a cut of
+the full run, not a shorter run, because the driver also records at its final
+step (an off-grid `horizon` would add a save `mixed_setup` refuses) and the
+transcript noise is drawn over the whole record. The bulk is drawn on the full
+record too and then cut, since `randn` over a different-sized array is not a
+prefix of the same seed's draws. So the window's latent state, transcripts, noisy
+observations and bulk are the full record's first saves. The default
+`fit_to = horizon` keeps every save.
 """
 function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
-                       horizon::Real = COREA_CYCLE_S)
+                       horizon::Real = COREA_CYCLE_S, fit_to::Real = horizon,
+                       targets::AbstractVector{Symbol} = D11_TARGETS)
+    60 <= fit_to <= horizon || throw(ArgumentError(
+        "fit_to must be from one save (60 s) to the horizon $horizon s, not $fit_to s"))
     models = d11_models()
-    (; truth, σ, cells, noise_seed, bulk_seed) = corea_draws(replicate_seed; ncells, models)
+    (; truth, σ, cells, noise_seed, bulk_seed) =
+        corea_draws(replicate_seed; ncells, models, targets)
     genes = [g.locus for g in only(m for m in models if m isa CoreATranscription).genes]
     noise = NoiseModel(Modality(:metabolite, :lognormal, M0_PANEL; floor = 1.0,
                                 prior = SIGMA_MET_PRIOR),
                        Modality(:transcript, :poisson, [transcript_state(g) for g in genes]))
     ds = generate_dataset(truth, cells; models, horizon, noise, noise_seed,
-                          scales = Dict(:sigma_metabolite => σ), names = D11_TARGETS)
-    keep = findall(>(0), ds.times)
+                          scales = Dict(:sigma_metabolite => σ), names = targets)
+    saves = findall(>(0), ds.times)
+    bulk = observe_bulk(ds.latent[:, :, saves], ds.species, M0_PANEL; sigma = σ,
+                        noise_seed = bulk_seed)
+    keep = findall(t -> 0 < t <= fit_to + 1e-9, ds.times)
+    bulk = bulk[:, findall(in(keep), saves)]
     latent = ds.latent[:, :, keep]
-    bulk = observe_bulk(latent, ds.species, M0_PANEL; sigma = σ, noise_seed = bulk_seed)
     return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
             sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
-            bulk, bulk_seed)
+            bulk, bulk_seed, targets = collect(Symbol, targets), horizon = Float64(horizon),
+            fit_to = Float64(fit_to))
 end
 
-export corea_dataset, corea_draws
+export corea_dataset, corea_draws, COREA_FIT_S
 export protein_count_states, assert_no_circularity
 export TRUTH_PURPOSES, draw_truth, nominal_truth, check_truth, truth_label
 export reaction_fluxes, PTS_FLUX_NAMES, emit_observables!, emit_ensemble

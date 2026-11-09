@@ -84,6 +84,10 @@ ordinary M0 solve takes about 1,200 out to ±4 prior SD. x outside the box
 transcript factors, and `:bulk`, the bulk factor. A fit with one stream keeps
 the other's prior: with `(:tx,)`, σ_b's posterior is its prior. The rate support
 the factors were sized for is checked only when `:tx` is scored.
+
+A dataset that records its `targets`, as [`corea_dataset`](@ref) does, must be
+given the same `targets` here, so a fit cannot score a different free set from
+the one its truth was drawn over.
 """
 function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
                      panel::AbstractVector{Symbol} = M0_PANEL, delta = nothing, S = nothing,
@@ -93,6 +97,9 @@ function mixed_setup(ds; models = m0_models(), targets = M0_TARGETS,
     st = collect(Symbol, streams)
     !isempty(st) && allunique(st) && all(in(MIXED_STREAMS), st) || throw(ArgumentError(
         "streams must be distinct entries of $MIXED_STREAMS, got $(Tuple(st))"))
+    hasproperty(ds, :targets) && collect(Symbol, ds.targets) != collect(Symbol, targets) &&
+        throw(ArgumentError("the dataset's truth was drawn over $(ds.targets), but " *
+                            "targets = $(collect(Symbol, targets)); pass the dataset's"))
     ms = collect(AbstractSubModel, models)
     times = Float64.(ds.times)
     M = length(times)
