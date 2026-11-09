@@ -27,8 +27,8 @@
 #                   pooled kept draws, 10 replicates of log z_rep each, threaded;
 #   merge <out>     the gates, recovery, contraction and cost, to pilot_summary.md and
 #                   the TSVs the figures read.
-# SMOKE=1: 3 cells, a 300 s run cut at 150 s (two saves), 8 reference cells, 10 + 10
-# NUTS steps, 10 PPC draws × 2: a plumbing pass, never a result. NADAPT and NDRAW can
+# SMOKE=1: 3 cells, a 300 s run cut at 150 s (two saves), 8 reference cells, 5 + 5
+# NUTS steps at tree depth ≤ 3, 10 PPC draws × 2: a plumbing pass, never a result. NADAPT and NDRAW can
 # be set for a run, but the frozen design is 200 + 200 (a change is a Decision log entry).
 
 include(joinpath(@__DIR__, "pilot_common.jl"))
@@ -52,8 +52,12 @@ const HORIZON = SMOKE ? 300.0 : COREA_CYCLE_S
 const FIT_TO = SMOKE ? 150.0 : COREA_FIT_S
 const NREF = SMOKE ? 8 : 800
 const MAP_ITERS = SMOKE ? 5 : 200
-const NADAPT = envint("NADAPT", SMOKE ? 10 : 200)
-const NDRAW = envint("NDRAW", SMOKE ? 10 : 200)
+const NADAPT = envint("NADAPT", SMOKE ? 5 : 200)
+const NDRAW = envint("NDRAW", SMOKE ? 5 : 200)
+# Turing's default, 10, for the run. A smoke caps it at 3: plumbing only, since one
+# deep iteration took over 3 h at the smoke's size (jobs 20453041–44).
+const MAX_DEPTH = SMOKE ? 3 : 10
+nuts() = NUTS(NADAPT, TARGET_ACCEPT; max_depth = MAX_DEPTH)
 const NCHAIN = 4
 const TARGET_ACCEPT = 0.8
 const JITTER_SD = 0.25
@@ -235,7 +239,7 @@ function run_chain(out, c)
     st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
     say(@sprintf("chain %d: seed %d, start after %d tries, log density %.4f", c, seed, st.tries,
                  mixed_logdensity(f.s, st.x)))
-    t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(NADAPT, TARGET_ACCEPT), NDRAW;
+    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), NDRAW;
                                 initial_params = st.x, progress = false, save_state = true,
                                 callback = progress_callback("chain $c", NADAPT + NDRAW))
     save(out, "chain_$c", (; c, seed, start = st.x, start_tries = st.tries, chain, seconds = t,
@@ -251,7 +255,7 @@ function run_extend(out, c)
     # No new adaptation: `resume_from` continues from the saved state, with its step
     # size and mass matrix, and Turing runs it with nadapts = 0. (Turing 0.39 ignores
     # `initial_state` unless `resume_from` is given, and would start afresh.)
-    t = @elapsed chain = sample(rng, mixed_model(f.s), NUTS(NADAPT, TARGET_ACCEPT), base.ndraw;
+    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), base.ndraw;
                                 resume_from = base.chain, progress = false, save_state = true,
                                 callback = progress_callback("extend $c", base.ndraw))
     ε0, ε1 = base.chain[:step_size][end], unique(chain[:step_size])

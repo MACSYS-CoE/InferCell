@@ -20,7 +20,7 @@ script=dev/scripts/corea_pilot_kim92.jl
 ex="--export=ALL,SMOKE=$smoke,NADAPT=${NADAPT:-},NDRAW=${NDRAW:-}"
 if [ "$smoke" = 1 ]; then
     t_ds=01:00:00; t_prof=02:00:00; t_prep=02:00:00; t_chain=04:00:00; t_ppc=01:00:00; ppc_threads=2
-    ndraw=${NDRAW:-10}
+    ndraw=${NDRAW:-5}
 else
     t_ds=12:00:00; t_prof=2-00:00:00; t_prep=2-00:00:00; t_chain=${CHAIN_TIME:-7-00:00:00}
     t_ppc=2-00:00:00; ppc_threads=16; ndraw=${NDRAW:-200}
