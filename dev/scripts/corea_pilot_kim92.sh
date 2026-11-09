@@ -43,7 +43,7 @@ profile() {   # -> $ds_job
 }
 posterior() {   # $1: a job to wait for, or empty -> $chains_job
     local p c ids=()
-    p=$(sub "$ex" $(after "$1") --cpus-per-task=1 --mem=64G --time=$t_prep --job-name=kim92_prep \
+    p=$(sub "$ex" $(after "$1") --cpus-per-task=1 --mem=32G --time=$t_prep --job-name=kim92_prep \
             --wrap "$run $script prep $outdir")
     record prep "$p"
     for c in 1 2 3 4; do
