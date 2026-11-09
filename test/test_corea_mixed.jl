@@ -70,7 +70,7 @@ using Distributions: LogNormal
         full = corea_dataset(17_200_001; kw...)
         win = corea_dataset(17_200_001; kw..., fit_to = 150.0)   # off the 60 s grid
         @test full.times == 60.0 .* (1:5) && full.fit_to == 300.0
-        @test win.times == [60.0, 120.0] && win.fit_to == 150.0
+        @test win.times == [60.0, 120.0] && win.fit_to == 150.0 && win.horizon == 300.0
         k = 1:2
         @test win.latent == full.latent[:, :, k]
         @test win.transcripts == full.transcripts[:, :, k]

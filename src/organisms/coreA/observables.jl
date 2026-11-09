@@ -554,7 +554,8 @@ The [`M0_PANEL`](@ref) metabolites, A2's panel, are observed in bulk at σ, floo
 one particle, and every transcribed gene's transcripts exactly. The t = 0 save is
 dropped. Returns [`generate_dataset`](@ref)'s record without t = 0, with `sigma`,
 `replicate_seed`, `noise`, `bulk` and `bulk_seed` added, as `m0_dataset` does, and
-`targets` and `fit_to`.
+`targets`, `horizon` and `fit_to`: a window's noise is drawn over the run to
+`horizon`, so regenerating it needs both.
 
 `fit_to` is the fit window: the cells run to `horizon`, and the record keeps only
 the saves at `0 < t ≤ fit_to` ([`COREA_FIT_S`](@ref) for the pilot). It is a cut of
@@ -589,7 +590,8 @@ function corea_dataset(replicate_seed::Integer; ncells::Integer = 200,
     return (; ds..., times = ds.times[keep], latent,
             transcripts = ds.transcripts[:, :, keep], observed = ds.observed[:, :, keep],
             sigma = σ, replicate_seed = Int(replicate_seed), noise = noise,
-            bulk, bulk_seed, targets = collect(Symbol, targets), fit_to = Float64(fit_to))
+            bulk, bulk_seed, targets = collect(Symbol, targets), horizon = Float64(horizon),
+            fit_to = Float64(fit_to))
 end
 
 export corea_dataset, corea_draws, COREA_FIT_S
