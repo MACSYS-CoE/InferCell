@@ -121,7 +121,11 @@ using Distributions: LogNormal
     # takes minutes here (Slurm 20358816: 211 s at 180 s; the gradient 598 s), so
     # AV3 and the per-stream sweeps, about 5 h each, run only with
     # INFERCELL_SLOW_TESTS=true (KIM-91). The unit suite keeps the setup and the
-    # stream identities, at the default tolerances and a 120 s horizon.
+    # stream identities, at the default tolerances and a 120 s horizon. To run the
+    # slow tier alone (about 10 h; KIM-91's run was Slurm 20378723), from the tree
+    # to test:
+    #   sbatch --time=12:00:00 --export=ALL,INFERCELL_SLOW_TESTS=true \
+    #       dev/scripts/testfiles.slurm test/test_corea_mixed.jl
     function corea_case(H)
         ds = corea_dataset(17_200_001; ncells = 2, horizon = H, targets = COREA_TARGETS)
         corea(; kw...) = mixed_setup(ds; models = d11_models(), targets = COREA_TARGETS, kw...)
@@ -198,6 +202,9 @@ using Distributions: LogNormal
             end
         end
     else
-        @info "test_corea_mixed.jl: AV3 on the reduced model skipped; set INFERCELL_SLOW_TESTS=true"
+        @info "test_corea_mixed.jl: AV3 on the reduced model skipped; set " *
+              "INFERCELL_SLOW_TESTS=true (about 10 h: sbatch --time=12:00:00 " *
+              "--export=ALL,INFERCELL_SLOW_TESTS=true dev/scripts/testfiles.slurm " *
+              "test/test_corea_mixed.jl)"
     end
 end
