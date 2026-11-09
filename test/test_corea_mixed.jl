@@ -83,6 +83,9 @@ using Distributions: LogNormal
         # mixed_setup takes the windowed record: its saves are every 60 s.
         sw = mixed_setup(win; models = d11_models(), targets = COREA_TARGETS)
         @test sw.saves == [60.0, 120.0] && length(sw.logz) == 2 * length(M0_PANEL)
+        # A fit over another free set than the truth's is refused.
+        @test_throws ArgumentError mixed_setup(win; models = d11_models())
+        @test_throws ArgumentError mixed_setup(win; models = d11_models(), targets = D11_TARGETS)
         # At production size: the window keeps 52 of the cycle's 105 saves, the
         # last at 3120 s.
         @test COREA_FIT_S == 3150.0 == COREA_CYCLE_S / 2
