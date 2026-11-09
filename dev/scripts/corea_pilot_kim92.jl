@@ -239,9 +239,17 @@ function run_chain(out, c)
     st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
     say(@sprintf("chain %d: seed %d, start after %d tries, log density %.4f", c, seed, st.tries,
                  mixed_logdensity(f.s, st.x)))
-    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), NDRAW;
+    # The adaptation draws are kept in the chain (`discard_adapt = false`) so that the
+    # callback, which AbstractMCMC calls only for kept draws, reports them too: the
+    # adaptation is most of a chain's days. `chain_draws` drops them. With them kept,
+    # the N Turing is given counts them, and the kept draws equal a default run's
+    # bitwise (checked on a toy model, 2026-11-10).
+    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), NADAPT + NDRAW;
                                 initial_params = st.x, progress = false, save_state = true,
+                                discard_adapt = false,
                                 callback = progress_callback("chain $c", NADAPT + NDRAW))
+    size(chain, 1) == NADAPT + NDRAW ||
+        error("chain $c holds $(size(chain, 1)) draws, not $NADAPT + $NDRAW")
     save(out, "chain_$c", (; c, seed, start = st.x, start_tries = st.tries, chain, seconds = t,
                            nadapt = NADAPT, ndraw = NDRAW); stage = "chain")
     say(@sprintf("chain %d: %d + %d iterations in %.1f h", c, NADAPT, NDRAW, t / 3600))
@@ -265,14 +273,18 @@ function run_extend(out, c)
 end
 
 # Draws × parameters × chains on the log scale, mixed_parameter_names' order: each
-# chain's kept draws, followed by its extension's when it has run.
-function chain_draws(ch, P)
-    Array(ch[:, [Symbol("x[$i]") for i in 1:P], 1])
+# chain's kept draws, after its `skip` adaptation draws, followed by its extension's
+# when it has run.
+function chain_draws(ch, P; skip = 0)
+    Array(ch[(skip + 1):end, [Symbol("x[$i]") for i in 1:P], 1])
 end
 
 function posterior_draws(out, P; extended = all(c -> has(out, "extend_$c"), 1:NCHAIN))
     X = map(1:NCHAIN) do c
-        a = chain_draws(load(out, "chain_$c").chain, P)
+        r = load(out, "chain_$c")
+        size(r.chain, 1) == r.nadapt + r.ndraw ||
+            error("chain $c holds $(size(r.chain, 1)) draws, not $(r.nadapt) + $(r.ndraw)")
+        a = chain_draws(r.chain, P; skip = r.nadapt)
         extended ? vcat(a, chain_draws(load(out, "extend_$c").chain, P)) : a
     end
     return cat(X...; dims = 3), extended
