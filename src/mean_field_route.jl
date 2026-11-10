@@ -469,6 +469,10 @@ Solve route (ii) at parameters `p`, a copy of which the rebuild writes into, at
 the hybrid's pinned tolerances. The initial state is promoted to `p`'s type, so a
 dual-number `p` differentiates the solve. `maxiters` caps the solver's steps, and
 a solve that reaches it returns rather than throws.
+
+A `solver` passed here should set its ForwardDiff chunk, as
+[`mean_field_solver`](@ref) does: a plain `Rodas5P()` falls back to one partial
+per RHS call under a gradient, about 3× slower on the reduced model (KIM-99).
 """
 function solve_mean_field(rt::MeanFieldRoute; p = rt.prob.p, saveat = Float64[],
                           solver = mean_field_solver(rt), abstol = 1e-10, reltol = 1e-8,
