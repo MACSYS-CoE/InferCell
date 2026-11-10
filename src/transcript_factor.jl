@@ -85,6 +85,36 @@ above the factor's `kmax`, or a death rate below its `μmin`, is an error: the
 cap's truncation was checked only inside those bounds.
 """
 function transcript_loglik(f::TranscriptFactor, k::AbstractMatrix, μ::AbstractVector)
+    _check_rates(f, k, μ)
+    T = float(promote_type(eltype(k), eltype(μ)))
+    return _cell_loglik(f, k, μ, nothing, T)
+end
+
+# The sum over cells, in the order and by the `sum` the single-cell method's callers
+# used, with each window's distribution computed once per (gene, window, starting
+# count, cap) and shared by every cell that has it: the rates are the same for every
+# cell, so the shared vector is the one each cell computed for itself (KIM-99).
+function transcript_loglik(fs::AbstractVector{TranscriptFactor}, k::AbstractMatrix, μ::AbstractVector)
+    shared = all(f -> f.τ == first(fs).τ && f.switch == first(fs).switch, fs)
+    T = float(promote_type(eltype(k), eltype(μ)))
+    cache = shared ? Dict{NTuple{4, Int}, Vector{T}}() : nothing
+    return sum(f -> (_check_rates(f, k, μ); _cell_loglik(f, k, μ, cache, T)), fs)
+end
+
+function _cell_loglik(f::TranscriptFactor, k, μ, cache, ::Type{T}) where {T}
+    G, M = size(f.y)
+    s = zero(T)
+    for g in 1:G, m in 1:M
+        a = m == 1 ? f.y0[g] : f.y[g, m - 1]
+        v = cache === nothing ? _window_distribution(f, g, a, k[g, m], k[g, m + 1], μ[g]) :
+            get!(() -> _window_distribution(f, g, a, k[g, m], k[g, m + 1], μ[g]), cache,
+                 (g, m, a, f.caps[g]))
+        s += log(v[f.y[g, m] + 1])
+    end
+    return s
+end
+
+function _check_rates(f::TranscriptFactor, k::AbstractMatrix, μ::AbstractVector)
     G, M = size(f.y)
     size(k) == (G, M + 1) || throw(DimensionMismatch(
         "k is $(size(k)); it needs one row per gene and windows + 1 = $(M + 1) columns"))
@@ -97,18 +127,8 @@ function transcript_loglik(f::TranscriptFactor, k::AbstractMatrix, μ::AbstractV
                 "gene $g's birth rate $(_primal(k[g, j])) is above the kmax $(f.kmax[g]) its cap was sized for"))
         end
     end
-    T = float(promote_type(eltype(k), eltype(μ)))
-    s = zero(T)
-    for g in 1:G, m in 1:M
-        a = m == 1 ? f.y0[g] : f.y[g, m - 1]
-        v = _window_distribution(f, g, a, k[g, m], k[g, m + 1], μ[g])
-        s += log(v[f.y[g, m] + 1])
-    end
-    return s
+    return nothing
 end
-
-transcript_loglik(fs::AbstractVector{TranscriptFactor}, k::AbstractMatrix, μ::AbstractVector) =
-    sum(f -> transcript_loglik(f, k, μ), fs)
 
 # Gene g's count distribution at a window's end, from count `a` at its start,
 # at `k0` until `switch` before the end and `k1` after: e_aᵀ P_{k0}(τ − s) P_{k1}(s).
