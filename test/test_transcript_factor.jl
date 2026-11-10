@@ -152,6 +152,9 @@ end
         k = repeat([0.02, 1.0], 1, M + 1)
         f2 = TranscriptFactor([1, 4], [2 2 1 3; 6 5 7 7]; kmax = [0.1, 2.0], μmin = [0.005, 0.03])
         @test transcript_loglik([f, f2], k, μ) ≈ transcript_loglik(f, k, μ) + transcript_loglik(f2, k, μ)
+        # KIM-99: two copies of one cell share every window, so the second reads the
+        # cache the first filled, and the sum of two equal terms is exact.
+        @test transcript_loglik([f, f], k, μ) == 2 * transcript_loglik(f, k, μ)
         @test_throws DimensionMismatch transcript_loglik(f, k[:, 1:M], μ)
         @test_throws DimensionMismatch transcript_loglik(f, k, μ[1:1])
         # Rates outside the corner the caps were sized for.
