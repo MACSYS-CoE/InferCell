@@ -2,6 +2,8 @@
 # KIM-92: submit the reduced-model pilot's stages (dev/scripts/corea_pilot_kim92.jl),
 # from a worktree at a pushed commit. The design is frozen at prereg/kim-92.
 #   dev/scripts/corea_pilot_kim92.sh <outdir> profile    precompile, dataset, profile (item 2)
+#   dev/scripts/corea_pilot_kim92.sh <outdir> reprofile  precompile, profile, on the dataset
+#                                                        already in <outdir> (new code, same cells)
 #   dev/scripts/corea_pilot_kim92.sh <outdir> posterior  prep, 4 chains, the gate on their
 #                                                        first NDRAW draws (needs the dataset)
 #   dev/scripts/corea_pilot_kim92.sh <outdir> extend     the one extension of all 4 chains,
@@ -13,7 +15,7 @@
 # chains' and the extension's wall limit (default 7 days, milan's maximum).
 set -euo pipefail
 outdir=$(realpath -m "$1")
-what=${2:?say what to submit: profile, posterior, extend, ppc or all}
+what=${2:?say what to submit: profile, reprofile, posterior, extend, ppc or all}
 source "$(dirname "$0")/launcher_guard.sh"
 smoke=${SMOKE:-0}
 script=dev/scripts/corea_pilot_kim92.jl
@@ -40,6 +42,14 @@ profile() {   # -> $ds_job
     pr=$(sub "$ex" --dependency=afterok:$ds_job --cpus-per-task=1 --mem=32G --time=$t_prof \
              --job-name=kim92_profile --wrap "$run $script profile $outdir")
     record profile "$pr"
+}
+reprofile() {
+    local pre
+    pre=$(sub "$ex" --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=kim92_pre \
+              --wrap "$run -e 'using InferCell'")
+    record precompile "$pre"
+    record profile "$(sub "$ex" --dependency=afterok:$pre --cpus-per-task=1 --mem=32G --time=$t_prof \
+                          --job-name=kim92_profile --wrap "$run $script profile $outdir")"
 }
 posterior() {   # $1: a job to wait for, or empty -> $chains_job
     local p c ids=()
@@ -79,6 +89,7 @@ ppc() {   # $1: a job to wait for, or empty
 
 case $what in
 profile) profile ;;
+reprofile) need dataset; reprofile ;;
 posterior) need dataset; posterior "" ;;
 extend) need chain_4; extend "" ;;
 ppc) need chain_4; ppc "" ;;
