@@ -42,6 +42,8 @@ const CHUNKS = (8, 11, 12)
 const NPART = 11                                # ForwardDiff's chunk for 21 coordinates
 
 struct K99Tag end
+# A tag ForwardDiff can order against the solver's own, as `gradient` makes one.
+const K99 = typeof(ForwardDiff.Tag(K99Tag(), Float64))
 
 function setup()
     ds = SMOKE ? corea_dataset(SEED; ncells = 2, horizon = 120.0, targets = COREA_TARGETS) :
@@ -53,7 +55,7 @@ function setup()
 end
 
 # x with its first NPART coordinates seeded, as ForwardDiff's first chunk seeds them.
-dualx(x) = [Dual{K99Tag}(x[i], Partials(ntuple(j -> Float64(i == j), NPART))) for i in eachindex(x)]
+dualx(x) = [Dual{K99}(x[i], Partials(ntuple(j -> Float64(i == j), NPART))) for i in eachindex(x)]
 
 timedrun(f) = (st = @timed f(); (; value = st.value, seconds = st.time, gib = st.bytes / 2^30,
                                   gc = st.gctime))
@@ -136,9 +138,9 @@ function run_rhs(out)
     p = mean_field_parameters(rt, _mixed_writes(s, exp.(x[1:length(s.names)])))
     rows = []
     for kind in (:float, :dual)
-        T = kind === :float ? Float64 : Dual{K99Tag, Float64, NPART}
+        T = kind === :float ? Float64 : Dual{K99, Float64, NPART}
         u = T.(rt.prob.u0)
-        q = kind === :float ? p : [Dual{K99Tag}(v, Partials(ntuple(j -> Float64(j == mod1(i, NPART)), NPART)))
+        q = kind === :float ? p : [Dual{K99}(v, Partials(ntuple(j -> Float64(j == mod1(i, NPART)), NPART)))
                                    for (i, v) in enumerate(p)]
         du = similar(u, promote_type(eltype(u), eltype(q)))
         r = percall(() -> f(du, u, q, 0.0))
