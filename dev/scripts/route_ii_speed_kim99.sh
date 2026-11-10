@@ -10,7 +10,10 @@
 set -euo pipefail
 outdir=$(realpath -m "$1")
 what=${2:?say what to submit: profile, grad or all}
-source "$(dirname "$0")/launcher_guard.sh"
+case $what in profile|grad|all) ;; *) echo "unknown: $what" >&2; exit 1 ;; esac
+# The tree this launcher lives in, wherever it is called from.
+cd "$(dirname "$(realpath "$0")")/../.."
+source dev/scripts/launcher_guard.sh
 smoke=${SMOKE:-0}
 script=dev/scripts/route_ii_speed_kim99.jl
 ex="--export=ALL,SMOKE=$smoke"
