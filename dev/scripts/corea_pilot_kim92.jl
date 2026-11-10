@@ -17,6 +17,9 @@
 #                   design would cost at tree depths 3 to 7;
 #   prep <out>      θ_ref (the bounded MAP at δ = S = 0), the 800-cell reference
 #                   ensemble at θ_ref to the window's last save, δ and S (C = 200);
+#   probe <out>     the sizing probe: one chain on its own seed (arm 2) for at most
+#                   PROBE_HOURS (default 24), recording each iteration's tree depth,
+#                   steps and step size, never θ, to probe.tsv and probe.md;
 #   chain <out> c   chain c of 4: NUTS(NADAPT, 0.8), NDRAW kept draws, from a start
 #                   jittered by 0.25 prior SD about θ_ref, seed mixed_chain_seeds(ds, 4)[c];
 #   check <out> k   the convergence gate on each chain's first k kept draws (k = NDRAW,
@@ -66,7 +69,9 @@ nuts() = NUTS(NADAPT, TARGET_ACCEPT; max_depth = MAX_DEPTH)
 const NCHAIN = 4
 const TARGET_ACCEPT = 0.8
 const JITTER_SD = 0.25
-const ARM_CHAIN, ARM_EXTEND = 0, 1
+const ARM_CHAIN, ARM_EXTEND, ARM_PROBE = 0, 1, 2
+# The depth probe's wall budget in hours (a smoke stops it at its iteration count).
+const PROBE_HOURS = parse(Float64, get(ENV, "PROBE_HOURS", SMOKE ? "1" : "24"))
 # prereg §2 and §3
 const RHAT_MAX, ESS_MIN = 1.02, 100
 const PPC_DRAWS, PPC_REPS = SMOKE ? (10, 2) : (200, 10)
@@ -258,6 +263,76 @@ function run_chain(out, c)
     save(out, "chain_$c", (; c, seed, start = st.x, start_tries = st.tries, chain, seconds = t,
                            nadapt = NADAPT, ndraw = NDRAW); stage = "chain")
     say(@sprintf("chain %d: %d + %d iterations in %.1f h", c, NADAPT, NDRAW, t / 3600))
+end
+
+# ---------------------------------------------------------------- depth probe
+
+# The sizing probe (Decision log 2026-11-11): one chain of the frozen sampler, on its
+# own seed (arm 2, never a pilot chain's), for at most PROBE_HOURS. It records each
+# iteration's tree depth, leapfrog steps, step size and time, and nothing of θ or the
+# log density, so it reads no posterior. Its adaptation schedule is the real chain's
+# (NADAPT + NDRAW iterations asked for), so the depths it sees before and after the
+# first mass-matrix update (iteration 100 at NADAPT = 200) are the ones a chain meets.
+struct ProbeStop <: Exception end
+
+function run_probe(out)
+    f = fit_setup(out)
+    seed = mixed_chain_seeds(f.ds, 1; arm = ARM_PROBE)[1]
+    rng = Xoshiro(seed)
+    st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
+    total = NADAPT + NDRAW
+    say(@sprintf("probe: seed %d, start after %d tries, %d iterations asked, budget %.1f h",
+                 seed, st.tries, total, PROBE_HOURS))
+    rows = NamedTuple[]
+    t0 = time()
+    tsv = joinpath(out, "probe.tsv")
+    open(tsv, "w") do o
+        println(o, "iteration\thours\ttree_depth\tn_steps\tstep_size\tnumerical_error")
+    end
+    function cb(rng, model, sampler, transition, state, i; kwargs...)
+        s, h = transition.stat, (time() - t0) / 3600
+        r = (; i, h, depth = s.tree_depth, steps = s.n_steps, eps = s.step_size,
+             err = s.numerical_error)
+        push!(rows, r)
+        open(tsv, "a") do o
+            println(o, join((r.i, @sprintf("%.4f", r.h), r.depth, r.steps,
+                             @sprintf("%.6g", r.eps), Int(r.err)), '\t'))
+        end
+        say(@sprintf("probe: iteration %d of %d, %.2f h; depth %d, %d steps, step size %.3g",
+                     i, total, h, r.depth, r.steps, r.eps))
+        h >= PROBE_HOURS && i < total && throw(ProbeStop())
+        return nothing
+    end
+    stopped = false
+    try
+        sample(rng, mixed_model(f.s), nuts(), total; initial_params = st.x, progress = false,
+               discard_adapt = false, callback = cb)
+    catch e
+        e isa ProbeStop || rethrow()
+        stopped = true
+    end
+    isempty(rows) && error("the probe finished no iteration in $PROBE_HOURS h")
+    io = IOBuffer()
+    p(xs...) = println(io, xs...)
+    p("# KIM-92 depth probe\n")
+    p(@sprintf("Seed %d (arm %d), %d of %d iterations in %.2f h%s. NUTS(%d, %.1f; max_depth = %d). ",
+               seed, ARM_PROBE, length(rows), total, rows[end].h,
+               stopped ? ", stopped at the budget" : "", NADAPT, TARGET_ACCEPT, MAX_DEPTH),
+      "No θ or log density is recorded. Per-iteration rows: probe.tsv.\n")
+    p("| iterations | n | median depth | max depth | mean steps | mean s per iteration | last step size |")
+    p("|---|---|---|---|---|---|---|")
+    for (a, b) in ((1, 25), (26, 50), (51, 75), (76, 100), (101, 150), (151, NADAPT), (NADAPT + 1, total))
+        blk = filter(r -> a <= r.i <= b, rows)
+        isempty(blk) && continue
+        prev = findfirst(r -> r.i == a - 1, rows)
+        t_start = prev === nothing ? 0.0 : rows[prev].h
+        p(@sprintf("| %d–%d | %d | %.0f | %d | %.0f | %.0f | %.3g |", a, b, length(blk),
+                   median(r.depth for r in blk), maximum(r.depth for r in blk),
+                   sum(r.steps for r in blk) / length(blk),
+                   3600 * (blk[end].h - t_start) / length(blk), blk[end].eps))
+    end
+    write(joinpath(out, "probe.md"), String(take!(io)))
+    print(read(joinpath(out, "probe.md"), String))
 end
 
 # A saved HMC state with its Hamiltonian rebuilt on `model` (see run_extend).
@@ -518,6 +593,8 @@ function main(args)
         run_profile(out)
     elseif stage == "prep"
         run_prep(out)
+    elseif stage == "probe"
+        run_probe(out)
     elseif stage == "chain"
         run_chain(out, parse(Int, args[3]))
     elseif stage == "check"

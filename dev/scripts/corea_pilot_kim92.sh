@@ -6,6 +6,9 @@
 #                                                        already in <outdir> (new code, same cells)
 #   dev/scripts/corea_pilot_kim92.sh <outdir> posterior  prep, 4 chains, the gate on their
 #                                                        first NDRAW draws (needs the dataset)
+#   dev/scripts/corea_pilot_kim92.sh <outdir> prep       prep, then the depth probe (needs the dataset)
+#   dev/scripts/corea_pilot_kim92.sh <outdir> probe      the depth probe alone (needs prep)
+#   dev/scripts/corea_pilot_kim92.sh <outdir> chains     4 chains and the gate (needs prep)
 #   dev/scripts/corea_pilot_kim92.sh <outdir> extend     the one extension of all 4 chains,
 #                                                        then the gate on 2 NDRAW draws
 #   dev/scripts/corea_pilot_kim92.sh <outdir> ppc        the PPC on the kept draws, then the merge
@@ -15,17 +18,20 @@
 # chains' and the extension's wall limit (default 7 days, milan's maximum).
 set -euo pipefail
 outdir=$(realpath -m "$1")
-what=${2:?say what to submit: profile, reprofile, posterior, extend, ppc or all}
+what=${2:?say what to submit: profile, reprofile, posterior, prep, probe, chains, extend, ppc or all}
 source "$(dirname "$0")/launcher_guard.sh"
 smoke=${SMOKE:-0}
 script=dev/scripts/corea_pilot_kim92.jl
 ex="--export=ALL,SMOKE=$smoke,NADAPT=${NADAPT:-},NDRAW=${NDRAW:-}"
 if [ "$smoke" = 1 ]; then
     t_ds=01:00:00; t_prof=02:00:00; t_prep=02:00:00; t_chain=04:00:00; t_ppc=01:00:00; ppc_threads=2
-    ndraw=${NDRAW:-5}
+    ndraw=${NDRAW:-5}; probe_h=${PROBE_HOURS:-1}; t_probe=02:00:00
 else
     t_ds=12:00:00; t_prof=2-00:00:00; t_prep=2-00:00:00; t_chain=${CHAIN_TIME:-7-00:00:00}
     t_ppc=2-00:00:00; ppc_threads=16; ndraw=${NDRAW:-200}
+    # The probe stops itself at its budget; its wall limit leaves room for one deep
+    # iteration past it (depth 10 at ~40 s a gradient is ~11 h).
+    probe_h=${PROBE_HOURS:-24}; t_probe=1-12:00:00
 fi
 [ "$what" = all ] && [ "$smoke" != 1 ] && { echo "'all' is for SMOKE=1 only" >&2; exit 1; }
 need() { [ -f "$outdir/$1.jls" ] || [ "$what" = all ] || { echo "$outdir/$1.jls is missing" >&2; exit 1; }; }
@@ -51,13 +57,19 @@ reprofile() {
     record profile "$(sub "$ex" --dependency=afterok:$pre --cpus-per-task=1 --mem=32G --time=$t_prof \
                           --job-name=kim92_profile --wrap "$run $script profile $outdir")"
 }
-posterior() {   # $1: a job to wait for, or empty -> $chains_job
-    local p c ids=()
-    p=$(sub "$ex" $(after "$1") --cpus-per-task=1 --mem=32G --time=$t_prep --job-name=kim92_prep \
-            --wrap "$run $script prep $outdir")
-    record prep "$p"
+prep() {   # $1: a job to wait for, or empty -> $prep_job
+    prep_job=$(sub "$ex" $(after "$1") --cpus-per-task=1 --mem=32G --time=$t_prep \
+                   --job-name=kim92_prep --wrap "$run $script prep $outdir")
+    record prep "$prep_job"
+}
+probe() {   # $1: a job to wait for, or empty
+    record probe "$(sub "$ex,PROBE_HOURS=$probe_h" $(after "$1") --cpus-per-task=1 --mem=32G \
+                        --time=$t_probe --job-name=kim92_probe --wrap "$run $script probe $outdir")"
+}
+chains() {   # $1: a job to wait for, or empty -> $chains_job
+    local c ids=()
     for c in 1 2 3 4; do
-        ids+=("$(sub "$ex" --dependency=afterok:$p --cpus-per-task=1 --mem=32G --time=$t_chain \
+        ids+=("$(sub "$ex" $(after "$1") --cpus-per-task=1 --mem=32G --time=$t_chain \
                      --job-name=kim92_chain$c --wrap "$run $script chain $outdir $c")")
         record chain "${ids[-1]}"
     done
@@ -90,10 +102,14 @@ ppc() {   # $1: a job to wait for, or empty
 case $what in
 profile) profile ;;
 reprofile) need dataset; reprofile ;;
-posterior) need dataset; posterior "" ;;
+posterior) need dataset; prep ""; chains "$prep_job" ;;
+prep) need dataset; prep ""; probe "$prep_job" ;;
+probe) need prep; probe "" ;;
+chains) need prep; chains "" ;;
 extend) need chain_4; extend "" ;;
 ppc) need chain_4; ppc "" ;;
-all) profile; posterior "$ds_job"; extend "$chains_job"; ppc "$ext_job" ;;
+all) profile; prep "$ds_job"; probe "$prep_job"; chains "$prep_job"; extend "$chains_job"
+     ppc "$ext_job" ;;
 *) echo "unknown: $what" >&2; exit 1 ;;
 esac
 echo "submitted $what at $(git rev-parse --short HEAD), SMOKE=$smoke:"
