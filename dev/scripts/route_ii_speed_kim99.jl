@@ -35,6 +35,11 @@ using Printf
 using Statistics: median
 
 const ADT = SciMLBase.ADTypes
+# KIM-92's pilot dataset. Its `data` stage made it as
+#   corea_dataset(17_200_001; ncells = 200, horizon = COREA_CYCLE_S, fit_to = COREA_FIT_S,
+#                 targets = COREA_TARGETS)
+# (dev/scripts/corea_pilot_kim92.jl, on KIM-92's branch)
+# so if this file is gone, rebuild it with that call and serialize it here.
 const DATASET = "/fred/oz022/tkimpson/infercell-kim92-pilot-2026-11-10/dataset.jls"
 const SEED = 17_200_001                         # KIM-92's
 const NREPEAT = SMOKE ? 1 : 3
