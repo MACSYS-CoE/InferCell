@@ -472,7 +472,8 @@ a solve that reaches it returns rather than throws.
 
 A `solver` passed here should set its ForwardDiff chunk, as
 [`mean_field_solver`](@ref) does: a plain `Rodas5P()` falls back to one partial
-per RHS call under a gradient, about 3× slower on the reduced model (KIM-99).
+per RHS call under a gradient. On the reduced model that is about 5× the RHS
+calls per solve, though only 1.2–1.3× the time now that each call is cheap (KIM-99).
 """
 function solve_mean_field(rt::MeanFieldRoute; p = rt.prob.p, saveat = Float64[],
                           solver = mean_field_solver(rt), abstol = 1e-10, reltol = 1e-8,
