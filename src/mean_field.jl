@@ -166,15 +166,24 @@ function dynamics(u, p, t, m::MeanField{N}) where {N}
     return SVector{N, T}(du)
 end
 
-# The reactions in order, each adding a_r · ν_r over ν_r's nonzeros.
-@inline _add_terms!(du, u, p, t, ::Tuple{}) = du
-@inline function _add_terms!(du, u, p, t, ks::Tuple)
-    k = first(ks)
+# The reactions in order, each adding a_r · ν_r over ν_r's nonzeros. Unrolled at
+# compile time: the terms differ in type, and inference does not follow a
+# recursion over a tuple this long (52 on the reduced model), so the recursion
+# dispatched and copied the tuple's tail at each level (KIM-99).
+@generated function _add_terms!(du, u, p, t, ks::Tuple)
+    calls = [:(_add_term!(du, u, p, t, ks[$r])) for r in 1:fieldcount(ks)]
+    return quote
+        $(calls...)
+        return du
+    end
+end
+
+@inline function _add_term!(du, u, p, t, k)
     a = k.rate(u[k.s], p[k.p], t, u[k.i])
     for j in eachindex(k.nz)
         du[k.nz[j]] += a * k.ν[j]
     end
-    return _add_terms!(du, u, p, t, Base.tail(ks))
+    return nothing
 end
 
 function reduction_notes(m::MeanField)

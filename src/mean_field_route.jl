@@ -400,8 +400,11 @@ function build_mean_field_problem(models::AbstractVector{<:AbstractSubModel};
                   [b.pool_idx for b in live], [coef(b) for b in live],
                   [g.idx for g in growth])
     debited = unique(b.pool_idx for b in live if b.sign < 0)
-    prob = ODEProblem{true}(f, u0, tspan, p0; callback = _route_callbacks(rt0, debited),
-                            tstops = times)
+    # Fully specialised: under the default AutoSpecialize, OrdinaryDiffEq wraps `f`
+    # and its Jacobian falls back to one ForwardDiff partial per RHS call (KIM-99).
+    prob = ODEProblem{true, FullSpecialize}(f, u0, tspan, p0;
+                                            callback = _route_callbacks(rt0, debited),
+                                            tstops = times)
     rt = MeanFieldRoute(prob, ms, names, rt0.param_names, catalytic, geometry, debits,
                         rt0.contributions, rebuilds, growth, dilute, n_idx,
                         rt0.interval, times, base, footprint, rt0.volume_cap_litres,
@@ -447,16 +450,33 @@ function mean_field_parameters(rt::MeanFieldRoute, values; p = rt.prob.p)
 end
 
 """
-    solve_mean_field(route; p = route.prob.p, saveat = [], solver = Rodas5P(),
+    mean_field_solver(route) -> Rodas5P
+
+Route (ii)'s default solver: Rodas5P with its ForwardDiff Jacobian's chunk set to
+`ForwardDiff.pickchunksize` of the state count. Left unset, OrdinaryDiffEq takes one
+partial per RHS call whenever the state is a dual number, as it is under a
+gradient (KIM-99). Each partial is computed alone whatever the chunk, so the
+Jacobian, and the solve, are the same as at chunk 1.
+"""
+mean_field_solver(rt::MeanFieldRoute) =
+    Rodas5P(autodiff = ADTypes.AutoForwardDiff(chunksize = ForwardDiff.pickchunksize(length(rt.prob.u0))))
+
+"""
+    solve_mean_field(route; p = route.prob.p, saveat = [], solver = mean_field_solver(route),
                      abstol = 1e-10, reltol = 1e-8, maxiters = 10^5)
 
 Solve route (ii) at parameters `p`, a copy of which the rebuild writes into, at
 the hybrid's pinned tolerances. The initial state is promoted to `p`'s type, so a
 dual-number `p` differentiates the solve. `maxiters` caps the solver's steps, and
 a solve that reaches it returns rather than throws.
+
+A `solver` passed here should set its ForwardDiff chunk, as
+[`mean_field_solver`](@ref) does: a plain `Rodas5P()` falls back to one partial
+per RHS call under a gradient. On the reduced model that is about 5× the RHS
+calls per solve, though only 1.2–1.3× the time now that each call is cheap (KIM-99).
 """
 function solve_mean_field(rt::MeanFieldRoute; p = rt.prob.p, saveat = Float64[],
-                          solver = Rodas5P(), abstol = 1e-10, reltol = 1e-8,
+                          solver = mean_field_solver(rt), abstol = 1e-10, reltol = 1e-8,
                           maxiters::Integer = 10^5)
     q = copy(p)
     u0 = convert(Vector{promote_type(eltype(q), eltype(rt.prob.u0))}, rt.prob.u0)
@@ -499,5 +519,5 @@ reduction_declarations(models::Vector{<:AbstractSubModel}, rt::MeanFieldRoute) =
     vcat(reduction_declarations(models), route_declarations(rt))
 
 export mean_field_swap, MeanFieldRoute, build_mean_field_problem,
-       mean_field_written_params, mean_field_parameters, solve_mean_field,
+       mean_field_written_params, mean_field_parameters, solve_mean_field, mean_field_solver,
        route_declarations

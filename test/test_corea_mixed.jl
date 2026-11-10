@@ -187,6 +187,39 @@ using Distributions: LogNormal
         @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
     end
 
+    # KIM-99: route (ii)'s speed-up keeps the log-density. The fixture froze it at
+    # main's code before the speed-up (its header names the commit), on this file's
+    # corea_case(120.0) at four x. KIM-99's bound, 1e-10, holds only on the fixture's
+    # CPU and Julia version: on CI (GitHub's runner, run 42789293994 at fc46f50) the
+    # four values moved by 1.3e-10 to 3.1e-10 from the fixture's, about 3e-12 relative,
+    # as roundoff shifts the solver's steps. Elsewhere the bound is 1e-8, as
+    # test_predict_reference.jl does. The gradient is held looser, since it is not the
+    # criterion.
+    @testset "the reduced model's density is the frozen one (KIM-99)" begin
+        include(joinpath(@__DIR__, "fixtures", "route_ii_density_kim99.jl"))
+        @test mixed_parameter_names(c.s) == ROUTE_II_DENSITY_NAMES
+        @test ROUTE_II_DENSITY_X[1] == c.xt
+        fixture_machine = VERSION == v"1.10.5" &&
+                          startswith(Sys.cpu_info()[1].model, "AMD EPYC 7543")
+        bound = fixture_machine ? 1e-10 : 1e-8
+        for (x, ℓ) in zip(ROUTE_II_DENSITY_X, ROUTE_II_DENSITY)
+            @test abs(mixed_logdensity(c.s, x) - ℓ) <= bound
+        end
+        g = ForwardDiff.gradient(z -> mixed_logdensity(c.s, z), ROUTE_II_DENSITY_X[1])
+        @test g ≈ ROUTE_II_DENSITY_GRAD[1] rtol = 1e-8
+    end
+
+    # KIM-99: one route (ii) RHS call on the reduced model allocated 0.78 MB, all of it
+    # in MeanField's kernel; unrolled, it is a few hundred bytes. The bound is loose
+    # so that it trips only if the kernel's recursion comes back.
+    @testset "the reduced model's RHS barely allocates (KIM-99)" begin
+        rt = c.s.route
+        f, u, p = rt.prob.f.f, copy(rt.prob.u0), copy(rt.prob.p)
+        du = similar(u)
+        f(du, u, p, 0.0)
+        @test (@allocated f(du, u, p, 0.0)) <= 4096
+    end
+
     if get(ENV, "INFERCELL_SLOW_TESTS", "false") == "true"
         cs = corea_case(180.0)
         tight(; kw...) = with_reference(cs.corea(; abstol = 1e-14, reltol = 1e-12, kw...),
