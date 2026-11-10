@@ -3,7 +3,9 @@ module InferCell
 using OrdinaryDiffEq: Tsit5, solve, ODEProblem, Rodas5P
 using SciMLSensitivity: ForwardDiffSensitivity
 using SciMLBase: ReturnCode, remake, DiscreteProblem, init, step!, u_modified!,
-                 DiscreteCallback, CallbackSet, successful_retcode
+                 DiscreteCallback, CallbackSet, successful_retcode, FullSpecialize
+# The AD choice types OrdinaryDiffEq's solvers take, as SciMLBase carries them.
+using SciMLBase: ADTypes
 using JumpProcesses: JumpProblem, JumpSet, ConstantRateJump, Direct, SSAStepper,
                      reset_aggregated_jumps!
 using Turing
