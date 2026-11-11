@@ -270,7 +270,9 @@ function hessian_fd(grad, x, h)
         H[:, j] = (grad(x .+ e) .- grad(x .- e)) ./ (2h[j])
         say(@sprintf("metric: column %d of %d", j, P))
     end
-    return (H .+ H') ./ 2
+    # The differences' noise through the adaptive solve shows as asymmetry.
+    asym = maximum(abs, H .- H') / maximum(abs, H)
+    return (H .+ H') ./ 2, asym
 end
 
 function run_metric(out)
@@ -279,14 +281,14 @@ function run_metric(out)
     sd = mixed_prior_sd(f.s)
     length(sd) == length(x) || error("prior SDs $(length(sd)), coordinates $(length(x))")
     grad(z) = ForwardDiff.gradient(y -> mixed_logdensity(f.s, y), z)
-    t = @elapsed H = hessian_fd(grad, x, FD_STEP .* sd)
+    t = @elapsed (H, asym) = hessian_fd(grad, x, FD_STEP .* sd)
     F = eigen(Symmetric(-H))
     floor_ = minimum(1 ./ sd .^ 2)
     λ = max.(F.values, floor_)
     nfloor = count(F.values .< floor_)
     minv = diag(F.vectors * Diagonal(1 ./ λ) * F.vectors')
     all(m -> isfinite(m) && m > 0, minv) || error("the metric is not positive: $minv")
-    save(out, "metric", (; minv, H, eigenvalues = F.values, floor = floor_, nfloor,
+    save(out, "metric", (; minv, H, asym, eigenvalues = F.values, floor = floor_, nfloor,
                          fd_step = FD_STEP, seconds = t); stage = "metric")
     names = mixed_parameter_names(f.s)
     io = IOBuffer()
@@ -294,7 +296,8 @@ function run_metric(out)
     p("# KIM-92 warm-start metric\n")
     p(@sprintf("Commit `%s`, job %s. −H at θ_ref by central differences of the gradient ", COMMIT, JOB),
       @sprintf("(step %.0e × prior SD), %.0f s. Eigenvalues of −H below the smallest prior ", FD_STEP, t),
-      @sprintf("precision, %.4g, are floored to it: %d of %d. M⁻¹ = diag((−H)⁻¹).\n", floor_, nfloor, length(x)))
+      @sprintf("precision, %.4g, are floored to it: %d of %d. M⁻¹ = diag((−H)⁻¹). ", floor_, nfloor, length(x)),
+      @sprintf("Before symmetrising, max|H − Hᵀ| / max|H| = %.2g.\n", asym))
     p("| coordinate | prior SD | √M⁻¹ | √M⁻¹ / prior SD |")
     p("|---|---|---|---|")
     for i in eachindex(x)
