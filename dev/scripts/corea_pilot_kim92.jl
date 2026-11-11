@@ -20,8 +20,12 @@
 #   probe <out>     the sizing probe: one chain on its own seed (arm 2) for at most
 #                   PROBE_HOURS (default 24), recording each iteration's tree depth,
 #                   steps and step size, never θ, to probe.tsv and probe.md;
+#   metric <out>    the warm-start metric (Decision log 2026-11-12): diag((−H)⁻¹) at θ_ref,
+#                   H by central differences of the gradient, to metric.jls and metric.md;
 #   chain <out> c   chain c of 4: NUTS(NADAPT, 0.8), NDRAW kept draws, from a start
-#                   jittered by 0.25 prior SD about θ_ref, seed mixed_chain_seeds(ds, 4)[c];
+#                   jittered by 0.25 prior SD about θ_ref, seed mixed_chain_seeds(ds, 4)[c],
+#                   from the warm metric, checkpointed every CKPT_EVERY iterations and
+#                   resumed from its checkpoint when one exists;
 #   check <out> k   the convergence gate on each chain's first k kept draws (k = NDRAW,
 #                   or 2 NDRAW after the extension), to gate_<k>.md;
 #   extend <out> c  the one extension (prereg §1): chain c continued NDRAW more draws
@@ -229,10 +233,11 @@ end
 
 # ---------------------------------------------------------------- chains
 
-# A line every `every` iterations, so a days-long chain shows its progress.
-function progress_callback(label, total; every = SMOKE ? 1 : 5)
-    t0 = time()
+# A line every `every` iterations, so a days-long chain shows its progress. `offset`
+# is the iterations already done (a chain runs in segments), `t0` the chain's start.
+function progress_callback(label, total; every = SMOKE ? 1 : 5, offset = 0, t0 = time())
     return function (rng, model, sampler, transition, state, i; kwargs...)
+        i += offset
         (i % every == 0 || i == total) || return nothing
         st = transition.stat
         say(@sprintf("%s: iteration %d of %d, %.1f h; depth %d, %d steps, step size %.3g, lp %.2f",
@@ -242,27 +247,152 @@ function progress_callback(label, total; every = SMOKE ? 1 : 5)
     end
 end
 
+# ---------------------------------------------------------------- warm-start metric
+
+# Decision log 2026-11-12. The depth probe (job 20545099) spent its 24 h in the unit
+# metric's first 75 iterations at ~51 leapfrog steps an iteration, which projects a
+# 200 + 200 chain to ~10 days. So the chains start from a diagonal metric read off
+# the curvature at θ_ref instead of the unit one. The Hessian of the log density at
+# θ_ref is central differences of its gradient (2 × 21 gradients), symmetrised. Its
+# negative's eigenvalues are floored at the smallest prior precision, so no direction
+# is given more variance than the widest prior allows (a floored eigenvalue is a flat
+# or non-convex direction at θ_ref, reported in metric.md). M⁻¹ = diag((−H)⁻¹), the
+# marginal variances of the Laplace approximation, which is what Stan's windowed
+# adaptation estimates. The prior is an unbounded MvNormal, so Turing's linked space
+# is x itself.
+const FD_STEP = 1e-3                             # × the coordinate's prior SD
+
+function hessian_fd(grad, x, h)
+    P = length(x)
+    H = zeros(P, P)
+    for j in 1:P
+        e = zeros(P); e[j] = h[j]
+        H[:, j] = (grad(x .+ e) .- grad(x .- e)) ./ (2h[j])
+        say(@sprintf("metric: column %d of %d", j, P))
+    end
+    return (H .+ H') ./ 2
+end
+
+function run_metric(out)
+    f = fit_setup(out)
+    x = f.p.ref.x
+    sd = mixed_prior_sd(f.s)
+    length(sd) == length(x) || error("prior SDs $(length(sd)), coordinates $(length(x))")
+    grad(z) = ForwardDiff.gradient(y -> mixed_logdensity(f.s, y), z)
+    t = @elapsed H = hessian_fd(grad, x, FD_STEP .* sd)
+    F = eigen(Symmetric(-H))
+    floor_ = minimum(1 ./ sd .^ 2)
+    λ = max.(F.values, floor_)
+    nfloor = count(F.values .< floor_)
+    minv = diag(F.vectors * Diagonal(1 ./ λ) * F.vectors')
+    all(m -> isfinite(m) && m > 0, minv) || error("the metric is not positive: $minv")
+    save(out, "metric", (; minv, H, eigenvalues = F.values, floor = floor_, nfloor,
+                         fd_step = FD_STEP, seconds = t); stage = "metric")
+    names = mixed_parameter_names(f.s)
+    io = IOBuffer()
+    p(xs...) = println(io, xs...)
+    p("# KIM-92 warm-start metric\n")
+    p(@sprintf("Commit `%s`, job %s. −H at θ_ref by central differences of the gradient ", COMMIT, JOB),
+      @sprintf("(step %.0e × prior SD), %.0f s. Eigenvalues of −H below the smallest prior ", FD_STEP, t),
+      @sprintf("precision, %.4g, are floored to it: %d of %d. M⁻¹ = diag((−H)⁻¹).\n", floor_, nfloor, length(x)))
+    p("| coordinate | prior SD | √M⁻¹ | √M⁻¹ / prior SD |")
+    p("|---|---|---|---|")
+    for i in eachindex(x)
+        p(@sprintf("| %s | %.3g | %.3g | %.3g |", names[i], sd[i], sqrt(minv[i]), sqrt(minv[i]) / sd[i]))
+    end
+    p("\nEigenvalues of −H, ascending: ", join((@sprintf("%.3g", v) for v in F.values), ", "), ".")
+    write(joinpath(out, "metric.md"), String(take!(io)))
+    print(read(joinpath(out, "metric.md"), String))
+end
+
+# Turing's initial step (DynamicPPL's `step` without a state, then Turing's
+# `initialstep`) with the warm metric in place of the unit one, and without its one
+# transition: the returned state is at iteration 0, so the chain's first `step` is
+# iteration 1 of the adaptation, as Turing's initial transition is. The mass-matrix
+# estimator's M⁻¹ starts at `minv`: AdvancedHMC renews the metric from it at every
+# adaptation step, so the metric alone would be reset to the unit one at iteration 1.
+# It holds until the first window ends (iteration 100 at NADAPT = 200), when the
+# windowed estimate replaces it as before.
+function warm_state(rng, model, spl, x0, minv)
+    vi = DPPL.default_varinfo(rng, model, spl)
+    vi = DPPL.initialize_parameters!!(vi, x0, model)
+    vi = last(DPPL.evaluate!!(model, vi, DPPL.DefaultContext()))
+    vi = DPPL.link(vi, model)
+    theta = vi[:]
+    theta ≈ x0 || error("the linked start is not x0: the prior is no longer the identity's")
+    ldf = DPPL.LogDensityFunction(model, vi,
+                                  DPPL.SamplingContext(rng, spl, DPPL.leafcontext(model.context));
+                                  adtype = spl.alg.adtype)
+    h = AHMC.Hamiltonian(AHMC.DiagEuclideanMetric(copy(minv)), Base.Fix1(LDP.logdensity, ldf),
+                         Base.Fix1(LDP.logdensity_and_gradient, ldf))
+    z = AHMC.phasepoint(rng, theta, h)
+    ϵ = AHMC.find_good_stepsize(rng, h, theta)
+    kernel = Turing.Inference.make_ahmc_kernel(spl.alg, ϵ)
+    adaptor = Turing.Inference.AHMCAdaptor(spl.alg, h.metric; ϵ)
+    adaptor isa AHMC.StanHMCAdaptor || error("expected Stan's windowed adaptor, got $(typeof(adaptor))")
+    adaptor.pc.var .= minv
+    return Turing.Inference.HMCState(vi, 0, kernel, h, z, adaptor), ϵ
+end
+
+# ---------------------------------------------------------------- chains
+
+# A chain runs in segments of CKPT_EVERY iterations through AbstractMCMC's sampler loop
+# with the state carried across, so the adaptation schedule runs as in one call (the
+# iteration count and the adaptor live in the state). After each segment the draws,
+# the state and the RNG go to chain_<c>_ckpt.jls; a job that finds one resumes from it,
+# with the Hamiltonian rebuilt as run_extend does, so a wall-limit kill loses at most
+# one segment. CKPT_STOP stops a smoke after that many segments, to test the resume.
+const CKPT_EVERY = envint("CKPT_EVERY", SMOKE ? 2 : 5)
+const CKPT_STOP = envint("CKPT_STOP", 0)
+
 function run_chain(out, c)
     f = fit_setup(out)
     seed = mixed_chain_seeds(f.ds, NCHAIN; arm = ARM_CHAIN)[c]
-    rng = Xoshiro(seed)
-    st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
-    say(@sprintf("chain %d: seed %d, start after %d tries, log density %.4f", c, seed, st.tries,
-                 mixed_logdensity(f.s, st.x)))
-    # The adaptation draws are kept in the chain (`discard_adapt = false`) so that the
-    # callback, which AbstractMCMC calls only for kept draws, reports them too: the
-    # adaptation is most of a chain's days. `chain_draws` drops them. With them kept,
-    # the N Turing is given counts them, and the kept draws equal a default run's
-    # bitwise (checked on a toy model, 2026-11-10).
-    t = @elapsed chain = sample(rng, mixed_model(f.s), nuts(), NADAPT + NDRAW;
-                                initial_params = st.x, progress = false, save_state = true,
-                                discard_adapt = false,
-                                callback = progress_callback("chain $c", NADAPT + NDRAW))
-    size(chain, 1) == NADAPT + NDRAW ||
-        error("chain $c holds $(size(chain, 1)) draws, not $NADAPT + $NDRAW")
-    save(out, "chain_$c", (; c, seed, start = st.x, start_tries = st.tries, chain, seconds = t,
-                           nadapt = NADAPT, ndraw = NDRAW); stage = "chain")
-    say(@sprintf("chain %d: %d + %d iterations in %.1f h", c, NADAPT, NDRAW, t / 3600))
+    model, spl = mixed_model(f.s), DPPL.Sampler(nuts())
+    total, ck = NADAPT + NDRAW, "chain_$(c)_ckpt"
+    if has(out, ck)
+        raw = deserialize(joinpath(out, "$ck.jls"))
+        raw.commit_full == COMMIT_FULL || error("checkpoint $ck is from $(raw.commit), this is $COMMIT")
+        r = raw.result
+        rng, segs, start, tries, seconds, eps0 = copy(r.rng), r.segs, r.start, r.tries, r.seconds, r.eps0
+        state = fresh_state(rng, model, spl, r.state)
+        done = sum(size(s, 1) for s in segs)
+        say(@sprintf("chain %d: resumed at iteration %d of %d from %s (job %s)", c, done, total, ck, raw.job))
+    else
+        rng = Xoshiro(seed)
+        st = mixed_jittered_start(rng, f.s, f.p.ref.x; scale = JITTER_SD)
+        start, tries = st.x, st.tries
+        minv = load(out, "metric").minv
+        state, eps0 = warm_state(rng, model, spl, start, minv)
+        segs, done, seconds = MCMCChains.Chains[], 0, 0.0
+        say(@sprintf("chain %d: seed %d, start after %d tries, log density %.4f; warm metric, initial step size %.3g",
+                     c, seed, tries, mixed_logdensity(f.s, start), eps0))
+    end
+    t0, nseg = time() - seconds, 0
+    while done < total
+        n = min(CKPT_EVERY, total - done)
+        t = @elapsed seg = AMCMC.mcmcsample(rng, model, spl, n; chain_type = MCMCChains.Chains,
+                                            initial_state = state, nadapts = NADAPT,
+                                            discard_initial = 0, progress = false, save_state = true,
+                                            callback = progress_callback("chain $c", total;
+                                                                         offset = done, t0))
+        seconds += t
+        state = seg.info.samplerstate
+        push!(segs, MCMCChains.setrange(seg, (done + 1):(done + n)))
+        done += n
+        nseg += 1
+        save(out, ck, (; c, seed, start, tries, eps0, segs, state, rng = copy(rng), seconds);
+             stage = "chain checkpoint")
+        # A failed exit, as a wall-limit kill is, so nothing that waits on the chain runs.
+        CKPT_STOP > 0 && nseg >= CKPT_STOP && done < total &&
+            (say("chain $c: stopped after $nseg segments (CKPT_STOP)"); exit(3))
+    end
+    whole = reduce(vcat, segs)                   # keeps the first segment's info
+    chain = MCMCChains.setinfo(whole, merge(whole.info, (; samplerstate = state)))
+    size(chain, 1) == total || error("chain $c holds $(size(chain, 1)) draws, not $NADAPT + $NDRAW")
+    save(out, "chain_$c", (; c, seed, start, start_tries = tries, chain, seconds, eps0,
+                           metric = "warm", nadapt = NADAPT, ndraw = NDRAW); stage = "chain")
+    say(@sprintf("chain %d: %d + %d iterations in %.1f h", c, NADAPT, NDRAW, seconds / 3600))
 end
 
 # ---------------------------------------------------------------- depth probe
@@ -595,6 +725,8 @@ function main(args)
         run_prep(out)
     elseif stage == "probe"
         run_probe(out)
+    elseif stage == "metric"
+        run_metric(out)
     elseif stage == "chain"
         run_chain(out, parse(Int, args[3]))
     elseif stage == "check"
