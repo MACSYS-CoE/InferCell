@@ -251,8 +251,8 @@ end
 
 # Decision log 2026-11-12. The depth probe (job 20545099) ran 38 iterations in its 24 h,
 # all in the unit metric's initial 75-iteration buffer, at ~51 leapfrog steps an
-# iteration, which projects a 200 + 200 chain to ~10 days. So the chains start from a diagonal metric read off
-# the curvature at θ_ref instead of the unit one. The Hessian of the log density at
+# iteration, which projects a 200 + 200 chain to ~10–11 days. So the chains start from
+# a diagonal metric read off the curvature at θ_ref instead of the unit one. The Hessian of the log density at
 # θ_ref is central differences of its gradient (2 × 21 gradients), symmetrised. Its
 # negative's eigenvalues are floored at the smallest prior precision, so no direction
 # is given more variance than the widest prior allows (a floored eigenvalue is a flat

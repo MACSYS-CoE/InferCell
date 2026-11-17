@@ -156,7 +156,7 @@ issue. **For KIM-93:** read the promoters' predictions with this shift in mind.
 √diag((−H)⁻¹) from `metric.jls` (job 20651329), is between 0.960 and 1.083 of the
 posterior SD of the 1,600 pooled draws (reads §4). The largest ratios are 1.083 for ENO
 and 1.065 for FBA. The one strong correlation,
-0607–krnadeg, is 0.669 in the Hessian and 0.69 in the draws.
+0607–krnadeg, is 0.669 in (−H)⁻¹ and 0.685 in the draws (reads §4).
 
 ENO's and FBA's MAP values differ from their posterior means by 2.3 and 1.4 posterior SD.
 Their posteriors are the least Gaussian, or the MAP stopped short along them; this run
@@ -178,15 +178,23 @@ dave305.
 
 - **No numerical errors after adaptation.** All 1,600 kept iterations ran at depth 3 or 4.
 - **Two pathological iterations**, both in adaptation under the warm metric (before
-  iteration 100). The depth and steps come from the chain files. The times come from the
-  5-iteration blocks of progress lines that hold each iteration:
+  iteration 100). The depth and steps come from the chain files, as each chain's deepest
+  iteration (reads §2). The times come from the 5-iteration blocks of progress lines that
+  hold each iteration:
   - chain 4, iteration 59: depth 10, 1,023 steps. Iterations 56–60 took 11.5 h (log 7.7 →
     19.2 h).
   - chain 3, iteration 87: depth 9, 731 steps. Iterations 86–90 took about 8.5 h.
-- **The metric from 25 draws** (iterations 101–150): its logged step sizes, one every 5
-  iterations, ran from 0.076 to 0.81 with a median of about 0.3. Over iterations 5–100
-  they had run from 0.19 to 1.23, with a median of about 0.6. It cost about 1.5–2 times
-  the steps per 25-iteration block, until the re-estimate at iteration 150.
+- **The windowed metrics** (from iteration 101) shortened the step size.
+  - Logged step sizes, one every 5 iterations, ran 0.19–1.23 (median about 0.6) over
+    iterations 5–100, and 0.076–0.87 (median about 0.3) over 105–200.
+  - Leapfrog steps per 25-iteration block (reads §2), across the 4 chains:
+    - iterations 101–200: 295–588, mean 432;
+    - iterations 1–100: 195–611, mean 301, leaving out the two blocks that hold the deep
+      iterations (929 and 1,219);
+    - the kept draws: 319–375.
+  - So the second half of adaptation cost about 1.4 times the first. The re-estimate at
+    iteration 150 brought no clear drop: chain 1's blocks fell, but chain 2's and chain 4's
+    did not.
 - **Against the probe.** The unit-metric probe (job 20545099, `probe.md`) took about 51
   steps per iteration at step sizes of 0.001–0.012. It ran 38 iterations in 24.22 h,
   including its setup, which projects to about 10–11 days per 400-iteration chain. The
@@ -198,6 +206,9 @@ dave305.
   That comes to 42.8–44.8 s per step for the chains on dave306, and 46.7–48.4 s for the
   extensions on dave305. The re-profile measured 40.3 s (job 20541310, `profile.md`). The
   per-step figure includes adaptation and Turing's per-iteration log-density evaluation.
+  The chains' sampling timer may also include part of the 0.9 h suspend on dave306 (see
+  Cost). Chain 1's log gives 66.2 h of sampling against 66.06 h Elapsed. That could raise
+  their figure by up to about 1.3%, roughly 0.5 s.
 
 ## Cost
 

@@ -7,18 +7,21 @@
 #      that failed the 200-draw gate (log_S_0213 and log_kcatF_R_ENO);
 #   2. per chain and phase (adaptation 1–200, kept 201–400, extension), the mean leapfrog
 #      steps per iteration, numerical errors and tree-depth counts, plus the step size;
+#      the leapfrog steps in each 25-iteration block of the 400; and the deepest iteration;
 #   3. the conditioning number of −H under the unit metric, κ(−H), and under the warm
 #      diagonal metric, κ(D½ (−H) D½) with D = diag(minv);
 #   4. the Laplace SD at θ_ref, √diag((−H)⁻¹), against the posterior SD of the 1,600
-#      pooled kept draws (4 × (200 + 200));
+#      pooled kept draws (4 × (200 + 200)), and the 0607–krnadeg correlation in both;
 #   5. the standardised errors, (posterior mean − truth)/sd, over the 17 promoters, and
 #      θ_ref (the MAP) against the truth and the posterior mean, in posterior SDs;
-#   6. the gradient's cost: each chain's sampling seconds over its total leapfrog steps.
+#   6. the gradient's cost: each job's sampling seconds (`.result.seconds`, which leaves out
+#      setup) over its total leapfrog steps.
 # Wall times of single iterations are not stored in the chain files. The note takes them
 # from the progress lines in logs/kim92_chain<c>_<job>.log, one every 5 iterations.
 using InferCell, Turing, MCMCChains, Serialization, Printf, Statistics, LinearAlgebra
 using DelimitedFiles
 
+length(ARGS) == 1 || error("usage: julia --project dev/scripts/corea_pilot_kim92_reads.jl <outdir>")
 const OUT = abspath(ARGS[1])
 const NADAPT = 200
 ld(name) = deserialize(joinpath(OUT, "$name.jls"))
@@ -55,6 +58,7 @@ function main()
     end
 
     println("\n## 2. Sampler, by chain and phase")
+    steps = Dict{Int, NTuple{3, Int}}()
     for c in 1:4
         ch, ex = A[c].result.chain, E[c].result.chain
         @printf("chain %d (job %s; extension job %s), step size kept %.4f, extension %.4f\n",
@@ -62,8 +66,11 @@ function main()
         na = phase("adaptation", ch[1:NADAPT])
         nk = phase("kept", ch[(NADAPT + 1):end])
         nx = phase("extension", ex)
-        @printf("  6. seconds per leapfrog step: chain %.1f, extension %.1f\n",
-                A[c].result.seconds / (na + nk), E[c].result.seconds / nx)
+        steps[c] = (na, nk, nx)
+        n, d = Int.(vec(ch[:n_steps])), Int.(vec(ch[:tree_depth]))
+        println("  steps per 25-iteration block, 1–400: ", [sum(n[i:(i + 24)]) for i in 1:25:length(n)])
+        i = argmax(d)
+        @printf("  deepest iteration: %d, depth %d, %d steps\n", i, d[i], n[i])
     end
 
     println("\n## 3. Conditioning")
@@ -85,6 +92,10 @@ function main()
     for i in eachindex(name)
         @printf("  %-24s Laplace %.4f, posterior %.4f, ratio %.3f\n", name[i], lap[i], s[i], r[i])
     end
+    a, b = idx("log_S_JCVISYN3A_0607"), idx("log_krnadeg")
+    C = inv(negH)
+    @printf("0607–krnadeg correlation: Laplace %.3f, draws %.3f\n",
+            C[a, b] / sqrt(C[a, a] * C[b, b]), cor(X[:, a], X[:, b]))
 
     println("\n## 5. Standardised errors and θ_ref")
     z = (pm .- tr) ./ ps
@@ -98,6 +109,13 @@ function main()
     for i in eachindex(name)
         @printf("  %-24s θ_ref %.4f, mean %.4f, truth %.4f, (θ_ref − truth)/sd %+.2f, (mean − θ_ref)/sd %+.2f\n",
                 name[i], x[i], pm[i], tr[i], zmap[i], dmap[i])
+    end
+
+    println("\n## 6. Seconds per leapfrog step")
+    for c in 1:4
+        na, nk, nx = steps[c]
+        @printf("chain %d: %.1f over 400 iterations; extension %.1f over 200\n", c,
+                A[c].result.seconds / (na + nk), E[c].result.seconds / nx)
     end
 end
 
