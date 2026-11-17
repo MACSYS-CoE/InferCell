@@ -249,9 +249,9 @@ end
 
 # ---------------------------------------------------------------- warm-start metric
 
-# Decision log 2026-11-12. The depth probe (job 20545099) spent its 24 h in the unit
-# metric's first 75 iterations at ~51 leapfrog steps an iteration, which projects a
-# 200 + 200 chain to ~10 days. So the chains start from a diagonal metric read off
+# Decision log 2026-11-12. The depth probe (job 20545099) ran 38 iterations in its 24 h,
+# all in the unit metric's initial 75-iteration buffer, at ~51 leapfrog steps an
+# iteration, which projects a 200 + 200 chain to ~10 days. So the chains start from a diagonal metric read off
 # the curvature at θ_ref instead of the unit one. The Hessian of the log density at
 # θ_ref is central differences of its gradient (2 × 21 gradients), symmetrised. Its
 # negative's eigenvalues are floored at the smallest prior precision, so no direction
@@ -312,10 +312,11 @@ end
 # `initialstep`) with the warm metric in place of the unit one, and without its one
 # transition: the returned state is at iteration 0, so the chain's first `step` is
 # iteration 1 of the adaptation, as Turing's initial transition is. The mass-matrix
-# estimator's M⁻¹ starts at `minv`: AdvancedHMC renews the metric from it at every
-# adaptation step, so the metric alone would be reset to the unit one at iteration 1.
-# It holds until the first window ends (iteration 100 at NADAPT = 200), when the
-# windowed estimate replaces it as before.
+# estimator's M⁻¹ starts at `minv`. AdvancedHMC renews the metric from it at every
+# adaptation step, and holds it until the first window ends (iteration 100 at
+# NADAPT = 200), when the windowed estimate replaces it as before. In AdvancedHMC 0.8.3,
+# `MassMatrixAdaptor(::DiagEuclideanMetric)` already seeds it from the metric's M⁻¹, so
+# the `.= minv` below is redundant there. It is kept because the run used it (`de24b27`).
 function warm_state(rng, model, spl, x0, minv)
     vi = DPPL.default_varinfo(rng, model, spl)
     vi = DPPL.initialize_parameters!!(vi, x0, model)

@@ -20,7 +20,7 @@
 # chains' and the extension's wall limit (default 7 days, milan's maximum).
 set -euo pipefail
 outdir=$(realpath -m "$1")
-what=${2:?say what to submit: profile, reprofile, posterior, prep, probe, chains, extend, ppc or all}
+what=${2:?say what to submit: profile, reprofile, posterior, prep, probe, metric, chains, extend, ppc or all}
 source "$(dirname "$0")/launcher_guard.sh"
 smoke=${SMOKE:-0}
 script=dev/scripts/corea_pilot_kim92.jl
