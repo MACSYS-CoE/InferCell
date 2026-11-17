@@ -1,6 +1,71 @@
 # Handoff
 
-## Latest: KIM-43, the evidence archive (branch `tomkimpson/kim-43-archive-the-evidence-package-with-sha256sums`, 2026-11-06)
+## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
+
+**State: the kill check passes. PR #185 is reviewed, its fixes are applied, and it merges
+with a merge commit so the cited commits stay reachable.** The record is
+`dev/scripts/corea_pilot_kim92_result.md`. Its derived numbers come from
+`dev/scripts/corea_pilot_kim92_reads.jl`, run against the archive. The jobs and results
+are also on KIM-92's comments.
+- **Convergence:** check 20660937 failed on 200 draws per chain (2 of 21 coordinates on R̂).
+  Check 20968978 passed after the one extension: worst R̂ 1.0102, smallest ESS 2302.
+- **PPC:** 21052424, with 11 of 884 rows outside the band (limit 44).
+- **Recovery:** the truth falls in the 90% interval for 20 of 21 coordinates. The 17
+  promoter strengths sit low, with a mean (mean − truth)/sd of −0.81, and the MAP shares the
+  shift. That is for KIM-93 to weigh.
+- **Cost:** about 492 CPU-h.
+- **Archive:** `/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17/`. `SHA256SUMS`
+  covers 48 files and starts `9ec9675e31a30aed`.
+
+**Next:**
+1. **Story check** against the kill criteria, then a project status update. M8 closes if
+   KIM-92 is its last open issue.
+2. **KIM-93,** the post-pilot decision, which this unblocks.
+3. **Left for a follow-up** (`/check-PR` on #185, minor and simplification findings):
+   - write checkpoints atomically, through a temp file and `mv`;
+   - have merge check that the extension agrees with gate_200's verdict, and that no
+     extension is partial;
+   - move the helpers copied a third time (envint, truth_x, timed, sacct_cpuh,
+     diagnostics) into `pilot_common.jl`;
+   - sample with AdvancedHMC directly, which removes warm_state and fresh_state;
+   - add a Laplace-metric option to `_infer_mixed` in src.
+
+## Earlier: KIM-92, before the chains (2026-11-12)
+
+**State: prep done, chains not started; the sizing decision is made.** The record of
+what ran is on KIM-92's comments, and the outdir is
+`/fred/oz022/tkimpson/infercell-kim92-posterior-2026-11-10`. Checklist items 1–3 are
+ticked.
+- **Prep:** job 20545098, at `16cc1a7`. θ_ref is in `prep.jls`.
+- **Depth probe:** job 20545099, which wrote `probe.md` and `probe.tsv`. It covered 38
+  iterations in 24 h, all with the unit metric: about 51 gradient steps an iteration at
+  about 42 s each, median depth 4–5, maximum 8. A frozen 200 + 200 chain projects to
+  about 10–11 days (38 iterations in 24.22 h, setup included), against milan's 7-day
+  limit.
+- **Tom's call:** option 3, a warm-start diagonal metric from the inverse Hessian at
+  θ_ref, plus checkpoints. The design stays at 200 + 200 and the gates do not change.
+
+**Next:**
+1. **Decision log entry** for option 3, before any chain starts.
+2. **Driver change** in `dev/scripts/corea_pilot_kim92.jl`:
+   - a `metric` stage computes the Hessian by finite differences of the gradient (about
+     42 gradients) and stores diag(H⁻¹), with a floor wherever H is not positive definite;
+   - `run_chain` drives AdvancedHMC directly, as `run_extend` does, starting from that
+     metric and keeping the Stan windowed adaptation;
+   - each chain checkpoints its state every N iterations and resumes from it.
+3. **Parse-check, then a smoke** of the new stages.
+4. **Submit** the `chains` mode from a run worktree at the pushed commit. Then `check`,
+   `extend` if the gate fails, `ppc` and `merge`; then the result note, the PR and
+   `/check-PR`.
+
+**Non-obvious:**
+- Turing's `sample(… NUTS …)` takes no initial metric.
+- AdvancedHMC 0.8.3's StanHMCAdaptor uses init_buffer 75, window 25 and term_buffer 50,
+  so with NADAPT 200 the metric updates at iterations 100 and 150.
+- `profile.md`'s projection table assumes one depth for the whole chain, so it is stale.
+- Pass `-u tkimpson` to `squeue`. The worktree hook refuses compound git commands.
+
+## Earlier: KIM-43, the evidence archive (branch `tomkimpson/kim-43-archive-the-evidence-package-with-sha256sums`, 2026-11-06)
 
 **State: built and verified.** The archive is
 `/fred/oz022/tkimpson/infercell-predict-archive-2026-11-06/`. Its `SHA256SUMS` covers 3,940 files
