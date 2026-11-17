@@ -4,11 +4,20 @@
 convergence gate failed on the first 200 draws per chain, and passed after the one
 extension the pre-registration allows. The PPC passed with 11 of 884 rows outside the
 band, against a limit of 44. Cost had no cap: it came to about 492 CPU-h, and the chains
-took 66–80 h of wall-clock each. Whether that is affordable is KIM-93's call.
+took 67–81 h of wall-clock each. Whether that is affordable is KIM-93's call.
 
 **Run:** `dev/scripts/corea_pilot_kim92.sh` at `de24b27`, from the detached worktree
-`.worktrees/kim92-run-de24b27`. Prep ran at `16cc1a7`, which has the same prep code. The
-output directory is `/fred/oz022/tkimpson/infercell-kim92-posterior-2026-11-10/`, holding
+`.worktrees/kim92-run-de24b27`. Each output records the commit it was made at:
+- `dataset*.jls`: `a1be360`;
+- `profile.jls` and `profile.md` (the re-profile): `4e52e37`;
+- `prep.jls`: `16cc1a7`, which has the same prep code as `de24b27`;
+- everything else: `de24b27`.
+
+Those commits are on this PR's branch, which merges with a merge commit so they stay
+reachable. After the run, the driver changed only in comments and the launcher's usage
+message: `git diff de24b27 HEAD -- dev/scripts/corea_pilot_kim92.*`.
+
+The output directory is `/fred/oz022/tkimpson/infercell-kim92-posterior-2026-11-10/`, holding
 `pilot_summary.md`, `pilot_coordinates.tsv`, `pilot_ppc.tsv`, `pilot_draws.tsv`,
 `gate_200.md`, `gate_400.md`, `metric.md`, `probe.md`, `profile.md`, `jobs.tsv`,
 `sacct.tsv` and `SHA256SUMS`.
@@ -17,6 +26,13 @@ output directory is `/fred/oz022/tkimpson/infercell-kim92-posterior-2026-11-10/`
 - **The final run:** `/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17/` is a copy of
   that directory. Its `SHA256SUMS` covers 48 files and has the SHA-256 `9ec9675e31a30aed…`.
   All 48 pass `sha256sum -c` in both the original and the copy.
+- **The first dataset and profile:** the archive's `pilot-2026-11-10/` subdirectory is a
+  copy of `/fred/oz022/tkimpson/infercell-kim92-pilot-2026-11-10/`. It holds:
+  - jobs 20454165–67 (precompile, dataset, first profile);
+  - their logs and `sacct.tsv`;
+  - the original dataset.
+
+  Its own `SHA256SUMS` covers 9 files and has the SHA-256 `18828fbaf91d8aeb…`.
 - **Before the extension:** the chains and checkpoints were copied to
   `/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-15/`, with their own `SHA256SUMS`.
 
@@ -27,10 +43,25 @@ started). The gates did not change.
 **Where the numbers come from.**
 - **The gates, recovery, contraction and cost table** come from `pilot_summary.md`, which
   merge 21052425 wrote.
-- **Sampler statistics, the Laplace comparison and θ_ref against the truth** are derived,
-  from a login-node read of `chain_*.jls`, `extend_*.jls`, `metric.jls` and `prep.jls`.
-  That read has no job id. The scripts are listed at the end.
-- **Job states and CPU-h** come from `sacct.tsv`.
+- **Derived numbers** come from `dev/scripts/corea_pilot_kim92_reads.jl`, a read-only
+  script with no model evaluation. That covers:
+  - the per-chain means and halves;
+  - the sampler statistics;
+  - the conditioning numbers;
+  - the Laplace comparison;
+  - the standardised errors and θ_ref against the truth;
+  - the seconds per gradient.
+
+  It reads `chain_c.jls`, `extend_c.jls`, `metric.jls`, `prep.jls` and
+  `pilot_coordinates.tsv`. It was run on the login node against the archive, so these
+  numbers have no job id:
+  `julia --project dev/scripts/corea_pilot_kim92_reads.jl /fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17`.
+  Each section of its output is numbered, and the note cites a section as (reads §n).
+- **Single iterations' wall times** come from the progress lines in
+  `logs/kim92_chain<c>_<job>.log`, which print one line every 5 iterations. The chain files
+  do not store them.
+- **Job states, CPU-h, wall times and MaxRSS** come from `sacct.tsv`. For jobs 20454165–67,
+  they come from `pilot-2026-11-10/sacct.tsv` in the archive.
 
 ## The gates
 
@@ -40,19 +71,22 @@ started). The gates did not change.
 | convergence after the one extension, 400 per chain | as above | worst R̂ 1.0102 (log_sigma_b), smallest ESS 2301.6 (log_krnadeg), 0 failing | **pass** | check 20968978 |
 | PPC | at most 44 of 884 rows outside the central 99% band | **11 outside** | **pass** | PPC 21052424 |
 
-**Why the first gate failed.** No chain is stuck. On the two failing coordinates, the
-four chains' means agree to within about 0.1 posterior SD:
+**Why the first gate failed.** No chain is stuck (reads §1). On the two failing
+coordinates, the four chains' means over draws 201–400 agree to within about 0.1
+posterior SD:
 - log_S_0213's means lie in 1.0158–1.0192, against a per-chain SD of about 0.03;
 - ENO's means lie in 3.9474–3.9525, against an SD of about 0.045.
 
-The halves of each chain agree just as closely. The per-chain SDs differ by up to about
-25%: ENO's run from 0.037 to 0.048. The rank-normalised R̂ is sensitive to that
-difference in scale at 200 draws. After the extension, the two coordinates have R̂ 1.0037
-and 1.0041.
+The 100-draw halves of each chain spread a little wider, at about 0.17–0.19 SD (0213:
+1.0145–1.0197; ENO: 3.9472–3.9556). That is what half as many draws would give, and no
+half drifts away from the others. The per-chain SDs differ by up to about 25%: ENO's run
+from 0.037 to 0.048. Rank-normalised R̂ is the larger of the bulk and the folded R̂, so it
+is sensitive to that difference in scale at 200 draws. After the extension, the two
+coordinates have R̂ 1.0037 and 1.0041.
 
 **Checklist item 5 (the identifiability diagnosis) was not triggered,** because the gate
 passes after the extension. The quantities it asks for are reported anyway:
-- **Contraction:** at least 0.92 on every coordinate (below).
+- **Contraction:** at least 0.919 on every coordinate (below).
 - **Correlations:** one posterior correlation has |r| ≥ 0.5, between log_S_0607 and
   log_krnadeg (0.69).
 - **Weak directions:** none. No marginal sits at its prior.
@@ -105,7 +139,7 @@ From `pilot_summary.md` (merge 21052425), on 1,600 pooled kept draws: 4 chains �
 - If the 17 errors were independent and calibrated, their mean would be 0 ± 0.24, so this
   is about 3.3 of those SEs away from zero.
 - θ_ref, the MAP of the same likelihood, has the same shift: its mean (MAP − truth)/sd
-  over the promoters is −0.86.
+  over the promoters is −0.86 (reads §5).
 - So the shift comes from the likelihood on this dataset, not from the sampler.
 
 It is not gated and does not change the verdict. One dataset cannot separate two causes:
@@ -119,18 +153,20 @@ The second is exactly what KIM-95's scored predictions guard against (prereg §2
 issue. **For KIM-93:** read the promoters' predictions with this shift in mind.
 
 **The posterior is close to Gaussian.** For each coordinate, the Laplace SD at θ_ref,
-√diag((−H)⁻¹) from `metric.jls` (job 20651329), is between 0.96 and 1.08 of the posterior
-SD. The largest ratios are 1.083 for ENO and 1.065 for FBA. The one strong correlation,
+√diag((−H)⁻¹) from `metric.jls` (job 20651329), is between 0.960 and 1.083 of the
+posterior SD of the 1,600 pooled draws (reads §4). The largest ratios are 1.083 for ENO
+and 1.065 for FBA. The one strong correlation,
 0607–krnadeg, is 0.669 in the Hessian and 0.69 in the draws.
 
 ENO's and FBA's MAP values differ from their posterior means by 2.3 and 1.4 posterior SD.
 Their posteriors are the least Gaussian, or the MAP stopped short along them; this run
 cannot say which. For the other 19 coordinates, the posterior mean is within 0.35
-posterior SD of θ_ref. The largest of those are log_S_0233 (0.35) and log_sigma_b (0.33).
+posterior SD of θ_ref. The largest of those are log_S_0233 (0.35) and log_sigma_b (0.33)
+(reads §5).
 
 ## The sampler
 
-Derived from the chain files. All four chains ran on dave306, and the extensions on
+From the chain files (reads §2). All four chains ran on dave306, and the extensions on
 dave305.
 
 | chain | job | extension job | adaptation: mean steps per iteration, numerical errors, max depth | kept 201–400: mean steps, max depth | extension: mean steps, max depth | step size |
@@ -142,17 +178,26 @@ dave305.
 
 - **No numerical errors after adaptation.** All 1,600 kept iterations ran at depth 3 or 4.
 - **Two pathological iterations**, both in adaptation under the warm metric (before
-  iteration 100):
-  - chain 4, iteration 59: depth 10, 1,023 steps, about 11.5 h;
-  - chain 3, iteration 87: depth 9, 731 steps, about 9 h.
-- **The metric from 25 draws** (iterations 101–150) cut the step sizes to 0.1–0.3 and cost
-  about 1.5–2 times the steps per block, until the re-estimate at iteration 150.
+  iteration 100). The depth and steps come from the chain files. The times come from the
+  5-iteration blocks of progress lines that hold each iteration:
+  - chain 4, iteration 59: depth 10, 1,023 steps. Iterations 56–60 took 11.5 h (log 7.7 →
+    19.2 h).
+  - chain 3, iteration 87: depth 9, 731 steps. Iterations 86–90 took about 8.5 h.
+- **The metric from 25 draws** (iterations 101–150): its logged step sizes, one every 5
+  iterations, ran from 0.076 to 0.81 with a median of about 0.3. Over iterations 5–100
+  they had run from 0.19 to 1.23, with a median of about 0.6. It cost about 1.5–2 times
+  the steps per 25-iteration block, until the re-estimate at iteration 150.
 - **Against the probe.** The unit-metric probe (job 20545099, `probe.md`) took about 51
-  steps per iteration at step sizes of 0.001–0.012, which projects to about 10.3 days per
-  chain. The warm metric's conditioning number is 5.98, against 528 for the unit metric
-  (√κ 2.4 against 23; from `metric.jls`).
-- **Gradient cost:** about 44 s a gradient on these nodes, against 40.3 s in the
-  re-profile (job 20541310, `profile.md`).
+  steps per iteration at step sizes of 0.001–0.012. It ran 38 iterations in 24.22 h,
+  including its setup, which projects to about 10–11 days per 400-iteration chain. The
+  conditioning numbers (reads §3),
+  with −H at θ_ref from `metric.jls`:
+  - under the unit metric, κ(−H) = 528 (√κ 23);
+  - under the warm diagonal metric, κ(D½ (−H) D½) = 5.98 (√κ 2.44), with D = diag(minv).
+- **Gradient cost** (reads §6): each job's sampling seconds over its total leapfrog steps.
+  That comes to 42.8–44.8 s per step for the chains on dave306, and 46.7–48.4 s for the
+  extensions on dave305. The re-profile measured 40.3 s (job 20541310, `profile.md`). The
+  per-step figure includes adaptation and Turing's per-iteration log-density evaluation.
 
 ## Cost
 
@@ -161,13 +206,14 @@ on 16 threads.
 
 | stage | jobs | CPU-h | wall-clock |
 |---|---|---|---|
+| precompile, first pass | 20454165 | 0.01 | 1 min |
 | dataset (drawn at `a1be360`, copied by sha256; `DATASET_PROVENANCE.md`) | 20454166 | 4.51 | 4 h 31 min |
 | first profile, before KIM-99 | 20454167 | 0.80 | 48 min |
 | precompile, re-profile | 20541309, 20541310 | 0.43 | 26 min |
 | prep: MAP 9,721 s and an 800-cell reference ensemble 16,332 s | 20545098 | 7.28 | 7 h 17 min |
 | depth probe (unit metric, stopped at its 24 h budget) | 20545099 | 24.33 | 24 h 20 min |
 | warm metric (−H by finite differences of the gradient) | 20651329 | 0.70 | 42 min |
-| 4 chains, 200 + 200 | 20660933–36 | 299.09 | 66.1, 77.0, 75.9, 80.2 h |
+| 4 chains, 200 + 200 | 20660933–36 | 299.09 | 67.0, 77.9, 76.8, 81.1 h (Start → End; see below) |
 | check on 200 draws | 20660937 | 0.06 | 3 min |
 | extension, 4 × 200 | 20968974–77 | 152.63 | 36.6, 38.5, 37.7, 39.8 h |
 | check on 400 draws | 20968978 | 0.05 | 3 min |
@@ -175,25 +221,31 @@ on 16 threads.
 | merge | 21052425 | 0.04 | 3 min |
 | **total** | | **491.9** | |
 
-- **Totals:** the merge's own total, over `jobs.tsv`, is 486.60 CPU-h. The dataset and
-  the first profile add 5.31, which gives 491.9. Chain 1's peak RSS was 4.2 GB, from its
-job report.
+- **Totals:** the merge's own total, over `jobs.tsv`, is 486.60 CPU-h. Jobs 20454165–67
+  add 5.32, which gives 491.9.
+- **The chains' wall-clock** is sacct's Start → End. Their Elapsed (66.1, 77.0, 75.9 and
+  80.2 h) is about 0.9 h shorter for all four on dave306, which looks like a node-level
+  suspend. The extensions' Elapsed equals Start → End. CPU-h follow Elapsed.
+- **Peak memory** (sacct MaxRSS of the batch step): 5.0–5.5 GiB for the chains, and
+  4.7–6.0 GiB for the extensions. The job report's "4.2 GB peak" for chain 1 is a
+  different measure.
 - **Wall-clock from the first submission to the last job's end:** 2026-11-10 01:47 to
   2026-11-17 14:24, which is 7 d 12.6 h. That includes the time spent on the probe and on
   the decision to use the warm metric.
 - **Critical path of the design as it finally ran** (dataset, prep, metric, chains,
-  extension, PPC and merge, without queue waits or the probe): about 133 h, or 5.5 days.
-  The chains and the extension make up 120 h of that.
+  extension, PPC and merge, without queue waits or the probe): about 133 h, or 5.5 days,
+  on Elapsed. The chains and the extension make up 120 h of that.
 
-## Login-node reads (no job ids)
+## Regenerating the derived numbers
 
-These scripts were run on the login node from `.worktrees/kim92-run-de24b27`
-(`julia --project`), reading the outdir. Not one of them changes a file in it.
-- **Per-chain means and halves** of the coordinates that failed at 200 draws.
-- **The gate preview** at 185 draws, made before check 20660937. It agreed with the check.
-- **Per-phase sampler statistics** and the Laplace-against-posterior SDs.
-- **θ_ref against the truth and the posterior mean.**
+`dev/scripts/corea_pilot_kim92_reads.jl` prints every number above marked (reads §n). Run
+it from the repo root against the archive:
 
-The figures above can be regenerated from the archive by reading `chain_c.jls`
-(`.result.chain`), `extend_c.jls`, `metric.jls` (`.result.minv`, `.H`) and `prep.jls`
-(`.result.ref.x`) at `de24b27`.
+    julia --project dev/scripts/corea_pilot_kim92_reads.jl /fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17
+
+Its header lists what each section computes. It deserialises the run's `.jls` files, so it
+needs the Manifest those files were written with, which this PR does not change. On a login
+node it takes about a minute, most of it loading packages.
+
+The session also made one check that is not kept: an R̂ and ESS preview on 185 draws per
+chain, made before check 20660937. It flagged the same two coordinates as the check.
