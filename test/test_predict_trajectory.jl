@@ -415,6 +415,18 @@ end
         all_ = trajectory_values(full, tx[1])
         @test fc.values[1, 1] == all_.values[1, 1][:, end:end]
         @test all(isinteger, all_.values[1, 1])
+        # An off-grid horizon, as the fit window's 3150 s is on the 60 s grid: the
+        # short run gains a save at its horizon, which the full run's cut does not
+        # hold; the saves they share agree, and `after = 0` drops t = 0 as the data does.
+        off = predict(ms, pd; horizon = 90.0, n_cells = 2, rng = Xoshiro(7), threads = false,
+                      trajectory = S)
+        @test trajectory_values(off, M).t == [0.0, 60.0, 90.0]
+        @test trajectory_values(full, M; upto = 90.0).t == [0.0, 60.0]
+        @test trajectory_values(full, M; after = 0, upto = 90.0).t == [60.0]
+        for s in S
+            @test trajectory_values(off, s; upto = 60.0).values ==
+                  trajectory_values(full, s; upto = 90.0).values
+        end
         @test_throws ArgumentError trajectory_values(full, M; after = h2, upto = h1)
         @test_throws ArgumentError trajectory_values(fit, M; arm = :intervened)
     end

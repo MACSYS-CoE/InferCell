@@ -189,10 +189,14 @@ like `p.cells`, of cells × times matrices, at the recorded times `t` with
 `after < t ≤ upto`. A cell that failed holds no trajectory and is not in its pair's
 matrix. These are the predictive's draws a score reads (Spec D3, Linear KIM-95).
 
-The window splits a run at the fit window's end (Linear KIM-94): `upto =
-COREA_FIT_S` keeps the saves the data saw, and `after = COREA_FIT_S` the forecast
-past them. A run to the full cycle holds both, and its saves up to `COREA_FIT_S` are
-the same run as one to the fit window alone, for the same draws and seeds.
+The window splits a run to the full cycle at the fit window's end (Linear KIM-94):
+`after = 0, upto = COREA_FIT_S` keeps the saves the data saw (`corea_dataset` keeps
+`0 < t ≤ fit_to`, so not t = 0), and `after = COREA_FIT_S` the forecast past them.
+Cut the full run rather than run to the fit window alone: `COREA_FIT_S` (3150 s) is
+off the 60 s grid, and a run always saves at its horizon, so a 3150 s run holds a
+save at 3150 s that the data never saw. On the saves the two share, the hybrid's
+are the same run, bitwise, for the same draws and seeds; the mean field's agree to
+roundoff.
 
 `arm = :intervened` reads the intervened runs, on the same seeds as the baseline's.
 A pair the viability rule dropped ran no intervention, and holds no cells there.
