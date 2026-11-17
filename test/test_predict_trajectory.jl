@@ -365,10 +365,16 @@ end
                      threads = false, trajectory = S)
         p2 = predict(m0_models(), pd; horizon = 60.0, n_cells = 2, rng = Xoshiro(5),
                      threads = false, trajectory = vcat(S, tx[2:2]))
+        p0 = predict(m0_models(), pd; horizon = 60.0, n_cells = 2, rng = Xoshiro(5),
+                     threads = false, trajectory = [M])
         @test isequal(p1.mu, p2.mu)
-        for (c1, c2) in zip(reduce(vcat, vec(p1.cells)), reduce(vcat, vec(p2.cells)))
+        for (c0, c1, c2) in zip(reduce(vcat, vec(p0.cells)), reduce(vcat, vec(p1.cells)),
+                                reduce(vcat, vec(p2.cells)))
             @test c2.trajectory.values[:, 1:2] == c1.trajectory.values
             @test all(isinteger, c2.trajectory.values[:, 3])
+            # One species is still one column, a times × 1 matrix.
+            @test c0.trajectory.values isa Matrix{Float64} && size(c0.trajectory.values) == (2, 1)
+            @test c0.trajectory.values == c1.trajectory.values[:, 1:1]
         end
     end
 

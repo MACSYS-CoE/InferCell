@@ -110,7 +110,8 @@ function _record(f, run::ValidationRun)
             error("the run kept no count of :$s")
         return [Float64(run.jump[i][k]) for i in rows]
     end
-    values = reduce(hcat, (column(s) for s in f.trajectory))
+    # `stack` keeps one column per species, even for one species.
+    values = stack(column(s) for s in f.trajectory)
     return (; t = copy(f.grid), species = copy(f.trajectory), values)
 end
 
