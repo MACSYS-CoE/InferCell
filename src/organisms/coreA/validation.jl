@@ -276,7 +276,9 @@ What [`validation_run!`](@ref) records over a trajectory: everything the phase
   side gates;
 - `factor_max`;
 - the solver's `abstol` and `reltol`;
-- the rounding `policy`.
+- the rounding `policy`;
+- `jump`, the jump state after each handshake, beside `ode`, when the run was
+  asked to keep it (`record_jump`), and otherwise empty.
 """
 struct ValidationRun
     ode_names::Vector{Symbol}
@@ -294,24 +296,36 @@ struct ValidationRun
     reltol::Float64
     policy::Symbol
     n_restarts::Int
+    jump::Vector{Vector{Int}}
 end
+
+# A run that kept no jump counts, as the mean field's and every run that does not
+# ask for them.
+ValidationRun(ode_names, jump_names, moieties, t, ode, factor, jump_min, totals, max_remainder,
+              samples, factor_max, abstol, reltol, policy, n_restarts) =
+    ValidationRun(ode_names, jump_names, moieties, t, ode, factor, jump_min, totals,
+                  max_remainder, samples, factor_max, abstol, reltol, policy, n_restarts,
+                  Vector{Int}[])
 
 """
     validation_run!(models, d, n; moieties = corea_moieties(...), sample_every = 60,
-                    clips = nothing) -> ValidationRun
+                    clips = nothing, record_jump = false) -> ValidationRun
 
 Advance the driver `n` handshakes, recording what the balance checks read.
 `models` must be the list `d` was built from, since the driver keeps indices
 and not names. Each moiety's total is taken at every handshake, so a closure is
 asserted along the whole trajectory, not only at its end. A [`ClipRecord`](@ref)
 passed as `clips` is read after every handshake, as [`record_clips!`](@ref) needs.
+With `record_jump`, the jump block's counts are kept at every handshake too, in
+`jump`, beside `ode` (Linear KIM-94: `predict` records transcripts from them).
+Keeping them reads the state and draws nothing, so the run is the same either way.
 """
 function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
                          n::Integer;
                          moieties = corea_moieties(carbon = GLC_UPTAKE_METER in
                                                    _block_names(models, :ode)),
                          sample_every::Integer = 60,
-                         clips = nothing)
+                         clips = nothing, record_jump::Bool = false)
     ode_names = _block_names(models, :ode)
     jump_names = _block_names(models, :jump)
     length(ode_names) == length(d.ode.u) && length(jump_names) == length(d.jump.u) ||
@@ -325,6 +339,7 @@ function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
     ode = [collect(Float64, d.ode.u)]
     factor = [d.factor]
     jmin = collect(Int, d.jump.u)
+    jump = record_jump ? [collect(Int, d.jump.u)] : Vector{Int}[]
     maxrem = maximum(abs, d.rounding.remainders; init = 0.0)
     samples = [(t = d.ode.t, u = collect(Float64, d.ode.u), p = collect(Float64, d.ode.p))]
     for k in 1:n
@@ -333,6 +348,7 @@ function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
         push!(t, d.ode.t)
         push!(ode, collect(Float64, d.ode.u))
         push!(factor, d.factor)
+        record_jump && push!(jump, collect(Int, d.jump.u))
         for (j, x) in enumerate(d.jump.u)
             x < jmin[j] && (jmin[j] = x)
         end
@@ -347,7 +363,7 @@ function validation_run!(models::Vector{<:AbstractSubModel}, d::HandshakeDriver,
     s = solver_settings(d)
     return ValidationRun(ode_names, jump_names, collect(Moiety, moieties), t, ode, factor,
                          jmin, totals, maxrem, samples, maximum(factor), s.abstol, s.reltol,
-                         d.rounding.policy, n)
+                         d.rounding.policy, n, jump)
 end
 
 # ---------------------------------------------------------------------------

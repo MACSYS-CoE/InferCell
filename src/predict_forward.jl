@@ -51,8 +51,9 @@ Fields:
   or is unmetered;
 - `trajectory`: the recorded species, when `trajectory` was asked for: `t` in
   seconds, `species`, and `values`, one row per time and one column per species, in
-  particles (each state at the factor it was held at, as `carbon_accounts` reads
-  them). It is `nothing` when nothing was recorded or the run failed.
+  particles (each ODE state at the factor it was held at, as `carbon_accounts` reads
+  them, and each jump species, such as a transcript, as its count). It is `nothing`
+  when nothing was recorded or the run failed.
 """
 struct CellRun
     seed::Int
@@ -90,7 +91,9 @@ _quantity_label(f) = Symbol(string(f))
 const _METERS = (GLC_UPTAKE_METER, LAC_EXPORT_METER)
 
 # The asked-for species on the setup's grid, in particles. Hybrid times accumulate
-# handshake by handshake, so a grid time is matched to within roundoff.
+# handshake by handshake, so a grid time is matched to within roundoff. An ODE
+# species is its state at the factor it was held at; a jump species, such as a
+# transcript, is its count, which the hybrid keeps only when one is asked for.
 function _record(f, run::ValidationRun)
     isempty(f.trajectory) && return nothing
     rows = map(f.grid) do t
@@ -99,8 +102,15 @@ function _record(f, run::ValidationRun)
             error("the run has no state at the grid time $t s")
         i
     end
-    cols = [findfirst(==(s), run.ode_names) for s in f.trajectory]
-    values = [run.ode[i][j] * run.factor[i] for i in rows, j in cols]
+    function column(s)
+        j = findfirst(==(s), run.ode_names)
+        j === nothing || return [run.ode[i][j] * run.factor[i] for i in rows]
+        k = findfirst(==(s), run.jump_names)
+        k !== nothing && length(run.jump) == length(run.t) ||
+            error("the run kept no count of :$s")
+        return [Float64(run.jump[i][k]) for i in rows]
+    end
+    values = reduce(hcat, (column(s) for s in f.trajectory))
     return (; t = copy(f.grid), species = copy(f.trajectory), values)
 end
 
@@ -125,8 +135,9 @@ end
 
 _time_grid(h, every) = sort(unique(vcat(collect(0.0:Float64(every):h), h)))
 
-# What to record, refused if it cannot be: a misspelled or jump-block species, or
-# a grid the hybrid's handshakes do not fall on. It returns `_forward_setup`'s
+# What to record, refused if it cannot be: a misspelled species, a jump-block
+# species on the mean field, which has no jump block, or a grid the hybrid's
+# handshakes do not fall on. It returns `_forward_setup`'s
 # keywords. `every` stays at 60 s on the mean field, recording or not, so its saves,
 # and the minima it reads at them, are as ever. `interval` gives the handshake in
 # seconds; only the hybrid reads it.
@@ -138,9 +149,12 @@ function _recording(ms, forward, trajectory, every, interval)
     end
     isempty(trajectory) && throw(ArgumentError(
         "`trajectory` names no species; leave it out to record nothing"))
-    bad = setdiff(trajectory, _block_names(ms, :ode))
+    jumps = intersect(trajectory, _block_names(ms, :jump))
+    bad = setdiff(trajectory, _block_names(ms, :ode), jumps)
     isempty(bad) || throw(ArgumentError(
-        "$bad cannot be recorded: `trajectory` takes the ODE block's species"))
+        "$bad cannot be recorded: `trajectory` takes the ODE and jump blocks' species"))
+    forward === :mean_field && !isempty(jumps) && throw(ArgumentError(
+        "$jumps cannot be recorded on the mean field: it has no jump block"))
     every > 0 || throw(ArgumentError("`every` must be positive, got $every"))
     if forward === :hybrid
         dt = interval()
@@ -181,7 +195,8 @@ function _hybrid_cell(f::_ForwardSetup, values, seed::Integer, quantity)
         n * d.interval ≈ f.horizon || throw(ArgumentError(
             "horizon $(f.horizon) is not a whole number of $(d.interval) s handshakes"))
         rec = ClipRecord(d)
-        run = validation_run!(ms, d, n; moieties = Moiety[], clips = rec)
+        record_jump = any(in(_block_names(ms, :jump)), f.trajectory)
+        run = validation_run!(ms, d, n; moieties = Moiety[], clips = rec, record_jump)
         return _cell(Int(seed), run, quantity, rec.drains, clip_summary(rec), f)
     catch e
         e isa MetabolicBlockStalled || rethrow()
