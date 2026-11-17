@@ -1,6 +1,27 @@
 # Handoff
 
-## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-12)
+## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
+
+**State: the kill check passes; the result note is written, and the PR is next.** The
+record is `dev/scripts/corea_pilot_kim92_result.md`. The jobs and results are also on
+KIM-92's comments.
+- **Convergence:** check 20660937 failed on 200 draws per chain (2 of 21 coordinates on R̂).
+  Check 20968978 passed after the one extension: worst R̂ 1.0102, smallest ESS 2302.
+- **PPC:** 21052424, with 11 of 884 rows outside the band (limit 44).
+- **Recovery:** the truth falls in the 90% interval for 20 of 21 coordinates. The 17
+  promoter strengths sit low, with a mean (mean − truth)/sd of −0.81, and the MAP shares the
+  shift. That is for KIM-93 to weigh.
+- **Cost:** about 492 CPU-h.
+- **Archive:** `/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17/`. `SHA256SUMS`
+  covers 48 files and starts `9ec9675e31a30aed`.
+
+**Next:**
+1. Open the PR "KIM-92: …", run `/check-PR`, and merge only on MERGE.
+2. **Story check** against the kill criteria, then a project status update. M8 closes if
+   KIM-92 is its last open issue.
+3. **KIM-93,** the post-pilot decision, which this unblocks.
+
+## Earlier: KIM-92, before the chains (2026-11-12)
 
 **State: prep done, chains not started; the sizing decision is made.** The record of
 what ran is on KIM-92's comments, and the outdir is
