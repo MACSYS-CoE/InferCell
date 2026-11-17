@@ -275,6 +275,11 @@ function _pilot_draws(x, path)
         isfile(base) || throw(ArgumentError(
             "$path: an extension is read with its chain file, $base, beside it"))
         b = deserialize(base).result
+        # The chain file must be this extension's: the same chain, and the length
+        # the extension continued it by.
+        b.c == r.c && nit == r.ndraw == b.ndraw || throw(ArgumentError(
+            "$path continues chain $(r.c) by $(r.ndraw) and holds $nit, but $base is " *
+            "chain $(b.c) of $(b.ndraw) kept draws"))
         chain, skip, offset = r.chain, 0, b.nadapt + b.ndraw
     end
     kept = chain[(skip + 1):end, :, :]

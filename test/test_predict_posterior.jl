@@ -165,6 +165,20 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
         # Two pilot fits are two posteriors, even over the same targets.
         cp(joinpath(fit, "chain_1.jls"), joinpath(lone, "chain_1.jls"))
         @test_throws ArgumentError vcat(ch1, posterior_draws(joinpath(lone, "chain_1.jls")))
+        # An extension beside another chain's file is refused, not misnumbered; so
+        # is a chain file that does not hold its adaptation and kept draws.
+        odd = joinpath(dir, "odd")
+        mkpath(odd)
+        for f in ("dataset.jls", "extend_1.jls")
+            cp(joinpath(fit, f), joinpath(odd, f))
+        end
+        cp(joinpath(fit, "chain_2.jls"), joinpath(odd, "chain_1.jls"))
+        @test_throws ArgumentError posterior_draws(joinpath(odd, "extend_1.jls"))
+        serialize(joinpath(odd, "chain_3.jls"),
+                  wrap((; c = 3, seed = 13, start = nothing, start_tries = 1,
+                        chain = mkch(randn(rng, nadapt + ndraw - 1, P)), seconds = 1.0,
+                        eps0 = 0.1, metric = "warm", nadapt, ndraw), "chain"))
+        @test_throws ArgumentError posterior_draws(joinpath(odd, "chain_3.jls"))
     end
 
     @testset "infer's Chains, mapped by name" begin

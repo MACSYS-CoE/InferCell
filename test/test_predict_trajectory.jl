@@ -421,6 +421,11 @@ end
         all_ = trajectory_values(full, tx[1])
         @test fc.values[1, 1] == all_.values[1, 1][:, end:end]
         @test all(isinteger, all_.values[1, 1])
+        # `baseline` subtracts the value at t = 0 before the cut, so a forecast is
+        # still a change from the cell's start.
+        bf = trajectory_values(full, tx[1]; after = h1, baseline = true)
+        @test bf.values[1, 1] == all_.values[1, 1][:, end:end] .- all_.values[1, 1][:, 1:1]
+        @test_throws ArgumentError trajectory_values(full, M; arm = :treated)
         # An off-grid horizon, as the fit window's 3150 s is on the 60 s grid: the
         # short run gains a save at its horizon, which the full run's cut does not
         # hold; the saves they share agree, and `after = 0` drops t = 0 as the data does.
