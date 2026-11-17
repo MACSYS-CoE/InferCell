@@ -191,10 +191,13 @@ dave305.
     - iterations 101–200: 295–588, mean 432;
     - iterations 1–100: 195–611, mean 301, leaving out the two blocks that hold the deep
       iterations (929 and 1,219);
-    - the kept draws: 319–375.
-  - So the second half of adaptation cost about 1.4 times the first. The re-estimate at
-    iteration 150 brought no clear drop: chain 1's blocks fell, but chain 2's and chain 4's
-    did not.
+    - kept iterations 201–400 (the extensions are not counted): 319–375.
+  - So, per 25-iteration block and leaving out the two deep blocks, the second half of
+    adaptation took about 1.4 times the steps of the first.
+  - The re-estimate at iteration 150 brought no clear drop. Comparing iterations 151–200
+    with 101–150:
+    - chains 1 and 3 fell, 985 → 606 and 869 → 779;
+    - chains 2 and 4 rose, 910 → 939 and 855 → 973.
 - **Against the probe.** The unit-metric probe (job 20545099, `probe.md`) took about 51
   steps per iteration at step sizes of 0.001–0.012. It ran 38 iterations in 24.22 h,
   including its setup, which projects to about 10–11 days per 400-iteration chain. The
@@ -206,9 +209,10 @@ dave305.
   That comes to 42.8–44.8 s per step for the chains on dave306, and 46.7–48.4 s for the
   extensions on dave305. The re-profile measured 40.3 s (job 20541310, `profile.md`). The
   per-step figure includes adaptation and Turing's per-iteration log-density evaluation.
-  The chains' sampling timer may also include part of the 0.9 h suspend on dave306 (see
-  Cost). Chain 1's log gives 66.2 h of sampling against 66.06 h Elapsed. That could raise
-  their figure by up to about 1.3%, roughly 0.5 s.
+  The chains' sampling timer holds at least part of the 0.9 h suspend on dave306 (see
+  Cost). Chain 1's sampling ran 66.2 h, from its seed line to iteration 400, which is more
+  than the job's whole Elapsed of 66.06 h. So the chains' figure is inflated by at most
+  about 1.4%, roughly 0.6 s.
 
 ## Cost
 
