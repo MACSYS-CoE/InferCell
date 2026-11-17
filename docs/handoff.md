@@ -2,9 +2,11 @@
 
 ## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
 
-**State: the kill check passes; the result note is written, and the PR is next.** The
-record is `dev/scripts/corea_pilot_kim92_result.md`. The jobs and results are also on
-KIM-92's comments.
+**State: the kill check passes. PR #185 is reviewed, its fixes are applied, and it merges
+with a merge commit so the cited commits stay reachable.** The record is
+`dev/scripts/corea_pilot_kim92_result.md`. Its derived numbers come from
+`dev/scripts/corea_pilot_kim92_reads.jl`, run against the archive. The jobs and results
+are also on KIM-92's comments.
 - **Convergence:** check 20660937 failed on 200 draws per chain (2 of 21 coordinates on R̂).
   Check 20968978 passed after the one extension: worst R̂ 1.0102, smallest ESS 2302.
 - **PPC:** 21052424, with 11 of 884 rows outside the band (limit 44).
@@ -16,10 +18,17 @@ KIM-92's comments.
   covers 48 files and starts `9ec9675e31a30aed`.
 
 **Next:**
-1. Open the PR "KIM-92: …", run `/check-PR`, and merge only on MERGE.
-2. **Story check** against the kill criteria, then a project status update. M8 closes if
+1. **Story check** against the kill criteria, then a project status update. M8 closes if
    KIM-92 is its last open issue.
-3. **KIM-93,** the post-pilot decision, which this unblocks.
+2. **KIM-93,** the post-pilot decision, which this unblocks.
+3. **Left for a follow-up** (`/check-PR` on #185, minor and simplification findings):
+   - write checkpoints atomically, through a temp file and `mv`;
+   - have merge check that the extension agrees with gate_200's verdict, and that no
+     extension is partial;
+   - move the helpers copied a third time (envint, truth_x, timed, sacct_cpuh,
+     diagnostics) into `pilot_common.jl`;
+   - sample with AdvancedHMC directly, which removes warm_state and fresh_state;
+   - add a Laplace-metric option to `_infer_mixed` in src.
 
 ## Earlier: KIM-92, before the chains (2026-11-12)
 
@@ -31,7 +40,8 @@ ticked.
 - **Depth probe:** job 20545099, which wrote `probe.md` and `probe.tsv`. It covered 38
   iterations in 24 h, all with the unit metric: about 51 gradient steps an iteration at
   about 42 s each, median depth 4–5, maximum 8. A frozen 200 + 200 chain projects to
-  about 10.3 days, against milan's 7-day limit.
+  about 10–11 days (38 iterations in 24.22 h, setup included), against milan's 7-day
+  limit.
 - **Tom's call:** option 3, a warm-start diagonal metric from the inverse Hessian at
   θ_ref, plus checkpoints. The design stays at 200 + 200 and the gates do not change.
 
