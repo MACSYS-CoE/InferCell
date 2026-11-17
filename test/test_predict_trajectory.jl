@@ -54,7 +54,15 @@ end
         catch err
             err
         end))
-        bad(; trajectory = [transcript_state(:JCVISYN3A_0607)])
+        # A transcript is a jump-block species: the hybrid records it (KIM-94), and
+        # the mean field, which has no jump block, refuses it.
+        bad(; forward = :mean_field, trajectory = [transcript_state(:JCVISYN3A_0607)])
+        @test occursin("mean field", sprint(showerror, try
+            predict(ms, pd; horizon = 120.0, forward = :mean_field,
+                    trajectory = [transcript_state(:JCVISYN3A_0607)])
+        catch err
+            err
+        end))
         bad(; trajectory = Symbol[])
         bad(; trajectory = S, every = 0.7)
         bad(; trajectory = S, every = 0.0)
@@ -324,5 +332,131 @@ end
                     threads = false, trajectory = [M])
         @test_throws ArgumentError trajectory_bands(p, M; levels = (90,))
         @test_throws ArgumentError trajectory_bands(p, M; levels = (0.0,))
+    end
+end
+
+# KIM-94: predict on a posterior over every free parameter of the reduced model.
+# A point mass, no completion; transcripts recorded beside the pools; the fit
+# window a prefix of the longer run; and do(ptsG). Short horizons stand in for
+# the fit window (3150 s) and the cycle (6300 s): the real runs are KIM-95's.
+@testset "KIM-94: transcripts, windows and do(ptsG) on the reduced model" begin
+    M = LAC_EXPORT_METER
+    tx = [transcript_state(:JCVISYN3A_0779), transcript_state(:JCVISYN3A_0607)]
+
+    @testset "recording transcripts keeps the counts and leaves the run alone" begin
+        m0 = collect(AbstractSubModel, metered(m0_models()))
+        v = haldane_values(m0, draw_values(_trajectory_test_posterior(), 1))
+        runs = map((false, true)) do keep
+            Random.seed!(94)
+            d = build_problem(m0; tspan = (0.0, 60.0), complete = true)
+            set_parameters!(d, m0, v)
+            Random.seed!(94)
+            r = validation_run!(m0, d, 60; moieties = InferCell.Moiety[], record_jump = keep)
+            (; r, final = copy(d.jump.u))
+        end
+        a, b = runs
+        @test isempty(a.r.jump) && length(b.r.jump) == length(b.r.t) == 61
+        @test b.r.ode == a.r.ode && b.r.jump_min == a.r.jump_min && b.final == a.final
+        @test b.r.jump[end] == b.final && b.r.jump_min == vec(minimum(reduce(hcat, b.r.jump); dims = 2))
+
+        pd = _trajectory_test_posterior()
+        S = [M, :M_gtp_c]
+        p1 = predict(m0_models(), pd; horizon = 60.0, n_cells = 2, rng = Xoshiro(5),
+                     threads = false, trajectory = S)
+        p2 = predict(m0_models(), pd; horizon = 60.0, n_cells = 2, rng = Xoshiro(5),
+                     threads = false, trajectory = vcat(S, tx[2:2]))
+        p0 = predict(m0_models(), pd; horizon = 60.0, n_cells = 2, rng = Xoshiro(5),
+                     threads = false, trajectory = [M])
+        @test isequal(p1.mu, p2.mu)
+        for (c0, c1, c2) in zip(reduce(vcat, vec(p0.cells)), reduce(vcat, vec(p1.cells)),
+                                reduce(vcat, vec(p2.cells)))
+            @test c2.trajectory.values[:, 1:2] == c1.trajectory.values
+            @test all(isinteger, c2.trajectory.values[:, 3])
+            # One species is still one column, a times × 1 matrix.
+            @test c0.trajectory.values isa Matrix{Float64} && size(c0.trajectory.values) == (2, 1)
+            @test c0.trajectory.values == c1.trajectory.values[:, 1:1]
+        end
+    end
+
+    ms = d11_models()
+    nominal = nominal_parameter_values(metered(ms))
+    rng = Xoshiro(94)
+    θ = [nominal[t] * exp(0.05 * randn(rng)) for t in COREA_TARGETS]
+    # A point mass: one draw over all twenty targets and σ_b, as KIM-92's posterior has.
+    pd = PosteriorDraws(COREA_TARGETS, permutedims(θ), [0.3], [1], [1], nothing,
+                        Dict(vcat(COREA_TARGETS .=> θ, :sigma_b => 0.3)), (kind = :test,))
+    S = vcat([M, :M_gtp_c], tx)
+    ptsG = promoter_param(:JCVISYN3A_0779)
+    kd = Knockdown(; param = ptsG, dose = 0.3)
+    h1, h2 = 60.0, 120.0
+    full = predict(ms, pd; horizon = h2, n_cells = 2, rng = Xoshiro(7), threads = false,
+                   trajectory = S, intervention = kd)
+    fit = predict(ms, pd; horizon = h1, n_cells = 2, rng = Xoshiro(7), threads = false,
+                  trajectory = S)
+
+    @testset "a point mass at the truth is a direct forward run on the same seeds" begin
+        # Nothing is held: the posterior covers the free set, so no promoter comes from a prior.
+        @test isempty(held_parameters(ms, pd).held) && isempty(full.held)
+        v = haldane_values(metered(ms), draw_values(pd, 1))
+        direct = forward_cells(ms, v, full.seeds[:, 1, 1]; horizon = h2, threads = false,
+                               trajectory = S)
+        cells = full.cells[1, 1]
+        @test all(c -> c.failure === :none, cells)
+        @test [c.q for c in cells] == [c.q for c in direct]
+        @test all(c.trajectory.values == d.trajectory.values for (c, d) in zip(cells, direct))
+    end
+
+    @testset "the fit window is the full run's prefix" begin
+        @test fit.seeds == full.seeds
+        w = trajectory_values(full, M; upto = h1)
+        f = trajectory_values(fit, M)
+        @test w.t == f.t == [0.0, 60.0]
+        for s in S
+            a, b = trajectory_values(full, s; upto = h1), trajectory_values(fit, s)
+            @test a.values == b.values
+        end
+        # The forecast is the rest of the grid, and the window cuts nothing else.
+        fc = trajectory_values(full, tx[1]; after = h1)
+        @test fc.t == [120.0]
+        all_ = trajectory_values(full, tx[1])
+        @test fc.values[1, 1] == all_.values[1, 1][:, end:end]
+        @test all(isinteger, all_.values[1, 1])
+        # `baseline` subtracts the value at t = 0 before the cut, so a forecast is
+        # still a change from the cell's start.
+        bf = trajectory_values(full, tx[1]; after = h1, baseline = true)
+        @test bf.values[1, 1] == all_.values[1, 1][:, end:end] .- all_.values[1, 1][:, 1:1]
+        @test_throws ArgumentError trajectory_values(full, M; arm = :treated)
+        # An off-grid horizon, as the fit window's 3150 s is off the 60 s grid: the
+        # short run gains a save at its horizon, which the full run's cut does not
+        # hold; the saves they share agree, and `after = 0` drops t = 0 as the data does.
+        off = predict(ms, pd; horizon = 90.0, n_cells = 2, rng = Xoshiro(7), threads = false,
+                      trajectory = S)
+        @test trajectory_values(off, M).t == [0.0, 60.0, 90.0]
+        @test trajectory_values(full, M; upto = 90.0).t == [0.0, 60.0]
+        @test trajectory_values(full, M; after = 0, upto = 90.0).t == [60.0]
+        for s in S
+            @test trajectory_values(off, s; upto = 60.0).values ==
+                  trajectory_values(full, s; upto = 90.0).values
+        end
+        @test_throws ArgumentError trajectory_values(full, M; after = h2, upto = h1)
+        @test_throws ArgumentError trajectory_values(fit, M; arm = :intervened)
+    end
+
+    @testset "do(ptsG) scales the drawn promoter, on the baseline's seeds" begin
+        plain = draw_values(pd, 1)
+        drawn = Dict(plain)[ptsG]
+        @test Dict(intervene(kd, metered(ms), plain))[ptsG] == drawn * (1 - 0.3)
+        k = trajectory_values(full, M; arm = :intervened)
+        @test size(k.values) == size(full.cells) && size(k.values[1, 1], 1) == 2
+        @test full.provenance.pairs[1, 1].failed_intervened == []
+        @test isfinite(full.effect[1, 1])
+        # A zero dose runs the baseline's cells exactly.
+        zero = predict(ms, pd; horizon = h1, n_cells = 2, rng = Xoshiro(7), threads = false,
+                       trajectory = S, intervention = Knockdown(; param = ptsG, dose = 0.0))
+        for s in S
+            @test trajectory_values(zero, s; arm = :intervened).values ==
+                  trajectory_values(zero, s).values
+        end
+        @test zero.effect[1, 1] == 0.0
     end
 end

@@ -33,7 +33,8 @@ Fields:
 - `truth`: the dataset's true values by name on the natural scale, σ_b under
   `:sigma_b`, when the source records them; otherwise `nothing`;
 - `source`: what the draws were read from. `kind` is one of `:v7_replicate`,
-  `:b7_chain`, `:chains`, `:abc` or `:merged`, beside what the source records.
+  `:b7_chain`, `:pilot_chain`, `:chains`, `:abc` or `:merged`, beside what the
+  source records.
 """
 struct PosteriorDraws
     names::Vector{Symbol}
@@ -116,6 +117,13 @@ not only the first.
 - a B7 chain file, from `dev/scripts/av6_89_b7.jl`. Its `x[i]` columns are the
   mixed route's names in order, `log_` and then `M0_TARGETS` plus σ_b. The truth
   comes from the fit's `prep.jls` beside it, when that file holds the dataset;
+- a reduced-model pilot file, from `dev/scripts/corea_pilot_kim92.jl` (Linear
+  KIM-92): the stage's record under `result`. Its `x[i]` columns are
+  `log_` and then the fit's targets plus σ_b, read with the truth from the
+  `dataset.jls` beside it. A chain file, `chain_<c>.jls`, gives its kept draws,
+  after its `nadapt` adaptation iterations; an extension file, `extend_<c>.jls`,
+  gives the draws that continue chain c, numbered after that chain's run, so the
+  chain file must sit beside it too;
 - a `Chains` saved on its own.
 
 A `PosteriorDraws` is returned as it is.
@@ -181,8 +189,11 @@ function posterior_draws(path::AbstractString; burn::Union{Nothing, Integer} = n
     x isa Chains && return posterior_draws(x; source = (kind = :chains, path = String(path)))
     x isa NamedTuple && haskey(x, :chain) && x.chain isa Chains &&
         return _b7_draws(x, String(path))
+    x isa NamedTuple && haskey(x, :result) && x.result isa NamedTuple &&
+        haskey(x.result, :chain) && x.result.chain isa Chains &&
+        return _pilot_draws(x, String(path))
     throw(ArgumentError(
-        "$path holds a $(typeof(x)), not a V7 replicate file, a B7 chain file or a Chains"))
+        "$path holds a $(typeof(x)), not a V7 replicate file, a B7 or pilot chain file or a Chains"))
 end
 
 function posterior_draws(paths::AbstractVector{<:AbstractString}; kwargs...)
@@ -234,11 +245,56 @@ function _b7_draws(x, path)
                           pd.iteration, pd.weights, pd.truth, pd.source)
 end
 
+# A reduced-model pilot file (`dev/scripts/corea_pilot_kim92.jl`, Linear KIM-92):
+# the stage's record under `result`, beside the commit and job that wrote it. A
+# chain file, `chain_<c>.jls`, holds its `nadapt` adaptation iterations and then its
+# `ndraw` kept ones; an extension file, `extend_<c>.jls`, holds `ndraw` more that
+# continue chain c from its last state, numbered from 1. x[i] is the i-th of
+# `_log_names(targets)`, the targets being those of the fit's `dataset.jls` beside
+# it, which also holds the truth.
+function _pilot_draws(x, path)
+    r, dir = x.result, dirname(path)
+    dsp = joinpath(dir, "dataset.jls")
+    isfile(dsp) || throw(ArgumentError(
+        "$path: a pilot chain file is read with its fit's dataset.jls beside it"))
+    ds = deserialize(dsp).result
+    targets = collect(Symbol, ds.targets)
+    tv = Dict(ds.truth.values)
+    truth = Dict{Symbol, Float64}(n => tv[n] for n in targets)
+    truth[:sigma_b] = ds.sigma
+    nit = size(r.chain, 1)
+    if haskey(r, :nadapt)
+        # The kept draws follow the adaptation, and keep their place in the run.
+        nit == r.nadapt + r.ndraw || throw(ArgumentError(
+            "$path holds $nit iterations, not $(r.nadapt) + $(r.ndraw)"))
+        chain, skip, offset = r.chain, r.nadapt, 0
+    else
+        # The extension continues its chain file's run, so its draws are numbered
+        # after that run's last iteration.
+        base = joinpath(dir, "chain_$(r.c).jls")
+        isfile(base) || throw(ArgumentError(
+            "$path: an extension is read with its chain file, $base, beside it"))
+        b = deserialize(base).result
+        # The chain file must be this extension's: the same chain, and the length
+        # the extension continued it by.
+        b.c == r.c && nit == r.ndraw == b.ndraw || throw(ArgumentError(
+            "$path continues chain $(r.c) by $(r.ndraw) and holds $nit, but $base is " *
+            "chain $(b.c) of $(b.ndraw) kept draws"))
+        chain, skip, offset = r.chain, 0, b.nadapt + b.ndraw
+    end
+    kept = chain[(skip + 1):end, :, :]
+    pd = posterior_draws(kept; names = _log_names(targets), truth,
+                         source = (kind = :pilot_chain, path, fit = dir, stage = x.stage,
+                                   c = r.c, seed = r.seed, commit = x.commit, job = x.job))
+    return PosteriorDraws(pd.names, pd.values, pd.sigma_b, fill(r.c, length(pd)),
+                          collect((skip + 1):nit) .+ offset, pd.weights, pd.truth, pd.source)
+end
+
 # The sources a posterior was read from, a merge's parts flattened.
 _sources(s::NamedTuple) = s.kind === :merged ? s.parts : [s]
 
 # The route whose likelihood a source's draws come from, where it is known.
-_route(s) = s.kind === :v7_replicate ? :exact : s.kind === :b7_chain ? :mixed :
+_route(s) = s.kind === :v7_replicate ? :exact : s.kind in (:b7_chain, :pilot_chain) ? :mixed :
             get(s, :route, nothing)
 
 function Base.vcat(a::PosteriorDraws, bs::PosteriorDraws...)
