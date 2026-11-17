@@ -95,6 +95,78 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
         @test_throws ArgumentError posterior_draws(joinpath(fit, "chain_1.jls"); thin = 2)
     end
 
+    @testset "a reduced-model pilot's chain and extension files (KIM-94)" begin
+        # corea_pilot_kim92.jl's layout: each stage's record under `result`;
+        # x[1]…x[21] on the log scale, COREA_TARGETS then σ_b; a chain file holds
+        # its adaptation then its kept draws, an extension its own draws numbered
+        # from 1; the dataset, with the targets and truth, beside them.
+        P = length(COREA_TARGETS) + 1
+        nadapt, ndraw = 3, 4
+        wrap(result, stage) = (; result, commit = "def5678", commit_full = "def5678" ^ 5,
+                               job = "42", stage, smoke = false)
+        mkch(X) = Chains(reshape(hcat(X, randn(rng, size(X, 1))), size(X, 1), P + 1, 1),
+                         vcat([Symbol("x[$i]") for i in 1:P], :lp), (internals = [:lp],))
+        fit = joinpath(dir, "pilot")
+        mkpath(fit)
+        tv = vcat([n => 0.5 + i for (i, n) in enumerate(COREA_TARGETS)],
+                  :kcatR_R_ENO => 9.0, :kcatR_R_FBA => 8.0)
+        serialize(joinpath(fit, "dataset.jls"),
+                  wrap((; truth = (; values = tv), sigma = 0.35, targets = COREA_TARGETS),
+                       "dataset"))
+        Xc = Dict(c => randn(rng, nadapt + ndraw, P) for c in 1:2)
+        Xe = Dict(c => randn(rng, ndraw, P) for c in 1:2)
+        for c in 1:2
+            serialize(joinpath(fit, "chain_$c.jls"),
+                      wrap((; c, seed = 10 + c, start = nothing, start_tries = 1, chain = mkch(Xc[c]),
+                            seconds = 1.0, eps0 = 0.1, metric = "warm", nadapt, ndraw), "chain"))
+            serialize(joinpath(fit, "extend_$c.jls"),
+                      wrap((; c, seed = 10 + c, chain = mkch(Xe[c]), seconds = 1.0, ndraw), "extend"))
+        end
+
+        ch1 = posterior_draws(joinpath(fit, "chain_1.jls"))
+        @test ch1.names == COREA_TARGETS
+        # The adaptation is dropped; the kept draws are exp(x) to the bit.
+        @test length(ch1) == ndraw
+        @test ch1.values == exp.(Xc[1][(nadapt + 1):end, 1:(P - 1)])
+        @test ch1.sigma_b == exp.(Xc[1][(nadapt + 1):end, P])
+        @test ch1.iteration == collect((nadapt + 1):(nadapt + ndraw)) && all(==(1), ch1.chain)
+        # The truth is the dataset's targets and σ, never the derived reverse constants.
+        @test ch1.truth == Dict(vcat(tv[1:(P - 1)], :sigma_b => 0.35))
+        @test ch1.source.kind === :pilot_chain && ch1.source.stage == "chain" &&
+              ch1.source.commit == "def5678"
+
+        # An extension is numbered after its chain's run.
+        ex1 = posterior_draws(joinpath(fit, "extend_1.jls"))
+        @test ex1.values == exp.(Xe[1][:, 1:(P - 1)])
+        @test ex1.iteration == collect((nadapt + ndraw + 1):(nadapt + 2ndraw))
+
+        # The pooled posterior, in the pilot's own order: each chain's kept draws,
+        # then its extension's, chain by chain (pilot_draws.tsv's rows).
+        paths = [joinpath(fit, f) for c in 1:2 for f in ("chain_$c.jls", "extend_$c.jls")]
+        pd = posterior_draws(paths)
+        flat = reduce(vcat, (vcat(Xc[c][(nadapt + 1):end, :], Xe[c]) for c in 1:2))
+        @test length(pd) == 2 * 2ndraw
+        @test pd.values == exp.(flat[:, 1:(P - 1)]) && pd.sigma_b == exp.(flat[:, P])
+        @test pd.chain == repeat(1:2; inner = 2ndraw)
+        @test allunique(zip(pd.chain, pd.iteration))
+        @test InferCell._route.(pd.source.parts) == fill(:mixed, 4)
+        # A posterior over every target leaves nothing for completion to draw.
+        hp = held_parameters(d11_models(), pd)
+        @test isempty(hp.held)
+
+        # The files beside it are needed: without the dataset there are no names,
+        # and without its chain file an extension has no place in the run.
+        lone = joinpath(dir, "lone")
+        mkpath(lone)
+        cp(joinpath(fit, "extend_1.jls"), joinpath(lone, "extend_1.jls"))
+        @test_throws ArgumentError posterior_draws(joinpath(lone, "extend_1.jls"))
+        cp(joinpath(fit, "dataset.jls"), joinpath(lone, "dataset.jls"))
+        @test_throws ArgumentError posterior_draws(joinpath(lone, "extend_1.jls"))
+        # Two pilot fits are two posteriors, even over the same targets.
+        cp(joinpath(fit, "chain_1.jls"), joinpath(lone, "chain_1.jls"))
+        @test_throws ArgumentError vcat(ch1, posterior_draws(joinpath(lone, "chain_1.jls")))
+    end
+
     @testset "infer's Chains, mapped by name" begin
         # `infer(models, ds; route)` writes log_<name> columns; the mixed route
         # keeps Turing's internals. Columns in another order map the same way.
@@ -171,6 +243,25 @@ const M0_NAMES = [:S_JCVISYN3A_0607, :S_JCVISYN3A_0779, :krnadeg, :kcatF_R_ENO, 
             @test length(e) == 556 && length(m) == 200
             @test keys(e.truth) == keys(m.truth)
             @test all(e.truth[k] ≈ m.truth[k] for k in keys(e.truth))
+        end
+    end
+
+    # KIM-92's posterior, as M9 predicts from it (KIM-93's Go, 2026-11-17): the
+    # pooled draws equal the pilot's own pilot_draws.tsv, written at %.17g, to the bit.
+    pilot = "/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17"
+    if get(ENV, "INFERCELL_INTEGRATION_TESTS", "false") == "true" &&
+       isfile(joinpath(pilot, "pilot_draws.tsv"))
+        @testset "the archived reduced-model pilot posterior" begin
+            paths = [joinpath(pilot, f) for c in 1:4 for f in ("chain_$c.jls", "extend_$c.jls")]
+            pd = posterior_draws(paths)
+            lines = readlines(joinpath(pilot, "pilot_draws.tsv"))
+            @test split(lines[1], '\t') == String.(_log_names(COREA_TARGETS))
+            X = permutedims(reduce(hcat, [parse.(Float64, split(l, '\t')) for l in lines[2:end]]))
+            @test pd.names == COREA_TARGETS && length(pd) == 1600 == size(X, 1)
+            @test pd.values == exp.(X[:, 1:20]) && pd.sigma_b == exp.(X[:, 21])
+            @test pd.chain == repeat(1:4; inner = 400)
+            @test pd.iteration == repeat(201:600, 4)
+            @test isempty(held_parameters(d11_models(), pd).held)
         end
     end
 end
