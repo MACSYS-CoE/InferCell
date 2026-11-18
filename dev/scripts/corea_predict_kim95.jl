@@ -19,7 +19,10 @@
 #   sizing <out>    SIZING_DRAWS draws × SIZING_CELLS cells per arm (posterior, prior),
 #                   both arms of do(ptsG), on seeds of their own: Var_θ and σ² per
 #                   target, the sizes the rules give, and the cost per cell, to
-#                   sizing.jls, sizing.tsv and sizing.md. It reads no truth;
+#                   sizing.jls, sizing.tsv and sizing.md. It reads no truth.
+#                   SIZING_ARMS (e.g. "posterior") limits the arms, and SIZING_TAG=resolve
+#                   writes sizing_resolve.* on seeds of its own instead (the resolving
+#                   pass, when the first did not resolve Var_θ);
 #   run <out> <arm> <k>  chunk k of arm `posterior`, `prior` or `truth`, at the frozen
 #                   sizes (refused until FROZEN, except under SMOKE), to
 #                   rows_<arm>_<k>.jls: per pair, μ̂, σ̂² and n for every target;
@@ -53,7 +56,12 @@ knockdown() = Knockdown(; dose = DOSE)
 # seeds `predict` draws from them are checked against the dataset's in `collect`.
 const PRIOR_SEED = 17_950_001
 const PRIOR_POOL = 1600
-const SIZING_SEED = Dict(:posterior => 17_950_100, :prior => 17_950_101)
+const SIZING_TAG = get(ENV, "SIZING_TAG", "")
+const SIZING_SEED = SIZING_TAG == "resolve" ? Dict(:posterior => 17_950_200, :prior => 17_950_201) :
+                    isempty(SIZING_TAG) ? Dict(:posterior => 17_950_100, :prior => 17_950_101) :
+                    error("SIZING_TAG is \"\" or \"resolve\", not $(SIZING_TAG)")
+const SIZING_ARMS = Symbol.(split(get(ENV, "SIZING_ARMS", "posterior,prior"), ','))
+const SIZING_NAME = isempty(SIZING_TAG) ? "sizing" : "sizing_$(SIZING_TAG)"
 const ARM_SEED = Dict(:posterior => 17_951_000, :prior => 17_952_000, :truth => 17_953_000)
 const SIZING_DRAWS = SMOKE ? 2 : envint("SIZING_DRAWS", 40)
 const SIZING_CELLS = SMOKE ? 2 : envint("SIZING_CELLS", 8)
@@ -184,7 +192,7 @@ end
 function run_sizing(out)
     pp = load(out, "prep")
     res = Dict{Symbol, Any}()
-    for arm in (:posterior, :prior)
+    for arm in SIZING_ARMS
         pd = getproperty(pp, arm)
         draws = evenly(length(pd), SIZING_DRAWS)
         t = @elapsed p = predict_arm(pd, draws, SIZING_CELLS, SIZING_SEED[arm])
@@ -196,26 +204,28 @@ function run_sizing(out)
                      arm, length(draws), SIZING_CELLS, t, Threads.nthreads(),
                      t * Threads.nthreads() / ncell))
     end
-    save(out, "sizing", res; stage = "sizing")
+    save(out, SIZING_NAME, res; stage = SIZING_NAME)
     write_sizing(out, res)
 end
 
 function write_sizing(out, res)
-    ids = res[:posterior].ids
-    open(joinpath(out, "sizing.tsv"), "w") do io
+    arms = [a for a in (:posterior, :prior) if haskey(res, a)]
+    ids = res[arms[1]].ids
+    open(joinpath(out, SIZING_NAME * ".tsv"), "w") do io
         println(io, join(["target", "arm", "sigma2", "var_theta", "n_cells", "n_truth"], '\t'))
-        for arm in (:posterior, :prior), (j, id) in enumerate(ids)
+        for arm in arms, (j, id) in enumerate(ids)
             r = res[arm].rules[j]
             println(io, join([id, arm, @sprintf("%.17g", r.sigma2), @sprintf("%.17g", r.var_theta),
                               r.n_cells, r.n_truth], '\t'))
         end
     end
     fam(id) = id in ("Q", "Q_kd", "dQ") ? id : family(Symbol(first(split(id, '@'))))
-    open(joinpath(out, "sizing.md"), "w") do io
-        println(io, "# KIM-95 sizing (reads the predictive only, never the truth)\n")
+    open(joinpath(out, SIZING_NAME * ".md"), "w") do io
+        println(io, "# KIM-95 ", SIZING_NAME, " (reads the predictive only, never the truth)\n")
         println(io, "commit `", COMMIT, "`, job ", JOB, SMOKE ? ", SMOKE" : "", ". ",
-                SIZING_DRAWS, " draws × ", SIZING_CELLS, " cells per arm, both arms of do(ptsG).\n")
-        for arm in (:posterior, :prior)
+                SIZING_DRAWS, " draws × ", SIZING_CELLS, " cells per arm (", join(arms, ", "),
+                "), both arms of do(ptsG), rng seeds ", join([SIZING_SEED[a] for a in arms], ", "), ".\n")
+        for arm in arms
             a = res[arm]
             println(io, @sprintf("- %s: %.0f s on %d threads, %.1f CPU-s a cell (%d cells)",
                                  arm, a.seconds, a.threads, a.seconds * a.threads / a.cells, a.cells))
@@ -225,7 +235,7 @@ function write_sizing(out, res)
                 " −1: Var_θ not resolved (≤ 0) or too few cells.\n")
         println(io, "| target or family | arm | n targets | unresolved | n_cells median | n_cells 90% | n_cells max | n_truth median | n_truth 90% | n_truth max |")
         println(io, "|---|---|---|---|---|---|---|---|---|---|")
-        for f in ("Q", "Q_kd", "dQ", "pool", "transcript"), arm in (:posterior, :prior)
+        for f in ("Q", "Q_kd", "dQ", "pool", "transcript"), arm in arms
             js = findall(id -> fam(id) == f, ids)
             rs = res[arm].rules[js]
             good = filter(r -> r.n_cells > 0, rs)
@@ -234,6 +244,28 @@ function write_sizing(out, res)
             println(io, "| ", f, " | ", arm, " | ", length(js), " | ", length(rs) - length(good), " | ",
                     q(nc, 0.5), " | ", q(nc, 0.9), " | ", q(nc, 1.0), " | ", q(nt, 0.5), " | ",
                     q(nt, 0.9), " | ", q(nt, 1.0), " |")
+        end
+        # Whether Var_θ is resolved at all: var(μ̂) over its MC term, whose sampling SD
+        # under Var_θ = 0 is about √(2/(M − 1)) for M draws.
+        println(io, "\nResolution: var(μ̂) across draws over its MC term mean(σ̂²/n); 1 is no θ-spread,",
+                " ± √(2/(M−1)) its rough sampling SD at Var_θ = 0. Var_θ/σ² beside it.\n")
+        println(io, "| target or family | arm | ratio (median over targets) | ± | Var_θ/σ² (median) |")
+        println(io, "|---|---|---|---|---|")
+        for f in ("Q", "Q_kd", "dQ", "pool", "transcript"), arm in arms
+            js = findall(id -> fam(id) == f, ids)
+            a = res[arm]
+            rat, vr, Ms = Float64[], Float64[], Int[]
+            for j in js
+                ok = findall(i -> isfinite(a.mu[i, j]) && isfinite(a.s2[i, j]) && a.n[i, j] >= 2, axes(a.mu, 1))
+                length(ok) >= 3 || continue
+                mc = mean(a.s2[ok, j] ./ a.n[ok, j])
+                push!(rat, var(a.mu[ok, j]) / mc)
+                push!(vr, (var(a.mu[ok, j]) - mc) / mean(a.s2[ok, j]))
+                push!(Ms, length(ok))
+            end
+            isempty(rat) && continue
+            println(io, "| ", f, " | ", arm, " | ", @sprintf("%.3f", median(rat)), " | ",
+                    @sprintf("%.3f", sqrt(2 / (median(Ms) - 1))), " | ", @sprintf("%.4g", median(vr)), " |")
         end
     end
 end

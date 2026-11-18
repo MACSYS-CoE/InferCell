@@ -5,6 +5,9 @@
 #   dev/scripts/corea_predict_kim95.sh <outdir> runs     the truth, posterior and prior chunks as
 #                                                        arrays, then collect and the scores (needs
 #                                                        prep, and the frozen sizes in the driver)
+#   dev/scripts/corea_predict_kim95.sh <outdir> resolve  the resolving pass: posterior only,
+#                                                        SIZING_DRAWS (40) × SIZING_CELLS (100), to
+#                                                        sizing_resolve.* (needs prep)
 #   dev/scripts/corea_predict_kim95.sh <outdir> all      SMOKE only: every stage in one chain
 # With SMOKE=1 in the environment it is a plumbing pass at tiny sizes. Job ids go to
 # <outdir>/jobs.tsv (appended across calls), logs to <outdir>/logs. THREADS sets each
@@ -35,6 +38,13 @@ chunks() {
         awk -v a="$1" '{ print (a == "posterior" ? $1 : a == "prior" ? $2 : $3) }'
 }
 
+resolve() {
+    local j ex_r="--export=ALL,SMOKE=$smoke,SIZING_TAG=resolve,SIZING_ARMS=posterior"
+    ex_r="$ex_r,SIZING_DRAWS=${SIZING_DRAWS:-40},SIZING_CELLS=${SIZING_CELLS:-100}"
+    j=$(sub "$ex_r" --cpus-per-task=$threads --mem=$mem --time=${RESOLVE_TIME:-16:00:00} \
+            --job-name=kim95_resolve --wrap "$jl $script sizing $outdir")
+    record resolve "$j"
+}
 sizing() {   # -> $size_job
     local pre prep_job
     pre=$(sub "$ex" --cpus-per-task=1 --mem=16G --time=01:00:00 --job-name=kim95_pre \
@@ -70,6 +80,7 @@ runs() {   # $1: a job to wait for, or empty
 case $what in
 sizing) sizing ;;
 runs) need prep; runs "" ;;
+resolve) need prep; resolve ;;
 all) sizing; runs "$size_job" ;;
 *) echo "unknown: $what" >&2; exit 1 ;;
 esac
