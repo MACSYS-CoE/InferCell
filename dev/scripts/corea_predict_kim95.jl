@@ -66,13 +66,20 @@ const ARM_SEED = Dict(:posterior => 17_951_000, :prior => 17_952_000, :truth => 
 const SIZING_DRAWS = SMOKE ? 2 : envint("SIZING_DRAWS", 40)
 const SIZING_CELLS = SMOKE ? 2 : envint("SIZING_CELLS", 8)
 
-# The frozen sizes. FROZEN stays false until the sizing's result is committed and
-# pushed with these set (the freeze; Linear KIM-95). `run` refuses before.
-const FROZEN = false
-const N_DRAWS = SMOKE ? 2 : 0                      # per arm, evenly spaced over its pool
-const N_CELLS = SMOKE ? 2 : 0                      # per draw
-const N_TRUTH = SMOKE ? 3 : 0                      # cells at θ*
-const CHUNKS = Dict(:posterior => SMOKE ? 2 : 0, :prior => SMOKE ? 2 : 0, :truth => SMOKE ? 2 : 0)
+# The frozen sizes (the freeze, 2026-11-18, Tom's call on Linear KIM-95, before any truth
+# was read). M0's rules (KIM-69), sized on Q_kd, the one Q target whose posterior Var_θ
+# the resolving pass resolved (job 21126961, 40 draws × 100 cells, sizing_resolve.tsv):
+# Var_θ/σ² = 0.009251, so n_cells = ⌈9 σ²/Var_θ⌉ = 973 and n_truth = ⌈100 σ²/Var_θ⌉ =
+# 10,810 (M0's formula). Q's and ΔQ's posterior Var_θ stayed unresolved (Var_θ/σ² below
+# about 0.0045), so their predictive spread is mostly the MC term, reported per target.
+# The prior: 200 cells a draw, above every target's rule in the first sizing (job
+# 21122610, max 202 over 1,802 per-save targets; 1 on Q). Chunks hold a ~6 h job each on
+# 32 threads at 75.5 (posterior) and 62 (prior) CPU-s a cell. `run` refuses unless FROZEN.
+const FROZEN = true
+const N_DRAWS = SMOKE ? 2 : 100                    # per arm, evenly spaced over its pool
+const N_CELLS = Dict(:posterior => SMOKE ? 2 : 973, :prior => SMOKE ? 2 : 200)   # per draw
+const N_TRUTH = SMOKE ? 3 : 10_810                 # cells at θ*
+const CHUNKS = Dict(:posterior => SMOKE ? 2 : 20, :prior => SMOKE ? 2 : 4, :truth => SMOKE ? 2 : 4)
 
 # The rules (KIM-69): MC share ≤ F of the predictive spread, truth SE ≤ F of its SD.
 const F_RULE = 0.1
@@ -288,7 +295,7 @@ function run_chunk(out, arm, k)
         n_cells = N_TRUTH ÷ K + (k <= N_TRUTH % K ? 1 : 0)
         draws = [1]
     else
-        n_cells, draws = N_CELLS, chunk_draws(arm, length(pd), k)
+        n_cells, draws = N_CELLS[arm], chunk_draws(arm, length(pd), k)
     end
     t = @elapsed p = predict_arm(pd, draws, n_cells, ARM_SEED[arm] + k)
     r = pair_rows(p)
