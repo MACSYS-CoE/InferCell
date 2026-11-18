@@ -17,12 +17,15 @@
 #     fractions, the aggregate skill 1 − ΣCRPS_post / ΣCRPS_prior, and the median of
 #     the per-save skills; per family, the hit fraction over all its saves and the
 #     median of its species' aggregate skills;
-#   - beside each, the truth's SE over the posterior predictive's SD, the rule's check.
+#   - beside each, the truth's SE over the posterior predictive's SD, the rule's check,
+#     and each arm's MC share: mean(σ̂²/n) over the draws, over var(μ̂) across them,
+#     the part of the predictive variance that is cell noise rather than θ (KIM-69's
+#     rule asks ≤ 0.1; it can exceed 1 by chance when Var_θ is near zero).
 # A draw whose μ̂ is NaN (no finished cell) is left out of that target and counted.
 
 using Printf
 using Random
-using Statistics: mean, std, median, quantile
+using Statistics: mean, std, var, median, quantile
 
 function crps(x::AbstractVector{<:Real}, y::Real)
     s = sort(x)
@@ -85,6 +88,14 @@ function score(dir)
     ids, P = read_wide(joinpath(dir, "predictive_posterior_mu.tsv"))
     idp, R = read_wide(joinpath(dir, "predictive_prior_mu.tsv"))
     ids == idp || error("the arms' targets differ")
+    _, P2 = read_wide(joinpath(dir, "predictive_posterior_s2.tsv"))
+    _, Pn = read_wide(joinpath(dir, "predictive_posterior_n.tsv"))
+    _, R2 = read_wide(joinpath(dir, "predictive_prior_s2.tsv"))
+    _, Rn = read_wide(joinpath(dir, "predictive_prior_n.tsv"))
+    function mcshare(M, S2, N, j)
+        ok = [i for i in axes(M, 1) if isfinite(M[i, j]) && isfinite(S2[i, j]) && N[i, j] >= 2]
+        return mean(S2[ok, j] ./ N[ok, j]) / var(M[ok, j])
+    end
     tr = read_table(joinpath(dir, "truth.tsv"))
     tg = read_table(joinpath(dir, "targets.tsv"))
     tr["target"] == ids == tg["target"] || error("truth.tsv or targets.tsv is not in the predictive's order")
@@ -101,7 +112,8 @@ function score(dir)
          prior_lo = quantile(xr, 0.05), prior_med = median(xr), prior_hi = quantile(xr, 0.95),
          post50 = hits(xp, y[j], 0.25, 0.75), post90 = hits(xp, y[j], 0.05, 0.95),
          prior50 = hits(xr, y[j], 0.25, 0.75), prior90 = hits(xr, y[j], 0.05, 0.95),
-         crps_post = cp, crps_prior = cr, skill = 1 - cp / cr, se_over_sd = se[j] / std(xp))
+         crps_post = cp, crps_prior = cr, skill = 1 - cp / cr, se_over_sd = se[j] / std(xp),
+         mc_post = mcshare(P, P2, Pn, j), mc_prior = mcshare(R, R2, Rn, j))
     end
     open(joinpath(dir, "score_targets.tsv"), "w") do io
         ks = keys(rows[1])
@@ -111,23 +123,24 @@ function score(dir)
         end
     end
     open(joinpath(dir, "score.md"), "w") do io
-        println(io, "# KIM-95 scores\n\nFrom `", dir, "`'s TSVs. ", size(P, 1), " posterior and ",
+        println(io, "# KIM-95 scores\n\nFrom the TSVs beside this file. ", size(P, 1), " posterior and ",
                 size(R, 1), " prior draws; one truth, so these are scores, not coverage rates.\n")
         println(io, "## Q and the knockdown\n")
-        println(io, "| target | truth ± SE | posterior 5–50–95% | prior 5–50–95% | post 50/90 | prior 50/90 | CRPS post | CRPS prior | skill | SE/SD |")
-        println(io, "|---|---|---|---|---|---|---|---|---|---|")
+        println(io, "| target | truth ± SE | posterior 5–50–95% | prior 5–50–95% | post 50/90 | prior 50/90 | CRPS post | CRPS prior | skill | SE/SD | MC share post | MC share prior |")
+        println(io, "|---|---|---|---|---|---|---|---|---|---|---|---|")
         yn(b) = b ? "in" : "out"
         for r in rows
             r.family == "Q" || continue
             println(io, "| ", r.id, " | ", f(r.y), " ± ", f(r.se), " | ", f(r.post_lo), " – ", f(r.post_med),
                     " – ", f(r.post_hi), " | ", f(r.prior_lo), " – ", f(r.prior_med), " – ", f(r.prior_hi),
                     " | ", yn(r.post50), "/", yn(r.post90), " | ", yn(r.prior50), "/", yn(r.prior90), " | ",
-                    f(r.crps_post), " | ", f(r.crps_prior), " | ", f(r.skill), " | ", f(r.se_over_sd), " |")
+                    f(r.crps_post), " | ", f(r.crps_prior), " | ", f(r.skill), " | ", f(r.se_over_sd), " | ",
+                    f(r.mc_post), " | ", f(r.mc_prior), " |")
         end
         fams = ("pool", "transcript")
         println(io, "\n## The later horizon, by family\n")
-        println(io, "| family | species | saves | post hit 50 | post hit 90 | prior hit 50 | prior hit 90 | median species skill | SE/SD max |")
-        println(io, "|---|---|---|---|---|---|---|---|---|")
+        println(io, "| family | species | saves | post hit 50 | post hit 90 | prior hit 50 | prior hit 90 | median species skill | SE/SD median | SE/SD max | MC share post (median) | MC share prior (median) |")
+        println(io, "|---|---|---|---|---|---|---|---|---|---|---|---|")
         bysp(fam) = unique(r.species for r in rows if r.family == fam)
         agg(rs) = 1 - sum(r.crps_post for r in rs) / sum(r.crps_prior for r in rs)
         for fam in fams
@@ -136,7 +149,9 @@ function score(dir)
             println(io, "| ", fam, " | ", length(bysp(fam)), " | ", length(rs), " | ",
                     pct(mean(r.post50 for r in rs)), " | ", pct(mean(r.post90 for r in rs)), " | ",
                     pct(mean(r.prior50 for r in rs)), " | ", pct(mean(r.prior90 for r in rs)), " | ",
-                    f(median(sk)), " | ", f(maximum(r.se_over_sd for r in rs)), " |")
+                    f(median(sk)), " | ", f(median(r.se_over_sd for r in rs)), " | ",
+                    f(maximum(r.se_over_sd for r in rs)), " | ", f(median(r.mc_post for r in rs)), " | ",
+                    f(median(r.mc_prior for r in rs)), " |")
         end
         println(io, "\n## The later horizon, by species\n")
         println(io, "| species | family | saves | post hit 50 | post hit 90 | prior hit 50 | prior hit 90 | skill (aggregate) | skill (median per save) |")
