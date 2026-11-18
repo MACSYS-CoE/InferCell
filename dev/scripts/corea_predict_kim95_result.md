@@ -32,13 +32,14 @@ counted below.
 
 M0's declared rules (KIM-69) are:
 - the MC term is at most 10% of the predictive spread, which gives n_cells = ⌈9σ²/Var_θ⌉;
-- the truth's SE is at most 10% of the predictive SD, which gives n_truth = ⌈100σ²/Var_θ⌉.
+- the truth's SE is at most 10% of the predictive SD. The freeze applied this in M0's form, n_truth = ⌈100σ²/Var_θ⌉, taking Var_θ alone as the predictive variance. The driver's `rule()`, and so `sizing.md` and `sizing_resolve.md`, print the form with the MC term added, ⌈100σ²/(Var_θ + σ²/n_cells)⌉. That gives 9,729 for Q_kd, against the frozen 10,810. M0's form is the more cautious of the two.
 
 Var_θ is the spread of μ̂ across draws that comes from θ, and σ² is one cell's variance.
 
 - **The first sizing pass did not resolve the posterior's Var_θ** (job 21122610, 40 draws × 8 cells).
-  - The ratio of var(μ̂) across draws to its MC term was 0.81 on Q, and 0.96 at the median of the 1,802 per-save targets. A ratio of 1 means the draws' spread is all cell noise.
+  - The ratio of var(μ̂) across draws to its MC term was 0.81 on Q, and 0.96 at the median of the 1,802 per-save targets. A ratio of 1 means the draws' spread is all cell noise. These ratios come from `sizing.jls`; the archived `sizing.md` predates the resolution table, which `sizing_resolve.md` has.
   - The prior's Var_θ was resolved, and its rule needed at most 202 cells per draw.
+  - The frozen 200 prior cells per draw is therefore 2 short of the rule on one target, `mRNA_JCVISYN3A_0344@4500`. The driver's comment says 200 is above every target's rule; it is wrong, and it is left as it ran. In the full run the prior's MC shares have medians of 0.005–0.007.
 - **The resolving pass** (job 21126961, 40 draws × 100 cells) gave:
   - Q_kd: Var_θ/σ² = 0.0093, a ratio of 1.93 ± 0.23;
   - Q: still unresolved, with a ratio of 0.99;
@@ -62,12 +63,12 @@ The full run has more power than either sizing pass. With it, Q's posterior Var_
 
 - **Q and Q_kd.**
   - The posterior's 90% interval is ±1.4% of Q. The truth sits 0.26 posterior SD below the posterior median on Q, and 0.48 posterior SD below it on Q_kd. Both are inside the 50% intervals.
-  - The prior's median is 24–27% low, and its 90% interval spans a factor of 2.8.
+  - The prior's median is 24–26% low, and its 90% interval spans a factor of 2.8.
   - Skill is 0.98 on both. It is near 1 mostly because the prior is so wide, so the main finding is that the narrow posterior interval holds the truth.
 - **ΔQ.**
   - The truth is +6.4e4 ± 2.3e4, about 0.4% of Q.
   - The posterior's interval runs from −2.7e4 to +2.2e5, and all of that width is cell noise at 973 cells (MC share 1.09). So the posterior shows that the knockdown effect is small next to one draw's cell noise, and it cannot resolve the effect beyond that.
-  - The prior's median, −1.7e5, has the wrong sign, and its interval only just reaches the truth.
+  - The prior's median, −1.7e5, has the wrong sign. Its 50% interval misses the truth; its 90% interval, −5.6e5 to +2.3e5, holds it.
 - **The truth's SE is larger than the rule allows.** The rule asks for SE/SD ≤ 0.1. It is 0.14 on Q, 0.14 on Q_kd and 0.33 on ΔQ, because the posterior is narrower than the sizing could see. So the hits on these three are read with a truth that is not sharp against the predictive.
 
 ## The later horizon (3180–6300 s)
@@ -79,18 +80,20 @@ The full run has more power than either sizing pass. With it, Q's posterior Var_
 
 The per-species table is in `score.md`. Saves within a species are strongly correlated, so a family's hit fraction rests on about 17 species, not 901 independent checks.
 
+Below, a species' offset is the median over its 53 saves of z = (y − posterior median)/posterior SD. The posterior SD is `se/se_over_sd` in `score_targets.tsv`, and the posterior median is `post_med`. These offsets are not printed by the scorer.
+
 - **Transcripts.**
-  - Every save is inside the posterior's 90% interval, and 80% are inside its 50% interval. At each species' median save the truth is within 0.63 posterior SD.
+  - 900 of the 901 saves are inside the posterior's 90% interval; the one miss is `mRNA_JCVISYN3A_0727@4380`. 80% are inside its 50% interval. Every species' offset is within 0.63 posterior SD.
   - Their posterior predictive is about two-thirds cell noise (median MC share 0.68). That widens the intervals, so the high hit fractions overstate how sharp the θ-predictive is.
   - Skill is 0.89–0.99 for every transcript.
 - **Pools.**
-  - 92% of saves are inside the posterior's 90% interval, but only 34% are inside its 50% interval. That is a shift, not scatter. At each species' median save the truth sits about 1–1.4 posterior SD from the posterior median, as follows.
-  - **Triose pools read high, with the truth above the posterior.** G3P is +1.39 SD (MC share 0.11) and DHAP +1.23 SD (MC share 0.02). Neither has a single save inside the 50% interval. Their skill is the lowest of all species: 0.54 and 0.64.
+  - 92% of saves are inside the posterior's 90% interval, but only 34% are inside its 50% interval. For 10 of the 17 pools that is a shift, not scatter: their offsets are about 1–1.4 posterior SD, as follows. The other 7 (lactate inside and out, charged tRNA, Pi, 3PG, 2PG and GTP) sit within 0.8 SD.
+  - **Triose pools read high, with the truth above the posterior.** G3P is +1.39 SD (median MC share 0.11) and DHAP +1.23 SD (median MC share 0.02). Neither has a single save inside the 50% interval. Their skill is the lowest of all species: 0.54 and 0.64.
   - **Nucleotides split by charge.**
     - ATP, ADP and GDP read low (truth below): −1.33, −1.00 and −1.40 SD.
     - AMP and GMP read high: +1.14 and +0.97 SD.
   - **Upper glycolysis reads high:** G6P, F6P and FDP at +0.9 to +1.0 SD.
-  - **The triose and FDP errors are θ-driven:** their MC shares are small (0.02–0.11), so these are biases of the posterior, not cell noise. The nucleotides' MC shares are larger (0.33–0.62).
+  - **The triose and FDP errors are θ-driven:** their median MC shares are small (0.02–0.11; per save, G3P's runs 0.06–0.16), so these are biases of the posterior, not cell noise. The nucleotides' median MC shares are larger (0.31–0.62).
   - Skill is still 0.90–0.99 everywhere except the trioses.
 - **Reading against the pilot.** The pilot's promoters sat low (mean −0.81 SD; Decision log 2026-11-17), yet the transcripts here show no comparable shift. The pool shifts, especially the trioses and the energy charge, are where the posterior's error shows in the forecast.
 
@@ -107,7 +110,7 @@ Each pair is baseline / knockdown. `clipped` is the GTP clip that KIM-42 reporte
 ## For F5
 
 F5's claim is that "the posterior's predictions cover / miss the truth by this much, against the prior predictive". The evidence for it:
-- **They cover:** Q and Q_kd within ±1.4% intervals, every transcript save at 90%, and 92% of pool saves at 90%.
-- **They miss:** the triose pools by about 1.3 SD and the energy charge by about 1–1.4 SD, which leaves only 34% of pool saves inside the 50% interval.
+- **They cover:** Q and Q_kd within ±1.4% intervals, 900 of 901 transcript saves at 90%, and 92% of pool saves at 90%.
+- **They miss:** 10 of the 17 pools by about 1–1.4 SD, among them the trioses (about 1.3 SD) and the energy charge, which leaves only 34% of pool saves inside the 50% interval.
 - **Against the prior:** the CRPS skill is 0.98 on Q, 0.87 on ΔQ, and a median of 0.95 across species.
 - **Not resolved:** ΔQ under the knockdown is not resolved by the posterior beyond "small next to cell noise".
