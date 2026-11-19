@@ -9,7 +9,8 @@ using InferCell
 using InferCell: _mixed_solve
 using ForwardDiff
 using Random
-using Distributions: LogNormal
+using Distributions: LogNormal, Normal, logpdf
+using Turing: logjoint
 
 @testset "corea_dataset and the mixed likelihood on the reduced model" begin
     # B8.2: an injection, drawn from one recorded seed.
@@ -187,6 +188,81 @@ using Distributions: LogNormal
         @test mixed_logdensity(bulko, x) == mixed_log_prior(s, x) + lbulk
     end
 
+    # KIM-116 (Spec D7; Decision log 2026-11-19): the modular arm's stages. Stage 2
+    # is the bulk factor with stage 1's coordinates fixed; the data plug-in's stage 1
+    # is the transcript factor at rates rebuilt from the observed panel, with no solve.
+    @testset "the modular arm's stages (KIM-116)" begin
+        (; s, corea, δ, Σ) = c
+        both = with_reference(corea(; streams = (:bulk, :tx)), δ, Σ)
+        txo = with_reference(corea(; streams = (:tx,)), δ, Σ)
+        bulko = with_reference(corea(; streams = (:bulk,)), δ, Σ)
+        x = c.xt
+        names = mixed_parameter_names(s)
+        stage2 = [:log_kcatF_R_ENO, :log_kcatF_R_FBA, :log_sigma_b]
+        stage1 = setdiff(names, stage2)
+        @test length(stage1) == 18
+        # Stage 2 is the bulk factor at the full x, with the prior on its own coordinates.
+        st = modular_stage(bulko, stage2, x)
+        @test st.free == findall(in(stage2), names)
+        @test stage_x(st, stage_x0(st)) == x
+        z = stage_x0(st) .+ [0.1, -0.2, 0.05]
+        xz = stage_x(st, z)
+        @test xz[st.free] == z && xz[setdiff(eachindex(x), st.free)] == x[setdiff(eachindex(x), st.free)]
+        pri = sum(logpdf(Normal(m, d), v) for (m, d, v) in
+                  zip(mixed_prior_median(s)[st.free], mixed_prior_sd(s)[st.free], z))
+        @test stage_logdensity(st, z) == pri + mixed_loglik(bulko, xz)
+        # The two factors sum to the joint's likelihood, so the cut drops only the coupling.
+        @test mixed_loglik(txo, x) + mixed_loglik(bulko, x) === mixed_loglik(both, x)
+        # Every coordinate free: the stage is the mixed density itself.
+        @test stage_logdensity(modular_stage(both, 1:length(x), x), x) ≈
+              mixed_logdensity(both, x) rtol = 1e-12
+        # The Turing model is the same density.
+        m = modular_model(st)
+        @test logjoint(m, (; z = z)) ≈ stage_logdensity(st, z) rtol = 1e-12
+        @test_throws ArgumentError modular_stage(bulko, [:log_nope], x)
+        @test_throws ArgumentError modular_stage(bulko, [1, 1], x)
+
+        # The rates the route rebuilds are the rebuild at its own states.
+        θ = exp.(x[1:length(s.names)])
+        r = _mixed_solve(s, θ)
+        k = route_transcription_rates(s, r.sol, r.p)
+        @test transcription_rates_from_states(
+            s, r.p, [InferCell._state_at(r.sol, t) for t in s.switches]) == k
+        # Observations equal to the mean field (δ absorbs the difference) return the
+        # route's own pools at the saves, through the live volume.
+        mf = mean_field_log_bulk(s, r.sol)
+        exact = with_reference(txo, s.logz .- mf, zeros(c.n, c.n))
+        states = panel_plugin_states(exact, r.sol)
+        @test length(states) == length(s.switches)
+        @test states[1] == InferCell._state_at(r.sol, 0.0)
+        for (m, t) in enumerate(s.saves)
+            u = InferCell._state_at(r.sol, t)
+            keep = setdiff(eachindex(u), s.rows)
+            @test states[m + 1][keep] == u[keep]
+            live = [i for i in s.rows if u[i] * InferCell._route_geometry(
+                s.route, u[s.route.n_idx]).factor >= 1]
+            @test states[m + 1][live] ≈ u[live] rtol = 1e-10
+        end
+        # The plug-in's stage 1 reads the promoters and krnadeg only.
+        pst = panel_plugin_states(txo, x)
+        ℓ1(z) = plugin_loglik(txo, pst, z)
+        @test isfinite(ℓ1(x))
+        y = copy(x)
+        y[[findfirst(==(n), names) for n in stage2]] .+= [0.3, -0.3, 0.5]
+        @test ℓ1(y) === ℓ1(x)
+        st1 = modular_stage(txo, stage1, x; loglik = (s, x) -> plugin_loglik(s, pst, x))
+        @test stage_logdensity(st1, stage_x0(st1)) ==
+              sum(logpdf(Normal(m, d), v) for (m, d, v) in
+                  zip(mixed_prior_median(s)[st1.free], mixed_prior_sd(s)[st1.free],
+                      stage_x0(st1))) + ℓ1(x)
+        # Its gradient, by central differences: it solves nothing, so it is cheap here.
+        av3_check(z -> stage_logdensity(st1, z), stage_x0(st1))
+        # Outside the support box it is −Inf, as mixed_loglik is.
+        far = copy(x)
+        far[1] = mixed_box(s)[2][1] + 1
+        @test plugin_loglik(txo, pst, far) == -Inf
+    end
+
     # KIM-99: route (ii)'s speed-up keeps the log-density. The fixture froze it at
     # main's code before the speed-up (its header names the commit), on this file's
     # corea_case(120.0) at four x. KIM-99's bound, 1e-10, holds only on the fixture's
@@ -236,6 +312,13 @@ using Distributions: LogNormal
                 t = tight(; streams = st)
                 av3_check(z -> mixed_logdensity(t, z), cs.xt; nonzero = false)
             end
+        end
+        # KIM-116: stage 2's gradient (ENO, FBA and σ_b, with stage 1's fixed), by
+        # central differences at the truth.
+        @testset "AV3 on the modular arm's stage 2 (KIM-116)" begin
+            t = tight(; streams = (:bulk,))
+            st = modular_stage(t, [:log_kcatF_R_ENO, :log_kcatF_R_FBA, :log_sigma_b], cs.xt)
+            av3_check(z -> stage_logdensity(st, z), stage_x0(st))
         end
     else
         @info "test_corea_mixed.jl: AV3 on the reduced model skipped; set " *
