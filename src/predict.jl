@@ -258,13 +258,15 @@ checked against this prediction. The uncorrected mean field is kept beside the
 corrected one, since the gap between them is part of the result (spec §12
 2026-10-29, O4).
 
-**Time series.** `trajectory` lists ODE-block species to record in every run
-(`CellRun`'s `trajectory`), in particles, every `every` seconds and at the horizon.
-Recording reads what the run holds anyway, so it changes no cell and no draw. On the
-hybrid `every` must be a whole number of handshakes. On the mean field it must stay
-at 60, since the saves decide what its minima, and so a viability floor, can see. A
-species outside the ODE block, and `every` with no `trajectory`, are refused before
-any cell runs. [`trajectory_bands`](@ref) and [`trajectory_split`](@ref) read the
+**Time series.** `trajectory` lists species to record in every run (`CellRun`'s
+`trajectory`), in particles, every `every` seconds and at the horizon. On the hybrid
+they may be ODE-block or jump-block species, such as a gene's transcripts
+(`transcript_state(locus)`); on the mean field, which has no jump block, ODE-block
+species only. Recording reads what the run holds anyway, so it changes no cell and no
+draw. On the hybrid `every` must be a whole number of handshakes. On the mean field it
+must stay at 60, since the saves decide what its minima, and so a viability floor, can
+see. A species in neither block, a jump species on the mean field, and `every` with
+no `trajectory`, are refused before any cell runs. [`trajectory_bands`](@ref) and [`trajectory_split`](@ref) read the
 result.
 
 **The completion policy:**
