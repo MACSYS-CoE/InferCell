@@ -13,12 +13,14 @@
 # jensen_bias_89's "Σ_F10" linear response.
 #
 # That response is incomplete (PR #189 review, 2026-11-23). Δm depends on θ through
-# t̄(θ), G = ∂Δm/∂log θ ≈ −B ∂t̄/∂log θ / x̄, and the first-order displacement is
-# Σ (Jᵀ W Δm − Gᵀ W r) with r the bulk residual, with W held. Given the transcripts the
-# exact bulk covariance is also smaller (S → S_c), which adds a first-order
-# Jᵀ (W_c − W) r. The `full` stage computes both, the bulk's information with and
-# without conditioning on the transcripts, and the curvature that says whether a
-# one-step response is valid.
+# t̄(θ), G = ∂Δm/∂log θ ≈ −B ∂t̄/∂log θ / x̄, and given the transcripts the exact bulk
+# covariance is smaller (S → S_c). The `full` stage takes the first-order displacement
+# from the two gradients in full, never term by term:
+#   mixed − exact ≈ Σ (Jᵀ W r − (J+G)ᵀ W* (r − Δm(x̄))),
+# r the bulk residual at m0_v6's posterior mean x̄, Δm(x̄) = Δm + G (x̄ − x_ref), and
+# W* = W (bulk covariance held) or W_c = (σ_b² I + S_c)⁻¹ (conditioned). It also gives
+# the bulk's information with and without conditioning on the transcripts, and the
+# curvature that says whether a one-step response is valid.
 # `analyse` is kept as run at 66431db; its reading rule applies to its own output.
 #
 # Read, fixed before the analysis is run: for each of S_0779, krnadeg and ENO, the
@@ -235,12 +237,16 @@ function run_full(out)
     r = s.logz .- m̄ .- s.delta
     resp(v) = (Σ * v) ./ sd
     kept = resp(J' * (W * Δm))                       # Δm at θ_ref, as analyse
-    kept_x = resp(J' * (W * (Δm .+ G * (x̄ .- p.ref.x))))   # Δm carried to x̄, where J and r are taken
-    missing_ = resp(-(G' * (W * r)))
-    # With the exact route's bulk covariance given the transcripts (σ²I + Sc) as well:
-    # mixed − exact ≈ Σ (∇ log L_mixed − ∇ log L_exact) at x̄, both gradients in full.
+    # mixed − exact ≈ Σ (∇ log L_mixed − ∇ log L_exact) at x̄, both gradients in full,
+    # with the exact route's bulk covariance held (W) or given the transcripts (Wc).
     Δmx = Δm .+ G * (x̄ .- p.ref.x)
-    full_c = resp(J' * (W * r) .- (J + G)' * (Wc * (r .- Δmx)))
+    disp(Wx) = resp(J' * (W * r) .- (J + G)' * (Wx * (r .- Δmx)))
+    full_w, full_c = disp(W), disp(Wc)
+    # Cross-check: with W held the full gradient difference expands to
+    # JᵀWΔm(x̄) − GᵀWr + GᵀWΔm(x̄); the PR #189 fix round 3 found the last term dropped.
+    expand = resp(J' * (W * Δmx) .- G' * (W * r) .+ G' * (W * Δmx))
+    maximum(abs.(full_w .- expand)) < 1e-8 * max(1, maximum(abs.(full_w))) ||
+        error("the W-held displacement does not match its expansion")
     P = inv(Σ)
     Im = diag(J' * W * J)[1:K] ./ diag(P)[1:K]
     Ic = diag((J + G)' * W * (J + G))[1:K] ./ diag(P)[1:K]
@@ -264,16 +270,14 @@ function run_full(out)
         join([@sprintf("%s %+.2f", PN[q], (p.ref.x[q] - x̄[q]) / sd[q]) for q in 1:6], ", ") *
         ". (δ and S come from simulated cells, which σ_b does not enter.)\n")
     say("## Displacement, V6 SDs (mixed − exact, first order)\n")
-    say("Δm(x̄) = Δm + G (x̄ − x_ref) is Δm carried from θ_ref to m0_v6's posterior mean, " *
-        "where J and r are evaluated; the sum is Σ (Jᵀ W Δm(x̄) − Gᵀ W r).\n")
-    say("The 'sum' holds W at the mixed route's (σ²I + S)⁻¹. The last column also uses the " *
-        "exact route's bulk covariance given the transcripts, σ²I + Sc: " *
-        "Σ (JᵀW r − (J+G)ᵀW_c (r − Δm(x̄))).\n")
-    say("| Parameter | gap (recomputed) | Σ JᵀWΔm, Δm at θ_ref (analyse) | Σ JᵀWΔm(x̄) | −Σ GᵀWr (omitted by analyse) | sum, W held | full, S conditioned |")
-    say("|---|---|---|---|---|---|---|")
+    say("Both full columns are Σ (JᵀW r − (J+G)ᵀW* (r − Δm(x̄))), the difference of the two " *
+        "routes' bulk gradients at m0_v6's posterior mean, with Δm(x̄) = Δm + G (x̄ − x_ref). " *
+        "W* is the mixed route's (σ²I + S)⁻¹ (W held) or the exact route's bulk covariance " *
+        "given the transcripts, (σ²I + Sc)⁻¹ (S conditioned).\n")
+    say("| Parameter | gap (recomputed) | Σ JᵀWΔm, Δm at θ_ref (analyse) | full, W held | full, S conditioned |")
+    say("|---|---|---|---|---|")
     for q in 1:6
-        say(@sprintf("| %s | %+.3f | %+.3f | %+.3f | %+.3f | %+.3f | %+.3f |", PN[q], gap[q], kept[q], kept_x[q],
-                     missing_[q], kept_x[q] + missing_[q], full_c[q]))
+        say(@sprintf("| %s | %+.3f | %+.3f | %+.3f | %+.3f |", PN[q], gap[q], kept[q], full_w[q], full_c[q]))
     end
     say(@sprintf("\ntr S_c / tr S = %.3f; tr S / tr σ²I = %.3f.\n", tr(Sc) / tr(s.S), tr(s.S) / (σ^2 * length(r))))
     say("\n## The bulk's information as a share of V6's posterior precision (diagonal)\n")
