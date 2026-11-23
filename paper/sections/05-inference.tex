@@ -1,20 +1,148 @@
 \section{Inference on the reduced model}
 \label{sec:reduced}
 
-\stub{Job: one posterior over the \pn{kim92.ncoord} free parameters of the reduced syn3A model: which the data reach, which stay at their priors, whether it reproduces its own data, and what it costs (\cref{fig:reducedpost}, \cref{tab:reducedcost}). The modular arm sits beside the joint posterior (\cref{app:modular}).}
+Can the mixed route give one joint posterior over all the free parameters of the
+reduced model, from single-cell and bulk data? It can. On one synthetic dataset the
+data reach all \pn{kim92.ncoord} parameters, the truth sits inside \pn{kim92.truthin}
+of the \pn{kim92.ncoord} central 90\% intervals, the posterior reproduces its own data,
+and the posterior costs about \pn{kim92.cpuh} CPU-hours
+(\cref{fig:reducedpost,tab:reducedcost}).
+
+\paragraph{The fit.} The free parameters $\theta$ are the \pn{kim92.npromoter} promoter
+strengths, the transcript decay rate, the forward catalytic constants of ENO and FBA, and
+the bulk assay noise $\sigb$, each on the log scale. Every other constant stays at its
+default. The dataset has \pn{kim92.ncells} cells drawn from the true simulator at the true
+parameters $\theta^\ast$. The fit sees the first half of the cycle, \pn{kim92.nsaves}
+saves up to \pn{kim92.fitend}\,s, and the bulk factor has \pn{kim92.ppcrows} rows:
+17 pools at each save. The rest of the cycle is the later horizon, held out for
+\cref{sec:reducedpredict}. The route is the one defined in \cref{sec:api}, with $\delta$
+and $S$ computed once from a reference ensemble of the exact hybrid
+(\cref{sec:meanfield}). We ran \pn{kim92.nchains} chains of the No-U-Turn Sampler. The
+pass criteria were fixed before the dataset was drawn. \Cref{sec:methods} gives the
+settings.
+
+\paragraph{Convergence.} The criterion is the rank-normalised $\Rhat$ at most
+\pn{kim92.rhatgate} and a bulk effective sample size of at least \pn{kim92.essgate} on
+every parameter, after at most one extension of the chains. After the first
+\pn{kim92.firstdraws} kept draws per chain the check failed on two of the
+\pn{kim92.ncoord} parameters, a promoter strength and ENO, with a worst $\Rhat$ of
+\pn{kim92.rhatfirst}. No chain was stuck. On both parameters the four chain means agreed
+to within about a tenth of a posterior standard deviation, and the per-chain standard
+deviations differed by up to a quarter, which $\Rhat$ is sensitive to at this length.
+After the one extension, to \pn{kim92.extdraws} kept draws per chain, the worst $\Rhat$
+is \pn{kim92.rhat} and the smallest bulk effective sample size is \pn{kim92.essmin}.
+All results below pool these \pn{kim92.ndraws} draws.
+
+\paragraph{What the data reach.} We measure how far the data move each parameter by its
+contraction,
+\[
+  c = 1 - \mathrm{Var}_{\mathrm{post}} / \mathrm{Var}_{\mathrm{prior}} ,
+\]
+and say the data reach a parameter when $c \ge \pn{kim92.reachgate}$. Every parameter
+has $c \ge \pn{kim92.contrmin}$ (\cref{fig:reducedpost}A). The two lowest are ENO and FBA,
+which also have the tightest priors. No marginal stays at its prior. The only strong
+posterior correlation is \pn{kim92.corr}, between the GAPD promoter and the decay rate.
+The truth $\theta^\ast$ falls inside the central 90\% interval for \pn{kim92.truthin} of
+the \pn{kim92.ncoord} parameters (\cref{fig:reducedpost}B). The one outside is a promoter
+strength, at \pn{kim92.outz} posterior standard deviations. There is one truth, so this
+count is not a coverage rate.
+
+\paragraph{The promoters sit low.} Of the \pn{kim92.npromoter} promoter strengths,
+\pn{kim92.promlow} have posterior means below the truth (\cref{fig:reducedpost}B). Their mean standardised error,
+(posterior mean $-$ truth)/posterior SD, is \pn{kim92.promz}. If the
+\pn{kim92.npromoter} errors were independent and calibrated, their mean would be zero to
+within its standard error. The observed mean is about \pn{kim92.promzse} standard errors
+from zero. The maximum a posteriori estimate
+has the same shift, with a mean standardised error of \pn{kim92.mapz}. So the shift
+comes from the likelihood on this dataset, not from the sampler. One dataset cannot
+separate the two possible causes. The first is noise in this dataset that every promoter
+shares, for example through the common bulk scale. The second is a bias from fitting the
+mean-field bulk likelihood to data from the exact hybrid. A second dataset would
+tell them apart, and we have not run one. The scored predictions of
+\cref{sec:reducedpredict} are read with this shift in mind.
+
+\paragraph{The posterior reproduces its own data.} For each of the
+\pn{kim92.ppcrows} bulk rows we drew replicate data from the route's own bulk model at
+posterior draws, and asked whether the observed value lies in the central 99\% band.
+\pn{kim92.ppcout} rows lie outside, against a limit of \pn{kim92.ppclimit} fixed in
+advance and about \pn{kim92.ppcexpect} expected by chance (\cref{fig:reducedpost}C). The
+rows outside spread across the record. This check tests whether the fitted likelihood
+reproduces the data. It does not test the mean-field approximation against the exact
+hybrid, and on the reduced model the mixed route has no calibration test of the kind
+\cref{sec:posteriors} ran on M0. The scored predictions of \cref{sec:reducedpredict},
+against the true simulator, are the test of the approximation.
+
+\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace standard
+deviation at the maximum a posteriori estimate is \pn{kim92.laplo}--\pn{kim92.laphi}
+times the posterior standard deviation. ENO and FBA depart from this picture in one
+respect. Their maximum a posteriori values lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz}
+posterior standard deviations from their posterior means. This run cannot say whether
+their posteriors are skewed or the optimiser stopped short.
+
+\paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
+(\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior and
+far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}). The
+limit is wall-clock, because each chain is one serial job. Each chain took
+\pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation
+and \pn{kim92.firstdraws} kept iterations, and \pn{kim92.extwalllo}--\pn{kim92.extwallhi}\,h
+more for the extension. One leapfrog step, one gradient of the log density, costs \pn{kim92.grad}\,s, and
+each iteration takes about \pn{kim92.steps} steps. A warm diagonal metric made the
+run feasible. We took it from the Hessian at the maximum a posteriori estimate, by finite
+differences of the gradient. Under a unit metric the Hessian's condition number is
+\pn{kim92.kappaunit}, and under the warm metric it is \pn{kim92.kappawarm}. A probe chain
+under the unit metric projected to \pn{kim92.probedays} days per chain.
+
+\paragraph{The modular arm.} The modular arm asks whether a two-stage fit lands close to
+the joint posterior. It has two variants. The factor cut fits the transcript
+factor over all \pn{kim92.ncoord} parameters in stage one, then fits ENO, FBA and $\sigb$
+to the bulk factor over the stage-one draws. The data plug-in takes the transcription
+rates in stage one from the observed ATP and GTP panel, with no ODE solve. We call a
+variant close when every parameter's mean shifts by at most \pn{kim116.shiftgate} joint
+posterior standard deviations and its contraction is within \pn{kim116.contrgate} of the
+joint's. \todo{KIM-116: whether each variant is close to the joint posterior, its
+CPU-hours (\cref{tab:reducedcost}), and what the result means for the cost of a
+reduced-model posterior. Gradient costs at the truth, measured on one node (Slurm
+21196497): \pn{kim116.gradjoint}\,s for the joint, \pn{kim116.gradcut}\,s for stage one
+of the factor cut, \pn{kim116.gradplugin}\,s for stage one of the data plug-in,
+\pn{kim116.gradstage}\,s for stage two; reconcile with the \pn{kim92.grad}\,s per step
+above before quoting. Detail in \cref{app:modular}.}
 
 \begin{figure*}[t]
 \centering
-\placeholderfig{\linewidth}{5cm}{F4: prior vs posterior per parameter on the reduced model, truth marked; PPC (drawn in Stage 3)}
-\caption{\textbf{The data reach every one of the \pn{kim92.ncoord} parameters of the reduced model.} \stub{caption body}}
+\includegraphics[width=\linewidth]{fig_reduced_posterior.pdf}
+\caption{\textbf{The data reach all \pn{kim92.ncoord} parameters of the reduced model,
+and the posterior reproduces its own data.} A: posterior standard deviation over prior
+standard deviation for each parameter, on the log scale; the contraction is one minus its
+square. B: the standardised error, (posterior mean $-$ truth)/posterior SD, with the
+central 90\% interval on the same scale; the grey band is one posterior SD either side of
+the truth, the dotted line is the promoters' mean, and the open marker is the one truth
+outside its interval. C: where each of the \pn{kim92.ppcrows} observed bulk rows
+(17 pools at \pn{kim92.nsaves} saves) falls relative to its central 99\%
+posterior predictive band (grey); the \pn{kim92.ppcout} rows outside are black. A and B
+use \pn{kim92.ndraws} pooled draws from \pn{kim92.nchains} chains; the band in C uses
+\pn{kim92.ppcdraws} of them, with \pn{kim92.ppcreps} replicates each.}
 \label{fig:reducedpost}
 \end{figure*}
 
 \begin{table}[t]
-\centering
-\caption{\textbf{The mixed route makes a reduced-model posterior affordable.} \stub{caption body}}
+\caption{\textbf{The mixed route makes a reduced-model posterior affordable at about
+\pn{kim92.cpuh} CPU-hours.} CPU-hours are from Slurm accounting. The M0 rows are as in
+\cref{tab:cost}; the mixed value is the median over completed jobs and counts the
+optimiser, the reference ensemble and the chains. The reduced-model value is the whole
+run, and includes the dataset, profiling, the unit-metric probe (\pn{kim92.probecpuh} CPU-h)
+and the predictive check. Params is the number of free parameters. Days are wall-clock on the critical path,
+without queue waits. The reduced-model fits use the mixed route.}
 \label{tab:reducedcost}
-\stub{rows: M0 exact, M0 mixed, reduced joint, reduced modular (\todo{KIM-116})}
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Fit & Params & CPU-h & Days \\
+\midrule
+M0, exact & \pn{mzero.nparnum} & \pn{ften.cpuh}--\pn{cost.exacthi} & \pn{ften.walldays} \\
+M0, mixed & \pn{mzero.nparnum} & \pn{mix.cpuh} & \DRAFT{?} \\
+Reduced, joint & \pn{kim92.ncoord} & \pn{kim92.cpuh} & \pn{kim92.critpath} \\
+Reduced, modular & \pn{kim92.ncoord} & \todo{} & \todo{} \\
+\bottomrule
+\end{tabular}
 \end{table}
-
-\todo{The modular arm (KIM-116): its posterior beside the joint, and its cost.}

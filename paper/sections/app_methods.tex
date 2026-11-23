@@ -1,6 +1,8 @@
 \section{Methods}
 \label{sec:methods}
 
+This appendix gives what reproduction needs. \Cref{sec:driver,sec:obs,sec:sampler,sec:txfactor,sec:meanfield,sec:sbc} describe the driver, the data and the two inference routes, as used on M0. \Cref{sec:prediction} covers prediction on M0 and the budget transferred from it. \Cref{sec:reduceddesign} gives the design of the joint posterior and the scored predictions on the reduced model.
+
 \subsection{The hybrid driver}
 \label{sec:driver}
 
@@ -27,7 +29,7 @@ counts and exposures).
 \subsection{Observation model}
 \label{sec:obs}
 
-Each synthetic dataset has $C$ cells (\pn{mzero.cells} on M0), observed every 60\,s.
+Each synthetic dataset has $C$ cells (\pn{mzero.cells} on M0 and \pn{kim92.ncells} on the reduced model), observed every 60\,s.
 \begin{itemize}
   \item \textbf{Transcripts:} the exact count of each gene's transcripts in each cell
   at each save.
@@ -65,7 +67,9 @@ The sampler is written directly, not in a probabilistic programming language. Th
 path update needs ancestor sampling and exact snapshots of the driver, and a general
 framework could not provide them without sharing solver state between particles.
 Runs can be checkpointed and resumed bit for bit, and the threaded sweep is bit for
-bit equal to the serial one.
+bit equal to the serial one. We run the exact sampler on M0 only. On the reduced model one
+exact posterior is projected at about \pn{cost.fullscale} CPU-hours (\cref{tab:cost}), so
+the joint posterior there comes from the mixed route (\cref{sec:reduceddesign}).
 
 \subsection{The transcript factor}
 \label{sec:txfactor}
@@ -99,16 +103,17 @@ dataset. The ensemble has \pn{mix.nref} cells, on seeds disjoint from the datase
 take $\delta$ as the log difference between the ensemble's mean and the mean field at
 the reference value, per pool and save. We take $S$ by the delta method, $S_{ij} = \mathrm{Cov}_{ij} / (C \bar{x}_i \bar{x}_j)$, for the covariance $\mathrm{Cov}$ of the per-cell panel counts. On M0 it is full rank, with \pn{mzero.npanel} pools at ten saves.
 
-The sampler is the No-U-Turn Sampler on the log of the \pn{mzero.npar} parameters, with
-the exact sampler's priors. Each fit has \pn{mix.chains} chains of \pn{mix.nadapt}
+On M0, the sampler is the No-U-Turn Sampler on the log of the \pn{mzero.npar} parameters, with
+the exact sampler's priors. Each M0 fit has \pn{mix.chains} chains of \pn{mix.nadapt}
 adaptation and \pn{mix.ndraw} sampling steps, started \pn{mix.jitter} prior standard
 deviations from the reference value. A parameter value outside the transcript factor's
 support, or a solve that does not succeed, has a log density of $-\infty$.
+\Cref{sec:reduceddesign} gives the sampler's design on the reduced model.
 
 \subsection{Simulation-based calibration}
 \label{sec:sbc}
 
-For each of $R = \pn{vseven.R}$ replicates we drew a parameter set from the prior,
+Calibration runs on M0 only. For each of $R = \pn{vseven.R}$ replicates we drew a parameter set from the prior,
 simulated a dataset, and ran one chain of \pn{mzero.sweeps} sweeps from a prior draw. We dropped
 \pn{mzero.burn} sweeps and thinned the rest to $L = \pn{mzero.L}$ draws. For near-independent draws, the rank of the truth among them is uniform if the sampler is calibrated \cite{talts2018validating}. We tested
 each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
@@ -117,6 +122,10 @@ rule was fixed before any rank was computed.
 
 \subsection{Prediction}
 \label{sec:prediction}
+
+This subsection covers M0's scored predictions (\cref{sec:predm0}) and the budget transferred
+from M0 to the reduced model (\cref{sec:budget}). The scored predictions on the reduced
+model use the design of \cref{sec:reduceddesign}.
 
 \paragraph{What was fixed in advance.} We fixed the quantity $Q$, the estimand, the
 viability rule, the dose and the variance split on pilots with held-out parameters and
@@ -133,7 +142,7 @@ $n$ hybrid cells with fresh seeds. Its noise is $\sigma^2(\theta)/n$, and we sub
 mean of that term from the spread over draws. The intrinsic spread is reported
 separately, from the hybrid only.
 
-\paragraph{Completion and viability.} On the reduced model, $\theta_H$ is drawn from its
+\paragraph{Completion and viability.} In the budget transferred from M0, $\theta_H$ is drawn from its
 prior, and width scales its log-scale standard deviation at a fixed median. A cell is
 failed, starved, below a floor, clipped or clean, in that order of precedence, and a cell
 is starved if some counter clipped at more than half its drains. A cell is viable unless it failed, starved or fell below a floor, and we set no floors, so clipped cells count, and a parameter pair is viable if at least half of \pn{budget.ncellspair} separate cells are. We condition $\theta_H$ on viability per draw of $\theta_I$, so
@@ -152,27 +161,130 @@ that the intervention acts only through that parameter, that the posterior fitte
 unperturbed data carries over unchanged, and that the model stays valid at the dose, which the screen below supports on M0 and which is in question on the reduced model (\cref{sec:modelform}). $V$
 is read at baseline: a rejected pair is not run under the intervention, and a cell that
 fails only under it is counted as part of the prediction. The largest dose in
-$\{0.1, 0.2, 0.3\}$ that kept M0's pools in their regime was \pn{budget.dose}.
+$\{0.1, 0.2, 0.3\}$ that kept M0's pools in their regime was \pn{budget.dose}, and the
+scored predictions on the reduced model use the same dose (\cref{sec:reduceddesign}).
 
 \paragraph{Scoring on M0.} Each posterior contributes \pn{pred.ndraws} draws at
 \pn{pred.ncells} cells each. The truth and the offset $\delta_Q$, a difference in $Q$ itself and not the log offset of \cref{sec:meanfield}, each use \pn{pred.nref}
 cells. Coverage counts the truth's estimated value inside the central interval of the
 draws.
 
+\subsection{The reduced-model design}
+\label{sec:reduceddesign}
+
+\paragraph{Free parameters and priors.} The joint posterior of \cref{sec:reduced} has
+\pn{kim92.ncoord} coordinates: the logs of the \pn{kim92.npromoter} promoter strengths, of
+the transcript decay rate, of the forward catalytic constants of ENO and FBA, and of
+$\sigb$. Every other constant stays at its default value. Each of the first 20 has a
+lognormal prior whose median is the model's nominal value. Its log-scale standard deviation
+is \pn{kim92.sdprom} (a factor of two) for the promoters and the decay rate, and \pn{kim92.sdeno}
+and \pn{kim92.sdfba} for ENO and FBA. The prior on $\sigb$ is that of \cref{sec:obs}.
+
+\paragraph{The data.} There is one dataset of \pn{kim92.ncells} cells from the true simulator at
+$\theta^\ast$, on a seed fixed before its truth was read. The cells run for one cycle of
+6,300\,s, and the fit sees only the first half of the record: the \pn{kim92.nsaves} saves at
+60--\pn{kim92.fitend}\,s. The later horizon of the scored predictions starts after the window, at
+\pn{kim95.horizonlo}\,s, so the fit never sees it.
+The observation design is generous on purpose. Every cell gives the exact transcript count
+of all 17 genes at every save, and the bulk panel of \cref{sec:obs} gives
+\pn{kim92.ppcrows} rows, 17 pools at each save. \Cref{sec:ladder} degrades this design
+toward realistic assays (\todo{M10}).
+
+\paragraph{The mixed route on the reduced model.} The bulk factor and the transcript
+factors are those of \cref{sec:meanfield,sec:txfactor}, with the reduced model's
+mean-field module. The log density is supported on a box of $\pm\pn{kim92.box}$ prior standard
+deviations about the prior median. The reference value $\theta_{\mathrm{ref}}$ is the maximum
+a posteriori estimate in that box at $\delta = 0$ and $S = 0$. We take $\delta$ and $S$ from a reference ensemble of
+\pn{kim92.nref} cells at $\theta_{\mathrm{ref}}$, run to the last fitted save, and hold both
+fixed while sampling.
+
+\paragraph{The sampler.} We use the No-U-Turn Sampler \cite{hoffman2014nouturn} in Turing
+\cite{ge2018turing}, at a target acceptance of \pn{kim92.accept} and a maximum tree depth of
+\pn{kim92.maxdepth}. There are \pn{kim92.nchains} chains, each of \pn{kim92.nadapt} adaptation steps and
+\pn{kim92.firstdraws} kept draws, started \pn{kim92.jitter} prior standard deviations from
+$\theta_{\mathrm{ref}}$. Under a unit metric the target is badly conditioned, and a probe
+chain projected \pn{kim92.probedays} days per chain. Each chain therefore starts from a
+warm diagonal metric, the diagonal of $(-H)^{-1}$ at $\theta_{\mathrm{ref}}$, where $H$ is
+the Hessian of the log density by central differences of the gradient. Scaled by that
+metric, the condition number of $-H$ falls from \pn{kim92.kappaunit} to
+\pn{kim92.kappawarm}. Adaptation then re-estimates the metric in windows. We chose the warm
+metric before any chain started, and it changed no criterion below. Each chain writes a
+checkpoint at fixed intervals and resumes from the last one, so a job that reaches its time
+limit can continue. One leapfrog step costs about \pn{kim92.grad}\,s.
+
+\paragraph{The kill criteria.} We froze these in a pre-registration before the dataset was
+drawn. The fit fails if either of two conditions holds.
+\begin{enumerate}
+  \item \textbf{Convergence.} Some coordinate has $\Rhat > \pn{kim92.rhatgate}$ or a bulk
+  effective sample size below \pn{kim92.essgate}, over the kept draws of all chains, after
+  at most one extension. We check on the first \pn{kim92.firstdraws} kept draws per chain. If that
+  check fails, each chain continues for \pn{kim92.firstdraws} more draws from its final state, with
+  its adapted step size and metric and no new adaptation, and we check once more on all
+  of them.
+  \item \textbf{Posterior predictive check.} More than \pn{kim92.ppclimit} of the
+  \pn{kim92.ppcrows} bulk rows, 5\%, lie outside their central 99\% posterior predictive
+  band. The predictive is the fit's own bulk model,
+  $\log z_{\mathrm{rep}} \sim \mathcal{N}\!\left(\log \max(\bar{x}_{\mathrm{MF}}(\theta), 1) + \delta,\ \sigb^2 I + S\right)$,
+  at \pn{kim92.ppcdraws} posterior draws spaced evenly through the pooled kept draws, with
+  \pn{kim92.ppcreps} replicates each. This check tests whether the fitted likelihood reproduces its
+  own data. It does not test the mean-field swap, which the scored predictions test
+  against the true simulator.
+\end{enumerate}
+Cost had no cap, and we measured it (\cref{tab:reducedcost}). The first convergence check
+failed and the one extension ran (\cref{sec:reduced}), so the posterior is
+\pn{kim92.ndraws} pooled draws, $\pn{kim92.nchains} \times (200 + 200)$.
+
+Without a gate, we also report whether the truth lies inside each central 90\% interval,
+and the contraction of each coordinate $j$,
+\begin{equation}
+  c_j = 1 - \frac{\mathrm{Var}_{\mathrm{post}}(\theta_j)}{\mathrm{Var}_{\mathrm{prior}}(\theta_j)} .
+\end{equation}
+The data reach a coordinate when $c_j \ge \pn{kim92.reachgate}$. There is one truth, so the count of
+intervals that hold it is not a coverage rate.
+
+\paragraph{The scored predictions.} We push the pooled draws forward with \texttt{predict}
+over the full cycle, at baseline and under the ptsG knockdown at dose \pn{kim95.dose}
+(\cref{sec:prediction}), on common seeds. We score them against the true simulator at
+$\theta^\ast$ on fresh seeds, with the prior predictive beside them. The targets were frozen
+with the kill criteria: $Q$, $Q_{\mathrm{kd}}$ and $\Delta Q$, and the 17 pools and 17
+transcripts at the \pn{kim95.nsaves} saves of the later horizon. Each target is a
+population mean over a draw's cells, and no viability rule is applied on either arm. For
+each target we report whether the truth lies inside the central 50\% and 90\% predictive
+intervals, the continuous ranked probability score (CRPS) [CITE NEEDED: CRPS, Gneiting and
+Raftery 2007], and its skill against the prior predictive,
+$1 - \mathrm{CRPS}_{\mathrm{post}} / \mathrm{CRPS}_{\mathrm{prior}}$. With one truth these
+are scores, not coverage rates.
+
+We sized the runs by M0's two rules: cell noise is at most 10\% of the predictive
+variance, and the truth's standard error is at most 10\% of the predictive standard
+deviation. For one cell's variance $\sigma^2$ and the parameter variance
+$\mathrm{Var}_\theta$ of the population mean, they give
+\begin{equation}
+  n_{\mathrm{cells}} = \left\lceil \frac{9\,\sigma^2}{\mathrm{Var}_\theta} \right\rceil ,
+  \qquad
+  n_{\mathrm{truth}} = \left\lceil \frac{100\,\sigma^2}{\mathrm{Var}_\theta} \right\rceil .
+\end{equation}
+Two sizing passes, made before any truth was read, resolved the posterior's
+$\mathrm{Var}_\theta$ only for $Q_{\mathrm{kd}}$, so we sized on it. Each arm has
+\pn{kim95.ndraws} draws, with \pn{kim95.cells} cells per posterior draw and
+\pn{kim95.priorcells} per prior draw, and the truth has \pn{kim95.ntruth} cells per
+knockdown arm.
+
 \subsection{Compute}
 \label{sec:compute}
 
-All runs used the OzSTAR cluster, and the M0 scoring and the budget ran on its AMD
-\texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind the main results. The commits and checksums are in the evidence archive
+All runs used the OzSTAR cluster, and the M0 scoring and the budget transferred from M0 ran
+on its AMD \texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind the main results. The commits and checksums are in the evidence archive
 and the result notes named under Software and data availability.
 
 \begin{table*}[t]
 \caption{\textbf{The runs behind the results.} Hours are from Slurm accounting. The mixed route's
-omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held.}
+omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held. The scored
+predictions' hours count the cell simulations only.}
 \label{tab:compute}
 \centering
 \footnotesize
-\begin{tabular}{@{}lp{0.62\textwidth}r@{}}
+\begin{tabular}{@{}lp{0.55\textwidth}r@{}}
 \toprule
 Run & Slurm jobs & CPU-hours \\
 \midrule
@@ -182,6 +294,8 @@ Exact, production chain & \pn{compute.ftenjobs} & \pn{ften.cpuh} \\
 Mixed route & \pn{compute.bsevenjobs} & \pn{compute.bsevencpuh} \\
 M0 scoring & \pn{compute.mzerojobs} & \pn{compute.mzerocpuh} \\
 Reduced-model budget & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh} \\
+Reduced model, joint posterior & \pn{compute.reducedjobs} & \pn{kim92.cpuh} \\
+Reduced model, scored predictions & \pn{compute.predictjobs} & \pn{kim95.cpuh} \\
 \bottomrule
 \end{tabular}
 \end{table*}

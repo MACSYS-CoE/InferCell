@@ -1,5 +1,16 @@
-\section{Predictions on M0, and the transferred budget}
+\section{M0's scored predictions and the transferred budget}
 \label{app:m0predict}
+
+This appendix holds the route from posterior to prediction that we took before the reduced
+model had a posterior of its own. It has two parts. On M0 we scored the
+posterior-to-prediction step over \pn{vseven.R} datasets (\cref{sec:predm0}). That test
+reaches calibration over many truths, but only on a two-gene slice over
+\pn{mzero.horizon}\,s. On the reduced model we combined M0's posterior for
+\pn{budget.nI} parameters with priors for the \pn{budget.nH} promoter strengths that M0
+removes, and predicted without a truth (\cref{sec:budget}). \Cref{sec:reducedpredict} now
+predicts from the reduced model's joint posterior and scores the predictions against one
+truth. It supersedes the transferred budget, which enters there as the middle of three
+states (\cref{fig:reducedbudget}). \Cref{sec:trajectories} follows both designs through time.
 
 \subsection{Probabilistic predictions on M0, scored}
 \label{sec:predm0}
@@ -9,9 +20,9 @@ mean $\mu(\theta)$. The intervention is a knockdown that scales the ptsG promote
 by $1 - d$, at dose $d = \pn{budget.dose}$, with paired seeds, and its effect is $\Delta Q$. We fixed the quantity, the estimand, the viability rule and the
 intervention on held-out pilots before any evidence run (\cref{sec:prediction}).
 
-\paragraph{Why M0, and why scoring stops there.} M0 is a slice of the reduced model small enough for the exact route to check a truth. It keeps all the metabolic reactions and the same blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
-One exact posterior on the reduced model is projected at about \pn{cost.fullscale}
-CPU-hours, and calibration needs \pn{mzero.cells} of them, about \pn{cost.fullcoverage} CPU-hours. We have not costed the same test by the mixed route.
+\paragraph{Why M0, and why calibration stops there.} M0 is a slice of the reduced model small enough for the exact route to check a truth. It keeps all the metabolic reactions and the same blocks and code, with \pn{mzero.ngenes} of the \pn{model.genes} genes stochastic and inferred, and \pn{mzero.heldenz} enzyme counts and \pn{mzero.heldpts} carrier totals fixed, over \pn{mzero.horizon}\,s. So this scores the posterior-to-prediction step, and not the reduced model's completion, its viability rule or its horizon. Cells also clip far less often here, in \pn{pred.clip}\% of baseline cells.
+Calibration over many datasets stops at M0. One exact posterior on the reduced model is projected at about \pn{cost.fullscale}
+CPU-hours, and calibration needs \pn{vseven.R} of them, about \pn{cost.fullcoverage} CPU-hours. By the mixed route one reduced-model posterior costs about \pn{kim92.cpuh} CPU-hours (\cref{tab:reducedcost}). We have not run the same calibration test by that route, nor costed it with its scoring, so \cref{sec:reducedpredict} scores one posterior against one truth.
 
 \paragraph{The design.} For each of \pn{vseven.R} datasets with known truth, we pushed
 two posteriors through three forward models. The posteriors are the exact sampler's and the mixed route's (\cref{sec:posteriors}). The forward models are the
@@ -58,22 +69,22 @@ does not meet the sizing rules in the text. Width is the median ratio to the exa
 \label{fig:crossed}
 \end{figure*}
 
-\paragraph{What this supports.} On M0, the posterior-to-prediction step covers at the expected rate on $Q$, and it gets the sign of the knockdown right. $Q$ is not an unmeasured quantity. The data include extracellular lactate, a noisy bulk measure of the export, so $Q$'s coverage tests a prediction of something the fit saw, and we have not measured how far that stream drives the posterior. The knockdown's effect $\Delta Q$ is what the data did not see. This panel is the only validation behind the reduced model's knockdown
-prediction below. It does not test the transfer from M0 into the reduced model.
+\paragraph{What this supports.} On M0, the posterior-to-prediction step covers at the expected rate on $Q$, and it gets the sign of the knockdown right. $Q$ is not an unmeasured quantity. The data include extracellular lactate, a noisy bulk measure of the export, so $Q$'s coverage tests a prediction of something the fit saw, and we have not measured how far that stream drives the posterior. The knockdown's effect $\Delta Q$ is what the data did not see. On the reduced model, \cref{sec:reducedpredict} scores the knockdown from the joint
+posterior against one truth. This panel does not test the transfer from M0 into the
+reduced model of \cref{sec:budget}.
 
-\subsection{Probabilistic predictions on the reduced model, unscored}
+\subsection{The reduced-model budget transferred from M0, unscored}
 \label{sec:budget}
 
-We now predict the same quantities on the reduced model, over one published cycle of \pn{model.cycle}\,s, against \pn{mzero.horizon}\,s on M0. No truth is checked here.
+Before the joint posterior of \cref{sec:reduced} existed, we predicted the same quantities on the reduced model from M0's posterior, over one published cycle of \pn{model.cycle}\,s, against \pn{mzero.horizon}\,s on M0. No truth is checked here.
 
-\paragraph{The parameters are a modular transfer.} We use the cut of \cref{sec:predictapi} with M0 as the fitted model. The \pn{budget.nI} inferred parameters $\theta_I$ come from one exact posterior on M0, one of the fits of \cref{sec:posteriors}, with the assay noise left out. Fifteen promoter strengths $\theta_H$ belong to genes that M0 removes. We use the cut because an exact posterior
-on the reduced model is out of reach (\cref{tab:cost}). M0 fits $\theta_I$ with the counterparts of $\theta_H$ fixed, so this transfer assumes that the posterior
+\paragraph{The parameters are a modular transfer.} We use the cut of \cref{sec:predictapi} with M0 as the fitted model. The \pn{budget.nI} inferred parameters $\theta_I$ come from one exact posterior on M0, one of the fits of \cref{sec:posteriors}, with the assay noise left out. Fifteen promoter strengths $\theta_H$ belong to genes that M0 removes. We used the cut because the exact sampler is out of reach on the reduced model (\cref{tab:cost}), and the mixed route's joint posterior there did not yet exist. M0 fits $\theta_I$ with the counterparts of $\theta_H$ fixed, so this transfer assumes that the posterior
 of $\theta_I$ would not move if they varied. We have not tested that assumption.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_budget.pdf}
-\caption{\textbf{What the reduced model's prediction rests on (unscored).} No truth is compared with anything here, and all of it rests on one exact M0 posterior's $\theta_I$, with \pn{budget.nrows} by \pn{budget.ncols} parameter pairs over \pn{model.cycle}\,s. A: the
+\caption{\textbf{What the prediction transferred from M0 rests on (unscored).} No truth is compared with anything here, and all of it rests on one exact M0 posterior's $\theta_I$, with \pn{budget.nrows} by \pn{budget.ncols} parameter pairs over \pn{model.cycle}\,s. A: the
 share of $\mathrm{Var}(\mu)$ held by the \pn{budget.nH} promoter strengths, in both nested
 orders, $\pm$ one standard error. B: predicted lactate export per parameter draw. A blue circle is one draw of $\theta_I$, averaged over the draws of $\theta_H$, and an orange square is one draw of $\theta_H$, averaged over the draws of $\theta_I$. Pairs the viability rule rejected are left out, and horizontal jitter is for legibility. Each pair has \pn{budget.ncellspair} cells, so the points also carry some cell noise.}
 \label{fig:budget}
@@ -98,8 +109,13 @@ spread, and of that total the held parameters' part at the default width is
 rises by a factor of \pn{budget.meanratio}~$\pm$~\pn{budget.meanratiose} from the
 narrowest width to the widest.
 
+\paragraph{Against the joint posterior.} At the default width this run puts $Q$'s parameter
+variance at \pn{kim96.vkimfortytwo}, between the prior's \pn{kim96.vprior} and the joint
+posterior's \pn{kim96.vpost} (\cref{fig:reducedbudget}). \Cref{sec:reducedpredict} makes that
+comparison and states its qualifiers.
+
 \begin{table*}[t]
-\caption{\textbf{The reduced model's uncertainty budget.} \textbf{Unscored}, on one exact M0
+\caption{\textbf{The reduced model's uncertainty budget, transferred from M0.} \textbf{Unscored}, on one exact M0
 posterior's $\theta_I$. Width scales the log-scale prior width of $\theta_H$ at a fixed
 median. $Q$ is lactate exported over \pn{model.cycle}\,s, in millions of particles, and
 $\Delta Q$ is the mean effect of the knockdown in thousands. Held share is the share of
@@ -142,10 +158,9 @@ this link on stochastic cells. Nearly every cell's GTP falls at least once below
 reaching that regime and not the basis failing. These figures, and the parameter variance,
 hold for this one posterior, and another could give different ones.
 
-\paragraph{What this does not show.} It is not calibration, on the reduced model or
-anywhere else, and it does not compare the reduced model with real measurements. The
-posterior of $\theta_I$ is a fit to M0's synthetic data over \pn{mzero.horizon}\,s, so
-its small share is not what real measurements would leave.
+\paragraph{What this does not show.} It is not calibration. The posterior of $\theta_I$ is
+a fit to M0's synthetic data over \pn{mzero.horizon}\,s, so its small share is not what real
+measurements would leave.
 
 \begin{figure*}[!t]
 \centering
@@ -175,7 +190,7 @@ a sensitivity to priors, not a posterior.}
 \pn{traj.every}\,s in the cells it already simulates, so the bands need no new inference.
 
 \paragraph{On M0.} Row A is one dataset, replicate 1 with the exact posterior, chosen
-because this posterior feeds the reduced model. The truth lies inside each 90\% posterior band
+because this posterior feeds the transferred budget. The truth lies inside each 90\% posterior band
 at every recorded time after the start. One dataset is an illustration, and the test remains the
 coverage over \pn{vseven.R} datasets. Lactate export is not an out-of-sample quantity. The data
 measure extracellular lactate, whose only dynamics are the export, so the figure overlays those data

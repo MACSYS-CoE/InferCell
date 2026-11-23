@@ -57,7 +57,6 @@
 \pndef{ften.sdlo}{0.91}% same
 \pndef{ften.sdhi}{1.19}% same
 \pndef{ften.fbamargin}{0.020}% same
-\pndef{ften.speedup}{13}% 6,810 / 507.5
 \pndef{cost.fullscale}{21{,}000}% spec/phases/16-recovery.md §12 2026-10-22 (projected)
 \pndef{cost.kone}{1{,}000}% spec §8 K1 bound, CPU-h per posterior
 \pndef{jg.gtplo}{10}% dev/scripts/jensen_rethink_89_result.md (% GTP below)
@@ -162,8 +161,6 @@
 \pndef{pred.dzhi}{1.27}% same, B7 mean field with delta
 \pndef{vsix.shrinklo}{89}% derived: V6's SD (v6_16a9b_result.md) against the prior SD implied by av6_89_b7_result.md's v6 stream arm, FBA
 \pndef{vsix.shrinkhi}{99.6}% same, sigma_b
-\pndef{mix.mcselo}{9}% same, "Against V7 over the 50"
-\pndef{mix.mcsehi}{22}% same
 \pndef{pred.ndraws}{100}% score.md header
 \pndef{pred.ref90}{88.2}% result note
 \pndef{pred.ref50}{49}% same
@@ -281,3 +278,128 @@
 \pndef{mz.total}{80}% paper/tables/modelform_counts.tex
 \pndef{red.total}{93}% paper/tables/modelform_counts.tex
 \pndef{kim92.ncoord}{21}% dev/scripts/corea_pilot_kim92_result.md, coordinates (17 promoters, krnadeg, ENO, FBA, sigma_b)
+\pndef{kim92.npromoter}{17}% dev/scripts/corea_pilot_kim92_result.md
+\pndef{kim92.nchains}{4}% dev/scripts/corea_pilot_kim92_result.md
+\pndef{kim92.ndraws}{1{,}600}% dev/scripts/corea_pilot_kim92_result.md, 4 chains x 400 kept, pooled
+\pndef{kim92.rhat}{1.0102}% dev/scripts/corea_pilot_kim92_result.md, worst R-hat after the extension, check 20968978
+\pndef{kim92.rhatgate}{1.02}% spec/prereg/kim-92.md, gate
+\pndef{kim92.essmin}{2{,}302}% dev/scripts/corea_pilot_kim92_result.md, smallest bulk ESS, check 20968978
+\pndef{kim92.essgate}{100}% spec/prereg/kim-92.md, gate
+\pndef{kim92.ncells}{200}% spec/prereg/kim-92.md §1, cells in the dataset
+\pndef{kim92.nsaves}{52}% spec/prereg/kim-92.md §1, saves in the fit window (60-3120 s)
+\pndef{kim92.fitend}{3{,}120}% spec/prereg/kim-92.md §1, last save in the fit window, s
+\pndef{kim92.nrows}{884}% spec/prereg/kim-92.md §1, 17 pools x 52 saves
+\pndef{mix.speedup}{80}% ften.cpuh / mix.cpuh = 507.5 / 6.57 = 77; 103 against cost.exacthi
+\pndef{kim92.firstdraws}{200}% spec/prereg/kim-92.md §1, NDRAW
+\pndef{kim92.nadapt}{200}% spec/prereg/kim-92.md §1, NADAPT
+\pndef{kim92.extdraws}{400}% dev/scripts/corea_pilot_kim92_result.md, kept draws per chain after the extension
+\pndef{kim92.rhatfirst}{1.0284}% dev/scripts/corea_pilot_kim92_result.md, worst R-hat at 200 draws, log_S_0213, check 20660937
+\pndef{kim92.reachgate}{0.5}% spec/prereg/kim-92.md §3, contraction threshold for 'reach'
+\pndef{kim92.outz}{$-1.80$}% dev/scripts/corea_pilot_kim92_result.md, S_0234 standardised error, the one truth outside
+\pndef{kim92.ppcexpect}{9}% dev/scripts/corea_pilot_kim92_result.md, expected outside, 884 x 0.01
+\pndef{kim92.ppcdraws}{200}% spec/prereg/kim-92.md §2; PPC job 21052424
+\pndef{kim92.ppcreps}{10}% spec/prereg/kim-92.md §2; PPC job 21052424
+\pndef{kim92.mapenoz}{2.3}% dev/scripts/corea_pilot_kim92_result.md, ENO MAP vs posterior mean, posterior SD (reads 5)
+\pndef{kim92.mapfbaz}{1.4}% dev/scripts/corea_pilot_kim92_result.md, FBA MAP vs posterior mean, posterior SD (reads 5)
+\pndef{kim92.extwalllo}{37}% dev/scripts/corea_pilot_kim92_result.md, extension wall-clock h (36.6)
+\pndef{kim92.extwallhi}{40}% dev/scripts/corea_pilot_kim92_result.md, extension wall-clock h (39.8)
+\pndef{kim92.steps}{13--15}% dev/scripts/corea_pilot_kim92_result.md, mean leapfrog steps per kept iteration (13.3-14.8)
+\pndef{kim92.probecpuh}{24.3}% dev/scripts/corea_pilot_kim92_result.md, depth probe, job 20545099
+\pndef{mzero.nparnum}{6}% numeric form of mzero.npar
+\pndef{ften.walldays}{4.2}% dev/scripts/f10_16a10_result.md, 4 d 5.5 h, job 18751635
+\pndef{kim116.shiftgate}{0.5}% spec/prereg/kim-116.md (tag prereg/kim-116); Linear Decision log 2026-11-19
+\pndef{kim116.contrgate}{0.05}% spec/prereg/kim-116.md (tag prereg/kim-116); Linear Decision log 2026-11-19
+\pndef{kim116.gradjoint}{37.9}% KIM-116 stage profile, Slurm 21196497 at 1b6775d, s per gradient at the truth
+\pndef{kim116.gradcut}{36.9}% KIM-116 stage profile, Slurm 21196497
+\pndef{kim116.gradplugin}{11.3}% KIM-116 stage profile, Slurm 21196497
+\pndef{kim116.gradstage}{2.9}% KIM-116 stage profile, Slurm 21196497
+\pndef{kim92.nref}{800}% spec/prereg/kim-92.md §1, reference ensemble cells
+\pndef{kim92.box}{6}% spec/prereg/kim-92.md §1, support box, prior SD
+\pndef{kim92.accept}{0.8}% spec/prereg/kim-92.md §1, NUTS target acceptance
+\pndef{kim92.maxdepth}{10}% spec/prereg/kim-92.md §1, NUTS maximum tree depth
+\pndef{kim92.jitter}{0.25}% spec/prereg/kim-92.md §1, start jitter, prior SD
+\pndef{kim92.sdprom}{0.693}% dev/scripts/corea_pilot_kim92_result.md, prior log-SD, promoters and krnadeg (recovery table)
+\pndef{kim92.sdeno}{0.157}% dev/scripts/corea_pilot_kim92_result.md, prior log-SD, kcatF_R_ENO
+\pndef{kim92.sdfba}{0.558}% dev/scripts/corea_pilot_kim92_result.md, prior log-SD, kcatF_R_FBA
+\pndef{compute.reducedjobs}{20454165--67, 20541309--10, 20545098--99, 20651329, 20660933--37, 20968974--78, 21052424--25}% dev/scripts/corea_pilot_kim92_result.md, Cost table
+\pndef{compute.predictjobs}{21122608--10, 21126961, 21154497--500}% dev/scripts/corea_predict_kim95_result.md, Provenance
+\pndef{kim92.ppcout}{11}% dev/scripts/corea_pilot_kim92_result.md, PPC job 21052424
+\pndef{kim92.ppcrows}{884}% dev/scripts/corea_pilot_kim92_result.md, bulk rows in the fit window
+\pndef{kim92.ppclimit}{44}% spec/prereg/kim-92.md, 5% of 884
+\pndef{kim92.contrmin}{0.919}% dev/scripts/corea_pilot_kim92_result.md, kcatF_R_ENO, merge 21052425
+\pndef{kim92.truthin}{20}% dev/scripts/corea_pilot_kim92_result.md, truth inside the 90% interval, of 21
+\pndef{kim92.promlow}{14}% dev/scripts/corea_pilot_kim92_result.md, promoter means below the truth, of 17
+\pndef{kim92.promz}{$-0.81$}% dev/scripts/corea_pilot_kim92_result.md, mean standardised error over the 17 promoters
+\pndef{kim92.promzse}{3.3}% dev/scripts/corea_pilot_kim92_result.md, SEs from zero
+\pndef{kim92.mapz}{$-0.86$}% dev/scripts/corea_pilot_kim92_result.md, MAP mean (MAP-truth)/sd over promoters (reads 5)
+\pndef{kim92.laplo}{0.96}% dev/scripts/corea_pilot_kim92_result.md, Laplace SD / posterior SD, lowest (reads 4)
+\pndef{kim92.laphi}{1.08}% dev/scripts/corea_pilot_kim92_result.md, Laplace SD / posterior SD, highest (reads 4)
+\pndef{kim92.corr}{0.69}% dev/scripts/corea_pilot_kim92_result.md, log_S_0607 vs log_krnadeg correlation
+\pndef{kim92.cpuh}{492}% dev/scripts/corea_pilot_kim92_result.md, total CPU-h (491.9)
+\pndef{kim92.chainwalllo}{67}% dev/scripts/corea_pilot_kim92_result.md, chain wall-clock h
+\pndef{kim92.chainwallhi}{81}% dev/scripts/corea_pilot_kim92_result.md, chain wall-clock h
+\pndef{kim92.critpath}{5.5}% dev/scripts/corea_pilot_kim92_result.md, critical path, days
+\pndef{kim92.grad}{43--45}% dev/scripts/corea_pilot_kim92_result.md, s per leapfrog step, chains on dave306 (reads 6)
+\pndef{kim92.kappaunit}{528}% dev/scripts/corea_pilot_kim92_result.md, condition number under the unit metric (reads 3)
+\pndef{kim92.kappawarm}{5.98}% dev/scripts/corea_pilot_kim92_result.md, condition number under the warm metric (reads 3)
+\pndef{kim92.probedays}{10--11}% dev/scripts/corea_pilot_kim92_result.md, unit-metric probe projection, days per chain, job 20545099
+\pndef{kim95.dose}{0.3}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), Knockdown dose on S_0779 (ptsG)
+\pndef{kim95.ndraws}{100}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), draws per arm
+\pndef{kim95.cells}{973}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), cells per posterior draw
+\pndef{kim95.priorcells}{200}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), cells per prior draw
+\pndef{kim95.ntruth}{10{,}810}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth cells per arm
+\pndef{kim95.horizonlo}{3{,}180}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), later horizon start, s
+\pndef{kim95.nsaves}{53}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), saves per species in the later horizon
+\pndef{kim95.qint}{1.4}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), posterior 90% interval half-width as % of Q
+\pndef{kim95.qz}{0.26}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth below posterior median, posterior SD, Q
+\pndef{kim95.qkdz}{0.48}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), same, Q_kd
+\pndef{kim95.qskill}{0.98--0.99}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), CRPS skill on Q and Q_kd
+\pndef{kim95.dqskill}{0.87}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), CRPS skill on dQ
+\pndef{kim95.priorlow}{24--26}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), prior median low, % of truth
+\pndef{kim95.dqtruth}{\ensuremath{6.4 \times 10^{4}}}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ truth
+\pndef{kim95.dqshare}{0.4}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ as % of Q
+\pndef{kim95.dqmc}{1.09}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ posterior MC share
+\pndef{kim95.sesdlo}{0.14}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth SE/SD on Q
+\pndef{kim95.sesdhi}{0.33}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth SE/SD on dQ
+\pndef{kim95.txin}{900}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), transcript saves inside 90%, of 901
+\pndef{kim95.nsavesfam}{901}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), saves per family
+\pndef{kim95.txmc}{0.68}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), transcript median MC share
+\pndef{kim95.poolin90}{92}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % pool saves inside 90%
+\pndef{kim95.poolin50}{34}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % pool saves inside 50%
+\pndef{kim95.poolshift}{10}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), pools shifted 1-1.4 SD, of 17
+\pndef{kim95.shiftlo}{0.9}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), pool shift lower, posterior SD (0.94, from score_targets.tsv; the note rounds to 1)
+\pndef{kim95.shifthi}{1.4}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), pool shift upper, posterior SD
+\pndef{kim95.g3p}{1.39}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), G3P offset, SD
+\pndef{kim95.dhap}{1.23}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), DHAP offset, SD
+\pndef{kim95.medskill}{0.95}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), median species skill
+\pndef{kim95.priorfactor}{2.8}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), prior 90% interval span on Q, factor
+\pndef{kim95.sesdrule}{0.1}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), sizing rule SE/SD
+\pndef{kim95.txin50}{80}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % transcript saves inside posterior 50%
+\pndef{kim95.txprior90}{85}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % transcript saves inside prior 90%
+\pndef{kim95.txprior50}{64}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % transcript saves inside prior 50%
+\pndef{kim95.txzmax}{0.63}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), largest transcript |offset|, SD
+\pndef{kim95.poolprior90}{73}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % pool saves inside prior 90%
+\pndef{kim95.poolprior50}{29}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), % pool saves inside prior 50%
+\pndef{kim95.poolsquiet}{7}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), pools within 0.8 SD, of 17
+\pndef{kim95.quietz}{0.8}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), bound on the quiet pools' offsets, SD
+\pndef{kim95.triosemclo}{0.02}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), triose/FDP median MC share, low
+\pndef{kim95.triosemchi}{0.11}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), triose/FDP median MC share, high
+\pndef{kim95.nucmclo}{0.31}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), nucleotide median MC share, low
+\pndef{kim95.nucmchi}{0.62}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), nucleotide median MC share, high
+\pndef{kim95.clip}{99.3}% dev/scripts/corea_predict_kim95_result.md, cell statuses, % clipped at baseline
+\pndef{kim95.cpuh}{5{,}447}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), CPU-h of cell work
+\pndef{kim96.meanpost}{15.0}% dev/scripts/corea_budget_kim96_result.md (job 21188187), posterior mean Q, millions (1.5013e7)
+\pndef{kim96.vprior}{\ensuremath{1.15 \times 10^{13}}}% dev/scripts/corea_budget_kim96_result.md (job 21188187)
+\pndef{kim96.vkimfortytwo}{\ensuremath{2.17 \times 10^{12}}}% dev/scripts/corea_budget_kim96_result.md (job 21188187)
+\pndef{kim96.vpost}{\ensuremath{1.29 \times 10^{10}}}% dev/scripts/corea_budget_kim96_result.md (job 21188187)
+\pndef{kim96.ratio}{170}% dev/scripts/corea_budget_kim96_result.md (job 21188187), KIM-42 / posterior, rounded from 168
+\pndef{kim96.ratiolo}{88}% dev/scripts/corea_budget_kim96_result.md (job 21188187), log-scale +-2 SE
+\pndef{kim96.ratiohi}{321}% dev/scripts/corea_budget_kim96_result.md (job 21188187), log-scale +-2 SE
+\pndef{kim96.priorratio}{900}% dev/scripts/corea_budget_kim96_result.md (job 21188187), prior / posterior, rounded from 893
+\pndef{kim96.widthlo}{44}% dev/scripts/corea_budget_kim96_result.md (job 21188187), KIM-42 / posterior at width 1/2
+\pndef{kim96.widthhi}{1{,}140}% dev/scripts/corea_budget_kim96_result.md (job 21188187), KIM-42 / posterior at width 2
+\pndef{kim96.sdprior}{30}% dev/scripts/corea_budget_kim96_result.md (job 21188187), sqrt(Var)/mean %, prior
+\pndef{kim96.sdkimfortytwo}{15}% dev/scripts/corea_budget_kim96_result.md (job 21188187), sqrt(Var)/mean %, KIM-42
+\pndef{kim96.sdpost}{0.8}% dev/scripts/corea_budget_kim96_result.md (job 21188187), sqrt(Var)/mean %, posterior
+\pndef{kim96.heldshare}{91}% dev/scripts/corea_budget_kim96_result.md (job 21188187), KIM-42's share in the 15 held promoters, %
+\pndef{kim96.ionly}{11}% dev/scripts/corea_budget_kim96_result.md (job 21188187), factor from inferring promoters alone (2.17e12 / 2e11)
