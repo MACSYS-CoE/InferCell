@@ -31,6 +31,11 @@ The paper was restructured around the reduced model (`paper/story.md`). Decision
 - **Precision fixes** recorded in story.md's amendment log (gap parameters S_0779/krnadeg/ENO; pools 0.9–1.4 SD; skill 0.98–0.99; "θ-driven" only for trioses and FDP; "about 80×" is 77–103×).
 - **Citations:** `[CITE NEEDED: CRPS, Gneiting and Raftery 2007]` in app_methods; §6's CRPS sentence also uncited.
 
+- **Smaller flags from the agents:** the prior state of F6 draws 20 parameters (σ_b is not drawn), not 21; the old Discussion's 𝓡-bound paragraph (`info.Rmzero`, `info.Rcorea`), the released-constants sentence and the method's-own-limits future work were dropped; G6P and F6P are less clearly shifted than the trioses (5–95% of their per-save offsets spans 0); gradient cost is 37.9 s at the truth (KIM-116 profile) vs 43–45 s per step in the chains (different measures and nodes; the former sits only inside a todo); T1 compares 492 CPU-h against `cost.kone` though the prereg set no cap.
+- **Numbers provenance:** the new kim92/95/96 keys are typed from the result notes; only the figure scripts assert against the archive TSVs.
+- **Public repo:** `paper/story.md` and `paper/figure-review/` (previews) are tracked on this branch. Decide before pushing whether they belong in the tree.
+- **Before submission:** `check_paper.py --final` does not see `\todo{}`; grep for it.
+
 ## Open before submission
 
 | Item | Owner |
