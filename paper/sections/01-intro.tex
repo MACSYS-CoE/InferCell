@@ -69,7 +69,7 @@ What is missing is a whole-cell model inferred from single-cell and bulk data ac
 ODE--stochastic boundary, with its posterior predictions scored against a known truth.
 Without one, we cannot say whether such a posterior is affordable, or whether the data reach
 the parameters on both sides of the boundary. Nor can we say how far its predictions carry
-past the data that made it.
+past the data that made it\todo{, or how both hold up as the data become realistic}.
 
 \begin{table*}[t]
 \caption{\textbf{Capabilities of whole-cell modelling frameworks.} Each column asks whether the
@@ -95,8 +95,8 @@ These columns are \IC{}'s own design aims, so the comparison favours it. The fit
 fitting code. (d) Metabolic priors in the balancing input, with their means used in simulation.
 (e) Sources in pre-balancing flat files, and not in the balanced table. (f) Bayesian parameter
 balancing of metabolism on literature values, then further adjustment. (g) Patches noted in code
-and files. (h) A joint posterior on the reduced \syn{} model by the mixed route, from one
-synthetic dataset, with calibration checked only on M0. Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.md}, from the
+and files. (h) A joint posterior on the reduced \syn{} model by the mixed route (\cref{sec:api}), from one
+synthetic dataset, with calibration checked only on M0, a two-gene slice of it (\cref{sec:model}). Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.md}, from the
 papers' main text and each framework's public code. We did not read the supplements, and for the
 2026 \syn{} model we read the preprint.
 \end{flushleft}
@@ -104,41 +104,43 @@ papers' main text and each framework's public code. We did not read the suppleme
 
 \subsection{This work}
 
-We present \IC{}, a compositional inference framework for whole-cell models, and we use it
-to carry a reduced whole-cell model of \syn{} from data to scored probabilistic prediction.
+We present \IC{}, a compositional inference framework for whole-cell models. We use it
+to infer a reduced whole-cell model of \syn{} across its ODE--stochastic boundary and to carry
+the posterior to scored probabilistic prediction\todo{, and to show how both degrade as the synthetic data
+become realistic}.
 \Cref{sec:design} describes the framework. Every parameter is a prior with a recorded
 source, modules couple through \pn{fw.edgekinds} kinds of typed edge, and every departure
-from the published model is a declared reduction. The gene-expression modules run either as
-an exact stochastic process or as mean-field ODEs. The two descriptions give two inference
+from the published model is a declared reduction. The composed model runs either as the
+exact hybrid, with gene expression as a stochastic jump process, or with gene expression
+swapped for mean-field ODEs. The two descriptions give two inference
 routes: an exact sampler that conditions on the stochastic path, and a mixed route that
 integrates it out.
 
 \Cref{sec:model} sets up the test system. The reduced \syn{} model keeps
 \pn{model.rxn} metabolic reactions, \pn{model.genes} genes and the two-way coupling between
 them. Its synthetic single-cell and bulk data come from a known truth. M0, a two-gene
-slice of it, is small enough for the exact sampler, and \cref{sec:posteriors} checks the
-mixed route against the exact sampler there. \Cref{sec:reduced} then uses the mixed route
+slice of it, is small enough for the exact sampler. There, \cref{sec:posteriors} shows that
+both routes pass simulation-based calibration and that the mixed route costs about
+\pn{mix.speedup} times less. \Cref{sec:reduced} then uses the mixed route
 alone to infer one joint posterior over the \pn{kim92.ncoord} free parameters of the
-reduced model. \Cref{sec:reducedpredict} pushes that posterior forward to a later horizon
-and to a ptsG knockdown, neither of which the fit saw. It scores the predictions against
-the true simulator. \Cref{sec:ladder} repeats the posterior-to-prediction step along a
-degradation ladder, as the data move from exact counts toward realistic assays.
+reduced model, for about \pn{kim92.cpuh} CPU-hours. The data reach all \pn{kim92.ncoord},
+on both sides of the boundary, and the posterior reproduces its own data.
+
+\Cref{sec:reducedpredict} pushes that
+posterior forward to a later horizon and to a ptsG knockdown, neither of which the fit saw.
+It scores the predictions against the true simulator. They hold the truth for extracellular
+lactate, at baseline and under the knockdown, and for the transcripts. They miss
+\pn{kim95.poolshift} of the \pn{mzero.npanel} metabolite pools, and they do not resolve the
+knockdown's effect on lactate, which is small next to cell noise. At the default prior width, with every parameter inferred, the lactate
+prediction's parameter variance is about \pn{kim96.ratio} times smaller than in the budget
+transferred from M0. That budget carries an M0 posterior to the
+reduced model and leaves the other promoters at their priors. \Cref{sec:ladder} will repeat the
+posterior-to-prediction step along a degradation ladder, as the data move from exact counts
+toward realistic assays. \todo{How the posterior and the prediction scores degrade along the degradation
+ladder, and which assay limits them first.}
 \Cref{sec:discussion} sets out what carries, what does not, and the limits of the test.
 
 The claim has limits. The data are synthetic, they come from the model being fitted, and
 the reduced model has one dataset and one truth. Only the promoter strengths, the
 transcript decay rate, two catalytic constants and the bulk assay noise are free.
 Simulation-based calibration runs on M0 only, and we make no claim about \syn{} itself.
-
-Both routes pass simulation-based calibration on M0, and the mixed
-route costs about \pn{mix.speedup} times less. On the reduced model the mixed route gives a
-joint posterior that reaches all \pn{kim92.ncoord} parameters and reproduces its own data,
-for about \pn{kim92.cpuh} CPU-hours. Its predictions hold the truth for extracellular
-lactate at the end of the cycle, both at baseline and under the knockdown. They also hold
-the truth for the transcripts on the later horizon.
-They miss \pn{kim95.poolshift} of the \pn{mzero.npanel} metabolite pools. They do not
-resolve the knockdown's effect on lactate, which is small next to cell noise. At the default
-prior width, the lactate prediction's parameter variance is about \pn{kim96.ratio} times
-smaller than the budget transferred from M0. That budget carries an M0 posterior to the
-reduced model and leaves the other promoters at their priors. \todo{How the posterior and the prediction scores degrade along the degradation
-ladder, and which assay limits them first.}

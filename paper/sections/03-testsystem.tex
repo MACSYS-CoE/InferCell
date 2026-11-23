@@ -58,11 +58,11 @@ metabolite pools, the mean over cells (\cref{sec:obs}). The fit sees only the fi
 cycle: \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, which give \pn{kim92.nrows} bulk
 rows. The second half is the later horizon, on which \cref{sec:reducedpredict} scores the
 predictions, and the data never see it. These observations are generous: exact counts, in
-every cell, every minute. \Cref{sec:ladder} makes them less so.
+every cell, every minute. \Cref{sec:ladder} will make them less so (\todo{M10}).
 
 \paragraph{M0, the slice for an exact check.} We project that an exact posterior on the
-reduced model would cost about \pn{cost.fullscale} CPU-hours. That is above our bound of
-\pn{cost.kone} CPU-hours per posterior (\cref{tab:cost}). To check the mixed route against the
+reduced model would cost about \pn{cost.fullscale} CPU-hours (\cref{tab:cost}). That is above our bound of
+\pn{cost.kone} CPU-hours per posterior. To check the mixed route against the
 exact sampler, we therefore use M0, the reduced model cut to \pn{mzero.ngenes} genes over
 \pn{mzero.horizon}\,s. The two genes are GAPD, whose promoter is the best determined, and
 ptsG, the membrane transporter. All metabolism stays. The other enzyme counts are held at

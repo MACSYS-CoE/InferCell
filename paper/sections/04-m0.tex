@@ -32,8 +32,8 @@ the two routes' standard deviations is between \pn{mix.sdlo} and \pn{mix.sdhi} p
 This calibration holds for M0 only, and not all of its replicates mixed well. In
 \pn{vseven.lowess} of the \pn{vseven.R} exact replicates the smallest bulk effective sample
 size is below 100, and autocorrelated draws can distort ranks. In \pn{mix.lowconv} of the
-\pn{mix.R} mixed replicates the two chains fall short of $\Rhat \le 1.02$ and a bulk effective
-sample size of 100. Their worst $\Rhat$ is \pn{mix.rhat} and their smallest effective sample
+\pn{mix.R} mixed replicates the two chains fall short of a rank-normalised
+$\Rhat \le 1.02$ \cite{vehtari2021rank} and a bulk effective sample size of 100. Their worst $\Rhat$ is \pn{mix.rhat} and their smallest effective sample
 size is \pn{mix.ess}. Without these replicates the mixed calibration result is unchanged. We
 report this comparison as a sensitivity check only, because dropping replicates is a selection.
 
@@ -42,9 +42,7 @@ report this comparison as a sensitivity check only, because dropping replicates 
 \pn{ften.cpuh}--\pn{cost.exacthi} for a production-length exact chain (\cref{tab:cost}). The
 cost lies in the number of simulations rather than the time of one. One cycle of the reduced
 model takes \pn{model.cyclewall}\,s, and a fast implementation of the full \syn{} model is the
-subject of a companion paper \cite{kimpson2026whole}. On the reduced model an exact posterior
-is out of reach (\cref{sec:model}), and the mixed route makes the posterior of
-\cref{sec:reduced} affordable.
+subject of a companion paper \cite{kimpson2026whole}.
 
 \begin{table}[t]
 \caption{\textbf{The mixed route costs about \pn{mix.speedup} times less than the exact sampler on M0.} CPU-hours per posterior. The mixed route's value is a median over completed jobs, and a fault in the starting optimiser lost another \pn{mix.lost} CPU-hours across the calibration run.}
@@ -65,7 +63,7 @@ Mixed & \pn{mix.cpuh} & \cref{tab:reducedcost} \\
 \paragraph{A gap remains on one dataset.} Calibration over many datasets does not exclude a
 gap on one. So we also compared the routes on one M0 dataset of \pn{mzero.cells} cells
 (\cref{fig:approx}A). The exact sampler ran \pn{vsix.chains} chains of \pn{vsix.sweeps}
-sweeps. Every parameter has a rank-normalised $\Rhat$ \cite{vehtari2021rank} of at most
+sweeps. Every parameter has an $\Rhat$ of at most
 \pn{vsix.rhat} and a bulk effective sample size of at least \pn{vsix.ess}. On this dataset the
 ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard
 deviations from the exact posterior. This gap is about \pn{mix.gapfloor} above the largest
@@ -89,3 +87,6 @@ mostly one way. A linearised bound puts ptsG's posterior standard deviation from
 alone at \pn{info.ptsg} of its prior's, while transcripts alone leave enolase's at
 \pn{info.enotx} (\cref{sec:info}). \Cref{app:sfixed} gives the effect of holding $S$ fixed, and
 \cref{app:crossed} crosses each route's posterior with each forward description.
+
+On the reduced model an exact posterior is out of reach (\cref{sec:model}), and the mixed
+route makes the posterior of \cref{sec:reduced} affordable.

@@ -155,7 +155,7 @@ with all the data. In this sense the exact sampler is modular inference with not
 dropped. When the paths are integrated out, a gene-expression parameter appears in
 both the transcript factor and the metabolite factor. The mixed route uses this
 structure. The modular arm of \cref{sec:reduced} tests, against the joint posterior,
-two-stage fits that cut part of it.
+two-stage fits that cut part of this structure.
 
 \subsection{Inference attaches to each data stream}
 \label{sec:api}
@@ -195,8 +195,9 @@ both on M0, and the mixed route alone on the reduced model.
 The function \texttt{predict} takes a posterior, a forward description and an optional
 intervention. It returns a predictive distribution for a chosen quantity. In
 \cref{sec:reducedpredict} the posterior is the reduced model's joint posterior, and the forward
-description is the exact hybrid. The main quantity is $Q$, the extracellular lactate at
-\pn{model.cycle}\,s as a population mean over cells. \Cref{app:m0predict} uses the same
+description is the exact hybrid. The main quantity is $Q$, the extracellular lactate: the lactate a
+cell exports over the cycle of \pn{model.cycle}\,s, in particles, taken as a population mean
+over cells. \Cref{app:m0predict} uses the same
 function on M0.
 
 The composition that \texttt{predict} runs may have parameters the fit did not include. We call
@@ -235,7 +236,7 @@ p = predict(ms, posterior;
   n_cells = 4, trajectory = [:M_gtp_c])
 \end{verbatim}
 }
-\noindent The fit already frees ENO and FBA.
+\noindent The fit already frees the enolase and aldolase constants.
 The argument \texttt{n\_held} is the number of draws of
 $\theta_H$ per draw of $\theta_I$. Reverse constants follow from the equilibrium constants.
 A release measures sensitivity to the priors; it is not a posterior. The appendix

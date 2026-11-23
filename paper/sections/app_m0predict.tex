@@ -15,8 +15,10 @@ states (\cref{fig:reducedbudget}). \Cref{sec:trajectories} follows both designs 
 \subsection{Probabilistic predictions on M0, scored}
 \label{sec:predm0}
 
-\paragraph{What we predict.} The quantity $Q$ is the lactate a cell exports, in
-particles, and the estimand is its population mean $\mu(\theta)$. The intervention is a
+\paragraph{What we predict.} The quantity is the lactate a cell exports, in particles,
+and the estimand is its population mean $\mu(\theta)$. This mean is the $Q$ of
+\cref{sec:predictapi}, but on M0 it is read at the end of M0's shorter horizon of
+\pn{mzero.horizon}\,s and not at \pn{model.cycle}\,s. The intervention is a
 knockdown that scales the ptsG promoter strength by $1 - d$, at dose
 $d = \pn{budget.dose}$, with paired seeds. Its effect is $\Delta Q$. We fixed the
 quantity, the estimand, the viability rule and the intervention on held-out pilots
@@ -38,8 +40,8 @@ the same calibration test by that route, nor costed it with its scoring. So
 \cref{sec:reducedpredict} scores one posterior against one truth.
 
 \paragraph{The design.} For each of \pn{vseven.R} datasets with known truth, we pushed
-two posteriors through three forward models. The posteriors are the exact sampler's and
-the mixed route's (\cref{sec:posteriors}). The forward models are the hybrid, the mean
+two posteriors through three forward descriptions. The posteriors are the exact sampler's and
+the mixed route's (\cref{sec:posteriors}). The forward descriptions are the exact hybrid, the mean
 field, and the mean field with an offset $\delta_Q$ for this quantity, taken from a new
 hybrid ensemble. On M0 nothing is completed from a prior, so there is no viability
 filter. We fixed the scoring before the run. With \pn{pred.ndraws} draws, a calibrated
@@ -87,19 +89,19 @@ These coverages are not a clean calibration. We sized the run on $Q$, with two r
 cell noise is at most 10\% of the spread, and the truth's standard error is at most
 10\% of the predictive standard deviation. For $\Delta Q$ the panel fails both rules on
 all \pn{vseven.R} datasets, because pairing removes little of the cells' spread. The
-noise share has a median of \pn{pred.dqmcv} under the exact posterior. By arithmetic,
+MC share, the part of the spread that is cell noise, has a median of \pn{pred.dqmcv} under the exact posterior. By arithmetic,
 and not by a measurement, that noise accounts for the hybrid arms being too wide. The
 mean-field arms carry no such term, so the truth's error counts against them. The mixed
 posterior with the mean field is the one arm well below the reference: \pn{pred.d.mm.c}\%
 and \pn{pred.d.md.c}\% at nominal 50\%, and \pn{pred.d.md.n}\% at nominal 90\% with
-$\delta$. Noise explains part of that shortfall. At these sizes the rest cannot be
+$\delta_Q$. Noise explains part of that shortfall. At these sizes the rest cannot be
 separated from that route's narrower intervals. Meeting the rules would cost on the
 order of \pn{pred.dqcost} CPU-hours, and we did not run it.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_crossed.pdf}
-\caption{\textbf{The posterior-to-prediction step scored on M0.} Each arm is a posterior and a forward model,
+\caption{\textbf{The posterior-to-prediction step scored on M0.} Each arm is a posterior and a forward description,
 over \pn{vseven.R} datasets, with \pn{pred.ndraws} draws per posterior. Blue circles are the exact posterior and orange squares the mixed. Coverage is $\pm$ one standard error, and the dashed lines are the references of \pn{pred.ref50}\% and \pn{pred.ref90}\%. A: lactate export. B: the knockdown's effect, whose coverage
 does not meet the sizing rules in the text. Width is the median ratio to the exact posterior with the hybrid, with its interquartile range.}
 \label{fig:crossed}
@@ -170,7 +172,7 @@ parameter variance at \pn{kim96.vkimfortytwo}. That value lies between the prior
 \begin{table*}[t]
 \caption{\textbf{The reduced model's uncertainty budget, transferred from M0.} \textbf{Unscored}, on one exact M0
 posterior's $\theta_I$. Width scales the log-scale prior width of $\theta_H$ at a fixed
-median. $Q$ is lactate exported over \pn{model.cycle}\,s, in millions of particles, and
+median. $Q$ is that of \cref{sec:predictapi}, the lactate exported over \pn{model.cycle}\,s, in millions of particles, and
 $\Delta Q$ is the mean effect of the knockdown in thousands. Held share is the share of
 $\mathrm{Var}(\mu)$, with $\theta_I$ first in the nested split. Cell rows count the
 \pn{budget.ncellsbase} baseline cells before viability filtering. A starved cell has also
@@ -206,7 +208,7 @@ narrower widths, so there the conditioning removed nothing. At the widest it rem
 \pn{budget.rejected}\% of pairs, all from three of the \pn{budget.ncols} draws of
 $\theta_H$. Clipping is the common state in this run, and the rule allows it: most cells
 clip a pool at least once (\cref{tab:budget}). A likely cause is this posterior's
-transcript decay rate. The rate is low against the reference dataset's, though not an
+transcript decay rate. The rate is low against that of the dataset in \cref{fig:approx}A, though not an
 outlier among the \pn{vseven.R} fits. Across the decay rate's deciles at the default
 width, the clipped fraction falls from \pn{budget.clipdechi}\% to
 \pn{budget.clipdeclo}\%. We have not shown this link on stochastic cells. Nearly every

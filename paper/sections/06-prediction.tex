@@ -12,17 +12,18 @@ posterior predictive.
 
 \paragraph{How the predictions are scored.} Every target is a population mean, the mean over a
 draw's cells. The truth is the mean over the true simulator's cells at $\theta^\ast$. Three
-targets are $Q$, the extracellular lactate at \pn{model.cycle}\,s; $Q_{\mathrm{kd}}$, the same
+targets are $Q$, the extracellular lactate at \pn{model.cycle}\,s (\cref{sec:predictapi}); $Q_{\mathrm{kd}}$, the same
 quantity under the knockdown; and their difference $\Delta Q = Q_{\mathrm{kd}} - Q$. The others are the 17 pools and
 17 transcripts at each of the \pn{kim95.nsaves} saves of the later horizon. Each arm has \pn{kim95.ndraws} parameter draws, with \pn{kim95.cells} cells per
 posterior draw and \pn{kim95.priorcells} per prior draw. The truth has \pn{kim95.ntruth} cells
-for each knockdown arm. We fixed these sizes before any truth was read. The CRPS skill is
+for each knockdown arm. We fixed these sizes before any truth was read. We score each target by the continuous ranked probability score (CRPS) of its predictive
+distribution against the truth. The CRPS skill is
 $1 - \mathrm{CRPS}_{\mathrm{post}}/\mathrm{CRPS}_{\mathrm{prior}}$, so 0 means no better than
 the prior. The hit fraction is the share of saves whose true value lies inside the central
 50\% or 90\% interval. The MC share is the part of the spread across draws that is cell noise.
 It can exceed 1 when the spread that comes from $\theta$ is too small to resolve. Saves within a
 species are strongly correlated, so a family's hit fraction rests on about 17 species, not on
-\pn{kim95.nsavesfam} independent checks. \Cref{sec:prediction} gives the estimand and the
+\pn{kim95.nsavesfam} independent checks. \Cref{sec:reduceddesign} gives the design, and \cref{sec:prediction} the estimand and the
 intervention.
 
 \paragraph{$Q$ is covered; the knockdown's effect is not resolved.} The posterior's 90\%
@@ -30,12 +31,12 @@ intervals on $Q$ and $Q_{\mathrm{kd}}$ are $\pm\pn{kim95.qint}\%$ wide, and both
 (\cref{fig:reducedpredict}A). The truth sits \pn{kim95.qz} posterior SD below the median on
 $Q$ and \pn{kim95.qkdz} SD below it on $Q_{\mathrm{kd}}$, inside both 50\% intervals. The
 prior's median is \pn{kim95.priorlow}\% low, and its 90\% interval spans a factor of
-\pn{kim95.priorfactor}. The CRPS skill is \pn{kim95.qskill} on both. The skill is near 1 mostly because the prior is
+\pn{kim95.priorfactor}. The CRPS skill is \pn{kim95.qskill} on both. It is near 1 mostly because the prior is
 so wide. The finding is therefore that a narrow interval holds the truth. The knockdown's effect is
 \pn{kim95.dqtruth}, about \pn{kim95.dqshare}\% of $Q$. All of the posterior's width on
 $\Delta Q$ is cell noise (MC share \pn{kim95.dqmc}). The posterior therefore shows only that
 the effect is small next to one draw's cell noise. Because the effect is this small, covering
-$Q_{\mathrm{kd}}$ tests nearly the same thing as covering $Q$. The skill on $\Delta Q$ is
+$Q_{\mathrm{kd}}$ tests nearly the same thing as covering $Q$. The CRPS skill on $\Delta Q$ is
 \pn{kim95.dqskill}, against a prior whose median has the wrong sign. The truth is also less
 sharp than the sizing rule asks. On these three targets its standard error is
 \pn{kim95.sesdlo}--\pn{kim95.sesdhi} of the posterior SD, above the rule's \pn{kim95.sesdrule}.

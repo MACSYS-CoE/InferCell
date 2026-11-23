@@ -5,8 +5,9 @@ A reduced whole-cell model with a real ODE--stochastic boundary can be inferred 
 bulk data, and its posterior predictions carry part of the way. On the reduced \syn{} model the
 mixed route gives one joint posterior over all \pn{kim92.ncoord} free parameters for about
 \pn{kim92.cpuh} CPU-hours (\cref{sec:reduced}). The data reach every parameter, and the
-posterior reproduces its own data. Pushed forward, the posterior covers $Q$, $Q_{\mathrm{kd}}$ and
-the transcripts, both on a later horizon and under a knockdown that the data never contain. The
+posterior reproduces its own data. Pushed forward to a later horizon and to a ptsG knockdown that the data never
+contain, the posterior covers the extracellular lactate $Q$, its knockdown value
+$Q_{\mathrm{kd}}$, and the transcripts. The
 posterior's error shows in the pools. It misses \pn{kim95.poolshift} of the 17 pools by about
 \pn{kim95.shiftlo}--\pn{kim95.shifthi} posterior standard deviations (\cref{sec:reducedpredict}).
 Once every parameter is inferred, $Q$'s parameter variance $\mathrm{Var}_\theta(Q)$ is about
@@ -29,7 +30,7 @@ metabolism, where the pools miss. We have not tested this reading.
 rule. Single-cell data inform the parameters of their own module. Information between modules
 travels on bulk observables and follows the gain of the coupling, and a modeller can compute
 the gains before any inference. On the reduced model the joint posterior uses both streams at
-once and does not separate them, so the rule is not tested there. A dynamical reduction, such
+once and does not separate them, so the rule is not tested there. As in \cref{sec:seam}, a dynamical reduction, such
 as the mean-field swap, changes the simulator and keeps full Bayesian inference. A statistical
 cut keeps the simulator and changes the target \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
 The joint posterior uses the first, and we measured its cost on M0. The modular arm's factor
@@ -55,7 +56,7 @@ fraction of its CPU-hours.}
   \item \emph{The promoter shift.} Its mean standardised error is \pn{kim92.promz}, and the
   maximum a posteriori estimate shares it. One dataset cannot split the shift into two causes:
   noise that this dataset shares across promoters, and a bias from fitting the mean-field bulk
-  likelihood to data from the exact hybrid. A second dataset would.
+  likelihood to data from the true simulator. A second dataset would.
   \item \emph{The gap on M0.} On one M0 dataset three parameters sit \pn{mix.gaplo}--\pn{mix.gaphi}
   standard deviations from the exact posterior, and we have not found the cause. \todo{KIM-90:
   the two leads, double counting of the transcripts' information through the bulk and the bulk
@@ -66,7 +67,8 @@ fraction of its CPU-hours.}
   \item \emph{The one-way reduction.} The model keeps both directions of the coupling, but
   the mixed route treats the pools' effect on the rate constants as weak. In the scored runs GTP
   clips in \pn{kim95.clip}\% of baseline cells, at the truth and under the joint posterior alike.
-  In those cells GTP therefore falls below $K_d$, where the small elasticities behind that
+  In those cells GTP therefore falls below $K_d$, the dissociation constant of RNA
+  polymerase for its nucleotides. Below $K_d$ the small elasticities behind that
   treatment do not hold (\cref{sec:modelform}). The true simulator keeps the full coupling, so
   the scores include this reduction's effect on the fit. We have not measured that effect.
   \item \emph{The prior width.} The factor of \pn{kim96.ratio} in $\mathrm{Var}_\theta(Q)$ holds
