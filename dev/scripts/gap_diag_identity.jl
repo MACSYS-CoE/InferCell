@@ -13,7 +13,8 @@
 #                           builds both setups from the dataset and asserts the same
 #                           names, priors, data, panel, floor and window; and reports
 #                           how far each archived posterior sits from the mixed
-#                           density's truncations (μmin, kmax) and block 2's bound.
+#                           density's truncations (μmin, the box, and kmax through
+#                           the divergence count).
 #
 # Usage (login node; a dataset takes ~3 min):
 #   julia --project=<worktree at a commit> dev/scripts/gap_diag_identity.jl fingerprint <tsv>
@@ -25,7 +26,7 @@ using Serialization
 using SHA
 using Printf
 using Statistics
-using Distributions: params, quantile, LogNormal
+using Distributions: params, quantile
 
 const REPLICATE = 16_085
 const NCELLS = 50
@@ -111,6 +112,8 @@ function compare(fps)
     ms = m0_models()
     gprior = Dict{Symbol, Tuple{Float64, Float64}}()
     for (n, pr) in zip(g.cme, g.cme_priors); gprior[n] = params(pr); end
+    # The forward constants' priors (ENO, FBA) are read from the model in both routes, so
+    # their rows below agree by construction; the CME priors and σ_b's are the real checks.
     for n in g.forwards; gprior[n] = params(_parameter_by_name(ms, n).prior); end
     gprior[:sigma_b] = params(g.sigma_prior)
     mμ, msd = mixed_prior_median(s), mixed_prior_sd(s)
@@ -129,9 +132,8 @@ function compare(fps)
                 length(s.saves) == size(g.bulk, 2),
                 "window 60 s in both, $(length(s.saves)) saves / $(size(g.bulk, 2)) windows")
     ok &= check([Symbol(String(n)) for n in g.panel] == M0_PANEL, "exact panel == M0_PANEL")
-    println("  σ_b: both put a Normal on log σ_b with the parameters above; the exact route " *
-            "slice-samples log σ_b given the residuals (block 1), the mixed route samples " *
-            "it jointly under NUTS. Same target.")
+    println("  σ_b (from the code, not checked here): the exact route slice-samples log σ_b " *
+            "given the residuals (block 1); the mixed route samples it jointly under NUTS.")
 
     println("\n## Truncations, against the archived posteriors\n")
     tsv = readlines(F10_DRAWS)
@@ -147,12 +149,18 @@ function compare(fps)
             (minimum(kr) - μmin_log) / psd, minimum(mx), (minimum(mx) - μmin_log) / psd)
     ok &= check(minimum(kr) > μmin_log && minimum(mx) > μmin_log,
                 "no draw of either posterior touches μmin")
-    println("  kmax (mixed) and TURNOVER_CEILING / RNAPOL_KCAT (exact, block 2) bound the " *
-            "transcription constant; the mixed density returns -Inf past kmax, the exact " *
-            "update throws. Neither fired: no -Inf density in m0_v6's chains (finite lp " *
-            "below) and V6's 4 chains ran to 1,650 sweeps without the throw.")
-    lp = vcat([vec(deserialize(f).chain[:, :lp, 1]) for f in B7_CHAINS]...)
-    ok &= check(all(isfinite, lp), "every m0_v6 draw has a finite log density ($(length(lp)) draws)")
+    # The mixed density returns -Inf past kmax, μmin or the box; a -Inf on any leapfrog
+    # step is a NUTS divergence, so zero divergences over the stored draws means none of
+    # these truncations was hit during sampling. (Stored draws are never -Inf, so their
+    # lp says nothing.) The exact route's block-2 bound is not checked here.
+    ch = [deserialize(f).chain for f in B7_CHAINS]
+    nerr = sum(sum(c[:, :numerical_error, 1]) for c in ch)
+    ok &= check(nerr == 0, "no divergence (numerical_error) in m0_v6's $(sum(size(c, 1) for c in ch)) stored draws: $(Int(nerr))")
+    blo, bhi = mixed_box(s)
+    X = reduce(vcat, [Array(c[:, [Symbol("x[$i]") for i in 1:length(blo)], 1]) for c in ch])
+    room = minimum(min.((X .- blo') ./ mixed_prior_sd(s)', (bhi' .- X) ./ mixed_prior_sd(s)'))
+    ok &= check(room > 0, @sprintf("every m0_v6 draw inside the ±%g prior-SD box; closest %.2f prior SDs from an edge",
+                                  s.box_sd, room))
 
     println(ok ? "\nRESULT: target identity holds." : "\nRESULT: target identity FAILS (see FAIL lines).")
     ok || exit(1)
