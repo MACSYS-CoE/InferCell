@@ -14,9 +14,11 @@
 #
 # That response is incomplete (PR #189 review, 2026-11-23). Δm depends on θ through
 # t̄(θ), G = ∂Δm/∂log θ ≈ −B ∂t̄/∂log θ / x̄, and the first-order displacement is
-# Σ (Jᵀ W Δm − Gᵀ W r) with r the bulk residual. The `full` stage computes the
-# missing term, the bulk's information with and without conditioning on the
-# transcripts, and the curvature that says whether a one-step response is valid.
+# Σ (Jᵀ W Δm − Gᵀ W r) with r the bulk residual, with W held. Given the transcripts the
+# exact bulk covariance is also smaller (S → S_c), which adds a first-order
+# Jᵀ (W_c − W) r. The `full` stage computes both, the bulk's information with and
+# without conditioning on the transcripts, and the curvature that says whether a
+# one-step response is valid.
 # `analyse` is kept as run at 66431db; its reading rule applies to its own output.
 #
 # Read, fixed before the analysis is run: for each of S_0779, krnadeg and ENO, the
@@ -205,7 +207,7 @@ function run_full(out)
     end
     # G is −B ∂t̄/∂log θ / x̄ with ∂t̄ taken from the mean field, so the mean field's
     # transcripts must be on the ensemble's scale (a units check: the mean field and
-    # the ensemble mean differ at the tens-of-percent level, and G carries that error).
+    # the ensemble mean differ by about 13% at most, and G carries that error).
     _, tref = mf(p.ref.x)
     trel = maximum(abs.(tref .- te) ./ te)
     trel < 0.25 || error(@sprintf("mean-field transcripts at θ_ref differ from the ensemble mean by up to %.3g", trel))
@@ -235,13 +237,19 @@ function run_full(out)
     kept = resp(J' * (W * Δm))                       # Δm at θ_ref, as analyse
     kept_x = resp(J' * (W * (Δm .+ G * (x̄ .- p.ref.x))))   # Δm carried to x̄, where J and r are taken
     missing_ = resp(-(G' * (W * r)))
+    # With the exact route's bulk covariance given the transcripts (σ²I + Sc) as well:
+    # mixed − exact ≈ Σ (∇ log L_mixed − ∇ log L_exact) at x̄, both gradients in full.
+    Δmx = Δm .+ G * (x̄ .- p.ref.x)
+    full_c = resp(J' * (W * r) .- (J + G)' * (Wc * (r .- Δmx)))
     P = inv(Σ)
     Im = diag(J' * W * J)[1:K] ./ diag(P)[1:K]
     Ic = diag((J + G)' * W * (J + G))[1:K] ./ diag(P)[1:K]
     Icc = diag((J + G)' * Wc * (J + G))[1:K] ./ diag(P)[1:K]
-    H = G' * W * J + J' * W * G + G' * W * G
+    H = G' * W * J + J' * W * G + G' * W * G             # exact − mixed bulk precision, W held
+    Hc = (J + G)' * Wc * (J + G) - J' * W * J             # the same with S conditioned
     Σh = sqrt(Symmetric(Σ))
     ev = eigvals(Symmetric(Σh * H * Σh))
+    evc = eigvals(Symmetric(Σh * Hc * Σh))
 
     io = IOBuffer(); say(s_) = (println(s_); println(io, s_))
     say("# KIM-90 item 4b, the full first-order term and the bulk's information\n")
@@ -258,12 +266,16 @@ function run_full(out)
     say("## Displacement, V6 SDs (mixed − exact, first order)\n")
     say("Δm(x̄) = Δm + G (x̄ − x_ref) is Δm carried from θ_ref to m0_v6's posterior mean, " *
         "where J and r are evaluated; the sum is Σ (Jᵀ W Δm(x̄) − Gᵀ W r).\n")
-    say("| Parameter | gap (recomputed) | Σ JᵀWΔm, Δm at θ_ref (analyse) | Σ JᵀWΔm(x̄) | −Σ GᵀWr (omitted by analyse) | sum |")
-    say("|---|---|---|---|---|---|")
+    say("The 'sum' holds W at the mixed route's (σ²I + S)⁻¹. The last column also uses the " *
+        "exact route's bulk covariance given the transcripts, σ²I + Sc: " *
+        "Σ (JᵀW r − (J+G)ᵀW_c (r − Δm(x̄))).\n")
+    say("| Parameter | gap (recomputed) | Σ JᵀWΔm, Δm at θ_ref (analyse) | Σ JᵀWΔm(x̄) | −Σ GᵀWr (omitted by analyse) | sum, W held | full, S conditioned |")
+    say("|---|---|---|---|---|---|---|")
     for q in 1:6
-        say(@sprintf("| %s | %+.3f | %+.3f | %+.3f | %+.3f | %+.3f |", PN[q], gap[q], kept[q], kept_x[q],
-                     missing_[q], kept_x[q] + missing_[q]))
+        say(@sprintf("| %s | %+.3f | %+.3f | %+.3f | %+.3f | %+.3f | %+.3f |", PN[q], gap[q], kept[q], kept_x[q],
+                     missing_[q], kept_x[q] + missing_[q], full_c[q]))
     end
+    say(@sprintf("\ntr S_c / tr S = %.3f; tr S / tr σ²I = %.3f.\n", tr(Sc) / tr(s.S), tr(s.S) / (σ^2 * length(r))))
     say("\n## The bulk's information as a share of V6's posterior precision (diagonal)\n")
     say("Mixed: JᵀWJ, the bulk treated as independent of the transcripts. Given the transcripts, " *
         "first order: (J+G)ᵀW(J+G) with W held, and with S conditioned on the transcripts.\n")
@@ -273,11 +285,13 @@ function run_full(out)
         say(@sprintf("| %s | %.3f | %.3f | %.3f | %.3f |", PN[k], norm(J[:, k] + G[:, k]) / norm(J[:, k]), Im[k], Ic[k], Icc[k]))
     end
     say("\n## Validity of a one-step response\n")
-    say("Eigenvalues of Σ^½ H Σ^½, H the Hessian of the omitted log-likelihood difference " *
-        "(GᵀWJ + JᵀWG + GᵀWG), relative to V6's posterior precision. An eigenvalue near ±1 " *
-        "means the omitted term changes the curvature as much as the posterior's own, so the " *
-        "one-step response does not hold.\n")
-    say(join([@sprintf("%+.3f", v) for v in ev], ", "))
+    say("Eigenvalues of Σ^½ H Σ^½, H the exact route's bulk precision minus the mixed route's " *
+        "(W held: GᵀWJ + JᵀWG + GᵀWG; S conditioned: (J+G)ᵀW_c(J+G) − JᵀWJ), relative to V6's " *
+        "posterior precision. A negative eigenvalue is a direction the exact posterior is less " *
+        "precise in; one near ±1 means the change is as large as the posterior's own curvature, " *
+        "so the one-step response does not hold.\n")
+    say("W held: " * join([@sprintf("%+.3f", v) for v in ev], ", "))
+    say("\nS conditioned: " * join([@sprintf("%+.3f", v) for v in evc], ", "))
     write(joinpath(ccdir(out), "full.md"), take!(io))
 end
 
