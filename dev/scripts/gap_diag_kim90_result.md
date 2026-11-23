@@ -29,8 +29,8 @@ tests the candidate causes one at a time.
   transcripts, the bulk carries, to first order, 0.19–0.35 of the information the
   mixed route gives it on S_0779, 0.32 on krnadeg and 0.36–0.66 on S_0607 (§4b).
   This bears on width: the mixed posterior should be too narrow there. It is
-  narrower on krnadeg and S_0779 but not on S_0607. Its effect on where the posterior
-  sits is not measured.
+  narrower on krnadeg (0.85) and S_0779 (0.93), and on S_0607 barely (0.98, about the
+  SD's sampling error). Its effect on where the posterior sits is not measured.
 - **Against shared cells, and double counting, for krnadeg:** under metabolites
   only, with no transcripts, the mixed fit already sits 0.032 above the exact on log
   krnadeg (AV6 B7.8), about 0.4 V6 SD. Neither mechanism can act there. That exact
@@ -246,10 +246,12 @@ panel's covariance given the transcripts.
   0.36–0.66 on S_0607 (the two columns' ratios to the mixed share).
 - **What this implies.** The mixed route should be too narrow on these three. That is
   a statement about width, and it is computed, not measured. m0_v6's posterior SDs
-  against V6's agree in direction on log krnadeg (0.0645 against 0.0763, 0.85) and
-  log S_0779 (0.1864 against 0.1995, 0.93), but not on log S_0607, whose information
-  is double-counted too (0.36–0.66): 0.1137 against 0.1159 (0.98) (`av6_89_b7_result.md`;
-  V6 SDs also in job 21403381). So the width prediction is not borne out as stated.
+  against V6's are narrower on log krnadeg (0.0645 against 0.0763, 0.85) and log
+  S_0779 (0.1864 against 0.1995, 0.93). On log S_0607, whose information is
+  double-counted too (0.36–0.66), they are barely narrower: 0.1137 against 0.1159
+  (0.98), about the SD's own sampling error, roughly 1/√(2 ESS) ≈ 3% at
+  ESS 547 (`av6_89_b7_result.md`; V6 SDs also in job
+  21403381). The direction agrees on all three; the size on S_0607 is not borne out.
 - **What is not measured.** Whether this also moves where the posterior sits, and by
   how much, would need a refit with the bulk conditioned on the transcripts.
 - **ENO and FBA** are learned from the bulk independently of the transcripts, and are
