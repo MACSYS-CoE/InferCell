@@ -5,7 +5,7 @@
 **State: Stages 0–6 of `/write-paper` are done, committed locally and NOT pushed.** The
 worktree is `.worktrees/kim-98-paper`, branched from origin/main at 24273c7. The paper builds
 and `check_paper.py` passes; `check_invariants.py` reports no drops across the edit and joins
-passes. The story is `paper/story.md`, signed off 2026-11-23, with its amendment log. The paper's
+passes. The story file `paper/story.md` (signed off 2026-11-23, with its amendment log) is local only: it is in `.git/info/exclude` and not in the repository. The paper's
 own status is `paper/STATUS.md`. Decision log entry 2026-11-23 (Linear) records drafting ahead
 of M10.
 - **Structure:** §1 intro, §2 InferCell, §3 test system, §4 M0 check, §5 reduced-model inference
