@@ -11,23 +11,28 @@ tests the candidate causes one at a time.
 - **Ruled out:**
   - target identity;
   - MCMC error on either side.
-- **Not the cause on their own:**
-  - switching the Jensen correction off makes the gap three- to fourfold larger, so
-    the correction is needed;
-  - varying the bulk reference (more cells, or δ and S recomputed at m0_v6's
-    posterior mean) closes about 0.17 SD of S_0779 and up to 0.16 of krnadeg, and
-    leaves most of the gap.
+- **The bulk reference (δ and S): partial.**
+  - Switching the Jensen correction off makes krnadeg's and ENO's gaps about four
+    times larger, so the correction is needed. This does not test whether δ's value
+    is accurate.
+  - Varying the reference (more cells, or δ and S recomputed at m0_v6's posterior
+    mean) closes about 0.17 SD of S_0779 and up to 0.16 of krnadeg, and leaves most
+    of the gap.
 - **Shared cells: indeterminate.** The cross-covariance check predicted +0.37 of
-  krnadeg's +0.56. That prediction omitted a first-order term of the same size, and
-  the one-step response it rests on is not valid here (§4b), so it names nothing.
+  krnadeg's +0.56. That prediction omitted first-order terms that are not small. With
+  them, krnadeg's first-order shift is +0.64 or −0.14, depending on whether the bulk
+  covariance is conditioned on the transcripts. The one-step response it rests on is
+  not valid here either (§4b), so it names nothing.
 - **A new lead: the mixed route counts the transcripts' information twice.** The bulk
   is the mean of the same 50 cells whose transcripts are observed. Given the
-  transcripts, the bulk carries a third or less of the information the mixed route
-  gives it on S_0607, S_0779 and krnadeg (§4b). This is measured as a width effect.
-  Its effect on where the posterior sits is not measured.
-- **Against shared cells for krnadeg:** under metabolites only, with no transcripts,
-  the mixed fit already sits 0.032 above the exact on log krnadeg (AV6 B7.8), about
-  0.4 V6 SD. That exact fit has an ESS of 39.
+  transcripts, the bulk carries, to first order, 0.19–0.35 of the information the
+  mixed route gives it on S_0779, 0.32 on krnadeg and 0.36–0.66 on S_0607 (§4b).
+  This bears on width: the mixed posterior should be too narrow there. Its effect on
+  where the posterior sits is not measured.
+- **Against shared cells, and double counting, for krnadeg:** under metabolites
+  only, with no transcripts, the mixed fit already sits 0.032 above the exact on log
+  krnadeg (AV6 B7.8), about 0.4 V6 SD. Neither mechanism can act there. That exact
+  fit has an ESS of 39, and whether this is the same gap was not tested.
 - **Untested:**
   - the mean field on this dataset beyond δ's first-order correction;
   - the transcript factor's population-mean constants;
@@ -51,7 +56,7 @@ archive is `/fred/oz022/tkimpson/infercell-kim90-archive-2026-11-23`:
 | 4a. Jensen correction off (nojensen) | `gap_diag_refit.jl` | prep 21098793, chains 21098794/95 | 66431db |
 | control (archived δ and S) | `gap_diag_refit.jl` | prep 21098787, chains 21098788/89 | 66431db |
 | 4b. Shared cells, first run (`analyse`) | `gap_diag_crosscov.jl` | ensemble 21098797, analysis 21098798; rerun 21397710 at 64f9da0 | 66431db |
-| 4b. Shared cells, full first-order term (`full`) | `gap_diag_crosscov.jl` | 21397829 | 0a2a79b |
+| 4b. Shared cells, full first-order terms (`full`) | `gap_diag_crosscov.jl` | 21398305 | a02eb6e |
 | 4c. δ at m0_v6's posterior mean (postmean) | `gap_diag_refit.jl` | prep 21186223, chains 21186224/25 | 66431db |
 | merge of all refit arms | `gap_diag_refit.jl merge` | 21186226 | 66431db |
 
@@ -60,16 +65,24 @@ The refit script has changed since 66431db only in its comments.
   truncation checks changed. The `analyse` rerun at 64f9da0 reproduces the 66431db
   table exactly.
 - **Submission:** `gap_diag_refit.sh` documents how each round was submitted. The
-  review round was three `sbatch` calls from a worktree at the commit, into
+  review round was `sbatch` calls from worktrees at the commits, into
   `/fred/oz022/tkimpson/infercell-kim90-review-2026-11-23`:
-  - the `full` and `analyse` stages through `gap_diag_refit.slurm`;
-  - `gap_diag_reads.slurm <out>/reads`.
+  - at 64f9da0: `full` (21397709, `full_64f9da0.md`) and `analyse` (21397710) through
+    `gap_diag_refit.slurm`, and `gap_diag_reads.slurm <out>/reads` (21397711);
+  - at 0a2a79b: `full` again (21397829, `full_0a2a79b.md`), adding the θ_ref line;
+  - at a02eb6e: `full` again (21398305, `full.md`), adding the conditioned bulk
+    covariance to the displacement and the Hessian (the fix gate's finding). This is
+    the one cited; its other outputs match the earlier runs.
+- **Wording:** the mixing script and its table say "Monte Carlo error" for sampler
+  error; this note says MCMC error. "Monte Carlo error" here means the reference
+  ensemble's.
 
 The design of every refit is AV6's: 2 NUTS chains of 200 + 200 at target acceptance 0.8.
 - **Chains:** v6's chain seeds and jittered starts.
 - **Input:** B7's archived prep (`infercell-89-b7-archive-2026-10-27/run/v6`).
 - **What varies:** arms differ only in the bulk reference's δ and S.
-- **The 4c arm** was added after 4b came out indeterminate (Decision log 2026-11-19).
+- **The 4c arm** was added after 4b's first run came out indeterminate for S_0779
+  and ENO (Decision log 2026-11-19).
 
 ## 1. Target identity: ruled out
 
@@ -141,6 +154,9 @@ it checks that this branch's code reproduces B7. It is not a noise floor.
 - **S_0779:** the gap narrows by 0.164, 2.5× the floor and 0.35 of the gap.
 - **ENO:** narrows by 0.105, 1.4× the floor and 0.25 of the gap.
 - **krnadeg:** narrows by 0.041, within noise.
+- **σ_b** moves by +0.153 against control (`run/refit.md`). A changed δ changes the
+  bulk residual, so σ_b can move for a real reason, but no floor is computed for
+  it here.
 - **Not an upper bound.** The 1600 cells contain the archived 800, so the doubling
   removes only part of the 800-cell reference's Monte Carlo error. More of the gap
   may come from it than these moves show.
@@ -168,32 +184,41 @@ both move the gap by moving δ.
   −0.143 on S_0779, +0.369 on krnadeg and +0.085 on ENO. By the reading rule fixed
   before the run, that named shared cells for krnadeg.
 
-*Why that reading does not stand (job 21397829, PR #189 review).*
-- **The omitted term.** Δm depends on θ through the transcripts' expected value. So
-  the first-order displacement is Σ (Jᵀ W Δm − Gᵀ W r), where:
+*Why that reading does not stand (job 21398305 at a02eb6e, PR #189 review and its fix gate).*
+- **First omitted term.** Δm depends on θ through the transcripts' expected value.
+  With the bulk covariance held at the mixed route's W = (σ²I + S)⁻¹, the
+  first-order displacement is Σ (Jᵀ W Δm − Gᵀ W r), where:
   - G = −B ∂t̄/∂log θ / x̄;
-  - r is the bulk residual, whose RMS in units of the bulk noise is 1.01, against
-    0.135 for Δm.
+  - r is the bulk residual. Its RMS in units of the bulk noise is 1.01, against 0.135
+    for Δm.
+- **Second omitted term.** Given the transcripts, the exact route's bulk covariance
+  is also smaller, σ²I + S_c, where S_c is the panel's covariance given the
+  transcripts. tr S_c / tr S = 0.62, and S dominates the noise (tr S / tr σ²I = 1.91).
+  That adds a first-order Jᵀ (W_c − W) r. The last column below is the displacement
+  with both terms: Σ (JᵀW r − (J+G)ᵀW_c (r − Δm(x̄))).
 
-  So the omitted term is not small.
-
-  | Parameter | gap | Σ JᵀWΔm, Δm at θ_ref (`analyse`) | Σ JᵀWΔm(x̄) | −Σ GᵀWr | sum |
-  |---|---|---|---|---|---|
-  | S_0779 | −0.468 | −0.143 | −0.151 | +0.135 | −0.016 |
-  | krnadeg | +0.564 | +0.369 | +0.480 | +0.155 | +0.635 |
-  | ENO | +0.419 | +0.085 | +0.091 | +0.000 | +0.091 |
+  | Parameter | gap | Σ JᵀWΔm, Δm at θ_ref (`analyse`) | Σ JᵀWΔm(x̄) | −Σ GᵀWr | sum, W held | full, S conditioned |
+  |---|---|---|---|---|---|---|
+  | S_0607 | −0.129 | −0.006 | +0.015 | −0.113 | −0.098 | −0.756 |
+  | S_0779 | −0.468 | −0.143 | −0.151 | +0.135 | −0.016 | −0.243 |
+  | krnadeg | +0.564 | +0.369 | +0.480 | +0.155 | +0.635 | −0.142 |
+  | ENO | +0.419 | +0.085 | +0.091 | +0.000 | +0.091 | +0.181 |
 
   Δm(x̄) is Δm carried from θ_ref to m0_v6's posterior mean, where J and r are
   evaluated. ∂t̄ is taken from the mean field, whose transcripts differ from the
   ensemble mean by up to 13%; G carries that error.
-- **The response is not valid here.** One eigenvalue of the omitted term's Hessian,
-  relative to V6's posterior precision, is −0.734. The term changes the posterior's
-  curvature by most of its own size in one direction, so a one-step linear response
-  cannot size the shift. Neither +0.369 nor +0.635 is a reliable size for krnadeg,
-  and no interval is given for the full term.
+- **Unstable to the covariance choice.** Conditioning the covariance flips krnadeg's
+  first-order shift from +0.635 to −0.142, and moves S_0607 from −0.10 to −0.76.
+- **The response is not valid here.** H is the exact route's bulk precision minus the
+  mixed route's. Its largest eigenvalue, relative to V6's posterior precision, is
+  −0.734 with W held and −0.702 with S conditioned. So in one direction the change
+  is most of the posterior's own curvature, and a one-step linear response cannot
+  size the shift.
+- **No size is given.** None of +0.369, +0.635 or −0.142 is a reliable size for
+  krnadeg, and no interval is given for the full terms.
 
 *What the check does measure: the bulk's information.* Each entry is the diagonal of
-the bulk's Fisher information as a share of V6's posterior precision (job 21397829):
+the bulk's Fisher information as a share of V6's posterior precision (job 21398305):
 
 | Parameter | ‖J+G‖/‖J‖ | mixed route | given the transcripts, W held | given the transcripts, S conditioned |
 |---|---|---|---|---|
@@ -205,11 +230,15 @@ the bulk's Fisher information as a share of V6's posterior precision (job 213978
 
 The two right-hand columns are first order. The last also replaces S by the
 panel's covariance given the transcripts.
-- **What is double-counted.** On S_0607, S_0779 and krnadeg, most of the bulk's
+- **What is double-counted.** On S_0607, S_0779 and krnadeg, much of the bulk's
   sensitivity to θ comes through the transcripts. Once they are known, the bulk adds
-  a third or less of what the mixed route credits it with.
+  0.19–0.35 of what the mixed route credits it with on S_0779, 0.32 on krnadeg and
+  0.36–0.66 on S_0607 (the two columns' ratios to the mixed share).
 - **What this implies.** The mixed route should be too narrow on these three. That is
-  a statement about width.
+  a statement about width, and it is computed, not measured. It fits m0_v6's
+  posterior SDs against V6's: 0.0645 against 0.0763 on log krnadeg (0.85) and 0.1864
+  against 0.1995 on log S_0779 (0.93) (`av6_89_b7_result.md`, stream arms; job
+  21398305).
 - **What is not measured.** Whether this also moves where the posterior sits, and by
   how much, would need a refit with the bulk conditioned on the transcripts.
 - **ENO and FBA** are learned from the bulk independently of the transcripts, and are
@@ -221,13 +250,13 @@ panel's covariance given the transcripts.
 - **Why it cuts against shared cells.** That fit has no transcripts, so shared cells
   cannot act there.
 - **In V6 units.** It is about 0.4 V6 SD (V6's SD on log krnadeg is 0.0763; job
-  21397829), against the joint gap of 0.564. So the bulk factor alone may carry much
+  21398305), against the joint gap of 0.564. So the bulk factor alone may carry much
   of krnadeg's offset.
 - **Caveat.** The exact met_only fit has an ESS of 39, and whether this is the same
   gap was not tested there.
 
 **4c. δ at m0_v6's posterior mean: a part, like 3.** θ_ref sits 1.27 V6 SDs from
-m0_v6's posterior mean in S_0607 and 1.17 in krnadeg (job 21397829). In σ_b it sits
+m0_v6's posterior mean in S_0607 and 1.17 in krnadeg (job 21398305). In σ_b it sits
 11.9 SDs away, but δ and S come from simulated cells, which σ_b does not enter.
 Recomputing δ and S on the same 800 seeds at m0_v6's posterior mean moves δ by 0.344
 and tr S to 1.704 (prep 21186223); nojensen's δ = 0 is 0.813 away.
@@ -243,12 +272,14 @@ the reference's placement does not close the gap.
 
 - **krnadeg:** two leads, neither measured as a shift.
   - **Double counting:** the bulk's information on krnadeg is about three times what
-    it is given the transcripts.
-  - **The bulk factor itself:** B7.8 shows about 0.4 V6 SD with no transcripts.
+    it is given the transcripts. It bears on width; whether it also moves the mean is
+    open.
+  - **The bulk factor itself:** B7.8 shows about 0.4 V6 SD with no transcripts, where
+    neither shared cells nor double counting can act.
 
   Changing the reference closes up to 0.16 of the 0.56.
-- **S_0779:** about 0.3 SD remains after §3 or §4c. The double counting bears on it
-  too.
+- **S_0779:** about 0.3 SD remains after §3 or §4c. Its information is double-counted
+  too, which is a width statement and does not account for the remainder.
 - **ENO:** about 0.3 SD remains after §3, and §4c does not move it. ENO's
   information is not double-counted, and the cross-covariance term is small there.
   It is the least explained of the three.
