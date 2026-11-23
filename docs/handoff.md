@@ -1,5 +1,30 @@
 # Handoff
 
+## Latest: KIM-98, paper 1 drafted around the reduced model (branch `tomkimpson/kim-98-plan-the-paper-1-rewrite-m6-around-reduced`, 2026-11-23)
+
+**State: Stages 0–6 of `/write-paper` are done, committed locally and NOT pushed.** The
+worktree is `.worktrees/kim-98-paper`, branched from origin/main at 24273c7. The paper builds
+and `check_paper.py` passes; `check_invariants.py` reports no drops across the edit and joins
+passes. The story is `paper/story.md`, signed off 2026-11-23, with its amendment log. The paper's
+own status is `paper/STATUS.md`. Decision log entry 2026-11-23 (Linear) records drafting ahead
+of M10.
+- **Structure:** §1 intro, §2 InferCell, §3 test system, §4 M0 check, §5 reduced-model inference
+  (F4, T1), §6 scored prediction (F5, F6), §7 ladder (all red todo), §8 discussion; appendices
+  methods (with the reduced-model design), M0 in detail, M0 predictions, declared reductions,
+  modular arm (todo), ladder (todo).
+- **Numbers:** `scripts/paper_numbers.py` now generates `paper/numbers.tex` (literal put()s, each
+  naming its result note and job id). Old values unchanged.
+- **Figures:** F4–F6 are new, each with its own script in `paper/figures/` and TSVs copied into
+  `paper/figures/data/` (checked against SHA256SUMS). Previews in `paper/figure-review/`.
+- **Red `\todo{}`** marks what waits on M10 (§7, F7, abstract/intro/discussion ladder clauses),
+  KIM-116 (§5 paragraph, T1 row, §6 line, app_modular) and KIM-90 (M0 gap leads).
+
+**Next:**
+1. Tom reads the draft; push the branch and open a PR when ready (not done).
+2. Fill the todos as KIM-116, KIM-90 and M10 land; then Stages 7–8 (references with
+   `/check-refs`, `[CITE NEEDED: CRPS]`, arXiv compliance, cold read, `--final` checks). Pangram deferred.
+3. Open questions for Tom are in `paper/STATUS.md` ("Open from the KIM-98 draft").
+
 ## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
 
 **State: the kill check passes. PR #185 is reviewed, its fixes are applied, and it merges
