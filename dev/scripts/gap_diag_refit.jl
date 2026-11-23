@@ -1,4 +1,4 @@
-# KIM-90 items 3 and 4a: refit m0_v6 with the mixed route's bulk reference changed
+# KIM-90 items 3, 4a and 4c: refit m0_v6 with the mixed route's bulk reference changed
 # one way at a time, and measure each refit's shift against V6 and against an
 # unchanged control.
 #
@@ -7,13 +7,13 @@
 # chains of 200 + 200 at target acceptance 0.8, on v6's chain seeds
 # (mixed_chain_seeds(ds, 2; arm = 0)) and jittered starts around θ_ref (0.25 prior
 # SDs). Arms differ only in (δ, S):
-#   control   the archived δ and S: m0_v6 rerun on this branch's code, the noise
-#             floor the other arms are read against;
+#   control   the archived δ and S: m0_v6 rerun on this branch's code, a check that
+#             it reproduces B7 (same seeds and starts, so not a noise floor);
 #   n1600     δ and S from 1600 cells at θ_ref: the archived 800 plus the next 800
 #             of reference_seeds(ds, 1600), whose first 800 are the archived ones;
 #   nojensen  δ = 0, S held: the Jensen correction off;
 #   postmean  δ and S from the archived 800 seeds at m0_v6's posterior mean instead
-#             of θ_ref (δ's θ-dependence; run only if approved, see KIM-90).
+#             of θ_ref (item 4c, δ's θ-dependence; approved 2026-11-19, see KIM-90).
 #
 # Stages:
 #   prep <out> <arm>        (δ, S) for the arm, to <out>/<arm>/prep.jls;

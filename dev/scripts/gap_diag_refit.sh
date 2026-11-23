@@ -4,7 +4,15 @@
 # arms: control n1600 nojensen postmean (gap_diag_refit.jl). Run from a worktree
 # at a pushed commit. SMOKE=1 runs the small version. Per arm: prep, then two
 # chains; the merge waits for every chain. The cross-covariance ensemble runs
-# beside them and its analysis after it. Job ids go to <outdir>/jobs.tsv.
+# beside them and its analysis after it. Job ids go to <outdir>/jobs.tsv, which
+# each run truncates.
+#
+# As run for KIM-90 (outdir /fred/oz022/tkimpson/infercell-kim90-run-2026-11-18):
+#   round 1 at 66431db: this script with control n1600 nojensen (21098787-98).
+#   round 2 at 66431db, by hand, appending to jobs.tsv: postmean's prep and two
+#   chains as in the loop below (21186223-25), then a merge after both chains
+#   (21186226, recorded as merge2); the cross-covariance jobs were not resubmitted.
+#   round 3 (the full first-order term, PR #189 review): see the KIM-90 note.
 set -euo pipefail
 outdir=$1; shift
 case "$outdir" in */.worktrees/*|*/.claude/worktrees/*) echo "outdir is inside a worktree" >&2; exit 1;; esac
