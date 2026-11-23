@@ -2,30 +2,26 @@
 \label{sec:results}
 
 We need a test system with a real ODE--stochastic boundary, data on both sides of it and a
-known truth. We use a model reduced from a published whole-cell model, with synthetic data, and
-a slice of it, M0, that is small enough for the exact sampler. All results in this paper use
-synthetic data, and the priors are asserted. The truth $\theta^\ast$, the parameter values that
-made a dataset, is always a draw from the prior, never the published values. A truth at the
-published values would agree with priors centred on them by construction.
+known truth. We use the reduced \syn{} model, cut down from a published whole-cell model, and
+fit it to synthetic data. A slice of it, M0, is small enough for the exact sampler. All results
+in this paper use synthetic data, and the priors are asserted. The truth $\theta^\ast$ is the
+set of parameter values that made a dataset. It is always a draw from the prior, never the
+published values, because a truth at the published values would agree by construction with
+priors centred on them.
 
 \label{sec:model}
 
-The reduced \syn{} model is reduced from the well-stirred \syn{} model of Thornburg and
+The reduced \syn{} model comes from the well-stirred \syn{} model of Thornburg and
 coworkers~\cite{thornburg2022fundamental}. The reduction keeps the best-measured region of the
-cell and removes about \pn{model.removed} of it (\cref{fig:model}).
-
-\begin{itemize}
-  \item \textbf{Metabolism:} \pn{model.rxn} reactions in \pn{model.odemodules} ODE
-  modules: glycolysis to lactate, sugar transport and lactate export, nucleotide
-  recycling, and a lumped step for tRNA charging.
-  \item \textbf{Gene expression:} \pn{model.jumprxn} reactions in
-  \pn{model.jumpmodules} jump modules: transcription, transcript decay and
-  translation for \pn{model.genes} genes, and membrane insertion for the one
-  membrane protein, the glucose transporter PtsG.
-  \item \textbf{State:} \pn{model.species} dynamic species and \pn{model.chemostats}
-  held species, each named once in a registry with its initial value, prior width
-  and source.
-\end{itemize}
+cell and removes about \pn{model.removed} of it (\cref{fig:model}). What remains has two
+blocks and a registry of state.
+Metabolism has \pn{model.rxn} reactions in \pn{model.odemodules} ODE modules: glycolysis to
+lactate, sugar transport and lactate export, nucleotide recycling, and a lumped step for tRNA
+charging. Gene expression has \pn{model.jumprxn} reactions in \pn{model.jumpmodules} jump
+modules: transcription, transcript decay and translation for \pn{model.genes} genes, and
+membrane insertion for the one membrane protein, the glucose transporter PtsG. The state is
+\pn{model.species} dynamic species and \pn{model.chemostats} held species. A registry names
+each species once, with its initial value, prior width and source.
 
 The two blocks couple in both directions, as in the published model. Enzyme counts
 set metabolic rates, and the costs of transcription and translation drain the
@@ -33,7 +29,7 @@ nucleotide and charged-tRNA pools. In the other direction, the pools set the
 transcription and translation rate constants at each one-minute rebuild. Membrane
 protein counts set the cell's area and volume. No rate constant appears in both
 blocks, so no parameter carries information across the boundary for free
-(\cref{sec:seam}). This property comes from the published model, not from our reduction.
+(\cref{sec:seam}). This separation comes from the published model, not from our reduction.
 Each departure from the published model is a declared reduction, and
 \cref{app:reductions} lists them.
 
@@ -51,26 +47,28 @@ be compared with these quantities by mistake. The model's purpose is to give a
 real ODE--stochastic boundary from a published whole-cell model, at a size where
 inference is affordable.
 
-\paragraph{The data.} The reduced model is fit to one synthetic dataset of
+\paragraph{The data.} We fit the reduced model to one synthetic dataset of
 \pn{kim92.ncells} cells, run for one cycle of \pn{model.cycle}\,s from a truth $\theta^\ast$
 drawn from the prior. The free parameters $\theta$ are \pn{kim92.ncoord}: the
 \pn{model.genes} promoter strengths, the transcript decay rate, the forward catalytic
 constants of enolase (ENO) and aldolase (FBA), and the bulk assay noise $\sigb$. Every other
-constant stays at its default. Each minute the data record the transcript counts of every
-gene in every cell, and one bulk measurement of the mean over cells for each of
-\pn{mzero.npanel} metabolite pools (\cref{sec:obs}). The fit sees only the first half of the
-cycle, \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, which gives \pn{kim92.nrows} bulk
-rows. The second half is the later horizon on which \cref{sec:reducedpredict} scores the
+constant stays at its default. Each minute, the data record the transcript counts of every
+gene in every cell. They also record one bulk measurement for each of \pn{mzero.npanel}
+metabolite pools, the mean over cells (\cref{sec:obs}). The fit sees only the first half of the
+cycle: \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, which give \pn{kim92.nrows} bulk
+rows. The second half is the later horizon, on which \cref{sec:reducedpredict} scores the
 predictions, and the data never see it. These observations are generous: exact counts, in
 every cell, every minute. \Cref{sec:ladder} makes them less so.
 
-\paragraph{M0, the slice for an exact check.} An exact posterior on the reduced model is
-projected at about \pn{cost.fullscale} CPU-hours, above our bound of \pn{cost.kone} CPU-hours
-per posterior (\cref{tab:cost}). So, to check the mixed route against the exact sampler, we use M0: the reduced model cut to \pn{mzero.ngenes} genes over \pn{mzero.horizon}\,s. The two
-genes are GAPD, whose promoter is the best determined, and ptsG, the membrane transporter. All
-metabolism stays. The other enzyme counts are held at their measured copy numbers, and this
-hold is a declared reduction. M0 has \pn{mzero.npar} free parameters: the two promoter
-strengths, the transcript decay rate, the ENO and FBA forward constants, and $\sigb$. Each M0
-dataset has \pn{mzero.cells} cells. M0 is the only system on which the mixed route can be compared
-with the exact sampler. \Cref{sec:posteriors} makes that comparison, and
-\cref{sec:reduced,sec:reducedpredict} then use the mixed route alone on the reduced model.
+\paragraph{M0, the slice for an exact check.} We project that an exact posterior on the
+reduced model would cost about \pn{cost.fullscale} CPU-hours. That is above our bound of
+\pn{cost.kone} CPU-hours per posterior (\cref{tab:cost}). To check the mixed route against the
+exact sampler, we therefore use M0, the reduced model cut to \pn{mzero.ngenes} genes over
+\pn{mzero.horizon}\,s. The two genes are GAPD, whose promoter is the best determined, and
+ptsG, the membrane transporter. All metabolism stays. The other enzyme counts are held at
+their measured copy numbers, and this hold is a declared reduction. M0 has \pn{mzero.npar}
+free parameters: the two promoter strengths, the transcript decay rate, the ENO and FBA
+forward constants, and $\sigb$. Each M0 dataset has \pn{mzero.cells} cells. M0 is the only
+system on which the mixed route can be compared with the exact sampler.
+\Cref{sec:posteriors} makes that comparison, and \cref{sec:reduced,sec:reducedpredict} then
+use the mixed route alone on the reduced model.

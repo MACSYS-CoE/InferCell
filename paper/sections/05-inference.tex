@@ -2,33 +2,31 @@
 \label{sec:reduced}
 
 Can the mixed route give one joint posterior over all the free parameters of the
-reduced model, from single-cell and bulk data? It can. On one synthetic dataset the
-data reach all \pn{kim92.ncoord} parameters, the truth sits inside \pn{kim92.truthin}
-of the \pn{kim92.ncoord} central 90\% intervals, the posterior reproduces its own data,
-and the posterior costs about \pn{kim92.cpuh} CPU-hours
-(\cref{fig:reducedpost,tab:reducedcost}).
+reduced model, from single-cell and bulk data? On one synthetic dataset it can. The
+data reach all \pn{kim92.ncoord} parameters, and the truth sits inside \pn{kim92.truthin}
+of the \pn{kim92.ncoord} central 90\% intervals. The posterior reproduces its own data,
+and it costs about \pn{kim92.cpuh} CPU-hours (\cref{fig:reducedpost,tab:reducedcost}).
 
 \paragraph{The fit.} The free parameters $\theta$ are the \pn{kim92.npromoter} promoter
 strengths, the transcript decay rate, the forward catalytic constants of ENO and FBA, and
 the bulk assay noise $\sigb$, each on the log scale. Every other constant stays at its
 default. The dataset has \pn{kim92.ncells} cells drawn from the true simulator at the true
 parameters $\theta^\ast$. The fit sees the first half of the cycle, \pn{kim92.nsaves}
-saves up to \pn{kim92.fitend}\,s, and the bulk factor has \pn{kim92.ppcrows} rows:
-17 pools at each save. The rest of the cycle is the later horizon, held out for
+saves up to \pn{kim92.fitend}\,s. Its bulk factor has \pn{kim92.ppcrows} rows, 17 pools
+at each save. The rest of the cycle is the later horizon, held out for
 \cref{sec:reducedpredict}. The route is the one defined in \cref{sec:api}, with $\delta$
 and $S$ computed once from a reference ensemble of the exact hybrid
-(\cref{sec:meanfield}). We ran \pn{kim92.nchains} chains of the No-U-Turn Sampler. The
-pass criteria were fixed before the dataset was drawn. \Cref{sec:methods} gives the
-settings.
+(\cref{sec:meanfield}). We ran \pn{kim92.nchains} chains of the No-U-Turn Sampler, with
+pass criteria fixed before the dataset was drawn. \Cref{sec:methods} gives the settings.
 
-\paragraph{Convergence.} The criterion is the rank-normalised $\Rhat$ at most
+\paragraph{Convergence.} The pass criterion is a rank-normalised $\Rhat$ of at most
 \pn{kim92.rhatgate} and a bulk effective sample size of at least \pn{kim92.essgate} on
 every parameter, after at most one extension of the chains. After the first
-\pn{kim92.firstdraws} kept draws per chain the check failed on two of the
+\pn{kim92.firstdraws} kept draws per chain, the check failed on two of the
 \pn{kim92.ncoord} parameters, a promoter strength and ENO, with a worst $\Rhat$ of
 \pn{kim92.rhatfirst}. No chain was stuck. On both parameters the four chain means agreed
-to within about a tenth of a posterior standard deviation, and the per-chain standard
-deviations differed by up to a quarter, which $\Rhat$ is sensitive to at this length.
+to within about a tenth of a posterior standard deviation (SD). The per-chain SDs
+differed by up to a quarter, and at this length $\Rhat$ is sensitive to that difference.
 After the one extension, to \pn{kim92.extdraws} kept draws per chain, the worst $\Rhat$
 is \pn{kim92.rhat} and the smallest bulk effective sample size is \pn{kim92.essmin}.
 All results below pool these \pn{kim92.ndraws} draws.
@@ -44,62 +42,59 @@ which also have the tightest priors. No marginal stays at its prior. The only st
 posterior correlation is \pn{kim92.corr}, between the GAPD promoter and the decay rate.
 The truth $\theta^\ast$ falls inside the central 90\% interval for \pn{kim92.truthin} of
 the \pn{kim92.ncoord} parameters (\cref{fig:reducedpost}B). The one outside is a promoter
-strength, at \pn{kim92.outz} posterior standard deviations. There is one truth, so this
-count is not a coverage rate.
+strength, at \pn{kim92.outz} posterior SD. There is one truth, so this count is not a
+coverage rate.
 
 \paragraph{The promoters sit low.} Of the \pn{kim92.npromoter} promoter strengths,
-\pn{kim92.promlow} have posterior means below the truth (\cref{fig:reducedpost}B). Their mean standardised error,
-(posterior mean $-$ truth)/posterior SD, is \pn{kim92.promz}. If the
-\pn{kim92.npromoter} errors were independent and calibrated, their mean would be zero to
-within its standard error. The observed mean is about \pn{kim92.promzse} standard errors
-from zero. The maximum a posteriori estimate
-has the same shift, with a mean standardised error of \pn{kim92.mapz}. So the shift
-comes from the likelihood on this dataset, not from the sampler. One dataset cannot
-separate the two possible causes. The first is noise in this dataset that every promoter
-shares, for example through the common bulk scale. The second is a bias from fitting the
-mean-field bulk likelihood to data from the exact hybrid. A second dataset would
-tell them apart, and we have not run one. The scored predictions of
-\cref{sec:reducedpredict} are read with this shift in mind.
+\pn{kim92.promlow} have posterior means below the truth (\cref{fig:reducedpost}B). Their
+mean standardised error, (posterior mean $-$ truth)/posterior SD, is \pn{kim92.promz}. If
+the \pn{kim92.npromoter} errors were independent and calibrated, their mean would be zero
+to within its standard error. The observed mean is about \pn{kim92.promzse} standard
+errors from zero. The maximum a posteriori (MAP) estimate has the same shift, with a mean
+standardised error of \pn{kim92.mapz}. So the shift comes from the likelihood on this
+dataset, not from the sampler. One dataset cannot separate the two possible causes. The
+first is noise in this dataset that every promoter shares, for example through the common
+bulk scale. The second is a bias from fitting the mean-field bulk likelihood to data from
+the exact hybrid. A second dataset would tell them apart, and we have not run one. We read
+the scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
-\paragraph{The posterior reproduces its own data.} For each of the
-\pn{kim92.ppcrows} bulk rows we drew replicate data from the route's own bulk model at
-posterior draws, and asked whether the observed value lies in the central 99\% band.
-\pn{kim92.ppcout} rows lie outside, against a limit of \pn{kim92.ppclimit} fixed in
-advance and about \pn{kim92.ppcexpect} expected by chance (\cref{fig:reducedpost}C). The
-rows outside spread across the record. This check tests whether the fitted likelihood
-reproduces the data. It does not test the mean-field approximation against the exact
-hybrid, and on the reduced model the mixed route has no calibration test of the kind
+\paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
+bulk rows, we drew replicate data from the route's own bulk model at posterior draws and
+asked whether the observed value lies in the central 99\% band. \pn{kim92.ppcout} rows
+lie outside, against a limit of \pn{kim92.ppclimit} fixed in advance and about
+\pn{kim92.ppcexpect} expected by chance (\cref{fig:reducedpost}C). The rows outside
+spread across the record. This check tests whether the fitted likelihood reproduces the
+data. It does not test the mean-field approximation against the exact hybrid. On the
+reduced model, the mixed route also has no calibration test of the kind
 \cref{sec:posteriors} ran on M0. The scored predictions of \cref{sec:reducedpredict},
 against the true simulator, are the test of the approximation.
 
-\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace standard
-deviation at the maximum a posteriori estimate is \pn{kim92.laplo}--\pn{kim92.laphi}
-times the posterior standard deviation. ENO and FBA depart from this picture in one
-respect. Their maximum a posteriori values lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz}
-posterior standard deviations from their posterior means. This run cannot say whether
+\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD at the
+MAP estimate is \pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. ENO and FBA
+depart from this picture in one respect. Their MAP values lie \pn{kim92.mapenoz} and
+\pn{kim92.mapfbaz} posterior SD from their posterior means. This run cannot say whether
 their posteriors are skewed or the optimiser stopped short.
 
 \paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
-(\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior and
-far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}). The
-limit is wall-clock, because each chain is one serial job. Each chain took
+(\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
+is far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
+The limit is wall-clock time, because each chain is one serial job. Each chain took
 \pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation
 and \pn{kim92.firstdraws} kept iterations, and \pn{kim92.extwalllo}--\pn{kim92.extwallhi}\,h
-more for the extension. One leapfrog step, one gradient of the log density, costs \pn{kim92.grad}\,s, and
-each iteration takes about \pn{kim92.steps} steps. A warm diagonal metric made the
-run feasible. We took it from the Hessian at the maximum a posteriori estimate, by finite
-differences of the gradient. Under a unit metric the Hessian's condition number is
-\pn{kim92.kappaunit}, and under the warm metric it is \pn{kim92.kappawarm}. A probe chain
+more for the extension. One leapfrog step, one gradient of the log density, costs
+\pn{kim92.grad}\,s, and each iteration takes about \pn{kim92.steps} steps. A warm diagonal
+metric made the run feasible. We took this metric from the Hessian at the MAP estimate, by
+finite differences of the gradient. Under a unit metric the Hessian's condition number is
+\pn{kim92.kappaunit}; under the warm metric it is \pn{kim92.kappawarm}. A probe chain
 under the unit metric projected to \pn{kim92.probedays} days per chain.
 
 \paragraph{The modular arm.} The modular arm asks whether a two-stage fit lands close to
-the joint posterior. It has two variants. The factor cut fits the transcript
-factor over all \pn{kim92.ncoord} parameters in stage one, then fits ENO, FBA and $\sigb$
-to the bulk factor over the stage-one draws. The data plug-in takes the transcription
-rates in stage one from the observed ATP and GTP panel, with no ODE solve. We call a
-variant close when every parameter's mean shifts by at most \pn{kim116.shiftgate} joint
-posterior standard deviations and its contraction is within \pn{kim116.contrgate} of the
-joint's. \todo{KIM-116: whether each variant is close to the joint posterior, its
+the joint posterior. It has two variants. The factor cut fits the transcript factor over
+all \pn{kim92.ncoord} parameters in stage one. It then fits ENO, FBA and $\sigb$ to the
+bulk factor over the stage-one draws. The data plug-in takes the transcription rates in
+stage one from the observed ATP and GTP panel, with no ODE solve. We call a variant close
+when every parameter's mean shifts by at most \pn{kim116.shiftgate} joint posterior SD
+and its contraction is within \pn{kim116.contrgate} of the joint's. \todo{KIM-116: whether each variant is close to the joint posterior, its
 CPU-hours (\cref{tab:reducedcost}), and what the result means for the cost of a
 reduced-model posterior. Gradient costs at the truth, measured on one node (Slurm
 21196497): \pn{kim116.gradjoint}\,s for the joint, \pn{kim116.gradcut}\,s for stage one

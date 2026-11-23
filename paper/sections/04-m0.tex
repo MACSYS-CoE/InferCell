@@ -15,28 +15,36 @@ less. On one dataset a gap remains between them, and we state it with its leads.
 \paragraph{Both routes are calibrated.} A test against one known truth, as in DREAM8
 \cite{karr2015summary}, cannot show whether a posterior's width is right. So we drew
 \pn{vseven.R} parameter sets from the prior, simulated one M0 dataset from each, and fitted
-each dataset by each route. Over many datasets, a 90\% credible interval must then contain
+each dataset with both routes. Over many datasets, a 90\% credible interval must then contain
 the truth about 90\% of the time \cite{talts2018validating}. For each parameter we compared
 the empirical CDF of the ranks of the truth with a simultaneous band
 \cite{sailynoja2022graphical}, at a joint level of 95\% over the \pn{mzero.npar} parameters.
 On both routes all \pn{mzero.npar} parameters stay inside their bands (\cref{fig:approx}B).
-The largest deviation is \pn{vseven.maxdev} on the exact route and \pn{mix.sbcmax} on the
-mixed route, both for the transcript decay rate, where the band allows \pn{vseven.band}. At
-this size the test detects only large miscalibration. A sampler that returned the prior
-would also pass, but the exact posterior does contract: on one dataset its variance is about
-\pn{vsix.shrinklo}--\pn{vsix.shrinkhi}\% below the prior's. Over the \pn{mix.R} datasets the
-largest mean bias of the mixed route against the exact posteriors is
-\pn{mix.biasmax}~$\pm$~\pn{mix.biasse} posterior standard deviations, and the median ratio of
-their standard deviations is between \pn{mix.sdlo} and \pn{mix.sdhi} per parameter.
+The largest deviation on each route is for the transcript decay rate: \pn{vseven.maxdev} for
+the exact sampler and \pn{mix.sbcmax} for the mixed route, where the band allows
+\pn{vseven.band}. At this size the test detects only large miscalibration. A sampler that
+returned the prior would also pass. But the exact posterior does contract: on one dataset
+its variance is about \pn{vsix.shrinklo}--\pn{vsix.shrinkhi}\% below the prior's. Over the
+\pn{mix.R} datasets, the largest mean bias of the mixed route against the exact posteriors is
+\pn{mix.biasmax}~$\pm$~\pn{mix.biasse} posterior standard deviations. The median ratio of
+the two routes' standard deviations is between \pn{mix.sdlo} and \pn{mix.sdhi} per parameter.
 
-\paragraph{The mixed route is far cheaper.} A mixed posterior costs a median of
+This calibration holds for M0 only, and not all of its replicates mixed well. In
+\pn{vseven.lowess} of the \pn{vseven.R} exact replicates the smallest bulk effective sample
+size is below 100, and autocorrelated draws can distort ranks. In \pn{mix.lowconv} of the
+\pn{mix.R} mixed replicates the two chains fall short of $\Rhat \le 1.02$ and a bulk effective
+sample size of 100. Their worst $\Rhat$ is \pn{mix.rhat} and their smallest effective sample
+size is \pn{mix.ess}. Without these replicates the mixed calibration result is unchanged. We
+report this comparison as a sensitivity check only, because dropping replicates is a selection.
+
+\paragraph{The mixed route is far cheaper.} A posterior from the mixed route costs a median of
 \pn{mix.cpuh} CPU-hours (range \pn{mix.cpuhlo}--\pn{mix.cpuhhi}), against
 \pn{ften.cpuh}--\pn{cost.exacthi} for a production-length exact chain (\cref{tab:cost}). The
-cost is the number of simulations, not the time of one: one cycle of the reduced model takes
-\pn{model.cyclewall}\,s, and a fast implementation of the full \syn{} model is the subject of a
-companion paper \cite{kimpson2026whole}. On the reduced model an exact
-posterior is out of reach (\cref{sec:model}), and the mixed route is what makes the posterior
-of \cref{sec:reduced} affordable.
+cost lies in the number of simulations rather than the time of one. One cycle of the reduced
+model takes \pn{model.cyclewall}\,s, and a fast implementation of the full \syn{} model is the
+subject of a companion paper \cite{kimpson2026whole}. On the reduced model an exact posterior
+is out of reach (\cref{sec:model}), and the mixed route makes the posterior of
+\cref{sec:reduced} affordable.
 
 \begin{table}[t]
 \caption{\textbf{The mixed route costs about \pn{mix.speedup} times less than the exact sampler on M0.} CPU-hours per posterior. The mixed route's value is a median over completed jobs, and a fault in the starting optimiser lost another \pn{mix.lost} CPU-hours across the calibration run.}
@@ -55,34 +63,29 @@ Mixed & \pn{mix.cpuh} & \cref{tab:reducedcost} \\
 \end{table}
 
 \paragraph{A gap remains on one dataset.} Calibration over many datasets does not exclude a
-gap on one, so we also compared the routes on one M0 dataset of \pn{mzero.cells} cells
+gap on one. So we also compared the routes on one M0 dataset of \pn{mzero.cells} cells
 (\cref{fig:approx}A). The exact sampler ran \pn{vsix.chains} chains of \pn{vsix.sweeps}
-sweeps, with rank-normalised $\Rhat$ \cite{vehtari2021rank} at most \pn{vsix.rhat} and bulk
-effective sample size at least \pn{vsix.ess} for every parameter. On this dataset the ptsG
-promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations
-from the exact posterior, about \pn{mix.gapfloor} above the largest distance between chains
-run under identical settings. Re-estimating the bulk covariance $S$ at the posterior mean
-does not close the gap (\cref{app:sfixed}). $S$ is the covariance of the bulk around the mean
-field, computed once from an ensemble of the exact hybrid (\cref{sec:meanfield}). We have not found its cause.
+sweeps. Every parameter has a rank-normalised $\Rhat$ \cite{vehtari2021rank} of at most
+\pn{vsix.rhat} and a bulk effective sample size of at least \pn{vsix.ess}. On this dataset the
+ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard
+deviations from the exact posterior. This gap is about \pn{mix.gapfloor} above the largest
+distance between chains run under identical settings. The mixed route uses the covariance $S$
+of the bulk around the mean field, computed once from an ensemble of the exact hybrid
+(\cref{sec:meanfield}). Re-estimating $S$ at the posterior mean does not
+close the gap (\cref{app:sfixed}). We have not found the gap's cause.
 \todo{KIM-90: state the two leads once KIM-90 merges, without claiming a diagnosis. First,
 the mixed route may count the transcripts' information twice: the bulk is the mean of the
 same cells whose transcripts it also scores. This bears on the posterior's width; its effect
 on where the posterior sits is not measured. Second, the bulk factor itself, for the decay
 rate.}
 
-\paragraph{Where the detail is.} \Cref{app:supporting} gives the exact sampler's coverage (\cref{app:posteriors})
-and a production-length chain against the long run. The mixed route rests on the mean-field
-swap, whose largest cost is for GTP, \pn{jg.gtplo}--\pn{jg.gtphi}\% below the population mean;
-without the offset $\delta$ that corrects it, the decay rate would move by
-\pn{jg.biaslo}--\pn{jg.biashi} posterior standard deviations (\cref{sec:jensen}). The coupling is
-two-way, but the information points mostly one way: a linearised bound puts ptsG's posterior
-standard deviation from metabolites alone at \pn{info.ptsg} of its prior's, while transcripts
-alone leave enolase's at \pn{info.enotx} (\cref{sec:info}). \Cref{app:sfixed} gives the effect of holding $S$ fixed, and
-\cref{app:crossed} crosses each route's posterior with each forward description. The
-calibration result holds for M0 only, and its replicates did not all mix well. In
-\pn{vseven.lowess} of the \pn{vseven.R} exact replicates the smallest bulk effective sample
-size is below 100, and autocorrelated draws can distort ranks. In \pn{mix.lowconv} of the
-\pn{mix.R} mixed replicates the two chains fall short of $\Rhat \le 1.02$ and a bulk effective
-sample size of 100, with worst $\Rhat$ \pn{mix.rhat} and smallest effective sample size
-\pn{mix.ess}. The mixed calibration result is unchanged without them, as a sensitivity check
-only, since dropping them is a selection.
+\paragraph{Where the detail is.} \Cref{app:supporting} gives the exact sampler's coverage
+(\cref{app:posteriors}) and a production-length chain against the long run. The mixed route
+rests on the mean-field swap. The swap costs most for GTP, which it puts
+\pn{jg.gtplo}--\pn{jg.gtphi}\% below the population mean. An offset $\delta$ corrects this
+bias; without it the decay rate would move by \pn{jg.biaslo}--\pn{jg.biashi} posterior
+standard deviations (\cref{sec:jensen}). The coupling is two-way, but the information points
+mostly one way. A linearised bound puts ptsG's posterior standard deviation from metabolites
+alone at \pn{info.ptsg} of its prior's, while transcripts alone leave enolase's at
+\pn{info.enotx} (\cref{sec:info}). \Cref{app:sfixed} gives the effect of holding $S$ fixed, and
+\cref{app:crossed} crosses each route's posterior with each forward description.

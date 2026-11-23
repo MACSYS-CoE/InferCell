@@ -4,21 +4,21 @@
 \subsection{Model form: what the budgets leave out}
 \label{sec:modelform}
 
-In \IC{} each departure from the published \syn{} model is a declared reduction: an object
-with a category and a reason, collected from the edges, the parameter records and the
-modules (\cref{sec:design}). This appendix lists the declared reductions of the reduced
-model and of M0, and says what we know of each one's effect on $Q$, the lactate exported
-over one cycle.
+In \IC{} each departure from the published \syn{} model is a declared reduction. A
+declared reduction is an object with a category and a reason, collected from the edges,
+the parameter records and the modules (\cref{sec:design}). This appendix lists the
+declared reductions of the reduced model and of M0. For each one it says what we know of
+its effect on $Q$, the lactate exported over one cycle.
 
 A prediction's uncertainty has four sources: inferred parameters, held parameters,
-intrinsic noise and model form. The first three have numbers: on the reduced model's joint
-posterior in \cref{sec:reducedpredict}, and in the budget transferred from M0 in
-\cref{sec:budget}. Model form does not have one. \Cref{tab:modelform} marks each reduction
+intrinsic noise and model form. The first three have numbers, on the reduced model's joint
+posterior in \cref{sec:reducedpredict} and in the budget transferred from M0 in
+\cref{sec:budget}. Model form has none. \Cref{tab:modelform} marks each reduction
 by what we know of its effect on $Q$. Only the formalism swap is measured, because only it
 has a column in M0's crossed design (\cref{app:crossed}). Every other reduction is declared
-and not bounded, so neither budget covers the full uncertainty a modeller should carry.
+and not bounded. So neither budget covers the full uncertainty a modeller should carry.
 The true simulator of \cref{sec:reducedpredict} is the exact hybrid of the same reduced
-model. It shares the reductions of the model itself, so the scores there do not test those.
+model. It shares the model's own reductions, so the scores there do not test them.
 
 \begin{table*}[t]
 \caption{\textbf{The model-form table.} Counts come from \texttt{reduction\_declarations} on the
@@ -46,15 +46,15 @@ Other module notes (\pn{red.model_note} on the reduced model, \pn{mz.model_note}
 \paragraph{The one-way reduction on the reduced model.} The elasticities that justify this
 reduction hold while GTP stays well above $K_d$, the dissociation constant of RNA
 polymerase for its nucleotides (\cref{sec:info}). In the run of the transferred budget, at the
-default width, \pn{kd.lo}--\pn{kd.hi}\% of baseline cells fall below it at least once, and
-\pn{kd.zero}\% reach exactly zero. Clip counts give a lower limit on the time spent below it:
+default width, \pn{kd.lo}--\pn{kd.hi}\% of baseline cells fall below $K_d$ at least once, and
+\pn{kd.zero}\% reach exactly zero. Clip counts give a lower limit on the time spent below $K_d$:
 \pn{kd.boundn} of \pn{budget.ncellsbase} cells spend more than \pn{kd.boundpct}\% of their
-post-debit instants at zero. This bound says nothing about time between zero and the
-threshold, so it undercounts. An earlier screen, with the inferred parameters drawn from
-their priors rather than this posterior, found GTP below the threshold at
+post-debit instants at zero. This bound misses the time between zero and $K_d$, so it
+undercounts. An earlier screen drew the inferred parameters from their priors rather than
+from this posterior. It found GTP below $K_d$ at
 \pn{kd.screenlo}--\pn{kd.screenhi}\% of rebuild instants in \pn{kd.screenn} of 20 draws,
 and at none in \pn{kd.screenzero}. On those draws the basis does not hold over the full
-cycle, whatever the dose. On M0 the same screen found GTP below the threshold at no
+cycle, whatever the dose. On M0 the same screen found GTP below $K_d$ at no
 instant at the chosen dose, so the M0 check does not cover this caveat. In the scored
 predictions of \cref{sec:reducedpredict}, \pn{kim95.clip}\% of baseline cells clip, at the truth
 and under the joint posterior alike.

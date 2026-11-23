@@ -3,7 +3,7 @@
 
 \IC{} is written in Julia \cite{bezanson2017julia} and uses the SciML solvers for
 ODEs and jump processes \cite{rackauckas2017differentialequations}. This section
-gives the design ideas, and the documentation gives the full interface
+gives the design ideas. The documentation gives the full interface
 (see Software and data availability). \Cref{fig:architecture} shows the parts and how they
 connect.
 
@@ -22,8 +22,8 @@ a posterior from either route, a forward description and an optional interventio
 
 Each parameter in \IC{} is an object that holds a value, a prior distribution, a
 role and a record of its source. The record names the file, the table and the
-identifier the value came from, and the values that other files give for the same
-identifier. Each parameter also has one of four labels for how well its prior is
+identifier the value came from. It also holds the values that other files give for the same
+identifier. Each parameter has one of four labels for how well its prior is
 informed:
 \begin{itemize}
   \item \emph{balanced}: the value and width come from a balanced parameter table;
@@ -33,19 +33,19 @@ informed:
 \end{itemize}
 We write $\theta$ for the free parameters of a composed model; the reduced model has
 \pn{kim92.ncoord} (\cref{sec:model}).
-The loader does not choose silently between two files that disagree. It stops and
-asks for a decision, and the decision is then part of the record. A user can ask
-the composed model which priors no measurement supports, and the answer is in the
+When two files disagree, the loader does not choose between them silently. It stops and
+asks for a decision, and the decision becomes part of the record. A user can ask
+the composed model which priors no measurement supports. The answer is in the
 model, not in a supplement.
 
 \subsection{Modules couple through typed edges}
 
-A module declares its states, its parameters and its formalism: ODE or jump. It
+A module declares its states, its parameters and its formalism, which is ODE or jump. It
 also declares how it touches the rest of the cell. \IC{} has \pn{fw.edgekinds} kinds
 of coupling edge (\cref{tab:edges}). Each kind says what crosses the edge and on
-which clock: inside the ODE solve, at the one-second handshake between the two
-blocks, or at the one-minute rebuild of the stochastic rate constants. The set of
-kinds is closed. A module cannot
+which clock. The three clocks are the ODE solve, the one-second handshake between the two
+blocks and the one-minute rebuild of the stochastic rate constants. The set of
+kinds is closed, so a module cannot
 invent a new kind of coupling without a change to the framework.
 
 \begin{table}[t]
@@ -71,17 +71,18 @@ Clamped & a dependence replaced by a constant & declared only \\
 Before anything runs, a resolver reads all the edges and builds the coupling graph.
 It checks the composition for about \pn{fw.resolvererrors} kinds of error. Examples are a state that
 two modules integrate, an edge that names a species no module owns, and a moiety
-that is consumed but never produced. In complete mode it refuses to build a model
-with an unowned state or a stranded moiety, so a composition that runs is one the
+that is consumed but never produced. In complete mode the resolver refuses to build a model
+with an unowned state or a stranded moiety. A composition that runs is therefore one the
 framework has checked.
 
 \subsection{Every reduction is declared}
 
-In \IC{} each departure from the published model is an object, not a comment. A reduction label has a category (one of
-\pn{fw.redcats}, such as a clamp, a lumped step, a smoothed counter or an asserted
-prior) and a reason. The framework collects labels from three places: the edges,
+In \IC{} each departure from the published model is an object, not a comment. Each such object,
+a reduction label, has a category and a reason. There are
+\pn{fw.redcats} categories, such as a clamp, a lumped step, a smoothed counter or an asserted
+prior. The framework collects labels from three places: the edges,
 the parameter records and the modules. One call returns the full list for a
-composed model, and the appendix gives the list for the reduced model and M0
+composed model. The appendix gives the list for the reduced model and M0
 (\cref{sec:modelform}). We measure the effect of only one entry, the mean-field swap of
 \cref{sec:twodesc}.
 
@@ -92,29 +93,30 @@ Gene expression in \IC{} has one interface and two descriptions.
 
 \paragraph{The exact hybrid.} The stochastic modules run as a jump process, and the
 metabolic modules run as ODEs. A driver steps the two blocks in turn, as the
-published model does, with a one-second handshake and a one-minute rebuild of the
+published model does. It uses a one-second handshake and a one-minute rebuild of the
 stochastic rate constants (\cref{sec:driver}). We did not
-wrap this in one solver object. A single jump problem over an ODE problem would let the
+wrap the two blocks in one solver object. A single jump problem over an ODE problem would let the
 propensities follow the pools continuously, and that is a different model from the published
 one. The exact hybrid is the true simulator of our synthetic data. The driver can also record a stochastic path
 and replay it bit for bit at every handshake, which the exact sampler
 (\cref{sec:sampler}) needs.
 
 \paragraph{The mean-field swap.} The gene-expression network of the model is first
-order. So, given the rate constants, the equations for the means of the transcript and protein counts close exactly, as linear ODEs. \IC{} derives these equations from the same propensities
+order. So, given the rate constants, the equations for the means of the transcript and protein
+counts close exactly, as linear ODEs. \IC{} derives these equations from the same propensities
 and update rules that the jump modules use, so the two descriptions cannot drift
-apart. With the swap, the composed model becomes one ODE problem with callbacks for the
+apart. With the swap, the composed model becomes one ODE problem, with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
 \cite{revels2016forwardmode} passes through this problem and its callbacks. We test
 the gradients against central differences to a relative error of $\pn{fw.adtol}$.
-
-\paragraph{What is and is not differentiable.} The exact hybrid is not
-differentiable, because the published model is not. It clips a drained pool at zero and
-rounds pools to whole molecules, which makes it a step function of its parameters. The exact
-sampler uses no gradients, and the mean-field description gives them where inference
-needs them.
 The cost of the swap is a declared reduction. We measure it on M0, where it is largest
 for GTP, and the appendix gives the detail (\cref{sec:jensen}).
+
+\paragraph{What is and is not differentiable.} The exact hybrid is not
+differentiable, because the published model is not. The published model clips a drained pool
+at zero and rounds pools to whole molecules, which makes it a step function of its parameters.
+The exact sampler uses no gradients, and the mean-field description gives them where inference
+needs them.
 
 \subsection{Inference across a boundary with no shared parameter}
 \label{sec:seam}
@@ -129,71 +131,79 @@ Three problems are often treated as one.
   parameters of another, when the two share no parameter?
 \end{itemize}
 The third problem is the hard one. Write $u$ for the trajectory at the interface: enzyme
-counts and drains in one direction, pools in the other. For a pair of modules $A \to B$ with
-data $D_A$ and $D_B$, the forward message is $p(u \mid D_A)$. The backward message is a
-likelihood over the interface. For a one-way coupling, with $D_A$ and $D_B$ independent given $u$, \begin{equation}
+counts and drains in one direction, pools in the other. Take a pair of modules $A \to B$ with
+data $D_A$ and $D_B$. The forward message is $p(u \mid D_A)$, and the backward message is a
+likelihood over the interface. For a one-way coupling, with $D_A$ and $D_B$ independent
+given $u$, the backward message is
+\begin{equation}
   \lambda_B(u) = \int p(D_B \mid \theta_B, u)\, p(\theta_B)\, \mathrm{d}\theta_B .
 \end{equation}
-The posterior over $u$ is proportional to $p(u \mid D_A)\,\lambda_B(u)$. With feedback, as here, the messages alternate rather than close in one pass. A
-\emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. It changes the
+The posterior over $u$ is then proportional to $p(u \mid D_A)\,\lambda_B(u)$. With feedback,
+as in our model, the messages alternate and do not close in one pass. A
+\emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. The cut changes the
 target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
 reduction} instead removes a weak edge from the simulator and keeps full Bayesian
-inference. For cross-module inference, only the second kind keeps the information we
-want: metabolite data that inform a gene-expression parameter.
+inference. Only the dynamical reduction keeps the information that cross-module inference
+needs, which here is metabolite data that inform a gene-expression parameter.
 
-The standard modular methods pass messages through shared parameters: cuts and
+The standard modular methods pass messages through shared parameters. They include cuts and
 semi-modular inference \cite{plummer2015cuts,carmona2020semimodular}, and Markov
-melding \cite{goudie2019joining}. In the reduced model of \cref{sec:model} no parameter is shared, so
-these methods have nothing to pass while we condition on the stochastic path. The
+melding \cite{goudie2019joining}. In the reduced model of \cref{sec:model} no parameter is shared.
+While we condition on the stochastic path, these methods therefore have nothing to pass. The
 exact sampler does what is left: it conditions on the path, and it updates the path
 with all the data. In this sense the exact sampler is modular inference with nothing
 dropped. When the paths are integrated out, a gene-expression parameter appears in
 both the transcript factor and the metabolite factor. The mixed route uses this
-structure. The modular arm of \cref{sec:reduced} tests two-stage fits that cut part of it,
-against the joint posterior.
+structure. The modular arm of \cref{sec:reduced} tests, against the joint posterior,
+two-stage fits that cut part of it.
 
 \subsection{Inference attaches to each data stream}
 \label{sec:api}
 
-A data stream declares its observation model. In this paper there are two streams:
-exact transcript counts per cell, and bulk metabolite measurements of the mean over
-many cells, with lognormal assay noise of scale $\sigb$, itself a free parameter
+A data stream declares its observation model. This paper has two streams. The first is
+exact transcript counts per cell. The second is bulk metabolite measurements of the mean over
+many cells, with lognormal assay noise of scale $\sigb$, which is itself a free parameter
 (\cref{sec:obs}). \IC{} has two inference routes for these streams.
 
 \begin{itemize}
   \item \textbf{The exact route.} The exact sampler is a three-block Gibbs sampler that
   conditions on the stochastic path. It updates the paths by conditional sequential Monte
-  Carlo \cite{andrieu2010particle}, and the constants by slice sampling and exact
+  Carlo \cite{andrieu2010particle}. It updates the constants by slice sampling and by exact
   one-dimensional conditionals (\cref{sec:sampler}).
-  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a birth--death likelihood given the mean-field pools, and the bulk metabolites get a Gaussian likelihood centred on the mean-field model, in the spirit of a synthetic likelihood \cite{wood2010statistical,price2018bayesian}. The route uses the gradients of the swap with the No-U-Turn
-  Sampler \cite{hoffman2014nouturn}. It is an approximation. \Cref{sec:posteriors} checks
+  \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a
+  birth--death likelihood given the mean-field pools. The bulk metabolites get a Gaussian
+  likelihood centred on the mean-field model, in the spirit of a synthetic likelihood
+  \cite{wood2010statistical,price2018bayesian}. The route samples with the No-U-Turn
+  Sampler \cite{hoffman2014nouturn}, using the gradients of the mean-field swap. It is an
+  approximation. \Cref{sec:posteriors} checks
   it against the exact sampler on M0, and \cref{sec:reduced} uses it alone on the reduced
   model.
 \end{itemize}
 
 One function, \texttt{infer}, runs inference, and \texttt{inference\_route} chooses
 the route from the composition and the data. An all-ODE composition with
-time-series data takes the No-U-Turn Sampler, and an all-jump composition takes
+time-series data takes the No-U-Turn Sampler. An all-jump composition takes
 approximate Bayesian computation. A hybrid composition with cell and bulk data has
-the two routes above, and the user must name one, because one is exact and the other an
-approximation. Anything else is refused, with an error that says why. The cell-data routes
-are built for this model's first-order gene expression. We have run both on M0, and the mixed
-route alone on the reduced model.
+the two routes above. The user must name one of them, because one is exact and the other is an
+approximation. \texttt{inference\_route} refuses any other combination, with an error that says
+why. The cell-data routes are built for this model's first-order gene expression. We have run
+both on M0, and the mixed route alone on the reduced model.
 
 \subsection{From posterior to prediction}
 \label{sec:predictapi}
 
 The function \texttt{predict} takes a posterior, a forward description and an optional
-intervention, and it returns a predictive distribution for a chosen quantity. In
-\cref{sec:reducedpredict} the posterior is the reduced model's joint posterior, the forward
+intervention. It returns a predictive distribution for a chosen quantity. In
+\cref{sec:reducedpredict} the posterior is the reduced model's joint posterior, and the forward
 description is the exact hybrid. The main quantity is $Q$, the extracellular lactate at
 \pn{model.cycle}\,s as a population mean over cells. \Cref{app:m0predict} uses the same
 function on M0.
 
-The composition it predicts on may have parameters the fit did not include. We call those the
-held parameters $\theta_H$, and the fitted ones the inferred parameters $\theta_I$. The held
-parameters get only their priors and a viability rule $V$. The distribution is a cut in the sense of Plummer
-\cite{plummer2015cuts}, with the first module a different model $M_{\mathrm{fit}}$ from the second,
+The composition that \texttt{predict} runs may have parameters the fit did not include. We call
+those the held parameters $\theta_H$, and the fitted ones the inferred parameters $\theta_I$.
+The held parameters get only their priors and a viability rule $V$. The predictive distribution is
+then a cut in the sense of Plummer
+\cite{plummer2015cuts}. Its first module is a model $M_{\mathrm{fit}}$ that differs from the second,
 \begin{equation}
   \begin{aligned}
   p_{\mathrm{cut}}(\theta_I, \theta_H \mid D, V)
@@ -201,16 +211,16 @@ parameters get only their priors and a viability rule $V$. The distribution is a
   &\quad \times p(\theta_H \mid \theta_I, V),
   \end{aligned}
 \end{equation}
-and not a joint posterior under the second model. The data do not update
+and the cut is not a joint posterior under the second model. The data do not update
 $\theta_H$, and $\theta_H$ does not feed back into $\theta_I$. On the reduced model the fit
-includes every free parameter, so $\theta_H$ is empty and \texttt{predict} returns the posterior
+includes every free parameter. So $\theta_H$ is empty, and \texttt{predict} returns the posterior
 predictive. The cut acts in \cref{app:m0predict}, where M0's posterior is carried to the reduced
-model and a variance split says how much of the prediction's parameter uncertainty belongs to
-each block (\cref{sec:prediction}).
+model. There, a variance split says how much of the prediction's parameter uncertainty belongs
+to each block (\cref{sec:prediction}).
 
-Which parameters are held is the user's choice. Freeing a fixed constant in its module's
-constructor adds it to $\theta_H$. Here a user releases lactate dehydrogenase's constants and
-records GTP's time course:
+The user chooses which parameters are held. Freeing a fixed constant in its module's
+constructor adds it to $\theta_H$. In the example below, a user releases lactate dehydrogenase's
+constants and records GTP's time course:
 {\footnotesize
 \begin{verbatim}
 ms = d11_models()
@@ -225,6 +235,8 @@ p = predict(ms, posterior;
   n_cells = 4, trajectory = [:M_gtp_c])
 \end{verbatim}
 }
-\noindent The fit already frees ENO and FBA, \texttt{n\_held} is the number of draws of
-$\theta_H$ per draw of $\theta_I$, and reverse constants follow from equilibrium constants. A release is a sensitivity to priors, not a posterior. The appendix
+\noindent The fit already frees ENO and FBA.
+The argument \texttt{n\_held} is the number of draws of
+$\theta_H$ per draw of $\theta_I$. Reverse constants follow from the equilibrium constants.
+A release measures sensitivity to the priors; it is not a posterior. The appendix
 releases \pn{traj.nreleased} constants this way (\cref{sec:trajectories}).

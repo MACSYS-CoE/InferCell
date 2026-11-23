@@ -5,17 +5,18 @@ A posterior is worth having if its predictions carry past the data it was fitted
 how far the joint posterior of \cref{sec:reduced} carries, through \code{predict}
 (\cref{sec:predictapi}), to two things the fit never saw. The first is a later horizon: the
 saves from \pn{kim95.horizonlo} to \pn{model.cycle}\,s, after a fit window that covers the
-first half of the cycle. The second is a knockdown of ptsG, which scales its promoter strength,
-\code{S\_0779}, by $1-d$ at dose $d = \pn{kim95.dose}$ and which the data never contain. We score both against
-the true simulator at $\theta^\ast$, with the prior predictive beside the posterior predictive.
+first half of the cycle. The second is a knockdown of ptsG, which the data never contain. It
+scales the ptsG promoter strength, \code{S\_0779}, by $1-d$ at dose $d = \pn{kim95.dose}$. We
+score both against the true simulator at $\theta^\ast$, with the prior predictive beside the
+posterior predictive.
 
 \paragraph{How the predictions are scored.} Every target is a population mean, the mean over a
-draw's cells, and the truth is the mean over the true simulator's cells at $\theta^\ast$. Three
+draw's cells. The truth is the mean over the true simulator's cells at $\theta^\ast$. Three
 targets are $Q$, the extracellular lactate at \pn{model.cycle}\,s; $Q_{\mathrm{kd}}$, the same
 quantity under the knockdown; and their difference $\Delta Q = Q_{\mathrm{kd}} - Q$. The others are the 17 pools and
 17 transcripts at each of the \pn{kim95.nsaves} saves of the later horizon. Each arm has \pn{kim95.ndraws} parameter draws, with \pn{kim95.cells} cells per
 posterior draw and \pn{kim95.priorcells} per prior draw. The truth has \pn{kim95.ntruth} cells
-for each knockdown arm. We fixed these sizes before any truth was read. The skill is
+for each knockdown arm. We fixed these sizes before any truth was read. The CRPS skill is
 $1 - \mathrm{CRPS}_{\mathrm{post}}/\mathrm{CRPS}_{\mathrm{prior}}$, so 0 means no better than
 the prior. The hit fraction is the share of saves whose true value lies inside the central
 50\% or 90\% interval. The MC share is the part of the spread across draws that is cell noise.
@@ -29,43 +30,44 @@ intervals on $Q$ and $Q_{\mathrm{kd}}$ are $\pm\pn{kim95.qint}\%$ wide, and both
 (\cref{fig:reducedpredict}A). The truth sits \pn{kim95.qz} posterior SD below the median on
 $Q$ and \pn{kim95.qkdz} SD below it on $Q_{\mathrm{kd}}$, inside both 50\% intervals. The
 prior's median is \pn{kim95.priorlow}\% low, and its 90\% interval spans a factor of
-\pn{kim95.priorfactor}. The skill is \pn{kim95.qskill} on both. It is near 1 mostly because the prior is
-so wide, so the finding is that a narrow interval holds the truth. The knockdown's effect is
+\pn{kim95.priorfactor}. The CRPS skill is \pn{kim95.qskill} on both. The skill is near 1 mostly because the prior is
+so wide. The finding is therefore that a narrow interval holds the truth. The knockdown's effect is
 \pn{kim95.dqtruth}, about \pn{kim95.dqshare}\% of $Q$. All of the posterior's width on
-$\Delta Q$ is cell noise (MC share \pn{kim95.dqmc}), so the posterior shows only that the effect
-is small next to one draw's cell noise. Because the effect is this small, covering
+$\Delta Q$ is cell noise (MC share \pn{kim95.dqmc}). The posterior therefore shows only that
+the effect is small next to one draw's cell noise. Because the effect is this small, covering
 $Q_{\mathrm{kd}}$ tests nearly the same thing as covering $Q$. The skill on $\Delta Q$ is
 \pn{kim95.dqskill}, against a prior whose median has the wrong sign. The truth is also less
-sharp than the sizing rule asks. Its standard error is \pn{kim95.sesdlo}--\pn{kim95.sesdhi} of
-the posterior SD on these three targets, above the rule's \pn{kim95.sesdrule}, because the posterior is
-narrower than the sizing passes could see. These hits are therefore read against a truth that is
+sharp than the sizing rule asks. On these three targets its standard error is
+\pn{kim95.sesdlo}--\pn{kim95.sesdhi} of the posterior SD, above the rule's \pn{kim95.sesdrule}.
+The posterior is narrower than the sizing passes could see. These hits are therefore read against a truth that is
 not sharp.
 
 \paragraph{The transcripts are covered, but mostly by cell noise.} On the later horizon,
 \pn{kim95.txin} of the \pn{kim95.nsavesfam} transcript saves lie inside the posterior's 90\%
-interval, and \pn{kim95.txin50}\% inside its 50\% interval. The prior's figures are \pn{kim95.txprior90}\% and
-\pn{kim95.txprior50}\%. We define a species' offset as the median over its saves of the truth minus the
+interval, and \pn{kim95.txin50}\% inside its 50\% interval. For the prior these fractions are
+\pn{kim95.txprior90}\% and \pn{kim95.txprior50}\%. We define a species' offset as the median over its saves of the truth minus the
 posterior median, in posterior SD, so a positive offset means the truth lies above the
 prediction. Every transcript's offset is within \pn{kim95.txzmax} SD
-(\cref{fig:reducedpredict}B). Their median MC share is \pn{kim95.txmc}, so about two-thirds of
-the predictive variance is cell noise. The hit fractions therefore overstate how sharp the parameter part
-of the prediction is.
+(\cref{fig:reducedpredict}B). The transcripts' median MC share is \pn{kim95.txmc}, so about
+two-thirds of their predictive variance is cell noise. Their hit fractions therefore overstate
+how sharp the parameter part of the prediction is.
 
 \paragraph{The pools show where the posterior is wrong.} \pn{kim95.poolin90}\% of pool saves
 lie inside the posterior's 90\% interval, but only \pn{kim95.poolin50}\% inside its 50\%
-interval, against \pn{kim95.poolprior90}\% and \pn{kim95.poolprior50}\% for the prior. For \pn{kim95.poolshift} of the 17 pools this is a shift and not scatter: their
-offsets are about \pn{kim95.shiftlo}--\pn{kim95.shifthi} SD in magnitude. In the trioses the truth lies above
+interval, against \pn{kim95.poolprior90}\% and \pn{kim95.poolprior50}\% for the prior. For
+\pn{kim95.poolshift} of the 17 pools the shortfall is a shift and not scatter. Their offsets are
+about \pn{kim95.shiftlo}--\pn{kim95.shifthi} SD in magnitude. In the trioses the truth lies above
 the prediction, by \pn{kim95.g3p} SD for G3P and \pn{kim95.dhap} SD for DHAP, and no save of
-either falls inside its 50\% interval (\cref{fig:reducedpredict}C). The energy charge splits:
-the truth lies below the prediction for ATP, ADP and GDP, and above it for AMP and GMP. It also
-lies above it, by about one SD, for G6P, F6P and FDP in upper glycolysis. The other \pn{kim95.poolsquiet}
+either falls inside its 50\% interval (\cref{fig:reducedpredict}C). The energy charge splits,
+with the truth below the prediction for ATP, ADP and GDP and above it for AMP and GMP. In upper
+glycolysis the truth also lies about one SD above the prediction for G6P, F6P and FDP. The other \pn{kim95.poolsquiet}
 pools sit within \pn{kim95.quietz} SD. The triose and FDP offsets come from $\theta$ and not from cell
-noise: their median MC shares are \pn{kim95.triosemclo}--\pn{kim95.triosemchi}, so they are biases of the
-posterior. The nucleotides' shares are larger, \pn{kim95.nucmclo}--\pn{kim95.nucmchi}. The median skill over
+noise. Their median MC shares are \pn{kim95.triosemclo}--\pn{kim95.triosemchi}, so these offsets
+are biases of the posterior. The nucleotides' shares are larger, \pn{kim95.nucmclo}--\pn{kim95.nucmchi}. The median CRPS skill over
 all species is still \pn{kim95.medskill}. In \cref{sec:reduced} the posterior means of the promoter
 strengths sat below the truth, with a mean standardised error of \pn{kim92.promz}, yet the
-transcripts show no comparable shift. Against the true simulator, which is the test of the
-mixed route's approximation on the reduced model, the posterior's error shows in the pools and
+transcripts show no comparable shift. Scoring against the true simulator tests the mixed route's
+approximation on the reduced model. By that test, the posterior's error shows in the pools and
 not in $Q$ or the transcripts.
 
 \begin{figure*}[t]
@@ -88,29 +90,30 @@ per knockdown arm.}
 
 \paragraph{Once every parameter is inferred, $Q$'s uncertainty comes from the data.} By the
 contraction threshold of \cref{sec:reduced}, the data reach all \pn{kim92.ncoord} parameters,
-the lowest at \pn{kim92.contrmin}. No parameter stays prior-dominated, so there is no held set
+and the lowest contraction is \pn{kim92.contrmin}. No parameter stays prior-dominated, so there is no held set
 whose share of the variance could be measured. Instead we compare $Q$'s parameter variance
-$\mathrm{Var}_\theta(Q)$, its variance across parameter draws with the cell noise taken out, in
-three states at the default prior width, a geometric SD of \pn{budget.gsdone}
-(\cref{fig:reducedbudget}). With all \pn{budget.ndrawn} drawn parameters at their priors it is
-\pn{kim96.vprior}. With M0's posterior on \pn{budget.nI} parameters and the \pn{budget.nH}
-other promoter strengths at their priors it is \pn{kim96.vkimfortytwo}, \pn{kim96.heldshare}\%
-of it from those promoters (\cref{app:m0predict}). We call this the middle state. Under the joint
-posterior it is \pn{kim96.vpost}. As a standard deviation, against each state's own mean $Q$,
-that is \pn{kim96.sdprior}\%, \pn{kim96.sdkimfortytwo}\% and \pn{kim96.sdpost}\%. The joint
+$\mathrm{Var}_\theta(Q)$, its variance across parameter draws with the cell noise taken out.
+We compare it in three states, all at the default prior width, a geometric SD of
+\pn{budget.gsdone} (\cref{fig:reducedbudget}). With all \pn{budget.ndrawn} drawn parameters at
+their priors, $\mathrm{Var}_\theta(Q)$ is \pn{kim96.vprior}. The middle state puts M0's
+posterior on \pn{budget.nI} parameters and the \pn{budget.nH} other promoter strengths at their
+priors. There it is \pn{kim96.vkimfortytwo}, \pn{kim96.heldshare}\% of it from those promoters
+(\cref{app:m0predict}). Under the joint posterior it is \pn{kim96.vpost}. As a standard
+deviation relative to each state's own mean $Q$, the three values are \pn{kim96.sdprior}\%,
+\pn{kim96.sdkimfortytwo}\% and \pn{kim96.sdpost}\%. The joint
 posterior's variance is about \pn{kim96.ratio} times below the middle state's
 (\pn{kim96.ratiolo}--\pn{kim96.ratiohi}, $\pm 2$ standard errors on the log scale) and about
 \pn{kim96.priorratio} times below the prior's.
 
-\paragraph{What the factor of \pn{kim96.ratio} means.} It holds at the default width only. At
-widths $\tfrac12$ and 2 the middle state changes and the factor is about \pn{kim96.widthlo} and
-\pn{kim96.widthhi}. It is not only the promoters. Inferring the \pn{budget.nH} promoters while
+\paragraph{What the factor of \pn{kim96.ratio} means.} The factor holds at the default width
+only. At widths $\tfrac12$ and 2 the middle state changes, and the factor is about
+\pn{kim96.widthlo} and \pn{kim96.widthhi}. Nor does the factor come from the promoters alone. Inferring the \pn{budget.nH} promoters while
 keeping M0's posterior on the other \pn{budget.nI} would give a factor of about
 \pn{kim96.ionly}. The rest comes from the reduced model's data also tightening those
 \pn{budget.nI}, and the joint posterior does both at once. The three states also have different
 centres: the middle state's mean $Q$ is \pn{budget.qone} million, the joint posterior's
-\pn{kim96.meanpost} million. So the ratios compare variance about different means, and they
-are not a decomposition of one distribution. Last, the data came from this same model at
+\pn{kim96.meanpost} million. The ratios therefore compare variances about different means,
+and they are not a decomposition of one distribution. Last, the data came from this same model at
 $\theta^\ast$. The \pn{kim96.sdpost}\% is precision under a correct model, and the pools above
 show that it is not a calibrated uncertainty on every output.
 
@@ -118,11 +121,11 @@ show that it is not a calibrated uncertainty on every output.
 \centering
 \includegraphics[width=\columnwidth]{fig_reduced_budget.pdf}
 \caption{\textbf{Once every parameter is inferred, none stays prior-dominated.} At the default
-prior width (geometric SD \pn{budget.gsdone}), $Q$'s parameter variance falls from
-\pn{kim96.vprior} with every parameter at its prior, through \pn{kim96.vkimfortytwo} with M0's
-posterior on \pn{budget.nI} parameters and the \pn{budget.nH} other promoter strengths at their
-priors (\pn{kim96.heldshare}\% of it from those promoters), to \pn{kim96.vpost} under the joint
-posterior, where every parameter's contraction is at least \pn{kim92.contrmin}. As a standard deviation
+prior width (geometric SD \pn{budget.gsdone}), $Q$'s parameter variance is \pn{kim96.vprior}
+with every parameter at its prior. It falls to \pn{kim96.vkimfortytwo} with M0's posterior on
+\pn{budget.nI} parameters and the \pn{budget.nH} other promoter strengths at their priors
+(\pn{kim96.heldshare}\% of it from those promoters). Under the joint posterior, where every
+parameter's contraction is at least \pn{kim92.contrmin}, it falls to \pn{kim96.vpost}. As a standard deviation
 against each state's own mean, $Q$'s spread falls from \pn{kim96.sdprior}\% through
 \pn{kim96.sdkimfortytwo}\% to \pn{kim96.sdpost}\%. The last step is a factor of about
 \pn{kim96.ratio} (\pn{kim96.ratiolo}--\pn{kim96.ratiohi}, $\pm 2$ standard errors on the log
