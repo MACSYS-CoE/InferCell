@@ -252,6 +252,9 @@ function run_full(out)
     say(@sprintf("RMS in bulk-noise units: W^½ Δm %.3g, W^½ r %.3g. V6 posterior SDs (log): %s.\n",
                  sqrt(dot(Δm, W * Δm) / length(Δm)), sqrt(dot(r, W * r) / length(r)),
                  join([@sprintf("%s %.4f", PN[q], sd[q]) for q in 1:6], ", ")))
+    say("θ_ref − m0_v6's posterior mean, V6 SDs: " *
+        join([@sprintf("%s %+.2f", PN[q], (p.ref.x[q] - x̄[q]) / sd[q]) for q in 1:6], ", ") *
+        ". (δ and S come from simulated cells, which σ_b does not enter.)\n")
     say("## Displacement, V6 SDs (mixed − exact, first order)\n")
     say("Δm(x̄) = Δm + G (x̄ − x_ref) is Δm carried from θ_ref to m0_v6's posterior mean, " *
         "where J and r are evaluated; the sum is Σ (Jᵀ W Δm(x̄) − Gᵀ W r).\n")
