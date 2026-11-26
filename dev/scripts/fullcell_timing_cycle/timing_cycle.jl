@@ -20,6 +20,7 @@
 # and the wall time to minute k is the run's setup (total less the minutes' sum) plus
 # the first k minutes' wall times.
 
+import SpeedyCell
 using SpeedyCell.Cell
 using InteractiveUtils, LinearAlgebra, Printf, SHA, Statistics, Dates
 
