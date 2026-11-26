@@ -69,7 +69,7 @@ every propensity is affine in the state and whose every state change is constant
 throws on anything else ("A propensity … is not affine in the state",
 `src/mean_field.jl:105`). A rate constant that is rebuilt from the counts at a minute
 boundary is outside that check. The mean-field route evaluates it at the mean pools
-(`src/mean_field_route.jl:14`), so its error is a Jensen gap in what reads the mean,
+(`src/mean_field_route.jl:15`), so its error is a Jensen gap in what reads the mean,
 not a failure of the mean equations.
 
 **The transcript factor is exact** when each gene's transcript count is a birth–death
@@ -153,7 +153,7 @@ doubles its volume.
 | Family | Smaller reactant | Larger reactant |
 |---|---|---|
 | DnaA at the origins | 0 to 16 (sites, filament states) | 0 to 148 (`M_DnaA_c` is 148) |
-| tRNA charging | 1 to 736 (enzyme intermediates) | 40 to 73,715 (tRNA, amino acids, ATP) |
+| tRNA charging | 1 to 736 (synthetases and their intermediates) | 40 to 73,715 (tRNA, amino acids, ATP) |
 | Translation cost payment | 0 (the residue counters) | 160 to 480 (charged tRNA) |
 | Replication initiation | 0 (`Initiator_*`) | 1 (`chromosome_*`) |
 
@@ -178,9 +178,10 @@ through deferred counters drained at the 1 s handshake, not through a reaction.
 | DnaA at the origins | `M_DnaA_c`, made by translation reaction 9 from `M_RNA_JCVISYN3A_0001_c` | no direct write; it makes `Initiator_C` and `Initiator_CC` | yes: from the gene-expression block (DnaA's own expression) to transcripts, through initiation timing and gene copy number (section 4) |
 | Replication initiation | `JCVISYN3A_0001_gene`, `JCVISYN3A_0910_gene`; its rate reads the dNTP pools and `CellSA` | genes, which every transcription propensity multiplies | yes: as for DnaA |
 
-None of the four families writes a `CellSA` input directly. They reach doubling time
-only through translation (charging, cost payment) or through gene copy number and
-then transcription (DnaA, initiation).
+None of the four families writes a `CellSA` input directly. Charging and cost payment
+reach doubling time through translation, and through the ODE pools they share with
+metabolism (ATP and the amino acids). DnaA and the initiations reach it through gene
+copy number and then transcription; the initiations' rates also read the dNTP pools.
 
 ## 2. Rate rules with `min`, `max`, `round` or a threshold
 
@@ -268,9 +269,9 @@ The script lists their lines but does not count them as rate rules.
 
 **Closure.** None of these rules breaks `MeanField`'s check by itself, since a rebuilt
 rate constant is outside it. Each one adds a Jensen gap where the route evaluates the
-rule at the mean counts. The gap is zero while a floor, ceiling or cap is far from its
-kink. It is not zero for `round` and `CellV`, which step at every count, or for the
-volume cap, which a cell reaches mid-cycle. This note gives structure and scale, not the
+rule at the mean counts. A floor, ceiling or cap adds no gap of its own while it is
+far from its kink, but the rule beneath it is still nonlinear in the counts. `round`
+and `CellV` step at every count, and the volume cap is reached mid-cycle. This note gives structure and scale, not the
 size of any gap.
 
 **Between a block and an observable.** All four count-dependent families sit between
@@ -392,7 +393,7 @@ transcript factor's assumption. "Between" is direct adjacency, as defined above.
 | 3 | Second order: enzyme × metabolite, enzyme complex × tRNA | 62 tRNA charging | no | no | yes, translation and metabolism → bulk metabolites | no / no: charging is one lumped ODE reaction | M0 with its lumped charging reaction replaced by one synthetase chain as jump reactions (3 second-order bindings, 1 release) |
 | 4 | Second order: residue counter × charged tRNA | 20 cost payments | no | no | yes, translation → its own rate constants | no / no: deferred counters | M0 with one residue counter made a species, paid by one second-order reaction |
 | 5 | Gene copy number, a state multiplying transcription | 493 genes, 486 transcription reactions | yes | **yes** | yes, replication → transcripts | no / no: genes fixed | **the M13 model below** (`G_0779`, `G_0607`) |
-| 6 | First-order fork steps with count-dependent constants | 491 | form yes; constants at the mean | through G | yes, dNTPs → G | no / no | the M13 model with its fork-step constants rebuilt from a dNTP pool; M0 has no dNTP pool, so one must be added |
+| 6 | First-order fork steps with count-dependent constants | 491 | form yes; constants at the mean | through G | yes, dNTPs → G | no / no | the M13 model with its fork-step constants rebuilt from a dNTP pool; `src/organisms/coreA/` has no dNTP species, so one must be added |
 | 7 | `max(1, pool)` floor | 29 nodes, in all 1,434 rules | rebuild | no | yes | translation only | M0 (already) |
 | 8 | Promoter from a live own-protein count, `min(c·P/180, 180)` | 29 transcription rules | rebuild | as now, the rebuilt birth rate reads latent state; new is that the state is a stochastic protein count, not an ODE pool | yes | no / no | M0 with one gene's promoter read from its own protein at the rebuild |
 | 9 | Rounded `CellV`; the volume cap reached | 1 + 2 nodes; 486 + 493 rules read `CellV` or its `round`, 948 the cap | rebuild; steps | as row 8, through the rebuilt k | yes | no `CellV`; cap present but never reached | a model that grows to the cap: the full cell, or the reduced model over a full cycle with growth that reaches it |
@@ -428,7 +429,7 @@ GAPD, in the full cell's order on fork CC (steps 68 and 172).
 |---|---|---|---|---|
 | R1 | ∅ → `D` | k_D | 0 | DnaA's expression (translation reaction 9), lumped |
 | R2 | `D` + `O` → `F₁` | k_b · D · O | **2** | the DnaA cascade at one origin and the initiation (1595 to 1656, then 2098), lumped |
-| R3 | `F₁` → `F₂` + `G_0779` | k_f1 · F₁ | 1 | fork CC's steps 0 to 68 |
+| R3 | `F₁` → `F₂` + `G_0779` | k_f1 · F₁ | 1 | fork CC's steps 1 to 68 |
 | R4 | `F₂` → `G_0607` | k_f2 · F₂ | 1 | fork CC's steps 69 to 172 |
 
 **Reactions changed:** M0's two transcription reactions take the propensity
@@ -445,7 +446,8 @@ makes `D` fluctuate apart from `O`, so `E[D·O] ≠ E[D]·E[O]`.
 
 **Design choices left to M13 (KIM-188).**
 - The scale of `D`. At the full cell's 148 copies, with only one binding to make, R2
-  is close to pseudo-first-order and its gap is small. At a few copies it is not. The
+  is close to pseudo-first-order, and its gap is expected to be small (not measured).
+  At a few copies it is expected not to be. The
   check should say which regime it tests, or test both.
 - The rates. k_D, k_b and the fork rates must make the copy number step inside 600 s
   in a stated share of cells, or the factor's new assumption is not exercised.
@@ -461,6 +463,8 @@ not from running it.
 | A jump module for R1 to R4 | new; each is a `Reaction(rate, affect!)` (`src/interface.jl:130-150`), and the hybrid driver takes any propensity |
 | `CoreATranscription` | extended: read `G_g` through `inputs` and multiply the propensity by it, as `transcription.jl:32-37` anticipates ("adding replication later must promote them") |
 | The exact route (cSMC) | `propose_events` already simulates every non-transcript reaction exactly with the composition's own propensities (`src/csmc.jl:151-200`), so R1 to R4 need no change there. The transcript bridge does: `_birth_death` reads the birth rate once at the window's start (`csmc.jl:140-147`) and bridges at that constant rate (`src/transcript_bridge.jl`). With `G_g` stepping mid-window, the replication path must be proposed first (it does not depend on transcripts here), and each transcript bridged under a birth rate piecewise constant in time, with a break at the step. The weight's transition probabilities become products over the pieces, as the factor already does for its 59 s + 1 s split |
+| The path density (`path_logdensity`, `_accrue_exposure!`, `src/path_replay.jl:116-135`) | reused unchanged: it integrates every propensity at the current state between firings, so `k_g · G_g` and `k_b · D · O` enter as they are |
+| Gibbs block 2, the promoter and `krnadeg` updates (`rate_update`, `src/conditional_updates.jl:52-77`; `src/organisms/coreA/gibbs.jl:234-238`) | reused unchanged: the firings and exposures come from the replay, so the exposure becomes ∫k_g·G_g dt with no code change. It needs the promoter to stay linear in the propensity, which holds while the turnover ceiling does not bind, as now. A k_b target would take the same form, with exposure ∫D·O dt |
 | The mixed route | `MeanField` throws on R2 (`src/mean_field.jl:105`). How R2 is treated, and whether `TranscriptFactor` takes a `G_g` path or its marginal, is the route decision (KIM-187). M13 then measures that choice against the cSMC |
 | SBC and the M0 dataset pipeline (`m0_dataset`) | reused, with the new model list |
 

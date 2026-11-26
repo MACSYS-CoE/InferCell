@@ -136,9 +136,9 @@ count-dependent rate rules: 1434  constant: 931
   those genes: 0027 0077 0094 0154 0214 0230 0235 0259 0263 0379 0398 0401 0503 0525 0593 0622 0623 0643 0648 0649 0795 0851 0852 0873 0913 0918 0930 0931 0932
   distinct count species read by the CME rules: 60
   charged tRNA pools read per translation rule: {21: 455}
-    {'NTP pools': 4, 'CellV': 1, 'charged tRNA pools': 21, 'CellSA': 1, 'protein counts': 29, 'dNTP pools': 4}
+    {'CellSA': 1, 'CellV': 1, 'NTP pools': 4, 'charged tRNA pools': 21, 'dNTP pools': 4, 'protein counts': 29}
   count species read by the ODE (rates + init): 241
-  ODE reactions (of 175) whose rate reaches: {'min': 18, 'max': 0, 'round': 0, 'select_gt': 158, 'reads a count node': 158}
+  ODE reactions (of 175) whose rate reaches: {'max': 0, 'min': 18, 'reads a count node': 158, 'round': 0, 'select_gt': 158}
 
 == Count-dependent rules that are code, not data (SpeedyCell/src/Cell)
   Cell/writeback.jl:98: V > V_CAP && return V_CAP, CELLV_CAP
@@ -160,10 +160,10 @@ count-dependent rate rules: 1434  constant: 931
 *_gene species: 493; initial counts: {1: 493}
 transcription reactions: 486, all type 1 with one *_gene reactant that the reaction leaves unchanged (propensity k*G)
 genes with a transcription reaction: 486 (each has [1]); genes without: 7 ['JCVISYN3A_0049_gene', 'JCVISYN3A_0068_gene', 'JCVISYN3A_0069_gene', 'JCVISYN3A_0158_gene', 'JCVISYN3A_0356_gene', 'JCVISYN3A_0533_gene', 'JCVISYN3A_0534_gene']
-transcription products: {'mRNA (M_RNA_*)': 455, 'tRNA': 29, 'rRNA': 6}
+transcription reactions by product: {'mRNA (M_RNA_*)': 455, 'rRNA operon (M_rRNA_16S_c M_rRNA_23S_c M_rRNA_5S_c)': 2, 'tRNA': 29}
 reactions with a *_gene reactant, by family: {'Transcription': 486}
 rate rules that read a *_gene count: 0
-what the transcription rate rules read (rules per input): {'M_gtp_c': 486, 'M_utp_c': 486, 'CellV': 486, 'M_atp_c': 486, 'M_ctp_c': 486, 'protein': 29}
+what the transcription rate rules read (rules per input): {'CellV': 486, 'M_atp_c': 486, 'M_ctp_c': 486, 'M_gtp_c': 486, 'M_utp_c': 486, 'protein': 29}
 transcription rules reaching min / round / select_gt / max: 29 / 0 / 0 / 486
 replication reactions: 493; each increments one gene by +1: True; genes incremented: 493; reactions that decrement a gene: 0
 fork from reaction 1873 (Initiator_C + chromosome_C, k = 0.06931): copies JCVISYN3A_0001_gene first, then 224 first-order steps, ending at reaction 2097

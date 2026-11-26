@@ -300,10 +300,10 @@ def main():
 
     print("\n-- cost payment: which *_cost_paid counter each credits")
     paid = collections.Counter(n for x in R if x["fam"] == "Translation cost payment" for n, d in x["prods"] if d > 0 and n.endswith("_cost_paid"))
-    print("   ", dict(paid))
+    print("   ", dict(sorted(paid.items())))
     writers = collections.Counter(n for x in R for n, d in x["prods"] if d != 0 and n.endswith("_cost_paid"))
     cost_paid_species = sorted(n for n in x0 if n.endswith("_cost_paid"))
-    print("    *_cost_paid species: %d; written by any reaction: %s" % (len(cost_paid_species), dict(writers)))
+    print("    *_cost_paid species: %d; written by any reaction: %s" % (len(cost_paid_species), dict(sorted(writers.items()))))
     all_leaves = set().union(*(dag.counts_below[i] for i in dag.op))
     print("    *_cost_paid read as a reactant: %d; read as a count by any node: %d" % (
         sum(n.endswith("_cost_paid") for x in R for n in x["reac"]), sum(n.endswith("_cost_paid") for n in all_leaves)))
@@ -442,7 +442,7 @@ def main():
             groups["charged tRNA pools"] += 1
         else:
             groups["other: " + n] += 1
-    print("   ", dict(groups))
+    print("   ", dict(sorted(groups.items())))
     print("  count species read by the ODE (rates + init): %d" % len(set().union(*(dag.counts_below[i] for i in ode_roots + ode_init_roots))))
     ode_with = collections.Counter()
     for r in ode_rx:
@@ -451,7 +451,7 @@ def main():
         for op in ("min", "max", "round", "select_gt"):
             ode_with[op] += op in ops
         ode_with["reads a count node"] += bool(ns)
-    print("  ODE reactions (of %d) whose rate reaches: %s" % (len(ode_rx), dict(ode_with)))
+    print("  ODE reactions (of %d) whose rate reaches: %s" % (len(ode_rx), dict(sorted(ode_with.items()))))
 
     # ---------------------------------------------------------------- code rules
     print("\n== Count-dependent rules that are code, not data (SpeedyCell/src/Cell)")
@@ -487,18 +487,20 @@ def main():
           % (len(txg), sorted(set(txg.values())), len(genes) - len(txg), sorted(set(genes) - set(txg))))
     prods_of_tx = collections.Counter()
     for x in tx:
-        for n, d in x["prods"]:
-            if d > 0 and not re.fullmatch(r"[ACGUT]TP_\w+", n):
-                prods_of_tx["mRNA (M_RNA_*)" if n.startswith("M_RNA_") else ("tRNA" if "trna" in n else ("rRNA" if "rRNA" in n else n))] += 1
-    print("transcription products:", dict(prods_of_tx))
+        made = sorted(n for n, d in x["prods"] if d > 0 and not re.fullmatch(r"[ACGUT]TP_\w+", n))
+        kind = ("mRNA (M_RNA_*)" if all(n.startswith("M_RNA_") for n in made) else
+                "tRNA" if all("trna" in n for n in made) else
+                "rRNA operon (%s)" % " ".join(made) if all("rRNA" in n for n in made) else " ".join(made))
+        prods_of_tx[kind] += 1
+    print("transcription reactions by product:", dict(sorted(prods_of_tx.items())))
     gene_readers = collections.Counter(x["fam"] for x in R for g in x["reac"] if g.endswith("_gene"))
-    print("reactions with a *_gene reactant, by family:", dict(gene_readers))
+    print("reactions with a *_gene reactant, by family:", dict(sorted(gene_readers.items())))
     print("rate rules that read a *_gene count:", sum(any(n.endswith("_gene") for n in dag.counts_below[x["node"]]) for x in R))
     tx_reads = collections.Counter()
     for x in tx:
         for n in dag.counts_below[x["node"]]:
             tx_reads["protein" if n.startswith("M_PTN_") else n] += 1
-    print("what the transcription rate rules read (rules per input):", dict(tx_reads))
+    print("what the transcription rate rules read (rules per input):", dict(sorted(tx_reads.items())))
     print("transcription rules reaching min / round / select_gt / max: %d / %d / %d / %d" % tuple(
         sum(op in dag.ops_below[x["node"]] for x in tx) for op in ("min", "round", "select_gt", "max")))
 
