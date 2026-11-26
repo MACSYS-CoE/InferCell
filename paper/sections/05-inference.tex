@@ -78,10 +78,12 @@ FBA lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from $\theta_{\ma
 Their marginals are nearly symmetric, with skewness \pn{kim92.skeweno} and
 \pn{kim92.skewfba}, so the offset is not skew. $\theta_{\mathrm{ref}}$ is the MAP with
 $\delta = S = 0$, not the MAP of the fitted likelihood, so it need not sit at the posterior's
-centre.
+centre. So on this dataset a Laplace approximation would have given the right widths. We know
+that only because NUTS ran: the comparison needs the sampled posterior, and on a dataset
+whose posterior is far from Gaussian a Laplace fit alone would give no warning.
 
-\paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
-(\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
+\paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours, of which
+the chains are about \pn{kim92.chainsall} (\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
 is far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
 The limit is wall-clock time, because each chain is one serial job. Each chain took
 \pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation

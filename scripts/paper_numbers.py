@@ -478,6 +478,7 @@ def compute():
     put('kim92.cpuh', '492', K92 + ", total CPU-h (491.9)")
     put('kim92.chaincpuh', '299', K92 + ", 4 chains, jobs 20660933-36")
     put('kim92.extcpuh', '153', K92 + ", extension, jobs 20968974-77")
+    put('kim92.chainsall', '452', "derived: kim92.chaincpuh + kim92.extcpuh = 299 + 153; 452.5 in dev/scripts/corea_modular_kim116_result.md's cost table (joint stage 1)")
     put('kim92.chainwalllo', '67', K92 + ", chain wall-clock h")
     put('kim92.chainwallhi', '81', K92 + ", chain wall-clock h")
     put('kim92.critpath', '5.5', K92 + ", critical path, days")
