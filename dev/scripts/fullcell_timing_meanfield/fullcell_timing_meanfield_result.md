@@ -1,11 +1,26 @@
-# KIM-184: a gradient of the full cell's first-order mean field costs about 1.3 s
+# KIM-184: a gradient of the full cell's first-order mean field: 1.3 s with a sparse dual solve, about 18 min with the stock one
+
+**Two numbers, and which one holds depends on the linear solve.** A 20-parameter
+dual gradient over the fit window costs:
+
+- **1.28 s serial and 0.62 s on 4 threads** with `DualSparseKLU`, a custom sparse dual
+  linear solve that lives in this script (jobs 21666252 and 21666253);
+- **about 1,108 s (18.5 min)** with the stock SciML path, LinearSolve 3.73's
+  `DualLinearCache` behind `Rodas5P(linsolve = KLUFactorization())`. This is 2 passes
+  × 554 s, from one measured pass over the whole window (job 21667143), 860× the
+  sparse solve's pass. The two give bitwise-equal solutions.
+
+`DualSparseKLU` relies on two method definitions for its own type: a
+`SciMLBase.init` method that keeps the dual problem off `DualLinearCache`, and
+`LinearSolve.needs_concrete_A`. Anything that adopts the 1.3 s figure (KIM-187,
+KIM-194) inherits that code, or needs the fix upstream.
 
 **This is a lower bound on cost, and it says nothing about accuracy.** The system is
 the full syn3A CME table's 2,002 first-order reactions alone. Those make it linear,
 with constant rate constants. The full cell's real mean field also has:
 
 - the 363 second-order reactions;
-- the 175 non-linear metabolic ODE fluxes;
+- the 175 metabolic ODE fluxes (non-linear or zero-order rate laws);
 - the rate constants rebuilt from the pools every minute.
 
 Each of those makes the Jacobian depend on the state. Each is likely to add solver
@@ -21,6 +36,7 @@ Julia 1.10.5, `OPENBLAS_NUM_THREADS=1`.
 | what | jobs | commit | outdir (under `/fred/oz022/tkimpson/infercell-kim184-2026-11-26/`) |
 |---|---|---|---|
 | **the run of record**: check, time (serial), threaded (4 threads, `--gcthreads=4,1`) | 21666251, 21666252, 21666253 (precompile 21666250) | 74755da | `run1/` (`check.md`, `time.md`, `threaded.md`, `.jls`, `logs/`) |
+| the stock dual path over the whole window (`library` stage) | 21667143 (precompile 21667142) | 6a20e2c | `library/` (`library.md`) |
 | smoke 2, 300 s window, 2 repeats (plumbing only) | 21664745–48 | 74755da | `smoke2/` |
 | smoke 1, which found the two configuration faults below | 21663390–93 | 502aea4 | `smoke1/` |
 
@@ -29,9 +45,11 @@ Julia 1.10.5, `OPENBLAS_NUM_THREADS=1`.
 | check 21666251 | dave5 |
 | time 21666252 | dave28 |
 | threaded 21666253 | dave64 |
+| library 21667143 | dave1 |
 
-**Compute used:** 2.6 CPU-h for every job of the three rounds. Most of it is smoke 1's
-two jobs, which ran on the faulty configuration until they hit their 1 h limit.
+**Compute used:** about 2.9 CPU-h over every job, the library stage's 0.26 CPU-h
+included. Most of it is smoke 1's two jobs, which ran on the faulty configuration
+until they hit their 1 h limit.
 
 **Inputs:** `/fred/oz022/tkimpson/syn3a-ensemble` at commit
 `2075809cbb825140cb31a7bec8bc3529770c8e13`, read only.
@@ -42,8 +60,10 @@ two jobs, which ran on the faulty configuration until they hit their 1 h limit.
 | `data/model/cme/species.csv` | `c1acb80878e8a500a86e0e1d9e195a491b46a01c337788c0a6554df19cbe6ec9` |
 
 The ODE tables (`data/model/ode/`) are not used. Every ODE species is also a CME
-species. The ODE's 175 fluxes are Michaelis–Menten forms, not first-order reactions,
-so they fall outside "first-order reactions only".
+species. The ODE's 175 fluxes use 168 distinct rate laws: bespoke reversible
+Michaelis–Menten forms, `zeroOrderOnOff`, the `FAFBA` constant uptakes and
+`RateForm0–5` (`inventory.md`; the `rate_form` column). None is an LM first-order
+reaction, so they fall outside "first-order reactions only".
 
 **Environment:** `dev/scripts/fullcell_timing_meanfield/Project.toml`. Its Manifest is
 the root Manifest's, resolved offline. It uses OrdinaryDiffEq 6.107.0, LinearSolve
@@ -139,11 +159,19 @@ Two more equality checks hold at the timing tolerances:
 Each figure is the median of 5 repeats after a warm-up. Each repeat is listed in
 `run1/time.md` and `run1/threaded.md`.
 
-| B | passes | primal solve | gradient, serial (21666252) | gradient, 4 threads (21666253) | threaded speed-up |
-|---|---|---|---|---|---|
-| 10 | 1 | 0.110 s | 0.649 s | 0.581 s | 1.12× (one pass: no parallel work, a different node) |
-| **20** | 2 | **0.109 s** | **1.277 s** | **0.620 s** | **2.06×** |
-| 40 | 4 | 0.109 s | 2.551 s | 0.760 s | 3.36× |
+| B | passes | primal solve | gradient, serial (21666252) | gradient, 4 threads (21666253) | speed-up, same node | speed-up, across jobs |
+|---|---|---|---|---|---|---|
+| 10 | 1 | 0.110 s | 0.649 s | 0.581 s | 1 (the baseline) | 1.12× |
+| **20** | 2 | **0.109 s** | **1.277 s** | **0.620 s** | **1.87×** | 2.06× |
+| 40 | 4 | 0.109 s | 2.551 s | 0.760 s | 3.06× | 3.36× |
+
+**Read the same-node column.** The serial and threaded jobs ran on different nodes
+(dave28 and dave64), and with different GC settings (`--gcthreads=4,1` against
+the default). B = 10 has one pass and so no parallel work, yet it is 12% faster in
+the threaded job. That gap is the node and GC difference. The across-jobs speed-up at
+B = 20 (2.06×) even exceeds the 2× that two passes allow. The same-node column takes
+the threaded job's own one-pass time (B = 10, 0.581 s) as the serial cost of a pass,
+so the speed-up is passes × 0.581 s over the wall time.
 
 **The split, at B = 20, serial.**
 - The primal solve takes 0.109 s, over 174 steps.
@@ -151,7 +179,8 @@ Each figure is the median of 5 repeats after a warm-up. Each repeat is listed in
 - So one pass of 10 partials costs 5.8× a primal solve.
 - Per step, that is 4.4 ms against 0.63 ms, or 7×.
 - The dual solve takes fewer steps than the primal (144 against 174, none rejected) at
-  the same tolerances. The partials enter the step-size control.
+  the same tolerances. That is consistent with the partials entering the solver's
+  error norm. It was not checked further.
 
 **Block size (item 5).** Serial, B = 10 : 20 : 40 costs 0.649 : 1.277 : 2.551 s, a ratio
 of **1 : 1.97 : 3.93**. That is linear in the number of passes: each pass costs the same
@@ -184,9 +213,11 @@ transcript factors, adds to it.
      in partials and in values (job 21666251).
    - In smoke 1 (job 21663392, 300 s window), the library path took 437 s per pass
      against a 0.08 s primal.
-   - **Extrapolation, not measured:** at the run's 144 steps per pass and 3.6 s per step,
-     the library path would take about 520 s per pass. That is about 17 min per
-     20-parameter gradient, or about 100 days per chain.
+   - **Over the whole window** (the `library` stage, job 21667143, one run), one pass took
+     **554.1 s against 0.645 s** (median of 5), over the same 144 steps: 3.85 s per step
+     against 4.5 ms. The solutions are again bitwise equal.
+   - That is about 18.5 min per 20-parameter gradient (2 passes), or about 110 days
+     per chain at 8,600 gradients, serial.
    - `DualSparseKLU` (in the script) does the same algebra on the sparse pattern:
      - KLU on the value part, refactored only when the values change;
      - R = ∂b − ∂W·x₀, formed from the non-zeros;
