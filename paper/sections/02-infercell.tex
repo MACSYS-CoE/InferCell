@@ -233,11 +233,12 @@ k = predict(ms, pd; horizon = 180, n_cells = 4,
 k.effect_summary
 \end{verbatim}
 }
-\noindent \texttt{infer} returns a chain, and \texttt{posterior\_draws} reads it, or any archived
-posterior. \texttt{predict} runs each draw's cells with and without the knockdown on the same
-seeds, and reports the effect on $Q$. The reduced-model fit of \cref{sec:reduced} uses the same
-mixed route over all \pn{kim92.ncoord} parameters. Its log density is built by
-\texttt{mixed\_setup}, which \texttt{infer} calls, and its chains start from a warm metric
-(\cref{sec:reduceddesign}). The scored predictions of \cref{sec:reducedpredict} call
+\noindent \texttt{infer} returns a chain, and \texttt{posterior\_draws} reads it, or the archived
+posteriors of this paper. \texttt{predict} runs each draw's cells with and without the knockdown
+on the same seeds, and reports the effect on the lactate exported by the horizon. \texttt{infer}
+fits M0's parameters only. The reduced-model fit of \cref{sec:reduced} uses the same mixed route
+over all \pn{kim92.ncoord} parameters, through its own script: it builds the log density with
+\texttt{mixed\_setup} for the reduced model's parameters, and samples it from jittered starts
+under a warm metric (\cref{sec:reduceddesign}). The scored predictions of \cref{sec:reducedpredict} call
 \texttt{predict} on that posterior. The user chooses which parameters are held: freeing a fixed
 constant in its module's constructor adds it to $\theta_H$ (\cref{sec:trajectories}).
