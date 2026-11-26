@@ -53,15 +53,13 @@ for the posterior's correlations among the promoters, the observed mean is about
 promoters sit about \pn{kim92.promshift}\% low on average. The chains start from a reference
 value $\theta_{\mathrm{ref}}$, the maximum a posteriori (MAP) estimate with $\delta = S = 0$
 (\cref{sec:reduceddesign}), and it has a shift of the same size, with a mean standardised error
-of \pn{kim92.mapz}. So the shift is in the likelihood on this dataset, with or without
-$\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
+of \pn{kim92.mapz}. So the shift is in the log density on this dataset, with or
+without $\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
 \pn{kim92.promcorr} on average, so noise that the likelihood represents is unlikely to
 produce a common shift this large; the standard error above already allows for it. A shared
 component that the likelihood does not represent would not show in these correlations. It
-could be a feature of this data realisation, such as cell-to-cell variation that the
-population-mean factors leave out, or a bias in the likelihood, such as the mean-field
-approximation's. One dataset cannot separate a cause in the likelihood from this data
-realisation. We read the
+could be a bias in the likelihood, which would recur on every dataset, or a feature of this
+data realisation alone. One dataset cannot separate the two. We read the
 scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}

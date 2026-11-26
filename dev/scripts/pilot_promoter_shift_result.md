@@ -28,10 +28,9 @@ SE with the posterior's correlations 0.264 -> mean/SE -3.06
 - **The likelihood's own noise is unlikely to explain the shift.** The posterior barely
   correlates the promoters (mean pairwise 0.012, largest 0.177), so noise that the
   likelihood represents would scatter the promoters independently; the 3.06 SE already
-  allows for it. A shared component that the likelihood does not represent (a feature of
-  this data realisation, such as cell-to-cell variation the population-mean factors leave
-  out, or a bias in the likelihood, such as the mean-field approximation's) would leave
-  these correlations unchanged. One dataset cannot separate the two kinds.
+  allows for it. A shared component that the likelihood does not represent (a bias in
+  the likelihood that would recur on every dataset, or a feature of this data realisation
+  alone) would leave these correlations unchanged. One dataset cannot separate the two.
   (Corrected in the PR #194 review; the first version read the 0.012 as evidence against
   shared noise of any kind.)
 - **The size of the shift is small.** On the rate scale the promoters sit about 2% low on
