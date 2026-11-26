@@ -133,3 +133,66 @@ record of all 20 cells is `results/serial_minutes.csv`.
 "wall" is that simulated minute's wall time. It grows from 0.37 s at the start to 0.75 s at
 minute 120, as the cell and its event rate grow. So a cycle's cost is not 105 × the
 20-minute rate that the syn3a-ensemble README quotes (0.425 s per simulated minute).
+
+## 4. Twenty full cycles on one core
+
+**Job:** Slurm **21664418**, at commit `917bcb2`, on dave23 (AMD EPYC 7543 32-Core
+Processor), with 1 CPU, 1 Julia thread and 1 BLAS thread. One process ran the cells one after
+another:
+- `CellModel()` took 1.53 s.
+- A warm-up cell followed (procid 1000, 3 recorded minutes, with the timed path's keywords),
+  so that compilation fell before the clock: 16.58 s.
+- Then procids 1 to 20 ran, seed 1, each to minute 120.
+
+The wall time to minute k is the run's setup (about 0.01 s) plus its first k minutes, from
+`run_cell`'s own per-minute timers. The 120-minute wall is the outer wall clock around
+`run_cell`. dave23 was shared with other jobs.
+
+| per cell, one core | cells | median | range |
+|---|---|---|---|
+| **to simulated minute 105 (the verdict number)** | 20 | **49.5 s** | 28.3–52.9 s |
+| to minute 105, cells that reach t_SA2 | 15 | 50.6 s | 43.1–52.9 s |
+| to t_SA2 | 15 | 46.8 s | 40.8–51.0 s |
+| to minute 120 (the whole run) | 20 | 58.1 s | 28.4–62.3 s |
+| to minute 120, cells that reach t_SA2 | 15 | 59.6 s | 49.4–62.3 s |
+
+The cells below 40 s are those that collapse early (procids 2, 4, 13 at minutes 55 to 63): a
+collapsed cell fires few CME events, so its later minutes are cheap. It is not a full cycle.
+The rows that reach t_SA2 are the cost of a healthy cycle.
+
+| procid | t_SA2 | t_Vcap | t_short | to 105 min (s) | to t_SA2 (s) | to 120 min (s) |
+|---|---|---|---|---|---|---|
+| 1 | 102 | 62 | – | 51.7 | 49.8 | 61.8 |
+| 2 | – | 78 | 55 | 28.7 | – | 28.7 |
+| 3 | 96 | 62 | – | 50.4 | 45.5 | 59.6 |
+| 4 | – | 66 | 63 | 33.3 | – | 34.0 |
+| 5 | 92 | 57 | – | 48.3 | 40.8 | 57.0 |
+| 6 | 100 | 65 | – | 49.0 | 46.0 | 59.2 |
+| 7 | – | 73 | 105 | 39.3 | – | 41.4 |
+| 8 | 111 | 70 | – | 44.0 | 46.8 | 51.1 |
+| 9 | 104 | 66 | 112 | 46.4 | 46.0 | 50.7 |
+| 10 | 103 | 68 | – | 52.2 | 51.0 | 61.3 |
+| 11 | 108 | 67 | 116 | 49.9 | 50.6 | 52.5 |
+| 12 | – | 67 | 90 | 39.8 | – | 41.3 |
+| 13 | – | 81 | 57 | 28.3 | – | 28.4 |
+| 14 | 97 | 65 | – | 52.9 | 48.0 | 62.1 |
+| 15 | 94 | 62 | – | 52.8 | 46.6 | 61.7 |
+| 16 | 114 | 69 | – | 43.1 | 46.8 | 49.4 |
+| 17 | 102 | 71 | – | 50.6 | 48.7 | 59.6 |
+| 18 | 97 | 63 | – | 51.6 | 46.5 | 62.3 |
+| 19 | 96 | 60 | – | 52.3 | 46.9 | 60.0 |
+| 20 | 99 | 63 | – | 51.9 | 48.7 | 59.3 |
+
+Where the time goes (all 20 cells): the CME event loop takes 59.8% and the ODE integration
+38.9%; the rest is about 1%. The median over cells is 0.484 s per simulated minute over the
+whole 120-minute run.
+
+### Verdict
+
+**PASS against the 2026-11-26 threshold** (at most 120 s per cell cycle on one core). The
+median full cycle to minute 105 takes 49.5 s, and the slowest of the 20 takes 52.9 s. The
+verdict does not depend on how the cycle is defined. The slowest cell under each definition
+is still well under 120 s: 51.0 s to t_SA2 and 62.3 s to minute 120.
+
+This is the time on one core, with nothing else in the process. Threaded, a cell is slower
+(section 5).
