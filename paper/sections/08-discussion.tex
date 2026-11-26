@@ -25,8 +25,8 @@ sit low in the posterior (\cref{sec:reduced}), yet the transcripts show no compa
 the later horizon. Our reading is that the error the transcripts do not show moves into
 metabolism, where the pools miss. We have not tested this reading.
 
-\paragraph{The interface between modules.} The M0 analysis of \cref{sec:info} gives a working
-rule. Single-cell data inform the parameters of their own module. Information between modules
+\paragraph{The interface between modules.} The M0 analysis of \cref{sec:info} suggests a
+working rule, which we offer as a hypothesis from one small model. Single-cell data inform the parameters of their own module. Information between modules
 travels on bulk observables and follows the gain of the coupling, and a modeller can compute
 the gains before any inference. On the reduced model the joint posterior uses both streams at
 once, but the modular arm's factor cut separates them for the promoters: the transcripts alone
@@ -44,6 +44,18 @@ joint's promoter posterior. The data plug-in costs \pn{kim116.plugt1} times the 
 it shifts the promoters away from the joint posterior and predicts $Q$ worse. The plug-in's
 cost is not a floor, since its stage two was never tuned for cost.
 
+\paragraph{What is specific to this model.} Two parts of the mixed route rest on a property of
+the published model: its gene expression is first order. Each transcript is degraded on its
+own, and its synthesis rate depends on the pools, not on other transcripts. So, given the
+pools, each gene's record is a birth--death chain whose likelihood the transcript factor
+computes exactly (\cref{sec:txfactor}), and the mean-field description of gene expression is
+closed. The typed edges between modules and the choice of route by \texttt{inference\_route}
+do not rest on this property. A model with second-order steps, such as dimerisation or
+feedback of a transcript on its own synthesis, would need another transcript factor. The
+finite state projection, the linear noise approximation and surrogate likelihoods are
+candidates, and none is implemented. First order is a property of the published model, not
+of the organism.
+
 \paragraph{Limits.} Each of these limits names something we did not test.
 \begin{itemize}
   \item \emph{One truth per design.} The reduced model has one dataset and one $\theta^\ast$.
@@ -54,6 +66,15 @@ cost is not a floor, since its stage two was never tuned for cost.
   \item \emph{The exact sampler cannot check the reduced model.} Its projected cost is about
   \pn{cost.fullscale} CPU-hours per posterior. On the reduced model, therefore, only its
   predictive check and the scores against the true simulator test the mixed route.
+  \item \emph{Generous data.} Every cell gives exact transcript counts of every gene each
+  minute, beside a bulk panel of \pn{mzero.npanel} pools. The results are a best case for what
+  such data can reach. Real assays are noisier and sparser, and single-cell RNA counts are
+  usually snapshots of different cells, not time series.
+  \item \emph{Two metabolic constants.} Of the metabolic constants, only ENO and FBA are free.
+  The others stay at their defaults, so neither the posterior nor the scores cover their
+  uncertainty.
+  \item \emph{First-order gene expression.} The transcript factor and the mean-field route
+  need it, as above. We have not run the framework on a model without it.
   \item \emph{Synthetic data from the same model.} The model is well specified by construction.
   The \pn{kim96.sdpost}\% spread in $Q$ is precision under a correct model. The pools show
   that this precision is not a calibrated uncertainty on every output. Real assays need
