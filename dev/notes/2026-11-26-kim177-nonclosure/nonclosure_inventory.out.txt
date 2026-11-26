@@ -1,0 +1,275 @@
+== Provenance
+syn3a-ensemble HEAD: 2075809cbb825140cb31a7bec8bc3529770c8e13
+export repo_git_sha: 514fa79  Minimal_Cell: db048ac
+sha256 63fbeca180fe8bdebec646df0ddbffb0149958fc2ff9fc3e6ec8803cd24c6aaf  cme/reactions.csv
+sha256 a95619a05e47b32e7e97e8f65128e31a25403c386e80b5ccfb298d905aa3af0e  cme/rate_rules.csv
+sha256 c1acb80878e8a500a86e0e1d9e195a491b46a01c337788c0a6554df19cbe6ec9  cme/species.csv
+sha256 1149da1f0ac53d53d1eb8d63c302e4d638e5e15666bddbb66cfd1f08276c67b5  cme/initial_counts.csv
+sha256 1bd4b35e1c33f3547fd5683213b5b4c32d7211dd9046d8a4b7ee628ee1f39b89  nodes.csv
+sha256 77d003243ec52770287ba76658f4deeb00cb3e8ad2e51172d0d3a7517b02bd55  ode/species.csv
+sha256 4da4941402a0e176ad6adad2c35b6ad0f67f992c023a306ea43f5edb3b8b9a27  ode/reactions.csv
+sha256 be4293c536cac2ef1a73cabf0144e5a64b696a7bff5f07ab15c871c8a710bf2f  ode/stoichiometry.csv
+sha256 e3c21a138aa318eb39f5e21a2e1f5e31476d2d10581ecec8e552b1128ce66251  export_meta.json
+sha256 2cbf4eae3b624a6b310c8eb8e67d30ea01ebd8b6a99c1a7fb12e13187399cca6  inventory.md
+sha256 ae6d3124ca31fddaad5b0a9c08f150ab601b1ae52727fce2ba0c4ec8802e0a41  SpeedyCell/src/Cell/writeback.jl
+sha256 1cec291491c64202495cd6820d439657e333f2228001c8cefad0b285d9788720  SpeedyCell/src/Cell/hook.jl
+SpeedyCell.jl HEAD 0823b53: CME tables byte-identical to the above: 4 of 4 (cme/reactions.csv, cme/rate_rules.csv, cme/species.csv, cme/initial_counts.csv); its inventory.md sha256 23d6b162dbdee2ce4dbc527ad0e0dbcd8ddad0d52755e6a5134fc73289d38bf5
+
+== Reaction order (README: lm_type 0-3 = propensities k, k*x, k*x*y, k*x(x-1)/2)
+lm_type counts: {1: 2002, 2: 363}
+second-order (type 2, two distinct reactants): 363
+
+== The 363 second-order reactions by family
+ 279  DnaA at the origins
+          90  DnaA leaves the filament (unbinding cascade, k = 600)
+          87  DnaA extends the ssDNA filament
+          87  DnaA leaves the filament tip (k = 0.55)
+           6  DnaA binds a low-affinity site at oriC
+           3  DnaA binds a high-affinity site off oriC
+           3  DnaA binds the high-affinity site at oriC
+           3  DnaA binds the last ssDNA site (filament complete, makes Initiator_C and Initiator_CC)
+  62  tRNA charging
+          20  synthetase-ATP-amino acid binds its tRNA
+          19  synthetase binds ATP
+          19  synthetase-ATP binds its amino acid
+           4  Gln-tRNA(Gln) amidotransferase (GatCAB, JCVISYN3A_0689) steps
+  20  Translation cost payment
+          20  residue counter + charged tRNA -> uncharged tRNA
+   2  Replication initiation
+           2  Initiator + chromosome: the fork starts and copies its first gene
+sum: 363
+
+CellSA inputs (writeback.jl lipid_sa!): 9 lipids, 93 membrane-protein ids, 103 species
+
+-- per family: rate node constant?, reactant initial-count range, and what the reactants/products touch
+* tRNA charging (62)
+    rate node is a const: 62 of 62; first-minute k values: [0.001, 0.01, 0.1]
+    smaller reactant's initial count: 1 to 736; larger: 40 to 73715
+    ode_species: 21 M_ala__L_c, M_arg__L_c, M_asn__L_c, M_asp__L_c, M_atp_c, M_cys__L_c, M_gln__L_c, M_glu__L_c, M_gly_c, M_his__L_c, M_ile__L_c, M_leu__L_c ...
+    proteins: 20 M_PTN_JCVISYN3A_0012_c, M_PTN_JCVISYN3A_0061_c, M_PTN_JCVISYN3A_0064_c, M_PTN_JCVISYN3A_0076_c, M_PTN_JCVISYN3A_0126_c, M_PTN_JCVISYN3A_0163_c, M_PTN_JCVISYN3A_0222_c, M_PTN_JCVISYN3A_0260_c, M_PTN_JCVISYN3A_0282_c, M_PTN_JCVISYN3A_0287_c, M_PTN_JCVISYN3A_0288_c, M_PTN_JCVISYN3A_0308_c ...
+    genes: 0
+    transcripts: 0
+    read_by_rate_rules: 1 M_atp_c
+    cellsa_inputs: 0
+* Translation cost payment (20)
+    rate node is a const: 20 of 20; first-minute k values: [100.0]
+    smaller reactant's initial count: 0 to 0; larger: 160 to 480
+    ode_species: 1 M_mettrna_c
+    proteins: 0
+    genes: 0
+    transcripts: 0
+    read_by_rate_rules: 20 M_alatrna_c, M_argtrna_c, M_asntrna_c, M_asptrna_c, M_cystrna_c, M_glntrna_c, M_glutrna_c, M_glytrna_c, M_histrna_c, M_iletrna_c, M_leutrna_c, M_lystrna_c ...
+    cellsa_inputs: 0
+* DnaA at the origins (279)
+    rate node is a const: 279 of 279; first-minute k values: [0.0017343977317179733, 0.00247771104531139, 0.00495542209062278, 0.38652292306857683, 0.55, 600.0]
+    smaller reactant's initial count: 0 to 16; larger: 0 to 148
+    ode_species: 0
+    proteins: 1 M_DnaA_c
+    genes: 0
+    transcripts: 0
+    read_by_rate_rules: 0
+    cellsa_inputs: 0
+* Replication initiation (2)
+    rate node is a const: 0 of 2; first-minute k values: [0.0693099797818794, 0.6979026802149686]
+    smaller reactant's initial count: 0 to 0; larger: 1 to 1
+    ode_species: 0
+    proteins: 0
+    genes: 2 JCVISYN3A_0001_gene, JCVISYN3A_0910_gene
+    transcripts: 0
+    read_by_rate_rules: 0
+    cellsa_inputs: 0
+    count-dependent rate: reaction 1873 reads ['CellSA', 'M_datp_c', 'M_dctp_c', 'M_dgtp_c', 'M_dttp_c']
+    count-dependent rate: reaction 2098 reads ['CellSA', 'M_datp_c', 'M_dctp_c', 'M_dgtp_c', 'M_dttp_c']
+
+-- cost payment: which *_cost_paid counter each credits
+    {'FMET_cost_paid': 20}
+    *_cost_paid species: 21; written by any reaction: {'FMET_cost_paid': 20}
+    *_cost_paid read as a reactant: 0; read as a count by any node: 0
+
+== All 2,365 reactions by family (inventory.md's table, refined)
+  491  type 1  DNA replication (fork step)
+  486  type 1  Transcription
+  455  type 1  mRNA degradation
+  455  type 1  Translation
+  279  type 2  DnaA at the origins
+   93  type 1  Translocation
+   62  type 2  tRNA charging
+   22  type 1  tRNA charging (release, first order)
+   20  type 2  Translation cost payment
+    2  type 2  Replication initiation
+total: 2365
+inventory.md 'Other' (383) recomputed: 383
+inventory.md 'DNA replication' (493) recomputed: 493 = 491 first-order fork steps + 2 second-order initiations
+
+== Rate rules (rate_rules.csv roots into nodes.csv)
+count-dependent rate rules: 1434  constant: 931
+-- by family: count-dependent / total
+   491 /  491  DNA replication (fork step)
+     0 /  279  DnaA at the origins
+     2 /    2  Replication initiation
+   486 /  486  Transcription
+   455 /  455  Translation
+     0 /   20  Translation cost payment
+     0 /   93  Translocation
+     0 /  455  mRNA degradation
+     0 /   62  tRNA charging
+     0 /   22  tRNA charging (release, first order)
+-- nodes per op: whole DAG (export_meta) | reachable from CME rate roots | from ODE rate N__ refs | from ODE init_node
+  min          38 |   29 |    9 |    0
+  max          29 |   29 |    0 |    0
+  round         1 |    1 |    0 |    0
+  select_gt     2 |    2 |    1 |    1
+  absent from the export: floor, trunc, floordiv, mod, abs
+-- the nonsmooth nodes by kind (node count; where reachable; active branch at procid 1's initial counts)
+    29  max(1, count) floor on a pool before division  [CME rules 29]  floor active (pool < 1) at t0: 0
+    29  min(c * protein/180, 180): promoter strength from a live protein count, capped at 180  [CME rules 29]  ceiling binding at t0: 0
+     9  min over subunit counts: complex AND rule (ODE enzyme)  [ODE rates 9]  arguments per node: {4: 4, 3: 4, 2: 1}
+     2  select_gt(V, 6.7e-17, ...): the volume cap  [CME rules 2; ODE rates 1; ODE init 1]  at the cap at t0: 0
+     1  round(V * 1e19): CellV  [CME rules 1]  CellV at t0 = 335
+  the pools under a max(1, .) floor (29): M_alatrna_c M_argtrna_c M_asntrna_c M_asptrna_c M_atp_c M_ctp_c M_cystrna_c M_datp_c M_dctp_c M_dgtp_c M_dttp_c M_fmettrna_c M_glntrna_c M_glutrna_c M_glytrna_c M_gtp_c M_histrna_c M_iletrna_c M_leutrna_c M_lystrna_c M_mettrna_c M_phetrna_c M_protrna_c M_sertrna_c M_thrtrna_c M_trptrna_c M_tyrtrna_c M_utp_c M_valtrna_c
+-- count-dependent CME rules reaching each nonsmooth op, by family
+   family: min max round select_gt smooth-only
+   DNA replication (fork step)                 0  491  491  491    0
+   Replication initiation                      0    2    2    2    0
+   Transcription                              29  486    0    0    0
+   Translation                                 0  455    0  455    0
+  count-dependent rules reaching at least one of min/max/round/select_gt: 1434 of 1434
+  rules reaching min (the protein-count promoter ceiling): 29, all ['Transcription']
+  ... of which the protein read is the gene's own product: 29 of 29
+  those genes: 0027 0077 0094 0154 0214 0230 0235 0259 0263 0379 0398 0401 0503 0525 0593 0622 0623 0643 0648 0649 0795 0851 0852 0873 0913 0918 0930 0931 0932
+  distinct count species read by the CME rules: 60
+  charged tRNA pools read per translation rule: {21: 455}
+    {'CellSA': 1, 'CellV': 1, 'NTP pools': 4, 'charged tRNA pools': 21, 'dNTP pools': 4, 'protein counts': 29}
+  count species read by the ODE (rates + init): 241
+  ODE reactions (of 175) whose rate reaches: {'max': 0, 'min': 18, 'reads a count node': 158, 'round': 0, 'select_gt': 158}
+
+== Count-dependent rules that are code, not data (SpeedyCell/src/Cell)
+  Cell/writeback.jl:98: V > V_CAP && return V_CAP, CELLV_CAP
+  Cell/writeback.jl:99: return V, round(Int, V * 1e19)
+  Cell/writeback.jl:106: becomes `int(round(y/1000·N_A·V))` at the volume from the current `CellSA` (which also
+  Cell/writeback.jl:114: X[i] = round(Int, (y[k] / 1000) * NA * V)
+  Cell/writeback.jl:120: pay = min(Int(X[c]), Int(X[pool]))     # costCnt > atpCnt: pay what the pool has
+  Cell/writeback.jl:128: pay = min(Int(X[c]), Int(X[m]))
+  Cell/writeback.jl:139: pay = min(Int(X[c]), Int(X[charged]))
+  Cell/writeback.jl:154: sa_lip = round(Int, sa * FRAC_OUT_MEM)
+  Cell/writeback.jl:159: sa_prot = trunc(Int, nprot * AVG_PROT_SA)
+  Cell/hook.jl:20: `old_time` (`integrate.runODE`): the target `max(round(time − old_time, 2), 0.1)`,
+  Cell/hook.jl:26: target = max(py_round2(time - old_time), ODE_OUTPUT_STEP)
+  cost counters charged with min(counter, pool): {'ATP_HYDRO_COUNTERS': 5, 'NTP_COUNTERS': 12, 'DNTP_COUNTERS': 4, 'AATRNA_COUNTERS': 1} total 22
+  NMP recycling counters (credited whole, no cap): 4
+  ODE species rounded to counts at every 1 s hook: 146
+
+== Gene copy number
+*_gene species: 493; initial counts: {1: 493}
+transcription reactions: 486, all type 1 with one *_gene reactant that the reaction leaves unchanged (propensity k*G)
+genes with a transcription reaction: 486 (each has [1]); genes without: 7 ['JCVISYN3A_0049_gene', 'JCVISYN3A_0068_gene', 'JCVISYN3A_0069_gene', 'JCVISYN3A_0158_gene', 'JCVISYN3A_0356_gene', 'JCVISYN3A_0533_gene', 'JCVISYN3A_0534_gene']
+transcription reactions by product: {'mRNA (M_RNA_*)': 455, 'rRNA operon (M_rRNA_16S_c M_rRNA_23S_c M_rRNA_5S_c)': 2, 'tRNA': 29}
+reactions with a *_gene reactant, by family: {'Transcription': 486}
+rate rules that read a *_gene count: 0
+what the transcription rate rules read (rules per input): {'CellV': 486, 'M_atp_c': 486, 'M_ctp_c': 486, 'M_gtp_c': 486, 'M_utp_c': 486, 'protein': 29}
+transcription rules reaching min / round / select_gt / max: 29 / 0 / 0 / 486
+replication reactions: 493; each increments one gene by +1: True; genes incremented: 493; reactions that decrement a gene: 0
+fork from reaction 1873 (Initiator_C + chromosome_C, k = 0.06931): copies JCVISYN3A_0001_gene first, then 224 first-order steps, ending at reaction 2097
+fork from reaction 2098 (Initiator_CC + chromosome_CC, k = 0.697903): copies JCVISYN3A_0910_gene first, then 267 first-order steps, ending at reaction 2365
+    M0 gene JCVISYN3A_0779_gene is copied at step 68 of this fork (reaction 2166, first-minute k = 0.0362971)
+    M0 gene JCVISYN3A_0607_gene is copied at step 172 of this fork (reaction 2270, first-minute k = 0.0839916)
+replication reaction 1873 (Initiator_C + chromosome_C, copies JCVISYN3A_0001_gene) also makes: Initiator_C(-1) chromosome_C(-1)
+replication reaction 2098 (Initiator_CC + chromosome_CC, copies JCVISYN3A_0910_gene) also makes: Initiator_CC(-1) chromosome_CC(-1)
+replication reaction 2364 (JCVISYN3A_0422_inter, copies JCVISYN3A_0421_gene) also makes: High_Affinity_Site2(+16) High_Affinity_Site_oriC2(+1) High_Affinity_Site_oriC3(+1) chromosome_C(+2) chromosome_CC(+2)
+what the replication rate rules read: ['CellSA', 'M_datp_c', 'M_dctp_c', 'M_dgtp_c', 'M_dttp_c']
+replication rules count-dependent: 493 of 493; reaching max / round / select_gt: 493 / 493 / 493
+M_DnaA_c is made by translation reaction(s): [9] (gene ['M_RNA_JCVISYN3A_0001_c'])
+initial counts: M_DnaA_c 148, High_Affinity_Site_oriC 1, chromosome_C 1, chromosome_CC 1
+
+== Rate constants: the first minute against the rule from minute 2 on
+  reaction 1494 (tRNA charging, M_glutrnagln_c + M_PTN_JCVISYN3A_0689_c): first-minute k = 0.01, rule from minute 2 = const 0.1
+reactions that can never fire (a reactant starts at 0 and nothing makes it): ['1720 (M_DnaA_c + High_Affinity_Site3)']
+reactions that make Initiator_C: [1656, 1719, 1782]; Initiator_CC: [1656, 1719, 1782]
+rRNA operon reactions: ['1592 (JCVISYN3A_0067_gene)', '1593 (JCVISYN3A_0532_gene)']
+reduced model genes (../../../src/organisms/coreA/data/transcription_genes.tsv): 17; shared with the 29 protein-count promoters: 0
+
+== Exact closure of the DnaA cascade, by its reachable states
+  origin High_Affinity_Site_oriC: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  origin High_Affinity_Site_oriC2: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  origin High_Affinity_Site_oriC3: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  off-oriC high-affinity bindings (DnaA x a multi-copy site): 3, of which can fire: ['1594 (High_Affinity_Site, initial 16)', '1657 (High_Affinity_Site2, initial 0)']
+  so of the 279: 177 close exactly (site x site), 99 are DnaA x a 0/1 site, 2 DnaA x a multi-copy site, 1 dead
+-- initiation, Initiator x chromosome (hand-written abstractions of the tables)
+  first round (O=1, I=0, C=1): 3 states [(0, 0, 0), (0, 1, 1), (1, 0, 1)]; I*C = C0*I in every state: True
+  second round (Oa=Ob=1, I=0, C=2): 8 states; I*C affine in the state: False
+  M13 R2 without R1 (D0=3): 2 states; D*O = D0*O in every state: True
+  M13 R2 with R1 (D0=3, three births): 8 states; D*O affine in the state: False
+
+== Hops from each kind to the nearest observable, in the dependency graph
+* DnaA x 0/1 site bindings (99) (nearest member)
+    transcripts: 3 (Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 3 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 5 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 3/3/5: 3 (1656, 1719, 1782); 4/4/6: 96
+* DnaA x multi-copy site bindings (2 live) (nearest member)
+    transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 4/4/6: 2 (1594, 1657)
+* cascade site x site (177) (nearest member)
+    transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 4/4/6: 177
+* replication initiations (2) (nearest member)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/4: 2 (1873, 2098)
+* tRNA charging, second order (62) (nearest member)
+    transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_ala__L_c)
+    doubling time (CellSA): 4 (JCVISYN3A_0012_ATP_AA_tRNA -> [CME 1568] M_ppi_c -> [ODE DASYN] M_cdpdag_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/1/4: 20; 3/1/4: 21; 3/2/5: 1 (1494); 4/2/4: 20
+* translation cost payment (20) (nearest member)
+    transcripts: 3 (M_alatrna_c -> [CME 567] M_PTN_JCVISYN3A_0027_c -> [CME 565] M_RNA_JCVISYN3A_0027_c)
+    bulk metabolites: 1 (M_mettrna_c)
+    doubling time (CellSA): 4 (M_alatrna_c -> [CME 720] M_PTN_JCVISYN3A_0214_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 3/1/4: 1 (1569); 3/2/4: 19
+* fork steps (491) (nearest member)
+    transcripts: 2 (JCVISYN3A_0002_gene -> [CME 538] M_RNA_JCVISYN3A_0002_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/4: 453; 3/2/4: 38
+* a gene copy number (the *_gene species themselves) (nearest member)
+    transcripts: 1 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_adp_c)
+    doubling time (CellSA): 4 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: unreached/unreached/unreached: 7; 1/2/4: 455; 3/2/4: 31
+* transcription with an own-protein promoter (29) (nearest member)
+    transcripts: 1 (M_RNA_JCVISYN3A_0027_c)
+    bulk metabolites: 2 (ATP_mRNA -> [writeback.jl counter ATP_mRNA] M_atp_c)
+    doubling time (CellSA): 4 (ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 1/2/4: 29
+* readers of a max(1, .) floor: every count-dependent CME rule (1,434) (nearest member)
+    transcripts: 1 (M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_apoACP_c)
+    doubling time (CellSA): 3 (M_PTN_JCVISYN3A_0005_c_cyto -> [CME 29] M_PTN_JCVISYN3A_0005_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 1/2/4: 455; 2/2/3: 1 (720); 2/2/4: 477; 3/1/3: 1 (21); 3/1/4: 5 (3, 6, 12, 15, 18); 3/2/3: 97; 3/2/4: 398
+* readers of the CellV count (486) (nearest member)
+    transcripts: 1 (M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_mRNA -> [writeback.jl counter ATP_mRNA] M_atp_c)
+    doubling time (CellSA): 4 (ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 1/2/4: 455; 3/2/4: 31
+* readers of round(V*1e19) (493) (nearest member)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/4: 455; 3/2/4: 38
+* readers of the volume cap (948) (nearest member)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_apoACP_c)
+    doubling time (CellSA): 3 (M_PTN_JCVISYN3A_0005_c_cyto -> [CME 29] M_PTN_JCVISYN3A_0005_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/3: 1 (720); 2/2/4: 477; 3/1/3: 1 (21); 3/1/4: 5 (3, 6, 12, 15, 18); 3/2/3: 97; 3/2/4: 367
+* ODE reactions with an AND rule (18) (nearest member)
+    transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_5fthf_c)
+    doubling time (CellSA): 3 (M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/1/3: 12; 2/1/4: 2 (FAKr, COAabc); 3/1/3: 1 (RNDR4); 3/1/4: 3 (RNDR1, RNDR2, RNDR3)
+
+OK: 363 second-order, 493 replication, 1434 count-dependent rules; every reaction classified.
