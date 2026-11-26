@@ -6,23 +6,26 @@ how far the joint posterior of \cref{sec:reduced} carries, through \code{predict
 (\cref{sec:predictapi}), to two things the fit never saw. The first is a later horizon: the
 saves from \pn{kim95.horizonlo} to \pn{model.cycle}\,s, after a fit window that covers the
 first half of the cycle. The second is a knockdown of ptsG, which the data never contain. It
-scales the ptsG promoter strength, \code{S\_0779}, by $1-d$ at dose $d = \pn{kim95.dose}$. We
+scales the ptsG promoter strength by $1-d$ at dose $d = \pn{kim95.dose}$. We
 score both against the true simulator at $\theta^\ast$, with the prior predictive beside the
 posterior predictive.
 
 \paragraph{How the predictions are scored.} Every target is a population mean, the mean over a
 draw's cells. The truth is the mean over the true simulator's cells at $\theta^\ast$. Three
-targets are $Q$, the extracellular lactate at \pn{model.cycle}\,s (\cref{sec:predictapi}); $Q_{\mathrm{kd}}$, the same
-quantity under the knockdown; and their difference $\Delta Q = Q_{\mathrm{kd}} - Q$. The others are the 17 pools and
-17 transcripts at each of the \pn{kim95.nsaves} saves of the later horizon. Each arm has \pn{kim95.ndraws} parameter draws, with \pn{kim95.cells} cells per
+targets are $Q$, the extracellular lactate at \pn{model.cycle}\,s, that is, the lactate exported over the cycle, in particles (\cref{sec:predictapi}); $Q_{\mathrm{kd}}$, the same
+quantity under the knockdown; and their difference $\Delta Q = Q_{\mathrm{kd}} - Q$. The others are the \pn{mzero.npanel} pools and
+\pn{kim92.npromoter} transcripts at each of the \pn{kim95.nsaves} saves of the later horizon. Each arm has \pn{kim95.ndraws} parameter draws, with \pn{kim95.cells} cells per
 posterior draw and \pn{kim95.priorcells} per prior draw. The truth has \pn{kim95.ntruth} cells
 for each knockdown arm. We fixed these sizes before any truth was read. We score each target by the continuous ranked probability score (CRPS) of its predictive
 distribution against the truth \cite{gneiting2007strictly}. The CRPS skill is
 $1 - \mathrm{CRPS}_{\mathrm{post}}/\mathrm{CRPS}_{\mathrm{prior}}$, so 0 means no better than
 the prior. The hit fraction is the share of saves whose true value lies inside the central
-50\% or 90\% interval. The MC share is the part of the spread across draws that is cell noise.
-It can exceed 1 when the spread that comes from $\theta$ is too small to resolve. Saves within a
-species are strongly correlated, so a family's hit fraction rests on about 17 species, not on
+50\% or 90\% interval. The Monte Carlo (MC) share is the part of the spread across draws that is cell noise: the mean
+over draws of $\hat\sigma^2/n$, one draw's cell variance over its number of cells, divided by the
+variance of the draws' means. It can exceed 1 when the spread that comes from $\theta$ is too
+small to resolve; the noise-subtracted parameter variance is then negative, and we report the
+target as not resolved. Saves within a
+species are strongly correlated, so the hit fraction of the pools, or of the transcripts, rests on about \pn{mzero.npanel} species, not on
 \pn{kim95.nsavesfam} independent checks. \Cref{sec:reduceddesign} gives the design, and \cref{sec:prediction} the estimand and the
 intervention.
 
@@ -32,15 +35,19 @@ intervals on $Q$ and $Q_{\mathrm{kd}}$ are $\pm\pn{kim95.qint}\%$ wide, and both
 $Q$ and \pn{kim95.qkdz} SD below it on $Q_{\mathrm{kd}}$, inside both 50\% intervals. The
 prior's median is \pn{kim95.priorlow}\% low, and its 90\% interval spans a factor of
 \pn{kim95.priorfactor}. The CRPS skill is \pn{kim95.qskill} on both. It is near 1 mostly because the prior is
-so wide. The finding is therefore that a narrow interval holds the truth. The knockdown's effect is
-\pn{kim95.dqtruth}, about \pn{kim95.dqshare}\% of $Q$. All of the posterior's width on
+so wide. The finding is therefore that a narrow interval holds the truth. The knockdown's true effect is
+$+\pn{kim95.dqtruth} \pm \pn{kim95.dqse}$, about \pn{kim95.dqshare}\% of $Q$. On this truth the
+knockdown slightly raises export, the opposite sign to the fall expected on M0 and in the
+budget transferred from M0 (\cref{app:m0predict}). The posterior's 90\% interval on $\Delta Q$
+spans zero, so it does not resolve the sign. All of the posterior's width on
 $\Delta Q$ is cell noise (MC share \pn{kim95.dqmc}). The posterior therefore shows only that
 the effect is small next to one draw's cell noise. Because the effect is this small, covering
 $Q_{\mathrm{kd}}$ tests nearly the same thing as covering $Q$. The CRPS skill on $\Delta Q$ is
-\pn{kim95.dqskill}, against a prior whose median has the wrong sign. The truth is also less
+\pn{kim95.dqskill}, against a prior whose median is negative, the opposite sign to the truth. The truth is also less
 sharp than the sizing rule asks. On these three targets its standard error is
 \pn{kim95.sesdlo}--\pn{kim95.sesdhi} of the posterior SD, above the rule's \pn{kim95.sesdrule}.
-The posterior is narrower than the sizing passes could see. These hits are therefore read against a truth that is
+The posterior is narrower than the sizing passes, run before the full prediction
+(\cref{sec:reduceddesign}), could see. These hits are therefore read against a truth that is
 not sharp.
 
 \paragraph{The transcripts are covered, but mostly by cell noise.} On the later horizon,
@@ -56,7 +63,7 @@ how sharp the parameter part of the prediction is.
 \paragraph{The pools show where the posterior is wrong.} \pn{kim95.poolin90}\% of pool saves
 lie inside the posterior's 90\% interval, but only \pn{kim95.poolin50}\% inside its 50\%
 interval, against \pn{kim95.poolprior90}\% and \pn{kim95.poolprior50}\% for the prior. For
-\pn{kim95.poolshift} of the 17 pools the shortfall is a shift and not scatter. Their offsets are
+\pn{kim95.poolshift} of the \pn{mzero.npanel} pools the shortfall is a shift and not scatter. Their offsets are
 about \pn{kim95.shiftlo}--\pn{kim95.shifthi} SD in magnitude. In the trioses the truth lies above
 the prediction, by \pn{kim95.g3p} SD for G3P and \pn{kim95.dhap} SD for DHAP, and no save of
 either falls inside its 50\% interval (\cref{fig:reducedpredict}C). The energy charge splits,
@@ -64,28 +71,33 @@ with the truth below the prediction for ATP, ADP and GDP and above it for AMP an
 glycolysis the truth also lies about one SD above the prediction for G6P, F6P and FDP. The other \pn{kim95.poolsquiet}
 pools sit within \pn{kim95.quietz} SD. The triose and FDP offsets come from $\theta$ and not from cell
 noise. Their median MC shares are \pn{kim95.triosemclo}--\pn{kim95.triosemchi}, so these offsets
-are biases of the posterior. The nucleotides' shares are larger, \pn{kim95.nucmclo}--\pn{kim95.nucmchi}. The median CRPS skill over
+come from the posterior's $\theta$; on one dataset they may still reflect this data realisation. The nucleotides' shares are larger, \pn{kim95.nucmclo}--\pn{kim95.nucmchi}. The median CRPS skill over
 all species is still \pn{kim95.medskill}. In \cref{sec:reduced} the posterior means of the promoter
-strengths sat below the truth, with a mean standardised error of \pn{kim92.promz}, yet the
+strengths sit below the truth, with a mean standardised error of \pn{kim92.promz}, yet the
 transcripts show no comparable shift. Scoring against the true simulator tests the mixed route's
-approximation on the reduced model. By that test, the posterior's error shows in the pools and
+approximation on the reduced model. By that test, on this truth, the posterior's error shows in the pools and
 not in $Q$ or the transcripts.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_reduced_predict.pdf}
 \caption{\textbf{The posterior's predictions cover the truth on $Q$ and the transcripts and miss
-ten of the seventeen pools by \pn{kim95.shiftlo}--\pn{kim95.shifthi} SD, against a prior
+\pn{kim95.poolshift} of the \pn{mzero.npanel} pools by \pn{kim95.shiftlo}--\pn{kim95.shifthi} SD, against a prior
 predictive that is far wider.} A: 90\% intervals of the prior (grey) and posterior (blue)
 predictive for $Q$ and $Q_{\mathrm{kd}}$, on the prior's scale and on the posterior's, and for
-the knockdown's effect $\Delta Q$; the black line is the truth $\pm$ its standard error. B: each
+the knockdown's effect $\Delta Q$; the prior's grey tick and the white gap in the blue bar mark the
+medians, the blue diamond marks the posterior on the prior's scale, where its bar is too narrow to
+see, the pale blue strip marks the zoomed range, and all values are particles per cell; the black line is the truth $\pm$ its standard error. B: each
 species' offset over the later horizon, the median over its \pn{kim95.nsaves} saves of the truth
 minus the posterior median, in posterior SD, at baseline. Whiskers span the 5th to 95th
 percentiles of a pool's per-save offsets, the shaded band is $\pm 1$\,SD, filled points are the
-shifted pools, and the 17 transcripts share one row. C: 90\% bands over the later horizon for
-G3P, the largest positive offset, and for the ptsG transcript. Each arm has \pn{kim95.ndraws} draws, with \pn{kim95.cells} cells per
+shifted pools, and the \pn{kim92.npromoter} transcripts share one row. The lactate-out row is the
+extracellular-lactate pool over the whole later horizon; $Q$ is its value at \pn{model.cycle}\,s
+only, so their offsets differ. C: 90\% bands over the later horizon for
+G3P, the largest positive offset, in particles per cell, and for the ptsG transcript, in mRNA per
+cell, both population means. Each arm has \pn{kim95.ndraws} draws, with \pn{kim95.cells} cells per
 posterior draw and \pn{kim95.priorcells} per prior draw; the truth has \pn{kim95.ntruth} cells
-per knockdown arm.}
+per knockdown arm. Time axes are in minutes (the later horizon is 53--105\,min).}
 \label{fig:reducedpredict}
 \end{figure*}
 
@@ -93,10 +105,11 @@ per knockdown arm.}
 contraction threshold of \cref{sec:reduced}, the data reach all \pn{kim92.ncoord} parameters,
 and the lowest contraction is \pn{kim92.contrmin}. No parameter stays prior-dominated, so there is no held set
 whose share of the variance could be measured. Instead we compare $Q$'s parameter variance
-$\mathrm{Var}_\theta(Q)$, its variance across parameter draws with the cell noise taken out.
-We compare it in three states, all at the default prior width, a geometric SD of
-\pn{budget.gsdone} (\cref{fig:reducedbudget}). With all \pn{budget.ndrawn} model parameters at
-their priors ($\sigb$, the observation noise, does not enter $Q$), $\mathrm{Var}_\theta(Q)$ is \pn{kim96.vprior}. The middle state puts M0's
+$\mathrm{Var}_\theta(Q)$, in particles$^2$: its variance across parameter draws with the cell
+noise taken out, written $\mathrm{Var}(\mu)$ in \cref{app:m0predict}. We compare it in three
+states, all with the promoters' priors at the default width, a geometric SD of
+\pn{budget.gsdone} (\cref{fig:reducedbudget}). With all \pn{kim92.nmodelpar} model parameters at
+their priors ($\sigb$, the assay noise, does not enter $Q$), $\mathrm{Var}_\theta(Q)$ is \pn{kim96.vprior}. The middle state, the budget transferred from M0, puts M0's
 posterior on \pn{budget.nI} parameters and the \pn{budget.nH} other promoter strengths at their
 priors. There it is \pn{kim96.vkimfortytwo}, \pn{kim96.heldshare}\% of it from those promoters
 (\cref{app:m0predict}). Under the joint posterior it is \pn{kim96.vpost}. As a standard
@@ -108,9 +121,9 @@ posterior's variance is about \pn{kim96.ratio} times below the middle state's
 
 \paragraph{What the factor of \pn{kim96.ratio} means.} The factor holds at the default width
 only. At widths $\tfrac12$ and 2 the middle state changes, and the factor is about
-\pn{kim96.widthlo} and \pn{kim96.widthhi}. Nor does the factor come from the promoters alone. Inferring the \pn{budget.nH} promoters while
-keeping M0's posterior on the other \pn{budget.nI} would give a factor of about
-\pn{kim96.ionly}. The rest comes from the reduced model's data also tightening those
+\pn{kim96.widthlo} and \pn{kim96.widthhi}. Nor does the factor come from the promoters alone. Pinning the \pn{budget.nH} promoters exactly while
+keeping M0's posterior on the other \pn{budget.nI} would leave \pn{kim96.hwithin}, a factor of
+at most about \pn{kim96.honly}. The rest comes from the reduced model's data also tightening those
 \pn{budget.nI}, and the joint posterior does both at once. The three states also have different
 centres: the middle state's mean $Q$ is \pn{budget.qone} million, the joint posterior's
 \pn{kim96.meanpost} million. The ratios therefore compare variances about different means,
@@ -122,7 +135,7 @@ show that it is not a calibrated uncertainty on every output.
 \centering
 \includegraphics[width=\columnwidth]{fig_reduced_budget.pdf}
 \caption{\textbf{Once every parameter is inferred, none stays prior-dominated.} At the default
-prior width (geometric SD \pn{budget.gsdone}), $Q$'s parameter variance is \pn{kim96.vprior}
+prior width (geometric SD \pn{budget.gsdone}), $Q$'s parameter variance, in particles$^2$, is \pn{kim96.vprior}
 with every parameter at its prior. It falls to \pn{kim96.vkimfortytwo} with M0's posterior on
 \pn{budget.nI} parameters and the \pn{budget.nH} other promoter strengths at their priors
 (\pn{kim96.heldshare}\% of it from those promoters). Under the joint posterior, where every
@@ -131,9 +144,10 @@ against each state's own mean, $Q$'s spread falls from \pn{kim96.sdprior}\% thro
 \pn{kim96.sdkimfortytwo}\% to \pn{kim96.sdpost}\%. The last step is a factor of about
 \pn{kim96.ratio} (\pn{kim96.ratiolo}--\pn{kim96.ratiohi}, $\pm 2$ standard errors on the log
 scale). The bar beside the middle state spans prior widths $\tfrac12$ to 2, over which the
-factor runs from \pn{kim96.widthlo} to \pn{kim96.widthhi}. The open point is the variance left
-from the \pn{budget.nI} M0 parameters alone, so inferring the promoters alone would give a factor
-of only about \pn{kim96.ionly}. Error bars are jackknife standard errors. The prior and joint
+factor runs from \pn{kim96.widthlo} to \pn{kim96.widthhi}. The open point is the variance of the mean over the \pn{budget.nI} M0 parameters alone. Pinning
+the promoters exactly would leave about as much, \pn{kim96.hwithin}, so inferring the promoters
+alone gives a factor of at most about \pn{kim96.honly}. Error bars are $\pm$ one jackknife standard error. The dashed grey range beside the middle
+state is that state's value at prior widths $\times\tfrac12$ and $\times 2$; it is not a fourth state. The prior and joint
 states use \pn{kim95.ndraws} draws, at \pn{kim95.priorcells} and \pn{kim95.cells} cells per
 draw, and the middle state \pn{budget.nrows} by \pn{budget.ncols} parameter pairs at
 \pn{budget.ncellspair} cells each.}
@@ -145,5 +159,5 @@ same sizes, against this truth and this prior arm (\cref{app:modular}). It score
 does on $\Delta Q$ and on the later horizon. On $Q$ and $Q_{\mathrm{kd}}$ its median sits about
 \pn{kim116.plugqhigh}\% above the truth, and its CRPS is about twice the joint's.
 
-\Cref{app:m0predict} holds the predictions scored on M0, and the transferred budget that is the
+\Cref{app:m0predict} holds the predictions scored on M0, and the budget transferred from M0 that is the
 middle state here.

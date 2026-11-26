@@ -11,12 +11,11 @@ and it costs about \pn{kim92.cpuh} CPU-hours (\cref{fig:reducedpost,tab:reducedc
 parameters $\theta$ are the \pn{kim92.npromoter} promoter strengths, the decay rate, ENO, FBA
 and $\sigb$, each on the log scale. The \pn{kim92.ncells} cells come from the true simulator
 at $\theta^\ast$. Over the \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, the bulk factor
-has \pn{kim92.ppcrows} rows, 17 pools at each save, and the rest of the cycle, the later horizon, is held out for
+has \pn{kim92.ppcrows} rows, \pn{mzero.npanel} pools at each save, and the rest of the cycle, the later horizon, is held out for
 \cref{sec:reducedpredict}. The route is the one defined in \cref{sec:api}, with $\delta$
 and $S$ computed once from a reference ensemble of the exact hybrid
 (\cref{sec:meanfield}). We ran \pn{kim92.nchains} chains of the No-U-Turn Sampler, with
-pass criteria fixed before the dataset was drawn. \Cref{sec:methods} gives the settings
-(\cref{sec:reduceddesign}).
+pass criteria fixed before the dataset was drawn. \Cref{sec:reduceddesign} gives the settings.
 
 \paragraph{Convergence.} The pass criterion is a rank-normalised $\Rhat$ of at most
 \pn{kim92.rhatgate} and a bulk effective sample size of at least \pn{kim92.essgate} on
@@ -57,9 +56,9 @@ of \pn{kim92.mapz}. So the shift is in the log density on this dataset, with or
 without $\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
 \pn{kim92.promcorr} on average, so noise that the likelihood represents is unlikely to
 produce a common shift this large; the standard error above already allows for it. A shared
-component that the likelihood does not represent would not show in these correlations. It
-could be a bias in the likelihood, which would recur on every dataset, or a feature of this
-data realisation alone. One dataset cannot separate the two. We read the
+component that the likelihood does not represent would not show in these correlations. Either way
+it is a gap in the likelihood. It could be systematic, and recur on every dataset, or peculiar to
+this data realisation, and not recur. One dataset cannot separate the two. We read the
 scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
@@ -71,24 +70,35 @@ spread across the record. This check tests whether the fitted likelihood reprodu
 data. It does not test the mean-field approximation against the exact hybrid. On the
 reduced model, the mixed route also has no calibration test of the kind
 \cref{sec:posteriors} ran on M0. The scored predictions of \cref{sec:reducedpredict},
-against the true simulator, are the test of the approximation.
+against the true simulator, are the test of the approximation. Nor does M0's calibration cover
+this model's regime. GTP clips in \pn{kim95.clip}\% of the reduced model's baseline cells, and
+in the run of the budget transferred from M0 most cells fall below RNA polymerase's dissociation constant
+$K_d$, where the basis of the one-way reduction fails. On M0, GTP stayed above $K_d$
+(\cref{app:reductions}). The check is also weak: the data plug-in of the
+modular arm, which is not close to the joint, leaves \pn{kim116.ppcout} rows outside. The
+posterior may also be too narrow. On M0 the mixed route counts the transcripts' information twice,
+through the bulk mean of the same cells, and this narrowed its posterior (\cref{sec:posteriors}).
+The same can happen here, and its size on the reduced model is not measured.
 
 \paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD, from the
 curvature of the fitted log density at $\theta_{\mathrm{ref}}$, is
 \pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. So on this dataset a Laplace
-approximation gives the right widths. We know that only because NUTS ran: the comparison
+approximation gives the right widths. We know that only because the No-U-Turn Sampler ran: the comparison
 needs the sampled posterior, and on a dataset whose posterior is far from Gaussian a Laplace
 fit alone would give no warning. Centred at $\theta_{\mathrm{ref}}$, it would not give the
 right centre for ENO and FBA. Their posterior means lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from
 $\theta_{\mathrm{ref}}$, which maximises the density with $\delta = S = 0$, not the fitted one.
 Both are learned from the bulk, where $\delta$ acts, so their posterior means need not sit
-at $\theta_{\mathrm{ref}}$.
+at $\theta_{\mathrm{ref}}$. Because $\delta$ and $S$ are fixed there, the bulk factor is
+linearised about a point that these two parameters' posteriors have moved away from. We did not
+recompute $\delta$ and $S$ at the posterior mean on this model. On M0 doing so moved the gap
+only in part (\cref{app:sfixed}).
 Their marginals are also nearly symmetric, with skewness \pn{kim92.skeweno} and
 \pn{kim92.skewfba}.
 
 \paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
-(\cref{tab:reducedcost}), of which the chains are about \pn{kim92.chainsall}, below our bound of \pn{cost.kone} CPU-hours per posterior. That
-is far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
+(\cref{tab:reducedcost}), and the chains about \pn{kim92.chainsall} of them. The whole run is below
+our bound of \pn{cost.kone} CPU-hours per posterior, which we set ourselves, and far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
 The limit is wall-clock time, because each chain is one serial job. Each chain took
 \pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation
 and \pn{kim92.firstdraws} kept iterations, and \pn{kim92.extwalllo}--\pn{kim92.extwallhi}\,h
@@ -113,9 +123,9 @@ contraction by more than \pn{kim116.cutcontr}. It saves nothing, because its sta
 solves the same ODE over the same parameters as the joint. The arm costs
 \pn{kim116.cutt1} times the joint run of \cref{tab:reducedcost}. The data plug-in costs
 \pn{kim116.plugt1} times the joint run, but it is not close. The GAPD promoter
-shifts by \pn{kim116.plugshift} joint SD (Monte Carlo SE \pn{kim116.plugshiftse}), and
+shifts by \pn{kim116.plugshift} joint SD (Monte Carlo standard error \pn{kim116.plugshiftse}), and
 \pn{kim116.plugup} of the \pn{kim92.npromoter} promoters shift up; the mean shift over all
-\pn{kim92.npromoter} is \pn{kim116.plugmean} SD. Against the truth, both variants hold it inside \pn{kim116.truthin} of the
+\pn{kim92.npromoter} is \pn{kim116.plugmean} SD. Against the truth, both variants hold the truth inside \pn{kim116.truthin} of the
 \pn{kim92.ncoord} central 90\% intervals, where the joint holds \pn{kim92.truthin}.
 
 The cut also locates the promoter shift. Its stage one sees only the transcripts, and its
@@ -132,14 +142,17 @@ represents is unlikely to produce it.
 \centering
 \includegraphics[width=\linewidth]{fig_reduced_posterior.pdf}
 \caption{\textbf{The data reach all \pn{kim92.ncoord} parameters of the reduced model,
-and the posterior reproduces its own data.} A: posterior standard deviation over prior
-standard deviation for each parameter, on the log scale; the contraction is one minus its
-square. B: the standardised error, (posterior mean $-$ truth)/posterior SD, with the
+and the posterior reproduces its own data.} Promoter strengths are orange and the other parameters black; promoters are labelled by their
+JCVISYN3A locus numbers. A: posterior standard deviation over prior standard deviation for
+each parameter, on the log scale; the contraction is one minus its square, and the dashed line
+at 1 is the prior. B: the standardised error, (posterior mean $-$ truth)/posterior SD, with the
 central 90\% interval on the same scale; the grey band is one posterior SD either side of
 the truth, the dotted line is the promoters' mean, and the open marker is the one truth
 outside its interval. C: where each of the \pn{kim92.ppcrows} observed bulk rows
-(17 pools at \pn{kim92.nsaves} saves) falls relative to its central 99\%
-posterior predictive band (grey); the \pn{kim92.ppcout} rows outside are black. A and B
+(\pn{mzero.npanel} pools at \pn{kim92.nsaves} saves) falls relative to its central 99\%
+posterior predictive band (grey); the \pn{kim92.ppcout} rows outside are black. Rows run save by save, with the \pn{mzero.npanel}
+pools in a fixed order within each save. A point's height inside the band is its position between
+the band's edges; outside the band, heights only show the side and are not to scale. A and B
 use \pn{kim92.ndraws} pooled draws from \pn{kim92.nchains} chains; the band in C uses
 \pn{kim92.ppcdraws} of them, with \pn{kim92.ppcreps} replicates each.}
 \label{fig:reducedpost}
@@ -152,12 +165,12 @@ use \pn{kim92.ndraws} pooled draws from \pn{kim92.nchains} chains; the band in C
 optimiser, the reference ensemble and the chains. The reduced-model value is the whole
 run, and includes the dataset, profiling, the unit-metric probe (\pn{kim92.probecpuh} CPU-h)
 and the predictive check. Params is the number of free parameters. Days are wall-clock on the critical path,
-without queue waits; for the joint they include the dataset and the preparation. The M0
-mixed route's per-job wall times are in the Slurm records, but its wall-clock per posterior
-was not tabulated. The reduced-model fits use the mixed route. The two modular rows count
-their own jobs only, in CPU-hours and in days. They reuse the joint's dataset, preparation,
-probe and profile, and neither row includes them; the last three cost \pn{kim116.shared}
-CPU-h.}
+without queue waits; for the joint they include the dataset and the preparation, but not the
+unit-metric probe. The M0 mixed route's per-job wall times are in the Slurm records, but its
+wall-clock per posterior was not tabulated for the calibration run (---). The reduced-model fits use the mixed route. The two modular rows count
+their own jobs only, in CPU-hours and in days. They reuse the joint's dataset, and share its
+precompilation, preparation, probe and profile, which cost \pn{kim116.shared} CPU-h;
+neither row includes them.}
 \label{tab:reducedcost}
 \centering
 \small

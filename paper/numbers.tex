@@ -178,40 +178,9 @@
 \pndef{pred.ref50}{49}% same
 \pndef{pred.se90}{4.6}% same
 \pndef{pred.se50}{7.1}% same
-\pndef{pred.q.eh.c}{$62.0 \pm 6.9$}% score.md, Q
-\pndef{pred.q.eh.n}{$92.0 \pm 3.8$}% same
-\pndef{pred.q.em.c}{$58.0 \pm 7.0$}% same
-\pndef{pred.q.em.n}{$94.0 \pm 3.4$}% same
-\pndef{pred.q.em.w}{0.988}% same
-\pndef{pred.q.ed.c}{$56.0 \pm 7.0$}% same
-\pndef{pred.q.ed.n}{$90.0 \pm 4.2$}% same
-\pndef{pred.q.ed.w}{0.988}% same
-\pndef{pred.q.mh.c}{$50.0 \pm 7.1$}% same
-\pndef{pred.q.mh.n}{$88.0 \pm 4.6$}% same
-\pndef{pred.q.mh.w}{0.823}% same
-\pndef{pred.q.mm.c}{$54.0 \pm 7.0$}% same
-\pndef{pred.q.mm.n}{$82.0 \pm 5.4$}% same
-\pndef{pred.q.mm.w}{0.772}% same
-\pndef{pred.q.md.c}{$48.0 \pm 7.1$}% same
-\pndef{pred.q.md.n}{$84.0 \pm 5.2$}% same
-\pndef{pred.q.md.w}{0.772}% same
-\pndef{pred.d.eh.c}{$62.0 \pm 6.9$}% score.md, ΔQ
-\pndef{pred.d.eh.n}{$98.0 \pm 2.0$}% same
-\pndef{pred.d.em.c}{$46.0 \pm 7.0$}% same
-\pndef{pred.d.em.n}{$90.0 \pm 4.2$}% same
-\pndef{pred.d.em.w}{0.733}% same
-\pndef{pred.d.ed.c}{$48.0 \pm 7.1$}% same
-\pndef{pred.d.ed.n}{$88.0 \pm 4.6$}% same
-\pndef{pred.d.ed.w}{0.733}% same
-\pndef{pred.d.mh.c}{$52.0 \pm 7.1$}% same
-\pndef{pred.d.mh.n}{$96.0 \pm 2.8$}% same
-\pndef{pred.d.mh.w}{0.964}% same
 \pndef{pred.d.mm.c}{$32.0 \pm 6.6$}% same
-\pndef{pred.d.mm.n}{$86.0 \pm 4.9$}% same
-\pndef{pred.d.mm.w}{0.635}% same
 \pndef{pred.d.md.c}{$26.0 \pm 6.2$}% same
 \pndef{pred.d.md.n}{$78.0 \pm 5.9$}% same
-\pndef{pred.d.md.w}{0.635}% same
 \pndef{pred.q.eh.sehigh}{1.8}% result note, Q
 \pndef{pred.q.mixnarrow}{18}% same, 1 - 0.823
 \pndef{pred.q.fshift}{0.14}% same (score.md 0.136)
@@ -302,6 +271,8 @@
 \pndef{kim92.fitend}{3{,}120}% spec/prereg/kim-92.md §1, last save in the fit window, s
 \pndef{kim92.nrows}{884}% spec/prereg/kim-92.md §1, 17 pools x 52 saves
 \pndef{mix.speedup}{80}% ften.cpuh / mix.cpuh = 507.5 / 6.57 = 77; 103 against cost.exacthi
+\pndef{mix.speeduplo}{77}% ften.cpuh / mix.cpuh = 507.5 / 6.57
+\pndef{mix.speeduphi}{103}% cost.exacthi / mix.cpuh = 678 / 6.57
 \pndef{kim92.firstdraws}{200}% spec/prereg/kim-92.md §1, NDRAW
 \pndef{kim92.nadapt}{200}% spec/prereg/kim-92.md §1, NADAPT
 \pndef{kim92.extdraws}{400}% dev/scripts/corea_pilot_kim92_result.md, kept draws per chain after the extension
@@ -331,6 +302,11 @@
 \pndef{kim116.cutpromz}{$-0.79$}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut, promoters' mean (mean - truth)/sd
 \pndef{kim116.plugpromz}{$-0.61$}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, promoters' mean (mean - truth)/sd
 \pndef{kim116.truthin}{19}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), truth inside the 90% interval, of 21, both variants (joint 20)
+\pndef{kim116.jointjobs}{454.6}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, the joint's own posterior jobs: stage 1 (chains, extension, gate checks, metric job) 452.5 plus PPC and merge 2.0, CPU-h
+\pndef{compute.modularjobs}{21208675--84, 21315914, 21316056--59, 21375141, 21375287, 21457208, 21462423--26, 21596404, 21597007, 21627293--95}% infercell-kim116-archive-2026-11-26/run/jobs.tsv, both variants; profile 21196497 is separate
+\pndef{compute.modularpredictjobs}{21408651--54}% infercell-kim116-archive-2026-11-26/predict/jobs.tsv, plug-in D3
+\pndef{compute.modularpredictcpuh}{4{,}231}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103) l.105, 4,230.6 CPU-h from sacct
+\pndef{compute.budgetreadjob}{21188187}% dev/scripts/corea_budget_kim96_result.md, Run: a 14 s job that reads three archives
 \pndef{kim116.cutjob}{1.44}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, cut total / joint's own posterior jobs (652.3 / 454.6)
 \pndef{kim116.plugjob}{0.80}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, plug-in total / joint's own posterior jobs (365.2 / 454.6)
 \pndef{kim116.cutt1}{1.33}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut total against T1 491.9, the pre-registered comparator
@@ -405,6 +381,7 @@
 \pndef{kim95.priorlow}{24--26}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), prior median low, % of truth
 \pndef{kim95.dqtruth}{\ensuremath{6.4 \times 10^{4}}}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ truth
 \pndef{kim95.dqshare}{0.4}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ as % of Q
+\pndef{kim95.dqse}{\ensuremath{2.3 \times 10^{4}}}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ truth SE (6.423e4 +- 2.32e4)
 \pndef{kim95.dqmc}{1.09}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), dQ posterior MC share
 \pndef{kim95.sesdlo}{0.14}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth SE/SD on Q
 \pndef{kim95.sesdhi}{0.33}% dev/scripts/corea_predict_kim95_result.md (jobs 21154497-500), truth SE/SD on dQ
@@ -449,4 +426,6 @@
 \pndef{kim96.sdkimfortytwo}{15}% dev/scripts/corea_budget_kim96_result.md (job 21188187), sqrt(Var)/mean %, KIM-42
 \pndef{kim96.sdpost}{0.8}% dev/scripts/corea_budget_kim96_result.md (job 21188187), sqrt(Var)/mean %, posterior
 \pndef{kim96.heldshare}{91}% dev/scripts/corea_budget_kim96_result.md (job 21188187), KIM-42's share in the 15 held promoters, %
-\pndef{kim96.ionly}{11}% dev/scripts/corea_budget_kim96_result.md (job 21188187), factor from inferring promoters alone (2.17e12 / 2e11)
+\pndef{kim96.hwithin}{\ensuremath{2.2 \times 10^{11}}}% dev/scripts/corea_budget_kim96_result.md (job 21188187), h_within with H first: variance left with the promoters pinned
+\pndef{kim96.honly}{10}% dev/scripts/corea_budget_kim96_result.md (job 21188187), 2.17e12 / 2.2e11 = 9.9, upper bound on the factor from the promoters alone
+\pndef{kim92.nmodelpar}{20}% kim92.ncoord less sigma_b, the model parameters that enter Q

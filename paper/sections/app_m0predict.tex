@@ -1,4 +1,4 @@
-\section{M0's scored predictions and the transferred budget}
+\section{M0's scored predictions and the budget transferred from M0}
 \label{app:m0predict}
 
 This appendix holds the route from posterior to prediction that we took before the reduced
@@ -9,11 +9,12 @@ reaches calibration over many truths, but only on a two-gene slice over
 \pn{budget.nI} parameters with priors for the \pn{budget.nH} promoter strengths that M0
 removes, and predicted without a truth (\cref{sec:budget}). \Cref{sec:reducedpredict} now
 predicts from the reduced model's joint posterior and scores the predictions against one
-truth. It supersedes the transferred budget, which enters there as the middle of three
+truth. It supersedes the budget transferred from M0, which enters there as the middle of three
 states (\cref{fig:reducedbudget}). \Cref{sec:trajectories} follows both designs through time.
 
 \subsection{Probabilistic predictions on M0, scored}
 \label{sec:predm0}
+\label{app:crossed}
 
 \paragraph{What we predict.} The quantity is the lactate a cell exports, in particles,
 and the estimand is its population mean $\mu(\theta)$. This mean is the $Q$ of
@@ -50,13 +51,13 @@ nominal 50\%. Their standard errors over \pn{vseven.R} datasets are about \pn{pr
 and \pn{pred.se50} points. These are the references we compare with. They are
 approximate: thinning lowers them slightly, and the hybrid's Monte Carlo term raises its
 own coverage, to about \pn{pred.mcup}\% at nominal 90\%. \Cref{fig:predict} shows the
-predictions themselves with the hybrid, and \cref{fig:crossed} and \cref{tab:crossed}
-score all six arms.
+predictions themselves with the hybrid, and \cref{fig:crossed}
+scores all six arms.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_predict_m0.pdf}
-\caption{\textbf{Probabilistic predictions on M0, against the truth.} Each point is one of \pn{vseven.R} datasets, with the predictive mean and 90\% interval from the hybrid, and the dashed line is equality. A, B: lactate export. C, D: the knockdown's effect, whose coverage does not meet the sizing rules in the text. Blue circles use the exact posterior and orange squares the mixed. The truths were drawn from the prior, so they span a range wider than the intervals, and closeness to the line reflects that range too. Coverage (\cref{fig:crossed}) is the test.}
+\caption{\textbf{Probabilistic predictions on M0, against the truth.} Each point is one of \pn{vseven.R} datasets, with the predictive mean and 90\% interval from the hybrid, and the dashed line is equality. A, B: lactate export ($Q$, particles per cell). C, D: the knockdown's effect, whose coverage does not meet the sizing rules in the text. Blue circles use the exact posterior and orange squares the mixed. The truths were drawn from the prior, so they span a range wider than the intervals, and closeness to the line reflects that range too. Coverage (\cref{fig:crossed}) is the test.}
 \label{fig:predict}
 \end{figure*}
 
@@ -83,7 +84,8 @@ effect of the knockdown with the right sign, and with $z$-score standard deviati
 \pn{pred.dzlo}--\pn{pred.dzhi}. The sign is a weak test, because less transporter is
 expected to lower export. The true effect has a median of \pn{pred.dqmedian} particles,
 and every arm's 90\% interval excludes zero with the right sign on all \pn{vseven.R}
-datasets. We read this off after the run.
+datasets. We read this off after the run. On the reduced model's one truth the sign is the
+opposite: there the knockdown slightly raises export (\cref{sec:reducedpredict}).
 
 These coverages are not a clean calibration. We sized the run on $Q$, with two rules:
 cell noise is at most 10\% of the spread, and the truth's standard error is at most
@@ -127,7 +129,7 @@ checked here.
 \paragraph{The parameters are a modular transfer.} We use the cut of
 \cref{sec:predictapi} with M0 as the fitted model. The \pn{budget.nI} inferred
 parameters $\theta_I$ come from one exact posterior on M0, one of the fits of
-\cref{sec:posteriors}, with the assay noise left out. Fifteen promoter strengths
+\cref{sec:posteriors}, with the assay noise left out. The \pn{budget.nH} promoter strengths
 $\theta_H$ belong to genes that M0 removes. We used the cut because the exact sampler is
 out of reach on the reduced model (\cref{tab:cost}), and the mixed route's joint
 posterior there did not yet exist. M0 fits $\theta_I$ with the counterparts of
@@ -139,7 +141,7 @@ not move if they varied. We have not tested that assumption.
 \includegraphics[width=\linewidth]{fig_budget.pdf}
 \caption{\textbf{What the prediction transferred from M0 rests on (unscored).} No truth is compared with anything here, and all of it rests on one exact M0 posterior's $\theta_I$, with \pn{budget.nrows} by \pn{budget.ncols} parameter pairs over \pn{model.cycle}\,s. A: the
 share of $\mathrm{Var}(\mu)$ held by the \pn{budget.nH} promoter strengths, in both nested
-orders, $\pm$ one standard error. B: predicted lactate export per parameter draw. A blue circle is one draw of $\theta_I$, averaged over the draws of $\theta_H$, and an orange square is one draw of $\theta_H$, averaged over the draws of $\theta_I$. Pairs the viability rule rejected are left out, and horizontal jitter is for legibility. Each pair has \pn{budget.ncellspair} cells, so the points also carry some cell noise.}
+orders, $\pm$ one standard error. B: predicted lactate export $Q$ per parameter draw, in particles per cell. A blue circle is one draw of $\theta_I$, averaged over the draws of $\theta_H$, and an orange square is one draw of $\theta_H$, averaged over the draws of $\theta_I$. Pairs the viability rule rejected are left out, and horizontal jitter is for legibility. Each pair has \pn{budget.ncellspair} cells, so the points also carry some cell noise.}
 \label{fig:budget}
 \end{figure*}
 
@@ -170,10 +172,10 @@ parameter variance at \pn{kim96.vkimfortytwo}. That value lies between the prior
 \Cref{sec:reducedpredict} makes that comparison and states its qualifiers.
 
 \begin{table*}[t]
-\caption{\textbf{The reduced model's uncertainty budget, transferred from M0.} \textbf{Unscored}, on one exact M0
+\caption{\textbf{The reduced model's uncertainty budget, transferred from M0.} It is unscored, and it rests on one exact M0
 posterior's $\theta_I$. Width scales the log-scale prior width of $\theta_H$ at a fixed
 median. $Q$ is that of \cref{sec:predictapi}, the lactate exported over \pn{model.cycle}\,s, in millions of particles, and
-$\Delta Q$ is the mean effect of the knockdown in thousands. Held share is the share of
+$\Delta Q$ is the mean effect of the knockdown in thousands. $\sqrt{\mathrm{Var}(\mu)}$ is in millions of particles. $V$ is the viability rule (\cref{sec:prediction}). Held share is the share of
 $\mathrm{Var}(\mu)$, with $\theta_I$ first in the nested split. Cell rows count the
 \pn{budget.ncellsbase} baseline cells before viability filtering. A starved cell has also
 clipped.}
@@ -197,7 +199,8 @@ Mean $\Delta Q$ & \pn{budget.dqlo} & \pn{budget.dqone} & \pn{budget.dqhi} \\
 \end{table*}
 
 \paragraph{The knockdown.} At the default width, mean lactate export falls by
-\pn{budget.dqpct}\%~$\pm$~\pn{budget.dqpctse}\%. This effect shrinks as the prior
+\pn{budget.dqpct}\%~$\pm$~\pn{budget.dqpctse}\%. On the reduced model's one truth the knockdown
+instead raises export slightly (\cref{sec:reducedpredict}). This effect shrinks as the prior
 widens, and at the widest setting its interval of two standard errors reaches zero. At
 \pn{budget.ncellspair} cells per pair, cell noise swamps the parameter variance of
 $\Delta Q$, so the run cannot resolve it. We therefore report the mean of $\Delta Q$ and
@@ -225,17 +228,19 @@ what real measurements would leave.
 \centering
 \includegraphics[width=\linewidth]{fig_trajectories.pdf}
 \caption{\textbf{Predictions over time.} All data are synthetic, and no band predicts a real
-cell. Bands are 90\%. A, scored: M0 over \pn{mzero.horizon}\,s on one dataset, with the exact
+cell. Bands are 90\%. Time is in minutes, and the axes are population-mean particles per cell. A, scored: M0 over \pn{mzero.horizon}\,s on one dataset, with the exact
 posterior. Extracellular lactate and GTP are observed, and the data, regenerated by
 \texttt{m0\_dataset(\pn{traj.seed}; ncells = \pn{mzero.cells})}, are shown with a band for a new
-bulk measurement. Extracellular lactate is put on export's axis by one constant ratio, whose
-largest deviation was \pn{traj.ratio}\%. Pyruvate is not observed and is shown as its deviation
+bulk measurement. The posterior band is the narrow dark blue band, edged in a darker blue. The
+truth is drawn straight between saves 60\,s apart, so its kink at 1\,min marks a fast first
+minute of export. Extracellular lactate is measured as a concentration; we put it on export's axis, in particles,
+by one constant ratio, whose largest deviation from a constant was \pn{traj.ratio}\%. Pyruvate is not observed and is shown as its deviation
 from the truth. Calibration is the coverage over \pn{vseven.R} datasets (\cref{fig:crossed}),
 not this one. B and C, unscored: the reduced model over \pn{model.cycle}\,s, with $\theta_I$ from
 the same posterior and \pn{budget.ndrawn} parameters drawn. Row A does not test the transfer into
 this model. B: the bands over draws of $\theta_I$ alone, over pairs of $\theta_I$ and $\theta_H$,
 and over single cells, with the share of $\mathrm{Var}(\mu)$ from $\theta_H$ in both nested orders.
-The grey line is GTP's $K_d$. C: \pn{traj.nreleased} more constants drawn from their priors, over
+The black band marked $K_d$ is GTP's dissociation constant, between its lower and upper bounds. C: \pn{traj.nreleased} more constants drawn from their priors, over
 pairs the viability rule kept (filled) and over all pairs (dashed), against row B's pairs. This is
 a sensitivity to priors, not a posterior.}
 \label{fig:trajectories}
@@ -250,7 +255,7 @@ designs of \cref{sec:predm0,sec:budget} unchanged. In the cells it already simul
 new inference.
 
 \paragraph{On M0.} Row A is one dataset, replicate 1 with the exact posterior, chosen
-because this posterior feeds the transferred budget. The truth lies inside each 90\%
+because this posterior feeds the budget transferred from M0. The truth lies inside each 90\%
 posterior band at every recorded time after the start. One dataset is an illustration;
 the test remains the coverage over \pn{vseven.R} datasets. Lactate export is not an
 out-of-sample quantity. The data measure extracellular lactate, whose only dynamics are
@@ -297,7 +302,7 @@ viability rule, with \texttt{completion = :viability\_conditioned\_prior} and a
 \texttt{viability} rule passed in. Reverse
 constants follow from the equilibrium constants. A release measures sensitivity to the
 priors; it is not a posterior. Row C releases all \pn{traj.nreleased} fixed forward rate and
-Michaelis constants of the two metabolic modules, so \pn{traj.ndrawn} parameters are
+Michaelis constants of central glycolysis and nucleotide recycling, so \pn{traj.ndrawn} parameters are
 drawn. The viability rule kept \pn{traj.kept} of \pn{traj.npairs} parameter pairs,
 \pn{traj.acc}\%, and \pn{traj.starved}\% of all cells starved. Without the rule, the
 lower edge of export's band flattens near \pn{traj.stop} million particles within
