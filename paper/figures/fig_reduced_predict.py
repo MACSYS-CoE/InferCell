@@ -62,6 +62,8 @@ def interval_rows(ax, items, scale, prior=True):
         ax.plot([float(r["post_lo"]) / scale, float(r["post_hi"]) / scale], [y - 0.17] * 2, color=POST, lw=4.5,
                 solid_capstyle="butt")
         ax.plot(float(r["post_med"]) / scale, y - 0.17, "|", ms=4.5, mew=0.8, color="white")
+        if prior:  # on the prior's scale the posterior bar is a sliver: mark it so it shows
+            ax.plot(float(r["post_med"]) / scale, y - 0.17, "D", ms=3.2, mew=0, color=POST)
         t, se = float(r["y"]) / scale, float(r["se"]) / scale
         ax.fill_betweenx([y - 0.42, y + 0.42], t - se, t + se, color=INK, alpha=0.2, lw=0)
         ax.plot([t, t], [y - 0.42, y + 0.42], color=INK, lw=0.9)
@@ -116,20 +118,20 @@ def main():
     interval_rows(a_full, items, 1e6)
     a_full.set_yticks([1, 0], [r"$Q$", r"$Q_{\mathrm{kd}}$"])
     a_full.set_xlim(5, 18.5)
-    a_full.set_xlabel("Millions")
+    a_full.set_xlabel("10$^6$ particles")
     a_full.set_title("Full range", loc="left", color=MUTED)
     interval_rows(a_zoom, items, 1e6, prior=False)
     a_zoom.set_yticks([1, 0], [])
     a_zoom.set_xlim(14.75, 15.4)
     a_zoom.set_xticks([14.8, 15.0, 15.2])  # fits once B is one axis
-    a_zoom.set_xlabel("Millions")
+    a_zoom.set_xlabel("10$^6$ particles")
     a_zoom.set_title("Zoomed", loc="left", color=MUTED)
     lo, hi = a_zoom.get_xlim()
     a_full.axvspan(lo, hi, color=POST, alpha=0.12, lw=0)
     interval_rows(a_dq, [(0, dq)], 1e3)
     a_dq.axvline(0, color=MUTED, lw=0.5, ls=(0, (2, 2)))
     a_dq.set_yticks([0], [r"$\Delta Q$"])
-    a_dq.set_xlabel("Thousands")
+    a_dq.set_xlabel("10$^3$ particles")
     a_dq.set_title("Knockdown", loc="left", color=MUTED)
     for ax in (a_full, a_zoom):
         ax.set_ylim(-0.6, 1.6)
@@ -144,9 +146,9 @@ def main():
 
     # C: one shifted pool and the knocked-down gene's transcript over the later horizon.
     c = bottom.subplots(1, 2)
-    for ax, species, scale, title, ylab in ((c[0], "M_g3p_c", 1e3, f"G3P, offset {zp['M_g3p_c'][0]:+.2f} SD", "Thousands"),
+    for ax, species, scale, title, ylab in ((c[0], "M_g3p_c", 1e3, f"G3P, offset {zp['M_g3p_c'][0]:+.2f} SD", "10$^3$ particles per cell"),
                                             (c[1], "mRNA_JCVISYN3A_0779", 1, "Transcript 0779 (ptsG), covered",
-                                             "Mean per cell")):
+                                             "mRNA per cell")):
         sel = sorted((r for r in d if r["species"] == species), key=lambda r: float(r["t"]))
         t = col(sel, "t") / 60
         ax.fill_between(t, col(sel, "prior_lo") / scale, col(sel, "prior_hi") / scale, color=PRIOR, lw=0,
@@ -190,7 +192,7 @@ def main():
     for sub, letter in ((top, "A"), (right, "B"), (bottom, "C")):
         sub.text(0.0, 1.0, letter, transform=sub.transSubfigure, ha="left", va="top", fontweight="bold",
                  fontsize=9, color=INK)
-    fig.suptitle("SCORED against the truth", x=0.995, ha="right", color=MUTED, fontweight="bold", fontsize=8)
+    fig.suptitle("Scored against the truth", x=0.995, ha="right", color=MUTED, fontweight="bold", fontsize=8)
     save(fig, "fig_reduced_predict")
 
 

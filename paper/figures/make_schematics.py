@@ -131,9 +131,10 @@ def enclosure(ax, x, y, w, h, title):
 def fig_model(stem="fig_model"):
     # Printed at \linewidth of figure*: 165 mm = 6.5 in, 1:1. Edges as declared by the modules in
     # src/organisms/coreA/: CatalyticEdge (central_glycolysis, nucleotide_recycling), the
-    # DeferredCounterEdge drains of transcription, transcript_decay and translation, VolumeEdge
-    # (pts_transport, on PtsG), RateConstantEdge (transcription on the NTPs, translation on
-    # charged tRNA). The pools are registry species shared by several modules.
+    # DeferredCounterEdge costs of transcription, transcript_decay and translation and translation's
+    # credit to the sugar-transport proteins, RateConstantEdge (transcription on the NTPs, translation
+    # on charged tRNA). The VolumeEdge lies inside pts_transport and is not drawn (caption). The pools
+    # are registry species shared by several modules.
     fig, ax = canvas(6.5, 3.3)
     fig.subplots_adjust(0, 0.11, 1, 1)           # the key sits below the axes, in the figure
     L0, L1, R0, R1 = 0.05, 0.34, 0.66, 0.98      # module columns; the gap holds the lanes
@@ -161,12 +162,12 @@ def fig_model(stem="fig_model"):
         # Catalytic: translated enzyme counts into the rate laws, 1 s
         ([(R0, 0.295), (0.50, 0.295), (0.50, mid("nuc")), (L1, mid("nuc"))], blue, "-"),
         ([(R0, 0.255), (0.47, 0.255), (0.47, mid("gly")), (L1, mid("gly"))], blue, "-"),
-        # Volume: membrane PtsG sets the geometry, each step
+        # Deferred credit: translation credits the sugar-transport proteins (PtsG among them), 1 s
         ([(R0, 0.215), (0.44, 0.215), (0.44, mid("pts")), (L1, mid("pts"))], blue, "--"),
     ]
     for pts, col, ls in routes:
         routed(ax, pts, col, ls, lw=1.3 if col == blue else 1.1)
-    # Currency: nucleotide recycling and tRNA charging write the pools, inside the ODE solve.
+    # Currency: nucleotide recycling, glycolysis and tRNA charging write the pools, inside the ODE solve.
     for k, x in (("nuc", 0.038), ("gly", 0.028), ("trna", 0.018)):
         routed(ax, [(L0, mid(k)), (x, mid(k)), (x, 0.79), (L0, 0.79)], MUTED, "-", lw=0.8)
 

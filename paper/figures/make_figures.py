@@ -20,6 +20,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 from scipy.stats import gaussian_kde
 
@@ -30,6 +31,7 @@ B7_RUN = os.path.join(HERE, "data")  # copies of three B7 outputs, unchanged
 
 # Validated together: slot 1 and 2 of the reference categorical palette.
 EXACT, MIXED = "#2a78d6", "#eb6834"
+EXACT_DARK = "#174a86"  # a darker step of EXACT's hue, for a line drawn over an EXACT fill
 INK, MUTED, BAND = "#0b0b0b", "#52514e", "#e4e3df"
 WIDTH = 6.5  # arxiv.sty text width, inches: these figures span both columns
 
@@ -123,18 +125,14 @@ def ecdf_row(axes, z, lo, hi, curves):
 
 
 def fig_calibration(b7):
-    z, lo, hi = bands(b7)
+    # One row: the exact sampler's rank-ECDFs are in Fig. 3B already, so only the densities are here.
+    # Both curves are the exact sampler's, so both take its blue: the long reference filled, the
+    # production-length chain as a darker line.
     ref, prod = reference_draws()
-    fig = plt.figure(figsize=(WIDTH, 4.2), layout="constrained")
-    top, bottom = fig.subfigures(2, 1)
-    a = top.subplots(1, 6, sharey=True)
-    ecdf_row(a, z, lo, hi, [(exact_ranks(), EXACT, "Exact sampler")])
-    legend_row(top, a)
-    panel(top, "A")
-    b = bottom.subplots(1, 6)
-    density_row(b, ref, prod, "Production-length chain", MIXED)
-    legend_row(bottom, b)
-    panel(bottom, "B")
+    fig = plt.figure(figsize=(WIDTH, 2.1), layout="constrained")
+    b = fig.subplots(1, 6)
+    density_row(b, ref, prod, "Production-length chain", EXACT_DARK)
+    legend_row(fig, b)
     save(fig, "fig_calibration")
 
 
@@ -177,7 +175,7 @@ def fig_budget(archive):
     a.set_ylabel("Held share of Var(μ)")
     a.legend(loc="lower right")
     a.set_title("A", loc="left", fontweight="bold", fontsize=9)
-    a.set_title("UNSCORED", loc="right", color=MUTED, fontweight="bold")
+    a.set_title("Unscored", loc="right", color=MUTED, fontweight="bold")
     # Each point averages many pairs, so it shows one parameter block's reach, with the other
     # block averaged out. Pairs the viability rule rejected are left out.
     mu = rows(os.path.join(HERE, "data", "budget_mu.tsv"))
@@ -196,20 +194,21 @@ def fig_budget(archive):
     b.set_xlim(-0.5, 2.5)
     b.set_ylim(bottom=0)
     b.set_xlabel(r"Prior width of $\theta_H$")
-    b.set_ylabel("Lactate exported, millions")
+    b.set_ylabel("$Q$, lactate exported\n(10$^6$ particles per cell)")
     b.legend(loc="upper left", handletextpad=0.2)
     b.set_title("B", loc="left", fontweight="bold", fontsize=9)
-    b.set_title("UNSCORED", loc="right", color=MUTED, fontweight="bold")
+    b.set_title("Unscored", loc="right", color=MUTED, fontweight="bold")
     save(fig, "fig_budget")
 
 
 def fig_predict_m0(archive):
     d = rows(os.path.join(archive, "runs/m0-kim40-kim41/score_datasets.tsv"))
     fig, axes = plt.subplots(1, 4, figsize=(WIDTH, 2.05), layout="constrained")
-    panels = (("q", "v7", 1e6, "Export, exact", EXACT, "o", "millions"),
-              ("q", "b7", 1e6, "Export, mixed", MIXED, "s", "millions"),
-              ("dq", "v7", 1e3, "Knockdown, exact", EXACT, "o", "thousands"),
-              ("dq", "b7", 1e3, "Knockdown, mixed", MIXED, "s", "thousands"))
+    fig.get_layout_engine().set(wspace=0.06)
+    panels = (("q", "v7", 1e6, "$Q$, exact", EXACT, "o", "10$^6$"),
+              ("q", "b7", 1e6, "$Q$, mixed", MIXED, "s", "10$^6$"),
+              ("dq", "v7", 1e3, r"$\Delta Q$, exact", EXACT, "o", "10$^3$"),
+              ("dq", "b7", 1e3, r"$\Delta Q$, mixed", MIXED, "s", "10$^3$"))
     for ax, letter, (target, post, scale, title, colour, marker, unit) in zip(axes, "ABCD", panels):
         sel = [r for r in d if r["target"] == target and r["posterior"] == post and r["arm"] == "hybrid"]
         assert len(sel) == 50, (target, post, len(sel))
@@ -222,13 +221,19 @@ def fig_predict_m0(archive):
         pad = 0.05 * (high - low)
         lim = [low - pad, high + pad]
         ax.plot(lim, lim, color=MUTED, lw=0.8, ls="--")
-        ax.errorbar(t, m, yerr=[m - lo, hi - m], fmt=marker, ms=2.5, lw=0.8, color=colour)
+        ax.errorbar(t, m, yerr=[m - lo, hi - m], fmt=marker, ms=3.2, lw=0.9, elinewidth=0.7, alpha=0.85,
+                    color=colour)
         ax.set_xlim(lim)
         ax.set_ylim(lim)
         ax.set_aspect("equal")
+        ticks = matplotlib.ticker.MaxNLocator(4).tick_values(*lim)
+        ax.set_xticks(ticks)
+        ax.set_yticks(ticks)  # the same ticks on both axes, so y = x reads at 45 degrees
+        ax.set_xlim(lim)
+        ax.set_ylim(lim)
         ax.set_title(title, loc="left", x=0.02)
-        ax.set_xlabel(f"Truth, {unit}")
-        ax.set_ylabel(f"Predicted, {unit}")
+        ax.set_xlabel(f"Truth ({unit} particles)")
+        ax.set_ylabel(f"Predicted ({unit})")
         ax.text(-0.04, 1.045, letter, transform=ax.transAxes, fontweight="bold", fontsize=9, ha="right")
     save(fig, "fig_predict_m0")
 
@@ -242,6 +247,7 @@ def fig_crossed(archive):
     d = rows(os.path.join(archive, "runs/m0-kim40-kim41/score_datasets.tsv"))
     fig, axes = plt.subplots(2, 3, figsize=(WIDTH, 3.6), layout="constrained", sharey=True)
     yy = np.arange(len(ARMS))[::-1]
+    wq = []
     for i, (target, name) in enumerate((("q", "Q, lactate export"), ("dq", "ΔQ, knockdown effect"))):
         for k, (post, arm, _) in enumerate(ARMS):
             sel = [r for r in d if r["target"] == target and r["posterior"] == post and r["arm"] == arm]
@@ -253,6 +259,7 @@ def fig_crossed(archive):
                 se = np.sqrt(p * (1 - p) / 50)
                 axes[i, j].errorbar(100 * p, yy[k], xerr=100 * se, fmt=marker, ms=4, color=colour)
             w = np.array([float(r["width_ratio"]) for r in sel])
+            wq.append(np.percentile(w, [25, 75]))
             q = np.percentile(w, [25, 50, 75])
             axes[i, 2].errorbar(q[1], yy[k], xerr=[[q[1] - q[0]], [q[2] - q[1]]], fmt=marker, ms=4,
                                 color=colour)
@@ -266,10 +273,15 @@ def fig_crossed(archive):
         axes[i, 0].set_yticks(yy, [a[2] for a in ARMS])
         axes[i, 0].set_ylabel(name)
         axes[i, 0].text(-0.75, 1.04, "AB"[i], transform=axes[i, 0].transAxes, fontweight="bold", fontsize=9)
+    # One width axis for both rows, with ticks that cover every interquartile range.
+    wlo, whi = np.floor(10 * min(q[0] for q in wq)) / 10, np.ceil(10 * max(q[1] for q in wq)) / 10
+    for ax in axes[:, 2]:
+        ax.set_xlim(wlo - 0.02, whi + 0.02)
+        ax.set_xticks(np.round(np.arange(wlo, whi + 1e-9, 0.1), 1))
     for ax in axes[1, :2]:
         ax.set_xlabel("Percent of 50 datasets")
     axes[1, 2].set_xlabel("Median ratio and IQR")
-    fig.suptitle("SCORED against the truth", x=0.995, ha="right", color=MUTED, fontweight="bold", fontsize=8)
+    fig.suptitle("Scored against the truth", x=0.995, ha="right", color=MUTED, fontweight="bold", fontsize=8)
     save(fig, "fig_crossed")
 
 
@@ -302,7 +314,7 @@ def shade(ax, b, scale, colour, alpha=1.0, inner=None, label=None, t=None):
 
 
 def kd(ax):
-    ax.axhspan(KD[0] / 1e3, KD[1] / 1e3, color=MUTED, alpha=0.35, lw=0)
+    ax.axhspan(KD[0] / 1e3, KD[1] / 1e3, color=INK, alpha=0.75, lw=0, zorder=5)
     ax.text(1.01, sum(KD) / 2e3, r"$K_d$", transform=ax.get_yaxis_transform(), ha="left", va="center",
             color=MUTED)
 
@@ -332,19 +344,25 @@ def fig_trajectories():
     nb = band(a, "M_lac__L_e", "new_bulk")
     nb = {k: (v if k == "t" else v * RATIO) for k, v in nb.items()}
     shade(row[0], nb, 1e3, LIGHT, label="New bulk\nmeasurement")
-    shade(row[0], band(a, "lac_export_meter", "rows"), 1e3, EXACT, label="Posterior")
+    post = band(a, "lac_export_meter", "rows")
+    shade(row[0], post, 1e3, EXACT, label="Posterior")
+    for y in (post["lo90"], post["hi90"]):  # the posterior band is narrow: edge it so it shows on the light band
+        row[0].plot(post["t"] / 60, y / 1e3, color=EXACT_DARK, lw=0.6)
     t, v = obs("M_lac__L_e")
     row[0].plot(t / 60, v * RATIO / 1e3, "o", ms=3, mfc="white", mec=INK, mew=0.7, label="Data")
     row[0].plot(tt / 60, meter / 1e3, color=INK, lw=0.8, ls=(0, (3, 1.5)), label="Truth")
-    row[0].set_ylabel("Thousands")
+    row[0].set_ylabel("10$^3$ particles per cell")
     row[0].set_title("Lactate exported; data: lactate out")
     shade(row[1], band(a, "M_gtp_c", "new_bulk"), 1e3, LIGHT)
-    shade(row[1], band(a, "M_gtp_c", "rows"), 1e3, EXACT)
+    gpost = band(a, "M_gtp_c", "rows")
+    shade(row[1], gpost, 1e3, EXACT)
+    for y in (gpost["lo90"], gpost["hi90"]):
+        row[1].plot(gpost["t"] / 60, y / 1e3, color=EXACT_DARK, lw=0.6)
     t, v = obs("M_gtp_c")
     row[1].plot(t / 60, v / 1e3, "o", ms=3, mfc="white", mec=INK, mew=0.7)
     tg, g = tru("M_gtp_c")
     row[1].plot(tg / 60, g / 1e3, color=INK, lw=0.8, ls=(0, (3, 1.5)))
-    row[1].set_ylabel("Thousands")
+    row[1].set_ylabel("10$^3$ particles per cell")
     row[1].set_title("GTP, observed")
     # Pyruvate rises by a third in the first minute and then holds, so its band shows only against the truth.
     p = band(a, "M_pyr_c", "rows")
@@ -355,7 +373,7 @@ def fig_trajectories():
     shade(row[2], off, 1, EXACT)
     row[2].axhline(0, color=INK, lw=0.8, ls=(0, (3, 1.5)))
     row[2].set_xlim(0, 10)
-    row[2].set_ylabel("Deviation from truth, particles")
+    row[2].set_ylabel("Deviation from truth\n(particles per cell)")
     row[2].set_title("Pyruvate, not observed")
     for x in row:
         x.set_xlim(0, 10)
@@ -373,9 +391,9 @@ def fig_trajectories():
         row[k].plot(m["t"] / 60, m["mean"] / scale, color=INK, lw=1, label="Predictive mean")
     end = band(b, "lac_export_meter", "rows")["mean"][-1]
     assert round(end, -2) == 9576500, end  # KIM-42's mean Q at width 1
-    row[0].set_ylabel("Millions")
+    row[0].set_ylabel("10$^6$ particles per cell")
     row[0].set_title("Lactate exported")
-    row[1].set_ylabel("Thousands")
+    row[1].set_ylabel("10$^3$ particles per cell")
     row[1].set_title("GTP")
     kd(row[1])
     shown = [r for r in split if r["flagged"] == "false" and r["mc_undefined"] == "false"
@@ -413,9 +431,9 @@ def fig_trajectories():
                         label="20 + 62 drawn, all pairs" if i == 0 else None)
         row[k].set_xlim(0, 105)
         row[k].set_xlabel("Time, min")
-    row[0].set_ylabel("Millions")
+    row[0].set_ylabel("10$^6$ particles per cell")
     row[0].set_title("Lactate exported")
-    row[1].set_ylabel("Thousands")
+    row[1].set_ylabel("10$^3$ particles per cell")
     row[1].set_title("GTP")
     kd(row[1])
     row[2].legend(*row[0].get_legend_handles_labels(), loc="center left",

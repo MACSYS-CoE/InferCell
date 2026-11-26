@@ -106,13 +106,14 @@ def main():
         b.scatter(zi, yi, s=12, color=col if ok else "white", edgecolor=col, lw=1.0, zorder=3)
     b.plot([zp.mean()] * 2, [4.3, 22.6], color=MIXED, lw=0.8, ls=":")
     b.text(0.15, 21.2, "truth", ha="left", va="bottom", color=MUTED)
-    b.text(zp.mean() - 0.15, 21.2, f"promoter\nmean {zp.mean():.2f}".replace("-", "−"),
-           ha="right", va="bottom", color=MIXED, linespacing=1.0)
+    # In the gap between the promoters and the other four, clear of the spine and of panel A.
+    b.text(zp.mean() + 0.12, 3.9, f"promoter mean {zp.mean():.2f}".replace("-", "−"),
+           ha="left", va="center", color=MIXED, fontsize=7, bbox=dict(fc="white", ec="none", pad=0.4))
     b.set_ylim(-0.8, top)
     b.set_yticks(y, [])
     b.set_xlim(-4.2, 4.2)
     b.set_xticks([-4, -2, 0, 2, 4])
-    b.set_xlabel("(Posterior − truth) /\nposterior SD")
+    b.set_xlabel("(Posterior mean − truth) /\nposterior SD")
     b.tick_params(axis="y", length=0)
     b.set_title("B", loc="left", x=-0.04, fontweight="bold", fontsize=9)
 
