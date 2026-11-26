@@ -226,10 +226,10 @@ minutes:
 ms = m0_models()
 ds = m0_dataset(16085; ncells = 3, horizon = 180)
 ch = infer(ms, ds; route = :mixed,
-           n_adapt = 50, n_draws = 50)
+  n_adapt = 50, n_draws = 50)
 pd = posterior_draws(ch)
 k = predict(ms, pd; horizon = 180, n_cells = 4,
-            intervention = Knockdown(; dose = 0.25))
+  intervention = Knockdown(; dose = 0.25))
 k.effect_summary
 \end{verbatim}
 }
