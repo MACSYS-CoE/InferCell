@@ -1,6 +1,7 @@
 #!/bin/bash
 # KIM-183: SpeedyCell (syn3a-ensemble copy) full-cycle timing on milan EPYC 7543 nodes.
-# Submit from this worktree at a pushed commit, with the node flags of
+# Submit from the worktree root at a pushed commit (full commands: the result note's
+# Reproduce section), with the node flags of
 # dev/scripts/launcher_guard.sh extended to syn3a-ensemble's EPYC 7543 set:
 #
 #   L=/fred/oz022/tkimpson/infercell-kim183-2026-11-26
@@ -8,7 +9,7 @@
 #   precompile: sbatch --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=01:00:00 \
 #       --output=$L/logs/%x_%j.log --export=ALL,MODE=precompile dev/scripts/fullcell_timing_cycle/timing_cycle.slurm
 #   serial:     ... --cpus-per-task=1 --mem=8G --export=ALL,MODE=serial,PROCIDS=1-20,OUT=$L/serial/serial ...
-#   ensemble:   ... --cpus-per-task=64 --exclusive --mem=0 --export=ALL,MODE=ensemble,PROCIDS=1-100,OUT=$L/ensemble/ensemble ...
+#   ensemble:   ... --nodes=1 --cpus-per-task=64 --mem=200G --export=ALL,MODE=ensemble,PROCIDS=1-100,OUT=$L/ensemble/ensemble ...
 #
 # Julia 1.11.9 (SpeedyCell needs 1.11); the depot is this issue's own, stacked on the
 # shared one that already holds LowPrecSSA (unregistered, SSH-pinned at cb0abb6).

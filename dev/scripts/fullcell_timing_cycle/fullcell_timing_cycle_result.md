@@ -156,9 +156,10 @@ The wall time to minute k is the run's setup (about 0.01 s) plus its first k min
 | to minute 120 (the whole run) | 20 | 58.1 s | 28.4–62.3 s |
 | to minute 120, cells that reach t_SA2 | 15 | 59.6 s | 49.4–62.3 s |
 
-The cells below 40 s are those that collapse early (procids 2, 4, 13 at minutes 55 to 63): a
-collapsed cell fires few CME events, so its later minutes are cheap. It is not a full cycle.
-The rows that reach t_SA2 are the cost of a healthy cycle.
+The five cells under 40 s to minute 105 are the five that never reach t_SA2 (procids 2, 4, 7,
+12 and 13, which collapse at minutes 55 to 105). A collapsed cell fires few CME events, so its
+later minutes are cheap, and its run is not a full cycle. The 15 rows that reach t_SA2 are the
+cost of a full cycle.
 
 | procid | t_SA2 | t_Vcap | t_short | to 105 min (s) | to t_SA2 (s) | to 120 min (s) |
 |---|---|---|---|---|---|---|
@@ -189,10 +190,12 @@ whole 120-minute run.
 
 ### Verdict
 
-**PASS against the 2026-11-26 threshold** (at most 120 s per cell cycle on one core). The
-median full cycle to minute 105 takes 49.5 s, and the slowest of the 20 takes 52.9 s. The
-verdict does not depend on how the cycle is defined. The slowest cell under each definition
-is still well under 120 s: 51.0 s to t_SA2 and 62.3 s to minute 120.
+**PASS against the 2026-11-26 threshold** (at most 120 s per cell cycle on one core). The 15
+cells that complete a cycle take a median of 50.6 s to minute 105 (range 43.1 to 52.9 s). All
+20 cells, collapsed ones included, take a median of 49.5 s. The verdict does not depend on how
+the cycle is defined. The slowest cell under each definition is still well under 120 s: 51.0 s
+to t_SA2 and 62.3 s to minute 120. Of the 20 cells timed, 15 are full cycles. The set was fixed
+before the run and was not topped up.
 
 This is the time on one core, with nothing else in the process. Threaded, a cell is slower
 (section 5).
@@ -210,7 +213,8 @@ Processor, 64 cores). It requested `--cpus-per-task=64`, the whole node; the sit
   `ode_failure=:record`.
 
 **Result: 100 cells in 188.3 s of wall time, 1,912 cells per node-hour.** All 100 cells ran
-the full 120 minutes, with no errors and no ODE failures. 84 reach t_SA2 and 19 collapse.
+the full 120 minutes, with no errors and no ODE failures. 84 reach t_SA2, 3 of which collapse
+later, and 16 collapse without reaching it.
 - **Each cell is slower threaded.** Per cell, the whole run took a median of 90.6 s (range
   35.4 to 113.0 s), or 80.9 s to minute 105. For procids 1 to 20 that is a median of 1.60× the
   one-core time.
@@ -232,7 +236,7 @@ figure above.
 
 For scale only: KIM-58's 10³ draws × 100 cells is 10⁵ cells. That is about 1,600 core-hours at
 58.1 s a cell, about 52 node-hours (3,350 CPU-h) at the threaded 1,912 cells per node-hour, or
-about 25 node-hours at the workers' rate if it holds.
+about 25 node-hours at 3,970 cells per node-hour if one worker per core keeps its one-core speed.
 
 The per-minute record of the 100 cells stays in the log directory, outside the repo:
 `/fred/oz022/tkimpson/infercell-kim183-2026-11-26/ensemble/ensemble_minutes.csv`, sha256
