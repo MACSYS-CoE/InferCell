@@ -155,7 +155,8 @@ function reduced()
     txo = with_reference(mixed_setup(ds; models = d11_models(), targets = COREA_TARGETS,
                                      streams = (:tx,)), p.delta, p.S)
     states = panel_plugin_states(txo, p.ref.x)
-    r = only(rb for rb in txo.route.rebuilds if rb.model isa CoreATranscription)
+    # The rebuild that writes the transcription constants (a MeanField group wraps the module).
+    r = txo.route.rebuilds[only(unique(first.(txo.tx_slots)))]
     r.species == collect(TRANSCRIPTION_POOLS) || error("the rebuild's pools are $(r.species)")
     pools = [[k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)] for u in states]
     tv = Dict(ds.truth.values)
