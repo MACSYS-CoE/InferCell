@@ -34,8 +34,13 @@ as the mean-field swap, changes the simulator and keeps full Bayesian inference.
 cut keeps the simulator and changes the target \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
 The joint posterior uses the first, and we measured its cost on M0. The modular arm's factor
 cut uses the second, and the joint posterior is the reference for measuring its cost.
-\todo{KIM-116: whether per-module inference lands close to the joint posterior, and at what
-fraction of its CPU-hours.}
+On this model the joint posterior was needed. The factor cut lands close to it but costs more,
+\pn{kim116.cutjob} times its own jobs, because its first stage still solves the ODE. That the
+cut lands close means that, on this dataset, the promoters behave as a near-decoupled problem:
+fitting them to the transcripts alone gives nearly the posterior that the joint fit gives. The
+data plug-in is cheaper, at \pn{kim116.plugjob} times, but it is biased, and it predicts $Q$
+worse. Neither variant is a cheap and faithful substitute for the joint posterior here
+(\cref{sec:reduced,app:modular}).
 
 \paragraph{Limits.} Each of these limits names something we did not test.
 \begin{itemize}
