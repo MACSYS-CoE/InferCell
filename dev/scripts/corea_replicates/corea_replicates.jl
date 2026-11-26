@@ -57,7 +57,7 @@ function truth_x(ds, s)
 end
 
 has(dir, name) = isfile(joinpath(dir, "$name.jls"))
-promoters(names) = findall(startswith.(names, "log_S_"))
+promoters(names) = findall(n -> startswith(string(n), "log_S_"), names)
 
 # KIM-92's `hessian_fd`, copied unchanged: central differences of the gradient, then
 # symmetrised. The asymmetry before symmetrising shows the differences' noise.
@@ -222,7 +222,7 @@ function run_kim92(out, src)
     j = judge(ds, p, m, l)
     # KIM-92's 1,600 pooled NUTS draws (prereg §5), in the setup's coordinate order.
     D, hdr = readdlm(joinpath(KIM92_ARCHIVE, "pilot_draws.tsv"), '\t', Float64; header = true)
-    vec(hdr) == j.names || error("pilot_draws.tsv's columns are not the setup's coordinates")
+    string.(vec(hdr)) == string.(j.names) || error("pilot_draws.tsv's columns are not the setup's coordinates")
     size(D, 1) == 1600 || error("expected 1,600 pooled draws, found $(size(D, 1))")
     pm, ps = vec(mean(D; dims = 1)), vec(std(D; dims = 1))
     z_nuts = (pm .- j.truth) ./ ps
