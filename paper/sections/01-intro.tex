@@ -17,7 +17,7 @@ parameters from the literature, sets each to one value, and integrates forward i
 time. The output is one trajectory. That trajectory is one sample from the
 distribution of trajectories that the parameter knowledge allows. The model does not
 know the width of that distribution. When a model predicts a doubling time, a reader
-cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Sensitivity analyses vary parameters \cite{macklin2020simultaneous}, but they do not say what the data support.
+cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Cross-checks of parameters against one another catch inconsistent values \cite{macklin2020simultaneous}, but they do not say what the data support.
 
 The missing error bar matters because every parameter in a whole-cell model is
 uncertain. A rate measured in one organism, at one temperature,
@@ -31,9 +31,9 @@ which data would reduce that uncertainty.
 Bayesian inference answers both questions: how uncertain a prediction is, and which data
 would reduce that uncertainty. It treats each parameter as a
 distribution, updates the distribution with data, and propagates the result into
-predictions. This approach has been argued for whole-cell models \cite{babtie2017how}.
+predictions. Parameter estimation and inference for whole-cell models have been reviewed \cite{babtie2017how}.
 Whole-cell parameters have been estimated, but as point estimates and not as calibrated
-posteriors. In the DREAM8 challenge, teams recovered \pn{dream.nparam} parameters of a
+posteriors. In the DREAM8 challenge, teams estimated \pn{dream.nparam} parameters of a
 modified \textit{M.\ genitalium} model, \pn{dream.nmod} changed and \pn{dream.nmod} unchanged,
 scored against that one known truth \cite{karr2015summary}. Parameter error and prediction
 error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{dream.rtop}
@@ -81,7 +81,8 @@ stochastic biochemical networks \cite{golightly2011bayesian}. When a model is bu
 cutting feedback stops one module's data from changing another module's posterior
 \cite{liu2009modularization,plummer2015cuts,jacob2017better}. Recent work extends cuts to
 variational, likelihood-free and generalised Bayesian inference
-\cite{yu2023variational,chakraborty2023modularized,frazier2025cutting,liu2025general}, and Markov
+\cite{yu2023variational,chakraborty2023modularized,frazier2025cutting}, and to general
+multi-module graphs \cite{liu2025general}, and Markov
 melding joins chains of submodels that share quantities \cite{manderson2023combining}.
 \Cref{sec:discussion} compares other approximate routes to a posterior.
 
@@ -120,7 +121,7 @@ and files. (h) A joint posterior on the reduced \syn{} model by the mixed route 
 synthetic dataset, with calibration checked only on M0, a two-gene slice of it (\cref{sec:model}). (i) Some submodels state, in the
 supplement's prose, how they simplify the published models they adapt. Each cell's evidence is in
 \texttt{paper/tables/frameworks\_sources.md}, from the papers' main text, each framework's public
-code \cite{thornburg2021minimal}, the \textit{M.\ genitalium} supplement, and the 2022 \syn{}
+code (for \syn{}, \cite{thornburg2021minimal}), the \textit{M.\ genitalium} supplement, and the 2022 \syn{}
 supplement's methods and tables.
 We did not read the \textit{E.\ coli}, Vivarium or 2026 \syn{} supplements, or the 2022 \syn{}
 supplement's figures, and for the 2026 \syn{} model we read the preprint.

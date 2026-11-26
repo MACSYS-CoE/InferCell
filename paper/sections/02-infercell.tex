@@ -149,10 +149,11 @@ inference. A full cut drops the information that cross-module inference needs, w
 is metabolite data that inform a gene-expression parameter. The dynamical reduction keeps
 it, and semi-modular inference \cite{carmona2020semimodular} keeps part of it.
 
-The standard modular methods pass messages through shared parameters. They include cuts and
-semi-modular inference \cite{plummer2015cuts,carmona2020semimodular}, and Markov
-melding \cite{goudie2019joining}. In the reduced model of \cref{sec:model} no parameter is shared.
-While we condition on the stochastic path, these methods therefore have nothing to pass. The
+Cuts and semi-modular inference pass messages through shared parameters
+\cite{plummer2015cuts,carmona2020semimodular}. Markov melding joins submodels through shared
+quantities, which may be parameters or functions of them \cite{goudie2019joining}. In the reduced
+model of \cref{sec:model} no parameter is shared. While we condition on the stochastic path,
+cuts and semi-modular inference therefore have nothing to pass. The
 exact sampler does what is left: it conditions on the path, and it updates the path
 with all the data. In this sense the exact sampler is modular inference with nothing
 dropped. When the paths are integrated out, a gene-expression parameter appears in
