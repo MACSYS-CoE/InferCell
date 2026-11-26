@@ -594,6 +594,8 @@ def main():
         own29 = {re.search(r"JCVISYN3A_\d+", x["reac"][0]).group(0) for x in with_min}
         print("reduced model genes (%s): %d; shared with the 29 protein-count promoters: %d"
               % (os.path.relpath(REDUCED_GENES, HERE), len(red), len(own29 & set(red))))
+    else:
+        print("reduced model gene list not found at", REDUCED_GENES, "(comparison skipped)")
 
     # ---------------------------------------------------------------- exact closure
     print("\n== Exact closure of the DnaA cascade, by its reachable states")
@@ -688,8 +690,9 @@ def main():
     print("-- initiation, Initiator x chromosome (hand-written abstractions of the tables)")
     # First round: one origin makes one Initiator (reaction 1656); one chromosome copy (initial 1).
     first = toy([((), {}), (("O",), {"O": -1, "I": 1}), (("I", "C"), {"I": -1, "C": -1})], (("C", 1), ("I", 0), ("O", 1)))
-    a1 = affine_on(first, ["O", "I", "C"], lambda st: st["I"] * st["C"])
-    print("  first round (O=1, I=0, C=1): %d states %s; I*C affine in the state: %s"
+    # With 3 states any function is affine on them, so test the identity itself: I*C = C0*I.
+    a1 = all(st["I"] * st["C"] == 1 * st["I"] for st in first)
+    print("  first round (O=1, I=0, C=1): %d states %s; I*C = C0*I in every state: %s"
           % (len(first), sorted(tuple(st[k] for k in "OIC") for st in first), a1))
     # After reaction 2364: chromosome +2, two daughter origins, each making one Initiator.
     second = toy([(("Oa",), {"Oa": -1, "I": 1}), (("Ob",), {"Ob": -1, "I": 1}), (("I", "C"), {"I": -1, "C": -1})],
@@ -698,13 +701,14 @@ def main():
     print("  second round (Oa=Ob=1, I=0, C=2): %d states; I*C affine in the state: %s" % (len(second), a2))
     # The M13 model's R2 without and with a DnaA source (D capped at 3 extra for the enumeration).
     noR1 = toy([(("D", "O"), {"D": -1, "O": -1, "F": 1})], (("D", 3), ("F", 0), ("O", 1)))
-    print("  M13 R2 without R1 (D0=3): %d states; D*O affine in the state: %s"
-          % (len(noR1), affine_on(noR1, ["D", "O", "F"], lambda st: st["D"] * st["O"])))
+    # Again too few states for an affinity test to mean anything; test D*O = D0*O.
+    b1 = all(st["D"] * st["O"] == 3 * st["O"] for st in noR1)
+    print("  M13 R2 without R1 (D0=3): %d states; D*O = D0*O in every state: %s" % (len(noR1), b1))
     withR1 = [st for st in toy([(("S",), {"S": -1, "D": 1}), (("D", "O"), {"D": -1, "O": -1, "F": 1})],
                                 (("D", 3), ("F", 0), ("O", 1), ("S", 3)))]
     print("  M13 R2 with R1 (D0=3, three births): %d states; D*O affine in the state: %s"
           % (len(withR1), affine_on(withR1, ["D", "O", "F", "S"], lambda st: st["D"] * st["O"])))
-    assert a1 and not a2
+    assert a1 and b1 and not a2
 
     # ---------------------------------------------------------------- hops to the observables
     print("\n== Hops from each kind to the nearest observable, in the dependency graph")
@@ -785,23 +789,49 @@ def main():
                 n = nxt_[n]
                 route.append("[%s] %s" % (lab, n))
             out.append("%s: %d (%s)" % (ob, best[0] + offset, " -> ".join(route)))
-        print("* %s\n    %s" % (label, "\n    ".join(out)))
+        print("* %s (nearest member)\n    %s" % (label, "\n    ".join(out)))
+
+    def member_split(members, offset=1):
+        """Per member (id, species it changes): hops to transcripts / bulk / doubling time, tallied."""
+        tally = collections.defaultdict(list)
+        for mid, w in members:
+            trip = tuple(min((dist[n] + offset for n in w if n in dist), default=None)
+                         for dist, _ in dists.values())
+            tally[trip].append(mid)
+        parts = []
+        for trip, ids in sorted(tally.items(), key=lambda z: tuple(-1 if v is None else v for v in z[0])):
+            parts.append("%s: %d%s" % ("/".join("unreached" if v is None else str(v) for v in trip), len(ids),
+                                       (" (%s)" % ", ".join(map(str, ids))) if len(ids) <= 5 else ""))
+        print("    per member, tx/bulk/dt: " + "; ".join(parts))
+
+    def cme_members(xs):
+        return [(x["i"], {n for n, d in x["prods"] if d != 0}) for x in xs]
 
     def writes_of(xs):
         return sorted({n for x in xs for n, d in x["prods"] if d != 0})
 
-    kind_hops(writes_of([x for x in R if x["i"] in bilinear]), "DnaA x 0/1 site bindings (99)")
-    kind_hops(writes_of(offlive), "DnaA x multi-copy site bindings (%d live)" % len(offlive))
-    kind_hops(writes_of([x for x in R if x["i"] in closes]), "cascade site x site (177)")
-    kind_hops(writes_of([x for x in R if x["fam"] == "Replication initiation"]), "replication initiations (2)")
-    kind_hops(writes_of([x for x in R if x["fam"] == "tRNA charging"]), "tRNA charging, second order (62)")
-    kind_hops(writes_of([x for x in R if x["fam"] == "Translation cost payment"]), "translation cost payment (20)")
-    kind_hops(writes_of([x for x in R if x["fam"] == "DNA replication (fork step)"]), "fork steps (491)")
+    def kind(xs, label):
+        kind_hops(writes_of(xs), label)
+        member_split(cme_members(xs))
+
+    kind([x for x in R if x["i"] in bilinear], "DnaA x 0/1 site bindings (99)")
+    kind(offlive, "DnaA x multi-copy site bindings (%d live)" % len(offlive))
+    kind([x for x in R if x["i"] in closes], "cascade site x site (177)")
+    kind([x for x in R if x["fam"] == "Replication initiation"], "replication initiations (2)")
+    kind([x for x in R if x["fam"] == "tRNA charging"], "tRNA charging, second order (62)")
+    kind([x for x in R if x["fam"] == "Translation cost payment"], "translation cost payment (20)")
+    kind([x for x in R if x["fam"] == "DNA replication (fork step)"], "fork steps (491)")
     kind_hops(genes, "a gene copy number (the *_gene species themselves)", offset=0)
-    kind_hops(writes_of(with_min), "transcription with an own-protein promoter (29)")
-    kind_hops(writes_of(dep), "every count-dependent CME rule (1,434), so every floor, CellV and cap reader")
+    member_split([(g, {g}) for g in genes], offset=0)
+    kind(with_min, "transcription with an own-protein promoter (29)")
+    kind(dep, "readers of a max(1, .) floor: every count-dependent CME rule (1,434)")
+    kind([x for x in dep if "CellV" in dag.counts_below[x["node"]]], "readers of the CellV count (%d)" % sum("CellV" in dag.counts_below[x["node"]] for x in dep))
+    kind([x for x in dep if "round" in dag.ops_below[x["node"]]], "readers of round(V*1e19) (%d)" % sum("round" in dag.ops_below[x["node"]] for x in dep))
+    kind([x for x in dep if "select_gt" in dag.ops_below[x["node"]]], "readers of the volume cap (%d)" % sum("select_gt" in dag.ops_below[x["node"]] for x in dep))
     and_rx = [r for r in ode_rx if any("min" in dag.ops_below[int(m)] for m in re.findall(r"N__(\d+)", r["rate"]))]
-    kind_hops(sorted({n for r in and_rx for n, c in ode_st[int(r["number"])].items() if c != 0}), "ODE reactions with an AND rule (%d)" % len(and_rx))
+    and_members = [(r["id"], {n for n, c in ode_st[int(r["number"])].items() if c != 0}) for r in and_rx]
+    kind_hops(sorted(set().union(*(w for _, w in and_members))), "ODE reactions with an AND rule (%d)" % len(and_rx))
+    member_split(and_members)
 
     print("\nOK: 363 second-order, 493 replication, 1434 count-dependent rules; every reaction classified.")
 

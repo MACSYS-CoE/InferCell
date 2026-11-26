@@ -195,55 +195,81 @@ reduced model genes (../../../src/organisms/coreA/data/transcription_genes.tsv):
   off-oriC high-affinity bindings (DnaA x a multi-copy site): 3, of which can fire: ['1594 (High_Affinity_Site, initial 16)', '1657 (High_Affinity_Site2, initial 0)']
   so of the 279: 177 close exactly (site x site), 99 are DnaA x a 0/1 site, 2 DnaA x a multi-copy site, 1 dead
 -- initiation, Initiator x chromosome (hand-written abstractions of the tables)
-  first round (O=1, I=0, C=1): 3 states [(0, 0, 0), (0, 1, 1), (1, 0, 1)]; I*C affine in the state: True
+  first round (O=1, I=0, C=1): 3 states [(0, 0, 0), (0, 1, 1), (1, 0, 1)]; I*C = C0*I in every state: True
   second round (Oa=Ob=1, I=0, C=2): 8 states; I*C affine in the state: False
-  M13 R2 without R1 (D0=3): 2 states; D*O affine in the state: True
+  M13 R2 without R1 (D0=3): 2 states; D*O = D0*O in every state: True
   M13 R2 with R1 (D0=3, three births): 8 states; D*O affine in the state: False
 
 == Hops from each kind to the nearest observable, in the dependency graph
-* DnaA x 0/1 site bindings (99)
+* DnaA x 0/1 site bindings (99) (nearest member)
     transcripts: 3 (Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 3 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
     doubling time (CellSA): 5 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* DnaA x multi-copy site bindings (2 live)
+    per member, tx/bulk/dt: 3/3/5: 3 (1656, 1719, 1782); 4/4/6: 96
+* DnaA x multi-copy site bindings (2 live) (nearest member)
     transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
     doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* cascade site x site (177)
+    per member, tx/bulk/dt: 4/4/6: 2 (1594, 1657)
+* cascade site x site (177) (nearest member)
     transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
     doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* replication initiations (2)
+    per member, tx/bulk/dt: 4/4/6: 177
+* replication initiations (2) (nearest member)
     transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
     doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* tRNA charging, second order (62)
+    per member, tx/bulk/dt: 2/2/4: 2 (1873, 2098)
+* tRNA charging, second order (62) (nearest member)
     transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 1 (M_ala__L_c)
     doubling time (CellSA): 4 (JCVISYN3A_0012_ATP_AA_tRNA -> [CME 1568] M_ppi_c -> [ODE DASYN] M_cdpdag_c -> [writeback.jl lipid_sa!] CellSA)
-* translation cost payment (20)
+    per member, tx/bulk/dt: 2/1/4: 20; 3/1/4: 21; 3/2/5: 1 (1494); 4/2/4: 20
+* translation cost payment (20) (nearest member)
     transcripts: 3 (M_alatrna_c -> [CME 567] M_PTN_JCVISYN3A_0027_c -> [CME 565] M_RNA_JCVISYN3A_0027_c)
     bulk metabolites: 1 (M_mettrna_c)
     doubling time (CellSA): 4 (M_alatrna_c -> [CME 720] M_PTN_JCVISYN3A_0214_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* fork steps (491)
+    per member, tx/bulk/dt: 3/1/4: 1 (1569); 3/2/4: 19
+* fork steps (491) (nearest member)
     transcripts: 2 (JCVISYN3A_0002_gene -> [CME 538] M_RNA_JCVISYN3A_0002_c)
     bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
     doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* a gene copy number (the *_gene species themselves)
+    per member, tx/bulk/dt: 2/2/4: 453; 3/2/4: 38
+* a gene copy number (the *_gene species themselves) (nearest member)
     transcripts: 1 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 2 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_adp_c)
     doubling time (CellSA): 4 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* transcription with an own-protein promoter (29)
+    per member, tx/bulk/dt: unreached/unreached/unreached: 7; 1/2/4: 455; 3/2/4: 31
+* transcription with an own-protein promoter (29) (nearest member)
     transcripts: 1 (M_RNA_JCVISYN3A_0027_c)
     bulk metabolites: 2 (ATP_mRNA -> [writeback.jl counter ATP_mRNA] M_atp_c)
     doubling time (CellSA): 4 (ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
-* every count-dependent CME rule (1,434), so every floor, CellV and cap reader
+    per member, tx/bulk/dt: 1/2/4: 29
+* readers of a max(1, .) floor: every count-dependent CME rule (1,434) (nearest member)
     transcripts: 1 (M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 1 (M_apoACP_c)
     doubling time (CellSA): 3 (M_PTN_JCVISYN3A_0005_c_cyto -> [CME 29] M_PTN_JCVISYN3A_0005_c -> [writeback.jl lipid_sa!] CellSA)
-* ODE reactions with an AND rule (18)
+    per member, tx/bulk/dt: 1/2/4: 455; 2/2/3: 1 (720); 2/2/4: 477; 3/1/3: 1 (21); 3/1/4: 5 (3, 6, 12, 15, 18); 3/2/3: 97; 3/2/4: 398
+* readers of the CellV count (486) (nearest member)
+    transcripts: 1 (M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_mRNA -> [writeback.jl counter ATP_mRNA] M_atp_c)
+    doubling time (CellSA): 4 (ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 1/2/4: 455; 3/2/4: 31
+* readers of round(V*1e19) (493) (nearest member)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/4: 455; 3/2/4: 38
+* readers of the volume cap (948) (nearest member)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_apoACP_c)
+    doubling time (CellSA): 3 (M_PTN_JCVISYN3A_0005_c_cyto -> [CME 29] M_PTN_JCVISYN3A_0005_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/2/3: 1 (720); 2/2/4: 477; 3/1/3: 1 (21); 3/1/4: 5 (3, 6, 12, 15, 18); 3/2/3: 97; 3/2/4: 367
+* ODE reactions with an AND rule (18) (nearest member)
     transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
     bulk metabolites: 1 (M_5fthf_c)
     doubling time (CellSA): 3 (M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+    per member, tx/bulk/dt: 2/1/3: 12; 2/1/4: 2 (FAKr, COAabc); 3/1/3: 1 (RNDR4); 3/1/4: 3 (RNDR1, RNDR2, RNDR3)
 
 OK: 363 second-order, 493 replication, 1434 count-dependent rules; every reaction classified.
