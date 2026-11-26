@@ -3,14 +3,15 @@
 ## Latest: M11's four parallel issues merged overnight (2026-11-26/27)
 
 KIM-177, KIM-183, KIM-184 and KIM-185 ran in parallel worktrees, each gated by a fresh `/check-PR`
-and merged only on a clean verdict. Full manager log, with every call made for Tom to review:
+and merged only on a clean verdict.
+The diffs are dev-only, so all four merged with main's unit CI still pending. Full manager log, with every call made for Tom to review:
 `/fred/oz022/tkimpson/infercell-overnight-2026-11-26/REPORT.md`. Results are on each issue (ticks,
 merge comment, Story check).
 
 - **KIM-183** (PR #205, c24d206): one SpeedyCell cycle, median 49.5 s to minute 105 over 20 cells on
   one Milan core (job 21664418): PASS against 120 s. 100-cell threaded node: 1,912 cells/node-h.
-  About 15% of cells collapse before completing a cycle at the published defaults (model behaviour,
-  bit-exact with syn3a-ensemble's own run).
+  At the published defaults about 15% of cells do not reach t_SA2 by minute 120 (29/200 and 31/200
+  in syn3a-ensemble's two seeds; model behaviour, bit-exact with syn3a-ensemble's own run).
 - **KIM-185** (PR #206, 3b41b08): the 455-gene transcript factor by the data plug-in projects to
   539 CPU-h (stage 1): PASS against 5,000, **provided** a per-gene gradient replaces
   `ForwardDiff.gradient` over all coordinates in the sampler and `hessian_fd`. Today's path would
@@ -20,10 +21,11 @@ merge comment, Story check).
   18.5 min on LinearSolve 3.73.0's stock dual path. A lower bound on a linear surrogate; LinearSolve
   3.87 is untimed (KIM-194).
 - **KIM-177** (PR #204, 9b620ac): non-closure inventory, `dev/notes/2026-11-26-kim177-nonclosure/`.
-  363 second-order reactions; 177 close exactly in the first round; the proposed M13 model covers
-  the 99 DnaA bindings to a 0/1 site, not charging or cost payment.
+  363 second-order reactions (279 DnaA, 62 charging, 20 cost payment, 2 initiations); 177 of the
+  DnaA close exactly in the first round; the proposed M13 model covers the 99 DnaA bindings to a
+  0/1 site, not charging or cost payment.
 
-**Next:** Tom reads REPORT.md's "for Tom" items (proposed amendments to F2B, F3(c), T1; the
+**Next:** Tom reads REPORT.md's "Needs you" section (proposed amendments to F2B, F3(c), T1; the
 per-gene-gradient owner; six dead jobs to `scancel`); then KIM-194 and KIM-187 (route and engine).
 The sections below predate the decision of 2026-11-26; KIM-179 brings them into line.
 
