@@ -274,7 +274,29 @@ is not the share of cells that are ever below $K_d$, which is most of them
 
 \paragraph{Releasing a constant to its prior.} A user can free any fixed constant, and
 \texttt{predict} then draws it from its prior with the other held parameters
-(\cref{sec:predictapi}). Row C releases all \pn{traj.nreleased} fixed forward rate and
+(\cref{sec:predictapi}). Here a user releases lactate dehydrogenase's constants on the reduced
+model and records GTP's time course, given a posterior \texttt{pd} over M0's parameters:
+{\footnotesize
+\begin{verbatim}
+ms = d11_models()
+ms[1] = CentralGlycolysis(
+  enzymes = :translated,
+  free = [:kcatF_R_ENO, :kcatR_R_ENO,
+          :kcatF_R_FBA, :kcatR_R_FBA,
+          :kcatF_R_LDH_L, :kcatR_R_LDH_L])
+p = predict(ms, pd; horizon = 6300,
+  completion = :prior, n_held = 20,
+  n_cells = 4, trajectory = [:M_gtp_c])
+\end{verbatim}
+}
+\noindent The fit already frees the enolase and aldolase constants. The argument
+\texttt{n\_held} is the number of draws of $\theta_H$ per draw of $\theta_I$, and every draw
+of \texttt{pd} is used unless \texttt{n\_parameter\_draws} or \texttt{draws} says otherwise. Row C
+releases more constants than this example, uses an evenly spaced subset of draws, and applies the
+viability rule, with \texttt{completion = :viability\_conditioned\_prior} and a
+\texttt{viability} rule passed in. Reverse
+constants follow from the equilibrium constants. A release measures sensitivity to the
+priors; it is not a posterior. Row C releases all \pn{traj.nreleased} fixed forward rate and
 Michaelis constants of the two metabolic modules, so \pn{traj.ndrawn} parameters are
 drawn. The viability rule kept \pn{traj.kept} of \pn{traj.npairs} parameter pairs,
 \pn{traj.acc}\%, and \pn{traj.starved}\% of all cells starved. Without the rule, the
