@@ -6,14 +6,15 @@ sits beside KIM-92's joint posterior. The pre-registration is `prereg/kim-116`
 plug-in (Decision log 2026-11-19).
 
 **The factor cut is close to the joint, but costs more.** Every shift is at most 0.27 joint
-SD and every contraction is within 0.006. It costs 1.44× the joint's CPU-h. Its stage 1
+SD and every contraction is within 0.006. It costs 1.44× the joint's posterior jobs (1.33×
+against T1's 491.9 CPU-h, the pre-registered comparator). Its stage 1
 solves the same ODE over the same 21 coordinates as the joint, so it costs the same
 (1.00×), and stage 2 comes on top.
 
-**The data plug-in is cheaper, but not close.** It costs 0.80× the joint, and its critical
-path is 56 h against 121 h. It fails the frozen "close" test: promoter 0607 shifts +0.65
-joint SD (Monte Carlo SE 0.07). The bias is systematic: 16 of 17 promoters shift up, with
-a mean shift of +0.20 SD. On D3 the plug-in matches the joint for dQ and for the families
+**The data plug-in is cheaper, but not close.** It costs 0.80× the joint's posterior jobs
+(0.74× against 491.9), and its critical path is 56 h against 121 h. It fails the frozen "close" test: promoter 0607 shifts +0.65
+joint SD (Monte Carlo SE 0.07). The bias is systematic: 16 of 17 promoters shift up (one of
+them, 0779, by only +0.003), with a mean shift of +0.20 SD. On D3 the plug-in matches the joint for dQ and for the families
 at the later horizon. For Q and Q_kd its CRPS is about twice the joint's, because its
 median sits about 1% high.
 
@@ -39,8 +40,18 @@ variant is not close.
   - `compare/`: `compare.md` and its log.
 - **The joint:** `/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17/`.
 - **D3 beside it:** `/fred/oz022/tkimpson/infercell-kim95-archive-2026-11-19/`.
-- **Job states:** `sacct` shows COMPLETED for all 31 jobs (88 allocations with array
-  tasks).
+- **Job states:** `sacct` shows COMPLETED for all 31 jobs in the two `jobs.tsv` (88
+  allocations with array tasks), and for the profile job too (32 jobs, 89 allocations in
+  `sacct.tsv`). `sacct.tsv` was collected with `sacct -j <ids> -P
+  --format=JobID,JobName,State,ExitCode,Submit,Start,End,Elapsed,AllocCPUS,CPUTime,TotalCPU,MaxRSS,NodeList,SubmitLine`,
+  the ids being both `jobs.tsv` and 21196497.
+- **Rerunning predict:** `corea_modular_kim116_predict.jl`'s default `MODULAR` is the working
+  run dir `/fred/oz022/tkimpson/infercell-kim116-run-7b6c0b1-2026-11-19`. To rerun from the
+  archive, set `MODULAR=<archive>/run`. Its files are the same (SHA256SUMS).
+- **Tests:** `test/test_corea_mixed.jl` passed 402/402 in the slow tier (Slurm 21198444) at
+  53e2861; `src/` and `test/` are unchanged since. An earlier run of that file (21194283,
+  306/306) was on an uncommitted tree and is not evidence for a commit. The rest of the
+  suite rests on CI for this PR.
 
 ## The gates (prereg §4)
 
@@ -49,8 +60,8 @@ extension allowed. Both variants needed the extension.
 
 | variant | gate on 200 draws per chain | gate on 400 draws per chain | stage 2 |
 |---|---|---|---|
-| plug-in | fails 16/18: 0727 R̂ 1.0246, 0233 1.0218 (21315914) | **passes 18/18**: max R̂ 1.0099, min ESS 2264 (21375141) | 21375287: 200 inner chains, 0 numerical errors, mean acceptance 0.90 |
-| cut | fails 17/18: 0445 R̂ 1.0299 (21457208) | **passes 18/18**: max R̂ 1.0114, min ESS 2022 (21596404) | 21597007: 200 inner chains, 0 numerical errors, mean acceptance 0.90 (lowest chain 0.69) |
+| plug-in | fails 16/18: 0727 R̂ 1.0246, 0233 1.0218 (21315914) | **passes 18/18**: max R̂ 1.0099, min ESS 2264 (21375141) | 21375287: 200 inner chains, 0 numerical errors, mean acceptance 0.90 (lowest chain 0.78), max tree depth 4 |
+| cut | fails 17/18: 0445 R̂ 1.0299 (21457208) | **passes 18/18**: max R̂ 1.0114, min ESS 2022 (21596404) | 21597007: 200 inner chains, 0 numerical errors, mean acceptance 0.90 (lowest chain 0.69), max tree depth 4 |
 
 - **Chains:** 21208676–79 for the cut and 21208681–84 for the plug-in.
 - **Extensions:** 21462423–26 for the cut and 21316056–59 for the plug-in.
@@ -72,6 +83,10 @@ These tables are copied unchanged from `compare/compare.md`.
   800-cell reference ensemble), probe and profile, 32.0 CPU-h paid once.
 - **Reconciling with T1:** the joint's 454.6 plus the shared 32.0 is KIM-92's merge total,
   486.60. KIM-92's first pass adds 5.32, which gives T1's 491.9.
+- **The comparator:** prereg §5 sets the cost beside 491.9. Against it the totals are 1.33×
+  (cut) and 0.74× (plug-in). The table divides by 454.6 instead, the joint's own posterior
+  jobs, so that the shared jobs count in neither arm. Wall-clock is reported only as the
+  critical path; the calendar time, with queue time, is not compared.
 - **The merge's own total:** `run/modular_summary.md` says "1017.5 CPU-h beside the
   joint's 491.9". That adds both variants together against one joint, so it is not a
   comparison.
@@ -95,7 +110,9 @@ counts the chunks' timed seconds × threads.
 The full per-coordinate tables, with the Monte Carlo SE of each shift, are in
 `compare/compare.md`. The merge's tables are in `run/modular_summary.md`.
 `compare.md`'s shift and contraction columns match the merge's to 1e-10, and the script
-checks this itself.
+checks this itself. The "close" verdict is the pre-registered rule. The Monte Carlo SE, the
+mean shift and its count, the sd ratio and the correlation figures are descriptive, and were
+not pre-registered.
 
 | | cut | plug-in |
 |---|---|---|
@@ -107,17 +124,21 @@ checks this itself.
 | truth in the 90% interval | 19 of 21 (joint 20) | 19 of 21 (joint 20) |
 | promoters' (mean − truth)/sd: mean, number negative | −0.79, 14 of 17 | −0.61, 14 of 17 |
 | ENO/FBA–φ \|r\|: max, rms (joint 0.125, 0.053) | 0.074, 0.036 | 0.091, 0.031 |
+| stage 2: lowest chain acceptance, max tree depth | 0.69, 4 | 0.78, 4 |
 
 **The Monte Carlo SE of a shift.** The cut's φ is constant within each stage-1 draw's
 block of 10 inner draws, so its means rest on 200 distinct draws, not 2000. The joint's
 rest on its ESS. With that, the plug-in's +0.65 on 0607 is about 2 SE past the 0.5 line,
 and the cut's 0.27 is well inside it.
 
-**The correlations the cut drops.** In the joint, ENO and FBA hardly correlate with φ: the
-largest |r| over the 36 pairs is 0.125, and the rms is 0.053. In the cut these
-correlations cannot exist, so its |r| is noise. Its floor is 1/√200 = 0.071, and its
-largest |r| (0.074 cut, 0.091 plug-in) is at that floor. On the generous rung the
-coupling the cut drops is weak, and that is why the cut sits close.
+**The ENO/FBA–promoter correlations.** The cut keeps the dependence of ENO and FBA on the
+promoters: stage 2 is fitted at each stage-1 draw, and the bulk mean is solved at those
+promoters. What it drops is the bulk data's feedback into the promoters. In the joint the
+correlations are small: the largest |r| over the 36 pairs is 0.125, and the rms is 0.053. In
+the cut and the plug-in they are smaller still (max 0.074 and 0.091, rms 0.036 and 0.031).
+For scale, 1/√200 is 0.071, but that is not a test: these figures do not separate sampling
+noise from a real φ→ψ dependence. The coupling is weak on the generous rung in both. That
+fits the cut sitting close, but it does not show that this is why.
 
 **The promoter offset is not from the bulk coupling.** KIM-92's joint put the promoters
 about 0.8 SD below the truth (14 of 17 negative; Go entry, 2026-11-17). The cut's
@@ -128,13 +149,18 @@ is already in the transcript factor, on this dataset.
 The plug-in's −0.61 is not "nearer the truth". It is the plug-in's upward bias (mean
 +0.20 joint SD) laid over the same downward offset.
 
-**Why the plug-in shifts.** Its stage 1 takes its transcription rates from the observed
-panel, not from the mean-field solve. Item 2 measured those rates at the truth against
-route (ii)'s: |Δ log k| has median 0.0145, 90th percentile 0.053, and maximum 0.112
-(Slurm 21196497). The plug-in treats the noisy panel as if it were the true state, an
-errors-in-variables cut, so a systematic bias in the rates moves the promoters. The upward
-shift fits Q's median sitting about 1% high in D3. This mechanism is consistent with the
-evidence but has not been tested separately.
+**Why the plug-in shifts (not tested).** Its stage 1 takes its transcription rates from the
+observed panel, not from the mean-field solve. Item 2 measured how far those rates sit from
+route (ii)'s at the truth: |Δ log k| has median 0.0145, 90th percentile 0.053 and maximum
+0.112 (Slurm 21196497). That is an unsigned size; it does not by itself show a bias in one
+direction. The profile names four sources of that difference together:
+- the panel's noise, treated as if it were the true state (an errors-in-variables cut);
+- the offset δ;
+- the 1 s between a save and the switch it stands in for;
+- the volume and the non-panel pools, borrowed from KIM-92's θ_ref solve.
+
+Which of these moves the promoters up was not tested. The upward shift does fit Q's median
+sitting about 1% high in D3.
 
 ## D3 scores: the plug-in beside the joint
 
@@ -155,13 +181,14 @@ This table is copied unchanged from `compare/compare.md`. It reads both archives
 - **Q and Q_kd:** the plug-in's median is about 1% above the truth. The truth falls outside
   its 50% band but inside its 90% band, and its CRPS is about twice the joint's. The skill
   against the prior stays above 0.96.
-- **dQ, the knockdown's effect:** the plug-in scores the same as the joint. Both medians
-  sit high by a similar amount, so the shared offset cancels in the difference.
+- **dQ, the knockdown's effect:** the plug-in scores the same as the joint (CRPS 1.848e4
+  against 1.857e4). Why is not tested here. Its Q and Q_kd medians sit high by different
+  amounts (+1.2e5 and +1.5e5), and its dQ median is itself above the truth.
 - **The later horizon:** the plug-in is within a few points of the joint in both
-  families, and median species skill differs by less than 0.005.
+  families, and median species skill differs by at most 0.005.
 - **The D3 draws are item 7's:** `predict/prep.jls`'s `log_draws` equals
   `run/cut_draws_plugin.tsv` (Slurm 21628002). Item 8's scores therefore come from the
-  posterior described above.
+  posterior described above. The check is `dev/scripts/corea_modular_kim116_d3check.jl`.
 
 ## What this means
 
@@ -170,14 +197,18 @@ This table is copied unchanged from `compare/compare.md`. It reads both archives
   the promoters by up to 0.65 joint SD. Neither result gives a cheap and faithful modular
   arm on this model as designed. Before M10 runs the modular arm at every rung, these
   options are worth weighing:
-  - a smaller stage 2 (K or the chain length);
-  - correcting the plug-in for the panel's noise;
+  - a smaller or warm-started stage 2 (K, the chain length, or a shared ψ metric; about 91%
+    of stage 2 is adaptation);
+  - a cheaper plug-in gradient (each gene's term depends on 2 of the 18 coordinates);
+  - finding which of the four sources above moves the plug-in, and correcting that one;
   - accepting the cut at the joint's price.
 
   M10 has left paper 1 (Decision log 2026-11-25), so this goes to the flagship paper.
 - **For paper 1.**
-  - The promoter offset is in the transcript factor, not the coupling. That bears on
-    "promoter shift diagnosed or stated accurately".
+  - On this dataset, the promoter offset arises in the transcript factor, not in the
+    coupling. That locates it; it does not explain it, and one dataset cannot separate a
+    cause in the likelihood from this data realisation. It bears on "promoter shift
+    diagnosed or stated accurately".
   - The modular arm is a measured comparison: the cut is as good as the joint at the
     joint's price or more, and the plug-in is cheaper and biased.
   - The issue expected that "on the generous rung the exact transcripts pin the
