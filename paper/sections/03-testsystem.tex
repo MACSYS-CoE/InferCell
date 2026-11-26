@@ -56,9 +56,9 @@ constant stays at its default. Apart from $\sigb$, these are the parameters that
 uncertainty budget (\cref{sec:budget}) split into two sets: those M0's posterior infers, and
 the \pn{budget.nH} promoters of genes that M0 removes, which the budget drew from their priors.
 Inferring their union replaces that transfer with one posterior. ENO and FBA are M0's two
-metabolic constants. M0 chose them as a pair: enolase has a tight prior and the least spare
-capacity of the enzymes, and aldolase has the loosest forward prior, so the two span how much
-the bulk data can say about a catalytic constant. No other metabolic constant is free, and we name this
+metabolic constants. M0 chose them as a pair of controls. Enolase, with a tight prior on the
+enzyme with the least spare capacity, should recover tightly. Aldolase, with the loosest prior
+of the forward catalytic constants, should keep a visibly wider posterior. No other metabolic constant is free, and we name this
 restriction among the limits (\cref{sec:discussion}). Each minute, the data record the transcript counts of every
 gene in every cell. They also record one bulk measurement for each of \pn{mzero.npanel}
 metabolite pools, the mean over cells (\cref{sec:obs}). The fit sees only the first half of the
