@@ -71,11 +71,14 @@ reduced model, the mixed route also has no calibration test of the kind
 \cref{sec:posteriors} ran on M0. The scored predictions of \cref{sec:reducedpredict},
 against the true simulator, are the test of the approximation.
 
-\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD at the
-MAP estimate is \pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. ENO and FBA
-depart from this picture in one respect. Their MAP values lie \pn{kim92.mapenoz} and
-\pn{kim92.mapfbaz} posterior SD from their posterior means. This run cannot say whether
-their posteriors are skewed or the optimiser stopped short.
+\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD, from the
+curvature of the fitted log density at $\theta_{\mathrm{ref}}$, is
+\pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. The posterior means of ENO and
+FBA lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from $\theta_{\mathrm{ref}}$.
+Their marginals are nearly symmetric, with skewness \pn{kim92.skeweno} and
+\pn{kim92.skewfba}, so the offset is not skew. $\theta_{\mathrm{ref}}$ is the MAP with
+$\delta = S = 0$, not the MAP of the fitted likelihood, so it need not sit at the posterior's
+centre.
 
 \paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
 (\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
@@ -85,8 +88,8 @@ The limit is wall-clock time, because each chain is one serial job. Each chain t
 and \pn{kim92.firstdraws} kept iterations, and \pn{kim92.extwalllo}--\pn{kim92.extwallhi}\,h
 more for the extension. One leapfrog step, one gradient of the log density, costs
 \pn{kim92.grad}\,s, and each iteration takes about \pn{kim92.steps} steps. A warm diagonal
-metric made the run feasible. We took this metric from the Hessian at the MAP estimate, by
-finite differences of the gradient. Under a unit metric the Hessian's condition number is
+metric made the run feasible. We took this metric from the Hessian of the fitted log
+density at $\theta_{\mathrm{ref}}$, by finite differences of the gradient. Under a unit metric the Hessian's condition number is
 \pn{kim92.kappaunit}; under the warm metric it is \pn{kim92.kappawarm}. A probe chain
 under the unit metric projected to \pn{kim92.probedays} days per chain.
 
