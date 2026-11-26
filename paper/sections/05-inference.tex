@@ -153,7 +153,8 @@ optimiser, the reference ensemble and the chains. The reduced-model value is the
 run, and includes the dataset, profiling, the unit-metric probe (\pn{kim92.probecpuh} CPU-h)
 and the predictive check. Params is the number of free parameters. Days are wall-clock on the critical path,
 without queue waits; for the joint they include the dataset and the preparation. The M0
-mixed route's wall-clock per posterior was not recorded. The reduced-model fits use the mixed route. The two modular rows count
+mixed route's per-job wall times are in the Slurm records, but its wall-clock per posterior
+was not tabulated. The reduced-model fits use the mixed route. The two modular rows count
 their own jobs only, in CPU-hours and in days. They reuse the joint's dataset, preparation,
 probe and profile, and neither row includes them; the last three cost \pn{kim116.shared}
 CPU-h.}

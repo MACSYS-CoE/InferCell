@@ -1,7 +1,7 @@
 # Story: InferCell, inference on a reduced whole-cell model of JCVI-syn3A
 
 **Mode:** revise (restructure of the M0 draft on main at 24273c7)    **Venue:** none (preprint, two-column `arxiv.sty`)
-**Source:** Linear project InferCell, description as of 2026-11-23 (contribution, section jobs, F1–F7, T1; F7 left with the ladder on 2026-11-25); Decision log to 2026-11-23
+**Source:** Linear project InferCell, description as of 2026-11-23 (contribution, section jobs, F1–F7, T1; F7 dropped with the ladder on 2026-11-25 and deleted on 2026-11-26, KIM-163); Decision log to 2026-11-23
 **Signed off:** 2026-11-23 (Tom, by approving the KIM-98 drafting plan)
 **Branch:** `tomkimpson/kim-98-plan-the-paper-1-rewrite-m6-around-reduced` (KIM-98), worktree `.worktrees/kim-98-paper`
 
