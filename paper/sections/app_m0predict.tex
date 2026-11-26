@@ -199,12 +199,12 @@ Mean $\Delta Q$ & \pn{budget.dqlo} & \pn{budget.dqone} & \pn{budget.dqhi} \\
 \end{table*}
 
 \paragraph{The knockdown.} At the default width, mean lactate export falls by
-\pn{budget.dqpct}\%~$\pm$~\pn{budget.dqpctse}\%. On the reduced model's one truth the knockdown
-instead raises export slightly (\cref{sec:reducedpredict}). This effect shrinks as the prior
+\pn{budget.dqpct}\%~$\pm$~\pn{budget.dqpctse}\%. This effect shrinks as the prior
 widens, and at the widest setting its interval of two standard errors reaches zero. At
 \pn{budget.ncellspair} cells per pair, cell noise swamps the parameter variance of
 $\Delta Q$, so the run cannot resolve it. We therefore report the mean of $\Delta Q$ and
-no variance split.
+no variance split. On the reduced model's one truth the knockdown instead raises export
+slightly (\cref{sec:reducedpredict}).
 
 \paragraph{Viability and validity.} The viability rule rejected nothing at the two
 narrower widths, so there the conditioning removed nothing. At the widest it removed
@@ -233,8 +233,8 @@ posterior. Extracellular lactate and GTP are observed, and the data, regenerated
 \texttt{m0\_dataset(\pn{traj.seed}; ncells = \pn{mzero.cells})}, are shown with a band for a new
 bulk measurement. The posterior band is the narrow dark blue band, edged in a darker blue. The
 truth is drawn straight between saves 60\,s apart, so its kink at 1\,min marks a fast first
-minute of export. Extracellular lactate is measured as a concentration; we put it on export's axis, in particles,
-by one constant ratio, whose largest deviation from a constant was \pn{traj.ratio}\%. Pyruvate is not observed and is shown as its deviation
+minute of export. Extracellular lactate is recorded at the cell's volume, a dilution of the export into the
+medium, so we put it on export's axis, in particles, by one constant ratio, whose largest deviation from a constant was \pn{traj.ratio}\%. Pyruvate is not observed and is shown as its deviation
 from the truth. Calibration is the coverage over \pn{vseven.R} datasets (\cref{fig:crossed}),
 not this one. B and C, unscored: the reduced model over \pn{model.cycle}\,s, with $\theta_I$ from
 the same posterior and \pn{budget.ndrawn} parameters drawn. Row A does not test the transfer into

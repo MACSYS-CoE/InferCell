@@ -56,9 +56,9 @@ of \pn{kim92.mapz}. So the shift is in the log density on this dataset, with or
 without $\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
 \pn{kim92.promcorr} on average, so noise that the likelihood represents is unlikely to
 produce a common shift this large; the standard error above already allows for it. A shared
-component that the likelihood does not represent would not show in these correlations. Either way
-it is a gap in the likelihood. It could be systematic, and recur on every dataset, or peculiar to
-this data realisation, and not recur. One dataset cannot separate the two. We read the
+component that the likelihood does not represent would not show in these correlations. The shift
+could be a bias in the likelihood, systematic and recurring on every dataset, or a feature of
+this data realisation that would not recur. One dataset cannot separate the two. We read the
 scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
@@ -77,7 +77,8 @@ $K_d$, where the basis of the one-way reduction fails. On M0, GTP stayed above $
 (\cref{app:reductions}). The check is also weak: the data plug-in of the
 modular arm, which is not close to the joint, leaves \pn{kim116.ppcout} rows outside. The
 posterior may also be too narrow. On M0 the mixed route counts the transcripts' information twice,
-through the bulk mean of the same cells, and this narrowed its posterior (\cref{sec:posteriors}).
+through the bulk mean of the same cells, and its posterior was narrower where that predicts
+(\cref{sec:posteriors}); the narrowing was computed, not measured.
 The same can happen here, and its size on the reduced model is not measured.
 
 \paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD, from the
@@ -92,7 +93,7 @@ Both are learned from the bulk, where $\delta$ acts, so their posterior means ne
 at $\theta_{\mathrm{ref}}$. Because $\delta$ and $S$ are fixed there, the bulk factor is
 linearised about a point that these two parameters' posteriors have moved away from. We did not
 recompute $\delta$ and $S$ at the posterior mean on this model. On M0 doing so moved the gap
-only in part (\cref{app:sfixed}).
+only in part (\cref{app:gap}).
 Their marginals are also nearly symmetric, with skewness \pn{kim92.skeweno} and
 \pn{kim92.skewfba}.
 

@@ -38,8 +38,9 @@ standard deviations.
 The mixed route rests on the mean-field swap, which replaces the stochastic gene
 expression with its mean. Given the rate constants, the swap keeps the means of transcripts and
 proteins exact. The hybrid rebuilds those constants every 60\,s from each cell's own pools, while
-the swap builds them from the mean-field pools; this second gap is small because the feedback
-elasticities are small (\cref{tab:gain}). But metabolism is nonlinear. A metabolism fed the mean drain differs from the mean over
+the swap builds them from the mean-field pools; this second gap should be small while GTP stays
+well above $K_d$, because the feedback elasticities are then small (\cref{tab:gain}), but
+we have not measured it (\cref{app:gap}). But metabolism is nonlinear. A metabolism fed the mean drain differs from the mean over
 cells of metabolisms fed their own drains. That difference is a Jensen gap.
 
 On M0 the gap is largest for GTP, where the mean field sits

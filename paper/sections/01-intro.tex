@@ -4,7 +4,7 @@
 A whole-cell model simulates a cell from its molecular parts. The first such model
 described \textit{Mycoplasma genitalium} with \pn{lit.karrsub} coupled submodels
 \cite{karr2012whole}. Later models covered \textit{Escherichia coli}
-\cite{macklin2020simultaneous} and the minimal cell \syn{} \cite{hutchison2016design}. After
+\cite{macklin2020simultaneous} and the minimal cell \syn{} \cite{hutchison2016design,breuer2019essential}. After
 models of its metabolism \cite{breuer2019essential} and its genetic information processes
 \cite{thornburg2019kinetic}, \syn{} was modelled whole, first well stirred
 \cite{thornburg2022fundamental} and then in space and time over a full cell cycle
@@ -50,8 +50,9 @@ that reports posteriors over its parameters. We see five reasons.
   spreadsheet, a flat file or a supplement, and rarely with the value in the model.
   \item \emph{Mixed formalisms.} Metabolism is a set of ordinary differential
   equations (ODEs). Gene expression is a stochastic jump process. The two exchange
-  state on a fixed clock. Exact samplers for such hybrids exist, such as particle Markov chain
-  Monte Carlo \cite{andrieu2010particle,golightly2011bayesian}, but none is standard practice
+  state on a fixed clock. Exact samplers that apply to such hybrids exist, such as particle Markov
+  chain Monte Carlo \cite{andrieu2010particle}, used for stochastic kinetic models
+  \cite{golightly2011bayesian}, but none is standard practice
   at whole-cell scale.
   \item \emph{Latent paths.} The stochastic block has a hidden path: the exact
   times of each transcription and translation event. The likelihood of the data
