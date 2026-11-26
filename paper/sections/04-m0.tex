@@ -8,11 +8,11 @@ M0. Both routes pass a simulation-based calibration there that detects only larg
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_mixed.pdf}
-\caption{\textbf{Both routes calibrate on M0, but on one dataset a gap remains between them.} A: marginal posteriors of the natural log of each parameter on one dataset, as kernel density estimates of the draws: the long run of the exact sampler as a filled blue density, and the mixed route as the orange line. The ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations apart. B: empirical cumulative distribution functions of the ranks (rank-ECDFs) of both routes over the same \pn{mix.R} prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and each line is the rank-ECDF minus the fractional rank.}
+\caption{\textbf{Both routes pass a low-powered calibration on M0, but on one dataset a gap remains between them.} A: marginal posteriors of the natural log of each parameter on one dataset, as kernel density estimates of the draws: the long run of the exact sampler as a filled blue density, and the mixed route as the orange line. The ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations apart. B: empirical cumulative distribution functions of the ranks (rank-ECDFs) of both routes over the same \pn{mix.R} prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and each line is the rank-ECDF minus the fractional rank.}
 \label{fig:approx}
 \end{figure*}
 
-\paragraph{Both routes are calibrated.} A test against one known truth, as in DREAM8
+\paragraph{Both routes pass a low-powered calibration.} A test against one known truth, as in DREAM8
 \cite{karr2015summary}, cannot show whether a posterior's width is right. So we drew
 \pn{vseven.R} parameter sets from the prior, simulated one M0 dataset from each, and fitted
 each dataset with both routes. Over many datasets, a 90\% credible interval must then contain
