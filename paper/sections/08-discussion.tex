@@ -29,7 +29,8 @@ metabolism, where the pools miss. We have not tested this reading.
 rule. Single-cell data inform the parameters of their own module. Information between modules
 travels on bulk observables and follows the gain of the coupling, and a modeller can compute
 the gains before any inference. On the reduced model the joint posterior uses both streams at
-once and does not separate them, so the rule is not tested there. As in \cref{sec:seam}, a dynamical reduction, such
+once, but the modular arm's factor cut separates them for the promoters: the transcripts alone
+give nearly the joint's promoter posterior, as the rule expects (\cref{sec:reduced}). As in \cref{sec:seam}, a dynamical reduction, such
 as the mean-field swap, changes the simulator and keeps full Bayesian inference. A statistical
 cut keeps the simulator and changes the target \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
 The joint posterior uses the first, and we measured its cost on M0. The modular arm's factor

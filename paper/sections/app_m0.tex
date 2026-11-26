@@ -145,7 +145,9 @@ on this dataset beyond $\delta$'s first-order correction, the transcript factor'
 population-mean constants, and an exact run on disjoint cells, at
 \pn{ften.cpuh}--\pn{cost.exacthi} CPU-hours. The reduced model uses the same mixed route, so
 the double counting can arise there too. Its size there is not measured, and nothing here
-shows that it causes the promoter shift of \cref{sec:reduced}.
+shows that it causes the promoter shift of \cref{sec:reduced}. The modular arm finds the same
+shift with no bulk factor in its first stage (\cref{app:modular}), so double counting does
+not cause it.
 
 \subsection{What each data stream informs}
 \label{sec:info}
@@ -158,8 +160,9 @@ parameters once the stochastic paths are integrated out. The \emph{information
 graph} says which data streams move which parameters. In the reduced \syn{} model the
 coupling graph is two-way. On M0 the information graph is sparse and points mostly in
 one direction. On the reduced model the joint posterior uses both streams together
-and reaches all \pn{kim92.ncoord} parameters (\cref{sec:reduced}), so it does not
-separate the streams.
+and reaches all \pn{kim92.ncoord} parameters (\cref{sec:reduced}). The modular arm's factor
+cut separates the streams for the promoters, and there the transcripts alone give nearly the
+joint's promoter posterior (\cref{app:modular}).
 
 \begin{figure*}[t]
 \centering
