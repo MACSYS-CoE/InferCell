@@ -99,13 +99,15 @@ deviations from the long run of the exact sampler, on the ptsG promoter, the dec
 enolase. We tested the candidate causes one at a time. No cause is named.
 
 \paragraph{Ruled out.} Both routes build the same dataset, priors, panel and window, and no
-draw sits near a truncation. The gap is not sampler error: each shift is
+draw sits near the mixed route's bounds. The gap is not sampler error: each shift is
 \pn{gap.zlo}--\pn{gap.zhi} times the two samplers' Monte Carlo standard errors combined.
 
 \paragraph{The bulk's reference: a part.} The offset $\delta$ and the covariance $S$ are
 computed once, from a reference ensemble (\cref{sec:meanfield}). Switching $\delta$ off makes
 the gap on the decay rate and enolase about four times larger, \pn{gap.nojensen} on the decay
-rate, so the correction is needed. Doubling the ensemble, or recomputing $\delta$ and $S$ at the mixed posterior's mean,
+rate, so the correction is needed. Only the ptsG promoter lands on the exact posterior without
+it, so there the correction may overshoot, and the arm does not test whether $\delta$'s value is
+accurate. Doubling the ensemble, or recomputing $\delta$ and $S$ at the mixed posterior's mean,
 closes up to \pn{gap.refsev} standard deviations on the ptsG promoter and \pn{gap.refkrn} on
 the decay rate in these runs, and leaves most of the gap. This does not bound the reference's
 share: the doubled ensemble contains the original \pn{mix.nref} cells, so it removes only part
@@ -124,7 +126,7 @@ the information the mixed route gives it on the decay rate, and
 \pn{gap.dcsevlo}--\pn{gap.dcsevhi} on the ptsG promoter. So the mixed posterior should be too
 narrow there, and it is: its standard deviation is \pn{gap.sdkrn} of the exact one on the
 decay rate and \pn{gap.sdsev} on the ptsG promoter. On the other promoter the information is
-double-counted too, but the width is \pn{gap.sdsix} of the exact one, within the standard
+double-counted too, but the width is \pn{gap.sdsix} of the exact one, about the standard
 deviation's sampling error. This is a statement about width. Whether double counting also moves
 where the posterior sits is not measured; a mixed fit with the bulk conditioned on the
 transcripts would test it, and needs a new likelihood.

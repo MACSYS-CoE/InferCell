@@ -74,14 +74,14 @@ close the gap (\cref{app:sfixed}). The gap is a shift in where the posterior sit
 \pn{gap.zlo}--\pn{gap.zhi} times the two samplers' Monte Carlo standard errors combined, and
 both routes are built from the same dataset, priors, panel and window (\cref{app:gap}). We have not found its cause. There
 are two leads, and neither is measured as a shift. First, the mixed route counts the
-transcripts' information twice: the bulk is the mean of the same cells whose transcripts it
-also scores. To first order, this bears on the posterior's width: the mixed posterior is
+transcripts' information twice: the bulk is the mean of the same cells whose transcripts the
+route also scores. To first order, this bears on the posterior's width: the mixed posterior is
 narrower than the exact one on the decay rate and the ptsG promoter, as double counting
 predicts, but barely narrower on the other promoter, where it predicts the same. Its effect
-on where the posterior sits is not measured. Second, for the decay rate, the bulk
-factor itself. Fitted to the metabolites alone, where neither the shared cells nor double
-counting can act, the mixed route sits about \pn{gap.metonly} of the long run's standard
-deviations above an exact fit to the same data. That exact fit has an effective sample size
+on where the posterior sits is not measured. Second, for the decay rate, the metabolite
+(bulk) factor itself. Fitted to the metabolites alone, where neither the shared cells nor double
+counting can act, the mixed route sits about \pn{gap.metonly} of the full-data exact posterior's
+standard deviations above an exact fit to the same data. That exact fit has an effective sample size
 of only \pn{mix.krnadegess}, and we have not tested whether this offset is the same gap.
 
 \paragraph{Where the detail is.} \Cref{app:supporting} gives the exact sampler's coverage
