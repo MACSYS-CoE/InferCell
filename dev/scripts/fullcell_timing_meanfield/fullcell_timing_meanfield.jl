@@ -27,14 +27,22 @@
 #             an independent BigFloat sum of the table's propensities (1e-10 relative);
 #             J·x0 against the RHS; the ranked block; the dual gradient against central
 #             differences on 3 parameters at tight tolerances (1e-6 relative, as AV3);
-#             the pass-wise gradient against ForwardDiff.gradient (bitwise)
+#             the pass-wise gradient against ForwardDiff.gradient (bitwise; both go
+#             through DualSparseKLU, so this checks pass assembly only); which linear
+#             cache the solver builds under a dual state (asserted); and DualSparseKLU
+#             against LinearSolve's own dual path (DualLinearCache) on one pass of CHUNK
+#             partials over LIB_T s (bitwise, asserted)
 #   time      serial: the primal solve, and the gradient at B = 10, 20 and 40, each the
 #             median of NREPEAT after a warm-up, with per-pass times and solver stats
 #   threaded  the same, the passes on threads (needs ≥ 4 threads); also the threaded
-#             gradient against the serial one (bitwise)
+#             gradient against the serial one (bitwise, asserted when time.jls is
+#             in the outdir)
 #   library   one dual pass (B = 20, the first 10 partials) over the whole window through
 #             LinearSolve's own dual path (DualLinearCache), against DualSparseKLU's,
-#             each after a warm-up on a 30 s window; one repeat of the library pass
+#             each after a warm-up on a 30 s window; one repeat of the library pass;
+#             the two asserted bitwise equal
+# Every solve's retcode is checked; a failed guard stops the stage with an error. The
+# guards were added after the runs of record (74755da, 6a20e2c) and change no number.
 # SMOKE=1: the window cut to 300 s and 2 repeats; a plumbing pass, never a result.
 
 using OrdinaryDiffEq
@@ -77,20 +85,29 @@ const LIB_T = 30.0                     # the window of the check against LinearS
 # ---------------------------------------------------------------------------------------
 # The linear solve under duals
 #
-# A dual solve gives Rodas5P a W = I/γ − J with dual entries. LinearSolve's ForwardDiff
-# extension (3.73) would take it: it solves the value part, then each partial against
-# the same factorisation, which is right, but it stores each partial of W as a dense
-# n×n matrix (`partials_to_list`), filled by sparse getindex, and multiplies by it
-# densely. On this system that cost about 3.4 s per step (SMOKE job 21663392: one pass
-# of 10 partials 437 s, the primal 0.08 s, over the same 129 steps). DualSparseKLU does
+# A dual solve gives Rodas5P a W = I/γ − J with dual entries. LinearSolve 3.73.0's
+# ForwardDiff extension would take it: it solves the value part, then each partial
+# against the same factorisation, which is right. But it has only the generic dense
+# `partials_to_list` / `update_partials_list!`: each partial of W becomes a dense n×n
+# matrix, filled by sparse getindex over all n² entries, and is multiplied densely. One
+# `rhs_cache_valid` flag is cleared by both `setA!` and `setb!`, so the dense rebuild
+# (`update_partials_list!`) runs at every stage solve, 8 per Rodas5P step, not once
+# per W. On this system that cost 3.85 s per step over the whole window (`library`
+# stage, job 21667143: 554.1 s for one pass of 10 partials over 144 steps, against
+# 0.645 s here). LinearSolve 3.87 has sparse methods for both and separate A/b flags;
+# it is untimed here. DualSparseKLU does
 # the same algebra on the sparse pattern: KLU on the value part, refactored (symbolic
 # reused) only when the values change, the primal solved, then all the partials at once
 # as an n×N right-hand side, R = ∂b − ∂W·x₀, formed from the non-zeros. The primal
 # solve keeps LinearSolve's KLUFactorization.
 
+# Three LinearSolve internals: the KLU module vendored in its SparseArrays extension,
+# the ForwardDiff extension's DualAbstractLinearProblem, and LinearSolve.__init (below).
 const KLU = Base.get_extension(LinearSolve, :LinearSolveSparseArraysExt).KLU
 const LSFD = Base.get_extension(LinearSolve, :LinearSolveForwardDiffExt)
 
+# Holds a factorisation and buffers: one instance per solve (`solver` makes a fresh one
+# each call). Not thread-safe to share between solves.
 mutable struct DualSparseKLU
     F::Any                       # the KLU factorisation of value(W), or nothing
     vals::Vector{Float64}        # the values it factored
@@ -419,7 +436,8 @@ function header(io, stage, env)
     println(io)
     println(io, "- job $(env.job) on $(env.host), $(env.cpu); Julia $(env.julia)")
     println(io, "- threads $(env.threads), BLAS threads $(env.blas), GC threads $(env.ngc) (sweep $(env.gcsweep))")
-    println(io, "- window 0–$(env.t_end) s, $(env.nsaves) saves; Rodas5P + KLUFactorization, " *
+    println(io, "- window 0–$(env.t_end) s, $(env.nsaves) saves; Rodas5P, KLUFactorization " *
+                "(primal) and DualSparseKLU (dual, unless a row says DualLinearCache), " *
                 "abstol $ABSTOL, reltol $RELTOL; chunk $CHUNK")
     println(io)
 end
@@ -510,7 +528,8 @@ function stage_check(out)
         θd = seed(θstar(B), 1:CHUNK)
         dsol(alg) = (t = @elapsed (s = solve(problem(m, slot, θd; tend), alg; abstol = ABSTOL,
                                           reltol = RELTOL, saveat = sv, save_start = false,
-                                          maxiters = MAXITERS)); (s, t))
+                                          maxiters = MAXITERS));
+                     SciMLBase.successful_retcode(s) || error("dual solve: $(s.retcode)"); (s, t))
         dsol(solver(eltype(θd))); dsol(solver_library())           # compile both
         (s1, t1) = dsol(solver(eltype(θd)))
         (s2, t2) = dsol(solver_library())
@@ -595,6 +614,10 @@ function stage_check(out)
         println(io, "\n```\n", env.versioninfo, "```")
     end
     say("check: RHS $(rhs_pass ? "PASS" : "FAIL"), AV3 $(fd_pass ? "PASS" : "FAIL")")
+    occursin("LinearSolveFunction", linpath) || error("the dual solve did not reach DualSparseKLU: $linpath")
+    lib.partials_rel == 0 && lib.value_rel == 0 ||
+        error("DualSparseKLU and DualLinearCache differ: $(lib.partials_rel), $(lib.value_rel)")
+    fdiff == 0 || error("pass-wise gradient differs from ForwardDiff.gradient by $fdiff")
     return rhs_pass && fd_pass
 end
 
@@ -668,6 +691,8 @@ function stage_time(out, threaded::Bool)
         println(io, "\n```\n", env.versioninfo, "```")
     end
     say("$stage done")
+    vs_serial === nothing || all(==(0), vs_serial) ||
+        error("threaded gradient differs from serial: $vs_serial")
     return true
 end
 
@@ -681,7 +706,8 @@ function stage_library(out)
     θd = seed(θstar(B), 1:CHUNK)
     dsol(alg; tend = T_END, saveat = SAVES) =
         (t = @elapsed (s = solve(problem(m, slot, θd; tend), alg; abstol = ABSTOL, reltol = RELTOL,
-                                 saveat, save_start = false, maxiters = MAXITERS)); (s, t))
+                                 saveat, save_start = false, maxiters = MAXITERS));
+         SciMLBase.successful_retcode(s) || error("dual solve: $(s.retcode)"); (s, t))
     for alg in (solver(eltype(θd)), solver_library())
         dsol(alg; tend = LIB_T, saveat = collect(10.0:10.0:LIB_T))
     end
@@ -701,7 +727,7 @@ function stage_library(out)
     serialize(joinpath(out, "library.jls"), res)
     open(joinpath(out, "library.md"), "w") do io
         header(io, "library", env)
-        println(io, "One dual solve of $CHUNK partials (B = 20, θ*, partials 1–$CHUNK) over the whole window, saved on the 52-point grid; no misfit.\n")
+        println(io, "One dual solve of $CHUNK partials (B = 20, θ*, partials 1–$CHUNK) over the whole window, saved on the $(length(SAVES))-point grid; no misfit.\n")
         println(io, "| linear solve | seconds | steps (acc+rej) | njacs | nw | s per step |\n|---|---|---|---|---|---|")
         println(io, @sprintf("| DualSparseKLU (median of %d) | %.3f | %d+%d | %d | %d | %.4f |", NREPEAT, t1,
                              st1.naccept, st1.nreject, st1.njacs, st1.nw, t1 / (st1.naccept + st1.nreject)))
@@ -712,6 +738,7 @@ function stage_library(out)
         println(io, "\n```\n", env.versioninfo, "```")
     end
     say("library done")
+    num == 0 && vrel == 0 || error("DualSparseKLU and DualLinearCache differ: $num, $vrel")
     return true
 end
 
