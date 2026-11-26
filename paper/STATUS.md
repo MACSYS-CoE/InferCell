@@ -19,6 +19,15 @@ reduced JCVI-syn3A*. **Tracking:** Linear, milestone "M6 Paper 1 complete".
 package source identical to main at `3c677a1`), then `tables/make_modelform.py`. Table 1's evidence
 is `tables/frameworks_sources.md`.
 
+## Framing decided (2026-11-25)
+
+Paper 1 stays on the reduced syn3A model and claims the space with the preprint and v0.3.0. The
+degradation ladder (M10), the full cell and real data go to a later flagship paper. The record is
+the Decision log entry of 2026-11-25; the reasoning is in [`framing_decision.md`](framing_decision.md).
+This closes "Contribution sentence without M10" below: the ladder clause goes. §7, F7 and the
+ladder appendix are still in the draft and are to be removed (KIM-163). The remaining work is
+Linear issues KIM-160 to KIM-169 in milestone M6; KIM-170 is the optional replicate-truths call.
+
 ## Open from the KIM-98 draft (2026-11-23)
 
 The paper was restructured around the reduced model. Decisions for the author:

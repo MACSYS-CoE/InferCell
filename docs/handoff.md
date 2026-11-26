@@ -1,5 +1,51 @@
 # Handoff
 
+## Latest: paper 1's framing is DECIDED (2026-11-25, uncommitted)
+
+**Do not reopen this.** Decision log entry 2026-11-25 (Linear) is the record, and
+`paper/framing_decision.md` holds the reasoning, the links and what would reopen it.
+
+- Paper 1 stays on the reduced syn3A model. The full syn3A model is not in it.
+- Its job is to claim the space: the arXiv preprint and the v0.3.0 release, not a flagship venue.
+- The degradation ladder (M10) leaves paper 1. The release and preprint follow KIM-116 and do not
+  wait for M10. The parked release-vs-M10 question is settled.
+- The full cell, real data, the ladder, a wider metabolic block and a second intervention go to a
+  later flagship paper.
+
+**Where the plan lives (updated 2026-11-26):** Linear. The project description states the scope,
+milestone M6 holds what is left for the paper (KIM-160 to KIM-169, then KIM-50), and the document
+"Paper 2: deferred scope" holds everything moved out. `paper/checklist.md` opens with the map from
+its items to the issues. The local `CLAUDE.md` carries the scope too.
+
+**Next:**
+1. Tom sets a submission date (not set).
+2. Start on the issues with no dependency: KIM-160 (merge main, M0 gap todos), KIM-161 (§5
+   promoter and MAP paragraphs, needs a tracked script), KIM-163 (remove the ladder), KIM-164 to
+   KIM-169. No manuscript edit has been made yet.
+3. When KIM-116 merges, KIM-162: fill the modular arm, read the plug-in's promoter errors against
+   the truth, and fix the framing sentence (`paper/framing_decision.md` §4).
+4. Tom's calls: KIM-170 (replicate truths, optional); whether the review notes in `paper/` go
+   into the public repository; the older paper issues KIM-45 to KIM-49, KIM-61 and KIM-85, still
+   "In Review" from the M0 draft.
+
+`paper/reply_to_response.md` is the reviewer's reply to the response below; the decision answers it.
+
+## Latest: review checklist for paper 1 (2026-11-25, uncommitted)
+
+`paper/checklist.md` turns `paper/manuscript_review.md` into 35 items, each with what the
+repository shows, a verdict and a tier (A fix regardless, B compute, C direction). Nothing in it is
+done, and the manuscript, Linear and the Decision log are unchanged. Its top section lists where it
+disagrees with the review (chiefly: do not drop the reduced model for the full cell), the review's
+stale facts (KIM-90 is merged), and six decisions that are Tom's: venue, M10, replicate truths, a
+second intervention, Point A's reframing, Point B. Two findings in it are login-node reads of
+`pilot_draws.tsv` and need a tracked script before they are quoted: the promoter shift is 3.1 SE
+with the posterior's correlations, and θ_ref is the MAP at δ = S = 0, not of the fitted likelihood.
+
+`paper/response_to_review.md` records the discussion that followed: Tom is leaning towards one paper
+on the full syn3A model (not decided), with a line-by-line compute scope scaled from the reduced
+model, a recommendation to keep the reduced model as a middle tier, and three measurements to take
+before committing (not started).
+
 ## Latest: KIM-98, paper 1 drafted around the reduced model (branch `tomkimpson/kim-98-plan-the-paper-1-rewrite-m6-around-reduced`, 2026-11-23)
 
 **State: Stages 0–6 of `/write-paper` are done, committed locally and NOT pushed.** The
