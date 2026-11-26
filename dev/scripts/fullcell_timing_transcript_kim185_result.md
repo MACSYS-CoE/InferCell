@@ -12,8 +12,10 @@ against at most 5,000 (Decision log 2026-11-26, closing KIM-176).
   32.
 - **The verdict rests on the per-gene gradient.** The sampler would need one that it does not have
   today. Naive ForwardDiff over all 456 coordinates projects to 74,158 CPU-h.
+- **The brief's recipe gives 787 CPU-h.** It scales KIM-116's measured plug-in stage-1 cost by the
+  ratio of gradient times. The headline instead counts the gradients. Both are under the threshold.
 - **The adjustments the headline leaves out keep it under the threshold.** NUTS's step-size scaling
-  with dimension and KIM-116's sampler overhead, together, give about 1,790 CPU-h.
+  with dimension and KIM-116's unexplained 1.50× gap per step, together, give about 1,790 CPU-h.
 
 ## Run
 
@@ -218,14 +220,17 @@ KIM-116's plug-in stage-1 chains and extensions (`infercell-kim116-archive-2026-
 - **The warm metric:** a central-difference Hessian, which took 2·18 = 36 gradients at 18
   coordinates. At 456 coordinates it takes 912.
 - **So one posterior is 36,194 gradients.**
-- **Sampler overhead in the chains:** 16.85 s per leapfrog step, against the profile's 11.26 s per
-  gradient. That is 1.50× more.
+- **An unexplained gap per step:** the chains spent 16.85 s per leapfrog step, against the
+  profile's 11.26 s per gradient. That is 1.50× more, and its cause was not tested.
+  - It could be overhead in the sampler, or contention on the node.
+  - It could also be gradient evaluations that `n_steps` does not count. Then 36,194 is an
+    undercount, and the ratio row below is the like-for-like figure.
 
 | projection | CPU-h |
 |---|---|
 | **headline (fixed before the timing was read):** 36,194 gradients × 53.61 s, the serial per-gene dual pass | **539** |
 | the same, with the leapfrog steps × (456 / 18)^¼ = 2.24 for NUTS's step size at higher dimension | 1,192 |
-| KIM-116's stage-1 165.4 CPU-h × (53.61 s ÷ 11.26 s, src's 17-gene gradient on the same node). This carries the 1.50× sampler overhead | 787 |
+| the brief's recipe: KIM-116's stage-1 165.4 CPU-h × (53.61 s ÷ 11.26 s, src's 17-gene gradient on the same node). This carries the 1.50× gap | 787 |
 | both adjustments: the dimension row × 1.50 | about 1,790 |
 | naive AD: 36,194 gradients × 38 chunk passes × 194.11 s | 74,158 |
 | threaded, 4 workers: 36,194 × 14.92 s × 4 CPUs; wall 37.5 h per chain of 9,048 gradients | 600 |
@@ -236,9 +241,20 @@ The "both adjustments" row is this note's arithmetic, not a row of `projection.m
 
 **Verdict: PASS against the 2026-11-26 threshold.** The threshold is at most 5,000 CPU-h for the
 gene-expression block over 455 genes by the data plug-in (Decision log 2026-11-26, closing
-KIM-176). The headline is 539 CPU-h, about 9× under it. Every row except naive AD is also under
-5,000 CPU-h, including both adjustments together (about 1,790). Serial, one chain is 9,048
-gradients × 53.61 s = 135 h, inside milan's 7-day limit. With 16 workers it is about 18 h.
+KIM-176). The headline is 539 CPU-h, about 9× under it, and the brief's recipe gives 787. Every row
+except naive AD is also under 5,000 CPU-h, including both adjustments together (about 1,790).
+
+**Wall-clock per chain** (9,048 gradients):
+
+| case | serial | 16 workers |
+|---|---|---|
+| headline | 135 h | 18 h |
+| with the 1.50× gap | about 202 h | about 27 h |
+| with the dimension factor | about 300 h | about 41 h |
+| with both | about 450 h | about 61 h |
+
+milan's limit is 7 days (168 h). Only the headline fits a serial chain inside one job. With either
+adjustment, a serial chain needs checkpointing, as KIM-116's chains had, or threading.
 
 ### What the projection assumes
 
@@ -254,7 +270,7 @@ gradients × 53.61 s = 135 h, inside milan's 7-day limit. With 16 workers it is 
 3. **The cost per gradient is the serial dual pass at the truth,** on one EPYC 7543 core.
    - The caps are fixed by the data and the support. Elsewhere in the posterior only the term
      counts move (through Λ = k + μ·cap).
-   - Sampler overhead is not in the headline. The ratio row carries it.
+   - The headline leaves out the unexplained 1.50× gap per step. The ratio row carries it.
 4. **The AD is per gene.** Each gene's term depends only on its own promoter and on krnadeg, so
    a dual pass with two partials per gene is exact.
    - Neither KIM-116's sampler nor src's `plugin_loglik` does this today: they run
