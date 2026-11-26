@@ -84,3 +84,80 @@ What the genes and counts look like:
 
 The full model's own first-order mRNA degradation constant is 0.821× the reduced model's law at
 KIM-92's krnadeg, for every gene. This is reported only; the block uses the reduced model's law.
+
+## Item 2: one density and one dual pass, serial
+
+Serial job **21665221**, on dave23 (AMD EPYC 7543 32-Core Processor), Julia 1.10.5,
+ForwardDiff 0.10.39, 1 thread, BLAS 1 thread. It was submitted at 7b06c43. The job's `COMMIT`
+reads 49426cf, the branch head when it started; that commit adds only this note, so the code is
+7b06c43's. The output is `serial.jls` and `serial.md`.
+
+Each call ran 5 times after compiling on a one-cell copy, with a full GC before each.
+
+**The harness, checked on the reduced model** (17 genes, 200 cells, 52 windows, 18 coordinates,
+at KIM-92's truth, same node). The per-gene construction reproduces src's plug-in stage density
+to a relative 2.36e-16 and its gradient to 3.26e-15 (max |Δ| over max |g|).
+
+| call | AD | median, s |
+|---|---|---|
+| src plug-in density | — | 0.96 |
+| src plug-in gradient | `ForwardDiff.gradient`, default chunk 9 (2 passes) | **11.26** |
+| per-gene density | — | 1.09 |
+| per-gene dual pass | ForwardDiff, `Chunk{2}` per gene | 2.48 |
+
+KIM-116's profile (job 21196497, dave14) measured 11.26 s for the src gradient. So this node and
+this harness reproduce what KIM-116 measured. The per-gene dual pass is 4.5× faster on the
+reduced model's own block.
+
+**455 genes** (200 cells, 52 windows, 456 coordinates, at the truth):
+
+- **Check against the whole factor.** The per-gene sum equals the whole factor (one
+  `TranscriptFactor` per cell over all 455 genes) to a relative 2.24e-15. The per-gene gradient
+  equals ForwardDiff's on the whole factor, on genes 1–6 plus krnadeg, to 8.09e-17.
+- **At the truth,** the log density is −1557198.88 and the gradient norm is 742.45.
+
+| call | AD | each, s | median, s | GiB allocated (median) | GC s (median) |
+|---|---|---|---|---|---|
+| density | — | 28.15, 28.41, 28.42, 28.39, 28.41 | **28.41** | 37.19 | 4.64 |
+| dual pass (value + gradient, 456 coordinates) | ForwardDiff, `Chunk{2}` per gene | 52.87, 53.69, 53.33, 53.75, 53.61 | **53.61** | 104.86 | 8.31 |
+| naive: one chunk pass | ForwardDiff, Dual width 12 over all 456 coordinates, whole factor | 191.92, 194.22, 194.11 (3 repeats) | 194.11 | 431.01 | 10.18 |
+
+- **Seconds per dual pass: 53.61 serial.** That is one ForwardDiff pass per gene with two
+  partials, which gives the value and the full 456-coordinate gradient.
+- **The naive gradient** is 38 chunk passes × 194.11 s = 7,376 s, about 2 h. It is a
+  multiplication, not a timed gradient. It is 138× the per-gene dual pass, because every chunk
+  carries 12 partials through every gene, though each gene depends on only 2 of them.
+- **Cost is uneven over genes.** The per-gene dual pass has a median of 0.077 s and a max of 1.54 s.
+  The 10% most expensive genes take 37% of the total.
+- **Against the reduced model.** The dual pass is 21.6× the 17-gene per-gene pass (2.48 s), for
+  26.8× the genes. It is 4.8× src's 17-gene gradient (11.26 s).
+
+## Item 3: the same, threaded over genes
+
+Threaded job **21665222**, on dave104 (AMD EPYC 7543 32-Core Processor), Julia 1.10.5,
+ForwardDiff 0.10.39. It had 32 threads, `--gcthreads=16,1` (17 GC threads, 1 sweep) and BLAS
+on 1 thread. It was submitted at 7b06c43; its `COMMIT` reads 49426cf for the reason given in item 2.
+The output is `threaded.jls` and `threaded.md`.
+
+- **How it is threaded.** W tasks pull genes off a shared atomic counter, heaviest genes first
+  (by summed cap). Each gene's dual pass is ForwardDiff with `Chunk{2}`.
+- **Results do not depend on W.** The results land in gene order and are summed in that order.
+  At every W the value and gradient equal the one-worker result bit for bit; the script checks
+  this.
+- **Timing.** Each call ran 5 times, with a full GC before each. The speed-up is against W = 1 in
+  the same job, on the same node.
+
+| workers | density median, s | speed-up | dual pass median, s | speed-up | efficiency | GC s in the dual pass (median) |
+|---|---|---|---|---|---|---|
+| 1 | 25.37 | 1.00 | 49.64 | 1.00 | 1.00 | 3.97 |
+| 4 | 6.66 | 3.81 | 14.92 | 3.33 | 0.83 | 3.10 |
+| 16 | 2.91 | 8.70 | **7.28** | **6.82** | 0.43 | 2.48 |
+| 32 | 3.89 | 6.53 | 7.65 | 6.48 | 0.20 | 2.78 |
+
+- **The speed-up saturates** at about 6.8× by 16 workers, and 32 workers is no faster.
+- **GC takes a large share at high W.** At W = 16, GC is 2.5 s of the 7.3 s, and GC stops every
+  thread. The dual pass allocates heavily, so the scaling is bound by allocation and GC, not by the
+  number of genes. This is a measurement, not a tuned figure. Fewer allocations in
+  `_propagate`/`_uniform_step`, or a process per group of genes, would be the levers (KIM-194).
+- **Node-to-node spread.** One worker here took 49.64 s, against 53.61 s for the serial job on
+  dave23 (8%).
