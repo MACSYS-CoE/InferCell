@@ -53,12 +53,14 @@ for the posterior's correlations among the promoters, the observed mean is about
 promoters sit about \pn{kim92.promshift}\% low on average. The chains start from a reference
 value $\theta_{\mathrm{ref}}$, the maximum a posteriori (MAP) estimate with $\delta = S = 0$
 (\cref{sec:reduceddesign}), and it has a shift of the same size, with a mean standardised error
-of \pn{kim92.mapz}. So the shift is in the likelihood on this dataset, with or without the
-offset $\delta$, and not in the sampler. Noise that every promoter shares, for example
-through the common bulk scale, has little support: the posterior correlates the promoters by
-only \pn{kim92.promcorr} on average. The modular arm below asks where in the likelihood the
-shift arises. We read the scored predictions of \cref{sec:reducedpredict} with this shift in
-mind.
+of \pn{kim92.mapz}. So the shift is in the likelihood on this dataset, with or without
+$\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
+\pn{kim92.promcorr} on average, so noise that the likelihood represents cannot produce a
+common shift this large; the standard error above already allows for it. A shared component
+that the likelihood does not represent would not show in these correlations. Two candidates
+fit: a fluctuation of this dataset in the pools that every gene's transcription reads, and
+a bias from the mean-field approximation. One dataset cannot separate them. We read the
+scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
 bulk rows, we drew replicate data from the route's own bulk model at posterior draws and
