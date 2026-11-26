@@ -1,14 +1,15 @@
 \section{Discussion}
 \label{sec:discussion}
 
-A reduced whole-cell model with a real ODE--stochastic boundary can be inferred from single-cell and
-bulk data, and its posterior predictions carry part of the way. On the reduced \syn{} model the
+On one synthetic dataset, and from generous data, a reduced whole-cell model with a real
+ODE--stochastic boundary can be inferred from single-cell and bulk data, and its posterior
+predictions carry part of the way. On the reduced \syn{} model the
 mixed route gives one joint posterior over all \pn{kim92.ncoord} free parameters for about
 \pn{kim92.cpuh} CPU-hours (\cref{sec:reduced}). The data reach every parameter, and the
 posterior reproduces its own data. Pushed forward to a later horizon and to a ptsG knockdown that the data never
-contain, the posterior covers the extracellular lactate $Q$, its knockdown value
+contain, the posterior covers $Q$, the extracellular lactate at the end of the cycle, its knockdown value
 $Q_{\mathrm{kd}}$, and the transcripts. The
-posterior's error shows in the pools. It misses \pn{kim95.poolshift} of the 17 pools by about
+posterior's error shows in the pools. It misses \pn{kim95.poolshift} of the \pn{mzero.npanel} pools by about
 \pn{kim95.shiftlo}--\pn{kim95.shifthi} posterior standard deviations (\cref{sec:reducedpredict}).
 Once every parameter is inferred, $Q$'s parameter variance $\mathrm{Var}_\theta(Q)$ is about
 \pn{kim96.ratio} times below its value in the budget transferred from M0, the middle state of
@@ -17,8 +18,11 @@ Once every parameter is inferred, $Q$'s parameter variance $\mathrm{Var}_\theta(
 \paragraph{What carries and what does not.} $Q$ carries. Its interval of $\pm\pn{kim95.qint}\%$
 is narrow and holds the truth at baseline and under the knockdown. The transcripts carry too,
 but about two-thirds of their predictive variance is cell noise, so their hit fractions say
-little about the parameter part of the prediction. The pools do not carry. For the trioses and
-FDP the offsets come from $\theta$, not from cell noise, so they are biases of the posterior.
+little about the parameter part of the prediction. Most pools do not carry: \pn{kim95.poolshift} of
+the \pn{mzero.npanel} miss, and the rest, extracellular lactate among them, sit within
+\pn{kim95.quietz} posterior standard deviations. For the trioses and fructose
+1,6-bisphosphate (FDP) the offsets come from $\theta$, not from cell noise, so on this dataset
+they are offsets of the posterior. Whether they recur on other data we have not tested.
 The knockdown's effect $\Delta Q$ is not resolved. The posterior shows only that $\Delta Q$ is
 small next to one draw's cell noise. One reading of the pools is post hoc. The promoter strengths
 sit low in the posterior (\cref{sec:reduced}), yet the transcripts show no comparable shift on
@@ -51,7 +55,9 @@ route's approximations is written down: the mean-field swap and the one-way nucl
 reduction (\cref{app:reductions}), and a bulk factor whose $\delta$ and $S$ come from one
 reference ensemble and which treats the two streams as independent (\cref{sec:meanfield}). On M0
 the swap was measured and the fixed reference was probed (\cref{app:sfixed,app:gap}). A learned
-approximation's error is not tied to any such named step. Whether amortisation pays on a whole-cell model we have not tested.
+approximation's error is not tied to steps named in this way. Naming the steps does not locate
+every error, though: the mixed route's gap on M0 has no known cause (below). Whether amortisation
+pays on a whole-cell model we have not tested.
 
 Moment closure and the linear noise approximation describe a stochastic system's fluctuations
 \cite{vankampen2007stochastic,schnoerr2017approximation}. Given the pools, the transcript
@@ -90,8 +96,12 @@ organism.
   whether a posterior's width is right. Simulation-based calibration ran only on M0
   (\cref{sec:posteriors}).
   \item \emph{The exact sampler cannot check the reduced model.} Its projected cost is about
-  \pn{cost.fullscale} CPU-hours per posterior. On the reduced model, therefore, only its
-  predictive check and the scores against the true simulator test the mixed route.
+  \pn{cost.fullscale} CPU-hours per posterior, a projection that assumes M0's mixing rate. On the
+  reduced model, therefore, only the mixed posterior's predictive check and the scores against
+  the true simulator test the mixed route. A cheaper comparator, such as a Laplace or variational
+  approximation centred at the posterior mode and scored on the same targets, we have not run;
+  the Laplace widths at $\theta_{\mathrm{ref}}$ are \pn{kim92.laplo}--\pn{kim92.laphi} of the
+  posterior's (\cref{sec:reduced}).
   \item \emph{Generous data.} Every cell gives exact transcript counts of every gene each
   minute, beside a bulk panel of \pn{mzero.npanel} pools. The results are a best case for what
   such data can reach. Both routes need this design, not only gain from it: their transcript
@@ -112,12 +122,19 @@ organism.
   \item \emph{The promoter shift.} Its mean standardised error is \pn{kim92.promz}, about
   \pn{kim92.promshift}\% low in rate, and the reference value $\theta_{\mathrm{ref}}$ shares it.
   The likelihood's own noise is unlikely to explain it. Whether it comes from this data
-  realisation or from a bias in the likelihood needs a second dataset.
+  realisation or from a bias in the likelihood needs a second dataset. A transcript factor
+  evaluated at each cell's true rate constants, which the synthetic data provide, would test the
+  likelihood on this dataset alone. We have run neither check.
+  \item \emph{The bulk factor's reference.} $\delta$ and $S$ are fixed at $\theta_{\mathrm{ref}}$,
+  and the posterior means of ENO and FBA sit \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior
+  standard deviations from it. On M0, recomputing $\delta$ and $S$ at the posterior mean moved the
+  gap only in part (\cref{app:gap}). On the reduced model we have not recomputed them.
   \item \emph{The gap on M0.} On one M0 dataset three parameters sit \pn{mix.gaplo}--\pn{mix.gaphi}
   standard deviations from the exact posterior, a shift beyond sampler error, and we have not
   found the cause. There are two leads, neither measured as a shift: the mixed route counting
   the transcripts' information twice through the bulk, and, for the decay rate, the bulk factor
-  itself (\cref{app:gap}).
+  itself (\cref{app:gap}). On M0 the first narrowed the mixed posterior. It can arise on the
+  reduced model too, where we have not measured it, so the reduced posterior may be too narrow.
   \item \emph{A truth that is not sharp.} On $Q$, $Q_{\mathrm{kd}}$ and $\Delta Q$ the truth's
   standard error is \pn{kim95.sesdlo}--\pn{kim95.sesdhi} of the posterior standard deviation,
   above the sizing rule's \pn{kim95.sesdrule}.
@@ -127,7 +144,8 @@ organism.
   In those cells GTP therefore falls below $K_d$, the dissociation constant of RNA
   polymerase for its nucleotides. Below $K_d$ the small elasticities behind that
   treatment do not hold (\cref{sec:modelform}). The true simulator keeps the full coupling, so
-  the scores include this reduction's effect on the fit. We have not measured that effect.
+  the scores include this reduction's effect on the fit. We have not measured that effect. M0
+  never enters this regime, so its calibration does not cover it.
   \item \emph{The prior width.} The factor of \pn{kim96.ratio} in $\mathrm{Var}_\theta(Q)$ holds
   at the default width only. Over widths $\tfrac12$ to 2 it runs from \pn{kim96.widthlo} to
   \pn{kim96.widthhi}. Many priors are asserted, with no width in their source.
@@ -137,11 +155,11 @@ organism.
 
 \paragraph{What next.} The first step is real data, which needs the observation models above.
 The second is a degradation ladder. It would ask how far the generous dataset
-can be degraded toward realistic assays before the posterior stops reaching its parameters and
+can be degraded towards realistic assays before the posterior stops reaching its parameters and
 the scores fall to the prior's. The third is the full cell: the full well-stirred \syn{} model, through the
-fast implementation of the companion paper \cite{kimpson2026whole}. There, as here, the number
-of simulations sets the cost of a posterior, not the time of one. So the cost depends on the
-route more than on the simulator. A further question follows from the working rule: which parts
+fast implementation of the companion paper \cite{kimpson2026whole}. We expect that there, as
+here, the number of simulations a route needs will matter as much as the time of one; this is a
+hypothesis we have not tested. A further question follows from the working rule: which parts
 of a coupled simulator must be kept, and which latent variables inferred, to keep the
 information a prediction needs? Each step adds reductions, and \cref{app:reductions} lists those
 of the reduced model. Because each one is declared, a modeller who scores a prediction knows
