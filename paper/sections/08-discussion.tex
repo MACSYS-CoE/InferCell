@@ -12,8 +12,7 @@ posterior's error shows in the pools. It misses \pn{kim95.poolshift} of the 17 p
 \pn{kim95.shiftlo}--\pn{kim95.shifthi} posterior standard deviations (\cref{sec:reducedpredict}).
 Once every parameter is inferred, $Q$'s parameter variance $\mathrm{Var}_\theta(Q)$ is about
 \pn{kim96.ratio} times below its value in the budget transferred from M0, the middle state of
-\cref{sec:reducedpredict}. \todo{M10: how the posterior and these scores degrade as the data
-become realistic (\cref{sec:ladder}).}
+\cref{sec:reducedpredict}.
 
 \paragraph{What carries and what does not.} $Q$ carries. Its interval of $\pm\pn{kim95.qint}\%$
 is narrow and holds the truth at baseline and under the knockdown. The transcripts carry too,
@@ -80,10 +79,9 @@ fraction of its CPU-hours.}
 \end{itemize}
 
 \paragraph{What next.} The first step is real data, which needs the observation models above.
-The second is the degradation ladder of \cref{sec:ladder}. It asks how far the generous dataset
+The second is a degradation ladder. It would ask how far the generous dataset
 can be degraded toward realistic assays before the posterior stops reaching its parameters and
-the scores fall to the prior's. \todo{M10: what the ladder shows, and which assay limits the
-posterior first.} The third is the full cell: the full well-stirred \syn{} model, through the
+the scores fall to the prior's. The third is the full cell: the full well-stirred \syn{} model, through the
 fast implementation of the companion paper \cite{kimpson2026whole}. There, as here, the number
 of simulations sets the cost of a posterior, not the time of one. So the cost depends on the
 route more than on the simulator. A further question follows from the working rule: which parts

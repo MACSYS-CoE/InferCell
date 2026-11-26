@@ -5,7 +5,7 @@ ordinary differential equations (ODEs) and gene expression as a stochastic jump 
 latent paths, and no parameter links the two. Here we present \IC{}, a compositional
 inference framework, and use it to infer a reduced whole-cell model of \syn{} across a
 coupled ODE--stochastic boundary and to turn the posterior into predictions scored against
-held-out truth\todo{, then show how both degrade as the synthetic data become realistic}.
+held-out truth.
 The framework pairs an exact sampler with a mixed route that integrates out the stochastic
 paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
 and the mixed route costs about \pn{mix.speedup} times less. On the reduced model, the mixed
@@ -16,8 +16,6 @@ cover extracellular lactate and the transcripts, do not resolve the knockdown's 
 metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. At the
 default prior width, lactate's parameter variance is about \pn{kim96.ratio} times below the
 budget transferred from M0. The data are synthetic, from one truth.
-\todo{What the degradation ladder shows: which assay limits the posterior and the predictions
-first.}
 A whole-cell posterior can thus be carried to scored predictions that show where it is
 wrong. Because every departure from the published model is declared, each score states what
 it does not cover.
