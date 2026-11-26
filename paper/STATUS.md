@@ -33,7 +33,7 @@ Linear issues KIM-160 to KIM-169 in milestone M6; KIM-170 is the optional replic
 The paper was restructured around the reduced model. Decisions for the author:
 - ~~**Contribution sentence without M10**~~: closed 2026-11-25; the ladder clause is gone.
 - **tab:frameworks:** InferCell's "Inference on dynamics" cell changed from "On M0" to "Both blocks (h)". Confirm.
-- **Name of Q:** defined in §2 as extracellular lactate = lactate a cell exports over the 6,300 s cycle, in particles, population mean (`:lactate_out`). "Lactate exported" would be the more literal name; changing it touches abstract, intro, §2, §6, §8.
+- **Name of Q:** defined in §2 as extracellular lactate = lactate a cell exports over the 6,300 s cycle, in particles, population mean (`:lactate_out`). "Lactate exported" would be the more literal name; changing it touches abstract, intro, §2, §6, §7.
 - **Discussion vs sec:info:** the Discussion draws a working rule from `sec:info`, whose opening says no main-text claim rests on it. One should give way.
 - **§2 code listing** illustrates releasing constants (an appendix use) and shows `COREA_CYCLE_S`; consider moving it to app_m0predict.
 - **T1:** the M0 mixed-route wall-clock is `\DRAFT{?}` (no source found). The 492 CPU-h counts the whole run including the 24 CPU-h probe.
