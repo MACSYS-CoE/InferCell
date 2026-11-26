@@ -29,7 +29,8 @@ variant is not close.
 - **D3:** the scores came from `dev/scripts/corea_modular_kim116_predict.{jl,sh}` at
   12c066a.
 - **This note:** its tables are from `dev/scripts/corea_modular_kim116_compare.jl` at
-  e129fcc (Slurm 21628001).
+  2353e18 (Slurm 21629103). The first version, at e129fcc (Slurm 21628001), is kept in
+  `compare/superseded/`; the review fixes changed its wording and labels, not its numbers.
 - **Archive:** `/fred/oz022/tkimpson/infercell-kim116-archive-2026-11-26/`, covered by
   `SHA256SUMS`. It holds:
   - `run/`: the modular run, both variants, including the pre-extension copies in
@@ -187,8 +188,9 @@ This table is copied unchanged from `compare/compare.md`. It reads both archives
 - **The later horizon:** the plug-in is within a few points of the joint in both
   families, and median species skill differs by at most 0.005.
 - **The D3 draws are item 7's:** `predict/prep.jls`'s `log_draws` equals
-  `run/cut_draws_plugin.tsv` (Slurm 21628002). Item 8's scores therefore come from the
-  posterior described above. The check is `dev/scripts/corea_modular_kim116_d3check.jl`.
+  `run/cut_draws_plugin.tsv`, bit for bit (`dev/scripts/corea_modular_kim116_d3check.jl` at
+  2353e18, Slurm 21629104; first run inline as 21628002). Item 8's scores therefore come
+  from the posterior described above.
 
 ## What this means
 
