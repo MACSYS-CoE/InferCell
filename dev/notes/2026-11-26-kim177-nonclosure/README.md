@@ -28,13 +28,14 @@ them. This version keeps two terms for closure apart throughout (see Terms).
   reduced model have none. 361 have constant rule nodes.
 - None of the 363 closes syntactically: `MeanField` rejects every one. Not all of them
   fail to close exactly.
-  - 177 DnaA reactions are site × site within one origin's cascade. One pass of an
-    origin's cascade holds a single 0/1 token, so every such product equals one of its
-    factors on the reachable states. They close exactly, for one pass per origin.
+  - 177 DnaA reactions are site × site within one origin's cascade. On every state one
+    pass of the cascade can reach, each such product equals one of its factors. They
+    close exactly, for one pass per origin.
   - 102 DnaA reactions are DnaA × a site: 99 to a 0/1 site and 3 off-oriC (2 to a
     multi-copy site, and reaction 1720, which can never fire).
-  - The 2 initiations close only approximately in the first round, and not from the
-    second round on.
+  - Of the 2 initiations, `Initiator_CC × chromosome_CC` closes exactly in the first
+    round. `Initiator_C × chromosome_C` also closes exactly in the first round, unless
+    2364 fires before 1873. Neither closes exactly from the second round on.
   - The rest do not close exactly: 101 live DnaA × site bindings, 62 charging and 20
     cost payment, 183 in all. For the 82 charging and payment reactions this was not
     enumerated.
@@ -48,18 +49,27 @@ them. This version keeps two terms for closure apart throughout (see Terms).
 - Gene copy number multiplies transcription and nothing else. It keeps the mean field
   affine and breaks the transcript factor: each gene's birth rate steps at a latent
   time, and all 486 genes share the same two fork paths.
-- In the dependency graph the script builds, every kind reaches an observable.
-  - In 1 hop: tRNA charging and cost payment (bulk metabolites), transcription
-    (transcripts) and the ODE AND rules (bulk metabolites).
-  - In 2 hops: the replication reactions, through a gene and transcription, or
-    through the `*_DNArep` counters the hook pays from the ODE pools.
-  - In 3 hops: the DnaA bindings.
-  - Doubling time is 3 to 6 hops from every kind.
+- In the dependency graph the script builds, every kind reaches an observable. The
+  counts below are per member, as transcripts / bulk metabolites / doubling time.
+  - **tRNA charging:** 41 of the 62 change a bulk metabolite directly (1 hop); the
+    other 21 take 2.
+  - **Cost payment:** 1 of the 20 takes 1 hop (1569, which consumes `M_mettrna_c`);
+    19 take 2.
+  - **ODE AND rules:** all 18 take 1 hop to a bulk metabolite.
+  - **Transcription:** the 455 mRNA reactions take 1 hop to a transcript; the 31 tRNA
+    and rRNA reactions take 3.
+  - **Replication:** the 2 initiations and 453 of the 491 fork steps are 2/2/4, through
+    a gene and transcription, or through the `*_DNArep` counters the hook pays from the
+    ODE pools. The other 38 fork steps are 3/2/4.
+  - **DnaA:** the 3 bindings that make the initiators (1656, 1719, 1782) are 3/3/5.
+    Everything else in the cascade is 4/4/6. That is the other 96 bindings to a 0/1
+    site, the 2 bindings to a multi-copy site and the 177 site × site reactions.
+  - **Doubling time** is 3 to 6 hops from every member.
 - The proposed M13 model, M0 with one origin, contains one second-order reaction
   (`D + O → F₁`) and gene copy number for both M0 genes. It adds 6 species and 4
-  reactions to M0 and changes 2. Its R2 stands for the 99 live DnaA bindings to a 0/1
-  site, and for the 2 bindings to a multi-copy site. It does not stand for the 177
-  reactions that close exactly, and it does not stand for charging or cost payment.
+  reactions to M0 and changes 2. Its R2 stands for the 99 DnaA bindings to a 0/1 site.
+  It does not stand for the 2 bindings to a multi-copy site (row 1b), the 177
+  reactions that close exactly, the initiations, charging or cost payment.
 
 ## Sources
 
@@ -96,9 +106,13 @@ the script finds them at its default paths. Elsewhere, check out syn3a-ensemble 
 it the comparison is skipped. The sha256 table pins every input.
 
 **Reproducibility.** At syn3a-ensemble `2075809` the output reproduces byte for byte
-across runs and hash seeds. Its line 2 is the checkout's HEAD, which is provenance. It
-changes after a pull even if the tables do not, so compare the sha256 lines, not the
-whole file.
+across runs and hash seeds. Two lines depend on the checkouts, not on the tables.
+- Line 2 is syn3a-ensemble's HEAD.
+- Line 16 is SpeedyCell.jl's HEAD. Without that checkout it reads "comparison
+  skipped".
+
+Both change after a pull even if the tables do not. So compare the sha256 lines, not
+the whole file.
 
 ## Terms and assumptions
 
@@ -153,8 +167,18 @@ the surface area from lipids and membrane proteins, and the volume from the surf
 area.
 
 A kind's hop count to an observable is 1 for the kind's own reaction, plus the shortest
-path from what it changes. The script prints the route. The graph counts every read,
-however weak, so a short route says that a coupling exists, not that it is strong.
+path from what it changes. Tables give it for the kind's **nearest member**, with the
+route. Where members differ, the script also tallies the count per member, and the
+note gives that split. The graph counts every read, however weak, so a short route says
+that a coupling exists, not that it is strong.
+
+The graph leaves out some hook edges:
+- the pyrophosphate credit;
+- the clamp's read of its pool;
+- `CellSA` → the ODE's volume;
+- `init_node`.
+
+Both reviewers of PR #204 added them, and no hop count changed.
 
 The upstream side, from a block to the kind, is short for every kind, and the note
 states it in prose. Every kind reads a block's output directly or one hop away: the
@@ -239,17 +263,19 @@ state.
 - Each origin reaches 64 states.
 - In every one of them, each of the origin's 59 site × site reactions has a product
   equal to one of its two factors. So these reactions close exactly: 3 × 59 = 177. The
-  cascade carries a single 0/1 token. One final unbinding per origin removes it
+  condition the script tests is per reaction: x·y equals x, or equals y, in every
+  reachable state. It is not that only one cascade species is ever at 1. Up to 34 can
+  be at 1 at once, per the review. One final unbinding per origin ends the pass
   (reaction 1812 for the starting origin).
 - Each origin's 33 DnaA bindings are to a site that is 0 or 1 in every reachable state:
   3 × 33 = 99. Their propensity is k·D·s with D fluctuating, so they do not close
   exactly.
 - **Scope.** This holds for one pass of each origin's cascade, as in the first round.
-  For the daughter origins it holds while reaction 2364 has fired once, so that each
-  daughter oriC is made once. If 2364 fires again, a daughter origin's site counts can
+  For the daughter origins it holds while reaction 2364 has fired at most once, so that
+  each daughter oriC is made at most once. If 2364 fires again, a daughter origin's site counts can
   exceed 1. The site × site products then become bilinear and stop closing exactly. The
-  refuter's SSA checks in the review (`refuteF3/sitesite2.py`, `sitesite3.py`) sampled
-  the same per-pass result.
+  refuter's SSA checks in the review (`refuteF3/sitesite2.py`, `sitesite3.py`, outside
+  this repo) sampled the same per-pass result.
 
 | DnaA reactions (279) | n | Closes syntactically? | Closes exactly? |
 |---|---:|---|---|
@@ -260,8 +286,9 @@ state.
 | · `High_Affinity_Site3` (1720) | 1 | no | trivially: it never fires |
 
 For the other 84 second-order reactions:
-- **The 2 initiations** (`Initiator × chromosome`) close only approximately in the first
-  round. The script enumerates a hand-written abstraction of the tables: one origin makes
+- **The 2 initiations** (`Initiator × chromosome`). In the first round,
+  `Initiator_CC × chromosome_CC` closes exactly, and `Initiator_C × chromosome_C` closes
+  exactly unless 2364 fires before 1873. The script enumerates a hand-written abstraction of the tables: one origin makes
   one `Initiator_C` (reaction 1656), and one `chromosome_C` is consumed (reaction 1873).
   It has 3 reachable states, (O, I, C) = (1, 0, 1), (0, 1, 1), (0, 0, 0), and I·C = I in
   each. The abstraction leaves out one ordering, though.
@@ -281,9 +308,10 @@ For the other 84 second-order reactions:
   the product. They were not enumerated, and they are counted here as not closing
   exactly.
 
-In total, 177 close exactly for one pass per origin, and 1 never fires. The 2
-initiations close exactly or nearly in the first round, and not after it. 183 do not
-close exactly: 99 + 2 + 62 + 20.
+In total, 177 close exactly for one pass per origin, and 1 never fires. In the first
+round, the fork CC initiation closes exactly, and the fork C one does unless 2364 fires
+before 1873. Neither closes exactly after the first round. 183 do not close exactly:
+99 + 2 + 62 + 20.
 
 M0 and the reduced model have no second-order reaction. The reduced model lumps tRNA
 charging into one deterministic ODE reaction
@@ -291,17 +319,18 @@ charging into one deterministic ODE reaction
 through deferred counters drained at the 1 s handshake, not through a reaction.
 
 **Between a block and an observable.** The table gives hops to the nearest observable
-of each type, from the script ("Hops to the observables" in its output). The arrows name
-the shortest route found.
+of each type, for the kind's nearest member, from the script ("Hops from each kind" in
+its output). The arrows name the shortest route found. The last column gives the
+per-member split, as transcripts / bulk / doubling time.
 
-| Kind | Upstream: reads | Transcripts | Bulk metabolites | Doubling time |
-|---|---|---:|---:|---:|
-| tRNA charging (62) | ATP and the amino acids (ODE species), synthetases (translation's proteins), uncharged tRNA. Its type-2 steps do not touch the charged pools; the 22 first-order releases make them | 2: ATP → a transcription rule | 1: it consumes ATP and the amino acids | 4 |
-| Translation cost payment (20) | the residue counters translation writes, the charged tRNA pools | 3: charged tRNA → translation → an own-protein promoter | 1: one of the 20 consumes `M_mettrna_c`, an ODE species | 4 |
-| DnaA × 0/1 site (99) | `M_DnaA_c`, made by translation reaction 9 | 3: → `Initiator_C` → 1873 → `JCVISYN3A_0001_gene` → transcription | 3: → `Initiator_C` → 1873 → `ATP_DNArep` → paid from ATP at the hook | 5 |
-| DnaA × multi-copy site (2) | as above | 4 | 4 | 6 |
-| Cascade site × site (177) | the cascade's own sites | 4: they release DnaA | 4 | 6 |
-| Replication initiation (2) | `Initiator_*`, `chromosome_*`; the dNTP pools and `CellSA` through the rule | 2: → a gene → transcription | 2: → the `*_DNArep` counters → paid from the ODE pools (`writeback.jl:120, 128`) | 4 |
+| Kind | Upstream: reads | Transcripts | Bulk metabolites | Doubling time | Per member |
+|---|---|---:|---:|---:|---|
+| tRNA charging (62) | ATP and the amino acids (ODE species), synthetases (translation's proteins), uncharged tRNA. Its type-2 steps do not touch the charged pools; the 22 first-order releases make them | 2: ATP → a transcription rule | 1: it consumes ATP and the amino acids | 4 | 2/1/4: 20; 3/1/4: 21; 3/2/5: 1 (1494); 4/2/4: 20 |
+| Translation cost payment (20) | the residue counters translation writes, the charged tRNA pools | 3: charged tRNA → translation → an own-protein promoter | 1: one of the 20 consumes `M_mettrna_c`, an ODE species | 4 | 3/1/4: 1 (1569); 3/2/4: 19 |
+| DnaA × 0/1 site (99) | `M_DnaA_c`, made by translation reaction 9 | 3: → `Initiator_C` → 1873 → `JCVISYN3A_0001_gene` → transcription | 3: → `Initiator_C` → 1873 → `ATP_DNArep` → paid from ATP at the hook | 5 | 3/3/5: 3 (1656, 1719, 1782, which make the initiators); 4/4/6: 96 |
+| DnaA × multi-copy site (2) | as above | 4 | 4 | 6 | 4/4/6: 2 |
+| Cascade site × site (177) | the cascade's own sites | 4: they release DnaA | 4 | 6 | 4/4/6: 177 |
+| Replication initiation (2) | `Initiator_*`, `chromosome_*`; the dNTP pools and `CellSA` through the rule | 2: → a gene → transcription | 2: → the `*_DNArep` counters → paid from the ODE pools (`writeback.jl:120, 128`) | 4 | 2/2/4: 2 |
 
 No second-order family writes a `CellSA` input directly. Doubling time is 4 to 6 hops
 away. The shortest routes run through an ODE pool, a lipid reaction and the hook's
@@ -385,32 +414,40 @@ The script lists their lines but does not count them as rate rules.
 |---|---|---|
 | `max(1, pool)` floor | 29 pools, in all 1,434 rules | translation floors its pools (`src/organisms/coreA/translation.jl:152`); transcription has no floor (`transcription.jl:522-540`) |
 | Promoter ceiling `min(·, 180)` | 29 rules read a live protein count | the ceiling is on a parameter, and it never binds (`transcription.jl:61-65`, `turnover_headroom`) |
-| Volume cap | reached mid-cycle: the reference paper reports the volume doubling at 56 to 72 min, mean 64 (quoted in `code/cell_cycle/events.py`, `t_Vcap`) | applied (`src/handshake.jl:1732`), but the reduced cell grows to about 1.07× and never nears it (`handshake.jl:1721-1722`) |
+| Volume cap | reached mid-cycle: the reference paper reports the volume doubling at 56 to 72 min, mean 64 (quoted in `code/cell_cycle/events.py`, `t_Vcap`) | applied (`src/handshake.jl:1732`), but the reduced cell grows to about 1.07× and never nears it (`handshake.jl:1722`) |
 | Rounded `CellV` | read by all 486 transcription and 493 replication rules | absent: the reduced model has no `CellV` count |
 | Complex AND rules | 9 nodes, 18 ODE reactions | absent: each enzyme is one protein count |
 | ODE → counts rounding | round half to even, 146 species | `:fractional_carry` by default (`handshake.jl:194-226`) |
 | Counter clamp | 22 counters, `min(counter, pool)` | the hybrid clamps and carries the deficit (`handshake.jl:1878-1879`); the mean-field route does not clamp (`mean_field_route.jl:12-14`) |
 
 **Closure.** None of these rules makes a reaction fail to close syntactically, since a
-rebuilt rate constant is outside `MeanField`'s check. Each one adds a Jensen gap where the route evaluates the
-rule at the mean counts. A floor, ceiling or cap adds no gap of its own while it is
+rebuilt rate constant is outside `MeanField`'s check. Each one adds a Jensen gap where
+the route evaluates the rule at the mean counts. A floor, ceiling or cap adds no gap of its own while it is
 far from its kink, but the rule beneath it is still nonlinear in the counts. `round`
 and `CellV` step at every count, and the volume cap is reached mid-cycle. This note
 gives structure and scale, not the size of any gap.
 
 **Between a block and an observable.** These are hops from the script.
 - **Transcription and translation rules.** These are the gene-expression block's own
-  rate constants, and they read pools the metabolic block writes. Over all 1,434
-  count-dependent rules, the nearest transcript and the nearest bulk metabolite are
-  1 hop away. Doubling time is 3 hops away: translation makes a cytosolic membrane
-  protein, translocation moves it to the membrane, and the hook's surface-area rule
-  reads it.
-- **The 29 own-protein promoters.** Transcripts are 1 hop away, bulk metabolites 2
-  (through the transcription counters paid from the NTP pools), doubling time 4.
+  rate constants, and they read pools the metabolic block writes. By reader set, per
+  member, as transcripts / bulk / doubling time:
+  - **the `max(1, ·)` floor:** all 1,434 rules. 1/2/4: 455; 2/2/4: 477; 3/2/4: 398;
+    3/2/3: 97; 3/1/4: 5; 2/2/3: 1 (720); 3/1/3: 1 (21).
+  - **the `CellV` count:** the 486 transcription rules. 1/2/4: 455 (the mRNAs); 3/2/4: 31.
+  - **`round(V · 10¹⁹)`:** the 493 replication rules. 2/2/4: 455; 3/2/4: 38.
+  - **the volume cap:** 948 rules. 2/2/4: 477; 3/2/4: 367; 3/2/3: 97; 3/1/4: 5;
+    2/2/3: 1; 3/1/3: 1.
+
+  The nearest members reach doubling time in 3 hops. Translation makes a cytosolic
+  membrane protein, translocation moves it to the membrane, and the hook's
+  surface-area rule reads it.
+- **The 29 own-protein promoters.** All 29 are 1/2/4. Bulk metabolites are 2 hops
+  away, through the transcription counters paid from the NTP pools.
 - **The replication rules.** They read the dNTP pools and step each gene's copy number
-  (2 hops to transcripts and to bulk metabolites, section 3).
+  (section 3).
 - **The 18 ODE reactions with AND rules.** These are the metabolic block's rate laws.
-  They change bulk metabolites directly (1 hop), and doubling time is 3 hops away.
+  They change bulk metabolites directly (1 hop). Per member: 2/1/3: 12; 2/1/4: 2;
+  3/1/3: 1; 3/1/4: 3.
 
 ## 3. The 493 replication reactions and gene copy number
 
@@ -452,8 +489,8 @@ All 493 rate rules depend on the counts. Each reads the four dNTP pools, floored
   given: it is rebuilt from the dNTP pools and the rounded volume, so the route
   evaluates it at the means (section 2).
 - **The 2 initiations:** they do not close syntactically. In the first round, both
-  reactants are 0 or 1, and I·C = I in the abstraction's reachable states, so they close
-  exactly or nearly (section 1 gives the one ordering that breaks it for fork C). From
+  reactants are 0 or 1, and I·C = I in the abstraction's reachable states. Fork CC's
+  closes exactly, and fork C's does unless 2364 fires before 1873 (section 1). From
   the second round on, `chromosome_*` is 2 and there are two initiator sources, so they
   do not.
 - **What the means describe.** In the first round, a cell's fork is at one site. Its
@@ -510,37 +547,40 @@ M0's two genes are both on fork CC. ptsG (`JCVISYN3A_0779`) is copied at step 68
 
 ### Between a block and an observable
 
-Replication reads pools the metabolic block writes (the dNTPs). From the script, its
-491 fork steps are 2 hops from an observable by two routes:
+Replication reads pools the metabolic block writes (the dNTPs). From the script, 453 of
+its 491 fork steps are 2/2/4 (the other 38 are 3/2/4). Two routes lead to the
+observables:
 - through a gene and then transcription, to transcripts;
 - through the five `*_DNArep` counters every replication reaction writes. The hook pays
   them from `M_atp_c` and the dNTP pools (`writeback.jl:120, 128`), which are bulk
   metabolites.
 
-A gene copy number itself is 1 hop from a transcript and 2 from a bulk metabolite.
-Doubling time is 4 hops from both. Replication does not write a `CellSA` input itself.
+A gene copy number itself is 1/2/4 for the 455 mRNA genes and 3/2/4 for the 31 tRNA
+and rRNA genes. The 7 genes with no transcription reaction reach nothing. Doubling time
+is 4 hops from every gene that reaches it. Replication does not write a `CellSA` input itself.
 
 ## 4. The inventory, and the smallest model containing each kind
 
 "Syntactic" and "exact" are the two meanings of "closes" defined in Terms. "Factor"
 asks whether the item breaks the exact transcript factor's assumption. "Hops" gives the
 script's hop count to the nearest transcript, bulk metabolite and doubling time, in that
-order, and names the shortest route.
+order. It is for the kind's nearest member, with the per-member split where members
+differ.
 
 | # | Kind | In the full cell | Syntactic? | Exact? | Factor? | Hops (tx / bulk / dt) and route | In M0 / reduced | Smallest model containing it |
 |---|---|---|---|---|---|---|---|---|
-| 1a | Second order: DnaA × a 0/1 site | 99 of the 102 DnaA × site bindings | no | no | through G (row 5) | 3 / 3 / 5: → `Initiator_*` → initiation → gene or `ATP_DNArep` | no / no | **the M13 model below** (R2) |
+| 1a | Second order: DnaA × a 0/1 site | 99 of the 102 DnaA × site bindings | no | no | through G (row 5) | 3 / 3 / 5 for the 3 that make the initiators (1656, 1719, 1782); 4 / 4 / 6 for the other 96 | no / no | **the M13 model below** (R2) |
 | 1b | Second order: DnaA × a multi-copy site | 2 bindings (1594, 1657); 1720 never fires | no | no | through `M_DnaA_c` | 4 / 4 / 6 | no / no | the M13 model with a second, multi-copy site species that also binds `D` |
 | 1c | Second order: site × site in one origin's cascade | 177 | no | **yes**, by the 0/1 token, for one pass per origin; bilinear if 2364 fires again | through `M_DnaA_c` | 4 / 4 / 6 | no / no | none needed: re-encoded as first order in the origin's state, it has no gap |
-| 2 | Second order: 0/1 × 0/1, `Initiator × chromosome` | 2 initiations | no | first round nearly (exactly for fork CC); second round no | through G | 2 / 2 / 4: → gene → transcription; → `*_DNArep` → ODE pools | no / no | see below the table |
-| 3 | Second order: enzyme state × metabolite or tRNA | 62 tRNA charging | no | no (not enumerated) | no | 2 / 1 / 4: consumes ATP and amino acids | no / no: charging is one lumped ODE reaction | M0 with its lumped charging reaction replaced by one synthetase chain as jump reactions (3 second-order bindings, 1 release) |
-| 4 | Second order: residue counter × charged tRNA | 20 cost payments | no | no (not enumerated) | no | 3 / 1 / 4: one consumes `M_mettrna_c` | no / no: deferred counters | M0 with one residue counter made a species, paid by one second-order reaction |
-| 5 | Gene copy number, a state multiplying transcription | 493 genes, 486 transcription reactions | yes | yes | **yes** | 1 / 2 / 4, from the gene species | no / no: genes fixed | **the M13 model below** (`G_0779`, `G_0607`) |
-| 6 | First-order fork steps with count-dependent constants | 491 | yes | form yes; constants at the mean | through G | 2 / 2 / 4: → gene; → `*_DNArep` → ODE pools | no / no | the M13 model with its fork-step constants rebuilt from a dNTP pool; `src/organisms/coreA/` has no dNTP species, so one must be added |
-| 7 | `max(1, pool)` floor | 29 nodes, in all 1,434 rules | rebuild | rebuild | no | 1 / 1 / 3, as the rules it sits in | translation only | M0 (already) |
+| 2 | Second order: 0/1 × 0/1, `Initiator × chromosome` | 2 initiations | no | first round: yes for fork CC; yes for fork C unless 2364 fires before 1873. Second round: no | through G | 2 / 2 / 4: → gene → transcription; → `*_DNArep` → ODE pools | no / no | see below the table |
+| 3 | Second order: enzyme state × metabolite or tRNA | 62 tRNA charging | no | no (not enumerated) | no | 2 / 1 / 4 nearest; 41 at bulk 1, 21 at bulk 2 | no / no: charging is one lumped ODE reaction | M0 with its lumped charging reaction replaced by one synthetase chain as jump reactions (3 second-order bindings, 1 release) |
+| 4 | Second order: residue counter × charged tRNA | 20 cost payments | no | no (not enumerated) | no | 3 / 1 / 4 for 1569 (consumes `M_mettrna_c`); 3 / 2 / 4 for 19 | no / no: deferred counters | M0 with one residue counter made a species, paid by one second-order reaction |
+| 5 | Gene copy number, a state multiplying transcription | 493 genes, 486 transcription reactions | yes | yes | **yes** | 1 / 2 / 4 for 455 genes, 3 / 2 / 4 for 31, none for 7 | no / no: genes fixed | **the M13 model below** (`G_0779`, `G_0607`) |
+| 6 | First-order fork steps with count-dependent constants | 491 | yes | form yes; constants at the mean | through G | 2 / 2 / 4 for 453, 3 / 2 / 4 for 38: → gene; → `*_DNArep` → ODE pools | no / no | the M13 model with its fork-step constants rebuilt from a dNTP pool; `src/organisms/coreA/` has no dNTP species, so one must be added |
+| 7 | `max(1, pool)` floor | 29 nodes, in all 1,434 rules | rebuild | rebuild | no | per member of its 1,434 readers, as in section 2: mostly 1/2/4, 2/2/4 and 3/2/4 | translation only | M0 (already) |
 | 8 | Promoter from a live own-protein count, `min(c·P/180, 180)` | 29 transcription rules | rebuild | rebuild | as now, the rebuilt birth rate reads latent state; new is that the state is a stochastic protein count, not an ODE pool | 1 / 2 / 4 | no / no | M0 with one gene's promoter read from its own protein at the rebuild |
-| 9 | Rounded `CellV`; the volume cap reached | 1 + 2 nodes; 486 + 493 rules read `CellV` or its `round`, 948 the cap | rebuild; steps | rebuild; steps | as row 8, through the rebuilt k | 1 / 1 / 3, as the rules it sits in | no `CellV`; cap present but never reached | a model that grows to the cap: the full cell, or the reduced model over a full cycle with growth that reaches it |
-| 10 | Complex AND rule, `min` over subunits | 9 nodes, 18 ODE reactions | in the ODE, at the mean counts | in the ODE, at the mean counts | no | 2 / 1 / 3 | no / no | M0 with one enzyme made a two-subunit complex |
+| 9 | Rounded `CellV`; the volume cap reached | 1 + 2 nodes; 486 + 493 rules read `CellV` or its `round`, 948 the cap | rebuild; steps | rebuild; steps | as row 8, through the rebuilt k | by reader set (section 2): `CellV` 1/2/4 or 3/2/4; `round` 2/2/4 or 3/2/4; cap mostly 2/2/4 and 3/2/4 | no `CellV`; cap present but never reached | a model that grows to the cap: the full cell, or the reduced model over a full cycle with growth that reaches it |
+| 10 | Complex AND rule, `min` over subunits | 9 nodes, 18 ODE reactions | in the ODE, at the mean counts | in the ODE, at the mean counts | no | 2 / 1 / 3 nearest; all 18 at bulk 1 | no / no | M0 with one enzyme made a two-subunit complex |
 | 11 | Hook rules: counter clamp, ODE → count rounding, `CellSA` round and trunc | code (section 2) | route-dependent | route-dependent | no | they write the pools and `CellSA` themselves (by construction, not from the script) | clamp yes; rounding by another policy | M0 (already), up to the rounding policy |
 | 12 | Doubling time as a threshold crossing of `CellSA` | `t_SA2` | an observable, not a reaction | — | — | it is the observable | no (600 s) / growth, no cycle end | the full cell, or a reduced-model cycle |
 
@@ -549,10 +589,14 @@ species, `I` and `C`, and one reaction. That model contains the reaction only
 syntactically. With O = 1, I = 0 and C₀ = 1 at the start, it reaches three states, and
 I·C = C₀·I in all of them (the script's "first round" line). So I·C is affine on the
 reachable states, and the model is degenerate by the same standard as R2 without R1.
-The full cell's first-round initiations collapse the same way.
+The full cell's first-round initiations collapse the same way: fork CC's always, and
+fork C's unless 2364 fires before 1873.
 
-A non-degenerate model needs two chromosome copies and two initiator sources, as after
-reaction 2364 or in a second round. The smallest is named here and not built:
+A non-degenerate model needs two chromosome copies or two initiator sources, as after
+reaction 2364 or in a second round. The review checked both alone with the script's
+`affine_on`: two sources with C₀ = 1 (7 states), and one source with an unordered +2
+chromosome source (6 states). Both are non-affine. The model with both is named here
+and not built:
 - species `O_a`, `O_b`, `I` and `C`, with C = 2 at the start;
 - reactions `D + O_a → I`, `D + O_b → I` and `I + C → F`.
 
@@ -588,7 +632,7 @@ GAPD, in the full cell's order on fork CC (steps 68 and 172).
 | | Reaction | Propensity | Order | Stands for |
 |---|---|---|---|---|
 | R1 | ∅ → `D` | k_D | 0 | DnaA's expression (translation reaction 9), lumped |
-| R2 | `D` + `O` → `F₁` | k_b · D · O | **2** | the DnaA cascade at one origin and the initiation, lumped (origin 1's cascade is reactions 1595 to 1656, then 2098) |
+| R2 | `D` + `O` → `F₁` | k_b · D · O | **2** | the DnaA cascade at one origin and the initiation, lumped (origin 1's cascade is the walk, reactions 1595 to 1656, and the unbinding, 1783 to 1812; then 2098) |
 | R3 | `F₁` → `F₂` + `G_0779` | k_f1 · F₁ | 1 | fork CC's steps 1 to 68 |
 | R4 | `F₂` → `G_0607` | k_f2 · F₂ | 1 | fork CC's steps 69 to 172 |
 
@@ -613,12 +657,13 @@ declared values. Making k_b a sixth target is the first extension.
   E[D·O] = (D₀ + E[N])·E[O] + Cov(N, O), and the moment hierarchy does not close.
 - **The script checks both** by enumerating the reachable states: without R1
   (D₀ = 3), D·O is affine over them; with three R1 births, it is not.
-- **The refuter's `refuteF3/gap.py`** solves the toy's moments exactly. Cov(N, O) is
+- **The refuter's `refuteF3/gap.py`** (outside this repo) solves the toy's moments exactly. Cov(N, O) is
   non-zero for t > 0, so the M13 model's mean-field error is genuinely non-zero.
 
 **Lumping the DnaA walk changes the kind of dependence on `D`.** R2 replaces the
 origin's ssDNA walk with one irreversible step whose hazard is linear in `D`.
-- The walk has a steep threshold in `D`. It binds at about 0.005·D per site, the tip
+- The walk has a steep threshold in `D`. At the starting origin it binds at about
+  0.005·D per site (0.0024777·D at the daughter origins), the tip
   unbinds at 0.55/s, it runs over 30 sites, and each binding uses up one DnaA.
 - The PR #204 review estimated the walk's first-passage time for one origin, with no
   DnaA production.
@@ -657,8 +702,9 @@ not from running it.
 
 **What the M13 model does not contain:** rows 1b, 2, 3, 4, 6, 8, 9, 10 and 12 above.
 Rows 7 and 11 are already in M0. Row 1c needs no model, since it closes exactly. Of
-the 363 second-order reactions, R2 stands for the 99 DnaA bindings to a 0/1 site, and
-loosely for the 2 live bindings to a multi-copy site. It does not stand for:
+the 363 second-order reactions, R2 stands for the 99 DnaA bindings to a 0/1 site. It
+does not stand for:
+- the 2 bindings to a multi-copy site (row 1b);
 - the 177 cascade reactions that close exactly for one pass per origin;
 - the initiations, whose 0/1 × 0/1 non-closure appears only from the second round
   (row 2);
@@ -669,7 +715,7 @@ loosely for the 2 live bindings to a multi-copy site. It does not stand for:
 
 - **For KIM-188.** Is M13's gap measured against a naive treatment of R2 (the product of
   means) or a conservation-aware one? The answer changes what the check measures.
-  - The refuter's `refuteF3/gap.py` uses D₀ = 148, k_D = 0.05/s and k_b = 2 × 10⁻⁵/s.
+  - The refuter's `refuteF3/gap.py` (outside this repo) uses D₀ = 148, k_D = 0.05/s and k_b = 2 × 10⁻⁵/s.
     These rates are the refuter's; this note declares none.
   - At those rates, the R1 term Cov(N, O) is about 0.1% of E[D·O] at 600 s
     (−0.025 against 25.2).
@@ -679,7 +725,8 @@ loosely for the 2 live bindings to a multi-copy site. It does not stand for:
     conservation removes, not the one R1 adds.
 - **For KIM-187.** A route that uses the conservation laws could treat about 179 of the
   363 second-order reactions as affine. They are the 177 site × site reactions, for one
-  pass per origin, and the 2 first-round initiations, nearly. That leaves 183 that need
+  pass per origin, and the 2 first-round initiations (fork C's unless 2364 fires before
+  1873). That leaves 183 that need
   a moment treatment, plus the initiations after the first round.
 
 ## Checked by hand
@@ -688,11 +735,14 @@ The script does not print these. Each was checked against its source.
 
 | Number | Source |
 |---|---|
-| Origin 1's cascade is reactions 1595 to 1656 | `cme/reactions.csv`, read directly |
+| Origin 1's cascade is the walk, reactions 1595 to 1656 (62), and the unbinding, 1783 to 1812 (30): 92 = 59 + 33 | `cme/reactions.csv`, read directly |
+| Reaction 1812 ends the starting origin's pass | `cme/reactions.csv`: `ssDNABoundSite_1 + ssDNA_Unbinding_1 → M_DnaA_c` with no site product |
+| The five `*_DNArep` counters (`ATP_DNArep`, `dATP_DNArep`, `dTTP_DNArep`, `dCTP_DNArep`, `dGTP_DNArep`) and their payment from the pools | `cme/reactions.csv` (every replication reaction writes all five); `SpeedyCell/src/Cell/writeback.jl:33, 40` |
+| The walk's binding rate, about 0.005·D per site (0.00495542 at the starting origin, 0.00247771 at the daughter origins; 30 each) | `cme/reactions.csv`, first-minute rates |
 | The volume cap 6.70 × 10⁻¹⁷ L and `CellV` = 670 at the cap | `SpeedyCell/src/Cell/writeback.jl:9-10` |
 | 225 and 268 sites per fork | 224 + 1 and 267 + 1, from the printed fork steps |
 | Volume doubling at 56 to 72 min (mean 64); daughter initiations at 58 to 110 min | Thornburg et al. 2022, as quoted in `code/cell_cycle/events.py:8-25` |
-| The reduced cell grows to about 1.07× | `src/handshake.jl:1721` |
+| The reduced cell grows to about 1.07× | `src/handshake.jl:1722` |
 | SpeedyCell.jl's `inventory.md` differs in wording only | `diff` of the two files |
 | The DnaA walk's first-passage times and elasticities | the PR #204 review, not recomputed |
 | The R2 toy's moments, Cov(N, O) and Var(O) at the refuter's rates | the review's `refuteF3/gap.py` (`/fred/oz022/tkimpson/infercell-pr-reviews/pr204-2026-11-26/`), run once on the login node; not copied into this repo |
