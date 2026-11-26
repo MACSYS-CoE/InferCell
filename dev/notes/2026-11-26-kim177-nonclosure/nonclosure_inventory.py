@@ -523,6 +523,16 @@ def main():
         first_gene = [n for n, d in start["prods"] if n.endswith("_gene")][0]
         print("fork from reaction %d (%s + %s, k = %g): copies %s first, then %d first-order steps, ending at reaction %d"
               % (start["i"], start["reac"][0], start["reac"][1], start["k"], first_gene, steps, last["i"]))
+        # Where M0's two genes sit on this fork (step 0 is the initiation).
+        cur, pos = start, 0
+        while True:
+            g = [n for n, d in cur["prods"] if n.endswith("_gene")][0]
+            if g in ("JCVISYN3A_0607_gene", "JCVISYN3A_0779_gene"):
+                print("    M0 gene %s is copied at step %d of this fork (reaction %d, first-minute k = %g)" % (g, pos, cur["i"], cur["k"]))
+            outs = [n for n, d in cur["prods"] if n.endswith("_inter") and d > 0]
+            if not outs or outs[0] not in nxt:
+                break
+            cur, pos = nxt[outs[0]], pos + 1
     for x in rep:
         extra = sorted("%s(%+d)" % (n, d) for n, d in x["prods"] if not re.search(r"_(gene|inter)$|DNArep", n))
         if extra:

@@ -260,3 +260,101 @@ which feed doubling time through the membrane proteins. The replication rules re
 pools the metabolic block writes (dNTPs) and set when each gene's copy number steps,
 which multiplies transcription (section 3). The 18 ODE reactions with AND rules are the
 metabolic block's rate laws and write bulk metabolites directly.
+
+## 3. The 493 replication reactions and gene copy number
+
+### How replication is represented
+
+The chromosome is two chains, one per fork. Each of the 493 `*_gene` species starts at
+1. Each of the 493 replication reactions adds +1 to exactly one gene, every gene is
+incremented by exactly one of them, and no reaction removes a gene. A fork's position
+is a chain of `*_inter` species: step i turns `<gene_i>_inter` into `<gene_i+1>_inter`
+and copies gene i+1.
+
+| Fork | Starts with | First gene | First-order steps | Ends at |
+|---|---|---|---:|---|
+| C | reaction 1873, `Initiator_C + chromosome_C` (second order) | `JCVISYN3A_0001` (*dnaA*) | 224 | reaction 2097 |
+| CC | reaction 2098, `Initiator_CC + chromosome_CC` (second order) | `JCVISYN3A_0910` | 267 | reaction 2365 |
+
+So the 493 are 2 second-order initiations and 491 first-order fork steps. Reaction
+2364 (fork CC, copying `JCVISYN3A_0421`) also makes the daughter origins:
+`High_Affinity_Site_oriC2` and `…_oriC3` (+1 each), `High_Affinity_Site2` (+16), and
+`chromosome_C` and `chromosome_CC` (+2 each). The daughter origins then run their own
+DnaA cascades (section 1), which make `Initiator_C` and `Initiator_CC` again. A second
+round reuses the same `*_inter` chain, so a chain species can then hold more than one
+fork.
+
+The initiators come from DnaA. `M_DnaA_c` is made by translation reaction 9, from
+`M_RNA_JCVISYN3A_0001_c`. It is consumed and released by the 279 DnaA reactions. The
+last ssDNA binding at an origin (reactions 1656, 1719 and 1782) makes one
+`Initiator_C` and one `Initiator_CC`. Initial counts: `M_DnaA_c` 148,
+`High_Affinity_Site_oriC` 1, `chromosome_C` 1, `chromosome_CC` 1.
+
+All 493 rate rules depend on the counts. Each reads the four dNTP pools, floored by
+`max(1, ·)`, and the volume recomputed from `CellSA`, through `round` and the
+`select_gt` cap. They are rebuilt each minute, like every other count-dependent rule.
+
+### Does the mean field close on them?
+
+- **The 491 fork steps:** the form closes. Each is type 1 with a constant state change,
+  so its mean equation is exact given its rate constant. The rate constant is not
+  given: it is rebuilt from the dNTP pools and the rounded volume, so the route
+  evaluates it at the means (section 2).
+- **The 2 initiations:** they do not close. Both are second order, and both reactants
+  are 0 or 1 in a single cell.
+- **What the means describe.** A cell's fork is at one site. Its mean is an occupation
+  probability spread over 225 or 268 sites. Each gene's copy number steps once, from 1
+  to 2, at a random time; its mean rises smoothly. The mean field gets
+  `E[G_g(t)]` right given exact rate constants. It cannot give the step.
+
+### How gene copy number enters transcription
+
+- All 486 transcription reactions are type 1 with one `*_gene` reactant, which the
+  reaction leaves unchanged. So the propensity is `k_g(t) · G_g(t)`. The 486 make 455
+  mRNAs, 29 tRNAs and 2 rRNA operons (the 2 operon reactions make the 5S, 23S and 16S
+  rRNAs each).
+- 7 genes have no transcription reaction: `JCVISYN3A_` 0049, 0068, 0069, 0158, 0356,
+  0533, 0534. Genes 0067 and 0532 each have one rRNA reaction that makes all three
+  rRNAs (reactions 1592 and 1593); 0068, 0069, 0533 and 0534 sit beside them in the
+  species table and have none of their own.
+- `G_g` enters nothing else. No other reaction has a gene as a reactant. No rate rule
+  reads a gene count. The rate constant `k_g` reads the four NTP pools and `CellV`, and
+  for 29 genes their own protein count (section 2).
+- So `G_g` multiplies the propensity and nothing more. The mean equation
+  `dE[m_g]/dt = E[k_g G_g] − μ_g E[m_g]` stays affine in the state given `k_g`, and
+  `MeanField`'s check passes. Gene copy number does not break the mean field. It breaks
+  the transcript factor.
+
+### What a transcript-only dataset leaves latent
+
+The transcript factor treats each gene's transcripts as a birth–death chain with a
+known birth rate that changes only at the 60 s rebuild (`src/transcript_factor.jl:1-22`;
+the cSMC reads the birth rate at the window's start state, `src/csmc.jl:140-147`). In
+the full cell, the birth rate is `k_g · G_g(t)`, and a transcript-only dataset does not
+observe:
+
+- **each gene's copy-number path** `G_g(t)`: when it steps from 1 to 2, and, after a
+  daughter-origin initiation, again. The step falls anywhere in a window, not at the
+  rebuild.
+- **what sets those times:** the two fork positions (the `*_inter` species), the two
+  initiation times (reactions 1873 and 2098), and before them the DnaA cascade's state
+  (279 reactions over the site species) and `M_DnaA_c`. DnaA's own transcript,
+  `M_RNA_JCVISYN3A_0001_c`, is observed; its protein is not.
+- **the rate constants' inputs in that cell:** the four NTP pools and `CellV` for every
+  gene, and the gene's own protein count for the 29 protein-count promoters.
+
+Every gene's copy number is a function of the same two fork paths. So given the
+parameters, the 486 genes' transcript factors are no longer independent: they share
+the fork paths. In the reduced model and M0, genes are a fixed quantity, not a state
+(`src/organisms/coreA/transcription.jl:32-37`), and this never arose.
+
+M0's two genes are both on fork CC. ptsG (`JCVISYN3A_0779`) is copied at step 68
+(reaction 2166). GAPD (`JCVISYN3A_0607`) is copied at step 172 (reaction 2270).
+
+### Between a block and an observable
+
+Yes, directly. Replication reads pools the metabolic block writes (the dNTPs). Its
+output, `G_g`, multiplies every transcription propensity, which is the gene-expression
+block's rate constant, and so writes transcripts, an observable. Through translation
+of the membrane proteins it reaches doubling time. Replication does not write a
+`CellSA` input itself.

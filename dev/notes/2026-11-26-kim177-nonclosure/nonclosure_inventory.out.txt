@@ -163,11 +163,13 @@ genes with a transcription reaction: 486 (each has [1]); genes without: 7 ['JCVI
 transcription products: {'mRNA (M_RNA_*)': 455, 'tRNA': 29, 'rRNA': 6}
 reactions with a *_gene reactant, by family: {'Transcription': 486}
 rate rules that read a *_gene count: 0
-what the transcription rate rules read (rules per input): {'M_atp_c': 486, 'M_gtp_c': 486, 'M_utp_c': 486, 'CellV': 486, 'M_ctp_c': 486, 'protein': 29}
+what the transcription rate rules read (rules per input): {'M_gtp_c': 486, 'M_utp_c': 486, 'CellV': 486, 'M_atp_c': 486, 'M_ctp_c': 486, 'protein': 29}
 transcription rules reaching min / round / select_gt / max: 29 / 0 / 0 / 486
 replication reactions: 493; each increments one gene by +1: True; genes incremented: 493; reactions that decrement a gene: 0
 fork from reaction 1873 (Initiator_C + chromosome_C, k = 0.06931): copies JCVISYN3A_0001_gene first, then 224 first-order steps, ending at reaction 2097
 fork from reaction 2098 (Initiator_CC + chromosome_CC, k = 0.697903): copies JCVISYN3A_0910_gene first, then 267 first-order steps, ending at reaction 2365
+    M0 gene JCVISYN3A_0779_gene is copied at step 68 of this fork (reaction 2166, first-minute k = 0.0362971)
+    M0 gene JCVISYN3A_0607_gene is copied at step 172 of this fork (reaction 2270, first-minute k = 0.0839916)
 replication reaction 1873 (Initiator_C + chromosome_C, copies JCVISYN3A_0001_gene) also makes: Initiator_C(-1) chromosome_C(-1)
 replication reaction 2098 (Initiator_CC + chromosome_CC, copies JCVISYN3A_0910_gene) also makes: Initiator_CC(-1) chromosome_CC(-1)
 replication reaction 2364 (JCVISYN3A_0422_inter, copies JCVISYN3A_0421_gene) also makes: High_Affinity_Site2(+16) High_Affinity_Site_oriC2(+1) High_Affinity_Site_oriC3(+1) chromosome_C(+2) chromosome_CC(+2)
