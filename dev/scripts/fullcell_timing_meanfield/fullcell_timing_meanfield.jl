@@ -69,8 +69,95 @@ const RHS_RTOL = 1e-10
 const CHUNK = 10                       # ForwardDiff.pickchunksize(B) at B = 10, 20 and 40
 const BLOCKS = (10, 20, 40)
 const NREPEAT = SMOKE ? 2 : 5
+const LIB_T = 30.0                     # the window of the check against LinearSolve's dual path
 
-solver() = Rodas5P(linsolve = KLUFactorization())
+# ---------------------------------------------------------------------------------------
+# The linear solve under duals
+#
+# A dual solve gives Rodas5P a W = I/γ − J with dual entries. LinearSolve's ForwardDiff
+# extension (3.73) would take it: it solves the value part, then each partial against
+# the same factorisation, which is right, but it stores each partial of W as a dense
+# n×n matrix (`partials_to_list`), filled by sparse getindex, and multiplies by it
+# densely. On this system that cost about 3.4 s per step (SMOKE job 21663392: one pass
+# of 10 partials 437 s, the primal 0.08 s, over the same 129 steps). DualSparseKLU does
+# the same algebra on the sparse pattern: KLU on the value part, refactored (symbolic
+# reused) only when the values change, the primal solved, then all the partials at once
+# as an n×N right-hand side, R = ∂b − ∂W·x₀, formed from the non-zeros. The primal
+# solve keeps LinearSolve's KLUFactorization.
+
+const KLU = Base.get_extension(LinearSolve, :LinearSolveSparseArraysExt).KLU
+const LSFD = Base.get_extension(LinearSolve, :LinearSolveForwardDiffExt)
+
+mutable struct DualSparseKLU
+    F::Any                       # the KLU factorisation of value(W), or nothing
+    vals::Vector{Float64}        # the values it factored
+    x0::Vector{Float64}
+    R::Matrix{Float64}
+    nfact::Int                   # numeric factorisations
+    nsolve::Int                  # solves
+end
+DualSparseKLU() = DualSparseKLU(nothing, Float64[], Float64[], zeros(0, 0), 0, 0)
+
+function (s::DualSparseKLU)(A, b, u, p, isfresh, Pl, Pr, cacheval; kwargs...)
+    T = eltype(A)
+    N = ForwardDiff.npartials(T)
+    nz = nonzeros(A); rv = rowvals(A); n = size(A, 1)
+    if s.F === nothing
+        s.vals = value.(nz)
+        s.F = KLU.klu(SparseMatrixCSC(n, n, copy(SparseArrays.getcolptr(A)), copy(rv), copy(s.vals)))
+        s.x0 = zeros(n); s.R = zeros(n, N); s.nfact += 1
+    else
+        length(nz) == length(s.vals) || error("W's pattern changed")
+        changed = false
+        @inbounds for k in eachindex(nz)
+            v = value(nz[k])
+            if v != s.vals[k]
+                s.vals[k] = v; changed = true
+            end
+        end
+        changed && (KLU.klu!(s.F, s.vals); s.nfact += 1)
+    end
+    x0 = s.x0; R = s.R
+    @inbounds for r in 1:n
+        x0[r] = value(b[r])
+        pb = partials(b[r])
+        for i in 1:N
+            R[r, i] = pb[i]
+        end
+    end
+    ldiv!(s.F, x0)
+    @inbounds for c in 1:n
+        xc = x0[c]
+        xc == 0 && continue
+        for k in nzrange(A, c)
+            r = rv[k]; pk = partials(nz[k])
+            for i in 1:N
+                R[r, i] -= pk[i] * xc
+            end
+        end
+    end
+    ldiv!(s.F, R)
+    @inbounds for r in 1:n
+        u[r] = T(x0[r], Partials(ntuple(i -> R[r, i], Val(N))))
+    end
+    s.nsolve += 1
+    return u
+end
+
+const DualKLUAlg = LinearSolveFunction{DualSparseKLU}
+# Keep the dual problem away from DualLinearCache: a plain LinearCache, as LinearSolve
+# itself does for SparspakFactorization.
+SciMLBase.init(prob::LSFD.DualAbstractLinearProblem, alg::DualKLUAlg, args...; kwargs...) =
+    LinearSolve.__init(prob, alg, args...; kwargs...)
+
+# A concrete W, not OrdinaryDiffEq's lazy WOperator, which it builds for a solver that
+# does not say it needs one.
+LinearSolve.needs_concrete_A(::DualKLUAlg) = true
+
+solver(::Type{<:Dual}) = Rodas5P(linsolve = LinearSolveFunction(DualSparseKLU()))
+solver(::Type) = Rodas5P(linsolve = KLUFactorization())
+# LinearSolve's own dual path, for the check against DualSparseKLU.
+solver_library() = Rodas5P(linsolve = KLUFactorization())
 
 struct K184Tag end
 const TAG = typeof(ForwardDiff.Tag(K184Tag(), Float64))
@@ -199,8 +286,8 @@ function problem(m, slot, θ; tend = T_END)
     return ODEProblem(fun, u0, (0.0, tend), θ)
 end
 
-msolve(prob; abstol = ABSTOL, reltol = RELTOL, saveat = SAVES) =
-    solve(prob, solver(); abstol, reltol, saveat, maxiters = MAXITERS, save_everystep = false,
+msolve(prob; abstol = ABSTOL, reltol = RELTOL, saveat = SAVES, alg = solver(eltype(prob.p))) =
+    solve(prob, alg; abstol, reltol, saveat, maxiters = MAXITERS, save_everystep = false,
           save_start = false)
 
 """The data: the primal solution at θ = 0 on the save grid, and its variances."""
@@ -273,19 +360,25 @@ end
 # ---------------------------------------------------------------------------------------
 # The block
 
-"""Every first-order reaction's flux integrated over the window at θ = 0 (trapezoid on
-a 10 s grid), and the reactions ranked by it, ties by reaction index."""
+"""Every first-order reaction's flux integrated over the window at θ = 0, and the
+reactions ranked by it, ties by reaction index. The integral is 3-point Gauss–Legendre
+on each of the solver's own steps, through its dense interpolant, so a fast drain in
+the first step is integrated, not smeared over a coarse grid (the SMOKE run's 10 s
+trapezoid ranked 22 tRNA-charging drains of one molecule first at 150 each)."""
 function rank_reactions(m)
-    grid = collect(0.0:10.0:T_END)
-    grid[end] == T_END || push!(grid, T_END)
-    sol = solve(problem(m, zeros(Int, length(m.k0)), Float64[]), solver();
-                abstol = ABSTOL, reltol = RELTOL, saveat = grid, maxiters = MAXITERS)
+    sol = solve(problem(m, zeros(Int, length(m.k0)), Float64[]), solver(Float64);
+                abstol = ABSTOL, reltol = RELTOL, maxiters = MAXITERS, dense = true)
     SciMLBase.successful_retcode(sol) || error("ranking solve: $(sol.retcode)")
-    X = reduce(hcat, sol.u)
-    flux = map(eachindex(m.k0)) do j
-        x = view(X, m.reactant[j], :)
-        m.k0[j] * sum((x[i] + x[i + 1]) / 2 * (grid[i + 1] - grid[i]) for i in 1:(length(grid) - 1))
+    nodes = (-sqrt(3 / 5), 0.0, sqrt(3 / 5)); weights = (5 / 9, 8 / 9, 5 / 9)
+    xint = zeros(m.n)
+    for i in 1:(length(sol.t) - 1)
+        a, b = sol.t[i], sol.t[i + 1]
+        h = (b - a) / 2
+        for (z, w) in zip(nodes, weights)
+            xint .+= (w * h) .* sol(a + h * (1 + z))
+        end
     end
+    flux = [m.k0[j] * xint[m.reactant[j]] for j in eachindex(m.k0)]
     order = sortperm(collect(zip(-flux, m.rxn)))
     return flux, order
 end
@@ -398,8 +491,8 @@ function stage_check(out)
     B = 20
     slot = block_slot(m, order, B)
     linpath = try
-        integ = init(problem(m, slot, seed(θstar(B), 1:CHUNK)), solver(); abstol = ABSTOL,
-                     reltol = RELTOL, saveat = SAVES)
+        pd = problem(m, slot, seed(θstar(B), 1:CHUNK))
+        integ = init(pd, solver(eltype(pd.p)); abstol = ABSTOL, reltol = RELTOL, saveat = SAVES)
         lc = integ.cache.linsolve
         string(nameof(typeof(lc)), " / ", nameof(typeof(lc.alg)), " / W ",
                typeof(integ.cache.W).name.name, "{", eltype(integ.cache.W) <: Dual ? "Dual" : eltype(integ.cache.W), "}")
@@ -407,6 +500,27 @@ function stage_check(out)
         "could not read: " * sprint(showerror, e)[1:min(end, 200)]
     end
     say("dual linear solve: $linpath")
+
+    # DualSparseKLU against LinearSolve's own dual path (DualLinearCache), one pass of
+    # CHUNK partials over a short window, LIB_T s, where the library's cost allows it.
+    lib = let tend = LIB_T, sv = collect(10.0:10.0:LIB_T)
+        θd = seed(θstar(B), 1:CHUNK)
+        dsol(alg) = (t = @elapsed (s = solve(problem(m, slot, θd; tend), alg; abstol = ABSTOL,
+                                          reltol = RELTOL, saveat = sv, save_start = false,
+                                          maxiters = MAXITERS)); (s, t))
+        dsol(solver(eltype(θd))); dsol(solver_library())           # compile both
+        (s1, t1) = dsol(solver(eltype(θd)))
+        (s2, t2) = dsol(solver_library())
+        U1 = reduce(hcat, s1.u); U2 = reduce(hcat, s2.u)
+        num = maximum(maximum(abs, partials(U1[k]) .- partials(U2[k])) for k in eachindex(U1))
+        den = maximum(maximum(abs, partials(U2[k])) for k in eachindex(U2))
+        vrel = maximum(abs(value(U1[k]) - value(U2[k])) / max(abs(value(U2[k])), 1.0) for k in eachindex(U1))
+        (t_end = tend, ours_s = t1, library_s = t2, steps_ours = s1.stats.naccept + s1.stats.nreject,
+         steps_library = s2.stats.naccept + s2.stats.nreject, partials_rel = num / den, value_rel = vrel)
+    end
+    say(@sprintf("dual solve to %.0f s: DualSparseKLU %.3f s (%d steps), DualLinearCache %.3f s (%d steps); partials max |Δ| / max |∂| %.3e, values %.3e",
+                 lib.t_end, lib.ours_s, lib.steps_ours, lib.library_s, lib.steps_library,
+                 lib.partials_rel, lib.value_rel))
 
     # AV3: the dual gradient against central differences, at tight tolerances.
     tight = (abstol = ABSTOL_TIGHT, reltol = RELTOL_TIGHT)
@@ -430,9 +544,8 @@ function stage_check(out)
     # The pass-wise gradient against ForwardDiff.gradient, at the timing tolerances.
     data_t = make_data(m, slot, B)
     gp = gradient_passes(m, slot, data_t, θ)
-    cfg = ForwardDiff.GradientConfig(z -> first(objective(m, slot, data_t, z)), θ,
-                                     ForwardDiff.Chunk{CHUNK}())
-    gfd = ForwardDiff.gradient(z -> first(objective(m, slot, data_t, z)), θ, cfg)
+    obj = z -> first(objective(m, slot, data_t, z))
+    gfd = ForwardDiff.gradient(obj, θ, ForwardDiff.GradientConfig(obj, θ, ForwardDiff.Chunk{CHUNK}()))
     fdiff = maximum(abs, gp.grad .- gfd)
     say(@sprintf("pass-wise vs ForwardDiff.gradient (chunk %d): max |Δ| %.3e", CHUNK, fdiff))
 
@@ -440,7 +553,7 @@ function stage_check(out)
            nnz_proto = nnz(m.jac_proto), rhs_maxrel = maxrel, rhs_maxrel_abs = maxrel_abs,
            rhs_nonzero = nonzero_ref, rhs_zero = zero_ref, rhs_zero_mismatch = zero_mismatch,
            jx_rel = jrel, jx_zero = jzero, rhs_pass, ranked, nflux = count(>(0), flux),
-           linpath, fdidx, grad_tight = gt.grad, fd, fdrel, fd_pass, passwise_vs_fd = fdiff,
+           linpath, lib, fdidx, grad_tight = gt.grad, fd, fdrel, fd_pass, passwise_vs_fd = fdiff,
            tight_stats = [p.stats for p in gt.passes])
     serialize(joinpath(out, "check.jls"), res)
     open(joinpath(out, "check.md"), "w") do io
@@ -461,6 +574,8 @@ function stage_check(out)
                              nonzero_ref, maxrel, RHS_RTOL, zero_ref, zero_mismatch, rhs_pass ? "PASS" : "FAIL"))
         println(io, @sprintf("- J·x0 vs the RHS: max relative difference %.3e; zeros kept: %s", jrel, jzero))
         println(io, "- Dual linear solve (the solver's linear cache under a dual state): $linpath")
+        println(io, @sprintf("- DualSparseKLU vs LinearSolve's DualLinearCache, one pass of %d partials solved to %.0f s: %.3f s (%d steps) against %.3f s (%d steps); partials differ by %.3e of their largest, values by %.3e relative",
+                             CHUNK, lib.t_end, lib.ours_s, lib.steps_ours, lib.library_s, lib.steps_library, lib.partials_rel, lib.value_rel))
         println(io, @sprintf("- AV3, B = %d, abstol %.0e, reltol %.0e, h = %.0e:", B, ABSTOL_TIGHT, RELTOL_TIGHT, FD_H))
         println(io, "\n| θ | reaction | dual | central FD | relative |\n|---|---|---|---|---|")
         for (i, b) in enumerate(fdidx)
