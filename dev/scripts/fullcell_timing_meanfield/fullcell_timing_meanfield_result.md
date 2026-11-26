@@ -23,7 +23,8 @@ with constant rate constants. The full cell's real mean field also has:
 - the 175 metabolic ODE fluxes (non-linear or zero-order rate laws);
 - the rate constants rebuilt from the pools every minute.
 
-Each of those makes the Jacobian depend on the state. Each is likely to add solver
+The second-order reactions and most metabolic rate laws make the Jacobian depend on
+the state, and the rebuilds make the rates jump each minute. Each is likely to add solver
 steps, and none is in this timing. Per-step costs are given below so that KIM-187
 and KIM-194 can rescale.
 
