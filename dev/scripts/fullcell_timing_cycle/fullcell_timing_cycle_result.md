@@ -196,3 +196,92 @@ is still well under 120 s: 51.0 s to t_SA2 and 62.3 s to minute 120.
 
 This is the time on one core, with nothing else in the process. Threaded, a cell is slower
 (section 5).
+
+## 5. A 100-cell threaded ensemble on one node
+
+**Job:** Slurm **21664422**, at commit `917bcb2`, on dave104 (AMD EPYC 7543 32-Core
+Processor, 64 cores). It requested `--cpus-per-task=64`, the whole node; the site refuses
+`--exclusive`. The configuration was set before the run:
+- one process with 64 Julia threads, `--gcthreads=64,1` (64 mark threads and 1 sweep thread,
+  so `Threads.ngcthreads()` = 65), and `OPENBLAS_NUM_THREADS=1` (`BLAS.get_num_threads()` = 1);
+- one shared `CellModel`, with threads not pinned;
+- `CellModel()` (1.92 s) and a warm-up cell (16.95 s) ran before the clock;
+- procids 1 to 100, seed 1, to minute 120 under `Threads.@threads :dynamic`, each cell with
+  `ode_failure=:record`.
+
+**Result: 100 cells in 188.3 s of wall time, 1,912 cells per node-hour.** All 100 cells ran
+the full 120 minutes, with no errors and no ODE failures. 84 reach t_SA2 and 19 collapse.
+- **Each cell is slower threaded.** Per cell, the whole run took a median of 90.6 s (range
+  35.4 to 113.0 s), or 80.9 s to minute 105. For procids 1 to 20 that is a median of 1.60× the
+  one-core time.
+- **The cells' output is the same.** All 20 of those procids fire the same number of CME
+  events threaded as on one core.
+- **GC takes 50.8 s, 27.0% of the wall time.** A collection stops every thread.
+- **100 cells do not fill 64 threads twice.** 36 threads ran two cells and 28 ran one. The last
+  cell started at 113.1 s, and the threads were busy 71.8% of the node's thread-seconds. With a
+  batch large enough to keep every thread busy, 64 threads at 90.6 s a cell would give about
+  2,540 cells per node-hour. That figure is arithmetic, not a measurement.
+
+**Context, not measured here.** At the one-core time of section 4 (58.1 s to minute 120), 64
+independent one-core cells would make about 3,970 cells per node-hour. This needs one worker
+process per core, and assumes they keep their one-core speed. syn3a-ensemble measured the gap on
+20-minute cells (README, Phase 6 lane 6a, F-B3). There, one worker per core gave 1.79× the cells
+per node-hour of one 64-thread process. GC took 44% of the wall time at 64 threads, and workers
+scaled to 85% of linear at 64 cores. So KIM-58 should be sized on workers, not on the threaded
+figure above.
+
+For scale only: KIM-58's 10³ draws × 100 cells is 10⁵ cells. That is about 1,600 core-hours at
+58.1 s a cell, about 52 node-hours (3,350 CPU-h) at the threaded 1,912 cells per node-hour, or
+about 25 node-hours at the workers' rate if it holds.
+
+The per-minute record of the 100 cells stays in the log directory, outside the repo:
+`/fred/oz022/tkimpson/infercell-kim183-2026-11-26/ensemble/ensemble_minutes.csv`, sha256
+`e6c416ce00217a3f4ba6e5de35438999079012be512dcdda71f125fac06ffdb5`.
+
+## Reproduce
+
+From the worktree root, at a pushed commit. Set the environment up once, on the login node
+(this is the state committed here):
+
+```bash
+L=/fred/oz022/tkimpson/infercell-kim183-2026-11-26
+export JULIA_DEPOT_PATH=$L/depot:/fred/oz022/tkimpson/julia_depot JULIA_PKG_OFFLINE=true JULIA_PKG_PRECOMPILE_AUTO=0
+/fred/oz022/tkimpson/julia-1.11.9/bin/julia --project=dev/scripts/fullcell_timing_cycle -e 'using Pkg; Pkg.instantiate()'
+X="gina[1-18,301-305],dave148,dave149"
+S=dev/scripts/fullcell_timing_cycle/timing_cycle.slurm
+sbatch --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=01:00:00 \
+  --output=$L/logs/%x_%j.log --export=ALL,MODE=precompile $S
+sbatch --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=01:30:00 --job-name=kim183-serial \
+  --output=$L/logs/%x_%j.log --export=ALL,MODE=serial,PROCIDS=1-20,MINUTES=121,OUT=$L/serial/serial $S
+sbatch --partition=milan --exclude="$X" --nodes=1 --cpus-per-task=64 --mem=200G --time=01:00:00 --job-name=kim183-ensemble \
+  --output=$L/logs/%x_%j.log --export=ALL,MODE=ensemble,PROCIDS=1-100,MINUTES=121,OUT=$L/ensemble/ensemble $S
+/fred/oz022/tkimpson/miniconda3/bin/python3 -I dev/scripts/fullcell_timing_cycle/summarise.py \
+  $L/serial/serial_cells.csv $L/ensemble/ensemble_cells.csv $L/serial/serial_minutes.csv 1
+```
+
+Each cell's output depends only on (procid, seed, minutes), and is bit-exact only on an
+EPYC 7543, as syn3a-ensemble's README notes. The wall times are not reproducible to the digit.
+They vary with the node and with what else runs on it.
+
+`results/` holds the run tables these numbers come from: `serial_cells.csv`,
+`serial_minutes.csv` and `ensemble_cells.csv`, and each run's `*_meta.txt`. The meta files
+record the host, CPU, thread counts, both git commits, `versioninfo()`, and the sha256 of
+every file under `syn3a-ensemble/data/model/`. The tables the published path reads are:
+
+| table | sha256 |
+|---|---|
+| `nodes.csv` | `1bd4b35e1c33f3547fd5683213b5b4c32d7211dd9046d8a4b7ee628ee1f39b89` |
+| `cme/initial_counts.csv` | `1149da1f0ac53d53d1eb8d63c302e4d638e5e15666bddbb66cfd1f08276c67b5` |
+| `cme/rate_rules.csv` | `a95619a05e47b32e7e97e8f65128e31a25403c386e80b5ccfb298d905aa3af0e` |
+| `cme/reactions.csv` | `63fbeca180fe8bdebec646df0ddbffb0149958fc2ff9fc3e6ec8803cd24c6aaf` |
+| `cme/species.csv` | `c1acb80878e8a500a86e0e1d9e195a491b46a01c337788c0a6554df19cbe6ec9` |
+| `ode/parameters.csv` | `60e2ac5ae374daa4496268a0c01ff000043cea02da131355dcd1144be6e9a58c` |
+| `ode/reactions.csv` | `4da4941402a0e176ad6adad2c35b6ad0f67f992c023a306ea43f5edb3b8b9a27` |
+| `ode/species.csv` | `77d003243ec52770287ba76658f4deeb00cb3e8ad2e51172d0d3a7517b02bd55` |
+| `ode/stoichiometry.csv` | `be4293c536cac2ef1a73cabf0144e5a64b696a7bff5f07ab15c871c8a710bf2f` |
+
+These were read at syn3a-ensemble commit `2075809cbb825140cb31a7bec8bc3529770c8e13`, with
+`code/SpeedyCell` and `data/model` clean.
+
+**Compute used:** about 5 CPU-h. That is 21664418 (0.30), 21664422 (64 × 4 min, 4.3) and the
+precompile and smoke jobs (0.5).
