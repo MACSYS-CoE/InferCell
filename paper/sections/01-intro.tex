@@ -69,7 +69,7 @@ What is missing is a whole-cell model inferred from single-cell and bulk data ac
 ODE--stochastic boundary, with its posterior predictions scored against a known truth.
 Without one, we cannot say whether such a posterior is affordable, or whether the data reach
 the parameters on both sides of the boundary. Nor can we say how far its predictions carry
-past the data that made it\todo{, or how both hold up as the data become realistic}.
+past the data that made it.
 
 \begin{table*}[t]
 \caption{\textbf{Capabilities of whole-cell modelling frameworks.} Each column asks whether the
@@ -106,8 +106,7 @@ papers' main text and each framework's public code. We did not read the suppleme
 
 We present \IC{}, a compositional inference framework for whole-cell models. We use it
 to infer a reduced whole-cell model of \syn{} across its ODE--stochastic boundary and to carry
-the posterior to scored probabilistic prediction\todo{, and to show how both degrade as the synthetic data
-become realistic}.
+the posterior to scored probabilistic prediction.
 \Cref{sec:design} describes the framework. Every parameter is a prior with a recorded
 source, modules couple through \pn{fw.edgekinds} kinds of typed edge, and every departure
 from the published model is a declared reduction. The composed model runs either as the
@@ -134,10 +133,7 @@ lactate, at baseline and under the knockdown, and for the transcripts. They miss
 knockdown's effect on lactate, which is small next to cell noise. At the default prior width, with every parameter inferred, the lactate
 prediction's parameter variance is about \pn{kim96.ratio} times smaller than in the budget
 transferred from M0. That budget carries an M0 posterior to the
-reduced model and leaves the other promoters at their priors. \Cref{sec:ladder} will repeat the
-posterior-to-prediction step along a degradation ladder, as the data move from exact counts
-toward realistic assays. \todo{How the posterior and the prediction scores degrade along the degradation
-ladder, and which assay limits them first.}
+reduced model and leaves the other promoters at their priors.
 \Cref{sec:discussion} sets out what carries, what does not, and the limits of the test.
 
 The claim has limits. The data are synthetic, they come from the model being fitted, and
