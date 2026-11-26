@@ -123,9 +123,10 @@ both routes pass simulation-based calibration and that the mixed route costs abo
 \pn{mix.speedup} times less. \Cref{sec:reduced} then uses the mixed route
 alone to infer one joint posterior over the \pn{kim92.ncoord} free parameters of the
 reduced model, for about \pn{kim92.cpuh} CPU-hours. The data reach all \pn{kim92.ncoord},
-on both sides of the boundary, and the posterior reproduces its own data. On this model the
-joint posterior was needed. A two-stage factor cut lands close to it but costs
-\pn{kim116.cutjob} times as much, and a cheaper data plug-in is biased.
+on both sides of the boundary, and the posterior reproduces its own data. Neither of two
+two-stage alternatives, as designed, is both cheaper and faithful. A factor cut lands close to
+the joint posterior at \pn{kim116.cutt1} times its cost, and a cheaper data plug-in shifts the
+promoters away from it and predicts lactate worse.
 
 \Cref{sec:reducedpredict} pushes that
 posterior forward to a later horizon and to a ptsG knockdown, neither of which the fit saw.

@@ -8,9 +8,11 @@ held-out truth, on synthetic data from one truth.
 An exact sampler is paired with a mixed route that integrates out the paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
 and the mixed route costs about \pn{mix.speedup} times less. On the reduced model, the mixed
 route gives one joint posterior over all 21 free parameters for about \pn{kim92.cpuh}
-CPU-hours; the data reach every parameter, and the posterior reproduces its own data. On this
-model the joint posterior was needed: a two-stage factor cut lands close to it at
-\pn{kim116.cutjob} times the cost, and a cheaper data plug-in is biased. Scored
+CPU-hours; the data reach every parameter, and the posterior reproduces its own data. Neither of
+two two-stage alternatives, as designed, was both cheaper and faithful: a fit that cuts the
+bulk data's feedback on the promoters lands close to the joint posterior at \pn{kim116.cutt1}
+times its cost, and a cheaper one that reads the rate constants from the observed pools
+shifts the promoters and predicts lactate worse. Scored
 against the true simulator on a later horizon and under a ptsG knockdown, the predictions
 cover extracellular lactate and the transcripts, do not resolve the knockdown's small effect,
 and miss \pn{kim95.poolshift} of 17 metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. At the
