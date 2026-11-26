@@ -46,3 +46,42 @@ stop that a prior predictive needs. It has a full-cycle entry point (`run_cell` 
 `minutes=121`, as its own `scripts/run_cycle.jl` uses), so no switch to the standalone was
 needed. Neither tree was written to. This directory's environment develops the
 syn3a-ensemble copy by path (section 2).
+
+## 2. How SpeedyCell runs on the cluster
+
+SpeedyCell needs Julia 1.11 (`julia = "1.11"` in its `Project.toml`); InferCell's
+julia/1.10.5 module cannot load it. syn3a-ensemble itself runs it with the Julia 1.11.2
+tarball at `/fred/oz022/tkimpson/julia-1.11.2` and the depot `/fred/oz022/tkimpson/julia_depot`
+(`scripts/reference/env.sh` there). Here it ran under **Julia 1.11.9**
+(`/fred/oz022/tkimpson/julia-1.11.9`), as `versioninfo()` records in every Slurm log of the
+runs below:
+
+```
+Julia Version 1.11.9
+Commit 53a02c0720c (2026-02-06 00:27 UTC)
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 64 × AMD EPYC 7543 32-Core Processor
+  LLVM: libLLVM-16.0.6 (ORCJIT, znver3)
+```
+
+The environment is this directory's `Project.toml` and `Manifest.toml`:
+- It develops `/fred/oz022/tkimpson/syn3a-ensemble/code/SpeedyCell` by path. A path is needed:
+  `MODEL_DIR` is resolved relative to the source tree, so the tables come from
+  `syn3a-ensemble/data/model/`.
+- Its Manifest started as a copy of `code/SpeedyCell/Manifest.toml`, and `Pkg.develop` and
+  `Pkg.add` ran with `PRESERVE_ALL`. Against the package's own Manifest, only `julia_version`
+  (1.11.2 to 1.11.9) and the stdlib `OpenLibm_jll` (0.8.1+2 to 0.8.5+0, bundled with Julia)
+  changed. Every SciML, Sundials and LowPrecSSA version is the one syn3a-ensemble pins.
+- `LowPrecSSA` is unregistered and pinned over SSH (`tomkimpson/wcm-rdme-lowprec` at
+  `cb0abb6`). The jobs stack a depot of their own on the shared one that already holds it:
+  `JULIA_DEPOT_PATH=/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot`.
+  The environment was instantiated on the login node with `JULIA_PKG_OFFLINE=true` and no
+  precompilation. Precompilation ran in one milan job (21663322, dave23): 230 packages in
+  1,193 s on one core. Its last step, `versioninfo()`, failed because `-e` does not load
+  InteractiveUtils (fixed in `2789c21`). The cache was complete, so the job was not rerun.
+
+All jobs ran on milan nodes with an AMD EPYC 7543. `timing_cycle.slurm` refuses any other
+CPU (lscpu guard). The node list excludes `gina[1-18,301-305]` and `dave[148-149]`, the
+exclusion syn3a-ensemble uses for its EPYC 7543 timings; it contains the turin nodes that
+`launcher_guard.sh` excludes (dave148, dave149, gina18).
