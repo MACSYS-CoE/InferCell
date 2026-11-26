@@ -19,9 +19,9 @@ in the repository).
 \end{itemize}
 Stage one uses the joint's chain design in both variants.
 In stage two, both variants carry \pn{kim116.K} stage-one draws forward. For each, a
-No-U-Turn chain of \pn{kim116.inner} iterations fits ENO, FBA and $\sigb$ to the bulk factor,
-with the promoters and the decay rate fixed at that draw, and keeps its last
-\pn{kim116.innerkeep}.
+No-U-Turn chain fits ENO, FBA and $\sigb$ to the bulk factor, with the promoters and the decay
+rate fixed at that draw. It adapts for \pn{kim116.inner} iterations, then keeps the next
+\pn{kim116.innerkeep} draws.
 
 \paragraph{Gates.} Stage one had to reach $\Rhat \le \pn{kim92.rhatgate}$ and a bulk
 effective sample size of at least \pn{kim92.essgate} on its coordinates, with one extension
