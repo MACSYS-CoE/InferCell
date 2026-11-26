@@ -46,22 +46,23 @@ cost is not a floor, since its stage two was never tuned for cost.
 or a likelihood from simulations, and can amortise it over datasets \cite{cranmer2020frontier};
 compositional variants combine scores learned for individual observations
 \cite{geffner2023compositional}. A learned posterior could be checked against the exact sampler
-on M0, as the mixed route was. The difference is where the error can sit. The mixed route's
-approximations are structural and declared: the transcript factor is exact, and only the pools
-take their mean field, so its error can be traced factor by factor. A learned approximation's
-error is not tied to a declared reduction, and its training costs simulations of its own.
-Whether amortisation pays on a whole-cell model we have not tested.
+on M0, as the mixed route was. The difference is where the error can sit. Each of the mixed
+route's approximations is declared: the mean-field pools, the one-way nucleotide reduction, a
+bulk factor whose $\delta$ and $S$ come from one reference ensemble, and independent factors
+for two streams that read the same cells (\cref{sec:meanfield,app:reductions}). One of them,
+the mean-field swap, was measured on M0. A learned approximation's error is not tied to a
+declared reduction. Whether amortisation pays on a whole-cell model we have not tested.
 
 Moment closure and the linear noise approximation describe a stochastic system's fluctuations
-\cite{vankampen2007stochastic,schnoerr2017approximation}. For this model's first-order gene
-expression the moment equations close exactly, so they would add nothing to the transcript
-factor. They could instead replace the deterministic mean field on the pools, with the
-transcript factor kept exact. The pools are where the predictions miss
-(\cref{sec:reducedpredict}), and we have not tested this; for models without first-order gene
-expression they are candidates too (below). Linked emulators couple computer models through a
-smooth surrogate of each \cite{kyzyurova2018coupling,ming2021linked}. They are built for
-input--output maps, not for the single-cell stochastic records that \IC{} scores with an
-exact likelihood. Bayesian multimodel inference combines the predictions of several candidate
+\cite{vankampen2007stochastic,schnoerr2017approximation}. Given the pools, the transcript
+factor already uses each gene's exact birth--death likelihood, so they would add nothing there.
+On the pools they could make the bulk factor's covariance, and with higher-order terms its
+offset, depend on $\theta$ instead of fixing them at the reference ensemble. We have not tested
+this. The linear noise approximation is also a candidate for models without first-order gene
+expression (below). Linked emulators couple computer models through a smooth surrogate of each
+\cite{kyzyurova2018coupling,ming2021linked}. They are built for input--output maps, not for the
+single-cell stochastic records that \IC{} scores with an exact birth--death factor given the
+mean-field pools. Bayesian multimodel inference combines the predictions of several candidate
 models of one system \cite{lindensantangeli2025increasing}. It addresses uncertainty across
 models, where \IC{} couples the modules of one.
 
