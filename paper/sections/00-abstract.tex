@@ -4,7 +4,7 @@ Inference is hard because metabolism runs as ordinary differential equations (OD
 expression as a stochastic jump process with latent paths. Here we present \IC{}, a compositional
 inference framework, and use it to infer a reduced whole-cell model of \syn{} across a
 coupled ODE--stochastic boundary and to turn the posterior into predictions scored against
-held-out truth, on synthetic data from one truth.
+held-out truth, on one synthetic dataset.
 An exact sampler is paired with a mixed route that integrates out the paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
 and the mixed route costs about \pn{mix.speedup} times less. On the reduced model, the mixed
 route gives one joint posterior over all 21 free parameters for about \pn{kim92.cpuh}
