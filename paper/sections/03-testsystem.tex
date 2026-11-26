@@ -1,5 +1,5 @@
 \section{The test system}
-\label{sec:results}
+\label{sec:model}
 
 We need a test system with a real ODE--stochastic boundary, data on both sides of it and a
 known truth. We use the reduced \syn{} model, cut down from a published whole-cell model, and
@@ -8,8 +8,6 @@ in this paper use synthetic data, and the priors are asserted. The truth $\theta
 set of parameter values that made a dataset. It is always a draw from the prior, never the
 published values, because a truth at the published values would agree by construction with
 priors centred on them.
-
-\label{sec:model}
 
 The reduced \syn{} model comes from the well-stirred \syn{} model of Thornburg and
 coworkers~\cite{thornburg2022fundamental}. The reduction keeps the best-measured region of the
@@ -36,7 +34,7 @@ Each departure from the published model is a declared reduction, and
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_model.pdf}
-\caption{\textbf{The boundary in the reduced model is real and two-way.} The four metabolic modules (ODE) and three gene-expression modules (jump), and what crosses between them. Arrows run between the blocks, not the boxes they touch. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. The orange arrow is the weak return. Supplementary File S1 lists each departure from the published model.}
+\caption{\textbf{The boundary in the reduced model is real and two-way.} The four metabolic modules (ODE), the pools they share, and the three gene-expression modules (jump). Each arrow runs from the source of a quantity to the module whose rates or states it changes, and the key gives each kind's clock. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. Translation also credits the sugar-transport proteins. One of them, the membrane transporter PtsG, sets the cell's area and volume, and the volume dilutes every ODE state at each handshake. The orange arrows are the weak return. Grey lines mark the three metabolic modules that write the pools. Supplementary File S1 lists each departure from the published model.}
 \label{fig:model}
 \end{figure*}
 
