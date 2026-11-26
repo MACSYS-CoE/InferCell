@@ -7,9 +7,9 @@
 
 ## Contribution
 
-InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE–stochastic boundary and turns the posterior into predictions scored against held-out truth, then shows how both degrade as the synthetic data become realistic.
+InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE–stochastic boundary and turns the posterior into predictions scored against held-out truth.
 
-⚠️ OPEN: the last clause ("then shows how both degrade…") rests on M10, which has not started. It stays in the sentence, and every place that delivers it is a red `\todo{}`. Whether paper 1 waits for M10 is parked (release-vs-M10 question).
+(The ladder clause was removed on 2026-11-25; see the amendment log.)
 
 **The question:** can a whole-cell model with a real ODE–stochastic boundary be inferred from single-cell and bulk data, and how far do its posterior predictions carry?
 
@@ -17,22 +17,20 @@ InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE�
 
 | Section | File | Job in the argument |
 |---|---|---|
-| Abstract | sections/00-abstract.tex | (via /write-abstract) contribution; the ladder clause is a red todo |
+| Abstract | sections/00-abstract.tex | (via /write-abstract) contribution |
 | 1 Introduction | sections/01-intro.tex | Whole-cell models give point predictions; mixed formalisms and latent paths block inference; InferCell carries a reduced whole-cell model from data to scored probabilistic prediction. |
 | 2 InferCell | sections/02-infercell.tex | The framework: declared priors and reductions, two descriptions across the boundary, two inference routes, predict. |
 | 3 The test system | sections/03-testsystem.tex | The reduced syn3A model, and M0 as the slice small enough for an exact check. |
 | 4 The inference engine, checked on M0 | sections/04-m0.tex | Both routes pass SBC on M0; the mixed route is about 80× cheaper; the remaining gap is stated with its leads. Short. |
 | 5 Inference on the reduced model | sections/05-inference.tex | One joint posterior over 21 parameters: the data reach all 21, the truth sits inside 20 of 21 intervals, the posterior reproduces its own data, and it costs about 492 CPU-h. The modular arm sits beside it (todo). |
 | 6 From posterior to scored prediction | sections/06-prediction.tex | The later horizon and the ptsG knockdown, scored against the true simulator against the prior predictive; Q's uncertainty budget now comes from inference, not priors. |
-| 7 As the data become realistic | sections/07-ladder.tex | Posteriors and prediction scores along the degradation ladder. Whole section red todo (M10). |
-| 8 Discussion | sections/08-discussion.tex | What carries (Q, transcripts) and what does not (pools, ΔQ); limits (one truth, synthetic data, well-specified model, the promoter shift); real data next. Conclusions resting on M10 or KIM-116 are red todos. |
+| 7 Discussion | sections/08-discussion.tex | What carries (Q, transcripts) and what does not (pools, ΔQ); limits (one truth, synthetic data, well-specified model, the promoter shift); next: real data, a degradation ladder, the full cell. Conclusions resting on KIM-116 are red todos until KIM-162. |
 | Availability | sections/09-availability.tex | as now |
 | App. Methods | sections/app_methods.tex | Reproduction: driver, observation model, exact sampler, transcript factor, mean-field route, SBC, prediction, compute; add the reduced-model design (21 coordinates, fit window, warm metric). |
 | App. M0 in detail | sections/app_m0.tex | M0's exact sampler, holding S fixed, the mean-field swap, what each stream informs, the crossed comparison, the gap leads (todo, KIM-90). |
 | App. M0 predictions | sections/app_m0predict.tex | M0's scored predictions, the KIM-42 transferred budget, trajectories and releasing a constant. |
 | App. Declared reductions | sections/app_reductions.tex | The model-form table. |
 | App. Modular arm | sections/app_modular.tex | todo (KIM-116). |
-| App. Degradation ladder | sections/app_ladder.tex | todo (M10). |
 
 ## Floats
 
@@ -47,7 +45,6 @@ InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE�
 | T1 `tab:reducedcost` | inline | numbers from KIM-92 note; M0 rows from numbers.tex | The mixed route makes a reduced-model posterior affordable at about 492 CPU-h. Rows: M0 exact, M0 mixed, reduced joint, reduced modular (todo, KIM-116). | main §5 | column |
 | F5 `fig:reducedpredict` | figures/fig_reduced_predict.pdf (new) | figures/fig_reduced_predict.py, data/kim95_score_targets.tsv | The posterior's predictions cover the truth on Q and the transcripts and miss ten of the seventeen pools by 1–1.4 SD, against a prior predictive that is far wider. | main §6 | full |
 | F6 `fig:reducedbudget` | figures/fig_reduced_budget.pdf (new) | figures/fig_reduced_budget.py, data/kim96_/kim42_budget_rows.tsv | Once every parameter is inferred, none stays prior-dominated; at the default prior width Q's parameter variance falls from 1.15e13 through KIM-42's 2.17e12 to 1.29e10 (wording: Decision log 2026-11-19, with the width and attribution qualifiers). | main §6 | column |
-| F7 `fig:ladder` | placeholder | — (M10) | todo: each step toward realistic data costs this much posterior and prediction quality. | main §7 | full |
 | appendix floats | fig_calibration, fig_graphs, fig_predict_m0, fig_crossed, fig_budget, fig_trajectories; tab:edges (main §2), tab:gain, tab:budget, tab:crossed, tab:modelform, tab:compute | existing | as now | appendices | as now |
 
 ## Claims and evidence
@@ -68,14 +65,13 @@ InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE�
 | C12 | 10 of 17 pools shifted 1–1.4 SD (trioses high, energy charge split), θ-driven | F5, kim95.* | §6 |
 | C13 | ΔQ is not resolved beyond "small next to cell noise" | kim95.dqmc | §6 |
 | C14 | Q's parameter variance falls 1.15e13 → 2.17e12 → 1.29e10; ~170× (88–321) at default width; 44–1,140 over widths ½–2; not only the promoters | F6, kim96.* | §6 |
-| C15 | Degradation ladder | todo (M10) | §7 |
 
 ## Appendices: what is relegated, and why
 
 - M0's SBC detail, the exact sampler, holding S fixed, the mean-field swap, what each data stream informs, the crossed comparison → App. M0 in detail. Why: §4 is a sanity check of the engine; the argument needs only that both routes calibrate and what they cost.
 - M0's scored predictions, KIM-42's transferred budget, trajectories and releasing a constant → App. M0 predictions. Why: the main text predicts from the reduced model's own posterior; KIM-42 enters the main text only as F6's middle state.
 - The declared-reductions table → App. Declared reductions. Why: reproduction and honesty about model form; one main-text sentence points to it.
-- Modular arm detail, ladder design → their own appendices (todo).
+- Modular arm detail → its own appendix (todo, KIM-162).
 
 ## Off-story (revise mode)
 
@@ -146,9 +142,7 @@ InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE�
 
 | What | Issue | Where in the paper |
 |---|---|---|
-| Degradation ladder: posteriors and scores per rung | M10 (KIM-97 to plan) | §7, F7, App. ladder, abstract/intro/discussion clauses |
 | Modular arm: posterior vs joint, cost, plug-in D3 scores | KIM-116 | §5 paragraph, T1 row, §6 line, App. modular |
-| M0 gap leads (double counting, bulk factor) | KIM-90 (PR #189 in review) | §4 sentence, App. M0 |
 
 ## Pangram
 
@@ -165,7 +159,7 @@ InferCell infers a reduced whole-cell model of JCVI-syn3A across a coupled ODE�
 
 ### 2026-11-25 — the ladder leaves paper 1; the framing is decided
 **Trigger:** Decision log 2026-11-25; reasoning in `framing_decision.md`.
-**Change:** the contribution sentence loses "then shows how both degrade as the synthetic data become realistic". §7, F7, C15, App. Degradation ladder and the M10 row of "Pending results" go. The ⚠️ OPEN note under Contribution is closed. The framing sentence around the contribution waits for KIM-116. The tables above are not yet edited to match.
+**Change:** the contribution sentence loses "then shows how both degrade as the synthetic data become realistic". §7, F7, C15, App. Degradation ladder and the M10 row of "Pending results" go. The ⚠️ OPEN note under Contribution is closed. The framing sentence around the contribution waits for KIM-116. The tables above were edited to match on 2026-11-26 (KIM-163), when §7, F7 and the ladder appendix were deleted; the Discussion is now §7. The M0-gap row of "Pending results" went with KIM-160 (PR #192).
 **Agreed by:** Tom, 2026-11-25.
 
 ### 2026-11-23 — §4's "gap is diagnosed"
