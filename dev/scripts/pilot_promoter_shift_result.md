@@ -25,12 +25,13 @@ SE with the posterior's correlations 0.264 -> mean/SE -3.06
 
 - **The shift is not an artefact of correlated errors.** Allowing for the posterior's
   correlations moves the promoters' mean standardised error from 3.33 to 3.06 SE from zero.
-- **The likelihood's own noise does not explain the shift.** The posterior barely
+- **The likelihood's own noise is unlikely to explain the shift.** The posterior barely
   correlates the promoters (mean pairwise 0.012, largest 0.177), so noise that the
   likelihood represents would scatter the promoters independently; the 3.06 SE already
-  allows for it. A shared component that the likelihood does not represent (a fluctuation
-  of this dataset in the pools every gene's transcription reads, or a mean-field bias)
-  would leave these correlations unchanged. One dataset cannot separate those two.
+  allows for it. A shared component that the likelihood does not represent (a feature of
+  this data realisation, such as cell-to-cell variation the population-mean factors leave
+  out, or a bias in the likelihood, such as the mean-field approximation's) would leave
+  these correlations unchanged. One dataset cannot separate the two kinds.
   (Corrected in the PR #194 review; the first version read the 0.012 as evidence against
   shared noise of any kind.)
 - **The size of the shift is small.** On the rate scale the promoters sit about 2% low on

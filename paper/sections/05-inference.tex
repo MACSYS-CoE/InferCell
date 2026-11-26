@@ -55,11 +55,13 @@ value $\theta_{\mathrm{ref}}$, the maximum a posteriori (MAP) estimate with $\de
 (\cref{sec:reduceddesign}), and it has a shift of the same size, with a mean standardised error
 of \pn{kim92.mapz}. So the shift is in the likelihood on this dataset, with or without
 $\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
-\pn{kim92.promcorr} on average, so noise that the likelihood represents cannot produce a
-common shift this large; the standard error above already allows for it. A shared component
-that the likelihood does not represent would not show in these correlations. Two candidates
-fit: a fluctuation of this dataset in the pools that every gene's transcription reads, and
-a bias from the mean-field approximation. One dataset cannot separate them. We read the
+\pn{kim92.promcorr} on average, so noise that the likelihood represents is unlikely to
+produce a common shift this large; the standard error above already allows for it. A shared
+component that the likelihood does not represent would not show in these correlations. It
+could be a feature of this data realisation, such as cell-to-cell variation that the
+population-mean factors leave out, or a bias in the likelihood, such as the mean-field
+approximation's. One dataset cannot separate a cause in the likelihood from this data
+realisation. We read the
 scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
@@ -78,10 +80,11 @@ curvature of the fitted log density at $\theta_{\mathrm{ref}}$, is
 \pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. So on this dataset a Laplace
 approximation gives the right widths. We know that only because NUTS ran: the comparison
 needs the sampled posterior, and on a dataset whose posterior is far from Gaussian a Laplace
-fit alone would give no warning. It would not give the right centre for ENO and FBA. Their
-posterior means lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from
+fit alone would give no warning. Centred at $\theta_{\mathrm{ref}}$, it would not give the
+right centre for ENO and FBA. Their posterior means lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from
 $\theta_{\mathrm{ref}}$, which maximises the density with $\delta = S = 0$, not the fitted one.
-Both are learned from the bulk, where $\delta$ acts, so they need not sit at the same place.
+Both are learned from the bulk, where $\delta$ acts, so their posterior means need not sit
+at $\theta_{\mathrm{ref}}$.
 Their marginals are also nearly symmetric, with skewness \pn{kim92.skeweno} and
 \pn{kim92.skewfba}.
 
