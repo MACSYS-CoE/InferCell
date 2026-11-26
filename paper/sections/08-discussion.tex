@@ -42,6 +42,30 @@ stage comes on top. The data plug-in costs \pn{kim116.plugt1} times the joint ru
 it shifts the promoters away from the joint posterior and predicts $Q$ worse. The plug-in's
 cost is not a floor, since its stage two was never tuned for cost.
 
+\paragraph{Other routes to a posterior.} Neural simulation-based inference learns a posterior
+or a likelihood from simulations, and can amortise it over datasets \cite{cranmer2020frontier};
+compositional variants combine scores learned for individual observations
+\cite{geffner2023compositional}. A learned posterior could be checked against the exact sampler
+on M0, as the mixed route was. The difference is where the error can sit. Each of the mixed
+route's approximations is written down: the mean-field swap and the one-way nucleotide
+reduction (\cref{app:reductions}), and a bulk factor whose $\delta$ and $S$ come from one
+reference ensemble and which treats the two streams as independent (\cref{sec:meanfield}). On M0
+the swap was measured and the fixed reference was probed (\cref{app:sfixed,app:gap}). A learned
+approximation's error is not tied to any such named step. Whether amortisation pays on a whole-cell model we have not tested.
+
+Moment closure and the linear noise approximation describe a stochastic system's fluctuations
+\cite{vankampen2007stochastic,schnoerr2017approximation}. Given the pools, the transcript
+factor already uses each gene's exact birth--death likelihood, so they would add nothing there.
+Applied to gene expression and carried into the pools, they could make the bulk factor's
+covariance, and with higher-order terms its offset, depend on $\theta$ instead of fixing them at the reference ensemble. We have not tested
+this. The linear noise approximation is also a candidate for models without first-order gene
+expression (below). Linked emulators couple computer models through a smooth surrogate of each
+\cite{kyzyurova2018coupling,ming2021linked}. They are built for input--output maps, not for the
+single-cell stochastic records that \IC{} scores with an exact birth--death factor given the
+mean-field pools. Bayesian multimodel inference combines the predictions of several candidate
+models of one system \cite{lindensantangeli2025increasing}. It addresses uncertainty across
+models, where \IC{} couples the modules of one.
+
 \paragraph{What is specific to this model.} Both cell-data routes rest on a property of the
 published model: its gene expression is first order. Each transcript is degraded on its own,
 and its synthesis rate depends on the pools, not on any transcript count. So, given the

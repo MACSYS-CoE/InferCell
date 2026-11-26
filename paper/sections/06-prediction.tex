@@ -17,7 +17,7 @@ quantity under the knockdown; and their difference $\Delta Q = Q_{\mathrm{kd}} -
 17 transcripts at each of the \pn{kim95.nsaves} saves of the later horizon. Each arm has \pn{kim95.ndraws} parameter draws, with \pn{kim95.cells} cells per
 posterior draw and \pn{kim95.priorcells} per prior draw. The truth has \pn{kim95.ntruth} cells
 for each knockdown arm. We fixed these sizes before any truth was read. We score each target by the continuous ranked probability score (CRPS) of its predictive
-distribution against the truth. The CRPS skill is
+distribution against the truth \cite{gneiting2007strictly}. The CRPS skill is
 $1 - \mathrm{CRPS}_{\mathrm{post}}/\mathrm{CRPS}_{\mathrm{prior}}$, so 0 means no better than
 the prior. The hit fraction is the share of saves whose true value lies inside the central
 50\% or 90\% interval. The MC share is the part of the spread across draws that is cell noise.
