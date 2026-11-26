@@ -39,22 +39,24 @@ As designed, neither modular variant is a cheap and faithful substitute for the 
 posterior here (\cref{sec:reduced,app:modular}). The factor cut lands close to it but costs
 \pn{kim116.cutt1} times the joint run: its first stage still solves the ODE, and its second
 stage comes on top. On this
-dataset the bulk data add little to the promoters: the transcripts alone give nearly the
-joint's promoter posterior. The data plug-in costs \pn{kim116.plugt1} times the joint run, but
+dataset the bulk data add little to the promoters. The data plug-in costs \pn{kim116.plugt1} times the joint run, but
 it shifts the promoters away from the joint posterior and predicts $Q$ worse. The plug-in's
 cost is not a floor, since its stage two was never tuned for cost.
 
-\paragraph{What is specific to this model.} Two parts of the mixed route rest on a property of
-the published model: its gene expression is first order. Each transcript is degraded on its
-own, and its synthesis rate depends on the pools, not on other transcripts. So, given the
-pools, each gene's record is a birth--death chain whose likelihood the transcript factor
-computes exactly (\cref{sec:txfactor}), and the mean-field description of gene expression is
-closed. The typed edges between modules and the choice of route by \texttt{inference\_route}
-do not rest on this property. A model with second-order steps, such as dimerisation or
-feedback of a transcript on its own synthesis, would need another transcript factor. The
-finite state projection, the linear noise approximation and surrogate likelihoods are
-candidates, and none is implemented. First order is a property of the published model, not
-of the organism.
+\paragraph{What is specific to this model.} Both cell-data routes rest on a property of the
+published model: its gene expression is first order. Each transcript is degraded on its own,
+and its synthesis rate depends on the pools, not on any transcript count. So, given the
+pools, each gene's record is a birth--death chain. The exact route updates the paths with
+exact birth--death bridges (\cref{sec:sampler}), and the mixed route computes the chain's
+likelihood exactly in its transcript factor (\cref{sec:txfactor}); the mean-field
+description of gene expression is closed. The route dispatch is narrower still:
+\texttt{inference\_route} accepts the cell-data routes only for this model's gene-expression
+modules (\cref{sec:api}). The typed edges between modules do not rest on any of this. A
+model with feedback of transcripts on their own synthesis, or with second-order steps such as
+dimerisation, would need another transcript factor and another path update. The finite
+state projection, the linear noise approximation and surrogate likelihoods are candidates,
+and none is implemented. First order is a property of the published model, not of the
+organism.
 
 \paragraph{Limits.} Each of these limits names something we did not test.
 \begin{itemize}
@@ -68,13 +70,16 @@ of the organism.
   predictive check and the scores against the true simulator test the mixed route.
   \item \emph{Generous data.} Every cell gives exact transcript counts of every gene each
   minute, beside a bulk panel of \pn{mzero.npanel} pools. The results are a best case for what
-  such data can reach. Real assays are noisier and sparser, and single-cell RNA counts are
-  usually snapshots of different cells, not time series.
+  such data can reach. Both routes need this design, not only gain from it: their transcript
+  likelihoods follow one cell's counts from save to save. Single-cell RNA counts are usually
+  snapshots of different cells, which neither route can use, and from snapshots the decay
+  rate and the promoter strengths would likely not be separable (\cref{sec:info}). The
+  observation models real assays need are a separate limit, below.
   \item \emph{Two metabolic constants.} Of the metabolic constants, only ENO and FBA are free.
-  The others stay at their defaults, so neither the posterior nor the scores cover their
-  uncertainty.
-  \item \emph{First-order gene expression.} The transcript factor and the mean-field route
-  need it, as above. We have not run the framework on a model without it.
+  Every constant outside $\theta$, metabolic or not, stays at its default, so neither the
+  posterior nor the scores cover its uncertainty.
+  \item \emph{First-order gene expression.} Both cell-data routes need it, as above. We have not
+  run the framework on a model without it.
   \item \emph{Synthetic data from the same model.} The model is well specified by construction.
   The \pn{kim96.sdpost}\% spread in $Q$ is precision under a correct model. The pools show
   that this precision is not a calibrated uncertainty on every output. Real assays need
