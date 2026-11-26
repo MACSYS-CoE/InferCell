@@ -28,15 +28,16 @@ them. This version keeps two terms for closure apart throughout (see Terms).
   reduced model have none. 361 have constant rule nodes.
 - None of the 363 closes syntactically: `MeanField` rejects every one. Not all of them
   fail to close exactly.
-  - 177 DnaA reactions are site × site within one origin's cascade. Each origin's
-    cascade holds a single 0/1 token, so every such product equals one of its factors.
-    They close exactly.
-  - 1 (reaction 1720) can never fire.
-  - The 2 initiations close exactly in the first round only.
-  - The rest do not close exactly: 99 DnaA bindings to a 0/1 site, 2 DnaA bindings to
-    a multi-copy site, 62 charging and 20 cost payment. That is 183, plus the
-    initiations from the second round on. For the 82 charging and payment reactions
-    this was not enumerated.
+  - 177 DnaA reactions are site × site within one origin's cascade. One pass of an
+    origin's cascade holds a single 0/1 token, so every such product equals one of its
+    factors on the reachable states. They close exactly, for one pass per origin.
+  - 102 DnaA reactions are DnaA × a site: 99 to a 0/1 site and 3 off-oriC (2 to a
+    multi-copy site, and reaction 1720, which can never fire).
+  - The 2 initiations close only approximately in the first round, and not from the
+    second round on.
+  - The rest do not close exactly: 101 live DnaA × site bindings, 62 charging and 20
+    cost payment, 183 in all. For the 82 charging and payment reactions this was not
+    enumerated.
 - The 493 replication reactions are 2 of those initiations and 491 first-order fork
   steps. The steps' form closes; their constants are rebuilt from the dNTP pools and a
   rounded, capped volume.
@@ -243,22 +244,35 @@ state.
 - Each origin's 33 DnaA bindings are to a site that is 0 or 1 in every reachable state:
   3 × 33 = 99. Their propensity is k·D·s with D fluctuating, so they do not close
   exactly.
-- For the daughter origins this holds on the condition that reaction 2364 fires once,
-  so that each daughter oriC is made once.
+- **Scope.** This holds for one pass of each origin's cascade, as in the first round.
+  For the daughter origins it holds while reaction 2364 has fired once, so that each
+  daughter oriC is made once. If 2364 fires again, a daughter origin's site counts can
+  exceed 1. The site × site products then become bilinear and stop closing exactly. The
+  refuter's SSA checks in the review (`refuteF3/sitesite2.py`, `sitesite3.py`) sampled
+  the same per-pass result.
 
 | DnaA reactions (279) | n | Closes syntactically? | Closes exactly? |
 |---|---:|---|---|
-| site × site within an origin's cascade (filament step-back 87, unbinding 90) | 177 | no | **yes**, by the 0/1 token |
-| DnaA × a 0/1 site (oriC 3, low-affinity 6, ssDNA 90) | 99 | no | no |
-| DnaA × a multi-copy off-oriC site (1594 at 16 copies; 1657 at 16 after reaction 2364) | 2 | no | no |
-| DnaA × `High_Affinity_Site3` (1720) | 1 | no | trivially: it never fires |
+| site × site within an origin's cascade (tip leaves 87, unbindings 90 at k = 600) | 177 | no | **yes**, by the 0/1 token, for one pass per origin |
+| DnaA × a site, of which: | 102 | no | |
+| · a 0/1 site (oriC 3, low-affinity 6, ssDNA extensions 87, last ssDNA site 3) | 99 | no | no |
+| · a multi-copy off-oriC site (1594 at 16 copies; 1657 at 16 after reaction 2364) | 2 | no | no |
+| · `High_Affinity_Site3` (1720) | 1 | no | trivially: it never fires |
 
 For the other 84 second-order reactions:
-- **The 2 initiations** (`Initiator × chromosome`) close exactly in the first round. The
-  script enumerates a hand-written abstraction of the tables: one origin makes one
-  `Initiator_C` (reaction 1656), and one `chromosome_C` is consumed (reaction 1873). It
-  has 3 reachable states, (O, I, C) = (1, 0, 1), (0, 1, 1), (0, 0, 0), and I·C = I in
-  each. From the second round on they do not close exactly. After reaction 2364,
+- **The 2 initiations** (`Initiator × chromosome`) close only approximately in the first
+  round. The script enumerates a hand-written abstraction of the tables: one origin makes
+  one `Initiator_C` (reaction 1656), and one `chromosome_C` is consumed (reaction 1873).
+  It has 3 reachable states, (O, I, C) = (1, 0, 1), (0, 1, 1), (0, 0, 0), and I·C = I in
+  each. The abstraction leaves out one ordering, though.
+  - Reaction 2364 adds 2 to `chromosome_C` and to `chromosome_CC`.
+  - For fork CC it is ordered: 2364 is a step of fork CC, so 2098 has already fired.
+  - For fork C nothing orders 2364 against 1873. If `Initiator_C` is still unconsumed
+    when 2364 fires, then C = 3 while I = 1, and I·C ≠ I.
+  - So `Initiator_CC × chromosome_CC` closes exactly in the first round, and
+    `Initiator_C × chromosome_C` only if 1873 fires before 2364.
+
+  From the second round on, neither closes exactly. After reaction 2364,
   `chromosome_C` is 2 and two daughter origins each make an `Initiator_C`. That
   abstraction has 8 states, and the script finds I·C is not affine over them.
 - **The 62 charging and 20 cost-payment reactions** have multi-copy reactants on both
@@ -267,8 +281,9 @@ For the other 84 second-order reactions:
   the product. They were not enumerated, and they are counted here as not closing
   exactly.
 
-In total, 177 close exactly and 1 never fires. The 2 initiations close exactly in the
-first round only. 183 do not close exactly: 99 + 2 + 62 + 20.
+In total, 177 close exactly for one pass per origin, and 1 never fires. The 2
+initiations close exactly or nearly in the first round, and not after it. 183 do not
+close exactly: 99 + 2 + 62 + 20.
 
 M0 and the reduced model have no second-order reaction. The reduced model lumps tRNA
 charging into one deterministic ODE reaction
@@ -437,9 +452,10 @@ All 493 rate rules depend on the counts. Each reads the four dNTP pools, floored
   given: it is rebuilt from the dNTP pools and the rounded volume, so the route
   evaluates it at the means (section 2).
 - **The 2 initiations:** they do not close syntactically. In the first round, both
-  reactants are 0 or 1 and I·C = I in every reachable state, so they close exactly
-  (section 1). From the second round on, `chromosome_*` is 2 and there are two
-  initiator sources, so they do not.
+  reactants are 0 or 1, and I·C = I in the abstraction's reachable states, so they close
+  exactly or nearly (section 1 gives the one ordering that breaks it for fork C). From
+  the second round on, `chromosome_*` is 2 and there are two initiator sources, so they
+  do not.
 - **What the means describe.** In the first round, a cell's fork is at one site. Its
   mean is an occupation probability spread over 225 or 268 sites. Each gene's copy
   number steps from 1 to 2 at a random time, and again after a daughter-origin
@@ -513,10 +529,10 @@ order, and names the shortest route.
 
 | # | Kind | In the full cell | Syntactic? | Exact? | Factor? | Hops (tx / bulk / dt) and route | In M0 / reduced | Smallest model containing it |
 |---|---|---|---|---|---|---|---|---|
-| 1a | Second order: DnaA × a 0/1 site | 99 bindings | no | no | through G (row 5) | 3 / 3 / 5: → `Initiator_*` → initiation → gene or `ATP_DNArep` | no / no | **the M13 model below** (R2) |
+| 1a | Second order: DnaA × a 0/1 site | 99 of the 102 DnaA × site bindings | no | no | through G (row 5) | 3 / 3 / 5: → `Initiator_*` → initiation → gene or `ATP_DNArep` | no / no | **the M13 model below** (R2) |
 | 1b | Second order: DnaA × a multi-copy site | 2 bindings (1594, 1657); 1720 never fires | no | no | through `M_DnaA_c` | 4 / 4 / 6 | no / no | the M13 model with a second, multi-copy site species that also binds `D` |
-| 1c | Second order: site × site in one origin's cascade | 177 | no | **yes**, by the 0/1 token | through `M_DnaA_c` | 4 / 4 / 6 | no / no | none needed: re-encoded as first order in the origin's state, it has no gap |
-| 2 | Second order: 0/1 × 0/1, `Initiator × chromosome` | 2 initiations | no | first round yes; second round no | through G | 2 / 2 / 4: → gene → transcription; → `*_DNArep` → ODE pools | no / no | see below the table |
+| 1c | Second order: site × site in one origin's cascade | 177 | no | **yes**, by the 0/1 token, for one pass per origin; bilinear if 2364 fires again | through `M_DnaA_c` | 4 / 4 / 6 | no / no | none needed: re-encoded as first order in the origin's state, it has no gap |
+| 2 | Second order: 0/1 × 0/1, `Initiator × chromosome` | 2 initiations | no | first round nearly (exactly for fork CC); second round no | through G | 2 / 2 / 4: → gene → transcription; → `*_DNArep` → ODE pools | no / no | see below the table |
 | 3 | Second order: enzyme state × metabolite or tRNA | 62 tRNA charging | no | no (not enumerated) | no | 2 / 1 / 4: consumes ATP and amino acids | no / no: charging is one lumped ODE reaction | M0 with its lumped charging reaction replaced by one synthetase chain as jump reactions (3 second-order bindings, 1 release) |
 | 4 | Second order: residue counter × charged tRNA | 20 cost payments | no | no (not enumerated) | no | 3 / 1 / 4: one consumes `M_mettrna_c` | no / no: deferred counters | M0 with one residue counter made a species, paid by one second-order reaction |
 | 5 | Gene copy number, a state multiplying transcription | 493 genes, 486 transcription reactions | yes | yes | **yes** | 1 / 2 / 4, from the gene species | no / no: genes fixed | **the M13 model below** (`G_0779`, `G_0607`) |
@@ -529,13 +545,14 @@ order, and names the shortest route.
 | 12 | Doubling time as a threshold crossing of `CellSA` | `t_SA2` | an observable, not a reaction | — | — | it is the observable | no (600 s) / growth, no cycle end | the full cell, or a reduced-model cycle |
 
 **Row 2's smallest model.** Splitting R2 into `D + O → I` and then `I + C → F₁` adds two
-species, `I` and `C`, and one reaction. It does not give a 0/1 × 0/1 non-closure. With
-O = 1, I = 0 and C = 1 at the start, the model reaches three states, and I·C = I in all
-of them (the script's "first round" line). The full cell's first-round initiations
-collapse the same way, so the first-round model is degenerate.
+species, `I` and `C`, and one reaction. That model contains the reaction only
+syntactically. With O = 1, I = 0 and C₀ = 1 at the start, it reaches three states, and
+I·C = C₀·I in all of them (the script's "first round" line). So I·C is affine on the
+reachable states, and the model is degenerate by the same standard as R2 without R1.
+The full cell's first-round initiations collapse the same way.
 
-The smallest non-degenerate model needs `C` at 2 and two sources of `I`, as after
-reaction 2364:
+A non-degenerate model needs two chromosome copies and two initiator sources, as after
+reaction 2364 or in a second round. The smallest is named here and not built:
 - species `O_a`, `O_b`, `I` and `C`, with C = 2 at the start;
 - reactions `D + O_a → I`, `D + O_b → I` and `I + C → F`.
 
@@ -583,13 +600,21 @@ Everything else in M0 is unchanged: decay, translation, the ODE block, the hands
 the data and M0's five targets (`M0_TARGETS`). k_D, k_b, k_f1 and k_f2 are fixed at
 declared values. Making k_b a sixth target is the first extension.
 
-**Why R1 is needed.** Without a source of `D`, `D` is `D₀ − (1 − O)`, a function of
-`O`. Since O² = O, `D · O = D₀ · O` in every state. So E[D·O] is affine in E[O], and the
-mean equations close exactly. The check would then test nothing. E[D·O] − E[D]·E[O] is
-Var(O), which is not zero, but that does not matter: the mean equation needs E[D·O],
-and that is D₀·E[O]. With R1, `D` fluctuates apart from `O`. Then E[D·O] needs a second
-moment, and R2 does not close exactly. The script enumerates both cases: without R1
-(D₀ = 3) D·O is affine over the reachable states; with three R1 births it is not.
+**Why R1 is needed.**
+- **Without R1.** `D` is `D₀ − 1 + O`, a function of `O`. Since O² = O, `D · O = D₀ · O`
+  on the reachable states. So E[D·O] = D₀·E[O] is affine in E[O], and the mean
+  equations close. The check would then test nothing.
+  - The naive product of means still misses by E[D·O] − E[D]·E[O] = Var(O). A route
+    that uses the conservation law removes that gap.
+  - `MeanField`'s generic-point probe would still throw on R2 as written
+    (`src/mean_field.jl:138-145`), because it tests affinity at two fixed points, not
+    on the reachable states.
+- **With R1.** Let N be the number of R1 births. Then
+  E[D·O] = (D₀ + E[N])·E[O] + Cov(N, O), and the moment hierarchy does not close.
+- **The script checks both** by enumerating the reachable states: without R1
+  (D₀ = 3), D·O is affine over them; with three R1 births, it is not.
+- **The refuter's `refuteF3/gap.py`** solves the toy's moments exactly. Cov(N, O) is
+  non-zero for t > 0, so the M13 model's mean-field error is genuinely non-zero.
 
 **Lumping the DnaA walk changes the kind of dependence on `D`.** R2 replaces the
 origin's ssDNA walk with one irreversible step whose hazard is linear in `D`.
@@ -634,11 +659,28 @@ not from running it.
 Rows 7 and 11 are already in M0. Row 1c needs no model, since it closes exactly. Of
 the 363 second-order reactions, R2 stands for the 99 DnaA bindings to a 0/1 site, and
 loosely for the 2 live bindings to a multi-copy site. It does not stand for:
-- the 177 cascade reactions that close exactly;
+- the 177 cascade reactions that close exactly for one pass per origin;
 - the initiations, whose 0/1 × 0/1 non-closure appears only from the second round
   (row 2);
 - tRNA charging (62) or cost payment (20). These sit on the translation path and are
   second order in an enzyme state or a counter, not in a 0/1 site.
+
+## Open questions (not decisions)
+
+- **For KIM-188.** Is M13's gap measured against a naive treatment of R2 (the product of
+  means) or a conservation-aware one? The answer changes what the check measures.
+  - The refuter's `refuteF3/gap.py` uses D₀ = 148, k_D = 0.05/s and k_b = 2 × 10⁻⁵/s.
+    These rates are the refuter's; this note declares none.
+  - At those rates, the R1 term Cov(N, O) is about 0.1% of E[D·O] at 600 s
+    (−0.025 against 25.2).
+  - That is smaller than the Var(O) term the naive route adds: E[O](1 − E[O]) runs from
+    0.12 to 0.25 between 100 s and 600 s.
+  - So at full-cell copy numbers, a naive route's error would be mostly the gap that
+    conservation removes, not the one R1 adds.
+- **For KIM-187.** A route that uses the conservation laws could treat about 179 of the
+  363 second-order reactions as affine. They are the 177 site × site reactions, for one
+  pass per origin, and the 2 first-round initiations, nearly. That leaves 183 that need
+  a moment treatment, plus the initiations after the first round.
 
 ## Checked by hand
 
@@ -653,5 +695,6 @@ The script does not print these. Each was checked against its source.
 | The reduced cell grows to about 1.07× | `src/handshake.jl:1721` |
 | SpeedyCell.jl's `inventory.md` differs in wording only | `diff` of the two files |
 | The DnaA walk's first-passage times and elasticities | the PR #204 review, not recomputed |
+| The R2 toy's moments, Cov(N, O) and Var(O) at the refuter's rates | the review's `refuteF3/gap.py` (`/fred/oz022/tkimpson/infercell-pr-reviews/pr204-2026-11-26/`), run once on the login node; not copied into this repo |
 | Every `src/…:line` citation | reading the file at `e877f29` |
 
