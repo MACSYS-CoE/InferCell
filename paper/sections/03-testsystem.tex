@@ -34,7 +34,7 @@ Each departure from the published model is a declared reduction, and
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_model.pdf}
-\caption{\textbf{The boundary in the reduced model is real and two-way.} The four metabolic modules (ODE), the pools they share, and the three gene-expression modules (jump). Each arrow runs from the source of a quantity to the module whose rates or states it changes, and the key gives each kind's clock. Blue arrows run from gene expression to metabolism, and the drains have a gain of order one. Translation also credits the sugar-transport proteins. One of them, the membrane transporter PtsG, sets the cell's area and volume, and the volume dilutes every ODE state at each handshake. The orange arrows are the weak return. Grey lines mark the three metabolic modules that write the pools. Supplementary File S1 lists each departure from the published model.}
+\caption{\textbf{The boundary in the reduced model is real and two-way.} The four metabolic modules (ODE), the pools they share, and the three gene-expression modules (jump). Each arrow runs from the source of a quantity to the module whose rates or states it changes, and the key gives each kind's clock. Blue arrows run from gene expression to metabolism. The drains are the nucleotide and charged-tRNA costs of transcription and translation, debited from the pools, and their gain is of order one. Translation also credits the sugar-transport proteins. One of them, the membrane transporter PtsG, sets the cell's area and volume, and the volume dilutes every ODE state at each handshake; the figure does not draw this volume edge. The orange arrows are the weak return, with elasticities of \pn{gain.txlo}--\pn{gain.txhi} for transcription and \pn{gain.tl} for translation. Grey lines mark the three metabolic modules that write the pools. The figure draws four of the \pn{fw.edgekinds} edge kinds of \cref{tab:edges}. Supplementary File S1 lists each departure from the published model.}
 \label{fig:model}
 \end{figure*}
 
@@ -62,12 +62,16 @@ gene in every cell. They also record one bulk measurement for each of \pn{mzero.
 metabolite pools, the mean over cells (\cref{sec:obs}). The fit sees only the first half of the
 cycle: \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, which give \pn{kim92.nrows} bulk
 rows. The second half is the later horizon, on which \cref{sec:reducedpredict} scores the
-predictions, and the data never see it. These observations are generous: exact counts, in
-every cell, every minute.
+predictions, and the fit never sees it. These observations are generous: exact counts, in
+every cell, every minute. The truth also sits in a regime that M0 never reaches: GTP is
+clipped at zero in \pn{kim95.clip}\% of the true simulator's baseline cells, while the
+small elasticities behind the one-way reading hold only while GTP stays well above $K_d$
+(\cref{sec:modelform}). M0's calibration therefore does not cover this regime.
 
 \paragraph{M0, the slice for an exact check.} We project that an exact posterior on the
 reduced model would cost about \pn{cost.fullscale} CPU-hours (\cref{tab:cost}). That is above our bound of
-\pn{cost.kone} CPU-hours per posterior. To check the mixed route against the
+\pn{cost.kone} CPU-hours per posterior, which we set ourselves. The projection
+assumes M0's mixing rate, and mixing at full scale is unmeasured. To check the mixed route against the
 exact sampler, we therefore use M0, the reduced model cut to \pn{mzero.ngenes} genes over
 \pn{mzero.horizon}\,s. The two genes are GAPD, whose promoter is the best determined, and
 ptsG, the membrane transporter. All metabolism stays. The other enzyme counts are held at

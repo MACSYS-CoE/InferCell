@@ -62,8 +62,8 @@ Currency & flux through a shared pool (ATP, GTP) & ODE solve \\
 Catalytic & a protein count into a rate law & 1\,s \\
 Deferred cost & jump-side cost, debited one step later & 1\,s \\
 Rate constant & pools into stochastic rate constants & 60\,s \\
-Volume & membrane proteins into cell geometry, and back & each step \\
-Clamped & a dependence replaced by a constant & declared only \\
+Volume & membrane proteins into cell geometry, and back & 1\,s \\
+Clamped & a dependence replaced by a constant & none \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -83,8 +83,9 @@ a reduction label, has a category and a reason. There are
 prior. The framework collects labels from three places: the edges,
 the parameter records and the modules. One call returns the full list for a
 composed model. The appendix gives the list for the reduced model and M0
-(\cref{sec:modelform}). We measure the effect of only one entry, the mean-field swap of
-\cref{sec:twodesc}.
+(\cref{sec:modelform}). We measure the effect of only one reduction, the mean-field swap of
+\cref{sec:twodesc}. The swap's departures are declared by the mean-field description
+itself, not in the composed model's list.
 
 \subsection{One interface, two descriptions}
 \label{sec:twodesc}
@@ -103,7 +104,8 @@ and replay it bit for bit at every handshake, which the exact sampler
 
 \paragraph{The mean-field swap.} The gene-expression network of the model is first
 order. So, given the rate constants, the equations for the means of the transcript and protein
-counts close exactly, as linear ODEs. \IC{} derives these equations from the same propensities
+counts close exactly, as linear ODEs. The rate constants themselves are rebuilt from the
+pools, so the swap is exact only given them (\cref{sec:meanfield}). \IC{} derives these equations from the same propensities
 and update rules that the jump modules use, so the two descriptions cannot drift
 apart. With the swap, the composed model becomes one ODE problem, with callbacks for the
 one-minute rebuild. Forward-mode automatic differentiation
@@ -143,8 +145,9 @@ as in our model, the messages alternate and do not close in one pass. A
 \emph{statistical cut} drops $\lambda_B$ \cite{plummer2015cuts}. The cut changes the
 target of inference, and data from $B$ can no longer inform $A$. A \emph{dynamical
 reduction} instead removes a weak edge from the simulator and keeps full Bayesian
-inference. Only the dynamical reduction keeps the information that cross-module inference
-needs, which here is metabolite data that inform a gene-expression parameter.
+inference. A full cut drops the information that cross-module inference needs, which here
+is metabolite data that inform a gene-expression parameter. The dynamical reduction keeps
+it, and semi-modular inference \cite{carmona2020semimodular} keeps part of it.
 
 The standard modular methods pass messages through shared parameters. They include cuts and
 semi-modular inference \cite{plummer2015cuts,carmona2020semimodular}, and Markov
@@ -153,7 +156,7 @@ While we condition on the stochastic path, these methods therefore have nothing 
 exact sampler does what is left: it conditions on the path, and it updates the path
 with all the data. In this sense the exact sampler is modular inference with nothing
 dropped. When the paths are integrated out, a gene-expression parameter appears in
-both the transcript factor and the metabolite factor. The mixed route uses this
+both the transcript factor and the bulk factor. The mixed route uses this
 structure. The modular arm of \cref{sec:reduced} tests, against the joint posterior,
 two-stage fits that cut part of this structure.
 
@@ -172,9 +175,12 @@ many cells, with lognormal assay noise of scale $\sigb$, which is itself a free 
   one-dimensional conditionals (\cref{sec:sampler}).
   \item \textbf{The mixed route.} The paths are integrated out. The transcripts keep a
   birth--death likelihood given the mean-field pools. The bulk metabolites get a Gaussian
-  likelihood centred on the mean-field model, in the spirit of a synthetic likelihood
-  \cite{wood2010statistical,price2018bayesian}. The route samples with the No-U-Turn
-  Sampler \cite{hoffman2014nouturn}, using the gradients of the mean-field swap. It is an
+  likelihood centred on the mean-field model, with an offset and a covariance taken once
+  from an ensemble of the exact hybrid at a reference value and then held fixed
+  (\cref{eq:mixed}). Unlike a synthetic likelihood \cite{wood2010statistical,price2018bayesian},
+  it does not re-estimate them at each parameter value. The route samples with the
+  No-U-Turn Sampler (NUTS) \cite{hoffman2014nouturn}, using the gradients of the mean-field
+  swap. It is an
   approximation. \Cref{sec:posteriors} checks
   it against the exact sampler on M0, and \cref{sec:reduced} uses it alone on the reduced
   model.
@@ -212,8 +218,15 @@ then a cut in the sense of Plummer
   &\quad \times p(\theta_H \mid \theta_I, V),
   \end{aligned}
 \end{equation}
-and the cut is not a joint posterior under the second model. The data do not update
-$\theta_H$, and $\theta_H$ does not feed back into $\theta_I$. On the reduced model the fit
+and the cut is not a joint posterior under the second model, the forward model $M_{\mathrm{pred}}$.
+Here $p(\theta_H \mid \theta_I, V) \propto p(\theta_H)\, P(V \mid \theta_I, \theta_H)$, where
+$P(V \mid \theta_I, \theta_H)$ is the probability that a parameter pair passes the viability
+rule, which is itself a test on a few simulated cells (\cref{sec:prediction}). It is undefined
+for a $\theta_I$ with no viable $\theta_H$. The second module has no data, only $V$, so this is
+a cut of a degenerate kind. The predictive is then
+$p(Q \mid D) = \int p(Q \mid \theta_I, \theta_H)\, p_{\mathrm{cut}}(\theta_I, \theta_H \mid D, V)\,
+\mathrm{d}\theta_I\, \mathrm{d}\theta_H$, with $p(Q \mid \theta_I, \theta_H)$ from the exact hybrid.
+The data do not update $\theta_H$, and $\theta_H$ does not feed back into $\theta_I$. On the reduced model the fit
 includes every free parameter. So $\theta_H$ is empty, and \texttt{predict} returns the posterior
 predictive. The cut acts in \cref{app:m0predict}, where M0's posterior is carried to the reduced
 model. There, a variance split says how much of the prediction's parameter uncertainty belongs
@@ -228,7 +241,7 @@ ch = infer(ms, ds; route = :mixed,
   n_adapt = 50, n_draws = 50)
 pd = posterior_draws(ch)
 k = predict(ms, pd; horizon = 180, n_cells = 4,
-  intervention = Knockdown(; dose = 0.25))
+  intervention = Knockdown(; dose = 0.3))
 k.effect_summary
 \end{verbatim}
 }

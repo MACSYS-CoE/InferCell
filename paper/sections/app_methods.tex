@@ -33,9 +33,11 @@ Each synthetic dataset has $C$ cells (\pn{mzero.cells} on M0 and \pn{kim92.ncell
 \begin{itemize}
   \item \textbf{Transcripts:} the exact count of each gene's transcripts in each cell
   at each save.
-  \item \textbf{Bulk metabolites:} one measurement per pool per save of the mean over
-  the $C$ cells, $\bar{x}$, with lognormal noise: $\log z \sim
-  \mathcal{N}(\log \bar{x}, \sigb^2)$. The assay noise $\sigb$ is a free parameter.
+  \item \textbf{Bulk metabolites:} one measurement per pool per save of $\bar{x}_C$, the
+  mean over the $C$ cells of the pool's particle count at each cell's live volume, floored
+  at one molecule, with lognormal noise: $\log z \sim
+  \mathcal{N}(\log \max(\bar{x}_C, 1), \sigb^2)$. The driver keeps pools in mM, and the
+  panel converts them to particles. The assay noise $\sigb$ is a free parameter.
 \end{itemize}
 We use bulk metabolites because a per-cell metabolite panel cannot be measured.
 The panel has \pn{mzero.npanel} pools: G6P, F6P, intracellular and extracellular
@@ -81,39 +83,78 @@ uniformisation with tridiagonal products, truncated where the remaining mass is 
 $\pn{fw.trunc}$. The cap on the count is fixed per dataset, and the number of terms comes
 from the primal value, so the factor is differentiable in the rates.
 
-\subsection{The mean-field route}
+\subsection{The mixed route's mean field}
 \label{sec:meanfield}
 
 The swap replaces the three jump modules with one mean-field module. Its equations
-are generated from the jump modules' own propensities and update rules. The composed
+are generated from the jump modules' own propensities and update rules. Given the rate
+constants they give the means of the transcript and protein counts exactly. In the
+hybrid, though, each cell's constants are rebuilt from its own pools, while the mean
+field rebuilds them from the mean-field pools. This is a second Jensen gap, beside the
+one in the pools, and it is small because the rate constants' elasticities in the pools
+are small (\cref{sec:info}). The composed
 model is one ODE problem. Four edges change form, and each change is a declared
 reduction:
 \begin{itemize}
   \item catalytic edges read the mean protein counts;
   \item drains are continuous and not clipped, and the solve stops if a pool becomes
-  negative;
+  negative, which gives a log density of $-\infty$. So the route's support is the set of
+  $\theta$ at which the mean-field pools stay non-negative. The hybrid has no such limit,
+  because it clips each cell's drained pool at zero, and on the reduced model most cells
+  clip GTP (\cref{sec:modelform});
   \item the rebuild is a discrete callback at $60m - 1$\,s and at $t = 0$;
   \item growth is continuous.
 \end{itemize}
-The bulk factor is
-\begin{equation*}
-\mathcal{N}\!\left(\log z;\ \log \max(\bar{x}_{\mathrm{MF}}(\theta), 1) + \delta,\ \sigb^2 I + S\right),
-\end{equation*}
-with $\bar{x}$ floored at one molecule. The offset
-$\delta$ and the covariance $S$ come from an ensemble of the exact hybrid at a reference
-parameter value. The offset $\delta$ plays the part of a model-discrepancy term \cite{kennedy2001bayesian}, fixed at one reference value. The route multiplies the bulk factor by the transcript factor, so it ignores that both read the same cells.
+The mixed route's target density, over $\theta$ with $\sigb$ beside it, is
+\begin{equation}
+\label{eq:mixed}
+\begin{aligned}
+\tilde p(\theta \mid D) \propto{}& p(\theta) \prod_{c=1}^{C} \prod_{g}
+  L_{g}\!\left(D_{c,g};\ \bar{k}_g(\theta)\right) \\
+&\times \mathcal{N}\!\left(\log z;\ m(\theta) + \delta,\ \sigb^2 I + S\right) .
+\end{aligned}
+\end{equation}
+Here $L_g$ is the transcript factor of \cref{sec:txfactor} for gene $g$'s record $D_{c,g}$
+in cell $c$, and $\bar{k}_g(\theta)$ are the transcription constants that the mean field
+rebuilds from its own pools at $t = 0$ and at each $60m - 1$\,s. These constants are the
+same for every cell. The bulk factor's centre is $m(\theta) = \log \max(\bar{x}_{\mathrm{MF}}(\theta), 1)$,
+taken elementwise over the panel's pools at each save, with $\bar{x}_{\mathrm{MF}}$ the
+mean-field pool in particles at the mean field's live volume. The vectors $\log z$, $m$ and
+$\delta$ have one entry per pool and save, and $I$ is the identity of that size. The route
+multiplies the two factors as if they were independent, so it ignores that both read the
+same cells. The offset $\delta$ and the covariance $S$ come from an ensemble of the exact
+hybrid at one reference parameter value, and they are held fixed while sampling. So the
+bulk factor is a Gaussian about the mean field with a fixed model-discrepancy offset
+\cite{kennedy2001bayesian}, not a synthetic likelihood re-estimated at each $\theta$.
 
 The reference
-value is the maximum a posteriori estimate at $\delta = 0$ and $S = 0$, recorded per
-dataset. The ensemble has \pn{mix.nref} cells, on seeds disjoint from the dataset's. We
-take $\delta$ as the log difference between the ensemble's mean and the mean field at
-the reference value, per pool and save. We take $S$ by the delta method, $S_{ij} = \mathrm{Cov}_{ij} / (C \bar{x}_i \bar{x}_j)$, where $\mathrm{Cov}$ is the covariance of the per-cell panel counts. On M0, $S$ is full rank, with \pn{mzero.npanel} pools at ten saves.
+value is the maximum a posteriori estimate at $\delta = 0$ and $S = 0$, on the same data,
+recorded per dataset. So $\delta$ and $S$ depend on the data through the reference value,
+a step akin to empirical Bayes, although the ensemble's seeds are disjoint from the
+dataset's. The ensemble has \pn{mix.nref} cells. Write $\bar{x}^{\mathrm{ens}}$ for the
+ensemble's mean over its cells, per pool and save. We take
+$\delta = \log \max(\bar{x}^{\mathrm{ens}}, 1) - m(\theta_{\mathrm{ref}})$. We take $S$ by
+the delta method, $S_{ij} = \mathrm{Cov}_{ij} / (C\, \bar{x}^{\mathrm{ens}}_i \bar{x}^{\mathrm{ens}}_j)$.
+Here $i$ and $j$ index pool and save entries, $\mathrm{Cov}$ is the covariance of the
+per-cell counts over the ensemble, and $C$ is the dataset's cell count, so $S$
+approximates the covariance of $\log \bar{x}_C$ for a $C$-cell mean. As implemented, $S$
+divides by the unfloored ensemble mean, while $\delta$ and $m$ floor it at one molecule.
+The delta method needs each entry's squared coefficient of variation over $C$ cells to be
+small. It can fail for an entry whose ensemble mean is near zero, such as GTP where cells
+clip it. The offset also centres on the log of the mean, not on the mean of the log, so
+it leaves out a term of order $S_{ii}/2$, and neither $\delta$ nor $S$ carries the
+ensemble's Monte Carlo error into the likelihood. On M0, $S$ is full rank, with
+\pn{mzero.npanel} pools at ten saves from \pn{mix.nref} cells. On the reduced model the
+bulk vector has \pn{kim92.ppcrows} entries and the ensemble \pn{kim92.nref} cells, so
+the sample covariance $S$ is rank-deficient, and only the $\sigb^2 I$ term makes
+$\sigb^2 I + S$ invertible.
 
 On M0, the sampler is the No-U-Turn Sampler on the log of the \pn{mzero.npar} parameters, with
 the exact sampler's priors. Each M0 fit has \pn{mix.chains} chains of \pn{mix.nadapt}
 adaptation and \pn{mix.ndraw} sampling steps, started \pn{mix.jitter} prior standard
 deviations from the reference value. A parameter value outside the transcript factor's
-support, or a solve that does not succeed, has a log density of $-\infty$.
+support, or a solve that does not succeed or stops at a negative pool, has a log density
+of $-\infty$.
 \Cref{sec:reduceddesign} gives the sampler's design on the reduced model.
 
 \subsection{Simulation-based calibration}
@@ -123,7 +164,7 @@ Calibration runs on M0 only. For each of $R = \pn{vseven.R}$ replicates we drew 
 simulated a dataset, and ran one chain of \pn{mzero.sweeps} sweeps from a prior draw. We dropped
 \pn{mzero.burn} sweeps and thinned the rest to $L = \pn{mzero.L}$ draws. For near-independent draws, the rank of the truth among them is uniform if the sampler is calibrated \cite{talts2018validating}. We tested
 each parameter's rank-ECDF against a simultaneous band at $1 - 0.05/6$
-\cite{sailynoja2022graphical}, so the test as a whole is at the 95\% level. The pass
+\cite{sailynoja2022graphical}, so the test as a whole is at a level of at least 95\%. The pass
 rule was fixed before any rank was computed.
 
 \subsection{Prediction}
@@ -146,8 +187,14 @@ $\theta_I$'s elasticities are under a quarter of $\theta_H$'s, and they are not
 \paragraph{Estimand.} For a parameter draw, $\hat\mu(\theta)$ is the mean of one cell's
 exported lactate over $n$ hybrid cells with fresh seeds. It estimates the population mean
 $\mu(\theta)$, which is $Q$ (\cref{sec:predictapi}) at that draw, and $\mathrm{Var}(\mu)$ is
-the parameter variance $\mathrm{Var}_\theta(Q)$ of \cref{sec:reducedpredict}. The noise of $\hat\mu$ is $\sigma^2(\theta)/n$, and we subtract the
-mean of that term from the spread over draws. The intrinsic spread is reported
+the parameter variance $\mathrm{Var}_\theta(Q)$ of \cref{sec:reducedpredict}. Write $\sigma^2(\theta)$ for the variance of one cell's export at
+$\theta$. The noise of $\hat\mu$ is $\sigma^2(\theta)/n$, and we subtract the
+mean of that term from the spread over draws. Its share of that spread is the Monte Carlo
+(MC) share, $\mathrm{E}_\theta[\hat\sigma^2/n] / \mathrm{Var}_{\mathrm{draws}}(\hat\mu)$,
+the part of the predictive spread that is cell noise rather than $\theta$. When
+$\mathrm{Var}_\theta$ is small next to the noise, the share can exceed one by chance. We
+then report $\mathrm{Var}_\theta$ as not resolved, not as zero or negative. The same
+definition applies to each target of the scored predictions. The intrinsic spread is reported
 separately, from the hybrid only.
 
 \paragraph{Completion and viability.} In the budget transferred from M0, $\theta_H$ is drawn from its
@@ -190,12 +237,12 @@ and \pn{kim92.sdfba} for ENO and FBA. The prior on $\sigb$ is that of \cref{sec:
 
 \paragraph{The data.} There is one dataset of \pn{kim92.ncells} cells from the true simulator at
 $\theta^\ast$, on a seed fixed before its truth was read. The cells run for one cycle of
-6,300\,s, and the fit sees only the first half of the record: the \pn{kim92.nsaves} saves at
+\pn{model.cycle}\,s, and the fit sees only the first half of the record: the \pn{kim92.nsaves} saves at
 60--\pn{kim92.fitend}\,s. The later horizon of the scored predictions starts after the window, at
 \pn{kim95.horizonlo}\,s, so the fit never sees it.
 The observation design is generous, a best case for what such data can reach. Every cell gives the exact transcript count
-of all 17 genes at every save, and the bulk panel of \cref{sec:obs} gives
-\pn{kim92.ppcrows} rows, 17 pools at each save.
+of all \pn{model.genes} genes at every save, and the bulk panel of \cref{sec:obs} gives
+\pn{kim92.ppcrows} rows, \pn{mzero.npanel} pools at each save.
 
 \paragraph{The mixed route on the reduced model.} The bulk factor and the transcript
 factors are those of \cref{sec:meanfield,sec:txfactor}, with the reduced model's
@@ -212,8 +259,9 @@ fixed while sampling.
 $\theta_{\mathrm{ref}}$. Under a unit metric the target is badly conditioned, and a probe
 chain projected \pn{kim92.probedays} days per chain. Each chain therefore starts from a
 warm diagonal metric, the diagonal of $(-H)^{-1}$ at $\theta_{\mathrm{ref}}$. Here $H$ is
-the Hessian of the log density, from central differences of the gradient. Scaled by that
-metric, the condition number of $-H$ falls from \pn{kim92.kappaunit} to
+the Hessian of the log density that is sampled, with $\delta$ and $S$ fixed, from central
+differences of the gradient, and the eigenvalues of $-H$ are floored at the smallest prior
+precision. With $D$ that diagonal, the condition number of $D^{1/2}(-H)D^{1/2}$ falls from \pn{kim92.kappaunit} to
 \pn{kim92.kappawarm}. Adaptation then re-estimates the metric in windows. We chose the warm
 metric before any chain started, and it changed no criterion below. Each chain writes a
 checkpoint at fixed intervals and resumes from the last one, so a job that reaches its time
@@ -230,8 +278,8 @@ drawn. The fit fails if either of two conditions holds.
   the kept draws.
   \item \textbf{Posterior predictive check.} More than \pn{kim92.ppclimit} of the
   \pn{kim92.ppcrows} bulk rows, 5\%, lie outside their central 99\% posterior predictive
-  band. The predictive is the fit's own bulk model,
-  $\log z_{\mathrm{rep}} \sim \mathcal{N}\!\left(\log \max(\bar{x}_{\mathrm{MF}}(\theta), 1) + \delta,\ \sigb^2 I + S\right)$.
+  band. The predictive is the fit's own bulk factor in \cref{eq:mixed}, with
+  $\log z_{\mathrm{rep}}$ drawn in place of $\log z$.
   We evaluate it at \pn{kim92.ppcdraws} posterior draws spaced evenly through the pooled kept draws, with
   \pn{kim92.ppcreps} replicates each. This check tests whether the fitted likelihood reproduces its
   own data. It does not test the mean-field swap, which the scored predictions test
@@ -242,10 +290,10 @@ failed and the one extension ran (\cref{sec:reduced}), so the posterior is
 \pn{kim92.ndraws} pooled draws, $\pn{kim92.nchains} \times (200 + 200)$.
 
 We also report two quantities that no gate uses: whether the truth lies inside each central 90\% interval,
-and the contraction of each coordinate $j$,
-\begin{equation}
-  c_j = 1 - \frac{\mathrm{Var}_{\mathrm{post}}(\theta_j)}{\mathrm{Var}_{\mathrm{prior}}(\theta_j)} .
-\end{equation}
+and the contraction of each coordinate $j$, on the log scale of the lognormal priors,
+\begin{equation*}
+  c_j = 1 - \frac{\mathrm{Var}_{\mathrm{post}}(\log \theta_j)}{\mathrm{Var}_{\mathrm{prior}}(\log \theta_j)} .
+\end{equation*}
 The data reach a coordinate when $c_j \ge \pn{kim92.reachgate}$. There is one truth, so the count of
 intervals that hold it is not a coverage rate.
 
@@ -253,18 +301,28 @@ intervals that hold it is not a coverage rate.
 over the full cycle, at baseline and under the ptsG knockdown at dose \pn{kim95.dose}
 (\cref{sec:prediction}), on common seeds. We score them against the true simulator at
 $\theta^\ast$ on fresh seeds, with the prior predictive beside them. The targets were frozen
-with the kill criteria: $Q$, $Q_{\mathrm{kd}}$ and $\Delta Q$, and the 17 pools and 17
+with the kill criteria: $Q$, $Q_{\mathrm{kd}}$ and $\Delta Q$, and the \pn{mzero.npanel} pools and \pn{model.genes}
 transcripts at the \pn{kim95.nsaves} saves of the later horizon. Each target is a
 population mean over a draw's cells, and no viability rule is applied on either arm. For
 each target we report whether the truth lies inside the central 50\% and 90\% predictive
 intervals. We also report the continuous ranked probability score (CRPS) \cite{gneiting2007strictly} and its CRPS skill against the prior predictive,
-$1 - \mathrm{CRPS}_{\mathrm{post}} / \mathrm{CRPS}_{\mathrm{prior}}$. With one truth these
-are scores, not coverage rates.
+$1 - \mathrm{CRPS}_{\mathrm{post}} / \mathrm{CRPS}_{\mathrm{prior}}$. For a target with
+draw values $x_1, \dots, x_n$ and the truth's estimate $y$, we use the plain empirical
+estimator, not the fair one,
+\begin{equation*}
+  \mathrm{CRPS} = \frac{1}{n} \sum_{i} |x_i - y| - \frac{1}{2n^2} \sum_{i,j} |x_i - x_j| .
+\end{equation*}
+The two arms have different cells per draw (below), so their draw values carry different
+cell noise, and the skill includes that difference. The truth's own standard error is
+also not small on every target: it is \pn{kim95.sesdlo}--\pn{kim95.sesdhi} of the posterior
+predictive's standard deviation on $Q$ and $\Delta Q$, above the rule's \pn{kim95.sesdrule}
+(\cref{sec:reducedpredict}). With one truth these are scores, not coverage rates.
 
 We sized the runs by M0's two rules: cell noise is at most 10\% of the predictive
 variance, and the truth's standard error is at most 10\% of the predictive standard
-deviation. For one cell's variance $\sigma^2$ and the parameter variance
-$\mathrm{Var}_\theta$ of the population mean, they give
+deviation, taking $\mathrm{Var}_\theta$ alone as the predictive variance. For one cell's
+variance $\sigma^2$ and the parameter variance $\mathrm{Var}_\theta$ of the population
+mean, they give
 \begin{equation}
   n_{\mathrm{cells}} = \left\lceil \frac{9\,\sigma^2}{\mathrm{Var}_\theta} \right\rceil ,
   \qquad
@@ -284,24 +342,33 @@ on its AMD \texttt{znver3} nodes. \Cref{tab:compute} lists the Slurm jobs behind
 and the result notes named under Software and data availability.
 
 \begin{table*}[t]
-\caption{\textbf{The runs behind the results.} Hours are from Slurm accounting. The mixed route's hours
-omit \pn{mix.lost} lost to a fault, and the budget's are core-hours held. The scored
-predictions' hours count the cell simulations only.}
+\caption{\textbf{The runs behind the results.} CPU-hours are from Slurm accounting, with three
+exceptions marked: (a) the mixed route's hours omit \pn{mix.lost} lost to a fault; (b) the
+budget's are core-hours held; (c) the hours count the cell simulations only. The mixed route
+on M0 covers its calibration replicates and their checks. The modular arm's hours exclude the
+\pn{kim116.shared} CPU-hours of jobs it shares with the joint posterior.}
 \label{tab:compute}
 \centering
 \footnotesize
-\begin{tabular}{@{}lp{0.55\textwidth}r@{}}
+\begin{tabular}{@{}p{0.27\textwidth}p{0.5\textwidth}r@{}}
 \toprule
-Run & Slurm jobs & CPU-hours \\
+Run & Slurm jobs & CPU-h \\
 \midrule
 Exact, long run & \pn{compute.vsixjobs} & \pn{vsix.cpuh} \\
 Exact calibration & \pn{compute.vsevenjobs} & \pn{vseven.cpuh} \\
 Exact, production chain & \pn{compute.ftenjobs} & \pn{ften.cpuh} \\
-Mixed route & \pn{compute.bsevenjobs} & \pn{compute.bsevencpuh} \\
+Mixed route on M0 & \pn{compute.bsevenjobs} & \pn{compute.bsevencpuh}\,(a) \\
 M0 scoring & \pn{compute.mzerojobs} & \pn{compute.mzerocpuh} \\
-Reduced-model budget & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh} \\
+Budget transferred from M0 & \pn{compute.budgetjobs} & \pn{compute.budgetcpuh}\,(b) \\
 Reduced model, joint posterior & \pn{compute.reducedjobs} & \pn{kim92.cpuh} \\
-Reduced model, scored predictions & \pn{compute.predictjobs} & \pn{kim95.cpuh} \\
+Reduced model, scored predictions & \pn{compute.predictjobs} & \pn{kim95.cpuh}\,(c) \\
+Reduced model, parameter variance & \pn{compute.budgetreadjob}
+ (reads three archives) & $<0.1$ \\
+Modular arm, factor cut and data plug-in & \pn{compute.modularjobs}
+ & \pn{kim116.cutcpuh} and \pn{kim116.plugcpuh} \\
+Modular arm, data plug-in's scored predictions & \pn{compute.modularpredictjobs}
+ & \pn{compute.modularpredictcpuh}
+ \\
 \bottomrule
 \end{tabular}
 \end{table*}
