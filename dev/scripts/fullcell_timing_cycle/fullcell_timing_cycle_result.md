@@ -19,14 +19,21 @@ There are two copies of the SpeedyCell port, and they are not the same code.
 | Manifest Julia | 1.13.3 | 1.11.2 |
 | Model tables | `data/model/` in its own tree | `syn3a-ensemble/data/model/` |
 
-`diff -r` of the two `src/` trees is 164 lines (90 changed lines). Seven files differ, and five
-exist on one side only:
+`diff -r` of the two `src/` trees is 164 lines (90 changed lines). Seven files differ, and six
+entries exist on one side only (`diff -rq`):
 - **On one side only:** `Cell/params.jl`, `CME/params.jl`, `ODE/params.jl` and `Cell/cell.jl`
-  (syn3a-ensemble); `Cell/run.jl` and `SSA/` (standalone). `cell.jl` and `run.jl` are the same
-  file apart from the lines below.
-- **`Cell/cell.jl` against `Cell/run.jl`:** `LowPrecSSA.Model` in place of `SSA.Model`; the
-  `params`, `stop` and `ode_failure` keywords and the `stopped`/`failure` fields of `CellRun`;
-  docstrings.
+  (syn3a-ensemble); `Cell/run.jl` and the directory `SSA/` (standalone). `cell.jl` is `run.jl`
+  renamed and then extended. `diff run.jl cell.jl` is 173 lines, 127 of them changed.
+- **`Cell/cell.jl` against `Cell/run.jl`:**
+  - `LowPrecSSA.Model` in place of `SSA.Model`.
+  - The `params`, `stop` and `ode_failure` keywords, and the `stopped`/`failure` fields of
+    `CellRun`, which the `fnv1a` output digest now mixes in.
+  - A `cell_rules(::RateRules)` method, so the parameterised path can build its own rules.
+  - `MIN_HEALTHY_HOOKS` and `collapse_stop`.
+  - Docstrings.
+  - **The timed path calls `ode_integrate` and checks the retcode** (`ode_failure=:record`)
+    instead of calling `ode_solve`. `ode_solve` is that same call and check plus a throw
+    (`hook.jl`), so the computation and its cost are the same.
 - **`CME/segment.jl`** (22 lines each way): `LowPrecSSA.` in place of `SSA.` and comment
   wording; `MODEL_DIR` points at the syn3a-ensemble repo's `data/model/`.
 - **`ODE/ODE.jl`** (5 out, 7 in): `rhs_body(exprs=FLUX_EXPRS)`, so the parameterised path can
@@ -34,8 +41,8 @@ exist on one side only:
 - **`Cell/Cell.jl`, `Cell/hook.jl`, `CME/CME.jl`, `CME/rates.jl`, `SpeedyCell.jl`** (2 to 5
   lines each): exports and includes for the above, and the module docstring.
 
-On the published path (`params=nothing`), the code each copy runs is the same apart from the
-SSA's module name. The tables it reads are byte-identical: every file under `data/model/cme/`
+On the published path (`params=nothing`), the code each copy runs computes the same thing; it
+differs only in the SSA's module name and the bookkeeping above. The tables it reads are byte-identical: every file under `data/model/cme/`
 and `data/model/ode/`, and `data/model/nodes.csv`, has the same sha256 in both trees (the
 CME `reactions.csv` is `63fbeca1…`). Only the docs (`README.md`, `inventory.md`,
 `export_meta.json`) differ, and `data/model/params/` exists in syn3a-ensemble only.
@@ -98,8 +105,9 @@ ensemble cells ran the full 120 minutes. None threw and none had a failed ODE st
 records counts each minute, and the cycle is read off them. The definitions are those of
 syn3a-ensemble's `code/cell_cycle/events.py`:
 - **t_SA2, the cycle end:** the first minute with `CellSA` ≥ 2 × its minute-0 value. This is
-  the paper's criterion (Thornburg et al. 2022): division begins when the surface area has
-  doubled.
+  the paper's criterion (Thornburg et al. 2022, as `events.py` quotes it). Division is assumed
+  to begin when the volume has doubled, at t_Vcap below. The surface area goes on growing
+  until two cells have formed, which is when it has doubled.
 - **t_Vcap, the volume cap:** the first minute with `CellV` = 670, i.e. a volume of
   6.70e-17 L, twice the initial 335. `calcCellVolume` stops the volume growing there
   (`V_CAP` in `src/Cell/writeback.jl`), while the surface area goes on growing to t_SA2.
@@ -111,6 +119,28 @@ The issue's "105-minute cycle" is about the paper's mean doubling time (97 min, 
 112). In the serial set, 15 of 20 cells reach t_SA2, at minutes 92 to 114 (median 100). The
 other 5 collapse first, at minutes 55 to 105. Two cells collapse after t_SA2 (procids 9 and 11,
 at 112 and 116). Every cell reaches the volume cap, at minutes 57 to 81.
+
+**These collapses are the model's behaviour, not this harness's or this Julia's.**
+- **Bit-identical to syn3a-ensemble's own run.** syn3a-ensemble ran the same cells under
+  Julia 1.11.2 (`results/port_minutes_cycle.csv`: seed 1, procids 1–200, minutes 0–120). This
+  run's per-minute CellSA, CellV, hooks and CME events match it in every row. That holds for
+  all 20 serial cells (2,420 rows) and all 100 ensemble cells (12,100 rows), with 0 mismatches.
+  So the move to Julia 1.11.9 and OpenLibm_jll 0.8.5 changed nothing in these four columns.
+  The check is in the PR #205 review (`infercell-pr-reviews/pr205-2026-11-26/REVIEW.md`, S8)
+  and was repeated for this note with a short script on the login node. It covers seed 1 and
+  those four columns only.
+- **The port against the reference** is settled in syn3a-ensemble's README (C4-cycle): 13
+  against 19 of 99 cells collapse by minute 120 (Fisher p 0.33).
+- **Procids 1–20 at seed 1 are a high-collapse draw.** Counting a cell as collapsed if any
+  minute from 1 to 120 has fewer than 59 hooks:
+
+  | | procids 1–20 | procids 1–200 |
+  |---|---|---|
+  | seed 1 | 7 | 33 (16.5%) |
+  | seed 2 (`port_minutes_cycle_seed2.csv`) | 0 | 30 |
+
+  So the 20-cell picture is not typical of a batch. Collapsed cells are cheap, which makes the
+  all-20 median slightly low; the to-t_SA2 row in section 4 is the more representative cost.
 
 **One full-cycle trace: procid 1, seed 1** (Slurm 21664418, dave23). It is a healthy cell.
 `CellV` hits the cap at minute 62, and `CellSA` doubles at minute 102. The full per-minute
@@ -130,8 +160,8 @@ record of all 20 cells is `results/serial_minutes.csv`.
 | 105 | 1032576 | 2.054 | 670 | 59 | 0.6220 |
 | 120 | 1142235 | 2.272 | 670 | 59 | 0.7476 |
 
-"wall" is that simulated minute's wall time. It grows from 0.37 s at the start to 0.75 s at
-minute 120, as the cell and its event rate grow. So a cycle's cost is not 105 × the
+"wall" is that simulated minute's wall time. It grows from 0.34 s in minute 1 (0.37 s on average
+over minutes 1–10) to 0.75 s at minute 120, as the cell and its event rate grow. So a cycle's cost is not 105 × the
 20-minute rate that the syn3a-ensemble README quotes (0.425 s per simulated minute).
 
 ## 4. Twenty full cycles on one core
@@ -145,21 +175,25 @@ another:
 - Then procids 1 to 20 ran, seed 1, each to minute 120.
 
 The wall time to minute k is the run's setup (about 0.01 s) plus its first k minutes, from
-`run_cell`'s own per-minute timers. The 120-minute wall is the outer wall clock around
-`run_cell`. dave23 was shared with other jobs.
+`run_cell`'s own per-minute timers. The 120-minute wall is `run_cell`'s own total
+(`timings.total`). The outer wall clock around `run_cell` agrees with it to the printed 0.001 s here,
+and to 0.034 s in the ensemble. dave23 was shared with other jobs.
 
 | per cell, one core | cells | median | range |
 |---|---|---|---|
-| **to simulated minute 105 (the verdict number)** | 20 | **49.5 s** | 28.3–52.9 s |
-| to minute 105, cells that reach t_SA2 | 15 | 50.6 s | 43.1–52.9 s |
-| to t_SA2 | 15 | 46.8 s | 40.8–51.0 s |
+| **to simulated minute 105, all cells (the verdict number, named before the run)** | 20 | **49.5 s** | 28.3–52.9 s |
+| to t_SA2 (the exact cost of a full cycle), cells that reach it | 15 | 46.8 s | 40.8–51.0 s |
+| to minute 105, cells that go on to reach t_SA2 (added after the run was read) | 15 | 50.6 s | 43.1–52.9 s |
+| to minute 105, cells with t_SA2 ≤ 105 | 12 | 51.7 s | 46.4–52.9 s |
 | to minute 120 (the whole run) | 20 | 58.1 s | 28.4–62.3 s |
 | to minute 120, cells that reach t_SA2 | 15 | 59.6 s | 49.4–62.3 s |
 
 The five cells under 40 s to minute 105 are the five that never reach t_SA2 (procids 2, 4, 7,
 12 and 13, which collapse at minutes 55 to 105). A collapsed cell fires few CME events, so its
-later minutes are cheap, and its run is not a full cycle. The 15 rows that reach t_SA2 are the
-cost of a full cycle.
+later minutes are cheap, and its run is not a full cycle. Not all 15 cells that reach t_SA2
+have done so by minute 105: procids 8, 11 and 16 reach it at minutes 111, 108 and 114, so their
+time to minute 105 stops before their cycle ends. The bottom of that row's range, 43.1 s, is
+procid 16. The time to t_SA2 is the exact cost of a full cycle.
 
 | procid | t_SA2 | t_Vcap | t_short | to 105 min (s) | to t_SA2 (s) | to 120 min (s) |
 |---|---|---|---|---|---|---|
@@ -190,12 +224,18 @@ whole 120-minute run.
 
 ### Verdict
 
-**PASS against the 2026-11-26 threshold** (at most 120 s per cell cycle on one core). The 15
-cells that complete a cycle take a median of 50.6 s to minute 105 (range 43.1 to 52.9 s). All
-20 cells, collapsed ones included, take a median of 49.5 s. The verdict does not depend on how
-the cycle is defined. The slowest cell under each definition is still well under 120 s: 51.0 s
-to t_SA2 and 62.3 s to minute 120. Of the 20 cells timed, 15 are full cycles. The set was fixed
-before the run and was not topped up.
+**PASS against the 2026-11-26 threshold** (at most 120 s per cell cycle on one core).
+
+- **The verdict number passes.** It was named on the issue before the run: the wall time to
+  simulated minute 105 over procids 1–20, with no cell replaced. Its median is **49.5 s**, and
+  the slowest cell takes 52.9 s.
+- **Every other definition passes too.** A full cycle, the time to t_SA2 for the 15 cells that
+  reach it, takes a median of 46.8 s, at most 51.0 s. The whole 120-minute run takes at most
+  62.3 s.
+- **The completing-cell view was added after the run was read.** It is the time to minute 105
+  for the 15 cells that go on to reach t_SA2: median 50.6 s, 43.1 to 52.9 s. It passes as well.
+- **Five of the 20 cells are not full cycles.** They collapse first. The set was fixed before
+  the run and was not topped up.
 
 This is the time on one core, with nothing else in the process. Threaded, a cell is slower
 (section 5).
@@ -215,16 +255,31 @@ Processor, 64 cores). It requested `--cpus-per-task=64`, the whole node; the sit
 **Result: 100 cells in 188.3 s of wall time, 1,912 cells per node-hour.** All 100 cells ran
 the full 120 minutes, with no errors and no ODE failures. 84 reach t_SA2, 3 of which collapse
 later, and 16 collapse without reaching it.
-- **Each cell is slower threaded.** Per cell, the whole run took a median of 90.6 s (range
-  35.4 to 113.0 s), or 80.9 s to minute 105. For procids 1 to 20 that is a median of 1.60× the
-  one-core time.
+- **Each cell is slower threaded, and more so on a full node.** Per cell, the whole run took a
+  median of 90.6 s (range 35.4 to 113.0 s), or 80.9 s to minute 105. For procids 1 to 20 that
+  is a median of 1.60× the one-core time. That median mixes two loads (next bullet but one):
+
+  | | cells | median per-cell wall | ratio to one core, procids 1–20 |
+  |---|---|---|---|
+  | wave 1 (all 64 threads busy) | 64 | 98.7 s | 1.71× (n = 10) |
+  | wave 2 (36 threads busy) | 36 | 77.6 s | 1.35× (n = 10) |
+  | both | 100 | 90.6 s | 1.60× (n = 20) |
 - **The cells' output is the same.** All 20 of those procids fire the same number of CME
   events threaded as on one core.
 - **GC takes 50.8 s, 27.0% of the wall time.** A collection stops every thread.
-- **100 cells do not fill 64 threads twice.** 36 threads ran two cells and 28 ran one. The last
-  cell started at 113.1 s, and the threads were busy 71.8% of the node's thread-seconds. With a
-  batch large enough to keep every thread busy, 64 threads at 90.6 s a cell would give about
-  2,540 cells per node-hour. That figure is arithmetic, not a measurement.
+- **100 cells do not fill 64 threads twice, and the loop's split is fixed.** On Julia 1.11,
+  `Threads.@threads :dynamic` over 100 items on 64 threads makes 64 contiguous chunks. Procids
+  (1,2), (3,4) … (71,72) went to 36 threads, and procids 73–100 one each to the other 28. Each
+  second cell started the moment its thread's first cell ended. So the 36/28 split is the
+  chunking, not load balancing. The last cell started at 113.1 s, and the threads were busy
+  71.8% of the node's thread-seconds.
+- **The full-node figure is lower than the mixed one.** At the wave-1 median of 98.7 s a cell,
+  64 busy threads would give about 2,330 cells per node-hour. syn3a-ensemble's 2.16× slowdown
+  at 64 threads (F-B3) would give about 1,840. Both are arithmetic, not measurements; the
+  measured figure is the 1,912 above.
+- **Not rerun here.** `:greedy`, or one task per cell, would balance a batch that is not a
+  multiple of the thread count. KIM-58 and KIM-187 should use one of them, or one worker per
+  core (next paragraph).
 
 **Context, not measured here.** At the one-core time of section 4 (58.1 s to minute 120), 64
 independent one-core cells would make about 3,970 cells per node-hour. This needs one worker
@@ -234,22 +289,44 @@ per node-hour of one 64-thread process. GC took 44% of the wall time at 64 threa
 scaled to 85% of linear at 64 cores. So KIM-58 should be sized on workers, not on the threaded
 figure above.
 
-For scale only: KIM-58's 10³ draws × 100 cells is 10⁵ cells. That is about 1,600 core-hours at
-58.1 s a cell, about 52 node-hours (3,350 CPU-h) at the threaded 1,912 cells per node-hour, or
-about 25 node-hours at 3,970 cells per node-hour if one worker per core keeps its one-core speed.
+For scale only: KIM-58 runs 10³ draws × 100 cells at each of three widths (the default, halved
+and doubled), so 10⁵ cells a width and 3 × 10⁵ in all.
 
-The per-minute record of the 100 cells stays in the log directory, outside the repo:
+| KIM-58 | at 58.1 s a cell on one core | threaded, 1,912 cells per node-hour | workers, 3,970 cells per node-hour if they keep one-core speed |
+|---|---|---|---|
+| one width (10⁵ cells) | 1,610 core-h | 52 node-h (3,350 CPU-h) | 25 node-h (1,610 CPU-h) |
+| three widths (3 × 10⁵) | 4,840 core-h | 157 node-h (10,040 CPU-h) | 76 node-h (4,840 CPU-h) |
+
+At one-core speed that is about 4,840 CPU-h for the three widths. The Decision log entry of
+2026-11-26 brackets the prior predictive at 5,000 to 6,600 CPU-h for three widths, at 60 to
+80 s a cell; this estimate sits just under it. Two caveats:
+- **The `params=` path was not timed.** All cells here ran the published path.
+- **Draws will change the cost.** Parameter draws change the event rate and the collapse rate,
+  and so the cost per cell.
+
+The per-minute record of the 100 cells stays in the log directory, outside the repo (445 KB,
+not committed; its `wall_s` column cannot be regenerated):
 `/fred/oz022/tkimpson/infercell-kim183-2026-11-26/ensemble/ensemble_minutes.csv`, sha256
 `e6c416ce00217a3f4ba6e5de35438999079012be512dcdda71f125fac06ffdb5`.
 
 ## Reproduce
 
-From the worktree root, at a pushed commit. Set the environment up once, on the login node
-(this is the state committed here):
+Run these commands from the worktree root, at a pushed commit.
+- **Pick a new output directory `L`.** The runs of record are in
+  `/fred/oz022/tkimpson/infercell-kim183-2026-11-26/`. A rerun there would overwrite
+  `ensemble/ensemble_minutes.csv`, whose sha256 is quoted above.
+- **Set the depot.** `timing_cycle.slurm` uses this issue's depot,
+  `/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot`, stacked on the shared one. It is
+  only read and extended, never overwritten. To use another depot, edit the script's
+  `JULIA_DEPOT_PATH`.
+- **Set the environment up once, on the login node.** The committed Project and Manifest
+  give it as it ran.
 
 ```bash
-L=/fred/oz022/tkimpson/infercell-kim183-2026-11-26
-export JULIA_DEPOT_PATH=$L/depot:/fred/oz022/tkimpson/julia_depot JULIA_PKG_OFFLINE=true JULIA_PKG_PRECOMPILE_AUTO=0
+L=/fred/oz022/tkimpson/infercell-kim183-rerun-$(date +%F)    # new; never the directory of record
+mkdir -p $L/logs
+export JULIA_DEPOT_PATH=/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
+export JULIA_PKG_OFFLINE=true JULIA_PKG_PRECOMPILE_AUTO=0
 /fred/oz022/tkimpson/julia-1.11.9/bin/julia --project=dev/scripts/fullcell_timing_cycle -e 'using Pkg; Pkg.instantiate()'
 X="gina[1-18,301-305],dave148,dave149"
 S=dev/scripts/fullcell_timing_cycle/timing_cycle.slurm
@@ -267,10 +344,30 @@ Each cell's output depends only on (procid, seed, minutes), and is bit-exact onl
 EPYC 7543, as syn3a-ensemble's README notes. The wall times are not reproducible to the digit.
 They vary with the node and with what else runs on it.
 
-`results/` holds the run tables these numbers come from: `serial_cells.csv`,
-`serial_minutes.csv` and `ensemble_cells.csv`, and each run's `*_meta.txt`. The meta files
-record the host, CPU, thread counts, both git commits, `versioninfo()`, and the sha256 of
-every file under `syn3a-ensemble/data/model/`. The tables the published path reads are:
+`results/` holds the run tables: `serial_cells.csv`, `serial_minutes.csv`,
+`ensemble_cells.csv`, and each run's `*_meta.txt`.
+- **The meta files** record the host, CPU, thread counts, both git commits, `versioninfo()`
+  and the sha256 of every file under `syn3a-ensemble/data/model/`.
+- **What `summarise.py` prints.** Run on these files, it prints:
+  - every number in the note's tables;
+  - the meta-file lines quoted here (model build, warm-up, wall, GC);
+  - the waves and the thread split;
+  - the arithmetic on them (the cells per node-hour estimates and the KIM-58 table).
+- **What comes from elsewhere:** the syn3a-ensemble figures (1.79×, 2.16×, 44%, 85%, C4-cycle)
+  from its README, and the bit-exact match from the review (section 3).
+- **Failed cells.** `summarise.py` takes rows with an error or a failed ODE step: it counts
+  them and leaves them out of the statistics they have no value for.
+
+**The committed `timing_cycle.jl` is the one that ran.** It is unchanged since `917bcb2`; the
+`.slurm` changed only in comments. Two latent limits are left as they are, since neither fired
+here:
+- **A failed ODE step skews that cell's walls.** `run_cell` stops before it records that
+  minute's wall time, so the partial minute lands in `setup_s` and every `wall_to` value of
+  that cell. There were 0 ODE failures.
+- **The warm-up's result is not checked.** If it threw, compilation would fall in the first
+  timed cell without warning. Here the warm-up took 16.6 s, and procid 1's setup was 0.009 s.
+
+The tables the published path reads are:
 
 | table | sha256 |
 |---|---|
@@ -287,5 +384,5 @@ every file under `syn3a-ensemble/data/model/`. The tables the published path rea
 These were read at syn3a-ensemble commit `2075809cbb825140cb31a7bec8bc3529770c8e13`, with
 `code/SpeedyCell` and `data/model` clean.
 
-**Compute used:** about 5 CPU-h. That is 21664418 (0.30), 21664422 (64 × 4 min, 4.3) and the
-precompile and smoke jobs (0.5).
+**Compute used:** 5.15 CPU-h (sacct). That is 21664418 (0.30), 21664422 (64 × 4 min, 4.27)
+and the precompile and smoke jobs (0.59).
