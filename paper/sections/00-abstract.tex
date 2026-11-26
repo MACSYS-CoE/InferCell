@@ -1,21 +1,21 @@
 \begin{abstract}
-Whole-cell models simulate a cell from its molecular parts but fix each parameter at one
-value, so their predictions carry no error bar. Inference is hard because metabolism runs as
-ordinary differential equations (ODEs) and gene expression as a stochastic jump process with
-latent paths, and no parameter links the two. Here we present \IC{}, a compositional
+Whole-cell models fix each parameter at one value, so their predictions carry no error bar.
+Inference is hard because metabolism runs as ordinary differential equations (ODEs) and gene
+expression as a stochastic jump process with latent paths. Here we present \IC{}, a compositional
 inference framework, and use it to infer a reduced whole-cell model of \syn{} across a
 coupled ODE--stochastic boundary and to turn the posterior into predictions scored against
-held-out truth.
-The framework pairs an exact sampler with a mixed route that integrates out the stochastic
-paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
+held-out truth, on synthetic data from one truth.
+An exact sampler is paired with a mixed route that integrates out the paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
 and the mixed route costs about \pn{mix.speedup} times less. On the reduced model, the mixed
 route gives one joint posterior over all 21 free parameters for about \pn{kim92.cpuh}
-CPU-hours; the data reach every parameter, and the posterior reproduces its own data. Scored
+CPU-hours; the data reach every parameter, and the posterior reproduces its own data. On this
+model the joint posterior was needed: a two-stage factor cut lands close to it at
+\pn{kim116.cutjob} times the cost, and a cheaper data plug-in is biased. Scored
 against the true simulator on a later horizon and under a ptsG knockdown, the predictions
-cover extracellular lactate and the transcripts, do not resolve the knockdown's small effect, and miss \pn{kim95.poolshift} of 17
-metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. At the
+cover extracellular lactate and the transcripts, do not resolve the knockdown's small effect,
+and miss \pn{kim95.poolshift} of 17 metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. At the
 default prior width, lactate's parameter variance is about \pn{kim96.ratio} times below the
-budget transferred from M0. The data are synthetic, from one truth.
+budget transferred from M0.
 A whole-cell posterior can thus be carried to scored predictions that show where it is
 wrong. Because every departure from the published model is declared, each score states what
 it does not cover.
