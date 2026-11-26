@@ -62,7 +62,6 @@ def main():
     fig, ax = plt.subplots(figsize=(COLUMN, 2.45), layout="constrained")
     x = np.array([0.0, 1.0, 2.0])
     ax.set_yscale("log")
-    ax.plot(x, var, color=MUTED, lw=0.6, zorder=1)
     # The middle state split: the 15 held promoters' share, and the five's remainder.
     ax.plot([x[1], x[1]], [rest, var[1]], color=MIXED, lw=3, solid_capstyle="butt", zorder=2)
     ax.plot(x[1], rest, "o", ms=4, mfc="white", mec=EXACT, mew=1, zorder=3)
@@ -73,13 +72,14 @@ def main():
     # Width dependence of the middle state: its total at prior widths ½ and 2.
     xw = x[1] + 0.13
     ws = [width_total[w] for w in (0.5, 1.0, 2.0)]
-    ax.plot([xw, xw], [ws[0], ws[2]], color=MUTED, lw=0.6, zorder=1)
+    # A dashed grey range, unlike the states' solid black marks: the middle state's total at three widths.
+    ax.plot([xw, xw], [ws[0], ws[2]], color=MUTED, lw=0.8, ls=(0, (2, 1.5)), zorder=1)
     ax.plot([xw] * 3, ws, "_", ms=5, mew=0.8, color=MUTED)
     ax.text(xw + 0.04, width_total[2.0], "prior width ×2", ha="left", va="center", color=MUTED,
             fontsize=7)
     ax.text(xw, width_total[0.5] / 1.15, "×½", ha="center", va="top", color=MUTED, fontsize=7)
     # The three states, with jackknife ±1 SE.
-    ax.errorbar(x, var, yerr=se, fmt="o", ms=5, color=INK, capsize=0, lw=1, zorder=4)
+    ax.errorbar(x, var, yerr=se, fmt="o", ms=3.2, color=INK, capsize=2.5, capthick=0.8, lw=1, zorder=4)
     for xi, v, c in zip(x, var, cv):
         label = f"SD {100 * c:.0f}% of $Q$" if c > 0.05 else f"SD {100 * c:.1f}% of $Q$"
         if xi == x[2]:
@@ -94,7 +94,7 @@ def main():
     ax.tick_params(axis="x", length=0)
     ax.set_xlim(-0.35, 2.35)
     ax.set_ylim(4e9, 4e13)
-    ax.set_ylabel(r"Parameter variance of $Q$")
+    ax.set_ylabel(r"Var$_\theta(Q)$ (particles$^2$)")
     fig.savefig(os.path.join(HERE, "fig_reduced_budget.pdf"), metadata={"CreationDate": None})
 
 

@@ -1,24 +1,23 @@
 \begin{abstract}
-Whole-cell models fix each parameter at one value, so their predictions carry no error bar.
-Inference is hard because metabolism runs as ordinary differential equations (ODEs) and gene
-expression as a stochastic jump process with latent paths. Here we present \IC{}, a compositional
-inference framework, and use it to infer a reduced whole-cell model of \syn{} across a
-coupled ODE--stochastic boundary and to turn the posterior into predictions scored against
-held-out truth, on one synthetic dataset.
-An exact sampler is paired with a mixed route that integrates out the paths. On M0, a two-gene slice of the model, both routes pass simulation-based calibration,
-and the mixed route costs about \pn{mix.speedup} times less. On the reduced model, the mixed
-route gives one joint posterior over all 21 free parameters for about \pn{kim92.cpuh}
-CPU-hours; the data reach every parameter, and the posterior reproduces its own data. Neither of
-two two-stage alternatives, as designed, was both cheaper and faithful: a fit that cuts the
-bulk data's feedback on the promoters lands close to the joint posterior at \pn{kim116.cutt1}
-times its cost, and a cheaper one that reads the rate constants from the observed pools
-shifts the promoters and predicts lactate worse. Scored
-against the true simulator on a later horizon and under a ptsG knockdown, the predictions
-cover extracellular lactate and the transcripts, do not resolve the knockdown's small effect,
-and miss \pn{kim95.poolshift} of 17 metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. At the
-default prior width, lactate's parameter variance is about \pn{kim96.ratio} times below the
-budget transferred from M0.
-A whole-cell posterior can thus be carried to scored predictions that show where it is
-wrong. Because every departure from the published model is declared, each score states what
-it does not cover.
+Whole-cell models fix each parameter at one value, so their predictions carry no error bar for
+parameter uncertainty. Inference is hard because metabolism runs as ordinary differential
+equations (ODEs) and gene expression as a stochastic jump process with latent paths. Here we
+present \IC{}, a compositional inference framework, and test it on one synthetic dataset from a
+reduced whole-cell model of \syn{}, whose gene expression is first order. Its likelihood spans
+the coupled ODE--stochastic boundary. An exact sampler is paired with a mixed route that
+averages over the latent paths. On M0, a two-gene slice of the model, both routes pass a
+low-powered simulation-based calibration, but on one dataset they differ by
+\pn{mix.gaplo}--\pn{mix.gaphi} standard deviations for an unknown reason. The mixed route costs
+about \pn{mix.speedup} times less than an exact production chain. On the reduced model, it gives
+one joint posterior over all \pn{kim92.ncoord} free parameters for about \pn{kim92.cpuh}
+CPU-hours. The data narrow every parameter and the posterior reproduces its own data, but the
+promoter strengths sit about \pn{kim92.promshift}\% low. Neither of two two-stage alternatives,
+as designed, is both cheaper and faithful: one lands close to the joint posterior at
+\pn{kim116.cutt1} times its cost, and a cheaper one shifts the promoters and predicts lactate
+worse. Scored against the true simulator on a later horizon and under a ptsG knockdown, the
+predictions cover extracellular lactate at the end of the cycle and the transcripts, do not
+resolve the knockdown's small effect, and miss \pn{kim95.poolshift} of the \pn{mzero.npanel}
+metabolite pools by about \pn{kim95.shiftlo}--\pn{kim95.shifthi} standard deviations. On this
+test, a posterior on a reduced whole-cell model can be carried to scored predictions that show
+where it is wrong, and each score names the declared reductions it does not cover.
 \end{abstract}

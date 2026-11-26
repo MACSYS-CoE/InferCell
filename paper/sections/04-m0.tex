@@ -2,22 +2,22 @@
 \label{sec:posteriors}
 
 Before we use the mixed route on the reduced model, we check it against the exact sampler on
-M0. Both routes are calibrated there, and the mixed route costs about \pn{mix.speedup} times
-less. On one dataset a gap remains between them, and we state it with its leads.
+M0. Both routes pass a simulation-based calibration there that detects only large miscalibration, and a posterior from the mixed route takes
+\pn{mix.speeduplo}--\pn{mix.speeduphi} times fewer CPU-hours. On one dataset a gap remains between them, and we state it with its leads.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_mixed.pdf}
-\caption{\textbf{Both routes calibrate on M0, and the mixed route costs about \pn{mix.cpuh} CPU-hours per posterior.} A: marginal posteriors of the natural log of each parameter on one dataset: the long run of the exact sampler as a filled blue density, and the mixed route as the orange line. The ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations apart. B: rank-ECDFs of both routes over the same \pn{mix.R} prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and each line is the rank-ECDF minus the fractional rank.}
+\caption{\textbf{Both routes pass a low-powered calibration on M0, but on one dataset a gap remains between them.} A: marginal posteriors of the natural log of each parameter on one dataset, as kernel density estimates of the draws: the long run of the exact sampler as a filled blue density, and the mixed route as the orange line. The ptsG promoter, the decay rate and enolase sit \pn{mix.gaplo}--\pn{mix.gaphi} standard deviations apart. B: empirical cumulative distribution functions of the ranks (rank-ECDFs) of both routes over the same \pn{mix.R} prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and each line is the rank-ECDF minus the fractional rank.}
 \label{fig:approx}
 \end{figure*}
 
-\paragraph{Both routes are calibrated.} A test against one known truth, as in DREAM8
+\paragraph{Both routes pass a low-powered calibration.} A test against one known truth, as in DREAM8
 \cite{karr2015summary}, cannot show whether a posterior's width is right. So we drew
 \pn{vseven.R} parameter sets from the prior, simulated one M0 dataset from each, and fitted
 each dataset with both routes. Over many datasets, a 90\% credible interval must then contain
 the truth about 90\% of the time \cite{talts2018validating}. For each parameter we compared
-the empirical CDF of the ranks of the truth with a simultaneous band
+the empirical cumulative distribution function (ECDF) of the ranks of the truth with a simultaneous band
 \cite{sailynoja2022graphical}, at a joint level of 95\% over the \pn{mzero.npar} parameters.
 On both routes all \pn{mzero.npar} parameters stay inside their bands (\cref{fig:approx}B).
 The largest deviation on each route is for the transcript decay rate: \pn{vseven.maxdev} for
@@ -33,19 +33,21 @@ This calibration holds for M0 only, and not all of its replicates mixed well. In
 \pn{vseven.lowess} of the \pn{vseven.R} exact replicates the smallest bulk effective sample
 size is below 100, and autocorrelated draws can distort ranks. In \pn{mix.lowconv} of the
 \pn{mix.R} mixed replicates the two chains fall short of a rank-normalised
-$\Rhat \le 1.02$ \cite{vehtari2021rank} and a bulk effective sample size of 100. Their worst $\Rhat$ is \pn{mix.rhat} and their smallest effective sample
+potential scale reduction factor $\Rhat \le 1.02$ \cite{vehtari2021rank} and a bulk effective sample size of 100. Their worst $\Rhat$ is \pn{mix.rhat} and their smallest effective sample
 size is \pn{mix.ess}. Without these replicates the mixed calibration result is unchanged. We
 report this comparison as a sensitivity check only, because dropping replicates is a selection.
 
 \paragraph{The mixed route is far cheaper.} A posterior from the mixed route costs a median of
 \pn{mix.cpuh} CPU-hours (range \pn{mix.cpuhlo}--\pn{mix.cpuhhi}), against
 \pn{ften.cpuh}--\pn{cost.exacthi} for a production-length exact chain (\cref{tab:cost}). The
-cost lies in the number of simulations rather than the time of one. One cycle of the reduced
+two sides do not hold the same posterior: one exact chain against \pn{mix.chains} mixed chains of
+\pn{mix.ndraw} draws, with different effective sample sizes. On M0 the saving comes from
+needing fewer simulations, not faster ones. One cycle of the reduced
 model takes \pn{model.cyclewall}\,s, and a fast implementation of the full \syn{} model is the
 subject of a companion paper \cite{kimpson2026whole}.
 
 \begin{table}[t]
-\caption{\textbf{The mixed route costs about \pn{mix.speedup} times less than the exact sampler on M0.} CPU-hours per posterior. The mixed route's value is a median over completed jobs, and a fault in the starting optimiser lost another \pn{mix.lost} CPU-hours across the calibration run.}
+\caption{\textbf{On M0 a mixed-route posterior takes \pn{mix.speeduplo}--\pn{mix.speeduphi} times fewer CPU-hours than a production exact chain.} CPU-hours per posterior. The exact production range runs from one production-length chain (\pn{ften.cpuh}) to the mean per replicate of the exact calibration (\pn{cost.exacthi}). The mixed route's value is a median over completed jobs. A fault in the starting optimiser lost another \pn{mix.lost} CPU-hours across the mixed calibration, which is in no replicate's cost. The reduced-model projection assumes M0's mixing rate, which is unmeasured at that scale.}
 \label{tab:cost}
 \centering
 \small
@@ -77,9 +79,9 @@ are two leads, and neither is measured as a shift. First, the mixed route counts
 transcripts' information twice: the bulk is the mean of the same cells whose transcripts the
 route also scores. A first-order calculation predicts that this makes the posterior too narrow. The mixed
 posterior is indeed narrower than the exact one on the decay rate and the ptsG promoter, but
-only barely narrower on the other promoter, where the calculation predicts the same. Its effect
-on where the posterior sits is not measured. Second, for the decay rate, the metabolite
-(bulk) factor itself. Fitted to the metabolites alone, where neither the cells shared by the two data streams nor double
+only barely narrower on the other promoter, where the calculation predicts the same. The double
+counting's effect on where the posterior sits is not measured. The second lead, for the decay
+rate, is the bulk factor itself. Fitted to the metabolites alone, where neither the cells shared by the two data streams nor double
 counting can act, the mixed route sits about \pn{gap.metonly} of the full-data exact posterior's
 standard deviations above an exact fit to the same data. That exact fit has an effective sample size
 of only \pn{mix.krnadegess}, and we have not tested whether this offset is the same gap.
@@ -89,11 +91,12 @@ of only \pn{mix.krnadegess}, and we have not tested whether this offset is the s
 rests on the mean-field swap. The swap costs most for GTP, which it puts
 \pn{jg.gtplo}--\pn{jg.gtphi}\% below the population mean. An offset $\delta$ corrects this
 bias; without it the decay rate would move by \pn{jg.biaslo}--\pn{jg.biashi} posterior
-standard deviations (\cref{sec:jensen}). The coupling is two-way, but on M0 a linearised analysis
-suggests that the information points mostly one way. A linearised bound puts ptsG's posterior standard deviation from metabolites
-alone at \pn{info.ptsg} of its prior's, while transcripts alone leave enolase's at
-\pn{info.enotx} (\cref{sec:info}). \Cref{app:sfixed} gives the effect of holding $S$ fixed, and
-\cref{app:crossed} crosses each route's posterior with each forward description.
+standard deviations (\cref{sec:jensen}). The coupling is two-way, but a linearised analysis
+suggests that the information points mostly one way. On M0 a linearised bound puts ptsG's
+posterior standard deviation from metabolites alone at \pn{info.mzeroptsg} of its prior's, and the
+mixed route measures \pn{mix.ptsgbulk}. On the reduced model the bound is \pn{info.ptsg}, while
+transcripts alone leave enolase's at \pn{info.enotx} (\cref{sec:info}). \Cref{app:sfixed} gives the effect of holding $S$ fixed, and
+\cref{sec:predm0} crosses each route's posterior with each forward description.
 
 On the reduced model an exact posterior is out of reach (\cref{sec:model}), and the mixed
 route makes the posterior of \cref{sec:reduced} affordable.

@@ -5,13 +5,12 @@ This appendix holds the M0 results that \cref{sec:posteriors} summarises. M0 is 
 reduced model cut to two genes over \pn{mzero.horizon}\,s, with \pn{mzero.npar} free
 parameters (\cref{sec:model}). We give the exact sampler's coverage, the cost of the
 mean-field swap and its check, and the effect of holding $S$ fixed. We then give the
-remaining gap between the routes, what each data stream informs, and the crossed
-comparison of M0's scored predictions.
+remaining gap between the routes and what each data stream informs.
 
 \subsection{The exact sampler on M0}
 \label{app:posteriors}
 
-\paragraph{Coverage.} We read coverage off the ranks of \cref{fig:calibration}A, for
+\paragraph{Coverage.} We read coverage off the exact sampler's ranks in \cref{fig:approx}B, for
 central credible intervals at five levels from 50\% to 99\%. In \pn{vseven.cov}
 parameter--level pairs the coverage is inside the binomial 95\% band. Over 30 pairs,
 chance alone gives one or two misses. The one miss is the decay rate at 99\%, where
@@ -19,7 +18,7 @@ $L = \pn{mzero.L}$ draws per chain give the coarsest ranks.
 
 \paragraph{A production-length chain matches the long run.} We ran one chain of the
 length used in the calibration runs. On no marginal can it be told apart from the
-long run of the exact sampler on the same dataset (\cref{fig:calibration}B). The means differ by at most \pn{ften.dmean}
+long run of the exact sampler on the same dataset (\cref{fig:calibration}). The means differ by at most \pn{ften.dmean}
 long-run standard deviations, and the ratio of standard deviations is between
 \pn{ften.sdlo} and \pn{ften.sdhi}. This chain cost \pn{ften.cpuh} CPU-hours. Its
 effective sample size is low, so the comparison has low resolving power. The chain
@@ -29,8 +28,7 @@ standard deviations.
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_calibration.pdf}
-\caption{\textbf{The exact sampler on M0.} A: rank-ECDF of the truth over \pn{vseven.R}
-prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The grey region is the band, and the line is the rank-ECDF minus the fractional rank. B: marginal posteriors of the natural log of each parameter on one dataset: the long run as a filled blue density, and a production-length chain as the orange line.}
+\caption{\textbf{The exact sampler on M0: a production-length chain against the long run.} Marginal posteriors of the natural log of each parameter on one dataset, as kernel density estimates: the long run as a filled blue density, and a production-length chain as the dark blue line. The exact sampler's rank-ECDFs over \pn{vseven.R} prior-drawn datasets are the blue lines of \cref{fig:approx}B.}
 \label{fig:calibration}
 \end{figure*}
 
@@ -38,8 +36,11 @@ prior-drawn datasets, against simultaneous bands at a joint level of 95\%. The g
 \label{sec:jensen}
 
 The mixed route rests on the mean-field swap, which replaces the stochastic gene
-expression with its mean. The swap keeps the means of transcripts and proteins exact,
-but metabolism is nonlinear. A metabolism fed the mean drain differs from the mean over
+expression with its mean. Given the rate constants, the swap keeps the means of transcripts and
+proteins exact. The hybrid rebuilds those constants every 60\,s from each cell's own pools, while
+the swap builds them from the mean-field pools; this second gap should be small while GTP stays
+well above $K_d$, because the feedback elasticities are then small (\cref{tab:gain}), but
+we have not measured it (\cref{app:gap}). But metabolism is nonlinear. A metabolism fed the mean drain differs from the mean over
 cells of metabolisms fed their own drains. That difference is a Jensen gap.
 
 On M0 the gap is largest for GTP, where the mean field sits
@@ -51,7 +52,7 @@ which we have not tested, is that only the saturable enzymes PGK3 and PYK3 regen
 GTP. If GTP is convex in the spend, the population mean sits above GTP at the mean
 spend.
 
-We treat the gap as a declared reduction and correct it with an offset $\delta$. The
+We treat the gap as a known approximation of the route and correct it with an offset $\delta$. The
 offset is the log difference between the mean of a reference ensemble and the mean
 field, at one reference parameter set (\cref{sec:meanfield}). Our reference is the most
 detailed composition we have, the exact hybrid, and not the truth about the cell.
@@ -80,9 +81,9 @@ limit is of the deterministic path, not of the stochastic hybrid, whose gap
 \cref{sec:jensen} treats. Extrapolated to a zero step, the two agree to
 \pn{rii.maxdelta} in log concentration at all five test parameter sets. One
 mean-field solve takes \pn{rii.mzero}\,s on M0 and \pn{rii.corealo}--\pn{rii.coreahi}\,s
-on the full reduced model.
+on the reduced model.
 
-\subsection{The mixed route: holding $S$ fixed}
+\subsection{\texorpdfstring{The mixed route: holding $S$ fixed}{The mixed route: holding S fixed}}
 \label{app:sfixed}
 
 The mixed route computes $S$ once, at a reference parameter value. A sensitivity check
@@ -102,7 +103,7 @@ enolase. We tested the candidate causes one at a time. No cause is named.
 draw sits near the mixed route's bounds. The gap is not sampler error: each shift is
 \pn{gap.zlo}--\pn{gap.zhi} times the two samplers' Monte Carlo standard errors combined.
 
-\paragraph{The bulk's reference: a part.} The offset $\delta$ and the covariance $S$ are
+\paragraph{The bulk reference: a partial cause.} The offset $\delta$ and the covariance $S$ are
 computed once, from a reference ensemble (\cref{sec:meanfield}). Switching $\delta$ off makes
 the gap on the decay rate and enolase about four times larger, \pn{gap.nojensen} on the decay
 rate, so the correction is needed. Only the ptsG promoter lands on the exact posterior without
@@ -141,7 +142,7 @@ the same gap was not tested.
 deviations of its gap remain with the doubled ensemble, while recomputing $\delta$ and $S$
 barely moves it. It is the least explained
 of the three. Three candidates are untested: the mean field
-on this dataset beyond $\delta$'s first-order correction, the transcript factor's
+on this dataset beyond $\delta$'s constant correction at $\theta_{\mathrm{ref}}$, the transcript factor's
 population-mean constants, and an exact run on disjoint cells, at
 \pn{ften.cpuh}--\pn{cost.exacthi} CPU-hours. The reduced model uses the same mixed route, so
 the double counting can arise there too. Its size there is not measured, and nothing here
@@ -152,8 +153,8 @@ counting does not cause it.
 \subsection{What each data stream informs}
 \label{sec:info}
 
-No claim in the main text rests on this subsection. It reads the M0 posteriors for what
-they say about the boundary. A coupled model has three graphs, and they need not agree
+No claim in the main text rests on this subsection. It reads the M0 posteriors, and linearised bounds on M0 and
+the reduced model, for what they say about the boundary. A coupled model has three graphs, and they need not agree
 (\cref{fig:graphs}). The \emph{coupling graph} says which module drives which
 state. The \emph{likelihood graph} says which likelihood factors depend on which
 parameters once the stochastic paths are integrated out. The \emph{information
@@ -169,8 +170,8 @@ joint's promoter posterior (\cref{app:modular}).
 \includegraphics[width=\linewidth]{fig_graphs.pdf}
 \caption{\textbf{Three graphs of one model.} A: the coupling is two-way, with a strong drive
 from gene expression to the pools and a weak one back. Line width shows gain. B: once the
-paths are integrated out, the gene-expression parameters $\theta_G$ enter both factors,
-and the metabolic parameters $\theta_M$ reach the transcript factor only weakly (dotted). C:
+paths are integrated out, the gene-expression parameters $\theta_G$ (promoter strengths and the
+decay rate) enter both factors, and the metabolic parameters $\theta_M$ (ENO and FBA) reach the transcript factor only weakly (dotted). C:
 what the data move. Solid: each stream informs its own module, on both routes. Dashed: metabolites
 to gene expression, shown by the linearised bound and the mixed route, with no exact result.
 Dotted: transcripts to metabolism, a null read-off on M0.}
@@ -188,16 +189,16 @@ published law, the dissociation constant $K_d$ of RNA polymerase for its nucleot
 \pn{gain.kd}\,mM, while ATP is near \pn{gain.atp}\,mM.
 
 \begin{table}[t]
-\caption{\textbf{Gain and information in each direction across the boundary.} Information is the ratio of posterior to prior standard deviation at 200 cells. The ptsG value is a linearised bound at 10\% assay noise, and its bracket is the ratio that noise alone gives. The ENO value limits what transcripts can inform, since they are a function of the path: a Gaussian approximation from the path's Fisher information, linearised at one truth, from 40 cells scaled to 200, with no assay noise.}
+\caption{\textbf{Gain and information in each direction across the boundary.} The last column is the ratio of posterior to prior standard deviation, so a smaller value means more information. The ptsG bounds are linearised, at 10\% assay noise: on the reduced model at \pn{kim92.ncells} cells, and on M0 at \pn{mzero.cells} cells. Each bracket is the ratio that noise alone gives. The mixed-route value is measured on M0 under metabolites only. The ENO value, on the reduced model, limits what transcripts can inform, since they are a function of the path: a Gaussian approximation from the path's Fisher information, linearised at one truth, from 40 cells scaled to \pn{kim92.ncells}, with no assay noise.}
 \label{tab:gain}
 \centering
 \small
 \begin{tabular}{@{}P{0.3\columnwidth}P{0.27\columnwidth}P{0.33\columnwidth}@{}}
 \toprule
-Direction & Gain & Information \\
+Direction & Gain & Posterior SD / prior SD \\
 \midrule
-Gene expression $\to$ pools & order one & ptsG from metabolites only: \pn{info.ptsg} (bracket \pn{info.ptsgbracket}) \\
-Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn{gain.tl} (translation) & ENO from transcripts only: \pn{info.enotx} \\
+Gene expression $\to$ pools & order one & ptsG from metabolites only. Reduced model, bound: \pn{info.ptsg} (bracket \pn{info.ptsgbracket}). M0, bound: \pn{info.mzeroptsg} (bracket \pn{info.mzerobracket}); mixed route: \pn{mix.ptsgbulk} \\
+Pools $\to$ rate constants & \pn{gain.txlo}--\pn{gain.txhi} (transcription), \pn{gain.tl} (translation) & ENO from transcripts only, reduced model: \pn{info.enotx} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -216,7 +217,7 @@ about the enolase constant, a metabolic parameter. We report this result as a nu
 as a failure. On M0 at \pn{mzero.cells} cells, the exact sampler's divergence under
 transcripts only is \pn{tsplit.eno}\,nat for enolase and \pn{tsplit.fba}\,nat for
 aldolase, each below its noise floor. The read-off is M0's. We did not run the planned
-test at 1,000 cells, so we do not extend it to the full reduced model.
+test at 1,000 cells, so we do not extend it to the reduced model.
 
 \paragraph{One data stream at a time, by both routes.} On the dataset of
 \cref{fig:approx}A under transcripts only, none of the five marginals we compared differs detectably between the
@@ -230,33 +231,3 @@ differ detectably between the routes, by small margins, and aldolase does not. T
 fit has an effective sample size of only \pn{mix.krnadegess} for the decay rate. Each
 floor is one sample of the noise, so these margins are not precise. We have not tested
 whether they share a cause with the gap of \cref{sec:posteriors,app:gap}.
-
-\subsection{M0's crossed comparison}
-\label{app:crossed}
-
-\Cref{tab:crossed} gives the coverages and widths that \cref{fig:crossed} plots, for M0's
-scored predictions (\cref{sec:predm0}).
-
-\begin{table*}[t]
-\caption{\textbf{M0's crossed comparison.} \textbf{Scored} against the truth over \pn{vseven.R}
-datasets, as percentage coverage $\pm$ one standard error. Width is the median ratio of
-the 90\% interval to that of the exact posterior with the hybrid. The references at these
-sizes are \pn{pred.ref50}\% and \pn{pred.ref90}\%. The $\Delta Q$ columns do not meet the
-sizing rules in \cref{sec:predm0}, so they are not clean calibration numbers.}
-\label{tab:crossed}
-\centering
-\small
-\begin{tabular}{@{}llcccccc@{}}
-\toprule
-& & \multicolumn{3}{c}{$Q$, lactate export} & \multicolumn{3}{c}{$\Delta Q$, knockdown effect} \\
-Posterior & Forward & 50\% & 90\% & Width & 50\% & 90\% & Width \\
-\midrule
-Exact & Hybrid & \pn{pred.q.eh.c} & \pn{pred.q.eh.n} & 1 & \pn{pred.d.eh.c} & \pn{pred.d.eh.n} & 1 \\
-Exact & Mean field & \pn{pred.q.em.c} & \pn{pred.q.em.n} & \pn{pred.q.em.w} & \pn{pred.d.em.c} & \pn{pred.d.em.n} & \pn{pred.d.em.w} \\
-Exact & Mean field $+\,\delta_Q$ & \pn{pred.q.ed.c} & \pn{pred.q.ed.n} & \pn{pred.q.ed.w} & \pn{pred.d.ed.c} & \pn{pred.d.ed.n} & \pn{pred.d.ed.w} \\
-Mixed & Hybrid & \pn{pred.q.mh.c} & \pn{pred.q.mh.n} & \pn{pred.q.mh.w} & \pn{pred.d.mh.c} & \pn{pred.d.mh.n} & \pn{pred.d.mh.w} \\
-Mixed & Mean field & \pn{pred.q.mm.c} & \pn{pred.q.mm.n} & \pn{pred.q.mm.w} & \pn{pred.d.mm.c} & \pn{pred.d.mm.n} & \pn{pred.d.mm.w} \\
-Mixed & Mean field $+\,\delta_Q$ & \pn{pred.q.md.c} & \pn{pred.q.md.n} & \pn{pred.q.md.w} & \pn{pred.d.md.c} & \pn{pred.d.md.n} & \pn{pred.d.md.w} \\
-\bottomrule
-\end{tabular}
-\end{table*}

@@ -425,6 +425,8 @@ def compute():
     put('kim92.fitend', '3{,}120', "spec/prereg/kim-92.md §1, last save in the fit window, s")
     put('kim92.nrows', '884', "spec/prereg/kim-92.md §1, 17 pools x 52 saves")
     put('mix.speedup', '80', "ften.cpuh / mix.cpuh = 507.5 / 6.57 = 77; 103 against cost.exacthi")
+    put('mix.speeduplo', '77', "ften.cpuh / mix.cpuh = 507.5 / 6.57")
+    put('mix.speeduphi', '103', "cost.exacthi / mix.cpuh = 678 / 6.57")
     put('kim92.firstdraws', '200', "spec/prereg/kim-92.md §1, NDRAW")
     put('kim92.nadapt', '200', "spec/prereg/kim-92.md §1, NADAPT")
     put('kim92.extdraws', '400', K92 + ", kept draws per chain after the extension")
@@ -459,6 +461,11 @@ def compute():
     put('kim116.cutpromz', '$-0.79$', K116 + ", cut, promoters' mean (mean - truth)/sd")
     put('kim116.plugpromz', '$-0.61$', K116 + ", plug-in, promoters' mean (mean - truth)/sd")
     put('kim116.truthin', '19', K116 + ', truth inside the 90% interval, of 21, both variants (joint 20)')
+    put('kim116.jointjobs', '454.6', K116 + ", cost table, the joint's own posterior jobs: stage 1 (chains, extension, gate checks, metric job) 452.5 plus PPC and merge 2.0, CPU-h")
+    put('compute.modularjobs', '21208675--84, 21315914, 21316056--59, 21375141, 21375287, 21457208, 21462423--26, 21596404, 21597007, 21627293--95', 'infercell-kim116-archive-2026-11-26/run/jobs.tsv, both variants; profile 21196497 is separate')
+    put('compute.modularpredictjobs', '21408651--54', 'infercell-kim116-archive-2026-11-26/predict/jobs.tsv, plug-in D3')
+    put('compute.modularpredictcpuh', '4{,}231', K116 + ' l.105, 4,230.6 CPU-h from sacct')
+    put('compute.budgetreadjob', '21188187', 'dev/scripts/corea_budget_kim96_result.md, Run: a 14 s job that reads three archives')
     put('kim116.cutjob', '1.44', K116 + ", cost table, cut total / joint's own posterior jobs (652.3 / 454.6)")
     put('kim116.plugjob', '0.80', K116 + ", cost table, plug-in total / joint's own posterior jobs (365.2 / 454.6)")
     put('kim116.cutt1', '1.33', K116 + ', cut total against T1 491.9, the pre-registered comparator')
@@ -539,6 +546,7 @@ def compute():
     put('kim95.priorlow', '24--26', K95 + ", prior median low, % of truth")
     put('kim95.dqtruth', r'\ensuremath{6.4 \times 10^{4}}', K95 + ", dQ truth")
     put('kim95.dqshare', '0.4', K95 + ", dQ as % of Q")
+    put('kim95.dqse', r'\ensuremath{2.3 \times 10^{4}}', K95 + ", dQ truth SE (6.423e4 +- 2.32e4)")
     put('kim95.dqmc', '1.09', K95 + ", dQ posterior MC share")
     put('kim95.sesdlo', '0.14', K95 + ", truth SE/SD on Q")
     put('kim95.sesdhi', '0.33', K95 + ", truth SE/SD on dQ")
@@ -587,6 +595,9 @@ def compute():
     put('kim96.sdpost', '0.8', K96 + ", sqrt(Var)/mean %, posterior")
     put('kim96.heldshare', '91', K96 + ", KIM-42's share in the 15 held promoters, %")
     put('kim96.ionly', '11', K96 + ", factor from inferring promoters alone (2.17e12 / 2e11)")
+    put('kim96.hwithin', r'\ensuremath{2.2 \times 10^{11}}', K96 + ", h_within with H first: variance left with the promoters pinned")
+    put('kim96.honly', '10', K96 + ", 2.17e12 / 2.2e11 = 9.9, upper bound on the factor from the promoters alone")
+    put('kim92.nmodelpar', '20', "kim92.ncoord less sigma_b, the model parameters that enter Q")
 
 
 

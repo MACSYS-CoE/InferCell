@@ -4,9 +4,11 @@
 A whole-cell model simulates a cell from its molecular parts. The first such model
 described \textit{Mycoplasma genitalium} with \pn{lit.karrsub} coupled submodels
 \cite{karr2012whole}. Later models covered \textit{Escherichia coli}
-\cite{macklin2020simultaneous} and the minimal cell \syn{}, first well stirred
+\cite{macklin2020simultaneous} and the minimal cell \syn{} \cite{hutchison2016design,breuer2019essential}. After
+models of its metabolism \cite{breuer2019essential} and its genetic information processes
+\cite{thornburg2019kinetic}, \syn{} was modelled whole, first well stirred
 \cite{thornburg2022fundamental} and then in space and time over a full cell cycle
-\cite{thornburg2026bringing}. Each one joins
+\cite{thornburg2026bringing}. Each of these whole-cell models joins
 metabolism, gene expression, growth and division in one simulation, and each
 reproduces measured behaviour of a real cell.
 
@@ -15,7 +17,7 @@ parameters from the literature, sets each to one value, and integrates forward i
 time. The output is one trajectory. That trajectory is one sample from the
 distribution of trajectories that the parameter knowledge allows. The model does not
 know the width of that distribution. When a model predicts a doubling time, a reader
-cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Sensitivity analyses vary parameters \cite{macklin2020simultaneous}, but they do not say what the data support.
+cannot tell whether the prediction holds for every plausible parameter set or depends on a few uncertain values. Cross-checks of parameters against one another catch inconsistent values \cite{macklin2020simultaneous}, but they do not say what the data support.
 
 The missing error bar matters because every parameter in a whole-cell model is
 uncertain. A rate measured in one organism, at one temperature,
@@ -26,11 +28,12 @@ which data would reduce that uncertainty.
 
 \subsection{Why whole-cell models do not do inference}
 
-Bayesian inference answers both questions. It treats each parameter as a
+Bayesian inference answers both questions: how uncertain a prediction is, and which data
+would reduce that uncertainty. It treats each parameter as a
 distribution, updates the distribution with data, and propagates the result into
-predictions. This approach has been argued for whole-cell models \cite{babtie2017how}.
+predictions. Parameter estimation and inference for whole-cell models have been reviewed \cite{babtie2017how}.
 Whole-cell parameters have been estimated, but as point estimates and not as calibrated
-posteriors. In the DREAM8 challenge, teams recovered \pn{dream.nparam} parameters of a
+posteriors. In the DREAM8 challenge, teams estimated \pn{dream.nparam} parameters of a
 modified \textit{M.\ genitalium} model, \pn{dream.nmod} changed and \pn{dream.nmod} unchanged,
 scored against that one known truth \cite{karr2015summary}. Parameter error and prediction
 error had a log--log $R^2$ of \pn{dream.rall} over all submissions and only \pn{dream.rtop}
@@ -47,12 +50,16 @@ that reports posteriors over its parameters. We see five reasons.
   spreadsheet, a flat file or a supplement, and rarely with the value in the model.
   \item \emph{Mixed formalisms.} Metabolism is a set of ordinary differential
   equations (ODEs). Gene expression is a stochastic jump process. The two exchange
-  state on a fixed clock. No single likelihood and no standard sampler covers both.
+  state on a fixed clock. Exact samplers that apply to such hybrids exist, such as particle Markov
+  chain Monte Carlo \cite{andrieu2010particle}, used for stochastic kinetic models
+  \cite{golightly2011bayesian}, but none is standard practice
+  at whole-cell scale.
   \item \emph{Latent paths.} The stochastic block has a hidden path: the exact
   times of each transcription and translation event. The likelihood of the data
   integrates over all such paths, and that integral has no closed form.
-  \item \emph{Cost.} Inference needs many simulations. For a whole-cell model the
-  number of simulations, not the cost of one, sets the budget.
+  \item \emph{Cost.} Inference needs many simulations, and the cost of a posterior is
+  their number times the time of one. A route that needs fewer simulations can matter as much as a
+  faster simulator.
   \item \emph{No shared parameters.} In the published \syn{} model, no rate
   constant appears in both blocks. The blocks couple only through state. The
   standard methods for modular inference pass information through shared
@@ -65,6 +72,19 @@ Thornburg and coworkers balanced the metabolic parameters of \syn{} against each
 other with a Bayesian method, parameter balancing \cite{lubitz2010parameter,thornburg2022fundamental}. That step used
 literature values for metabolism only. It did not infer parameters from dynamic
 data through the coupled model.
+
+Outside whole-cell modelling, Bayesian inference for stochastic kinetic models is well developed
+\cite{wilkinson2018stochastic}. Pseudo-marginal and particle Markov chain Monte Carlo methods
+replace an intractable likelihood with an unbiased estimate of it
+\cite{andrieu2009pseudomarginal,andrieu2010particle,doucet2015efficient}, and have been applied to
+stochastic biochemical networks \cite{golightly2011bayesian}. When a model is built from modules,
+cutting feedback stops one module's data from changing another module's posterior
+\cite{liu2009modularization,plummer2015cuts,jacob2017better}. Recent work extends cuts to
+variational, likelihood-free and generalised Bayesian inference
+\cite{yu2023variational,chakraborty2023modularized,frazier2025cutting}, and to general
+multi-module graphs \cite{liu2025general}, and Markov
+melding joins chains of submodels that share quantities \cite{manderson2023combining}.
+\Cref{sec:discussion} compares other approximate routes to a posterior.
 
 What is missing is a whole-cell model inferred from single-cell and bulk data across a real
 ODE--stochastic boundary, with its posterior predictions scored against a known truth.
@@ -91,7 +111,8 @@ Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
 \bottomrule
 \end{tabular}
 \begin{flushleft}\footnotesize
-These columns are \IC{}'s own design aims, so the comparison favours it. The fits in the other rows used real data, where ours are synthetic. (a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
+These columns are \IC{}'s own design aims, so the comparison favours it. Vivarium is a
+composition engine rather than a model, so its row grades the engine's defaults. The fits in the other rows used real data, where ours are synthetic. (a) A separate knowledge base with references, read by the simulation \cite{karr2012wholecellkb}.
 (b) Annotated flat files, with some sources blank. (c) Adjustments as hard-coded tables in the
 fitting code. (d) Metabolic priors in the balancing input, with their means used in simulation.
 (e) Sources in pre-balancing flat files, and not in the balanced table. (f) Bayesian parameter
@@ -100,7 +121,8 @@ and files. (h) A joint posterior on the reduced \syn{} model by the mixed route 
 synthetic dataset, with calibration checked only on M0, a two-gene slice of it (\cref{sec:model}). (i) Some submodels state, in the
 supplement's prose, how they simplify the published models they adapt. Each cell's evidence is in
 \texttt{paper/tables/frameworks\_sources.md}, from the papers' main text, each framework's public
-code, the \textit{M.\ genitalium} supplement, and the 2022 \syn{} supplement's methods and tables.
+code (for \syn{}, \cite{thornburg2021minimal}), the \textit{M.\ genitalium} supplement, and the 2022 \syn{}
+supplement's methods and tables.
 We did not read the \textit{E.\ coli}, Vivarium or 2026 \syn{} supplements, or the 2022 \syn{}
 supplement's figures, and for the 2026 \syn{} model we read the preprint.
 \end{flushleft}
@@ -109,8 +131,8 @@ supplement's figures, and for the 2026 \syn{} model we read the preprint.
 \subsection{This work}
 
 We present \IC{}, a compositional inference framework for whole-cell models. We use it
-to infer a reduced whole-cell model of \syn{} across its ODE--stochastic boundary and to carry
-the posterior to scored probabilistic prediction.
+to infer a reduced whole-cell model of \syn{}, with a likelihood that spans its ODE--stochastic
+boundary, and to carry the posterior to scored probabilistic predictions.
 \Cref{sec:design} describes the framework. Every parameter is a prior with a recorded
 source, modules couple through \pn{fw.edgekinds} kinds of typed edge, and every departure
 from the published model is a declared reduction. The composed model runs either as the
@@ -123,11 +145,15 @@ integrates it out.
 \pn{model.rxn} metabolic reactions, \pn{model.genes} genes and the two-way coupling between
 them. Its synthetic single-cell and bulk data come from a known truth. M0, a two-gene
 slice of it, is small enough for the exact sampler. There, \cref{sec:posteriors} shows that
-both routes pass simulation-based calibration and that the mixed route costs about
-\pn{mix.speedup} times less. \Cref{sec:reduced} then uses the mixed route
+both routes pass simulation-based calibration, a test that at this size detects only large
+miscalibration, and that the mixed route costs about \pn{mix.speedup} times less than an exact
+production chain. On one dataset the two routes still differ by
+\pn{mix.gaplo}--\pn{mix.gaphi} standard deviations, for a cause we have not found. \Cref{sec:reduced} then uses the mixed route
 alone to infer one joint posterior over the \pn{kim92.ncoord} free parameters of the
 reduced model, for about \pn{kim92.cpuh} CPU-hours. The data reach all \pn{kim92.ncoord},
-on both sides of the boundary, and the posterior reproduces its own data. Neither of two
+on both sides of the boundary, and the posterior reproduces its own data. The promoter
+strengths sit about \pn{kim92.promshift}\% low, for a cause we have not found.
+Neither of two
 two-stage alternatives, as designed, is both cheaper and faithful. A factor cut lands close to
 the joint posterior at \pn{kim116.cutt1} times its cost, and a cheaper data plug-in shifts the
 promoters away from it and predicts lactate worse.
@@ -135,12 +161,15 @@ promoters away from it and predicts lactate worse.
 \Cref{sec:reducedpredict} pushes that
 posterior forward to a later horizon and to a ptsG knockdown, neither of which the fit saw.
 It scores the predictions against the true simulator. They hold the truth for extracellular
-lactate, at baseline and under the knockdown, and for the transcripts. They miss
-\pn{kim95.poolshift} of the \pn{mzero.npanel} metabolite pools, and they do not resolve the
-knockdown's effect on lactate, which is small next to cell noise. At the default prior width, with every parameter inferred, the lactate
-prediction's parameter variance is about \pn{kim96.ratio} times smaller than in the budget
-transferred from M0. That budget carries an M0 posterior to the
-reduced model and leaves the other promoters at their priors.
+lactate at the end of the cycle, at baseline and under the knockdown, and for the transcripts.
+They miss \pn{kim95.poolshift} of the \pn{mzero.npanel} metabolite pools, though not the
+extracellular lactate pool, and they do not resolve the
+knockdown's effect on lactate, which is small next to cell noise. With every parameter inferred, the lactate
+prediction's parameter variance is about \pn{kim96.ratio} times smaller (\pn{kim96.ratiolo}--\pn{kim96.ratiohi}
+at $\pm 2$ standard errors) than in the budget transferred from M0. That budget carries an M0
+posterior, fitted to a different dataset, to the reduced model and leaves the other promoters
+at their priors. The factor holds at the default prior width; over widths $\tfrac12$ to 2 it
+runs from \pn{kim96.widthlo} to \pn{kim96.widthhi}.
 \Cref{sec:discussion} sets out what carries, what does not, and the limits of the test.
 
 The claim has limits. The data are synthetic, they come from the model being fitted, and
