@@ -35,7 +35,10 @@ SE with the posterior's correlations 0.264 -> mean/SE -3.06
   shared noise of any kind.)
 - **The size of the shift is small.** On the rate scale the promoters sit about 2% low on
   average.
-- **ENO and FBA are nearly symmetric**, with skewness 0.05 and 0.06. Their posterior means
-  sit 2.3 and 1.4 posterior SD from θ_ref, and that offset is not skew. θ_ref is the
-  bounded MAP at δ = S = 0 (`corea_pilot_kim92.jl`, `prep`), not the MAP of the fitted
-  likelihood, so the two points need not coincide.
+- **ENO and FBA sit away from θ_ref for a known reason.** Their posterior means sit 2.3
+  and 1.4 posterior SD from θ_ref. θ_ref is the bounded MAP at δ = S = 0
+  (`corea_pilot_kim92.jl`, `prep`), not the MAP of the fitted likelihood, and ENO and FBA
+  are learned from the bulk, where δ (up to 0.19 on the log scale, prep log) acts. So the
+  two points need not coincide. Their marginals are also nearly symmetric (skewness 0.05
+  and 0.06). Whether the optimiser stopped short is not tested; its return code was
+  successful (prep log "θ_ref by map").

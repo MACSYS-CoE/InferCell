@@ -17,9 +17,10 @@ SD, and the truth), both written by dev/scripts/corea_pilot_kim92.jl at de24b27,
      corresponding factor exp(shift) - 1;
   4. the sample skewness of the ENO and FBA marginals (log kcatF), from the pooled draws.
 
-The z-vector's covariance is taken as R, the posterior correlation of the promoters: under
-calibration each (mean - truth)/sd has unit variance and the errors share the posterior's
-correlation structure. That is an approximation, stated as such.
+The z-vector's covariance is taken as R, the posterior correlation of the promoters. Under a
+correctly specified regular model (Bernstein-von Mises), the error of the posterior mean has
+covariance close to the posterior covariance, so Cov(z) ~ R. This does not hold if the
+likelihood is misspecified, and then R says nothing about noise the likelihood omits.
 """
 import csv
 import math

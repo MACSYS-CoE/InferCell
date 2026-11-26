@@ -137,7 +137,8 @@ From `pilot_summary.md` (merge 21052425), on 1,600 pooled kept draws: 4 chains �
 - Of the 17 promoter strengths, 14 have posterior means below the truth. Their mean
   standardised error is −0.81, with an SD of 0.76.
 - If the 17 errors were independent and calibrated, their mean would be 0 ± 0.24, so this
-  is about 3.3 of those SEs away from zero.
+  is about 3.3 of those SEs away from zero. (Allowing for the posterior's
+  correlations it is 3.06 SE: `pilot_promoter_shift_result.md`, KIM-161.)
 - θ_ref, the bounded MAP at δ = S = 0 (`prep`; not the MAP of the fitted likelihood),
   has the same shift: its mean (MAP − truth)/sd
   over the promoters is −0.86 (reads §5).
@@ -163,7 +164,8 @@ ENO's and FBA's posterior means differ from θ_ref by 2.3 and 1.4 posterior SD. 
 2026-11-26, KIM-161: their marginals' skewness is 0.05 and 0.06,
 `pilot_promoter_shift_result.md`, so this is not skew; θ_ref is the MAP at δ = S = 0, not
 of the fitted likelihood, so it need not sit at the posterior's centre. The earlier reading,
-"the least Gaussian, or the MAP stopped short", is withdrawn.) For the other 19 coordinates, the posterior mean is within 0.35
+"the least Gaussian, or the MAP stopped short", is no longer needed; the stopped-short
+half is not tested.) For the other 19 coordinates, the posterior mean is within 0.35
 posterior SD of θ_ref. The largest of those are log_S_0233 (0.35) and log_sigma_b (0.33)
 (reads §5).
 

@@ -75,17 +75,18 @@ against the true simulator, are the test of the approximation.
 
 \paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD, from the
 curvature of the fitted log density at $\theta_{\mathrm{ref}}$, is
-\pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. The posterior means of ENO and
-FBA lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from $\theta_{\mathrm{ref}}$.
-Their marginals are nearly symmetric, with skewness \pn{kim92.skeweno} and
-\pn{kim92.skewfba}, so the offset is not skew. $\theta_{\mathrm{ref}}$ is the MAP with
-$\delta = S = 0$, not the MAP of the fitted likelihood, so it need not sit at the posterior's
-centre. So on this dataset a Laplace approximation would have given the right widths. We know
-that only because NUTS ran: the comparison needs the sampled posterior, and on a dataset
-whose posterior is far from Gaussian a Laplace fit alone would give no warning.
+\pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. So on this dataset a Laplace
+approximation gives the right widths. We know that only because NUTS ran: the comparison
+needs the sampled posterior, and on a dataset whose posterior is far from Gaussian a Laplace
+fit alone would give no warning. It would not give the right centre for ENO and FBA. Their
+posterior means lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from
+$\theta_{\mathrm{ref}}$, which maximises the density with $\delta = S = 0$, not the fitted one.
+Both are learned from the bulk, where $\delta$ acts, so they need not sit at the same place.
+Their marginals are also nearly symmetric, with skewness \pn{kim92.skeweno} and
+\pn{kim92.skewfba}.
 
-\paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours, of which
-the chains are about \pn{kim92.chainsall} (\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
+\paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
+(\cref{tab:reducedcost}), of which the chains are about \pn{kim92.chainsall}, below our bound of \pn{cost.kone} CPU-hours per posterior. That
 is far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
 The limit is wall-clock time, because each chain is one serial job. Each chain took
 \pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation
