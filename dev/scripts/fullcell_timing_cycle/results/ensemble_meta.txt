@@ -1,0 +1,48 @@
+mode ensemble procids 1:100 seed 1 minutes 121 out /fred/oz022/tkimpson/infercell-kim183-2026-11-26/ensemble/ensemble
+date 2026-11-26T23:22:58.132
+host dave104
+lscpu Model name:                              AMD EPYC 7543 32-Core Processor
+slurm_job 21664422 cpus_per_task 64
+threads 64 gcthreads 65 sweep_threads 1 blas_threads 1
+infercell_git 917bcb2d23a24b211cb687661ffb3a98aba9c4f7
+syn3a_ensemble_git 2075809cbb825140cb31a7bec8bc3529770c8e13
+syn3a_ensemble_code_data_clean true
+speedycell_path /fred/oz022/tkimpson/syn3a-ensemble/code/SpeedyCell/src/SpeedyCell.jl
+sha256 98a77a9c61418416dba040b9b69ca5d5b77ace907ee7adb528f78d3f32b726a8  data/model/README.md
+sha256 e3c21a138aa318eb39f5e21a2e1f5e31476d2d10581ecec8e552b1128ce66251  data/model/export_meta.json
+sha256 2cbf4eae3b624a6b310c8eb8e67d30ea01ebd8b6a99c1a7fb12e13187399cca6  data/model/inventory.md
+sha256 1bd4b35e1c33f3547fd5683213b5b4c32d7211dd9046d8a4b7ee628ee1f39b89  data/model/nodes.csv
+sha256 1149da1f0ac53d53d1eb8d63c302e4d638e5e15666bddbb66cfd1f08276c67b5  data/model/cme/initial_counts.csv
+sha256 a95619a05e47b32e7e97e8f65128e31a25403c386e80b5ccfb298d905aa3af0e  data/model/cme/rate_rules.csv
+sha256 63fbeca180fe8bdebec646df0ddbffb0149958fc2ff9fc3e6ec8803cd24c6aaf  data/model/cme/reactions.csv
+sha256 c1acb80878e8a500a86e0e1d9e195a491b46a01c337788c0a6554df19cbe6ec9  data/model/cme/species.csv
+sha256 60e2ac5ae374daa4496268a0c01ff000043cea02da131355dcd1144be6e9a58c  data/model/ode/parameters.csv
+sha256 4da4941402a0e176ad6adad2c35b6ad0f67f992c023a306ea43f5edb3b8b9a27  data/model/ode/reactions.csv
+sha256 77d003243ec52770287ba76658f4deeb00cb3e8ad2e51172d0d3a7517b02bd55  data/model/ode/species.csv
+sha256 be4293c536cac2ef1a73cabf0144e5a64b696a7bff5f07ab15c871c8a710bf2f  data/model/ode/stoichiometry.csv
+sha256 93921ecdf42c84a52a7432a7b0c7ab7210c90e73167e1f1a3091219261ca8c7a  data/model/params/README.md
+sha256 c662490ebd1108d1ae49e36f1f1b37dcafcbde85744d5579f72ebdda5fad2ba4  data/model/params/classification.csv
+sha256 3adb691ce5471fbaaf95fca732ce9bd9146b01ac3ee1275274ff9efb13a9f7e7  data/model/params/cme_constants.csv
+sha256 3ae1089dcb7b27c9a07933d7fed2e5ba19dfef298d718197244855d67ba4db3e  data/model/params/nodes.csv
+sha256 8be12936b49e79fecc9e1b97dba53c6e4f65b33170220ecd089e6c23d9e6124e  data/model/params/ode_constants.csv
+sha256 a5701748b77808a602b1f18086a418a9c687e3dacce48e25be4a6350b51fda20  data/model/params/ode_reactions.csv
+sha256 62806bc438db91250f7335eef7eb093f144722988c9a08f2acbc187610d08f75  data/model/params/params_meta.json
+sha256 bea3c44970165ecc1122ee1ca6065c9ddc6e880b3be86063f2a03355122ce045  data/model/params/rate_rules.csv
+Julia Version 1.11.9
+Commit 53a02c0720c (2026-02-06 00:27 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 64 × AMD EPYC 7543 32-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-16.0.6 (ORCJIT, znver3)
+Threads: 64 default, 0 interactive, 65 GC (on 64 virtual cores)
+Environment:
+  JULIA_DEPOT_PATH = /fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
+  JULIA_PKG_OFFLINE = true
+  LD_LIBRARY_PATH = /apps/slurm/latest/lib:/apps/slurm/latest/lib/slurm:/opt/nvidia/latest/usr/lib64
+CellModel() 1.92 s; warm-up (procid 1000, 3 minutes, includes compilation) 16.95 s
+ensemble: 100 cells (0 errors, 0 ODE failures) in 188.3 s wall; GC 50.8 s (27.0% of wall)
+per-cell outer wall: median 90.62 s, min 35.43, max 112.95
+cells per node-hour: 1912 (100 cells / 188.3 s, 64 threads)
