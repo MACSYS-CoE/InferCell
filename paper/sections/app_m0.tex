@@ -94,7 +94,53 @@ five are about twice the noise, one is 1.3 times it, and two are within it.
 \subsection{The remaining gap}
 \label{app:gap}
 
-\todo{Three M0 parameters sit \pn{mix.gaplo}--\pn{mix.gaphi} SD from the long run of the exact sampler; the leads are double counting of the transcripts' information through the bulk, and the bulk factor itself; waits for KIM-90.}
+On one M0 dataset the mixed posterior sits \pn{mix.gaplo}--\pn{mix.gaphi} posterior standard
+deviations from the long run of the exact sampler, on the ptsG promoter, the decay rate and
+enolase. We tested the candidate causes one at a time. No cause is named.
+
+\paragraph{Ruled out.} Both routes build the same dataset, priors, panel and window, and no
+draw sits near a truncation. The gap is not sampler error: each shift is
+\pn{gap.zlo}--\pn{gap.zhi} times the two samplers' Monte Carlo standard errors combined.
+
+\paragraph{The bulk's reference: a part.} The offset $\delta$ and the covariance $S$ are
+computed once, from a reference ensemble (\cref{sec:meanfield}). Switching $\delta$ off makes
+the gap on the decay rate and enolase about four times larger, \pn{gap.nojensen} on the decay
+rate, so the correction is needed. Doubling the ensemble, or recomputing $\delta$ and $S$ at the mixed posterior's mean,
+closes at most \pn{gap.refsev} standard deviations on the ptsG promoter and \pn{gap.refkrn} on
+the decay rate, and leaves most of the gap.
+
+\paragraph{Shared cells: indeterminate.} The transcripts and the bulk come from the same cells,
+which the mixed route ignores. A first-order check carried that shared information through the
+exact posterior's covariance. Its predicted shifts change size and even sign with which
+first-order terms are kept, and the change in bulk precision it rests on reaches
+\pn{gap.eig} of the posterior's own precision in one direction. So no one-step response
+can size the shift, and the check names nothing.
+
+\paragraph{First lead: double counting.} The bulk is the mean of the cells whose transcripts
+are also scored. Given the transcripts, the bulk carries to first order only \pn{gap.dckrn} of
+the information the mixed route gives it on the decay rate, and
+\pn{gap.dcsevlo}--\pn{gap.dcsevhi} on the ptsG promoter. So the mixed posterior should be too
+narrow there, and it is: its standard deviation is \pn{gap.sdkrn} of the exact one on the
+decay rate and \pn{gap.sdsev} on the ptsG promoter. On the other promoter the information is
+double-counted too, but the width is \pn{gap.sdsix} of the exact one, within the standard
+deviation's sampling error. This is a statement about width. Whether double counting also moves
+where the posterior sits is not measured; a mixed fit with the bulk conditioned on the
+transcripts would test it, and needs a new likelihood.
+
+\paragraph{Second lead: the bulk factor, for the decay rate.} Fitted to the metabolites alone,
+where neither shared cells nor double counting can act, the mixed route sits about
+\pn{gap.metonly} of the long run's standard deviations above an exact fit to the same data.
+That exact fit has an effective sample size of only \pn{mix.krnadegess}, and whether this is
+the same gap was not tested.
+
+\paragraph{What is left.} Enolase is learned from the bulk alone, and about \pn{gap.enorem} standard
+deviations of its gap remain with the doubled ensemble, while recomputing $\delta$ and $S$
+barely moves it. It is the least explained
+of the three. Three candidates are untested: the mean field
+on this dataset beyond $\delta$'s first-order correction, the transcript factor's
+population-mean constants, and an exact run on disjoint cells, at
+\pn{ften.cpuh}--\pn{cost.exacthi} CPU-hours. The reduced model uses the same mixed route, so
+the double counting can arise there too. Its size there is not measured.
 
 \subsection{What each data stream informs}
 \label{sec:info}

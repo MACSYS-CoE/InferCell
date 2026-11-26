@@ -226,6 +226,7 @@ def compute():
     put('gap.sdkrn', '0.85', K90 + ' §4b, m0_v6 SD / V6 SD on log krnadeg (0.0645 / 0.0763)')
     put('gap.sdsev', '0.93', K90 + ' §4b, same on log S_0779 (0.1864 / 0.1995)')
     put('gap.sdsix', '0.98', K90 + ' §4b, same on log S_0607 (0.1137 / 0.1159)')
+    put('gap.enorem', '0.3', K90 + ' §3-4 table and "What this leaves", ENO shift under n1600 (0.314); postmean narrows ENO by only 0.023')
     put('gap.metonly', '0.4', K90 + ' §4b, B7.8 met_only offset on log krnadeg in V6 SD (0.032 / 0.0763), job 19411150')
     # KIM-42: the reduced model's budget (UNSCORED)
     put('budget.nI', 'five', 'M0_TARGETS; note, notation')
