@@ -157,8 +157,16 @@ function reduced()
     states = panel_plugin_states(txo, p.ref.x)
     # The rebuild that writes the transcription constants (a MeanField group wraps the module).
     r = txo.route.rebuilds[only(unique(first.(txo.tx_slots)))]
-    r.species == collect(TRANSCRIPTION_POOLS) || error("the rebuild's pools are $(r.species)")
-    pools = [[k == 0 ? r.pool_held[j] : u[k] for (j, k) in enumerate(r.pool_idxs)] for u in states]
+    # The group's pools are its members' inbound rate-constant edges in member order
+    # (`rate_constants(p, t, ::MeanField, pools)`); keep the transcription member's slice.
+    off, own = 0, 0:-1
+    for mem in r.model.members
+        n = count(e -> e isa InferCell.RateConstantEdge && InferCell.is_consumer(e), InferCell.coupling(mem))
+        mem isa CoreATranscription && (own = (off + 1):(off + n))
+        off += n
+    end
+    r.species[own] == collect(TRANSCRIPTION_POOLS) || error("the transcription pools are $(r.species[own]) of $(r.species)")
+    pools = [[k == 0 ? r.pool_held[j] : u[k] for (j, k) in zip(own, r.pool_idxs[own])] for u in states]
     tv = Dict(ds.truth.values)
     x_truth = vcat([log(tv[n]) for n in txo.names], log(ds.sigma))
     krnadeg_prior = _parameter_by_name(txo.models, :krnadeg).prior
