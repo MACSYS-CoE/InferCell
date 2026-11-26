@@ -80,3 +80,44 @@ What the routes approximate beyond the inventory:
 | R3 | unchanged. **M17 moves ahead of M15**, because the surrogate becomes an enabler rather than §4.2's demonstration. | unchanged. §4.2's swap becomes part of the route. | distinct. The learned part is local and checked on M13. |
 | R4 | unchanged in substance: the likelihood still spans the boundary, and its bulk mean is learned. "Synthetic likelihood" enters the methods. | unchanged | between the two: learned like PreCell, but local to δ and S, with a mechanistic transcript factor |
 | R5 | **changes**: the mechanistic likelihood goes, and the contribution becomes amortised inference plus verification | **breaks** "no neural SBI comparison beyond the one surrogate swap" | **same ground** as PreCell. The paper becomes a comparison with it. |
+
+## 3. The emulator and neural SBI: cost, argued
+
+Every row here is **argued**, from the sources named in it. Nothing in this section was
+run. The unit is one SpeedyCell cell simulated over the fit window (0–3,150 s, 52.5
+minutes), on one Milan core.
+
+**The cost of one simulated cell over the fit window: about 24 s (argued).** This is
+from KIM-183 (job 21664418, `dev/scripts/fullcell_timing_cycle/fullcell_timing_cycle_result.md`
+§3–4). A simulated minute takes 0.34 s at minute 1 (0.37 s on average over minutes
+1–10), rising to 0.58 s by minute 62. So 52.5 minutes come to about 0.45 s × 53 ≈ 24 s.
+That is consistent with 49.5 s to minute 105, since the cost per minute rises as the
+cell grows. Throughput follows the same source:
+- 64 cells on one node in one threaded process run 1.6–1.7× slower per cell (1,912
+  cells per node-hour for full cycles, measured);
+- one worker per core would run at about one-core speed (argued there).
+
+So the simulation budgets below are CPU-h at one-core speed, and their wall-clock is
+the budget divided by the cores used.
+
+| | what is simulated | cells | CPU-h at 24 s a cell | wall-clock | source |
+|---|---|---|---|---|---|
+| **R5, PreCell's design on our window** | 2×10⁵ θ × 8 cells | 1.6×10⁶ | **≈ 10,700** | ≈ 7 days on 64 cores; ≈ 17 h on 640 | PreCell's budget: 2×10⁵ θ × 8 cells ≈ 28,000 core-h for full cycles, plus 80–150 A100-h of training, with the loss not saturated |
+| R5, PreCell's design, full cycles | the same, to minute 120 | 1.6×10⁶ | ≈ 28,000 | as above × 2.6 | PreCell's own figure |
+| R5, a sequential (non-amortised) estimator for one dataset | 10⁴–5×10⁴ θ × 8 cells | 8×10⁴–4×10⁵ | ≈ 530–2,700 | hours on a few nodes | argued: sequential NPE/NLE on a 20-dimensional block typically needs 10⁴–10⁵ simulations, and whether 8 cells per θ suffice is untested |
+| R5, its M0 check | SBC against the exact sampler (M0's 50 datasets) | — | M0-sized, small | — | it would be the new pilot (§1.2) |
+| **R4, an emulator of δ(θ) and S(θ), B = 20** | 200–1,000 design points × 100–800 cells | 2×10⁴–8×10⁵ | **≈ 130–5,300** | hours to a day, in parallel | argued: 10–50 design points per parameter is the usual Gaussian-process rule; 800 cells is the reduced model's reference ensemble (KIM-92), and 100 is M12's per-draw count |
+| R4, with M12's draws reused | M12's 10³ draws × 100 cells (KIM-58) | 10⁵, already simulated | **≈ 0 extra**, if M12 saves the bulk panel at the 52 fit-window saves | — | applies to **θ_H drawn** only: M12 draws every parameter, so its draws are an emulator design over θ_H as well as the block. For θ_H fixed, M12's draws are off the design and do not help. |
+| R4, then the posterior | R1's chains, with the emulated δ(θ) and S(θ) in the bulk factor | — | R1's cost (§4) | R1's | the emulator's own gradient is cheap beside the mean-field solve |
+
+What the table shows:
+- **R5 is affordable in CPU-h but costs a different kind of thing.** Its budget is
+  simulation, which parallelises without limit, plus GPU training. Its wall-clock is not
+  binding. It needs an M0 pilot before its error is known (§1.2), and it puts the paper
+  on PreCell's ground (§1.3).
+- **R4 adds simulation to R1, and does not replace it.** It keeps R1's per-gradient cost
+  and adds the emulator's training. Reusing M12's draws makes that training nearly free
+  for θ_H drawn. For θ_H fixed, it is a fresh design of about 130–5,300 CPU-h.
+- **None of these rows is a measurement.** The cost of 24 s per cell is the only measured
+  input, and it is a published-path figure. KIM-183 notes that the `params=` path, which
+  every θ draw uses, was not timed.
