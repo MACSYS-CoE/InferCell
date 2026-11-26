@@ -15,6 +15,27 @@ It uses the standard library only. It asserts the issue's checks: 363 second-ord
 reactions, 493 replication reactions, 1,434 count-dependent rate rules, and every
 reaction in exactly one family.
 
+## Summary
+
+- The full cell has 363 second-order reactions: 279 DnaA at the origins, 62 tRNA
+  charging, 20 translation cost payment and 2 replication initiations. None closes.
+  361 have constant rates. M0 and the reduced model have none.
+- The 493 replication reactions are 2 of those initiations and 491 first-order fork
+  steps. The steps' form closes; their constants are rebuilt from the dNTP pools and a
+  rounded, capped volume.
+- All 1,434 count-dependent rate rules reach a `max(1, ·)` floor. 29 transcription
+  promoters read their own protein through `min(·, 180)`. 493 replication rules reach
+  `round`, and 948 rules reach the volume cap. 18 ODE reactions reach a `min` AND rule.
+  None of the 29 protein-count genes is in the reduced model.
+- Gene copy number multiplies transcription and nothing else. It keeps the mean field
+  affine and breaks the transcript factor: each gene's birth rate steps at a latent
+  time, and all 486 genes share the same two fork paths.
+- Every reaction family and rule kind sits between a candidate block and an
+  observable, by direct adjacency.
+  The proposed M13 model, M0 with one origin, contains one second-order reaction
+  (`D + O → F₁`) and gene copy number for both M0 genes. It adds 6 species and 4
+  reactions to M0 and changes 2.
+
 ## Sources
 
 The exported reference model in `syn3a-ensemble` (read only), at HEAD
@@ -358,3 +379,93 @@ output, `G_g`, multiplies every transcription propensity, which is the gene-expr
 block's rate constant, and so writes transcripts, an observable. Through translation
 of the membrane proteins it reaches doubling time. Replication does not write a
 `CellSA` input itself.
+
+## 4. The inventory, and the smallest model containing each kind
+
+"Closes" is `MeanField`'s check. "Factor" asks whether the item breaks the exact
+transcript factor's assumption. "Between" is direct adjacency, as defined above.
+
+| # | Kind | In the full cell | Closes? | Factor? | Between? | In M0 / reduced | Smallest model containing it |
+|---|---|---|---|---|---|---|---|
+| 1 | Second order: a protein × a 0/1 site | 279 DnaA reactions | no | through G (row 5) | yes, gene expression → transcripts | no / no | **the M13 model below** (R2) |
+| 2 | Second order: 0/1 × 0/1 | 2 replication initiations | no | through G | yes | no / no | the M13 model with R2 split in two: `D + O → I`, then `I + C → F₁` (one more species, `C`, and one more reaction) |
+| 3 | Second order: enzyme × metabolite, enzyme complex × tRNA | 62 tRNA charging | no | no | yes, translation and metabolism → bulk metabolites | no / no: charging is one lumped ODE reaction | M0 with its lumped charging reaction replaced by one synthetase chain as jump reactions (3 second-order bindings, 1 release) |
+| 4 | Second order: residue counter × charged tRNA | 20 cost payments | no | no | yes, translation → its own rate constants | no / no: deferred counters | M0 with one residue counter made a species, paid by one second-order reaction |
+| 5 | Gene copy number, a state multiplying transcription | 493 genes, 486 transcription reactions | yes | **yes** | yes, replication → transcripts | no / no: genes fixed | **the M13 model below** (`G_0779`, `G_0607`) |
+| 6 | First-order fork steps with count-dependent constants | 491 | form yes; constants at the mean | through G | yes, dNTPs → G | no / no | the M13 model with its fork-step constants rebuilt from a dNTP pool; M0 has no dNTP pool, so one must be added |
+| 7 | `max(1, pool)` floor | 29 nodes, in all 1,434 rules | rebuild | no | yes | translation only | M0 (already) |
+| 8 | Promoter from a live own-protein count, `min(c·P/180, 180)` | 29 transcription rules | rebuild | as now, the rebuilt birth rate reads latent state; new is that the state is a stochastic protein count, not an ODE pool | yes | no / no | M0 with one gene's promoter read from its own protein at the rebuild |
+| 9 | Rounded `CellV`; the volume cap reached | 1 + 2 nodes; 486 + 493 rules read `CellV` or its `round`, 948 the cap | rebuild; steps | as row 8, through the rebuilt k | yes | no `CellV`; cap present but never reached | a model that grows to the cap: the full cell, or the reduced model over a full cycle with growth that reaches it |
+| 10 | Complex AND rule, `min` over subunits | 9 nodes, 18 ODE reactions | in the ODE, at the mean counts | no | yes, metabolic block → bulk metabolites | no / no | M0 with one enzyme made a two-subunit complex |
+| 11 | Hook rules: counter clamp, ODE → count rounding, `CellSA` round and trunc | code (section 2) | route-dependent | no | yes | clamp yes; rounding by another policy | M0 (already), up to the rounding policy |
+| 12 | Doubling time as a threshold crossing of `CellSA` | `t_SA2` | an observable, not a reaction | — | it is the observable | no (600 s) / growth, no cycle end | the full cell, or a reduced-model cycle |
+
+"Rebuild" means the rule changes a rebuilt rate constant: the mean equations still
+close, and the route evaluates the rule at the mean counts (section 2).
+
+## 5. The proposed model for M13: M0 with one origin
+
+The smallest model with one second-order reaction and gene copy number, buildable on
+M0's machinery. It is M0 (`src/organisms/coreA/m0.jl`: GAPD and ptsG, 600 s, the four
+ODE modules, `HeldEnzymeCounts`) with one new jump module. It mirrors the full cell's
+causal chain: DnaA meets the origin, a fork starts, and the fork copies ptsG and then
+GAPD, in the full cell's order on fork CC (steps 68 and 172).
+
+**Species added** (all counts):
+
+| Species | Initial | Stands for |
+|---|---|---|
+| `D` | D₀ | `M_DnaA_c` |
+| `O` | 1 | the free origin, `High_Affinity_Site_oriC` |
+| `F₁` | 0 | a fork that has not reached ptsG (`*_inter` before step 68) |
+| `F₂` | 0 | a fork between ptsG and GAPD (`*_inter` steps 68 to 171) |
+| `G_0779` | 1 | `JCVISYN3A_0779_gene`, promoted from a fixed quantity to a state |
+| `G_0607` | 1 | `JCVISYN3A_0607_gene`, likewise |
+
+**Reactions added:**
+
+| | Reaction | Propensity | Order | Stands for |
+|---|---|---|---|---|
+| R1 | ∅ → `D` | k_D | 0 | DnaA's expression (translation reaction 9), lumped |
+| R2 | `D` + `O` → `F₁` | k_b · D · O | **2** | the DnaA cascade at one origin and the initiation (1595 to 1656, then 2098), lumped |
+| R3 | `F₁` → `F₂` + `G_0779` | k_f1 · F₁ | 1 | fork CC's steps 0 to 68 |
+| R4 | `F₂` → `G_0607` | k_f2 · F₂ | 1 | fork CC's steps 69 to 172 |
+
+**Reactions changed:** M0's two transcription reactions take the propensity
+`k_g · G_g` in place of `k_g`, for g = 0779 and 0607. Their rate constants are rebuilt
+from the pools exactly as now.
+
+Everything else in M0 is unchanged: decay, translation, the ODE block, the handshake,
+the data and M0's five targets (`M0_TARGETS`). k_D, k_b, k_f1 and k_f2 are fixed at
+declared values. Making k_b a sixth target is the first extension.
+
+**Why R1 is needed.** Without a source of `D`, `D` is `D₀ − (1 − O)`, a function of
+`O`. Then `D · O = D₀ · O` exactly, R2 is affine, and the check would test nothing. R1
+makes `D` fluctuate apart from `O`, so `E[D·O] ≠ E[D]·E[O]`.
+
+**Design choices left to M13 (KIM-188).**
+- The scale of `D`. At the full cell's 148 copies, with only one binding to make, R2
+  is close to pseudo-first-order and its gap is small. At a few copies it is not. The
+  check should say which regime it tests, or test both.
+- The rates. k_D, k_b and the fork rates must make the copy number step inside 600 s
+  in a stated share of cells, or the factor's new assumption is not exercised.
+- Lumping 68 and 104 fork steps into one exponential step each changes the delay's
+  shape, not the kind of non-closure.
+
+**What it reuses from `src/`, and what must be built.** This is from reading the code,
+not from running it.
+
+| Piece | Status |
+|---|---|
+| The ODE modules, `CoreATranscriptDecay`, `CoreATranslation`, `HeldEnzymeCounts`, `m0_models` | reused unchanged |
+| A jump module for R1 to R4 | new; each is a `Reaction(rate, affect!)` (`src/interface.jl:130-150`), and the hybrid driver takes any propensity |
+| `CoreATranscription` | extended: read `G_g` through `inputs` and multiply the propensity by it, as `transcription.jl:32-37` anticipates ("adding replication later must promote them") |
+| The exact route (cSMC) | `propose_events` already simulates every non-transcript reaction exactly with the composition's own propensities (`src/csmc.jl:151-200`), so R1 to R4 need no change there. The transcript bridge does: `_birth_death` reads the birth rate once at the window's start (`csmc.jl:140-147`) and bridges at that constant rate (`src/transcript_bridge.jl`). With `G_g` stepping mid-window, the replication path must be proposed first (it does not depend on transcripts here), and each transcript bridged under a birth rate piecewise constant in time, with a break at the step. The weight's transition probabilities become products over the pieces, as the factor already does for its 59 s + 1 s split |
+| The mixed route | `MeanField` throws on R2 (`src/mean_field.jl:105`). How R2 is treated, and whether `TranscriptFactor` takes a `G_g` path or its marginal, is the route decision (KIM-187). M13 then measures that choice against the cSMC |
+| SBC and the M0 dataset pipeline (`m0_dataset`) | reused, with the new model list |
+
+**What the M13 model does not contain:** rows 3, 4, 6, 8, 9, 10 and 12 above. Rows 7 and
+11 are already in M0. Row 2 is one step away. Of the 363 second-order reactions, R2
+stands for the 279 DnaA reactions and, after the split, the 2 initiations. It does not
+stand for tRNA charging (62) or cost payment (20), which sit on the translation path
+and are second order in an enzyme intermediate or a counter, not in a 0/1 site.
