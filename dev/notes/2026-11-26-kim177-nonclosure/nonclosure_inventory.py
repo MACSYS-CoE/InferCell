@@ -13,13 +13,18 @@ every reaction falls in exactly one family.
 import argparse
 import collections
 import csv
+import fractions
 import hashlib
+import json
 import os
 import re
 import subprocess
 import sys
 
 ENSEMBLE = "/fred/oz022/tkimpson/syn3a-ensemble"
+SPEEDYCELL_JL = "/fred/oz022/tkimpson/SpeedyCell.jl"
+HERE = os.path.dirname(os.path.abspath(__file__))
+REDUCED_GENES = os.path.join(HERE, "..", "..", "..", "src", "organisms", "coreA", "data", "transcription_genes.tsv")
 NONSMOOTH = ("min", "max", "round", "select_gt", "floor", "trunc", "floordiv", "mod", "abs")
 
 
@@ -191,6 +196,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=os.path.join(ENSEMBLE, "data", "model"))
     ap.add_argument("--speedycell", default=os.path.join(ENSEMBLE, "code", "SpeedyCell", "src"))
+    ap.add_argument("--speedycell-jl", default=SPEEDYCELL_JL,
+                    help="optional: a SpeedyCell.jl checkout, to compare its model tables")
     a = ap.parse_args()
     M, S = a.model, a.speedycell
     P = lambda *p: os.path.join(M, *p)
@@ -199,17 +206,24 @@ def main():
     print("== Provenance")
     head = subprocess.run(["git", "-C", M, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     print("syn3a-ensemble HEAD:", head or "(not a git checkout)")
-    meta = {}
     with open(P("export_meta.json")) as f:
-        import json
         meta = json.load(f)
     print("export repo_git_sha:", meta["repo_git_sha"], " Minimal_Cell:", meta["minimal_cell_commit"])
-    tables = ["cme/reactions.csv", "cme/rate_rules.csv", "cme/species.csv", "nodes.csv",
-              "ode/species.csv", "ode/reactions.csv", "export_meta.json", "inventory.md"]
+    tables = ["cme/reactions.csv", "cme/rate_rules.csv", "cme/species.csv", "cme/initial_counts.csv", "nodes.csv",
+              "ode/species.csv", "ode/reactions.csv", "ode/stoichiometry.csv", "export_meta.json", "inventory.md"]
     for t in tables:
         print("sha256 %s  %s" % (sha256(P(t)), t))
     for t in ["Cell/writeback.jl", "Cell/hook.jl"]:
         print("sha256 %s  SpeedyCell/src/%s" % (sha256(os.path.join(S, t)), t))
+    J = a.speedycell_jl
+    if os.path.isdir(os.path.join(J, "data", "model")):
+        jhead = subprocess.run(["git", "-C", J, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+        same = [t for t in ("cme/reactions.csv", "cme/rate_rules.csv", "cme/species.csv", "cme/initial_counts.csv")
+                if sha256(os.path.join(J, "data", "model", t)) == sha256(P(t))]
+        print("SpeedyCell.jl HEAD %s: CME tables byte-identical to the above: %d of 4 (%s); its inventory.md sha256 %s"
+              % (jhead, len(same), ", ".join(same), sha256(os.path.join(J, "data", "model", "inventory.md"))))
+    else:
+        print("SpeedyCell.jl checkout not found at", J, "(comparison skipped)")
 
     sp_rows = read_csv(P("cme", "species.csv"))
     sp = {int(r["index"]): r["name"] for r in sp_rows}
@@ -362,13 +376,11 @@ def main():
             return "min(c * protein/180, 180): promoter strength from a live protein count, capped at 180"
         if op == "min" and all(dag.op[j] == "count" or dag.op[j] == "min" for j in k):
             return "min over subunit counts: complex AND rule (ODE enzyme)"
-        if op == "min":
-            return "min over subunit/mixed terms: complex AND rule (ODE enzyme)"
         if op == "round":
             return "round(V * 1e19): CellV"
         if op == "select_gt":
             return "select_gt(V, 6.7e-17, ...): the volume cap"
-        return op
+        raise ValueError("node %d (%s) fits no known kind" % (i, op))
 
     kinds = collections.defaultdict(list)
     for i in dag.op:
@@ -465,13 +477,22 @@ def main():
     with open(os.path.join(S, "Cell/writeback.jl")) as f:
         wb = f.read()
 
-    def count_list(name):
-        m = re.search(r"const %s = \[(.*?)\]\n" % name, wb, re.S)
-        return len(re.findall(r'"\w+"', m.group(1))) // (1 if name == "ATP_HYDRO_COUNTERS" else (3 if name == "AATRNA_COUNTERS" else 2))
+    def count_list(name, width):
+        """Entries of `const name = [...]`: bare strings (width 1) or tuples of `width` strings."""
+        body = re.search(r"const %s = \[(.*?)\]\n" % name, wb, re.S).group(1)
+        strings = re.findall(r'"\w+"', body)
+        if width == 1:
+            assert "(" not in body, name
+            return len(strings)
+        tuples = re.findall(r"\(([^()]*)\)", body)
+        assert all(len(re.findall(r'"\w+"', t)) == width for t in tuples), name
+        assert len(strings) == width * len(tuples), name
+        return len(tuples)
 
-    capped = {n: count_list(n) for n in ("ATP_HYDRO_COUNTERS", "NTP_COUNTERS", "DNTP_COUNTERS", "AATRNA_COUNTERS")}
+    capped = {n: count_list(n, w) for n, w in (("ATP_HYDRO_COUNTERS", 1), ("NTP_COUNTERS", 2), ("DNTP_COUNTERS", 2), ("AATRNA_COUNTERS", 3))}
+    assert sum(capped.values()) == 22, capped
     print("  cost counters charged with min(counter, pool):", capped, "total", sum(capped.values()))
-    print("  NMP recycling counters (credited whole, no cap):", count_list("NMP_COUNTERS"))
+    print("  NMP recycling counters (credited whole, no cap):", count_list("NMP_COUNTERS", 2))
     print("  ODE species rounded to counts at every 1 s hook:", len(ode_sp))
 
     # ---------------------------------------------------------------- genes
@@ -549,6 +570,238 @@ def main():
     print("M_DnaA_c is made by translation reaction(s): %s (gene %s)" % (dnaa_makers, [x["reac"][0] for x in R if x["i"] in dnaa_makers]))
     print("initial counts: M_DnaA_c %d, High_Affinity_Site_oriC %d, chromosome_C %d, chromosome_CC %d"
           % (x0["M_DnaA_c"], x0["High_Affinity_Site_oriC"], x0["chromosome_C"], x0["chromosome_CC"]))
+
+    # ---------------------------------------------------------------- checks the review asked for
+    print("\n== Rate constants: the first minute against the rule from minute 2 on")
+    for x in R:
+        if dag.op[x["node"]] == "const" and v0[x["node"]] != x["k"]:
+            print("  reaction %d (%s, %s): first-minute k = %g, rule from minute 2 = const %g"
+                  % (x["i"], x["fam"], " + ".join(x["reac"]), x["k"], v0[x["node"]]))
+    made_by = collections.defaultdict(list)
+    for x in R:
+        for n, d in x["prods"]:
+            if d > 0:
+                made_by[n].append(x["i"])
+    dead = [x for x in R if any(x0[n] == 0 and not made_by[n] for n in x["reac"])]
+    print("reactions that can never fire (a reactant starts at 0 and nothing makes it): %s"
+          % ["%d (%s)" % (x["i"], " + ".join(x["reac"])) for x in dead])
+    print("reactions that make Initiator_C: %s; Initiator_CC: %s" % (made_by["Initiator_C"], made_by["Initiator_CC"]))
+    rrna = [x for x in tx if any("rRNA" in n for n, d in x["prods"] if d > 0)]
+    print("rRNA operon reactions: %s" % ["%d (%s)" % (x["i"], x["reac"][0]) for x in rrna])
+    if os.path.exists(REDUCED_GENES):
+        with open(REDUCED_GENES) as f:
+            red = [l.split("\t")[0] for l in f if l.startswith("JCVISYN3A_")]
+        own29 = {re.search(r"JCVISYN3A_\d+", x["reac"][0]).group(0) for x in with_min}
+        print("reduced model genes (%s): %d; shared with the 29 protein-count promoters: %d"
+              % (os.path.relpath(REDUCED_GENES, HERE), len(red), len(own29 & set(red))))
+
+    # ---------------------------------------------------------------- exact closure
+    print("\n== Exact closure of the DnaA cascade, by its reachable states")
+    # One origin's cascade, from its oriC site at 1 and every other cascade species at 0.
+    # DnaA is treated as always available, so every binding the sites allow can fire.
+    # The off-oriC high-affinity sites (multi-copy) are not part of an origin's state.
+    dnaa = [x for x in R if x["fam"] == "DnaA at the origins"]
+    offsite = [x for x in dnaa if any(re.fullmatch(r"High_Affinity_Site\d?", n) for n in x["reac"])]
+    cascade = [x for x in dnaa if x not in offsite]
+    outside = {"M_DnaA_c", "Initiator_C", "Initiator_CC"}
+
+    def reachable_states(rxns, start):
+        seen, todo = {start}, [start]
+        while todo:
+            st = todo.pop()
+            c = dict(st)
+            for x in rxns:
+                if all(n in outside or c.get(n, 0) >= 1 for n in x["reac"]):
+                    nc = dict(c)
+                    for n, d in x["prods"]:
+                        if n not in outside:
+                            nc[n] = nc.get(n, 0) + d
+                    assert all(v >= 0 for v in nc.values())
+                    ns = tuple(sorted((n, v) for n, v in nc.items() if v))
+                    if ns not in seen:
+                        seen.add(ns)
+                        todo.append(ns)
+        return [dict(st) for st in seen]
+
+    closes, bilinear, fired = [], [], set()
+    for oric in ("High_Affinity_Site_oriC", "High_Affinity_Site_oriC2", "High_Affinity_Site_oriC3"):
+        states = reachable_states(cascade, ((oric, 1),))
+        mine = [x for x in cascade if any(any(st.get(n, 0) for st in states) for n in x["reac"] if n not in outside)
+                and all(n in outside or any(st.get(n, 0) for st in states) for n in x["reac"])]
+        fired |= {x["i"] for x in mine}
+        sites = [x for x in mine if "M_DnaA_c" not in x["reac"]]
+        binds = [x for x in mine if "M_DnaA_c" in x["reac"]]
+        for x in sites:
+            a_, b_ = x["reac"]
+            prod = [st.get(a_, 0) * st.get(b_, 0) for st in states]
+            same_a = prod == [st.get(a_, 0) for st in states]
+            same_b = prod == [st.get(b_, 0) for st in states]
+            assert same_a or same_b, ("site x site product is not one of its factors", x["i"])
+            closes.append(x["i"])
+        for x in binds:
+            site = [n for n in x["reac"] if n != "M_DnaA_c"][0]
+            assert {st.get(site, 0) for st in states} <= {0, 1}, (x["i"], site)
+            bilinear.append(x["i"])
+        print("  origin %s: %d reachable states; %d site x site reactions, each equal to one of its factors in every state; "
+              "%d DnaA x site bindings, each site 0 or 1 in every state" % (oric, len(states), len(sites), len(binds)))
+    assert len(closes) == 177 and len(bilinear) == 99 and fired == {x["i"] for x in cascade}
+    offlive = [x for x in offsite if x not in dead]
+    print("  off-oriC high-affinity bindings (DnaA x a multi-copy site): %d, of which can fire: %s"
+          % (len(offsite), ["%d (%s, initial %d)" % (x["i"], x["reac"][1], x0[x["reac"][1]]) for x in offlive]))
+    print("  so of the 279: %d close exactly (site x site), %d are DnaA x a 0/1 site, %d DnaA x a multi-copy site, %d dead"
+          % (len(closes), len(bilinear), len(offlive), len(offsite) - len(offlive)))
+    assert len(closes) + len(bilinear) + len(offsite) == 279
+
+    def affine_on(states, keys, f):
+        """True if f(state) is an affine function of the state over `states` (exact rational elimination)."""
+        rows = [[fractions.Fraction(st.get(k, 0)) for k in keys] + [fractions.Fraction(1), fractions.Fraction(f(st))] for st in states]
+        ncol = len(keys) + 1
+        r = 0
+        for c in range(ncol):
+            piv = next((i for i in range(r, len(rows)) if rows[i][c] != 0), None)
+            if piv is None:
+                continue
+            rows[r], rows[piv] = rows[piv], rows[r]
+            for i in range(len(rows)):
+                if i != r and rows[i][c] != 0:
+                    q = rows[i][c] / rows[r][c]
+                    rows[i] = [u - q * w for u, w in zip(rows[i], rows[r])]
+            r += 1
+        return all(any(v != 0 for v in row[:ncol]) or row[ncol] == 0 for row in rows)
+
+    def toy(rxns, start):
+        """Reachable states of a small hand-written model: rxns = [(reactants, {species: change})]."""
+        seen, todo = {start}, [start]
+        while todo:
+            st = dict(todo.pop())
+            for reac, ch in rxns:
+                if all(st.get(n, 0) >= 1 for n in reac):
+                    nc = dict(st)
+                    for n, d in ch.items():
+                        nc[n] = nc.get(n, 0) + d
+                    ns = tuple(sorted(nc.items()))
+                    if ns not in seen:
+                        seen.add(ns)
+                        todo.append(ns)
+        return [dict(s_) for s_ in seen]
+
+    print("-- initiation, Initiator x chromosome (hand-written abstractions of the tables)")
+    # First round: one origin makes one Initiator (reaction 1656); one chromosome copy (initial 1).
+    first = toy([((), {}), (("O",), {"O": -1, "I": 1}), (("I", "C"), {"I": -1, "C": -1})], (("C", 1), ("I", 0), ("O", 1)))
+    a1 = affine_on(first, ["O", "I", "C"], lambda st: st["I"] * st["C"])
+    print("  first round (O=1, I=0, C=1): %d states %s; I*C affine in the state: %s"
+          % (len(first), sorted(tuple(st[k] for k in "OIC") for st in first), a1))
+    # After reaction 2364: chromosome +2, two daughter origins, each making one Initiator.
+    second = toy([(("Oa",), {"Oa": -1, "I": 1}), (("Ob",), {"Ob": -1, "I": 1}), (("I", "C"), {"I": -1, "C": -1})],
+                 (("C", 2), ("I", 0), ("Oa", 1), ("Ob", 1)))
+    a2 = affine_on(second, ["Oa", "Ob", "I", "C"], lambda st: st["I"] * st["C"])
+    print("  second round (Oa=Ob=1, I=0, C=2): %d states; I*C affine in the state: %s" % (len(second), a2))
+    # The M13 model's R2 without and with a DnaA source (D capped at 3 extra for the enumeration).
+    noR1 = toy([(("D", "O"), {"D": -1, "O": -1, "F": 1})], (("D", 3), ("F", 0), ("O", 1)))
+    print("  M13 R2 without R1 (D0=3): %d states; D*O affine in the state: %s"
+          % (len(noR1), affine_on(noR1, ["D", "O", "F"], lambda st: st["D"] * st["O"])))
+    withR1 = [st for st in toy([(("S",), {"S": -1, "D": 1}), (("D", "O"), {"D": -1, "O": -1, "F": 1})],
+                                (("D", 3), ("F", 0), ("O", 1), ("S", 3)))]
+    print("  M13 R2 with R1 (D0=3, three births): %d states; D*O affine in the state: %s"
+          % (len(withR1), affine_on(withR1, ["D", "O", "F", "S"], lambda st: st["D"] * st["O"])))
+    assert a1 and not a2
+
+    # ---------------------------------------------------------------- hops to the observables
+    print("\n== Hops from each kind to the nearest observable, in the dependency graph")
+    # Edge a -> b, labelled by what links them: a reaction or code rule that reads a and changes b.
+    edges = collections.defaultdict(dict)
+
+    def link(a_, b_, lab):
+        if a_ != b_ and b_ not in edges[a_]:
+            edges[a_][b_] = lab
+
+    for x in R:
+        reads = set(x["reac"]) | dag.counts_below[x["node"]]
+        for n, d in x["prods"]:
+            if d != 0:
+                for r_ in reads:
+                    link(r_, n, "CME %d" % x["i"])
+    ode_st = collections.defaultdict(dict)
+    for r in read_csv(P("ode", "stoichiometry.csv")):
+        ode_st[int(r["reaction"])][r["species"]] = float(r["coefficient"])
+    for r in ode_rx:
+        num = int(r["number"])
+        reads = {t for t in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", r["rate"]) if t in ode_ids}
+        for m in re.findall(r"N__(\d+)", r["rate"]):
+            reads |= dag.counts_below[int(m)]
+        for n, c in ode_st[num].items():
+            if c != 0:
+                for r_ in reads:
+                    link(r_, n, "ODE %s" % r["id"])
+    # The hook's code rules (writeback.jl): counters paid from pools, the surface area, the volume.
+    for nm, w in (("NTP_COUNTERS", 2), ("DNTP_COUNTERS", 2), ("NMP_COUNTERS", 2)):
+        for c, m in re.findall(r'\("(\w+)", "(\w+)"\)', re.search(r"const %s = \[(.*?)\]\n" % nm, wb, re.S).group(1)):
+            link(c, m, "writeback.jl counter %s" % c)
+    for c in re.findall(r'"(\w+)"', re.search(r"const ATP_HYDRO_COUNTERS = \[(.*?)\]\n", wb, re.S).group(1)):
+        for m in (("M_gtp_c", "M_gdp_c") if "translat" in c else ("M_atp_c", "M_adp_c")) + ("M_pi_c",):
+            link(c, m, "writeback.jl counter %s" % c)
+    for c, ch, un in re.findall(r'\("(\w+)", "(\w+)", "(\w+)"\)', re.search(r"const AATRNA_COUNTERS = \[(.*?)\]\n", wb, re.S).group(1)):
+        link(c, ch, "writeback.jl counter %s" % c)
+        link(c, un, "writeback.jl counter %s" % c)
+    for n in cellsa_inputs:
+        link(n, "CellSA", "writeback.jl lipid_sa!")
+    link("CellSA", "CellV", "writeback.jl cell_volume")
+    obs = {"transcripts": {n for n in x0 if n.startswith("M_RNA_")}, "bulk metabolites": set(ode_ids),
+           "doubling time (CellSA)": {"CellSA"}}
+
+    def dist_to(target):
+        """Hops from every species to the target set, and the next species on a shortest route."""
+        inv = collections.defaultdict(list)
+        for a_, bs in edges.items():
+            for b_ in bs:
+                inv[b_].append(a_)
+        dist, nxt_ = {t: 0 for t in target}, {}
+        frontier = sorted(target)
+        while frontier:
+            new = []
+            for b_ in frontier:
+                for a_ in sorted(inv[b_]):
+                    if a_ not in dist:
+                        dist[a_] = dist[b_] + 1
+                        nxt_[a_] = b_
+                        new.append(a_)
+            frontier = new
+        return dist, nxt_
+
+    dists = {k: dist_to(v) for k, v in obs.items()}
+
+    def kind_hops(writes, label, offset=1):
+        """offset + the hops from the species the kind changes (offset 1: the kind's own reaction is a hop;
+        0 for a kind that is a species); the route to the nearest observable of each type."""
+        out = []
+        for ob, (dist, nxt_) in dists.items():
+            best = min(((dist[n], n) for n in writes if n in dist), default=None)
+            if best is None:
+                out.append("%s: unreached" % ob)
+                continue
+            route, n = [best[1]], best[1]
+            while n in nxt_:
+                lab = edges[n][nxt_[n]]
+                n = nxt_[n]
+                route.append("[%s] %s" % (lab, n))
+            out.append("%s: %d (%s)" % (ob, best[0] + offset, " -> ".join(route)))
+        print("* %s\n    %s" % (label, "\n    ".join(out)))
+
+    def writes_of(xs):
+        return sorted({n for x in xs for n, d in x["prods"] if d != 0})
+
+    kind_hops(writes_of([x for x in R if x["i"] in bilinear]), "DnaA x 0/1 site bindings (99)")
+    kind_hops(writes_of(offlive), "DnaA x multi-copy site bindings (%d live)" % len(offlive))
+    kind_hops(writes_of([x for x in R if x["i"] in closes]), "cascade site x site (177)")
+    kind_hops(writes_of([x for x in R if x["fam"] == "Replication initiation"]), "replication initiations (2)")
+    kind_hops(writes_of([x for x in R if x["fam"] == "tRNA charging"]), "tRNA charging, second order (62)")
+    kind_hops(writes_of([x for x in R if x["fam"] == "Translation cost payment"]), "translation cost payment (20)")
+    kind_hops(writes_of([x for x in R if x["fam"] == "DNA replication (fork step)"]), "fork steps (491)")
+    kind_hops(genes, "a gene copy number (the *_gene species themselves)", offset=0)
+    kind_hops(writes_of(with_min), "transcription with an own-protein promoter (29)")
+    kind_hops(writes_of(dep), "every count-dependent CME rule (1,434), so every floor, CellV and cap reader")
+    and_rx = [r for r in ode_rx if any("min" in dag.ops_below[int(m)] for m in re.findall(r"N__(\d+)", r["rate"]))]
+    kind_hops(sorted({n for r in and_rx for n, c in ode_st[int(r["number"])].items() if c != 0}), "ODE reactions with an AND rule (%d)" % len(and_rx))
 
     print("\nOK: 363 second-order, 493 replication, 1434 count-dependent rules; every reaction classified.")
 

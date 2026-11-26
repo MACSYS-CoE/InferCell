@@ -4,13 +4,16 @@ export repo_git_sha: 514fa79  Minimal_Cell: db048ac
 sha256 63fbeca180fe8bdebec646df0ddbffb0149958fc2ff9fc3e6ec8803cd24c6aaf  cme/reactions.csv
 sha256 a95619a05e47b32e7e97e8f65128e31a25403c386e80b5ccfb298d905aa3af0e  cme/rate_rules.csv
 sha256 c1acb80878e8a500a86e0e1d9e195a491b46a01c337788c0a6554df19cbe6ec9  cme/species.csv
+sha256 1149da1f0ac53d53d1eb8d63c302e4d638e5e15666bddbb66cfd1f08276c67b5  cme/initial_counts.csv
 sha256 1bd4b35e1c33f3547fd5683213b5b4c32d7211dd9046d8a4b7ee628ee1f39b89  nodes.csv
 sha256 77d003243ec52770287ba76658f4deeb00cb3e8ad2e51172d0d3a7517b02bd55  ode/species.csv
 sha256 4da4941402a0e176ad6adad2c35b6ad0f67f992c023a306ea43f5edb3b8b9a27  ode/reactions.csv
+sha256 be4293c536cac2ef1a73cabf0144e5a64b696a7bff5f07ab15c871c8a710bf2f  ode/stoichiometry.csv
 sha256 e3c21a138aa318eb39f5e21a2e1f5e31476d2d10581ecec8e552b1128ce66251  export_meta.json
 sha256 2cbf4eae3b624a6b310c8eb8e67d30ea01ebd8b6a99c1a7fb12e13187399cca6  inventory.md
 sha256 ae6d3124ca31fddaad5b0a9c08f150ab601b1ae52727fce2ba0c4ec8802e0a41  SpeedyCell/src/Cell/writeback.jl
 sha256 1cec291491c64202495cd6820d439657e333f2228001c8cefad0b285d9788720  SpeedyCell/src/Cell/hook.jl
+SpeedyCell.jl HEAD 0823b53: CME tables byte-identical to the above: 4 of 4 (cme/reactions.csv, cme/rate_rules.csv, cme/species.csv, cme/initial_counts.csv); its inventory.md sha256 23d6b162dbdee2ce4dbc527ad0e0dbcd8ddad0d52755e6a5134fc73289d38bf5
 
 == Reaction order (README: lm_type 0-3 = propensities k, k*x, k*x*y, k*x(x-1)/2)
 lm_type counts: {1: 2002, 2: 363}
@@ -177,5 +180,70 @@ what the replication rate rules read: ['CellSA', 'M_datp_c', 'M_dctp_c', 'M_dgtp
 replication rules count-dependent: 493 of 493; reaching max / round / select_gt: 493 / 493 / 493
 M_DnaA_c is made by translation reaction(s): [9] (gene ['M_RNA_JCVISYN3A_0001_c'])
 initial counts: M_DnaA_c 148, High_Affinity_Site_oriC 1, chromosome_C 1, chromosome_CC 1
+
+== Rate constants: the first minute against the rule from minute 2 on
+  reaction 1494 (tRNA charging, M_glutrnagln_c + M_PTN_JCVISYN3A_0689_c): first-minute k = 0.01, rule from minute 2 = const 0.1
+reactions that can never fire (a reactant starts at 0 and nothing makes it): ['1720 (M_DnaA_c + High_Affinity_Site3)']
+reactions that make Initiator_C: [1656, 1719, 1782]; Initiator_CC: [1656, 1719, 1782]
+rRNA operon reactions: ['1592 (JCVISYN3A_0067_gene)', '1593 (JCVISYN3A_0532_gene)']
+reduced model genes (../../../src/organisms/coreA/data/transcription_genes.tsv): 17; shared with the 29 protein-count promoters: 0
+
+== Exact closure of the DnaA cascade, by its reachable states
+  origin High_Affinity_Site_oriC: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  origin High_Affinity_Site_oriC2: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  origin High_Affinity_Site_oriC3: 64 reachable states; 59 site x site reactions, each equal to one of its factors in every state; 33 DnaA x site bindings, each site 0 or 1 in every state
+  off-oriC high-affinity bindings (DnaA x a multi-copy site): 3, of which can fire: ['1594 (High_Affinity_Site, initial 16)', '1657 (High_Affinity_Site2, initial 0)']
+  so of the 279: 177 close exactly (site x site), 99 are DnaA x a 0/1 site, 2 DnaA x a multi-copy site, 1 dead
+-- initiation, Initiator x chromosome (hand-written abstractions of the tables)
+  first round (O=1, I=0, C=1): 3 states [(0, 0, 0), (0, 1, 1), (1, 0, 1)]; I*C affine in the state: True
+  second round (Oa=Ob=1, I=0, C=2): 8 states; I*C affine in the state: False
+  M13 R2 without R1 (D0=3): 2 states; D*O affine in the state: True
+  M13 R2 with R1 (D0=3, three births): 8 states; D*O affine in the state: False
+
+== Hops from each kind to the nearest observable, in the dependency graph
+* DnaA x 0/1 site bindings (99)
+    transcripts: 3 (Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 3 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 5 (Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* DnaA x multi-copy site bindings (2 live)
+    transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* cascade site x site (177)
+    transcripts: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 4 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 6 (M_DnaA_c -> [CME 1656] Initiator_C -> [CME 1873] ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* replication initiations (2)
+    transcripts: 2 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* tRNA charging, second order (62)
+    transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_ala__L_c)
+    doubling time (CellSA): 4 (JCVISYN3A_0012_ATP_AA_tRNA -> [CME 1568] M_ppi_c -> [ODE DASYN] M_cdpdag_c -> [writeback.jl lipid_sa!] CellSA)
+* translation cost payment (20)
+    transcripts: 3 (M_alatrna_c -> [CME 567] M_PTN_JCVISYN3A_0027_c -> [CME 565] M_RNA_JCVISYN3A_0027_c)
+    bulk metabolites: 1 (M_mettrna_c)
+    doubling time (CellSA): 4 (M_alatrna_c -> [CME 720] M_PTN_JCVISYN3A_0214_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* fork steps (491)
+    transcripts: 2 (JCVISYN3A_0002_gene -> [CME 538] M_RNA_JCVISYN3A_0002_c)
+    bulk metabolites: 2 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_adp_c)
+    doubling time (CellSA): 4 (ATP_DNArep -> [writeback.jl counter ATP_DNArep] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* a gene copy number (the *_gene species themselves)
+    transcripts: 1 (JCVISYN3A_0001_gene -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 2 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_adp_c)
+    doubling time (CellSA): 4 (JCVISYN3A_0001_gene -> [CME 7] ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* transcription with an own-protein promoter (29)
+    transcripts: 1 (M_RNA_JCVISYN3A_0027_c)
+    bulk metabolites: 2 (ATP_mRNA -> [writeback.jl counter ATP_mRNA] M_atp_c)
+    doubling time (CellSA): 4 (ATP_trsc -> [writeback.jl counter ATP_trsc] M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
+* every count-dependent CME rule (1,434), so every floor, CellV and cap reader
+    transcripts: 1 (M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_apoACP_c)
+    doubling time (CellSA): 3 (M_PTN_JCVISYN3A_0005_c_cyto -> [CME 29] M_PTN_JCVISYN3A_0005_c -> [writeback.jl lipid_sa!] CellSA)
+* ODE reactions with an AND rule (18)
+    transcripts: 2 (M_atp_c -> [CME 7] M_RNA_JCVISYN3A_0001_c)
+    bulk metabolites: 1 (M_5fthf_c)
+    doubling time (CellSA): 3 (M_pi_c -> [ODE PAPA] M_12dgr_c -> [writeback.jl lipid_sa!] CellSA)
 
 OK: 363 second-order, 493 replication, 1434 count-dependent rules; every reaction classified.
