@@ -4,7 +4,7 @@
 (`~/.TinyTeX/bin/x86_64-linux`, TeX Live 2026). The system TeX is too old. **Format:** two-column
 preprint with `arxiv.sty`, as in the companion paper; this replaced the PLOS template on 2026-11-07, and
 the PLOS preamble and Author Summary are in git history. **Venue:** open.
-**Title:** *InferCell: a compositional inference framework for whole-cell modelling, demonstrated on
+**Story (2026-11-23, KIM-98):** the Linear project description (section jobs, F1–F6, T1), with amendments in the Decision log; the working story file is kept outside the repository by the author's choice; supersedes the 2026-11-07 story below. **Title:** *InferCell: a compositional inference framework for whole-cell modelling, demonstrated on
 reduced JCVI-syn3A*. **Tracking:** Linear, milestone "M6 Paper 1 complete".
 **Review:** the pre-submission review is kept outside the repository, in
 `/fred/oz022/tkimpson/infercell-m6-review-2026-11-07/`. It predates the restructure and assumed PLOS.
@@ -18,6 +18,32 @@ reduced JCVI-syn3A*. **Tracking:** Linear, milestone "M6 Paper 1 complete".
 **Tables:** the model-form counts are generated: `tables/reductions_dump.jl` (Slurm job 20165612,
 package source identical to main at `3c677a1`), then `tables/make_modelform.py`. Table 1's evidence
 is `tables/frameworks_sources.md`.
+
+## Framing decided (2026-11-25)
+
+Paper 1 stays on the reduced syn3A model and claims the space with the preprint and v0.3.0. The
+degradation ladder (M10), the full cell and real data go to a later flagship paper. The record is
+the Decision log entry of 2026-11-25; the reasoning is in [`framing_decision.md`](framing_decision.md).
+This closes "Contribution sentence without M10" below: the ladder clause goes. §7, F7 and the
+ladder appendix were removed on 2026-11-26 (KIM-163); the Discussion is now §7. The remaining work is
+Linear issues KIM-160 to KIM-169 in milestone M6; KIM-170 is the optional replicate-truths call.
+
+## Open from the KIM-98 draft (2026-11-23)
+
+The paper was restructured around the reduced model. Decisions for the author:
+- ~~**Contribution sentence without M10**~~: closed 2026-11-25; the ladder clause is gone.
+- **tab:frameworks:** InferCell's "Inference on dynamics" cell changed from "On M0" to "Both blocks (h)". Confirm.
+- **Name of Q:** defined in §2 as extracellular lactate = lactate a cell exports over the 6,300 s cycle, in particles, population mean (`:lactate_out`). "Lactate exported" would be the more literal name; changing it touches abstract, intro, §2, §6, §7.
+- **Discussion vs sec:info:** the Discussion draws a working rule from `sec:info`, whose opening says no main-text claim rests on it. One should give way.
+- **§2 code listing** illustrates releasing constants (an appendix use) and shows `COREA_CYCLE_S`; consider moving it to app_m0predict.
+- **T1:** the M0 mixed-route wall-clock is "---" since KIM-169: per-job wall times exist in sacct and the phase-16 ledger (B5 tabulates one full posterior, `mixed_nuts_89_result.md`), but no per-posterior critical path was tabulated for B7. The 492 CPU-h counts the whole run including the 24 CPU-h probe.
+- **Precision fixes** (also in the Decision log entry of 2026-11-23) (gap parameters S_0779/krnadeg/ENO; pools 0.9–1.4 SD; skill 0.98–0.99; "θ-driven" only for trioses and FDP; "about 80×" is 77–103×).
+- **Citations:** `[CITE NEEDED: CRPS, Gneiting and Raftery 2007]` in app_methods; §6's CRPS sentence also uncited.
+
+- **Smaller flags from the agents:** the prior state of F6 has 20 model parameters at their priors (σ_b is drawn in KIM-95's prior arm but does not enter Q); the old Discussion's 𝓡-bound paragraph (`info.Rmzero`, `info.Rcorea`), the released-constants sentence and the method's-own-limits future work were dropped; G6P and F6P are less clearly shifted than the trioses (5–95% of their per-save offsets spans 0); gradient cost is 37.9 s at the truth (KIM-116 profile) vs 43–45 s per step in the chains (different measures and nodes; the former sits only inside a todo); T1 compares 492 CPU-h against `cost.kone` though the prereg set no cap.
+- **Numbers provenance:** the new kim92/95/96 keys are typed from the result notes; only the figure scripts assert against the archive TSVs.
+- **Figure previews:** `paper/figure-review/` (previews and colour-vision sheets for F4–F6) is tracked.
+- **Before submission:** `check_paper.py --final` does not see `\todo{}`; grep for it.
 
 ## Open before submission
 

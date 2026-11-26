@@ -1,0 +1,61 @@
+\section{Declared reductions}
+\label{app:reductions}
+
+\subsection{Model form: what the budgets leave out}
+\label{sec:modelform}
+
+In \IC{} each departure from the published \syn{} model is a declared reduction. A
+declared reduction is an object with a category and a reason, collected from the edges,
+the parameter records and the modules (\cref{sec:design}). This appendix lists the
+declared reductions of the reduced model and of M0. For each one it says what we know of
+its effect on $Q$, the extracellular lactate of \cref{sec:predictapi}. On M0 the same quantity
+is read at the end of M0's shorter horizon (\cref{sec:predm0}).
+
+A prediction's uncertainty has four sources: inferred parameters, held parameters,
+intrinsic noise and model form. The first three have numbers, on the reduced model's joint
+posterior in \cref{sec:reducedpredict} and in the budget transferred from M0 in
+\cref{sec:budget}. Model form has none. \Cref{tab:modelform} marks each reduction
+by what we know of its effect on $Q$. Only the mean-field swap is measured, because only it
+has a column in M0's crossed design (\cref{app:crossed}). Every other reduction is declared
+and not bounded. So neither budget covers the full uncertainty a modeller should carry.
+The true simulator of \cref{sec:reducedpredict} is the exact hybrid of the same reduced
+model. It shares the model's own reductions, so the scores there do not test them.
+
+\begin{table*}[t]
+\caption{\textbf{The model-form table.} Counts come from \texttt{reduction\_declarations} on the
+reduced model (\pn{red.total} departures) and on M0 (\pn{mz.total}). Supplementary File S1 lists each one, with two driver-policy records that are not departures. The mean-field swap, the transfer and the one-way nucleotide reduction (rows 1, 2 and 4) belong to the inference and prediction set-up, not to the composed model, so those counts leave them out. M0's held counts (row 3) are two of its module notes, and the last row's count for M0 includes them. Effect is the effect on $Q$.}
+\label{tab:modelform}
+\centering
+\small
+\begin{tabular}{@{}p{0.4\textwidth}p{0.12\textwidth}p{0.42\textwidth}@{}}
+\toprule
+Reduction & Applies to & Effect \\
+\midrule
+Mean-field swap: stochastic gene expression replaced by its mean & Both & \textbf{Measured} on M0: a shift of \pn{pred.q.fshift} standard deviations at the same width, which $\delta_Q$ removes (\cref{sec:predm0}). On the reduced model it enters only the fit's bulk factor, and the scored predictions test that fit against the true simulator (\cref{sec:reducedpredict}) \\
+Transfer of the M0 posterior into the reduced model, where the proteins M0 holds are expressed stochastically & Transferred budget only & Declared, not tested. The joint posterior does not use it. A test (fit M0 to reduced-model data by the mixed route, predict, and score) is neither designed nor costed \\
+\pn{mzero.heldenz} enzyme counts held at proteomics copy numbers, and \pn{mzero.heldpts} carrier totals at their initial values & M0 & Declared, not bounded \\
+One-way nucleotide reduction: the model keeps both directions, but the mixed route and our reading of information treat the pools' effect on rate constants as weak, on elasticities of \pn{gain.txlo}--\pn{gain.tl} & Both & Declared, not bounded, and in question on the reduced model: see the text \\
+Clamped CTP and UTP pools (\pn{red.clamp}) & Both & Declared, not bounded \\
+Lumped tRNA charging, in the ODE block (\pn{red.lumping} lumping, \pn{red.formalism} formalism) & Both & Declared, not bounded \\
+Asserted priors (\pn{red.asserted_prior} on the reduced model, \pn{mz.asserted_prior} on M0), and priors the driver overwrites (\pn{red.discarded_prior}) & Both & The \pn{budget.nH} promoter widths are varied in the transferred budget (\cref{tab:budget}); the rest are declared, not bounded \\
+Membrane growth: frozen baseline area and a calibrated footprint, with capped geometry (\pn{red.exogenous_growth}, \pn{red.calibrated_constant}, \pn{red.capped_rate_law_geometry}) & Both & Declared, not bounded \\
+Other module notes (\pn{red.model_note} on the reduced model, \pn{mz.model_note} on M0) & Both & Declared, not bounded \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{The one-way reduction on the reduced model.} The elasticities that justify this
+reduction hold while GTP stays well above $K_d$, the dissociation constant of RNA
+polymerase for its nucleotides (\cref{sec:info}). In the run of the transferred budget, at the
+default width, \pn{kd.lo}--\pn{kd.hi}\% of baseline cells fall below $K_d$ at least once, and
+\pn{kd.zero}\% reach exactly zero. Clip counts give a lower limit on the time spent below $K_d$:
+\pn{kd.boundn} of \pn{budget.ncellsbase} cells spend more than \pn{kd.boundpct}\% of their
+post-debit instants at zero. This bound misses the time between zero and $K_d$, so it
+undercounts. An earlier screen drew the inferred parameters from their priors rather than
+from this posterior. It found GTP below $K_d$ at
+\pn{kd.screenlo}--\pn{kd.screenhi}\% of rebuild instants in \pn{kd.screenn} of 20 draws,
+and at none in \pn{kd.screenzero}. On those draws the basis does not hold over the full
+cycle, whatever the dose. On M0 the same screen found GTP below $K_d$ at no
+instant at the chosen dose, so the M0 check does not cover this caveat. In the scored
+predictions of \cref{sec:reducedpredict}, \pn{kim95.clip}\% of baseline cells clip, at the truth
+and under the joint posterior alike.

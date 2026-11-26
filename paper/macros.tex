@@ -4,7 +4,7 @@
 
 % \placeholderfig{width}{height}{text}: a framed box that stands in for a figure.
 \newcommand{\placeholderfig}[3]{%
-  \fbox{\parbox[c][#2][c]{#1}{\centering\textcolor{red}{\small #3}}}}
+  \fbox{\parbox[c][#2][c]{\dimexpr#1-2\fboxsep-2\fboxrule\relax}{\centering\textcolor{red}{\small #3}}}}
 
 % Names used often.
 \newcommand{\IC}{\textsc{InferCell}}
@@ -13,3 +13,11 @@
 \newcommand{\Rhat}{\widehat{R}}
 \newcommand{\sigb}{\sigma_{\mathrm{b}}}
 \newcommand{\code}[1]{\texttt{#1}}
+
+% /write-paper markers. \todo{} is red text for a result or conclusion that does not exist yet
+% (M10, KIM-116, KIM-90). \stub{} is a drafting note, \DRAFT{} a number not yet sourced.
+% check_paper.py --final catches \stub and \DRAFT but NOT \todo: before submission, grep for \todo{
+% (check-arxiv-llm-compliance flags the red text). check_prose.py counts \todo text as prose.
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{TODO:} #1}}
+\newcommand{\stub}[1]{\textcolor{red}{[stub: #1]}}
+\newcommand{\DRAFT}[1]{\textcolor{red}{#1}}
