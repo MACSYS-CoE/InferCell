@@ -64,7 +64,7 @@ The sampler is a three-block Gibbs scan with the stochastic path as a latent var
   sample it by a slice step.
 \end{enumerate}
 The sampler is written directly, not in a probabilistic programming language. The
-path update needs ancestor sampling and exact snapshots of the driver, and a general
+path update needs ancestor sampling \cite{lindsten2014particle} and exact snapshots of the driver, and a general
 framework could not provide them without sharing solver state between particles.
 Runs can be checkpointed and resumed bit for bit, and the threaded sweep is bit for
 bit equal to the serial one. We run the exact sampler on M0 only. On the reduced model one
@@ -257,8 +257,7 @@ with the kill criteria: $Q$, $Q_{\mathrm{kd}}$ and $\Delta Q$, and the 17 pools 
 transcripts at the \pn{kim95.nsaves} saves of the later horizon. Each target is a
 population mean over a draw's cells, and no viability rule is applied on either arm. For
 each target we report whether the truth lies inside the central 50\% and 90\% predictive
-intervals. We also report the continuous ranked probability score (CRPS) [CITE NEEDED: CRPS, Gneiting and
-Raftery 2007] and its CRPS skill against the prior predictive,
+intervals. We also report the continuous ranked probability score (CRPS) \cite{gneiting2007strictly} and its CRPS skill against the prior predictive,
 $1 - \mathrm{CRPS}_{\mathrm{post}} / \mathrm{CRPS}_{\mathrm{prior}}$. With one truth these
 are scores, not coverage rates.
 
