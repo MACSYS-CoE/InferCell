@@ -240,10 +240,23 @@ The transcription constants route (ii) ran, genes × (windows + 1), in the order
 t = 0, and column m + 1 from those at the switch `60m − 1`. `sol` must be saved
 at both. Generic in the solution's number type.
 """
-function route_transcription_rates(s::MixedSetup, sol, p)
+route_transcription_rates(s::MixedSetup, sol, p) =
+    transcription_rates_from_states(s, p, [_state_at(sol, t) for t in s.switches])
+
+"""
+    transcription_rates_from_states(s, p, states) -> Matrix
+
+The transcription constants the 60 s rebuild writes at parameters `p` from the
+route states `states`, one per switch in `s.switches`' order: genes ×
+(windows + 1). [`route_transcription_rates`](@ref) is this at route (ii)'s own
+solve. The modular arm's data plug-in passes states built from the observed
+panel instead ([`panel_plugin_states`](@ref)). Generic in `p`'s number type.
+"""
+function transcription_rates_from_states(s::MixedSetup, p, states::AbstractVector)
+    length(states) == length(s.switches) || throw(DimensionMismatch(
+        "$(length(states)) states for $(length(s.switches)) switches"))
     rt = s.route
-    cols = map(s.switches) do t
-        u = _state_at(sol, t)
+    cols = map(zip(s.switches, states)) do (t, u)
         vals = Dict(i => _route_rebuilt_values(rt.rebuilds[i], p, u, t)
                     for i in unique(first.(s.tx_slots)))
         [vals[i][j] for (i, j) in s.tx_slots]
@@ -296,19 +309,23 @@ function mixed_loglik(s::MixedSetup, x::AbstractVector)
     σ = exp(x[n + 1])
     r = _mixed_solve(s, θ)
     r === nothing && return oftype(σ, -Inf)
-    tx = zero(σ)
-    if :tx in s.streams
-        k = route_transcription_rates(s, r.sol, r.p)
-        μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
-        f1 = first(s.factors)
-        for g in eachindex(μ)
-            _primal(μ[g]) >= f1.μmin[g] || return oftype(σ, -Inf)
-            all(j -> _primal(k[g, j]) <= f1.kmax[g], axes(k, 2)) || return oftype(σ, -Inf)
-        end
-        tx = transcript_loglik(s.factors, k, μ)
-    end
+    tx = :tx in s.streams ? _tx_factor(s, route_transcription_rates(s, r.sol, r.p), θ, σ) :
+                            zero(σ)
+    isfinite(tx) || return tx
     bulk = :bulk in s.streams ? bulk_loglik(s, mean_field_log_bulk(s, r.sol), σ) : zero(σ)
     return tx + bulk
+end
+
+# The transcript factor at rates `k` and θ's krnadeg, or −Inf where a rate
+# leaves the support the factors were sized for.
+function _tx_factor(s::MixedSetup, k, θ, σ)
+    μ = θ[findfirst(==(:krnadeg), s.names)] ./ s.lengths
+    f1 = first(s.factors)
+    for g in eachindex(μ)
+        _primal(μ[g]) >= f1.μmin[g] || return oftype(σ, -Inf)
+        all(j -> _primal(k[g, j]) <= f1.kmax[g], axes(k, 2)) || return oftype(σ, -Inf)
+    end
+    return transcript_loglik(s.factors, k, μ)
 end
 
 """
@@ -490,9 +507,164 @@ function delta_and_S(cells::AbstractArray{<:Real, 3}, m_ref::AbstractVector; C::
     return (delta = δ, S = Matrix(Symmetric(S)))
 end
 
+# ---------------------------------------------------------------- the modular arm
+
+# KIM-116 (Spec D7; Decision log 2026-11-19): the reduced model inferred one block
+# at a time. Stage 1 fits the stochastic block (the promoters and krnadeg) to the
+# transcripts; stage 2 fits ENO, FBA and σ_b to the bulk panel with stage 1's values
+# fixed. Two stage 1s: the factor cut, `mixed_setup(…; streams = (:tx,))` over every
+# coordinate, which still solves route (ii); and the data plug-in, which reads the
+# transcription rates from the observed panel and solves nothing.
+
+"""
+    panel_plugin_states(s, sol_ref) -> Vector{Vector{Float64}}
+
+The route states the data plug-in rebuilds the transcription rates from, one per
+switch in `s.switches`' order (KIM-116, Decision log 2026-11-19). Each is
+`sol_ref`'s state at that time (route (ii) at the reference θ, saved at t = 0 and
+the saves), with every panel pool replaced by the observed bulk:
+`exp(log z − δ)` in particles, over the reference state's particles-per-mM factor.
+
+- Column 1, t = 0, is the reference state at t = 0, the fixed initial condition.
+- Switch `60m − 1` takes save `60m`'s observation, the save one handshake after it.
+- Pools the rebuild reads but the panel does not hold come from the reference state.
+  On the reduced model these are CTP and UTP, which are chemostats. The cell volume
+  comes from it too, through the membrane count.
+"""
+function panel_plugin_states(s::MixedSetup, sol_ref)
+    rt = s.route
+    P = length(s.rows)
+    u0 = Vector{Float64}(_state_at(sol_ref, 0.0))
+    cols = map(enumerate(s.saves)) do (m, t)
+        u = Vector{Float64}(_state_at(sol_ref, t))
+        f = _route_geometry(rt, rt.n_idx == 0 ? 0.0 : u[rt.n_idx]).factor
+        for (q, row) in enumerate(s.rows)
+            i = (m - 1) * P + q
+            u[row] = exp(s.logz[i] - s.delta[i]) / f
+        end
+        u
+    end
+    return vcat([u0], cols)
+end
+
+"""
+    panel_plugin_states(s, x_ref::AbstractVector) -> Vector{Vector{Float64}}
+
+[`panel_plugin_states`](@ref) with the reference state taken from route (ii)'s
+solve at `x_ref`, which is θ_ref when used as KIM-116 specifies.
+"""
+function panel_plugin_states(s::MixedSetup, x_ref::AbstractVector{<:Real})
+    r = _mixed_solve(s, exp.(Float64.(x_ref[1:length(s.names)])))
+    r === nothing && error("route (ii) cannot run at the reference x")
+    return panel_plugin_states(s, r.sol)
+end
+
+"""
+    plugin_loglik(s, states, x) -> Real
+
+The data plug-in's stage-1 log-likelihood. It is the transcript factor, with
+the rates rebuilt at x's θ from fixed route states (see
+[`panel_plugin_states`](@ref)), and it needs no solve. Only the promoters and
+krnadeg move it. It is −Inf outside the support box, or where a rate leaves the
+factors' support, as [`mixed_loglik`](@ref) is.
+"""
+function plugin_loglik(s::MixedSetup, states::AbstractVector, x::AbstractVector)
+    n = length(s.names)
+    lo, hi = mixed_box(s)
+    all(i -> lo[i] <= _primal(x[i]) <= hi[i], eachindex(lo)) || return oftype(exp(x[n + 1]), -Inf)
+    θ = exp.(x[1:n])
+    σ = exp(x[n + 1])
+    p = mean_field_parameters(s.route, _mixed_writes(s, θ))
+    return _tx_factor(s, transcription_rates_from_states(s, p, states), θ, σ)
+end
+
+"""
+    ModularStage
+
+One stage of the modular arm: a log-likelihood over the full coordinate vector
+x of `s` ([`mixed_parameter_names`](@ref)), sampled in the coordinates `free`,
+with every other coordinate held at `x`'s value. Built by [`modular_stage`](@ref).
+"""
+struct ModularStage{F}
+    s::MixedSetup
+    free::Vector{Int}
+    x::Vector{Float64}
+    loglik::F
+end
+
+"""
+    modular_stage(s, free, x; loglik = mixed_loglik) -> ModularStage
+
+A stage over the coordinates `free` (indices or names into
+[`mixed_parameter_names`](@ref)), with the rest fixed at `x`'s values.
+`loglik(s, x_full)` scores the full vector. Stage 2 is `s` with
+`streams = (:bulk,)`, `free` ENO, FBA and σ_b, and `x` a stage-1 draw. The data
+plug-in's stage 1 passes `loglik = (s, x) -> plugin_loglik(s, states, x)`.
+"""
+function modular_stage(s::MixedSetup, free::AbstractVector, x::AbstractVector;
+                       loglik = mixed_loglik)
+    names = mixed_parameter_names(s)
+    idx = map(free) do f
+        f isa Integer && return Int(f)
+        i = findfirst(==(Symbol(f)), names)
+        i === nothing && throw(ArgumentError("no coordinate $f in $(names)"))
+        i
+    end
+    !isempty(idx) && allunique(idx) && all(in(eachindex(names)), idx) ||
+        throw(ArgumentError("free must be distinct coordinates of x"))
+    length(x) == length(names) || throw(DimensionMismatch("x has $(length(x)) entries, not $(length(names))"))
+    return ModularStage(s, sort(idx), Vector{Float64}(x), loglik)
+end
+
+"""
+    stage_x(st, z) -> Vector
+
+The full coordinate vector: `st.x` with `z` in the stage's free coordinates.
+"""
+function stage_x(st::ModularStage, z::AbstractVector)
+    x = Vector{promote_type(Float64, eltype(z))}(st.x)
+    x[st.free] = z
+    return x
+end
+
+"""
+    stage_x0(st) -> Vector{Float64}
+
+The stage's free coordinates at `st.x`.
+"""
+stage_x0(st::ModularStage) = st.x[st.free]
+
+"""
+    stage_logdensity(st, z) -> Real
+
+The stage's log density at its free coordinates `z`, up to a constant. The prior is
+on the free coordinates only, as in [`mixed_log_prior`](@ref).
+"""
+function stage_logdensity(st::ModularStage, z::AbstractVector)
+    ll = st.loglik(st.s, stage_x(st, z))
+    isfinite(ll) || return ll
+    μ, sd = mixed_prior_median(st.s)[st.free], mixed_prior_sd(st.s)[st.free]
+    return sum(logpdf(Normal(m, d), zi) for (m, d, zi) in zip(μ, sd, z)) + ll
+end
+
+@model function _stage_model(st::ModularStage)
+    z ~ MvNormal(mixed_prior_median(st.s)[st.free], Diagonal(mixed_prior_sd(st.s)[st.free] .^ 2))
+    Turing.@addlogprob! st.loglik(st.s, stage_x(st, z))
+end
+
+"""
+    modular_model(st) -> DynamicPPL.Model
+
+The stage as a Turing model over its free coordinates `z`, as [`mixed_model`](@ref)
+is over x.
+"""
+modular_model(st::ModularStage) = _stage_model(st)
+
 export MixedSetup, mixed_setup, with_reference, mixed_parameter_names, mixed_prior_median,
        mixed_prior_sd, mixed_box,
        route_transcription_rates, mean_field_log_bulk, bulk_loglik, mixed_loglik,
        mixed_log_prior, mixed_logdensity, mixed_model, reference_theta, mixed_theta_values,
        reference_ensemble, reference_seeds, delta_and_S, mixed_chain_seeds,
-       mixed_jittered_start
+       mixed_jittered_start, transcription_rates_from_states, panel_plugin_states,
+       plugin_loglik, ModularStage, modular_stage, stage_x, stage_x0, stage_logdensity,
+       modular_model

@@ -70,12 +70,19 @@ deviations from the exact posterior. This gap is about \pn{mix.gapfloor} above t
 distance between chains run under identical settings. The mixed route uses the covariance $S$
 of the bulk around the mean field, computed once from an ensemble of the exact hybrid
 (\cref{sec:meanfield}). Re-estimating $S$ at the posterior mean does not
-close the gap (\cref{app:sfixed}). We have not found the gap's cause.
-\todo{KIM-90: state the two leads once KIM-90 merges, without claiming a diagnosis. First,
-the mixed route may count the transcripts' information twice: the bulk is the mean of the
-same cells whose transcripts it also scores. This bears on the posterior's width; its effect
-on where the posterior sits is not measured. Second, the bulk factor itself, for the decay
-rate.}
+close the gap (\cref{app:sfixed}). The gap is a shift in where the posterior sits, at
+\pn{gap.zlo}--\pn{gap.zhi} times the two samplers' Monte Carlo standard errors combined, and
+both routes are built from the same dataset, priors, panel and window (\cref{app:gap}). We have not found its cause. There
+are two leads, and neither is measured as a shift. First, the mixed route counts the
+transcripts' information twice: the bulk is the mean of the same cells whose transcripts the
+route also scores. A first-order calculation predicts that this makes the posterior too narrow. The mixed
+posterior is indeed narrower than the exact one on the decay rate and the ptsG promoter, but
+only barely narrower on the other promoter, where the calculation predicts the same. Its effect
+on where the posterior sits is not measured. Second, for the decay rate, the metabolite
+(bulk) factor itself. Fitted to the metabolites alone, where neither the cells shared by the two data streams nor double
+counting can act, the mixed route sits about \pn{gap.metonly} of the full-data exact posterior's
+standard deviations above an exact fit to the same data. That exact fit has an effective sample size
+of only \pn{mix.krnadegess}, and we have not tested whether this offset is the same gap.
 
 \paragraph{Where the detail is.} \Cref{app:supporting} gives the exact sampler's coverage
 (\cref{app:posteriors}) and a production-length chain against the long run. The mixed route
