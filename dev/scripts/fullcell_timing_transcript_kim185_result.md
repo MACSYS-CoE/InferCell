@@ -1,7 +1,44 @@
 # KIM-185: the transcript factor on 455 genes
 
-Full-cell timing 3 (Linear M11). The gene-expression block of the full syn3A model, by the data
-plug-in: 455 genes, the reduced model's design, src's exact transcript factor.
+Full-cell timing 3 (Linear M11). This times the gene-expression block of the full syn3A model by
+the data plug-in: 455 genes, the reduced model's design, and src's exact transcript factor.
+
+**PASS against the 2026-11-26 threshold.** The block projects to **539 CPU-h** per posterior,
+against at most 5,000 (Decision log 2026-11-26, closing KIM-176).
+
+- **One serial dual pass takes 53.61 s.** That is ForwardDiff with `Chunk{2}` per gene, over 456
+  coordinates, 200 cells and 52 windows. The density takes 28.41 s.
+- **Threading over genes** brings the dual pass to 7.28 s at 16 workers (6.8×), and no lower at
+  32.
+- **The verdict rests on the per-gene gradient.** The sampler would need one that it does not have
+  today. Naive ForwardDiff over all 456 coordinates projects to 74,158 CPU-h.
+- **The adjustments the headline leaves out keep it under the threshold.** NUTS's step-size scaling
+  with dimension and KIM-116's sampler overhead, together, give about 1,790 CPU-h.
+
+## Run
+
+| stage | Slurm job | node | code | CPU-h |
+|---|---|---|---|---|
+| data (item 1) | 21664771 | dave5 | 7b06c43 | 0.14 |
+| serial (item 2) | 21665221 | dave23 | 7b06c43 (`COMMIT` 49426cf; see item 2) | 0.51 |
+| threaded (item 3) | 21665222 | dave104, 32 CPUs | 7b06c43 (`COMMIT` 49426cf) | 9.40 |
+| projection | 21666966 | dave28 | 817a648 | 0.01 |
+
+- **Hardware and software.** Every node is an AMD EPYC 7543 32-Core Processor on milan, running
+  Julia 1.10.5 and ForwardDiff 0.10.39. BLAS ran on 1 thread.
+- **Outputs:** `/fred/oz022/tkimpson/infercell-kim185-2026-11-26/run/`. It holds `data`, `serial`,
+  `threaded` and `projection`, each as `.jls` and `.md`, plus `jobs.tsv`, `COMMIT` and `logs/`.
+- **Smokes** (`smoke1–3/`) are plumbing only, never a result.
+  - Two failed for technical reasons, each fixed in its own commit: the rebuild lookup (21663573,
+    fixed in a6771d4) and the pool slice (21663913, fixed in 8198913).
+  - So did a parse of an empty `WORKERS` (21664483, fixed in 7b06c43).
+  - Their dependants 21663574–76 and 21663914–16 are left pending with
+    DependencyNeverSatisfied.
+- **Total compute:** 10.7 CPU-h, smokes included.
+- **Rerun** from a clean worktree at a pushed commit:
+  `dev/scripts/fullcell_timing_transcript_kim185.sh {data|serial|threaded|project|all} <outdir>`.
+  The `data` stage reads the KIM-92 archive (`infercell-kim92-archive-2026-11-17`). The `project`
+  stage reads the KIM-116 archive (`infercell-kim116-archive-2026-11-26`).
 
 ## What was built
 
@@ -161,3 +198,82 @@ The output is `threaded.jls` and `threaded.md`.
   `_propagate`/`_uniform_step`, or a process per group of genes, would be the levers (KIM-194).
 - **Node-to-node spread.** One worker here took 49.64 s, against 53.61 s for the serial job on
   dave23 (8%).
+
+## The projection: the gene-expression block's cost per posterior
+
+The projection job is **21666966** at 817a648. It reads only `serial.jls`, `threaded.jls` and
+KIM-116's archive, and its output is `projection.md`.
+
+**Gradients per posterior** are counted, not inferred. They are the leapfrog steps (`n_steps`) in
+KIM-116's plug-in stage-1 chains and extensions (`infercell-kim116-archive-2026-11-26/run/plugin/`):
+
+| chain | iterations (chain + extension) | leapfrog steps (chain + extension) | max tree depth | hours |
+|---|---|---|---|---|
+| 1 | 400 + 200 | 5564 + 2760 | 8 | 42.9 |
+| 2 | 400 + 200 | 6007 + 2856 | 7 | 42.3 |
+| 3 | 400 + 200 | 6039 + 2816 | 7 | 38.8 |
+| 4 | 400 + 200 | 6280 + 2960 | 8 | 41.0 |
+
+- **Leapfrog steps:** 35,282 in total, over 165.1 h of sampling.
+- **The warm metric:** a central-difference Hessian, which took 2·18 = 36 gradients at 18
+  coordinates. At 456 coordinates it takes 912.
+- **So one posterior is 36,194 gradients.**
+- **Sampler overhead in the chains:** 16.85 s per leapfrog step, against the profile's 11.26 s per
+  gradient. That is 1.50× more.
+
+| projection | CPU-h |
+|---|---|
+| **headline (fixed before the timing was read):** 36,194 gradients × 53.61 s, the serial per-gene dual pass | **539** |
+| the same, with the leapfrog steps × (456 / 18)^¼ = 2.24 for NUTS's step size at higher dimension | 1,192 |
+| KIM-116's stage-1 165.4 CPU-h × (53.61 s ÷ 11.26 s, src's 17-gene gradient on the same node). This carries the 1.50× sampler overhead | 787 |
+| both adjustments: the dimension row × 1.50 | about 1,790 |
+| naive AD: 36,194 gradients × 38 chunk passes × 194.11 s | 74,158 |
+| threaded, 4 workers: 36,194 × 14.92 s × 4 CPUs; wall 37.5 h per chain of 9,048 gradients | 600 |
+| threaded, 16 workers: 36,194 × 7.28 s × 16 CPUs; wall 18.3 h per chain | 1,171 |
+| threaded, 32 workers: 36,194 × 7.65 s × 32 CPUs; wall 19.2 h per chain | 2,463 |
+
+The "both adjustments" row is this note's arithmetic, not a row of `projection.md`.
+
+**Verdict: PASS against the 2026-11-26 threshold.** The threshold is at most 5,000 CPU-h for the
+gene-expression block over 455 genes by the data plug-in (Decision log 2026-11-26, closing
+KIM-176). The headline is 539 CPU-h, about 9× under it. Every row except naive AD is also under
+5,000 CPU-h, including both adjustments together (about 1,790). Serial, one chain is 9,048
+gradients × 53.61 s = 135 h, inside milan's 7-day limit. With 16 workers it is about 18 h.
+
+### What the projection assumes
+
+1. **The chain design is KIM-116's plug-in stage 1:**
+   - 4 chains;
+   - NUTS(200 adaptation, 0.8), max depth 10;
+   - 200 kept draws per chain, plus the one extension of 200;
+   - the warm diagonal metric.
+2. **The same leapfrog steps per iteration at 456 coordinates as at 18.** This was not measured.
+   - The (D/18)^¼ row is the usual scaling of the step size with dimension.
+   - A posterior with stronger correlations or worse conditioning than the reduced model's would
+     need more steps. Nothing here measures that.
+3. **The cost per gradient is the serial dual pass at the truth,** on one EPYC 7543 core.
+   - The caps are fixed by the data and the support. Elsewhere in the posterior only the term
+     counts move (through Λ = k + μ·cap).
+   - Sampler overhead is not in the headline. The ratio row carries it.
+4. **The AD is per gene.** Each gene's term depends only on its own promoter and on krnadeg, so
+   a dual pass with two partials per gene is exact.
+   - Neither KIM-116's sampler nor src's `plugin_loglik` does this today: they run
+     `ForwardDiff.gradient` over all coordinates.
+   - At 456 coordinates that is 38 chunk passes and 74,158 CPU-h, which fails the threshold.
+   - The verdict therefore depends on wiring a per-gene gradient into the sampler.
+5. **Stage 2 is excluded.** That is the bulk/metabolic block, at the frozen threshold's scope.
+6. **The model is the reduced model's gene block applied to 455 genes:**
+   - one gene copy, no replication over the window;
+   - death rate krnadeg / len (the full model's own constant is 0.821× that at the truth);
+   - first two bases AU;
+   - pools fixed from the panel, as the plug-in fixes them.
+7. **The data design is the reduced model's:** 200 cells, 52 windows, every transcript observed
+   exactly. A design with more cells or windows scales the cost about linearly.
+
+### What this does not say
+
+- **Affordable is not right.** A pass here does not make the route right; that is gate 3
+  (project description). KIM-116 found the plug-in biased on the reduced model: promoter 0607 sat
+  +0.65 joint SD off, and 16 of 17 promoters shifted up. This timing does not touch that.
+- **Threading.** The threaded figures are as measured. GC takes about a third of the time at
+  16 workers, and nothing was tuned.
