@@ -42,6 +42,23 @@ stage comes on top. The data plug-in costs \pn{kim116.plugt1} times the joint ru
 it shifts the promoters away from the joint posterior and predicts $Q$ worse. The plug-in's
 cost is not a floor, since its stage two was never tuned for cost.
 
+\paragraph{Other routes to a posterior.} Neural simulation-based inference learns a posterior
+or a likelihood from simulations, and can amortise it over datasets \cite{cranmer2020frontier};
+compositional variants combine scores fitted to parts of the data
+\cite{geffner2023compositional}. We chose explicit likelihoods for a reason this paper can
+check: on M0 the mixed route is tested against an exact sampler, and a learned approximation
+would have no such reference. Whether amortisation pays on a whole-cell model we have not
+tested.
+
+The mixed route keeps the exact birth--death factor for the transcripts and replaces only the
+pools by their mean field. Moment closure and the linear noise approximation instead
+approximate the whole stochastic system \cite{vankampen2007stochastic,schnoerr2017approximation}.
+They would give a likelihood for the jump block too, but without the exactness that the
+transcript factor keeps. Linked emulators couple computer models through a surrogate of each
+\cite{kyzyurova2018coupling,ming2021linked}, and Bayesian multimodel inference combines the
+predictions of several models \cite{lindensantangeli2025increasing}. Both work on the outputs
+of existing models; \IC{} infers the parameters of one coupled model.
+
 \paragraph{What is specific to this model.} Both cell-data routes rest on a property of the
 published model: its gene expression is first order. Each transcript is degraded on its own,
 and its synthesis rate depends on the pools, not on any transcript count. So, given the
