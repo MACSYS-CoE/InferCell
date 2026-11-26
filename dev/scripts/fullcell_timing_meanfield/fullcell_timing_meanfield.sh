@@ -4,13 +4,14 @@
 #   dev/scripts/fullcell_timing_meanfield/fullcell_timing_meanfield.sh <outdir> [what]
 # what = all (default): precompile, then check and time (one thread each), then
 # threaded (4 threads, after time, whose gradients it compares against).
-# what = check | time | threaded: that stage alone, after its own precompile.
+# what = check | time | threaded | library: that stage alone, after its own precompile
+# (library: one dual pass through LinearSolve's own dual path, about 10 min).
 # SMOKE=1 in the environment: a plumbing pass (300 s window, 2 repeats).
 # Job ids go to <outdir>/jobs.tsv, logs to <outdir>/logs.
 set -euo pipefail
 outdir=$(realpath -m "$1")
 what=${2:-all}
-case $what in all|check|time|threaded) ;; *) echo "unknown: $what" >&2; exit 1 ;; esac
+case $what in all|check|time|threaded|library) ;; *) echo "unknown: $what" >&2; exit 1 ;; esac
 # The tree this launcher lives in, wherever it is called from.
 cd "$(dirname "$(realpath "$0")")/../../.."
 source dev/scripts/launcher_guard.sh
@@ -41,7 +42,7 @@ threaded() {   # $1 extra dependency (afterany)
 }
 case $what in
 all) serial check >/dev/null; tid=$(serial time); threaded "$tid" ;;
-check|time) serial "$what" >/dev/null ;;
+check|time|library) serial "$what" >/dev/null ;;
 threaded) threaded ;;
 esac
 echo "submitted $what at $(git rev-parse --short HEAD), SMOKE=$smoke:"

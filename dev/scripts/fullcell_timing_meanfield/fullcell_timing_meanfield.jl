@@ -32,6 +32,9 @@
 #             median of NREPEAT after a warm-up, with per-pass times and solver stats
 #   threaded  the same, the passes on threads (needs ≥ 4 threads); also the threaded
 #             gradient against the serial one (bitwise)
+#   library   one dual pass (B = 20, the first 10 partials) over the whole window through
+#             LinearSolve's own dual path (DualLinearCache), against DualSparseKLU's,
+#             each after a warm-up on a 30 s window; one repeat of the library pass
 # SMOKE=1: the window cut to 300 s and 2 repeats; a plumbing pass, never a result.
 
 using OrdinaryDiffEq
@@ -668,13 +671,58 @@ function stage_time(out, threaded::Bool)
     return true
 end
 
+function stage_library(out)
+    env = environment()
+    say("library on $(env.host) ($(env.cpu)), job $(env.job)")
+    m = load_model()
+    flux, order = rank_reactions(m)
+    B = 20
+    slot = block_slot(m, order, B)
+    θd = seed(θstar(B), 1:CHUNK)
+    dsol(alg; tend = T_END, saveat = SAVES) =
+        (t = @elapsed (s = solve(problem(m, slot, θd; tend), alg; abstol = ABSTOL, reltol = RELTOL,
+                                 saveat, save_start = false, maxiters = MAXITERS)); (s, t))
+    for alg in (solver(eltype(θd)), solver_library())
+        dsol(alg; tend = LIB_T, saveat = collect(10.0:10.0:LIB_T))
+    end
+    ours = [dsol(solver(eltype(θd))) for _ in 1:NREPEAT]
+    say(@sprintf("DualSparseKLU, whole window: %s s", join((@sprintf("%.3f", o[2]) for o in ours), ", ")))
+    (s2, t2) = dsol(solver_library())
+    s1 = ours[1][1]
+    say(@sprintf("DualLinearCache, whole window: %.1f s, %d steps", t2, s2.stats.naccept + s2.stats.nreject))
+    U1 = reduce(hcat, s1.u); U2 = reduce(hcat, s2.u)
+    num = maximum(maximum(abs, partials(U1[k]) .- partials(U2[k])) for k in eachindex(U1))
+    den = maximum(maximum(abs, partials(U2[k])) for k in eachindex(U2))
+    vrel = maximum(abs(value(U1[k]) - value(U2[k])) / max(abs(value(U2[k])), 1.0) for k in eachindex(U1))
+    st1 = statsnt(s1.stats); st2 = statsnt(s2.stats)
+    t1 = median([o[2] for o in ours])
+    res = (env = env, ours_s = [o[2] for o in ours], library_s = t2, stats_ours = st1,
+           stats_library = st2, partials_rel = num / den, value_rel = vrel)
+    serialize(joinpath(out, "library.jls"), res)
+    open(joinpath(out, "library.md"), "w") do io
+        header(io, "library", env)
+        println(io, "One dual solve of $CHUNK partials (B = 20, θ*, partials 1–$CHUNK) over the whole window, saved on the 52-point grid; no misfit.\n")
+        println(io, "| linear solve | seconds | steps (acc+rej) | njacs | nw | s per step |\n|---|---|---|---|---|---|")
+        println(io, @sprintf("| DualSparseKLU (median of %d) | %.3f | %d+%d | %d | %d | %.4f |", NREPEAT, t1,
+                             st1.naccept, st1.nreject, st1.njacs, st1.nw, t1 / (st1.naccept + st1.nreject)))
+        println(io, @sprintf("| LinearSolve DualLinearCache (1 run) | %.1f | %d+%d | %d | %d | %.3f |", t2,
+                             st2.naccept, st2.nreject, st2.njacs, st2.nw, t2 / (st2.naccept + st2.nreject)))
+        println(io, @sprintf("\nRatio %.0f×. Partials differ by %.3e of their largest, values by %.3e relative.", t2 / t1, num / den, vrel))
+        println(io, "\nDualSparseKLU runs: ", join((@sprintf("%.3f", o[2]) for o in ours), ", "))
+        println(io, "\n```\n", env.versioninfo, "```")
+    end
+    say("library done")
+    return true
+end
+
 function main(args)
-    length(args) == 2 || error("usage: fullcell_timing_meanfield.jl <check|time|threaded> <out>")
+    length(args) == 2 || error("usage: fullcell_timing_meanfield.jl <check|time|threaded|library> <out>")
     stage, out = args
     mkpath(out)
     ok = stage == "check" ? stage_check(out) :
          stage == "time" ? stage_time(out, false) :
-         stage == "threaded" ? stage_time(out, true) : error("unknown stage $stage")
+         stage == "threaded" ? stage_time(out, true) :
+         stage == "library" ? stage_library(out) : error("unknown stage $stage")
     ok || exit(1)
 end
 
