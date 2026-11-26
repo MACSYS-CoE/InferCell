@@ -52,7 +52,11 @@ inference is affordable.
 drawn from the prior. The free parameters $\theta$ are \pn{kim92.ncoord}: the
 \pn{model.genes} promoter strengths, the transcript decay rate, the forward catalytic
 constants of enolase (ENO) and aldolase (FBA), and the bulk assay noise $\sigb$. Every other
-constant stays at its default. Each minute, the data record the transcript counts of every
+constant stays at its default. These are the parameters that the earlier uncertainty budget
+(\cref{sec:budget}) split into two sets: those M0's posterior infers, whose metabolic part is
+ENO and FBA, and the fifteen promoters it held at their priors. Inferring their union replaces
+that transfer with one posterior. No other metabolic constant is free, and we name this
+restriction among the limits (\cref{sec:discussion}). Each minute, the data record the transcript counts of every
 gene in every cell. They also record one bulk measurement for each of \pn{mzero.npanel}
 metabolite pools, the mean over cells (\cref{sec:obs}). The fit sees only the first half of the
 cycle: \pn{kim92.nsaves} saves up to \pn{kim92.fitend}\,s, which give \pn{kim92.nrows} bulk
