@@ -106,8 +106,10 @@ draw sits near a truncation. The gap is not sampler error: each shift is
 computed once, from a reference ensemble (\cref{sec:meanfield}). Switching $\delta$ off makes
 the gap on the decay rate and enolase about four times larger, \pn{gap.nojensen} on the decay
 rate, so the correction is needed. Doubling the ensemble, or recomputing $\delta$ and $S$ at the mixed posterior's mean,
-closes at most \pn{gap.refsev} standard deviations on the ptsG promoter and \pn{gap.refkrn} on
-the decay rate, and leaves most of the gap.
+closes up to \pn{gap.refsev} standard deviations on the ptsG promoter and \pn{gap.refkrn} on
+the decay rate in these runs, and leaves most of the gap. This does not bound the reference's
+share: the doubled ensemble contains the original \pn{mix.nref} cells, so it removes only part
+of their Monte Carlo error.
 
 \paragraph{Shared cells: indeterminate.} The transcripts and the bulk come from the same cells,
 which the mixed route ignores. A first-order check carried that shared information through the
