@@ -137,8 +137,10 @@ From `pilot_summary.md` (merge 21052425), on 1,600 pooled kept draws: 4 chains �
 - Of the 17 promoter strengths, 14 have posterior means below the truth. Their mean
   standardised error is −0.81, with an SD of 0.76.
 - If the 17 errors were independent and calibrated, their mean would be 0 ± 0.24, so this
-  is about 3.3 of those SEs away from zero.
-- θ_ref, the MAP of the same likelihood, has the same shift: its mean (MAP − truth)/sd
+  is about 3.3 of those SEs away from zero. (Allowing for the posterior's
+  correlations it is 3.06 SE: `pilot_promoter_shift_result.md`, KIM-161.)
+- θ_ref, the bounded MAP at δ = S = 0 (`prep`; not the MAP of the fitted likelihood),
+  has the same shift: its mean (MAP − truth)/sd
   over the promoters is −0.86 (reads §5).
 - So the shift comes from the likelihood on this dataset, not from the sampler.
 
@@ -158,9 +160,12 @@ posterior SD of the 1,600 pooled draws (reads §4). The largest ratios are 1.083
 and 1.065 for FBA. The one strong correlation,
 0607–krnadeg, is 0.669 in (−H)⁻¹ and 0.685 in the draws (reads §4).
 
-ENO's and FBA's MAP values differ from their posterior means by 2.3 and 1.4 posterior SD.
-Their posteriors are the least Gaussian, or the MAP stopped short along them; this run
-cannot say which. For the other 19 coordinates, the posterior mean is within 0.35
+ENO's and FBA's posterior means differ from θ_ref by 2.3 and 1.4 posterior SD. (Corrected
+2026-11-26, KIM-161: their marginals' skewness is 0.05 and 0.06,
+`pilot_promoter_shift_result.md`, so this is not skew; θ_ref is the MAP at δ = S = 0, not
+of the fitted likelihood, so it need not sit at the posterior's centre. The earlier reading,
+"the least Gaussian, or the MAP stopped short", is no longer needed; the stopped-short
+half is not tested.) For the other 19 coordinates, the posterior mean is within 0.35
 posterior SD of θ_ref. The largest of those are log_S_0233 (0.35) and log_sigma_b (0.33)
 (reads §5).
 

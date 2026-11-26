@@ -52,10 +52,10 @@ fraction of its CPU-hours.}
   that this precision is not a calibrated uncertainty on every output. Real assays need
   observation models for unknown cell numbers in bulk metabolomics and for capture efficiency
   in single-cell RNA counts.
-  \item \emph{The promoter shift.} Its mean standardised error is \pn{kim92.promz}, and the
-  maximum a posteriori estimate shares it. One dataset cannot split the shift into two causes:
-  noise that this dataset shares across promoters, and a bias from fitting the mean-field bulk
-  likelihood to data from the true simulator. A second dataset would.
+  \item \emph{The promoter shift.} Its mean standardised error is \pn{kim92.promz}, about
+  \pn{kim92.promshift}\% low in rate, and the reference value $\theta_{\mathrm{ref}}$ shares it.
+  The likelihood's own noise is unlikely to explain it. Whether it comes from this data
+  realisation or from a bias in the likelihood needs a second dataset.
   \item \emph{The gap on M0.} On one M0 dataset three parameters sit \pn{mix.gaplo}--\pn{mix.gaphi}
   standard deviations from the exact posterior, a shift beyond sampler error, and we have not
   found the cause. There are two leads, neither measured as a shift: the mixed route counting

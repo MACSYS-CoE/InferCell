@@ -47,15 +47,20 @@ coverage rate.
 \paragraph{The promoters sit low.} Of the \pn{kim92.npromoter} promoter strengths,
 \pn{kim92.promlow} have posterior means below the truth (\cref{fig:reducedpost}B). Their
 mean standardised error, (posterior mean $-$ truth)/posterior SD, is \pn{kim92.promz}. If
-the \pn{kim92.npromoter} errors were independent and calibrated, their mean would be zero
-to within its standard error. The observed mean is about \pn{kim92.promzse} standard
-errors from zero. The maximum a posteriori (MAP) estimate has the same shift, with a mean
-standardised error of \pn{kim92.mapz}. So the shift comes from the likelihood on this
-dataset, not from the sampler. One dataset cannot separate the two possible causes. The
-first is noise in this dataset that every promoter shares, for example through the common
-bulk scale. The second is a bias from fitting the mean-field bulk likelihood to data from
-the true simulator. A second dataset would tell them apart, and we have not run one. We read
-the scored predictions of \cref{sec:reducedpredict} with this shift in mind.
+the errors were calibrated, their mean would be zero to within its standard error. Allowing
+for the posterior's correlations among the promoters, the observed mean is about
+\pn{kim92.promzse} standard errors from zero. On the rate scale the shift is small: the
+promoters sit about \pn{kim92.promshift}\% low on average. The chains start from a reference
+value $\theta_{\mathrm{ref}}$, the maximum a posteriori (MAP) estimate with $\delta = S = 0$
+(\cref{sec:reduceddesign}), and it has a shift of the same size, with a mean standardised error
+of \pn{kim92.mapz}. So the shift is in the log density on this dataset, with or
+without $\delta$ and $S$, and not in the sampler. The posterior correlates the promoters by only
+\pn{kim92.promcorr} on average, so noise that the likelihood represents is unlikely to
+produce a common shift this large; the standard error above already allows for it. A shared
+component that the likelihood does not represent would not show in these correlations. It
+could be a bias in the likelihood, which would recur on every dataset, or a feature of this
+data realisation alone. One dataset cannot separate the two. We read the
+scored predictions of \cref{sec:reducedpredict} with this shift in mind.
 
 \paragraph{The posterior reproduces its own data.} For each of the \pn{kim92.ppcrows}
 bulk rows, we drew replicate data from the route's own bulk model at posterior draws and
@@ -68,22 +73,29 @@ reduced model, the mixed route also has no calibration test of the kind
 \cref{sec:posteriors} ran on M0. The scored predictions of \cref{sec:reducedpredict},
 against the true simulator, are the test of the approximation.
 
-\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD at the
-MAP estimate is \pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. ENO and FBA
-depart from this picture in one respect. Their MAP values lie \pn{kim92.mapenoz} and
-\pn{kim92.mapfbaz} posterior SD from their posterior means. This run cannot say whether
-their posteriors are skewed or the optimiser stopped short.
+\paragraph{The posterior is close to Gaussian.} For each parameter, the Laplace SD, from the
+curvature of the fitted log density at $\theta_{\mathrm{ref}}$, is
+\pn{kim92.laplo}--\pn{kim92.laphi} times the posterior SD. So on this dataset a Laplace
+approximation gives the right widths. We know that only because NUTS ran: the comparison
+needs the sampled posterior, and on a dataset whose posterior is far from Gaussian a Laplace
+fit alone would give no warning. Centred at $\theta_{\mathrm{ref}}$, it would not give the
+right centre for ENO and FBA. Their posterior means lie \pn{kim92.mapenoz} and \pn{kim92.mapfbaz} posterior SD from
+$\theta_{\mathrm{ref}}$, which maximises the density with $\delta = S = 0$, not the fitted one.
+Both are learned from the bulk, where $\delta$ acts, so their posterior means need not sit
+at $\theta_{\mathrm{ref}}$.
+Their marginals are also nearly symmetric, with skewness \pn{kim92.skeweno} and
+\pn{kim92.skewfba}.
 
 \paragraph{What it costs.} The whole run costs about \pn{kim92.cpuh} CPU-hours
-(\cref{tab:reducedcost}), below our bound of \pn{cost.kone} CPU-hours per posterior. That
+(\cref{tab:reducedcost}), of which the chains are about \pn{kim92.chainsall}, below our bound of \pn{cost.kone} CPU-hours per posterior. That
 is far below the \pn{cost.fullscale} projected for the exact sampler (\cref{tab:cost}).
 The limit is wall-clock time, because each chain is one serial job. Each chain took
 \pn{kim92.chainwalllo}--\pn{kim92.chainwallhi}\,h for its \pn{kim92.nadapt} adaptation
 and \pn{kim92.firstdraws} kept iterations, and \pn{kim92.extwalllo}--\pn{kim92.extwallhi}\,h
 more for the extension. One leapfrog step, one gradient of the log density, costs
 \pn{kim92.grad}\,s, and each iteration takes about \pn{kim92.steps} steps. A warm diagonal
-metric made the run feasible. We took this metric from the Hessian at the MAP estimate, by
-finite differences of the gradient. Under a unit metric the Hessian's condition number is
+metric made the run feasible. We took this metric from the Hessian of the fitted log
+density at $\theta_{\mathrm{ref}}$, by finite differences of the gradient. Under a unit metric the Hessian's condition number is
 \pn{kim92.kappaunit}; under the warm metric it is \pn{kim92.kappawarm}. A probe chain
 under the unit metric projected to \pn{kim92.probedays} days per chain.
 
