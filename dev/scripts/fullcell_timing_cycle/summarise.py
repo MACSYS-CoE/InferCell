@@ -110,7 +110,7 @@ def main(serial, ensemble, minutes, trace_procid):
     wave = {r["procid"]: i + 1 for cs in per_thread.values() for i, r in enumerate(cs)}
     print(f"per-cell wall_outer, all: {stats([num(r, 'wall_outer_s') for r in e])}")
     print(f"per-cell to 105 min, all: {stats([num(r, 'wall_to_105_s') for r in e])}")
-    he = [r for r in e if int(r["t_SA2"]) >= 0]
+    he = [r for r in e if ival(r, "t_SA2") >= 0]
     print(f"reach t_SA2: {len(he)}; collapse: {sum(ival(r, 't_short') >= 0 for r in e)}; "
           f"collapse after t_SA2: {sum(ival(r, 't_short') >= 0 for r in he)}; "
           f"collapse without reaching it: {sum(ival(r, 't_short') >= 0 and ival(r, 't_SA2') < 0 for r in e)}")

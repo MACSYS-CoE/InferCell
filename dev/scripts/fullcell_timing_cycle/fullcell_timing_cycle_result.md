@@ -126,21 +126,25 @@ at 112 and 116). Every cell reaches the volume cap, at minutes 57 to 81.
   run's per-minute CellSA, CellV, hooks and CME events match it in every row. That holds for
   all 20 serial cells (2,420 rows) and all 100 ensemble cells (12,100 rows), with 0 mismatches.
   So the move to Julia 1.11.9 and OpenLibm_jll 0.8.5 changed nothing in these four columns.
-  The check is in the PR #205 review (`infercell-pr-reviews/pr205-2026-11-26/REVIEW.md`, S8)
-  and was repeated for this note with a short script on the login node. It covers seed 1 and
-  those four columns only.
+  The reference's own provenance records its Julia: `"julia": "1.11.2"` in
+  syn3a-ensemble's `results/port_observables_cycle.json` (and in the `_seed2` file).
+  `bitexact_check.py` in this directory runs the comparison: a row-wise string equality of
+  the four columns, keyed on (procid, seed, minute). Its output: 2,420 and 12,100 rows, 0
+  mismatches, 0 missing. It covers seed 1 and those four columns only.
 - **The port against the reference** is settled in syn3a-ensemble's README (C4-cycle): 13
   against 19 of 99 cells collapse by minute 120 (Fisher p 0.33).
 - **Procids 1–20 at seed 1 are a high-collapse draw.** Counting a cell as collapsed if any
-  minute from 1 to 120 has fewer than 59 hooks:
+  minute from 1 to 120 has fewer than 59 hooks (`bitexact_check.py` prints these counts from
+  syn3a-ensemble's `results/port_minutes_cycle*.csv`):
 
   | | procids 1–20 | procids 1–200 |
   |---|---|---|
   | seed 1 | 7 | 33 (16.5%) |
   | seed 2 (`port_minutes_cycle_seed2.csv`) | 0 | 30 |
 
-  So the 20-cell picture is not typical of a batch. Collapsed cells are cheap, which makes the
-  all-20 median slightly low; the to-t_SA2 row in section 4 is the more representative cost.
+  So the 20-cell picture is not typical of a batch. Collapsed cells are cheap, so the 15-cell
+  rows of section 4 are closer to a typical batch: 50.6 s to minute 105, and 46.8 s to t_SA2,
+  which is the exact cost of a cycle.
 
 **One full-cycle trace: procid 1, seed 1** (Slurm 21664418, dave23). It is a healthy cell.
 `CellV` hits the cap at minute 62, and `CellSA` doubles at minute 102. The full per-minute
@@ -257,7 +261,7 @@ the full 120 minutes, with no errors and no ODE failures. 84 reach t_SA2, 3 of w
 later, and 16 collapse without reaching it.
 - **Each cell is slower threaded, and more so on a full node.** Per cell, the whole run took a
   median of 90.6 s (range 35.4 to 113.0 s), or 80.9 s to minute 105. For procids 1 to 20 that
-  is a median of 1.60× the one-core time. That median mixes two loads (next bullet but one):
+  is a median of 1.60× the one-core time. That median mixes two loads (see the chunking bullet below):
 
   | | cells | median per-cell wall | ratio to one core, procids 1–20 |
   |---|---|---|---|
@@ -338,6 +342,8 @@ sbatch --partition=milan --exclude="$X" --nodes=1 --cpus-per-task=64 --mem=200G 
   --output=$L/logs/%x_%j.log --export=ALL,MODE=ensemble,PROCIDS=1-100,MINUTES=121,OUT=$L/ensemble/ensemble $S
 /fred/oz022/tkimpson/miniconda3/bin/python3 -I dev/scripts/fullcell_timing_cycle/summarise.py \
   $L/serial/serial_cells.csv $L/ensemble/ensemble_cells.csv $L/serial/serial_minutes.csv 1
+/fred/oz022/tkimpson/miniconda3/bin/python3 -I dev/scripts/fullcell_timing_cycle/bitexact_check.py \
+  /fred/oz022/tkimpson/syn3a-ensemble/results $L/serial/serial_minutes.csv $L/ensemble/ensemble_minutes.csv
 ```
 
 Each cell's output depends only on (procid, seed, minutes), and is bit-exact only on an
@@ -349,12 +355,20 @@ They vary with the node and with what else runs on it.
 - **The meta files** record the host, CPU, thread counts, both git commits, `versioninfo()`
   and the sha256 of every file under `syn3a-ensemble/data/model/`.
 - **What `summarise.py` prints.** Run on these files, it prints:
-  - every number in the note's tables;
+  - the trace table (section 3) and the tables of sections 4 and 5;
   - the meta-file lines quoted here (model build, warm-up, wall, GC);
   - the waves and the thread split;
-  - the arithmetic on them (the cells per node-hour estimates and the KIM-58 table).
-- **What comes from elsewhere:** the syn3a-ensemble figures (1.79×, 2.16×, 44%, 85%, C4-cycle)
-  from its README, and the bit-exact match from the review (section 3).
+  - the arithmetic it lists: about 2,330 cells per node-hour from the wave-1 median, 3,970 for
+    workers, and the KIM-58 core-h, node-h and threaded CPU-h. The workers' CPU-h column equals
+    the core-h line.
+- **What comes from elsewhere:**
+  - The syn3a-ensemble figures (1.79×, 2.16×, 44%, 85%, C4-cycle) come from its README.
+  - The bit-exact match and the seed/procid collapse counts (7, 33, 0, 30) come from
+    `bitexact_check.py`, run on syn3a-ensemble's `results/port_minutes_cycle*.csv`
+    (section 3).
+  - The 1,840 cells per node-hour is arithmetic on F-B3's 2.16×: 64 × 3600 / (2.16 × 58.1 s).
+  - The section 1 comparison comes from git and `diff` of the two trees, and the sha256
+    table from the meta files.
 - **Failed cells.** `summarise.py` takes rows with an error or a failed ODE step: it counts
   them and leaves them out of the statistics they have no value for.
 
