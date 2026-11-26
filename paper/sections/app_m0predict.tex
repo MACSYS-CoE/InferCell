@@ -291,8 +291,10 @@ p = predict(ms, pd; horizon = 6300,
 }
 \noindent The fit already frees the enolase and aldolase constants. The argument
 \texttt{n\_held} is the number of draws of $\theta_H$ per draw of $\theta_I$, and every draw
-of \texttt{pd} is used unless \texttt{n\_parameter\_draws} says otherwise. Row C also applies
-the viability rule, with \texttt{completion = :viability\_conditioned\_prior}. Reverse
+of \texttt{pd} is used unless \texttt{n\_parameter\_draws} or \texttt{draws} says otherwise. Row C
+releases more constants than this example, uses an evenly spaced subset of draws, and applies the
+viability rule, with \texttt{completion = :viability\_conditioned\_prior} and a
+\texttt{viability} rule passed in. Reverse
 constants follow from the equilibrium constants. A release measures sensitivity to the
 priors; it is not a posterior. Row C releases all \pn{traj.nreleased} fixed forward rate and
 Michaelis constants of the two metabolic modules, so \pn{traj.ndrawn} parameters are

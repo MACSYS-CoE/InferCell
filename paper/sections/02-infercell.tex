@@ -232,10 +232,10 @@ k = predict(ms, pd; horizon = 180, n_cells = 4,
 k.effect_summary
 \end{verbatim}
 }
-\noindent \texttt{infer} returns a chain, and \texttt{posterior\_draws} reads it, or the archived
-posteriors of this paper. \texttt{predict} runs each draw's cells with and without the knockdown
-on the same seeds, and reports the effect on the lactate exported by the horizon. \texttt{infer}
-fits M0's parameters only. The reduced-model fit of \cref{sec:reduced} uses the same mixed route
+\noindent \texttt{infer} returns a chain, and \texttt{posterior\_draws} reads it, or the M0 and
+reduced-model chains archived for this paper. \texttt{predict} runs each draw's cells with and without the knockdown
+on the same seeds, and reports the effect on the lactate exported by the horizon. On cell and bulk data,
+\texttt{infer} fits M0's parameters only. The reduced-model fit of \cref{sec:reduced} uses the same mixed route
 over all \pn{kim92.ncoord} parameters, through its own script: it builds the log density with
 \texttt{mixed\_setup} for the reduced model's parameters, and samples it from jittered starts
 under a warm metric (\cref{sec:reduceddesign}). The scored predictions of \cref{sec:reducedpredict} call
