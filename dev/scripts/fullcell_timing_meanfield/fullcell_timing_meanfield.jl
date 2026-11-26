@@ -614,7 +614,7 @@ function stage_check(out)
         println(io, "\n```\n", env.versioninfo, "```")
     end
     say("check: RHS $(rhs_pass ? "PASS" : "FAIL"), AV3 $(fd_pass ? "PASS" : "FAIL")")
-    occursin("LinearSolveFunction", linpath) || error("the dual solve did not reach DualSparseKLU: $linpath")
+    startswith(linpath, "LinearCache / LinearSolveFunction / W SparseMatrixCSC{Dual}") || error("the dual solve did not reach DualSparseKLU: $linpath")
     lib.partials_rel == 0 && lib.value_rel == 0 ||
         error("DualSparseKLU and DualLinearCache differ: $(lib.partials_rel), $(lib.value_rel)")
     fdiff == 0 || error("pass-wise gradient differs from ForwardDiff.gradient by $fdiff")

@@ -1,4 +1,4 @@
-# KIM-184: a gradient of the full cell's first-order mean field: 1.3 s with a sparse dual solve, about 18 min with LinearSolve 3.73.0's
+# KIM-184: a gradient of the full cell's first-order mean field: 1.3 s with a sparse dual solve, 18.5 min with LinearSolve 3.73.0's stock dual path
 
 **Two numbers, and which one holds depends on the linear solve.** A 20-parameter
 dual gradient over the fit window costs:
@@ -71,8 +71,11 @@ Julia 1.10.5, `OPENBLAS_NUM_THREADS=1`. The outdir is
 **Smoke 1's commit.** Its check and time jobs ran the faulty code at 502aea4. Its
 threaded job (21663393) started after 74755da was committed, so it ran the fixed
 code: 0.5 s passes, and |g| ≈ 61 against 3e-27 in the time job. The tree moved under
-a queued job. Smoke 1 is plumbing only, and none of its numbers is used except the
-437 s that found fault 1.
+a queued job. Smoke 1 is plumbing only. The note uses only a few of its numbers, all as
+evidence for the two faults below or for the commit history above:
+- the 437 s pass that found fault 1;
+- the 150 "integrated flux" drains and the |g| ≈ 3e-27 behind fault 2;
+- the threaded job's |g| ≈ 61, against 3e-27 in the time job.
 
 | job | node |
 |---|---|
@@ -85,14 +88,16 @@ a queued job. Smoke 1 is plumbing only, and none of its numbers is used except t
 `threaded.md` from `run1/`, and `library.md` from `library/`. They are byte-identical
 to the outdir copies.
 
-**The committed driver is not quite the code that ran.** It differs from 74755da and
-6a20e2c in two ways:
+**The committed driver is not quite the code that ran.** The run1 jobs ran 74755da,
+which has no `library` stage. The library job ran 6a20e2c, which adds it. The
+committed driver differs from that code in two ways:
 - guards: every solve's retcode is checked, and the logged bitwise comparisons and
   the linear-cache path are asserted, where the runs only logged them;
 - comments and output strings.
 
-No number changes. In the runs of record, every logged comparison was exactly 0, and
-the linear-cache path was `LinearSolveFunction`.
+No number changes. In the runs of record, every logged bitwise comparison was exactly
+0, and the linear-cache path was `LinearSolveFunction`. The tolerance comparisons (AV3,
+the RHS, J·x₀) are as reported below.
 
 **Compute used:** about 2.9 CPU-h over every job, the library stage's 0.26 CPU-h
 included. Most of it is smoke 1's check and time jobs, which ran on the faulty
@@ -242,15 +247,16 @@ The threaded job's own split:
 
 **Read the same-node column.** The serial and threaded jobs ran on different nodes
 (dave28 and dave64), and with different GC settings (`--gcthreads=4,1` against the
-default). B = 10 has one pass and so no parallel work, yet it is 12% faster in the
-threaded job. That gap is most likely the node and GC difference; it was not
+default). B = 10 has one pass and so no parallel work, yet it is 10.5% faster in the
+threaded job (0.581 against 0.649 s). That gap is most likely the node and GC difference; it was not
 isolated. The across-jobs speed-up at B = 20 (2.06×) even exceeds the 2× that two
 passes allow. The same-node column takes the threaded job's own one-pass time
 (B = 10, 0.581 s) as the serial cost of a pass. Its speed-up is the number of passes
 × 0.581 s, divided by the wall time.
 
-**Threads contend.** With 4 passes on 4 threads (B = 40), the mean pass is 21% slower
-than a lone pass (0.701 against 0.581 s), and the wall time is 31% longer. Scaling past
+**Threads contend.** With 4 passes on 4 threads (B = 40), the mean pass is 19% slower
+than at B = 10, where one pass runs alone (mean 0.701 against 0.591 s). The wall time
+is 31% longer (median 0.760 against 0.581 s). Scaling past
 4 threads, or several chains on one node, is unmeasured.
 
 **The split, at B = 20, serial.**
@@ -261,13 +267,14 @@ than a lone pass (0.701 against 0.581 s), and the wall time is 31% longer. Scali
 - **Per step, the like-for-like figure:** 4.4 ms against 0.63 ms, or **7×**.
 
 **Why the dual solve takes fewer steps.** The dual solve took 144 steps against the
-primal's 174, none rejected, at the same tolerances. The reviewer of PR #207
-identified the mechanism (the reviewer's arithmetic, not re-derived here):
-- DiffEqBase's error norm for dual states is sqrt(Σ sse / (n(1+N))). Its denominator
-  counts the N = 10 partials as well as the values.
+primal's 174, none rejected, at the same tolerances. The mechanism:
+- DiffEqBase 6.213.0's error norm for dual states (`ext/DiffEqBaseForwardDiffExt.jl`,
+  lines 204–215) is sqrt(Σ sse / totallength), where totallength = n(1+N). Its
+  denominator counts the N = 10 partials as well as the values.
 - Small errors in the partials therefore dilute the RMS by about √11.
 - That predicts 137–142 steps, against the 144 observed. Smoke 2 shows the same ratio
-  (129/107 = 1.21).
+  (129/107 = 1.21). This prediction is the PR #207 reviewer's arithmetic, not
+  re-derived here.
 
 At matched accuracy (174 steps) a pass would take about 0.77 s, and a B = 20 serial
 gradient about **1.54 s**. That is the reviewer's estimate; **1.277 s is the measured
@@ -279,8 +286,8 @@ of **1 : 1.97 : 3.93**. That is linear in the number of passes: each pass costs 
 up to 4 threads.
 
 **Days per chain.** These are for the first-order linear surrogate, which has a
-constant Jacobian. They are a lower bound on both the cost per step and the step
-count. The assumptions:
+constant Jacobian. Its cost per step and its step count are both lower bounds, and
+both are expected to rise in the full cell (unmeasured). The assumptions:
 - 8,600 gradients per chain, the reduced model's chain length, from the issue;
 - a constant cost per gradient, as measured at θ*;
 - no likelihood, no warm-up and no primal-only evaluations;
@@ -339,8 +346,9 @@ Smoke 1 found both. Each was fixed in 74755da, before run1 was submitted.
   - the analytic constant-pattern Jacobian would have to come from AD or from
     symbolic code;
   - the cost per step rises. The Jacobian becomes state-dependent, second-order terms
-    add fill-in, and fewer states sit at zero. Here 501 states are zero at the start
-    and at every save;
+    add fill-in, and fewer states sit at zero. In the table, 501 states start at zero
+    and no first-order reaction with a live reactant can change them. That was counted
+    by reachability over `reactions.csv`, and the reviewer's independent count agrees;
   - the step count is unmeasured for the full system. Two hints that it rises: the
     reference rebuilds its ODE every 1 s, and the steps here are front-loaded (129
     primal steps in the first 300 s, smoke 2, against 174 over all 3,150 s). How far
@@ -348,7 +356,8 @@ Smoke 1 found both. Each was fixed in 74755da, before run1 was submitted.
 
   The per-step costs here are 0.63 ms per primal step and 4.4 ms per dual step of 10
   partials. They are floors for this system (n = 2,112, nnz = 21,095, a free
-  Jacobian). The full cell raises both the cost per step and the step count. The
+  Jacobian). Both the cost per step and the step count are expected to rise in the
+  full cell (unmeasured). The
   second-order terms would also make the mean field a closure, not exact.
 - **Accuracy.** Nothing here says the first-order mean field approximates the full
   cell. It tests cost only.
