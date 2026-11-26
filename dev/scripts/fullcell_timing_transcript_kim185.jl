@@ -586,7 +586,8 @@ function run_threaded(out)
     env = environment()
     say("threaded: ", env)
     d, bs, x, order, _ = setup455(out)
-    ws = [parse(Int, w) for w in split(get(ENV, "WORKERS", SMOKE ? "1,2" : "1,4,16,32"), ',')]
+    wenv = strip(get(ENV, "WORKERS", ""))
+    ws = [parse(Int, w) for w in split(isempty(wenv) ? (SMOKE ? "1,2" : "1,4,16,32") : wenv, ',')]
     all(<=(Threads.nthreads()), ws) || error("WORKERS $ws exceed $(Threads.nthreads()) threads")
     v1, g1 = value_gradient(bs, d, x)
     rows = map(ws) do w
