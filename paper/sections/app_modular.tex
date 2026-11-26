@@ -1,4 +1,77 @@
 \section{The modular arm}
 \label{app:modular}
 
-\todo{KIM-116: the two modular variants (factor cut, data plug-in), their costs, and how close each sits to the joint posterior.}
+The modular arm infers the reduced model one block at a time on the dataset of
+\cref{sec:reduced}, and sets the result beside the joint posterior. The result is a cut
+distribution, a different target from the joint posterior
+\cite{plummer2015cuts,jacob2017better}. We fixed its design, its closeness rule and its
+scoring in a pre-registration tagged before any modular draw existed (\texttt{prereg/kim-116}
+in the repository).
+
+\paragraph{Two variants.} Both have two stages.
+\begin{itemize}
+  \item \emph{The factor cut.} Stage one is the transcript factor alone, over all
+  \pn{kim92.ncoord} coordinates, with ENO, FBA and $\sigb$ under their priors. It still
+  solves the mean-field ODE, because the transcript factor reads its rate constants from
+  that solve.
+  \item \emph{The data plug-in.} Stage one takes its rate constants from the observed ATP
+  and GTP panel, with CTP and UTP at their chemostat values, and needs no ODE solve.
+\end{itemize}
+Stage one uses the joint's chain design in both variants.
+In stage two, both variants carry \pn{kim116.K} stage-one draws forward. For each, a
+No-U-Turn chain of \pn{kim116.inner} iterations fits ENO, FBA and $\sigb$ to the bulk factor,
+with the promoters and the decay rate fixed at that draw, and keeps its last
+\pn{kim116.innerkeep}.
+
+\paragraph{Gates.} Stage one had to reach $\Rhat \le \pn{kim92.rhatgate}$ and a bulk
+effective sample size of at least \pn{kim92.essgate} on its coordinates, with one extension
+allowed. Both variants needed the extension, and both then passed. In the posterior
+predictive check of \cref{sec:reduced}, \pn{kim116.ppcout} of the \pn{kim92.ppcrows} bulk
+rows fall outside the central 99\% band for each variant, against the joint's
+\pn{kim92.ppcout}.
+
+\paragraph{Cost.} The factor cut's stage one costs the same as the joint's chains, because
+it solves the same ODE over the same coordinates. Stage two comes on top, at
+\pn{kim116.stagetwo}\% of the cut's total. So the cut costs \pn{kim116.cutjob} times the
+joint's own posterior jobs. The plug-in's stage one costs \pn{kim116.plugstageone} times the
+joint's chains, and stage two is \pn{kim116.stagetwoplug}\% of its total, so the plug-in costs
+\pn{kim116.plugjob} times the joint's jobs. Against the whole joint run of
+\cref{tab:reducedcost}, the pre-registered comparator, the ratios are \pn{kim116.cutt1} and
+\pn{kim116.plugt1}. Every arm also shares the joint's dataset and preparation,
+\pn{kim116.shared} CPU-hours paid once. The size of stage two was fixed in the
+pre-registration and never tuned for cost, so the plug-in's ratio belongs to this design and
+is not a floor.
+
+\paragraph{Closeness to the joint.} The factor cut is close by the pre-registered rule. Its
+largest shift in a mean is \pn{kim116.cutshift} joint SD, and its largest change in
+contraction is \pn{kim116.cutcontr}. The plug-in fails the rule: the GAPD promoter shifts by
+\pn{kim116.plugshift} joint SD, with a Monte Carlo SE of \pn{kim116.plugshiftse}. The bias is
+systematic: \pn{kim116.plugup} of the \pn{kim92.npromoter} promoters shift up, by
+\pn{kim116.plugmean} SD on average. Its largest change in contraction is
+\pn{kim116.plugcontr}.
+
+\paragraph{Distance from the truth.} The joint has no exact reference on the reduced model,
+so each variant's distance from the truth sits beside its distance from the joint. Both
+variants hold the truth inside \pn{kim116.truthin} of the \pn{kim92.ncoord} central 90\%
+intervals, where the joint holds \pn{kim92.truthin}. The cut's promoters have a mean
+standardised error of \pn{kim116.cutpromz}, the plug-in's \pn{kim116.plugpromz}, and the
+joint's \pn{kim92.promz}. The plug-in's value is not a sign that it sits nearer the truth.
+We read it as the plug-in's own upward bias laid over the same downward offset, and we have
+not tested that reading.
+
+\paragraph{Why the plug-in shifts (not tested).} At the truth, the plug-in's rate constants
+differ from the mean-field route's by a median of \pn{kim116.dlogkmed} on the log scale, and
+by at most \pn{kim116.dlogkmax}. That is an unsigned size; it does not by itself show a bias
+in one direction. Four sources contribute together. The panel's noise is treated as the true
+state, an errors-in-variables cut. The offset $\delta$ is applied. A save stands in for the
+switch one second before it. And the volume and the pools outside the panel come from the
+joint's reference solve. Which of them moves the promoters up was not tested.
+
+\paragraph{Scored predictions.} Only the plug-in was scored, as the pre-registration fixed,
+on the targets, sizes, truth and prior arm of \cref{sec:reducedpredict}. On the knockdown's
+effect $\Delta Q$ it scores as the joint does, with a CRPS of \pn{kim116.dqcrpsplug} against
+\pn{kim116.dqcrpsjoint}. On the pools and transcripts at the later horizon it is within a few
+points of the joint. On $Q$ and $Q_{\mathrm{kd}}$ its median sits about
+\pn{kim116.plugqhigh}\% above the truth. Its CRPS on $Q$ is \pn{kim116.plugqcrps}, about
+twice the joint's \pn{kim116.jointqcrps}, though its skill against the prior stays at
+\pn{kim116.plugskill}.
