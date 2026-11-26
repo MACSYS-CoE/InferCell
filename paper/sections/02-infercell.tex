@@ -219,25 +219,25 @@ predictive. The cut acts in \cref{app:m0predict}, where M0's posterior is carrie
 model. There, a variance split says how much of the prediction's parameter uncertainty belongs
 to each block (\cref{sec:prediction}).
 
-The user chooses which parameters are held. Freeing a fixed constant in its module's
-constructor adds it to $\theta_H$. In the example below, a user releases lactate dehydrogenase's
-constants and records GTP's time course:
+A user runs inference and prediction in two calls. On M0, at sizes small enough to run in
+minutes:
 {\footnotesize
 \begin{verbatim}
-ms = d11_models()
-ms[1] = CentralGlycolysis(
-  enzymes = :translated,
-  free = [:kcatF_R_ENO, :kcatR_R_ENO,
-          :kcatF_R_FBA, :kcatR_R_FBA,
-          :kcatF_R_LDH_L, :kcatR_R_LDH_L])
-p = predict(ms, posterior;
-  horizon = COREA_CYCLE_S,
-  completion = :prior, n_held = 20,
-  n_cells = 4, trajectory = [:M_gtp_c])
+ms = m0_models()
+ds = m0_dataset(16085; ncells = 3, horizon = 180)
+ch = infer(ms, ds; route = :mixed,
+           n_adapt = 50, n_draws = 50)
+pd = posterior_draws(ch)
+k = predict(ms, pd; horizon = 180, n_cells = 4,
+            intervention = Knockdown(; dose = 0.25))
+k.effect_summary
 \end{verbatim}
 }
-\noindent The fit already frees the enolase and aldolase constants.
-The argument \texttt{n\_held} is the number of draws of
-$\theta_H$ per draw of $\theta_I$. Reverse constants follow from the equilibrium constants.
-A release measures sensitivity to the priors; it is not a posterior. The appendix
-releases \pn{traj.nreleased} constants this way (\cref{sec:trajectories}).
+\noindent \texttt{infer} returns a chain, and \texttt{posterior\_draws} reads it, or any archived
+posterior. \texttt{predict} runs each draw's cells with and without the knockdown on the same
+seeds, and reports the effect on $Q$. The reduced-model fit of \cref{sec:reduced} uses the same
+mixed route over all \pn{kim92.ncoord} parameters. Its log density is built by
+\texttt{mixed\_setup}, which \texttt{infer} calls, and its chains start from a warm metric
+(\cref{sec:reduceddesign}). The scored predictions of \cref{sec:reducedpredict} call
+\texttt{predict} on that posterior. The user chooses which parameters are held: freeing a fixed
+constant in its module's constructor adds it to $\theta_H$ (\cref{sec:trajectories}).
