@@ -33,14 +33,14 @@ Linear issues KIM-160 to KIM-169 in milestone M6; KIM-170 is the optional replic
 The paper was restructured around the reduced model. Decisions for the author:
 - ~~**Contribution sentence without M10**~~: closed 2026-11-25; the ladder clause is gone.
 - **tab:frameworks:** InferCell's "Inference on dynamics" cell changed from "On M0" to "Both blocks (h)". Confirm.
-- **Name of Q:** defined in §2 as extracellular lactate = lactate a cell exports over the 6,300 s cycle, in particles, population mean (`:lactate_out`). "Lactate exported" would be the more literal name; changing it touches abstract, intro, §2, §6, §8.
+- **Name of Q:** defined in §2 as extracellular lactate = lactate a cell exports over the 6,300 s cycle, in particles, population mean (`:lactate_out`). "Lactate exported" would be the more literal name; changing it touches abstract, intro, §2, §6, §7.
 - **Discussion vs sec:info:** the Discussion draws a working rule from `sec:info`, whose opening says no main-text claim rests on it. One should give way.
 - **§2 code listing** illustrates releasing constants (an appendix use) and shows `COREA_CYCLE_S`; consider moving it to app_m0predict.
-- **T1:** the M0 mixed-route wall-clock is `\DRAFT{?}` (no source found). The 492 CPU-h counts the whole run including the 24 CPU-h probe.
+- **T1:** the M0 mixed-route wall-clock is "---" since KIM-169: per-job wall times exist in sacct and the phase-16 ledger (B5 tabulates one full posterior, `mixed_nuts_89_result.md`), but no per-posterior critical path was tabulated for B7. The 492 CPU-h counts the whole run including the 24 CPU-h probe.
 - **Precision fixes** (also in the Decision log entry of 2026-11-23) (gap parameters S_0779/krnadeg/ENO; pools 0.9–1.4 SD; skill 0.98–0.99; "θ-driven" only for trioses and FDP; "about 80×" is 77–103×).
 - **Citations:** `[CITE NEEDED: CRPS, Gneiting and Raftery 2007]` in app_methods; §6's CRPS sentence also uncited.
 
-- **Smaller flags from the agents:** the prior state of F6 draws 20 parameters (σ_b is not drawn), not 21; the old Discussion's 𝓡-bound paragraph (`info.Rmzero`, `info.Rcorea`), the released-constants sentence and the method's-own-limits future work were dropped; G6P and F6P are less clearly shifted than the trioses (5–95% of their per-save offsets spans 0); gradient cost is 37.9 s at the truth (KIM-116 profile) vs 43–45 s per step in the chains (different measures and nodes; the former sits only inside a todo); T1 compares 492 CPU-h against `cost.kone` though the prereg set no cap.
+- **Smaller flags from the agents:** the prior state of F6 has 20 model parameters at their priors (σ_b is drawn in KIM-95's prior arm but does not enter Q); the old Discussion's 𝓡-bound paragraph (`info.Rmzero`, `info.Rcorea`), the released-constants sentence and the method's-own-limits future work were dropped; G6P and F6P are less clearly shifted than the trioses (5–95% of their per-save offsets spans 0); gradient cost is 37.9 s at the truth (KIM-116 profile) vs 43–45 s per step in the chains (different measures and nodes; the former sits only inside a todo); T1 compares 492 CPU-h against `cost.kone` though the prereg set no cap.
 - **Numbers provenance:** the new kim92/95/96 keys are typed from the result notes; only the figure scripts assert against the archive TSVs.
 - **Figure previews:** `paper/figure-review/` (previews and colour-vision sheets for F4–F6) is tracked.
 - **Before submission:** `check_paper.py --final` does not see `\todo{}`; grep for it.
