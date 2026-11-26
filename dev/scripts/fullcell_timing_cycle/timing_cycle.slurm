@@ -30,7 +30,7 @@ echo "git $(git -C "$ENV_DIR" rev-parse HEAD)"
 NT=${SLURM_CPUS_PER_TASK:-1}
 case "${MODE:-}" in
   precompile)
-    julia --project="$ENV_DIR" -e 'using Pkg; Pkg.precompile(); using SpeedyCell.Cell; versioninfo()' ;;
+    julia --project="$ENV_DIR" -e 'using Pkg; Pkg.precompile(); using SpeedyCell.Cell, InteractiveUtils; versioninfo()' ;;
   serial)
     julia -t 1 --project="$ENV_DIR" "$ENV_DIR/timing_cycle.jl" ;;
   ensemble)
