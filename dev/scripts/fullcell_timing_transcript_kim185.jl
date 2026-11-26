@@ -32,8 +32,10 @@
 #              each of the 455 transcription reactions that makes an mRNA gives the
 #              gene's length (the ATP_trsc increment), its four base counts (ATP_mRNA,
 #              CTP_mRNA, GTP_mRNA, UTP_mRNA), its first-minute rate constant, and its
-#              mRNA's initial count (procid 1). First two bases: AU for every gene (the
-#              ATG start; all 17 reduced genes are AU). The reference promoter strength
+#              mRNA's initial count (procid 1). First two bases: taken as AU for every
+#              gene. That holds for the 17 reduced genes, but syn3A.gb starts 12 of the
+#              455 with GTG (GU) and 3 with TTG (UU); the effect on k is at most about
+#              2.4e-5 relative (KIM-185 review), so the timing does not see it. The reference promoter strength
 #              S_ref is the first-minute rate over the same law at S = 1, published base
 #              mapping and the first-minute concentrations (MinCell_CMEODE.py's
 #              minute 1, which the export's `rate` column is).
@@ -198,6 +200,7 @@ function run_data(out)
     end
     say(@sprintf("check 1: the 17 reduced genes match the extract's lengths and base counts; S_ref against ptn_count/180, max rel. diff %.2e",
                  maximum(c.rel for c in chk)))
+    maximum(c.rel for c in chk) < 1e-8 || error("check 1 failed: S_ref is not ptn_count/180 on the reduced genes")
 
     G = SMOKE ? SMOKE_SIZE.genes : NGENES
     C = SMOKE ? SMOKE_SIZE.cells : size(R.ds.transcripts, 1)
@@ -218,6 +221,7 @@ function run_data(out)
         maximum(abs.(k1 ./ k17[i, :] .- 1))
     end
     say(@sprintf("check 2: single-gene rate_constants against the 17-gene plug-in rebuild at the truth, max rel. diff %.2e", rel2))
+    rel2 < 1e-12 || error("check 2 failed: the single-gene rates are not the 17-gene plug-in rebuild's")
 
     # The truth and the rates.
     rng = Xoshiro(SEED)
@@ -645,7 +649,20 @@ end
 
 function run_project(out)
     K = kim116_steps()
-    s, t = load(out, "serial"), load(out, "threaded")
+    # The inputs must be one run: the same SMOKE as this job, one data.jls before both
+    # timings, and the same genes, cells and windows throughout.
+    raw = Dict(n => deserialize(joinpath(out, "$n.jls")) for n in ("data", "serial", "threaded"))
+    for (n, r) in raw
+        r.smoke == SMOKE || error("$n.jls has SMOKE = $(r.smoke), this job SMOKE = $SMOKE")
+    end
+    raw["data"].when < min(raw["serial"].when, raw["threaded"].when) ||
+        error("data.jls is newer than a timing that read it")
+    s, t = raw["serial"].result, raw["threaded"].result
+    C, G, M = size(raw["data"].result.y)
+    (s.G, s.ncells, s.nwindows) == (G, C, M) && t.G == G ||
+        error("serial.jls or threaded.jls does not match data.jls's genes, cells and windows")
+    SMOKE || G == NGENES || error("a full run must have $NGENES genes, data.jls has $G")
+    say("project: SMOKE = $SMOKE; inputs agree: $G genes, $C cells, $M windows")
     steps = sum(r.chain_steps + r.ext_steps for r in K.rows)
     secs = sum(r.seconds for r in K.rows)
     D = s.G + 1
@@ -660,7 +677,7 @@ function run_project(out)
     io = IOBuffer()
     p(xs...) = println(io, xs...)
     p("# KIM-185: the gene-expression block's cost by the data plug-in\n")
-    p("Commit `", COMMIT, "`, job ", JOB, ". Timings from `serial.md` (job ", load_job(out, "serial"), ") and `threaded.md` (job ",
+    p("Commit `", COMMIT, "`, job ", JOB, ". SMOKE = ", SMOKE, ". Timings from `serial.md` (job ", load_job(out, "serial"), ") and `threaded.md` (job ",
       load_job(out, "threaded"), "). Gradients per posterior from KIM-116's plug-in stage 1 (", ARCHIVE116, "/run/plugin).\n")
     p("## Gradients per posterior, counted\n")
     p("| chain | iterations (chain + extension) | leapfrog steps (chain + extension) | max tree depth | hours |")
@@ -684,7 +701,8 @@ function run_project(out)
         p(@sprintf("| threaded, %d workers: %d gradients × %.2f s × %d CPUs (wall %.1f h per chain of %d) | %.0f |",
                    w, ngrad, tw, w, (ngrad / 4) * tw / 3600, ngrad ÷ 4, ngrad * tw * w / 3600))
     end
-    p("\n**Verdict: ", verdict, " against the 2026-11-26 threshold** (at most ", Int(THRESHOLD_CPUH),
+    SMOKE && p("\n**SMOKE run: plumbing only, no verdict.**\n")
+    SMOKE || p("\n**Verdict: ", verdict, " against the 2026-11-26 threshold** (at most ", Int(THRESHOLD_CPUH),
       " CPU-h for the gene-expression block over 455 genes by the data plug-in; Decision log 2026-11-26, closing KIM-176). ",
       "The verdict is on the headline row, fixed before the timing was read.\n")
     write(joinpath(out, "projection.md"), String(take!(io)))
