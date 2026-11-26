@@ -38,30 +38,32 @@ def canvas(w, h):
     return fig, ax
 
 
-def fig_architecture():
+def fig_architecture(stem="fig_architecture"):
+    # Printed at \linewidth of the two-column template's figure*: 469.75 pt = 165 mm = 6.5 in, 1:1.
     fig, ax = canvas(6.5, 3.0)
-    bh = 0.2
+    top, low, rh = 0.68, 0.06, 0.24           # the two rows of descriptions and routes
     box(ax, 0.01, 0.62, 0.19, 0.3, "Parameters\nprior, source,\nlabel")
-    box(ax, 0.01, 0.12, 0.19, 0.3, "Modules\nstates, formalism,\ntyped edges")
-    box(ax, 0.27, 0.37, 0.15, 0.3, "Resolver\nchecks the\ncomposition")
-    box(ax, 0.27, 0.05, 0.15, 0.2, "Declared\nreductions", size=7.5)
-    box(ax, 0.5, 0.62, 0.2, bh + 0.02, "Exact hybrid\njump + ODE, stepped")
-    box(ax, 0.5, 0.16, 0.2, bh + 0.02, "Mean field\none ODE problem")
-    box(ax, 0.78, 0.62, 0.21, bh + 0.02, "Exact route\nGibbs, path sampling")
-    box(ax, 0.78, 0.16, 0.21, bh + 0.02, "Mixed route\nNUTS, gradients")
-    box(ax, 0.53, 0.41, 0.46, 0.13, "predict: a posterior, a description, an intervention", fc="#ffffff", size=7.5)
-    arrow(ax, (0.205, 0.77), (0.265, 0.56))
-    arrow(ax, (0.205, 0.27), (0.265, 0.46))
-    arrow(ax, (0.345, 0.365), (0.345, 0.255))
-    arrow(ax, (0.425, 0.56), (0.495, 0.72))
-    arrow(ax, (0.425, 0.46), (0.495, 0.27))
-    arrow(ax, (0.705, 0.73), (0.775, 0.73))
-    arrow(ax, (0.705, 0.27), (0.775, 0.27))
-    arrow(ax, (0.6, 0.615), (0.6, 0.545))
-    arrow(ax, (0.6, 0.38), (0.6, 0.405))
-    arrow(ax, (0.885, 0.615), (0.885, 0.545))
-    arrow(ax, (0.885, 0.38), (0.885, 0.405))
-    fig.savefig(os.path.join(HERE, "fig_architecture.pdf"), metadata={"CreationDate": None})
+    box(ax, 0.01, 0.10, 0.19, 0.3, "Modules\nstates, formalism,\ntyped edges")
+    box(ax, 0.27, 0.40, 0.15, 0.26, "Resolver\nchecks the\ncomposition")
+    box(ax, 0.27, 0.06, 0.15, 0.2, "Declared\nreductions", size=7.5)
+    box(ax, 0.5, top, 0.2, rh, "Exact hybrid\njump + ODE, stepped")
+    box(ax, 0.5, low, 0.2, rh, "Mean field\none ODE problem")
+    box(ax, 0.78, top, 0.21, rh, "Exact route\nGibbs, path sampling")
+    box(ax, 0.78, low, 0.21, rh, "Mixed route\nNUTS, gradients")
+    box(ax, 0.5, 0.425, 0.49, 0.13, "predict: a posterior, a description, an intervention",
+        fc="#ffffff", size=7.5)
+    arrow(ax, (0.205, 0.77), (0.265, 0.6))
+    arrow(ax, (0.205, 0.25), (0.265, 0.46))
+    arrow(ax, (0.345, 0.395), (0.345, 0.265))
+    arrow(ax, (0.425, 0.6), (0.495, top + rh / 2))
+    arrow(ax, (0.425, 0.46), (0.495, low + rh / 2))
+    arrow(ax, (0.705, top + rh / 2), (0.775, top + rh / 2))
+    arrow(ax, (0.705, low + rh / 2), (0.775, low + rh / 2))
+    # Each description and each route feeds predict: from the row above and the row below.
+    for x in (0.6, 0.885):
+        arrow(ax, (x, top - 0.005), (x, 0.56), lw=1.2)
+        arrow(ax, (x, low + rh + 0.005), (x, 0.42), lw=1.2)
+    fig.savefig(os.path.join(HERE, stem + ".pdf"), metadata={"CreationDate": None})
     plt.close(fig)
 
 
@@ -110,23 +112,76 @@ def fig_graphs():
     plt.close(fig)
 
 
-def fig_model():
-    fig, ax = canvas(6.5, 3.1)
-    ax.text(0.14, 0.95, "ODE block: metabolism", ha="center", fontweight="bold", color=INK)
-    ax.text(0.86, 0.95, "Jump block: gene expression", ha="center", fontweight="bold", color=INK)
-    for i, t in enumerate(("Glycolysis to lactate", "Sugar transport and\nlactate export",
-                           "Nucleotide recycling", "Lumped tRNA charging")):
-        box(ax, 0.01, 0.7 - i * 0.215, 0.26, 0.17, t)
-    for i, t in enumerate(("Transcription", "Transcript decay", "Translation and\nmembrane insertion")):
-        box(ax, 0.73, 0.62 - i * 0.26, 0.26, 0.2, t)
-    for y, t, col, lw, a0, a1 in (
-            (0.73, "Catalytic edges: protein counts\ninto rate laws, 1 s", ACCENT, 1.5, 0.725, 0.275),
-            (0.51, "Deferred costs: drains\non the pools, 1 s", ACCENT, 1.5, 0.725, 0.275),
-            (0.29, "Volume edges: membrane proteins\nset the geometry, each step", ACCENT, 1.5, 0.725, 0.275),
-            (0.07, "Rate constants: pools\ninto jump rates, 60 s", ACCENT2, 0.8, 0.275, 0.725)):
-        arrow(ax, (a0, y), (a1, y), color=col, lw=lw)
-        ax.text(0.5, y + 0.02, t, ha="center", va="bottom", fontsize=8, color=INK)
-    fig.savefig(os.path.join(HERE, "fig_model.pdf"), metadata={"CreationDate": None})
+def routed(ax, pts, color, ls="-", lw=1.2):
+    """An arrow along a polyline (orthogonal routing through the gap between the blocks)."""
+    from matplotlib.path import Path
+    path = Path(pts, [Path.MOVETO] + [Path.LINETO] * (len(pts) - 1))
+    ax.add_patch(FancyArrowPatch(path=path, arrowstyle="-|>", mutation_scale=8, color=color,
+                                 ls=ls, lw=lw, shrinkA=0, shrinkB=0, joinstyle="miter"))
+
+
+def enclosure(ax, x, y, w, h, title):
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.004,rounding_size=0.02",
+                                fc="none", ec=MUTED, lw=0.8, ls=(0, (4, 2))))
+    ax.text(x + w / 2, y + h + 0.015, title, ha="center", va="bottom", fontsize=8,
+            fontweight="bold", color=INK)
+
+
+def fig_model(stem="fig_model"):
+    # Printed at \linewidth of figure*: 165 mm = 6.5 in, 1:1. Edges as declared by the modules in
+    # src/organisms/coreA/: CatalyticEdge (central_glycolysis, nucleotide_recycling), the
+    # DeferredCounterEdge drains of transcription, transcript_decay and translation, VolumeEdge
+    # (pts_transport, on PtsG), RateConstantEdge (transcription on the NTPs, translation on
+    # charged tRNA). The pools are registry species shared by several modules.
+    fig, ax = canvas(6.5, 3.55)
+    fig.subplots_adjust(0, 0.13, 1, 1)           # the key sits below the axes, in the figure
+    L0, L1, R0, R1 = 0.04, 0.34, 0.66, 0.98      # module columns; the gap holds the lanes
+    enclosure(ax, 0.01, 0.15, 0.345, 0.76, "ODE block: metabolism")
+    enclosure(ax, 0.645, 0.15, 0.345, 0.76, "Jump block: gene expression")
+    # The pools sit at the top, beside transcription, so its two edges run straight.
+    box(ax, L0, 0.735, L1 - L0, 0.125, "Shared pools:\nNTPs, charged tRNA", fc="#ffffff", size=7.5)
+    ode = {"nuc": 0.60, "gly": 0.455, "pts": 0.31, "trna": 0.165}
+    for k, t in (("nuc", "Nucleotide recycling"), ("gly", "Glycolysis to lactate"),
+                 ("pts", "Sugar transport and lactate export"), ("trna", "Lumped tRNA charging")):
+        box(ax, L0, ode[k], L1 - L0, 0.105, t, size=7.5 if k == "pts" else 8)
+    box(ax, R0, 0.70, R1 - R0, 0.16, "Transcription")
+    box(ax, R0, 0.46, R1 - R0, 0.15, "Transcript decay")
+    box(ax, R0, 0.165, R1 - R0, 0.235, "Translation and\nmembrane insertion")
+    mid = lambda k: ode[k] + 0.0525
+    blue, orange = ACCENT, ACCENT2
+    routes = [  # (polyline, colour, line style); arrowheads at the last point
+        # Deferred costs: each jump module's drains land on the pools, 1 s
+        ([(R0, 0.853), (L1, 0.853)], blue, "--"),
+        ([(R0, 0.535), (0.56, 0.535), (0.56, 0.799), (L1, 0.799)], blue, "--"),
+        ([(R0, 0.375), (0.62, 0.375), (0.62, 0.826), (L1, 0.826)], blue, "--"),
+        # Rate constants: the pools set transcription and translation rates, 60 s
+        ([(L1, 0.770), (R0, 0.770)], orange, "-"),
+        ([(L1, 0.743), (0.595, 0.743), (0.595, 0.345), (R0, 0.345)], orange, "-"),
+        # Catalytic: translated enzyme counts into the rate laws, 1 s
+        ([(R0, 0.295), (0.50, 0.295), (0.50, mid("nuc")), (L1, mid("nuc"))], blue, "-"),
+        ([(R0, 0.255), (0.47, 0.255), (0.47, mid("gly")), (L1, mid("gly"))], blue, "-"),
+        # Volume: membrane PtsG sets the geometry, each step
+        ([(R0, 0.215), (0.44, 0.215), (0.44, mid("pts")), (L1, mid("pts"))], blue, "-."),
+    ]
+    for pts, col, ls in routes:
+        routed(ax, pts, col, ls, lw=1.3 if col == blue else 1.1)
+    # Currency: nucleotide recycling and tRNA charging write the pools, inside the ODE solve.
+    for k, x in (("nuc", 0.028), ("trna", 0.019)):
+        routed(ax, [(L0, mid(k)), (x, mid(k)), (x, 0.79), (L0, 0.79)], MUTED, "-", lw=0.8)
+
+    # Key, with each edge kind's clock.
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color=blue, lw=1.3, ls="-"), Line2D([], [], color=blue, lw=1.3, ls="--"),
+               Line2D([], [], color=blue, lw=1.3, ls="-."), Line2D([], [], color=orange, lw=1.0),
+               Line2D([], [], color=MUTED, lw=0.8)]
+    labels = ["Catalytic: protein counts into rate laws, 1 s",
+              "Deferred costs: drains on the pools, 1 s",
+              "Volume: membrane proteins set the geometry, each step",
+              "Rate constants: pools into jump rates, 60 s",
+              "Currency: modules write the pools, ODE solve"]
+    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False,
+              fontsize=7, handlelength=2.6, columnspacing=1.6, borderaxespad=0.2)
+    fig.savefig(os.path.join(HERE, stem + ".pdf"), metadata={"CreationDate": None})
     plt.close(fig)
 
 
