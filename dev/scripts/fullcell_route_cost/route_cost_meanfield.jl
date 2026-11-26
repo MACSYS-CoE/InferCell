@@ -348,7 +348,7 @@ relerr(a, b) = abs(a - b) / max(abs(b), floatmin(Float64))
 function stage_check(out)
     env = environment()
     say("check on $(env.host) ($(env.cpu)), job $(env.job)")
-    m = load_model()
+    m = get_model()
     ntype1 = count(==(1), m.lm_type); ntype2 = count(==(2), m.lm_type)
     say("states $(m.n); CME reactions $(m.nr) (type 1 $ntype1, type 2 $ntype2); ODE species $(length(m.ode.ids)), " *
         "fluxes $(size(m.ode.S, 2)), enzymes $(length(m.ode.enzyme_nodes)), named constants $(length(m.ode.k_default))")
@@ -550,7 +550,7 @@ function stage_time(out; threaded = false)
     env = environment()
     threaded && env.threads < 4 && error("threaded needs ≥ 4 threads")
     say("$stage on $(env.host), job $(env.job), $(env.threads) threads")
-    m = load_model(); r = load_ranked(out, m)
+    m = get_model(); r = load_ranked(out, m)
     rows = Any[]
     # The primal solve.
     blk0 = make_block(m, r, :GE, 10)
@@ -607,7 +607,7 @@ end
 function stage_library(out)
     env = environment()
     say("library on $(env.host), job $(env.job)")
-    m = load_model(); r = load_ranked(out, m)
+    m = get_model(); r = load_ranked(out, m)
     B = 20; rows = Any[]
     for place in (:GE, :MET)
         blk = make_block(m, r, place, B)
@@ -636,10 +636,21 @@ function stage_library(out)
     end
 end
 
+# The model's flux function is made by @eval in load_model, so a function compiled
+# before it was made cannot call it directly (world age). main loads the model, then
+# runs the stage through invokelatest.
+const MODEL_REF = Ref{Any}(nothing)
+get_model() = (MODEL_REF[] === nothing && (MODEL_REF[] = load_model()); MODEL_REF[]::Model)
+
 function main()
     length(ARGS) == 2 || error("usage: route_cost_meanfield.jl <check|time|threaded|library> <out>")
     stage, out = ARGS[1], abspath(ARGS[2])
     mkpath(out)
+    MODEL_REF[] = load_model()
+    Base.invokelatest(run_stage, stage, out)
+end
+
+function run_stage(stage, out)
     stage == "check" ? stage_check(out) :
     stage == "time" ? stage_time(out) :
     stage == "threaded" ? stage_time(out; threaded = true) :
