@@ -83,7 +83,7 @@ framework does this as part of its design. Notes follow the table.}
 & Priors & Provenance & Inference & Declared \\
 & & in model & on dynamics & reductions \\
 \midrule
-\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Fit, no posterior & Not applicable \\
+\textit{M.\ genitalium} \cite{karr2012whole} & No & Partial (a) & Heuristic fit, no posterior & Not applicable (i) \\
 \textit{E.\ coli} \cite{macklin2020simultaneous} & No & Partial (b) & Fit, no posterior & Partial (c) \\
 Vivarium \cite{agmon2022vivarium} & No & No & No & No \\
 \syn{} \cite{thornburg2022fundamental,thornburg2026bringing} & Partial (d) & Partial (e) & One block (f) & Partial (g) \\
@@ -98,8 +98,10 @@ fitting code. (d) Metabolic priors in the balancing input, with their means used
 balancing of metabolism on literature values, then further adjustment. (g) Patches noted in code
 and files. (h) A joint posterior on the reduced \syn{} model by the mixed route (\cref{sec:api}), from one
 synthetic dataset, with calibration checked only on M0, a two-gene slice of it (\cref{sec:model}). Each cell's evidence is in \texttt{paper/tables/frameworks\_sources.md}, from the
-papers' main text and each framework's public code. We did not read the supplements, and for the
-2026 \syn{} model we read the preprint.
+papers' main text, each framework's public code, and the supplements of the \textit{M.\ genitalium}
+and 2022 \syn{} papers. We could not obtain the \textit{E.\ coli} and 2026 \syn{} supplements, and
+for the 2026 \syn{} model we read the preprint. (i) There is no reference model to depart from;
+some submodels state, in prose, how they simplify the published models they adapt.
 \end{flushleft}
 \end{table*}
 
