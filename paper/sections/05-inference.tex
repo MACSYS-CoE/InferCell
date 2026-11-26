@@ -100,18 +100,33 @@ density at $\theta_{\mathrm{ref}}$, by finite differences of the gradient. Under
 under the unit metric projected to \pn{kim92.probedays} days per chain.
 
 \paragraph{The modular arm.} The modular arm asks whether a two-stage fit lands close to
-the joint posterior. It has two variants. The factor cut fits the transcript factor over
-all \pn{kim92.ncoord} parameters in stage one. It then fits ENO, FBA and $\sigb$ to the
-bulk factor over the stage-one draws. The data plug-in takes the transcription rates in
-stage one from the observed ATP and GTP panel, with no ODE solve. We call a variant close
-when every parameter's mean shifts by at most \pn{kim116.shiftgate} joint posterior SD
-and its contraction is within \pn{kim116.contrgate} of the joint's. \todo{KIM-116: whether each variant is close to the joint posterior, its
-CPU-hours (\cref{tab:reducedcost}), and what the result means for the cost of a
-reduced-model posterior. Gradient costs at the truth, measured on one node (Slurm
-21196497): \pn{kim116.gradjoint}\,s for the joint, \pn{kim116.gradcut}\,s for stage one
-of the factor cut, \pn{kim116.gradplugin}\,s for stage one of the data plug-in,
-\pn{kim116.gradstage}\,s for stage two; reconcile with the \pn{kim92.grad}\,s per step
-above before quoting. Detail in \cref{app:modular}.}
+the joint posterior, and at what cost. It has two variants. The factor cut fits the
+transcript factor over all \pn{kim92.ncoord} parameters in stage one. It then fits ENO, FBA
+and $\sigb$ to the bulk factor over the stage-one draws. The data plug-in takes the
+transcription rates in stage one from the observed ATP and GTP panel, with no ODE solve. We
+call a variant close when every parameter's mean shifts by at most \pn{kim116.shiftgate}
+joint posterior SD and its contraction is within \pn{kim116.contrgate} of the joint's. We
+fixed this rule before any modular draw existed (\cref{app:modular}).
+
+The factor cut is close. No mean moves by more than \pn{kim116.cutshift} joint SD, and no
+contraction by more than \pn{kim116.cutcontr}. It saves nothing, because its stage one
+solves the same ODE over the same parameters as the joint. The arm costs
+\pn{kim116.cutt1} times the joint run of \cref{tab:reducedcost}. The data plug-in costs
+\pn{kim116.plugt1} times the joint run, but it is not close. The GAPD promoter
+shifts by \pn{kim116.plugshift} joint SD (Monte Carlo SE \pn{kim116.plugshiftse}), and
+\pn{kim116.plugup} of the \pn{kim92.npromoter} promoters shift up; the mean shift over all
+\pn{kim92.npromoter} is \pn{kim116.plugmean} SD. Against the truth, both variants hold it inside \pn{kim116.truthin} of the
+\pn{kim92.ncoord} central 90\% intervals, where the joint holds \pn{kim92.truthin}.
+
+The cut also locates the promoter shift. Its stage one sees only the transcripts, and its
+promoters sit as low as the joint's, with a mean standardised error of \pn{kim116.cutpromz}
+against \pn{kim92.promz}. So the shift does not come from the bulk factor pulling on the
+promoters. It is already in the transcript factor on this dataset. The plug-in reads its
+rates from the observed pools rather than the mean field, and its promoters still sit low,
+at \pn{kim116.plugpromz}. We read this as the plug-in's own upward bias laid over the same
+offset, and we have not tested that reading. We have not found the shift's cause. It is
+not the sampler or the bulk data's feedback on the promoters, and noise that the likelihood
+represents is unlikely to produce it.
 
 \begin{figure*}[t]
 \centering
@@ -137,7 +152,10 @@ use \pn{kim92.ndraws} pooled draws from \pn{kim92.nchains} chains; the band in C
 optimiser, the reference ensemble and the chains. The reduced-model value is the whole
 run, and includes the dataset, profiling, the unit-metric probe (\pn{kim92.probecpuh} CPU-h)
 and the predictive check. Params is the number of free parameters. Days are wall-clock on the critical path,
-without queue waits. The reduced-model fits use the mixed route.}
+without queue waits; for the joint they include the dataset and the preparation. The reduced-model fits use the mixed route. The two modular rows count
+their own jobs only, in CPU-hours and in days. They reuse the joint's dataset, preparation,
+probe and profile, and neither row includes them; the last three cost \pn{kim116.shared}
+CPU-h.}
 \label{tab:reducedcost}
 \centering
 \small
@@ -148,7 +166,8 @@ Fit & Params & CPU-h & Days \\
 M0, exact & \pn{mzero.nparnum} & \pn{ften.cpuh}--\pn{cost.exacthi} & \pn{ften.walldays} \\
 M0, mixed & \pn{mzero.nparnum} & \pn{mix.cpuh} & \DRAFT{?} \\
 Reduced, joint & \pn{kim92.ncoord} & \pn{kim92.cpuh} & \pn{kim92.critpath} \\
-Reduced, modular & \pn{kim92.ncoord} & \todo{} & \todo{} \\
+Reduced, factor cut & \pn{kim92.ncoord} & \pn{kim116.cutcpuh} & \pn{kim116.cutdays} \\
+Reduced, data plug-in & \pn{kim92.ncoord} & \pn{kim116.plugcpuh} & \pn{kim116.plugdays} \\
 \bottomrule
 \end{tabular}
 \end{table}

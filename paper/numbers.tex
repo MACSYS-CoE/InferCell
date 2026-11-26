@@ -321,10 +321,40 @@
 \pndef{ften.walldays}{4.2}% dev/scripts/f10_16a10_result.md, 4 d 5.5 h, job 18751635
 \pndef{kim116.shiftgate}{0.5}% spec/prereg/kim-116.md (tag prereg/kim-116); Linear Decision log 2026-11-19
 \pndef{kim116.contrgate}{0.05}% spec/prereg/kim-116.md (tag prereg/kim-116); Linear Decision log 2026-11-19
-\pndef{kim116.gradjoint}{37.9}% Linear Decision log 2026-11-19 (KIM-116 stage profile, Slurm 21196497 at 1b6775d), s per gradient at the truth
-\pndef{kim116.gradcut}{36.9}% Linear Decision log 2026-11-19 (Slurm 21196497)
-\pndef{kim116.gradplugin}{11.3}% Linear Decision log 2026-11-19 (Slurm 21196497)
-\pndef{kim116.gradstage}{2.9}% Linear Decision log 2026-11-19 (Slurm 21196497)
+\pndef{kim116.cutshift}{0.27}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut, max |shift| in joint SD (0233, MC SE 0.08)
+\pndef{kim116.cutcontr}{0.006}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut, max |delta contraction|
+\pndef{kim116.plugshift}{0.65}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, max |shift| in joint SD (0607, MC SE 0.07)
+\pndef{kim116.plugshiftse}{0.07}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, MC SE of the 0607 shift
+\pndef{kim116.plugmean}{0.20}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, mean shift over the 17 promoters, joint SD
+\pndef{kim116.plugup}{16}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, promoters shifting up, of 17
+\pndef{kim116.plugcontr}{0.009}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, max |delta contraction|
+\pndef{kim116.cutpromz}{$-0.79$}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut, promoters' mean (mean - truth)/sd
+\pndef{kim116.plugpromz}{$-0.61$}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in, promoters' mean (mean - truth)/sd
+\pndef{kim116.truthin}{19}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), truth inside the 90% interval, of 21, both variants (joint 20)
+\pndef{kim116.cutjob}{1.44}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, cut total / joint's own posterior jobs (652.3 / 454.6)
+\pndef{kim116.plugjob}{0.80}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, plug-in total / joint's own posterior jobs (365.2 / 454.6)
+\pndef{kim116.cutt1}{1.33}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut total against T1 491.9, the pre-registered comparator
+\pndef{kim116.plugt1}{0.74}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in total against T1 491.9
+\pndef{kim116.cutcpuh}{652}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, cut total CPU-h of its own jobs (652.3)
+\pndef{kim116.plugcpuh}{365}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cost table, plug-in total CPU-h of its own jobs (365.2)
+\pndef{kim116.shared}{32}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), shared precompile, prep, probe and profile, CPU-h (32.0), counted in neither arm
+\pndef{kim116.cutdays}{5.9}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), cut critical path 140.9 h, in days, own jobs only
+\pndef{kim116.plugdays}{2.3}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in critical path 56.1 h, in days, own jobs only
+\pndef{kim116.stagetwo}{30}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), stage 2's share of the cut's cost, %
+\pndef{kim116.plugqhigh}{1}% dev/scripts/corea_modular_kim116_result.md, derived from the D3 table (medians 0.8% and 1.0% high), D3, plug-in's median of Q and Q_kd above the truth, %
+\pndef{kim116.plugqcrps}{\ensuremath{6.6 \times 10^{4}}}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), D3, plug-in CRPS on Q (6.631e+04)
+\pndef{kim116.jointqcrps}{\ensuremath{3.3 \times 10^{4}}}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), D3, joint CRPS on Q (3.293e+04)
+\pndef{kim116.plugskill}{0.97}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), D3, plug-in skill on Q (0.9699)
+\pndef{kim116.dqcrpsplug}{\ensuremath{1.85 \times 10^{4}}}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), D3, plug-in CRPS on dQ (1.848e+04)
+\pndef{kim116.dqcrpsjoint}{\ensuremath{1.86 \times 10^{4}}}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), D3, joint CRPS on dQ (1.857e+04)
+\pndef{kim116.K}{200}% spec/prereg/kim-116.md (tag prereg/kim-116); Linear Decision log 2026-11-19, stage-1 draws carried to stage 2
+\pndef{kim116.inner}{100}% same, NUTS(100, 0.8): 100 adaptation steps per stage-1 draw (corea_modular_kim116.jl NADAPT2)
+\pndef{kim116.innerkeep}{10}% same, draws kept after adaptation per inner chain (NKEEP2)
+\pndef{kim116.stagetwoplug}{54}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), stage 2's share of the plug-in's cost, %
+\pndef{kim116.plugstageone}{0.37}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), plug-in stage 1 cost / the joint's chains, check and extension
+\pndef{kim116.dlogkmed}{0.0145}% dev/scripts/corea_modular_kim116_result.md, prose (item 2 profile), plug-in vs route (ii) rates at the truth, median |delta log k| (Slurm 21196497)
+\pndef{kim116.dlogkmax}{0.112}% dev/scripts/corea_modular_kim116_result.md, prose (item 2 profile, Slurm 21196497), maximum
+\pndef{kim116.ppcout}{10}% dev/scripts/corea_modular_kim116_result.md (tables from corea_modular_kim116_compare.jl at 2353e18, Slurm 21629103), PPC rows outside the central 99% band, each variant (21627293-94)
 \pndef{kim92.nref}{800}% spec/prereg/kim-92.md §1, reference ensemble cells
 \pndef{kim92.box}{6}% spec/prereg/kim-92.md §1, support box, prior SD
 \pndef{kim92.accept}{0.8}% spec/prereg/kim-92.md §1, NUTS target acceptance

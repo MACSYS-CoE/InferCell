@@ -29,13 +29,20 @@ metabolism, where the pools miss. We have not tested this reading.
 rule. Single-cell data inform the parameters of their own module. Information between modules
 travels on bulk observables and follows the gain of the coupling, and a modeller can compute
 the gains before any inference. On the reduced model the joint posterior uses both streams at
-once and does not separate them, so the rule is not tested there. As in \cref{sec:seam}, a dynamical reduction, such
+once, but the modular arm's factor cut separates them for the promoters: the transcripts alone
+give nearly the joint's promoter posterior (\cref{sec:reduced}). As in \cref{sec:seam}, a dynamical reduction, such
 as the mean-field swap, changes the simulator and keeps full Bayesian inference. A statistical
 cut keeps the simulator and changes the target \cite{plummer2015cuts,jacob2017better,carmona2020semimodular}.
 The joint posterior uses the first, and we measured its cost on M0. The modular arm's factor
 cut uses the second, and the joint posterior is the reference for measuring its cost.
-\todo{KIM-116: whether per-module inference lands close to the joint posterior, and at what
-fraction of its CPU-hours.}
+As designed, neither modular variant is a cheap and faithful substitute for the joint
+posterior here (\cref{sec:reduced,app:modular}). The factor cut lands close to it but costs
+\pn{kim116.cutt1} times the joint run: its first stage still solves the ODE, and its second
+stage comes on top. On this
+dataset the bulk data add little to the promoters: the transcripts alone give nearly the
+joint's promoter posterior. The data plug-in costs \pn{kim116.plugt1} times the joint run, but
+it shifts the promoters away from the joint posterior and predicts $Q$ worse. The plug-in's
+cost is not a floor, since its stage two was never tuned for cost.
 
 \paragraph{Limits.} Each of these limits names something we did not test.
 \begin{itemize}
