@@ -10,7 +10,9 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.path import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INK, MUTED, FILL = "#0b0b0b", "#52514e", "#f0efec"
@@ -114,7 +116,6 @@ def fig_graphs():
 
 def routed(ax, pts, color, ls="-", lw=1.2):
     """An arrow along a polyline (orthogonal routing through the gap between the blocks)."""
-    from matplotlib.path import Path
     path = Path(pts, [Path.MOVETO] + [Path.LINETO] * (len(pts) - 1))
     ax.add_patch(FancyArrowPatch(path=path, arrowstyle="-|>", mutation_scale=8, color=color,
                                  ls=ls, lw=lw, shrinkA=0, shrinkB=0, joinstyle="miter"))
@@ -133,13 +134,13 @@ def fig_model(stem="fig_model"):
     # DeferredCounterEdge drains of transcription, transcript_decay and translation, VolumeEdge
     # (pts_transport, on PtsG), RateConstantEdge (transcription on the NTPs, translation on
     # charged tRNA). The pools are registry species shared by several modules.
-    fig, ax = canvas(6.5, 3.55)
-    fig.subplots_adjust(0, 0.13, 1, 1)           # the key sits below the axes, in the figure
-    L0, L1, R0, R1 = 0.04, 0.34, 0.66, 0.98      # module columns; the gap holds the lanes
+    fig, ax = canvas(6.5, 3.3)
+    fig.subplots_adjust(0, 0.11, 1, 1)           # the key sits below the axes, in the figure
+    L0, L1, R0, R1 = 0.05, 0.34, 0.66, 0.98      # module columns; the gap holds the lanes
     enclosure(ax, 0.01, 0.15, 0.345, 0.76, "ODE block: metabolism")
     enclosure(ax, 0.645, 0.15, 0.345, 0.76, "Jump block: gene expression")
     # The pools sit at the top, beside transcription, so its two edges run straight.
-    box(ax, L0, 0.735, L1 - L0, 0.125, "Shared pools:\nNTPs, charged tRNA", fc="#ffffff", size=7.5)
+    box(ax, L0, 0.735, L1 - L0, 0.125, "Shared pools:\nnucleotides, tRNA", fc="#ffffff", size=7.5)
     ode = {"nuc": 0.60, "gly": 0.455, "pts": 0.31, "trna": 0.165}
     for k, t in (("nuc", "Nucleotide recycling"), ("gly", "Glycolysis to lactate"),
                  ("pts", "Sugar transport and lactate export"), ("trna", "Lumped tRNA charging")):
@@ -161,24 +162,21 @@ def fig_model(stem="fig_model"):
         ([(R0, 0.295), (0.50, 0.295), (0.50, mid("nuc")), (L1, mid("nuc"))], blue, "-"),
         ([(R0, 0.255), (0.47, 0.255), (0.47, mid("gly")), (L1, mid("gly"))], blue, "-"),
         # Volume: membrane PtsG sets the geometry, each step
-        ([(R0, 0.215), (0.44, 0.215), (0.44, mid("pts")), (L1, mid("pts"))], blue, "-."),
+        ([(R0, 0.215), (0.44, 0.215), (0.44, mid("pts")), (L1, mid("pts"))], blue, "--"),
     ]
     for pts, col, ls in routes:
         routed(ax, pts, col, ls, lw=1.3 if col == blue else 1.1)
     # Currency: nucleotide recycling and tRNA charging write the pools, inside the ODE solve.
-    for k, x in (("nuc", 0.028), ("trna", 0.019)):
+    for k, x in (("nuc", 0.038), ("gly", 0.028), ("trna", 0.018)):
         routed(ax, [(L0, mid(k)), (x, mid(k)), (x, 0.79), (L0, 0.79)], MUTED, "-", lw=0.8)
 
     # Key, with each edge kind's clock.
-    from matplotlib.lines import Line2D
     handles = [Line2D([], [], color=blue, lw=1.3, ls="-"), Line2D([], [], color=blue, lw=1.3, ls="--"),
-               Line2D([], [], color=blue, lw=1.3, ls="-."), Line2D([], [], color=orange, lw=1.0),
-               Line2D([], [], color=MUTED, lw=0.8)]
-    labels = ["Catalytic: protein counts into rate laws, 1 s",
-              "Deferred costs: drains on the pools, 1 s",
-              "Volume: membrane proteins set the geometry, each step",
+               Line2D([], [], color=orange, lw=1.0), Line2D([], [], color=MUTED, lw=0.8)]
+    labels = ["Catalytic: protein counts into rate laws, each 1 s handshake",
+              "Deferred costs and credits, each 1 s handshake",
               "Rate constants: pools into jump rates, 60 s",
-              "Currency: modules write the pools, ODE solve"]
+              "Currency: modules write the pools, in the ODE solve"]
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False,
               fontsize=7, handlelength=2.6, columnspacing=1.6, borderaxespad=0.2)
     fig.savefig(os.path.join(HERE, stem + ".pdf"), metadata={"CreationDate": None})
