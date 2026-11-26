@@ -465,7 +465,12 @@ def compute():
     put('kim92.truthin', '20', K92 + ", truth inside the 90% interval, of 21")
     put('kim92.promlow', '14', K92 + ", promoter means below the truth, of 17")
     put('kim92.promz', '$-0.81$', K92 + ", mean standardised error over the 17 promoters")
-    put('kim92.promzse', '3.3', K92 + ", SEs from zero")
+    P161 = 'dev/scripts/pilot_promoter_shift_result.md (pilot_promoter_shift.py on the KIM-92 archive)'
+    put('kim92.promzse', '3.1', P161 + ", mean z / SE with the posterior's correlations (3.06; 3.33 if independent)")
+    put('kim92.promcorr', '0.01', P161 + ", mean pairwise posterior correlation among the 17 promoters (0.012)")
+    put('kim92.promshift', '2', P161 + ", mean shift in log rate -0.0225, exp(shift)-1 = -2.22%, in percent")
+    put('kim92.skeweno', '0.05', P161 + ", skewness of log kcatF ENO (0.046)")
+    put('kim92.skewfba', '0.06', P161 + ", skewness of log kcatF FBA (0.056)")
     put('kim92.mapz', '$-0.86$', K92 + ", MAP mean (MAP-truth)/sd over promoters (reads 5)")
     put('kim92.laplo', '0.96', K92 + ", Laplace SD / posterior SD, lowest (reads 4)")
     put('kim92.laphi', '1.08', K92 + ", Laplace SD / posterior SD, highest (reads 4)")
