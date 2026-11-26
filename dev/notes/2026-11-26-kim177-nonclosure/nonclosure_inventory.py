@@ -395,6 +395,8 @@ def main():
             act = "CellV at t0 = %s" % v0[ids[0]]
         print("  %4d  %s  [%s]  %s" % (len(ids), kd, "; ".join(where) or "unreached", act))
 
+    floors = sorted(dag.args[dag.kids[i][1]] for i in kinds["max(1, count) floor on a pool before division"])
+    print("  the pools under a max(1, .) floor (%d): %s" % (len(floors), " ".join(floors)))
     print("-- count-dependent CME rules reaching each nonsmooth op, by family")
     rows = collections.defaultdict(collections.Counter)
     for x in dep:

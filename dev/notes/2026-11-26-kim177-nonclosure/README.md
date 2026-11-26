@@ -160,3 +160,103 @@ through deferred counters drained at the 1 s handshake, not through a reaction.
 None of the four families writes a `CellSA` input directly. They reach doubling time
 only through translation (charging, cost payment) or through gene copy number and
 then transcription (DnaA, initiation).
+
+## 2. Rate rules with `min`, `max`, `round` or a threshold
+
+**Where the rules live.** A CME reaction's rate constant from minute 2 on is the node
+`rate_rules.csv` names, evaluated on the counts at each minute boundary
+(`data/model/README.md`). An ODE reaction's rate refers to count-dependent nodes as
+`N__<id>` (enzyme concentrations), and each ODE species' starting value at each 1 s
+step is node `init_node`. All are nodes of one DAG, `nodes.csv`. The enzyme rules
+`inventory.md` describes (AND rules by `min` over subunits, OR rules by sum) are among
+those `N__` nodes.
+
+**Counting unit.** `export_meta.json`'s op histogram counts nodes over the whole DAG.
+The script splits it by what reaches each node. A rule "uses" an op if the op is
+reachable from its root.
+
+| Op | Nodes in the DAG | Reached from CME rate rules | From ODE rates | From ODE `init_node` |
+|---|---:|---:|---:|---:|
+| `min` | 38 | 29 | 9 | 0 |
+| `max` | 29 | 29 | 0 | 0 |
+| `round` | 1 | 1 | 0 | 0 |
+| `select_gt` (the only threshold op) | 2 | 2 | 1 | 1 |
+
+`floor`, `trunc`, `floordiv`, `mod` and `abs` do not occur. The 70 nodes fall into five
+kinds. The "at t = 0" column evaluates the DAG at procid 1's initial counts with the
+README's Python semantics. It says which branch is taken at that one state only.
+
+| Kind | Nodes | Reached by | At t = 0 |
+|---|---:|---|---|
+| `max(1, pool)`: a floor on a pool before division. The pools are the 4 NTPs, the 4 dNTPs and the 21 charged tRNAs | 29 | CME rules | no floor active |
+| `min(c · P/180, 180)`: a promoter strength from a live protein count P, capped at 180 | 29 | 29 transcription rules | no ceiling binding |
+| `min` over subunit terms: a complex's AND rule (2 to 4 arguments) | 9 | 18 ODE reactions | — |
+| `select_gt(V, 6.7e-17, …)`: the volume cap | 2 | CME rules, ODE rates, ODE init | below the cap |
+| `round(V · 10¹⁹)`: `CellV` recomputed from `CellSA` | 1 | replication rules | `CellV` = 335 |
+
+**Every count-dependent rate rule, classified.** 1,434 CME rules depend on the
+counts, as `export_meta.json` says; the other 931 are constants. They are exactly four
+families, and every one of the 1,434 reaches at least one of the four ops:
+
+| Family | Rules | Reads | `min` | `max` | `round` | `select_gt` |
+|---|---:|---|---:|---:|---:|---:|
+| Transcription | 486 | 4 NTP pools and the `CellV` count; 29 also read their gene's own protein | 29 | 486 | 0 | 0 |
+| Translation | 455 | all 21 charged tRNA pools (each rule reads all 21), volume from `CellSA` | 0 | 455 | 0 | 455 |
+| Replication fork steps | 491 | 4 dNTP pools, `CellSA` | 0 | 491 | 491 | 491 |
+| Replication initiation | 2 | 4 dNTP pools, `CellSA` | 0 | 2 | 2 | 2 |
+| **Total** | **1,434** | 60 count species in all | 29 | 1,434 | 493 | 948 |
+
+The 931 constant rules are mRNA degradation (455), translocation (93), the 361
+constant second-order reactions of section 1 and the 22 charging release steps.
+
+Transcription reaches neither `round` nor `select_gt` in the DAG because it reads the
+`CellV` count directly. That count is rounded and capped in code at every hook
+(below). So all 486 transcription rules read a rounded, capped volume too.
+
+On the ODE side, 158 of the 175 reactions read a count-dependent node. All 158 reach
+the volume cap. 18 reach a `min` AND rule. None reaches `max` or `round`.
+
+**The 29 protein-count promoters are new.** Each of the 29 reads the count of its own
+gene's protein, so each is a feedback from a gene's protein onto its own transcription.
+The genes are `JCVISYN3A_` 0027 0077 0094 0154 0214 0230 0235 0259 0263 0379 0398 0401
+0503 0525 0593 0622 0623 0643 0648 0649 0795 0851 0852 0873 0913 0918 0930 0931 0932.
+None is one of the reduced model's 17 genes.
+
+**Rules that are code, not data.** These are in SpeedyCell's hook, not in the tables.
+The script lists their lines but does not count them as rate rules.
+
+| Rule | Where | What it does |
+|---|---|---|
+| Volume cap and `CellV` | `Cell/writeback.jl:98-99` | `V > 6.70e-17` returns the cap and `CellV` = 670; else `CellV = round(V · 10¹⁹)` |
+| ODE → counts | `Cell/writeback.jl:114` | each of the 146 ODE species is rounded half to even to a count, every 1 s |
+| Cost counters | `Cell/writeback.jl:120, 128, 139` | 22 counters (5 ATP/GTP hydrolysis, 12 NTP, 4 dNTP, 1 `FMET_cost`) are paid with `min(counter, pool)`, the remainder carried; the 4 NMP counters are credited whole |
+| Surface area | `Cell/writeback.jl:154, 159` | `CellSA_Lip` is rounded, `CellSA_Prot` truncated, `CellSA` their sum |
+| ODE span | `Cell/hook.jl:26` | the span is `max(round(Δt, 2), 0.1)`, stepped in 0.1 s; a function of time, not of counts |
+
+**What M0 and the reduced model already have.**
+
+| Rule | Full cell | M0 and the reduced model |
+|---|---|---|
+| `max(1, pool)` floor | 29 pools, in all 1,434 rules | translation floors its pools (`src/organisms/coreA/translation.jl:142-143`); transcription has no floor (`transcription.jl:522-540`) |
+| Promoter ceiling `min(·, 180)` | 29 rules read a live protein count | the ceiling is on a parameter, and it never binds (`transcription.jl:61-65`, `turnover_headroom`) |
+| Volume cap | reached mid-cycle: the reference paper reports the volume doubling at 56 to 72 min, mean 64 (quoted in `code/cell_cycle/events.py`, `t_Vcap`) | applied (`src/handshake.jl:1732`), but the reduced cell grows to about 1.07× and never nears it (`handshake.jl:1721-1722`) |
+| Rounded `CellV` | read by all 486 transcription and 493 replication rules | absent: the reduced model has no `CellV` count |
+| Complex AND rules | 9 nodes, 18 ODE reactions | absent: each enzyme is one protein count |
+| ODE → counts rounding | round half to even, 146 species | `:fractional_carry` by default (`handshake.jl:194-226`) |
+| Counter clamp | 22 counters, `min(counter, pool)` | the hybrid clamps and carries the deficit (`handshake.jl:1878-1879`); the mean-field route does not clamp (`mean_field_route.jl:12-14`) |
+
+**Closure.** None of these rules breaks `MeanField`'s check by itself, since a rebuilt
+rate constant is outside it. Each one adds a Jensen gap where the route evaluates the
+rule at the mean counts. The gap is zero while a floor, ceiling or cap is far from its
+kink. It is not zero for `round` and `CellV`, which step at every count, or for the
+volume cap, which a cell reaches mid-cycle. This note gives structure and scale, not the
+size of any gap.
+
+**Between a block and an observable.** All four count-dependent families sit between
+them, by direct adjacency. Transcription and translation rules are the
+gene-expression block's own rate constants. They read pools that the metabolic block
+writes (NTPs, charged tRNA through charging) and they write transcripts and proteins,
+which feed doubling time through the membrane proteins. The replication rules read
+pools the metabolic block writes (dNTPs) and set when each gene's copy number steps,
+which multiplies transcription (section 3). The 18 ODE reactions with AND rules are the
+metabolic block's rate laws and write bulk metabolites directly.

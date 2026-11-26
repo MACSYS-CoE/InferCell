@@ -123,6 +123,7 @@ count-dependent rate rules: 1434  constant: 931
      9  min over subunit counts: complex AND rule (ODE enzyme)  [ODE rates 9]  arguments per node: {4: 4, 3: 4, 2: 1}
      2  select_gt(V, 6.7e-17, ...): the volume cap  [CME rules 2; ODE rates 1; ODE init 1]  at the cap at t0: 0
      1  round(V * 1e19): CellV  [CME rules 1]  CellV at t0 = 335
+  the pools under a max(1, .) floor (29): M_alatrna_c M_argtrna_c M_asntrna_c M_asptrna_c M_atp_c M_ctp_c M_cystrna_c M_datp_c M_dctp_c M_dgtp_c M_dttp_c M_fmettrna_c M_glntrna_c M_glutrna_c M_glytrna_c M_gtp_c M_histrna_c M_iletrna_c M_leutrna_c M_lystrna_c M_mettrna_c M_phetrna_c M_protrna_c M_sertrna_c M_thrtrna_c M_trptrna_c M_tyrtrna_c M_utp_c M_valtrna_c
 -- count-dependent CME rules reaching each nonsmooth op, by family
    family: min max round select_gt smooth-only
    DNA replication (fork step)                 0  491  491  491    0
@@ -162,7 +163,7 @@ genes with a transcription reaction: 486 (each has [1]); genes without: 7 ['JCVI
 transcription products: {'mRNA (M_RNA_*)': 455, 'tRNA': 29, 'rRNA': 6}
 reactions with a *_gene reactant, by family: {'Transcription': 486}
 rate rules that read a *_gene count: 0
-what the transcription rate rules read (rules per input): {'M_utp_c': 486, 'CellV': 486, 'M_atp_c': 486, 'M_gtp_c': 486, 'M_ctp_c': 486, 'protein': 29}
+what the transcription rate rules read (rules per input): {'M_atp_c': 486, 'M_gtp_c': 486, 'M_utp_c': 486, 'CellV': 486, 'M_ctp_c': 486, 'protein': 29}
 transcription rules reaching min / round / select_gt / max: 29 / 0 / 0 / 486
 replication reactions: 493; each increments one gene by +1: True; genes incremented: 493; reactions that decrement a gene: 0
 fork from reaction 1873 (Initiator_C + chromosome_C, k = 0.06931): copies JCVISYN3A_0001_gene first, then 224 first-order steps, ending at reaction 2097
