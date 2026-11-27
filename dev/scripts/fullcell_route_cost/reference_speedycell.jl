@@ -13,6 +13,13 @@
 #   flux.csv      the 175 ODE fluxes at (y0, p), published rates (SpeedyCell.ODE.flux!)
 #   flux_params.csv  the same through the parameterised rates at the default constants
 #                 (SpeedyCell.ODE.flux_params!)
+#   x1.csv, rates1.csv, p1.csv, y1.csv, flux1.csv, V1.txt
+#                 the same at x1 = x0 .+ 1, where every reaction and every counter is
+#                 live: x1's surface areas from SpeedyCell's lipid_sa! (round and trunc)
+#                 and its CellV from cell_volume, then the rates, the hook inputs, the
+#                 fluxes and the volume V (L) there
+#   pay.csv       the hook's payments as SpeedyCell's WriteBack lists them: kind,
+#                 counter, pool, then the species it adds to (1-based species indices)
 #   meta.txt      host, Julia version, the syn3a-ensemble commit
 # Every number is written with repr, so it round-trips exactly.
 
@@ -42,7 +49,33 @@ wr(f, v) = open(joinpath(out, f), "w") do io
         println(io, repr(x))
     end
 end
+# x1: every count one above x0, with the surface areas and CellV the hook writes.
+wb = SpeedyCell.Cell.WriteBack(names)
+x1 = x0 .+ 1
+SpeedyCell.Cell.lipid_sa!(x1, wb)
+V1, cellv1 = SpeedyCell.Cell.cell_volume(x1[wb.cellsa]); x1[wb.cellv] = cellv1
+rates1 = CME.evaluate_rates!(zeros(CME.nrules(rules)), rules, x1)
+p1, y1 = ODE.hook_inputs(x1)
+F1 = zeros(ODE.N_REACTIONS); ODE.flux!(F1, y1, p1)
+pay = String[]
+for (c, translat) in wb.hydro
+    pool, made = translat ? (wb.gtp, wb.gdp) : (wb.atp, wb.adp)
+    push!(pay, "hydro,$c,$pool,$made;$(wb.pi)")
+end
+for list in (wb.ntp, wb.dntp), (c, m) in list
+    push!(pay, "ntp,$c,$m,$(wb.ppi)")
+end
+for (c, m) in wb.nmp
+    push!(pay, "nmp,$c,0,$m")
+end
+for (c, ch, un) in wb.aatrna
+    push!(pay, "aatrna,$c,$ch,$un")
+end
+
 wr("rates.csv", rates); wr("p.csv", p); wr("y0.csv", y0); wr("flux.csv", V); wr("flux_params.csv", Vp)
+wr("x1.csv", x1); wr("rates1.csv", rates1); wr("p1.csv", p1); wr("y1.csv", y1); wr("flux1.csv", F1)
+wr("V1.txt", [V1])
+open(io -> foreach(l -> println(io, l), pay), joinpath(out, "pay.csv"), "w")
 open(joinpath(out, "meta.txt"), "w") do io
     println(io, "host ", gethostname(), " job ", get(ENV, "SLURM_JOB_ID", "none"))
     println(io, "syn3a-ensemble ", readchomp(`git -C /fred/oz022/tkimpson/syn3a-ensemble rev-parse HEAD`))

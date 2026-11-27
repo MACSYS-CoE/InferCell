@@ -26,10 +26,18 @@
 #             the rules at x0 against reactions.csv's `rate` column (reported); the RHS
 #             at x0 against an independent BigFloat sum of the table's propensities
 #             (the counters are 0 there, so no payment), plus the ODE part from SpeedyCell's fluxes (1e-10
-#             relative); J·v against central differences of the RHS (1e-6); the ranked
+#             relative); at x1 = x0 .+ 1, where every reaction and counter is live:
+#             our surface areas against SpeedyCell's lipid_sa! (within its rounding, 1
+#             nm²), and the rates, p, y, fluxes and V against SpeedyCell's (1e-12), then
+#             the RHS against a BigFloat sum with the payments from SpeedyCell's
+#             WriteBack lists (1e-10 of Σ|terms| per state); the Jacobian at x1 against
+#             ForwardDiff's, row by row (1e-8 of the row's largest entry, payment rows
+#             reported apart; no entry off the pattern); J·v against central
+#             differences of the RHS (1e-6); the ranked
 #             blocks; the dual gradient against central differences on 3 parameters per
 #             placement at tight tolerances (1e-6 of max|g| over
-#             the block; per-component errors at h = 1e-4 and 1e-3 reported); DualSparseKLU against
+#             the block; per-component errors at h = 1e-4 and 1e-3, and against the
+#             largest |g| of the component's own kind, reported); DualSparseKLU against
 #             LinearSolve's dual path on one pass over the first minute (stated
 #             tolerance 1e-8 relative)
 #   time      serial: the primal solve, and the gradient for each placement and B, each
@@ -68,6 +76,9 @@ const FD_H_WIDE = 1e-3                 # a second step, reported: out of the obj
 const RHS_RTOL = 1e-10
 const REF_RTOL = 1e-12
 const JV_RTOL = 1e-6
+const JAC_RTOL = 1e-8                   # each row of J against ForwardDiff, relative to the row's max
+const SA_TOL = 1.0                      # surface areas: SpeedyCell rounds the lipid term and truncates the protein term
+const SYN3A_COMMIT = "2075809cbb825140cb31a7bec8bc3529770c8e13"
 const LIB_RTOL = 1e-8
 const CHUNK = 10
 const BLOCKS = (10, 20, 40)
@@ -320,7 +331,13 @@ function environment()
     catch
         "unknown"
     end
+    infercell = try readchomp(`git -C $(@__DIR__) rev-parse HEAD`) catch; "unknown" end
+    repo = dirname(dirname(MODEL))
+    syn3a = readchomp(`git -C $repo rev-parse HEAD`)
+    syn3a == SYN3A_COMMIT || error("syn3a-ensemble is at $syn3a, not $SYN3A_COMMIT")
+    isempty(readchomp(`git -C $repo status --porcelain -- data/model`)) || error("syn3a-ensemble data/model is modified")
     return (host = gethostname(), cpu = cpu, julia = string(VERSION), threads = Threads.nthreads(),
+            infercell = infercell, syn3a = syn3a,
             blas = BLAS.get_num_threads(), ngc = Threads.ngcthreads(), job = get(ENV, "SLURM_JOB_ID", "none"),
             smoke = SMOKE, t_end = T_END, linearsolve = string(pkgversion(LinearSolve)),
             versioninfo = String(take!(io)))
@@ -330,6 +347,7 @@ function header(io, stage, env)
     println(io, "# KIM-195 `$stage`", SMOKE ? " (SMOKE: a plumbing pass, not a result)" : "")
     println(io)
     println(io, "- job $(env.job) on $(env.host), $(env.cpu); Julia $(env.julia); LinearSolve $(env.linearsolve)")
+    println(io, "- InferCell $(env.infercell); syn3a-ensemble $(env.syn3a) (data/model unmodified)")
     println(io, "- threads $(env.threads), BLAS threads $(env.blas), GC threads $(env.ngc)")
     println(io, "- window 0–$(env.t_end) s in minute segments, saves at the whole minutes; Rodas5P, " *
                 "KLUFactorization (primal) and DualSparseKLU (dual, unless a row says the library path); " *
@@ -434,7 +452,87 @@ function stage_check(out)
     res[:rhs] = (nonzero = nonzero_ref, maxrel = maxrel, maxrel_abs = maxrel_abs, zero = zero_ref,
                  zero_mismatch = zero_mismatch, pass = rhs_pass)
 
-    # 3. The Jacobian against central differences of the RHS along a direction.
+    # 2b. The same at x1 = x0 .+ 1, where every reaction and every counter is live, so
+    #     the payments enter. SpeedyCell wrote x1 with its own surface areas (lipid_sa!,
+    #     rounded) and CellV, and its rates, hook inputs, fluxes and V there.
+    x1_ref = readref(out, "x1.csv")
+    xa = Float64.(m.x0) .+ 1.0; surface!(xa, m)          # ours: continuous, no round/trunc
+    sa_d = (lip = abs(xa[m.i_cellsa_lip] - x1_ref[m.i_cellsa_lip]), prot = abs(xa[m.i_cellsa_prot] - x1_ref[m.i_cellsa_prot]),
+            total = abs(xa[m.i_cellsa] - x1_ref[m.i_cellsa]))
+    xr = copy(x1_ref)                                     # SpeedyCell's surfaces, then our rebuild
+    mn1 = rebuild!(xr, m, blk0, Float64[], kode0; first = true, smooth = false)
+    rates1 = readref(out, "rates1.csv"); p1 = readref(out, "p1.csv"); y1_ref = readref(out, "y1.csv")
+    flux1 = readref(out, "flux1.csv"); V1 = only(readref(out, "V1.txt"))
+    y1 = [xr[i] / mn1.c for i in m.ode.cme]; nzy1 = findall(!=(0), y1_ref)
+    F1 = zeros(size(m.ode.S, 2)); m.ode.flux!(F1, y1_ref, p1, m.ode.k_default); nzf1 = findall(!=(0), flux1)
+    r1 = (rates = maximum(relerr.(mn1.k, rates1)), p = maximum(relerr.(mn1.p, p1)),
+          y = maximum(relerr.(y1[nzy1], y1_ref[nzy1])), flux = maximum(relerr.(F1[nzf1], flux1[nzf1])),
+          V = relerr(mn1.V, V1), cellv = xr[m.i_cellv] == x1_ref[m.i_cellv])
+    say(@sprintf("x1 surfaces, ours (continuous) vs SpeedyCell (rounded): |Δ| lipid %.3f, protein %.3f, total %.3f nm² (tolerance %g)",
+                 sa_d.lip, sa_d.prot, sa_d.total, SA_TOL))
+    say(@sprintf("vs SpeedyCell at x1: rates %.2e, p %.2e, y %.2e, fluxes %.2e, V %.2e, CellV equal %s",
+                 r1.rates, r1.p, r1.y, r1.flux, r1.V, r1.cellv))
+    # The BigFloat RHS at x1: CME terms with SpeedyCell's rates; the payments from
+    # SpeedyCell's WriteBack lists (pay.csv), κ·c·p/(p + 1), or κ·c for the NMP
+    # counters, each with writeback!'s species changes; the ODE part from its fluxes.
+    xb1 = BigFloat.(x1_ref)
+    ref1 = zeros(BigFloat, m.n); abs1 = zeros(BigFloat, m.n)
+    add1!(i, v) = (ref1[i] += v; abs1[i] += abs(v))
+    for (j, r) in enumerate(rows)
+        re = parse.(Int, split(r[4], ';'))
+        a = BigFloat(rates1[j]) * prod(xb1[i] for i in re)
+        for pr in split(r[5], ';')
+            s_, dd = split(pr, ':')
+            add1!(parse(Int, s_), parse(BigFloat, dd) * a)
+        end
+    end
+    npay = 0
+    for l in readlines(joinpath(out, "reference", "pay.csv"))
+        kind, c_, pool_, adds_ = split(l, ',')
+        c = parse(Int, c_); pool = parse(Int, pool_); adds = parse.(Int, split(adds_, ';'))
+        P = kind == "nmp" ? big(KAPPA) * xb1[c] : big(KAPPA) * xb1[c] * xb1[pool] / (xb1[pool] + 1)
+        add1!(c, -P)
+        pool > 0 && add1!(pool, -P)
+        foreach(i -> add1!(i, P), adds)
+        npay += 1
+    end
+    cb1 = BigFloat(mn1.c)
+    sidx = Dict(s_ => i for (i, s_) in enumerate(m.names))
+    for r in st
+        add1!(sidx[r[1]], cb1 * parse(BigFloat, r[3]) * BigFloat(flux1[parse(Int, r[2])]))
+    end
+    f1 = SegRHS(m, mn1)
+    du1 = zeros(m.n); f1(du1, xr, nothing, 0.0)
+    live = findall(>(0), abs1)
+    rhs1_abs = maximum(Float64(abs(du1[i] - ref1[i]) / abs1[i]) for i in live)
+    rhs1_dead = count(i -> abs1[i] == 0 && du1[i] != 0, 1:m.n)
+    say(@sprintf("RHS at x1 vs BigFloat (%d payments from pay.csv): %d live states, max |Δ| / Σ|terms| %.3e; %d states with no term, %d not 0 in the RHS",
+                 npay, length(live), rhs1_abs, m.n - length(live), rhs1_dead))
+    x1_pass = max(r1.rates, r1.p, r1.y, r1.flux, r1.V) <= REF_RTOL && r1.cellv &&
+              max(sa_d.lip, sa_d.prot, sa_d.total) <= SA_TOL && rhs1_abs <= RHS_RTOL && rhs1_dead == 0 &&
+              npay == length(m.pay)
+    res[:x1] = (reference = r1, surface_absdiff = sa_d, rhs_vs_sumabs = rhs1_abs, live = length(live),
+                dead_mismatch = rhs1_dead, payments = npay, pass = x1_pass)
+
+    # 3. The Jacobian at x1: every row against ForwardDiff's dense Jacobian of the RHS,
+    #    relative to that row's largest entry (so the payment rows are tested at their own
+    #    scale), any entry off the sparsity pattern; then J·v against central differences.
+    Jx = copy(m.proto); SegJac(f1)(Jx, xr, nothing, 0.0)
+    Jad = ForwardDiff.jacobian((d_, x_) -> f1(d_, x_, nothing, 0.0), zeros(m.n), xr)
+    Jd = Matrix(Jx)
+    rowrel = zeros(m.n)
+    for i in 1:m.n
+        sc = maximum(abs, view(Jad, i, :))
+        sc > 0 && (rowrel[i] = maximum(abs.(view(Jd, i, :) .- view(Jad, i, :))) / sc)
+    end
+    I_, J_, _ = findnz(m.proto); onpat = falses(m.n, m.n); for (a_, b_) in zip(I_, J_); onpat[a_, b_] = true; end
+    offpat = count(k -> !onpat[k] && Jad[k] != 0, eachindex(Jad))
+    payrows = unique(vcat([c for (c, _, _) in m.pay], [r_ for (_, _, ch) in m.pay for (r_, _) in ch]))
+    jac_res = (max_row_rel = maximum(rowrel), max_row_rel_payment_rows = maximum(rowrel[payrows]),
+               payment_rows = length(payrows), off_pattern = offpat, pass = maximum(rowrel) <= JAC_RTOL && offpat == 0)
+    say(@sprintf("J at x1 vs ForwardDiff: max per-row rel %.3e (payment rows, %d: %.3e); %d non-zeros off the pattern",
+                 jac_res.max_row_rel, length(payrows), jac_res.max_row_rel_payment_rows, offpat))
+    res[:jacobian] = jac_res
     xs = copy(x) .+ 1.0                       # off the zero boundary, so every term is live
     vdir = [((i * 7919) % 13 - 6) / 6 * max(xs[i], 1.0) * 1e-3 for i in 1:m.n]
     J = copy(m.proto); SegJac(f)(J, xs, nothing, 0.0)
@@ -476,6 +574,13 @@ function stage_check(out)
         rel = [relerr(g.grad[b], fdv[i]) for (i, b) in enumerate(fdidx)]
         rel3 = [relerr(g.grad[b], fdv3[i]) for (i, b) in enumerate(fdidx)]
         srel = [abs(g.grad[b] - fdv[i]) / scale for (i, b) in enumerate(fdidx)]
+        # Reported, not the criterion: each component against the largest |g| of its own
+        # kind (GE or MET), since in BOTH the MET partials set max|g|.
+        gek = filter(>(0), blk.cme_slot); metk = filter(>(0), blk.k_slot)
+        kscale(b) = maximum(abs, g.grad[b in gek ? gek : metk])
+        krel = [abs(g.grad[b] - fdv[i]) / kscale(b) for (i, b) in enumerate(fdidx)]
+        krel_w = [abs(g.grad[b] - fdv3[i]) / kscale(b) for (i, b) in enumerate(fdidx)]
+        kinds = [b in gek ? :GE : :MET for b in fdidx]
         for (i, b) in enumerate(fdidx)
             say(@sprintf("%s θ_%d: dual %.12e, FD(h=%g) %.12e rel %.2e, FD(h=%g) %.12e rel %.2e; |Δ|/max|g| %.2e (max|g| %.3e)",
                          place, b, g.grad[b], FD_H, fdv[i], rel[i], FD_H_WIDE, fdv3[i], rel3[i], srel[i], scale))
@@ -485,7 +590,10 @@ function stage_check(out)
         # h): |dual − FD| ≤ FD_RTOL · max|g| over the block. The per-component errors are
         # reported beside it.
         fdres[place] = (idx = fdidx, dual = g.grad[fdidx], fd = fdv, fd_wide = fdv3, rel = rel, rel_wide = rel3,
-                        scale = scale, scale_rel = srel, pass = maximum(srel) <= FD_RTOL)
+                        scale = scale, scale_rel = srel, kind = kinds, kind_rel = krel, kind_rel_wide = krel_w,
+                        pass = maximum(srel) <= FD_RTOL)
+        say("$place per kind: " * join([@sprintf("θ_%d (%s) %.2e at h=%g, %.2e at h=%g", b, kinds[i], krel[i], FD_H, krel_w[i], FD_H_WIDE)
+                                        for (i, b) in enumerate(fdidx)], "; "))
     end
     res[:fd] = fdres
 
@@ -523,7 +631,7 @@ function stage_check(out)
     say("dual linear cache: $linpath")
     res[:linpath] = linpath
 
-    allpass = ref_pass && rhs_pass && res[:jv].pass && all(v.pass for v in values(fdres)) &&
+    allpass = ref_pass && rhs_pass && res[:x1].pass && res[:jacobian].pass && res[:jv].pass && all(v.pass for v in values(fdres)) &&
               all(v.pass for v in values(libres))
     serialize(joinpath(out, "check.jls"), (env = env, res = res, pass = allpass))
     open(joinpath(out, "check.md"), "w") do io
@@ -531,6 +639,8 @@ function stage_check(out)
         println(io, "- reference (SpeedyCell at x0): ", res[:reference])
         println(io, "- rate column: ", res[:rate_column])
         println(io, "- RHS vs BigFloat: ", res[:rhs])
+        println(io, "- at x1 = x0 .+ 1 vs SpeedyCell, and the RHS vs BigFloat with payments: ", res[:x1])
+        println(io, "- J at x1 vs ForwardDiff, per row: ", res[:jacobian])
         println(io, "- J·v vs FD: ", res[:jv])
         for (k, v) in fdres; println(io, "- FD gradient $k: ", v); end
         for (k, v) in libres; println(io, "- library check $k: ", v); end
