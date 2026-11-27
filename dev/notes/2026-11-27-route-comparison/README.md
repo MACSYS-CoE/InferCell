@@ -260,7 +260,7 @@ version, but that is argued.
 4 threads (`--threads=4 --gcthreads=4,1`), one pass per thread, median of 2 after a 60 s
 warm-up. B = 10 has one pass, so threading cannot help it, and it is not rerun.
 
-| placement | B | passes | gradient (s), 4 threads | serial (s), job 21785045 | speed-up, across jobs | slowest pass (s) |
+| placement | B | passes | gradient (s), 4 threads | serial (s), job 21785045 | speed-up, across jobs | median pass (s) |
 |---|---|---|---|---|---|---|
 | GE | 20 | 2 | **77.0** | 139.9 | 1.82× | 76.6 |
 | GE | 40 | 4 | **92.4** | 274.6 | 2.97× | 90.5 |
@@ -269,7 +269,7 @@ warm-up. B = 10 has one pass, so threading cannot help it, and it is not rerun.
 | BOTH | 20 | 2 | **85.9** | 131.0 | 1.53× | 79.7 |
 | BOTH | 40 | 4 | **104.1** | 264.5 | 2.54× | 94.1 |
 
-**Threads contend, as in KIM-184.** A pass on a shared node takes 77–99 s, against 65–79 s
+**Threads contend, as in KIM-184.** The median pass on a shared node takes 77–99 s, against 65–79 s
 alone. The serial and threaded jobs ran on different nodes, so the speed-ups mix the node
 with the threading.
 
