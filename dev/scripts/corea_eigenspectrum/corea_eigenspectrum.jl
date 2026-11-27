@@ -12,8 +12,8 @@
 #   1. map:      the fitted-likelihood MAP over 29 coordinates, warm-started from
 #                KIM-178's 21-coordinate MAP (job 21727400) with the 8 new constants at
 #                their prior medians, which are their nominal values and the truth   -> map.jls
-#   2. hessian:  −H at that MAP, by KIM-92's `hessian_fd`; then three entries checked
-#                against second differences of the log density itself                -> hessian.jls
+#   2. hessian:  −H at that MAP, by KIM-92's `hessian_fd`, the step floored at 1.5e-4  -> hessian.jls
+#      checks:   three entries of −H against second differences of the density       -> checks.jls
 #   3. spectrum: −H whitened by the prior's SDs, its eigenvalues, and the same for the
 #                metabolic block's marginal precision                                 -> spectrum.jls, spectrum.md
 #
@@ -41,8 +41,12 @@ const KIM92_ARCHIVE = "/fred/oz022/tkimpson/infercell-kim92-archive-2026-11-17"
 const KIM178_MAP = "/fred/oz022/tkimpson/infercell-kim178-2026-11-27/kim92"
 const KIM92_SEED = 17_200_001
 const MAP_ITERS = SMOKE ? 2 : 200
-const FD_STEP = 1e-3          # × the coordinate's prior SD, as KIM-92's metric and KIM-178
-const FD2_STEP = 1e-2         # × prior SD, for the second differences of the density
+const FD_STEP = 1e-3          # × the coordinate's prior SD, as KIM-92's metric and KIM-178,
+const FD_FLOOR = 1.5e-4       # but at least this: five new kcatF have prior SD 0.05, which would
+                              # put the step at 5e-5, below KIM-92's smallest (1.6e-4, ENO)
+const FD2_STEP = 5e-2         # × prior SD, for the second differences of the density,
+const FD2_FLOOR = 2e-3        # at least this, so the density's solver noise stays small
+const REF_SD = log(2)         # a common reference width (geometric SD 2) for the likelihood's count
 const FD2_TOL = 1e-2          # relative agreement of a checked entry
 const ASYM_TOL = 1e-8         # the issue's symmetry check
 const ABOVE = 2.0             # whitened −H eigenvalue at which the data's curvature equals the prior's
@@ -62,7 +66,14 @@ function wide_models()
 end
 
 setup(ds, p) = with_reference(mixed_setup(ds; models = wide_models(), targets = TARGETS), p.delta, p.S)
-has(dir, name) = isfile(joinpath(dir, "$name.jls"))
+# A step's file exists, from a run of the same kind: a smoke's file never stands in for a
+# result's, nor the reverse.
+function has(dir, name)
+    f = joinpath(dir, "$name.jls")
+    isfile(f) || return false
+    deserialize(f).smoke == SMOKE || error("$f is from a $(SMOKE ? "real" : "smoke") run; use a fresh outdir")
+    return true
+end
 
 function inputs()
     ds0 = deserialize(joinpath(KIM92_ARCHIVE, "dataset.jls")).result
@@ -121,12 +132,22 @@ function step_map(dir, inp)
     count(n -> haskey(x178, n), names) == length(n178) || error("KIM-178's coordinates are not all in the wider set")
     f(x) = mixed_logdensity(s, x)
     lp0 = f(x0)
+    # The end-to-end check that the wider model scores the same data: at the warm start its
+    # density is the narrow model's at KIM-178's MAP plus the 8 new priors at their medians.
+    s21 = with_reference(mixed_setup(merge(inp.ds, (; targets = COREA_TARGETS)); models = d11_models(),
+                                     targets = COREA_TARGETS), inp.p.delta, inp.p.S)
+    lp21 = mixed_logdensity(s21, m178.fit.x)
+    sd = mixed_prior_sd(s)
+    newi = findall(n -> !haskey(x178, n), names)
+    expected = lp21 + sum(-log(sd[i]) - log(2π) / 2 for i in newi)
+    abs(lp0 - expected) < 1e-6 || error(@sprintf("the wider model's density %.8f at the warm start is not the narrow one's plus the new priors, %.8f", lp0, expected))
+    say(@sprintf("map: warm start %.8f = narrow %.8f + new priors (Δ %.2g)", lp0, expected, lp0 - expected))
     g0 = ForwardDiff.gradient(f, x0)
     t = @elapsed fit = reference_theta(s; x0, maxiters = MAP_ITERS)
+    SMOKE || fit.method === :map || error("the MAP fell back to the prior median; stopping before −H")
     lp = f(fit.x)
     g = ForwardDiff.gradient(f, fit.x)
-    sd = mixed_prior_sd(s)
-    save(dir, "map", (; fit, names, x0, lp0, lp, grad0 = g0, grad = g, lp_178 = m178.fit.logdensity,
+    save(dir, "map", (; fit, names, x0, lp0, lp, lp21, grad0 = g0, grad = g, lp_178 = m178.fit.logdensity,
                       haldane = inp.haldane, seconds = t); stage = "map")
     say(@sprintf("map: by %s in %.0f s; log density %.4f at the MAP, %.4f at the warm start (Δ %+.4f); |∇|·sd %.3g at the start, %.3g at the MAP", fit.method, t, lp, lp0, lp - lp0,
                  norm(g0 .* sd), norm(g .* sd)))
@@ -147,26 +168,39 @@ function step_hessian(dir, inp)
               (:log_kcatF_R_PFK, :log_kcatF_R_ENO)]
     ij = [(idx(a), idx(b)) for (a, b) in checks]
     any(t -> any(isnothing, t), ij) && error("a checked coordinate is not in the setup")
-    cols = SMOKE ? sort!(unique(vcat(first.(ij), last.(ij)))) : eachindex(x)
-    t = @elapsed H = hessian_fd(grad, x, FD_STEP .* sd; cols)
+    cols = SMOKE ? sort!(unique(vcat(first.(ij), last.(ij)))) : collect(eachindex(x))
+    h = max.(FD_STEP .* sd, FD_FLOOR)
+    t = @elapsed H = hessian_fd(grad, x, h; cols)
+    # The asymmetry over the computed columns' block (all of −H in a real run).
+    Hc = H[cols, cols]
+    asym = maximum(abs, Hc .- Hc') / maximum(abs, Hc)
     if SMOKE                                  # plumbing only: the prior's precision elsewhere
         for j in setdiff(eachindex(x), cols)
             H[j, j] = -1 / sd[j]^2
         end
-        asym = NaN
-    else
-        asym = maximum(abs, H .- H') / maximum(abs, H)
     end
     Hs = (H .+ H') ./ 2
-    fd = map(ij) do (i, j)
-        v = d2(f, x, i, j, FD2_STEP * sd[i], FD2_STEP * sd[j])
-        (; i, j, a = names[i], b = names[j], H = Hs[i, j], fd = v, rel = abs(Hs[i, j] - v) / abs(v))
+    save(dir, "hessian", (; H = Hs, asym, cols, checks = ij, step = h, seconds = t); stage = "hessian")
+    say(@sprintf("hessian: %.0f s; asymmetry %.3g over %d columns", t, asym, length(cols)))
+end
+
+# Three entries of −H against second differences of the density alone, in a step of their
+# own, so a retuned step does not cost the Hessian again.
+function step_checks(dir, inp)
+    has(dir, "checks") && return
+    s = setup(inp.ds, inp.p)
+    m, hs = load(dir, "map"), load(dir, "hessian")
+    x, names = m.fit.x, m.names
+    sd = mixed_prior_sd(s)
+    f(z) = mixed_logdensity(s, z)
+    k = max.(FD2_STEP .* sd, FD2_FLOOR)
+    fd = map(hs.checks) do (i, j)
+        v = d2(f, x, i, j, k[i], k[j])
+        (; i, j, a = names[i], b = names[j], H = hs.H[i, j], fd = v, rel = abs(hs.H[i, j] - v) / abs(v))
     end
-    save(dir, "hessian", (; H = Hs, asym, fd, fd_step = FD_STEP, fd2_step = FD2_STEP, seconds = t);
-         stage = "hessian")
-    say(@sprintf("hessian: %.0f s; asymmetry %.3g", t, asym))
+    save(dir, "checks", (; fd, step = k); stage = "checks")
     for c in fd
-        say(@sprintf("  check H[%s, %s] = %.6g against %.6g by second differences (rel %.2g)", c.a, c.b, c.H, c.fd, c.rel))
+        say(@sprintf("checks: H[%s, %s] = %.6g against %.6g by second differences (rel %.2g)", c.a, c.b, c.H, c.fd, c.rel))
     end
 end
 
@@ -180,7 +214,7 @@ end
 
 function step_spectrum(dir, inp)
     s = setup(inp.ds, inp.p)
-    m, h = load(dir, "map"), load(dir, "hessian")
+    m, h, ck = load(dir, "map"), load(dir, "hessian"), load(dir, "checks")
     names, x = m.names, m.fit.x
     sd = mixed_prior_sd(s)
     A = Symmetric(-h.H)                                       # the posterior precision at the MAP
@@ -193,6 +227,17 @@ function step_spectrum(dir, inp)
     ev_met = pd ? eigvals(whitened(marginal_precision(A, met), sd[met])) : fill(NaN, length(met))
     n_met = count(>(ABOVE), ev_met)
     post_sd = pd ? sqrt.(diag(inv(A))) : fill(NaN, length(x))
+    # The likelihood's curvature alone, −H − P, at the common reference width: a direction
+    # counts when the data pin it tighter than a geometric SD of 2 would. This count does not
+    # depend on the prior table, which the whitened count above does.
+    L = Symmetric(Matrix(A) - Diagonal(1 ./ sd .^ 2))
+    ev_lik = eigvals(L) .* REF_SD^2
+    n_lik = count(>(1), ev_lik)
+    # The metabolic block's: its marginal posterior precision less its prior's. The priors
+    # are independent, so the block's marginal prior precision is its own diagonal.
+    ev_lik_met = pd ? eigvals(Symmetric(Matrix(marginal_precision(A, met)) - Diagonal(1 ./ sd[met] .^ 2))) .* REF_SD^2 :
+                 fill(NaN, length(met))
+    n_lik_met = count(>(1), ev_lik_met)
     xt = truth_x(s, inp.truth, inp.ds)
     lb, ub = mixed_box(s)
     edge = min.(x .- lb, ub .- x) ./ sd
@@ -206,10 +251,15 @@ function step_spectrum(dir, inp)
     A178 = Symmetric(-l178.H)
     ev178 = eigvals(whitened(A178, sd178))
     ev178_met = eigvals(whitened(marginal_precision(A178, met178), sd178[met178]))
+    ev178_lik = eigvals(Symmetric(Matrix(A178) - Diagonal(1 ./ sd178 .^ 2))) .* REF_SD^2
+    ev178_lik_met = eigvals(Symmetric(Matrix(marginal_precision(A178, met178)) -
+                                      Diagonal(1 ./ sd178[met178] .^ 2))) .* REF_SD^2
     r = (; names, x, truth = xt, prior_sd = sd, post_sd, contraction = post_sd ./ sd, edge,
          ev_raw, ev, n_above, met, ev_met, n_met, positive_definite = pd,
          ev178, n_above178 = count(>(ABOVE), ev178), ev178_met, n_met178 = count(>(ABOVE), ev178_met),
-         asym = h.asym, fd = h.fd, lp = m.lp, lp0 = m.lp0, method = m.fit.method,
+         ev_lik, n_lik, ev_lik_met, n_lik_met, ev178_lik, n_lik178 = count(>(1), ev178_lik),
+         ev178_lik_met, n_lik_met178 = count(>(1), ev178_lik_met),
+         asym = h.asym, fd = ck.fd, lp = m.lp, lp0 = m.lp0, method = m.fit.method,
          seconds = (map = m.seconds, hessian = h.seconds))
     save(dir, "spectrum", r; stage = "spectrum")
     report(dir, r)
@@ -231,7 +281,8 @@ function report(dir, r)
     end
     pr(@sprintf("- **Directions above the prior's curvature** (whitened −H eigenvalue > %.0f, where the data's curvature exceeds the prior's): **%d of %d** with the wide block; %d of %d with KIM-178's narrow block (ENO, FBA).",
                 ABOVE, r.n_above, length(r.ev), r.n_above178, length(r.ev178)))
-    pr(@sprintf("- **The metabolic block alone** (marginal precision of the %d forward constants, whitened): **%d of %d** above; the narrow block's ENO and FBA: %d of 2.\n", length(r.met), r.n_met, length(r.met), r.n_met178))
+    pr(@sprintf("- **The metabolic block alone** (marginal precision of the %d forward constants, whitened): **%d of %d** above; the narrow block's ENO and FBA: %d of 2.", length(r.met), r.n_met, length(r.met), r.n_met178))
+    pr(@sprintf("- **The likelihood alone** (−H − P at a common width of geometric SD 2, counting eigenvalue × (ln 2)² > 1): %d of %d directions, against %d of %d with the narrow block; for the metabolic block, %d of %d, against %d of 2.\n", r.n_lik, length(r.ev_lik), r.n_lik178, length(r.ev178_lik), r.n_lik_met, length(r.met), r.n_lik_met178))
     pr("## Whitened spectrum of −H (prior precision = 1)\n")
     pr("| rank | wide block (29) | narrow block (21) |")
     pr("|---|---|---|")
@@ -239,11 +290,19 @@ function report(dir, r)
     for k in eachindex(e1)
         pr(@sprintf("| %d | %.4g | %s |", k, e1[k], k <= length(e2) ? @sprintf("%.4g", e2[k]) : ""))
     end
-    pr("\n## The metabolic block's marginal precision, whitened\n")
-    pr("| rank | eigenvalue |")
-    pr("|---|---|")
-    for (k, v) in enumerate(sort(r.ev_met; rev = true))
-        pr(@sprintf("| %d | %.4g |", k, v))
+    pr("\n## The metabolic block\n")
+    pr("| rank | marginal posterior precision, whitened by the prior | likelihood's, × (ln 2)² |")
+    pr("|---|---|---|")
+    a1, a2 = sort(r.ev_met; rev = true), sort(r.ev_lik_met; rev = true)
+    for k in eachindex(a1)
+        pr(@sprintf("| %d | %.4g | %.4g |", k, a1[k], a2[k]))
+    end
+    pr("\n## The likelihood's spectrum, −H − P, × (ln 2)²\n")
+    pr("| rank | wide block (29) | narrow block (21) |")
+    pr("|---|---|---|")
+    l1, l2 = sort(r.ev_lik; rev = true), sort(r.ev178_lik; rev = true)
+    for k in eachindex(l1)
+        pr(@sprintf("| %d | %.4g | %s |", k, l1[k], k <= length(l2) ? @sprintf("%.4g", l2[k]) : ""))
     end
     pr("\n## Per coordinate\n")
     pr("| coordinate | truth | MAP | prior SD | Laplace SD | Laplace / prior |")
@@ -264,6 +323,7 @@ function main(args)
     say(@sprintf("inputs: %d targets (%d new); Haldane at nominal %.2g", length(TARGETS), length(NEW), inp.haldane))
     step_map(dir, inp)
     step_hessian(dir, inp)
+    step_checks(dir, inp)
     step_spectrum(dir, inp)
 end
 
