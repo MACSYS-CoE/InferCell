@@ -4,7 +4,7 @@ Linear: [KIM-195](https://linear.app/kimpson/issue/KIM-195/compare-the-candidate
 Feeds the route decision, KIM-187, and T1. The frame (the cases each route is costed
 on) is in [`frame.md`](frame.md), committed at d465a35 before any timing in this issue ran.
 
-Status: in progress. Sections are added one checklist item at a time.
+Status: complete for KIM-195's six items. §5 says which routes stay in contention for KIM-187. The choice is KIM-187's.
 
 ## 1. The candidates: what each approximates, and where its error is measured
 
@@ -81,6 +81,164 @@ What the routes approximate beyond the inventory:
 | R4 | unchanged in substance: the likelihood still spans the boundary, and its bulk mean is learned. "Synthetic likelihood" enters the methods. | unchanged | between the two: learned like PreCell, but local to δ and S, with a mechanistic transcript factor |
 | R5 | **changes**: the mechanistic likelihood goes, and the contribution becomes amortised inference plus verification | **breaks** "no neural SBI comparison beyond the one surrogate swap" | **same ground** as PreCell. The paper becomes a comparison with it. |
 
+## 2. The mean field on a realistic system: what a gradient costs (item 3)
+
+**A 20-parameter gradient of the full cell's realistic mean field takes 131–159 s
+serial** (job 21785045), depending on where the block sits. That is **about 100–125×
+KIM-184's floor** of 1.277 s, measured on the first-order surrogate. It is also well
+under the roughly 20 minutes that KIM-184 superseded. The cost is linear in the number
+of passes: 65–80 s per pass of 10 partials, whatever B and wherever the block sits.
+
+The code is `dev/scripts/fullcell_route_cost/` (`model.jl`, `route_cost_meanfield.jl`).
+The runs of record are at 70326e7, from the detached worktree
+`.worktrees/kim195-run-70326e7`, with outdir
+`/fred/oz022/tkimpson/infercell-kim195-2026-11-27/run1/`. The stage outputs are copied
+into `results/`. All jobs ran on Milan nodes (AMD EPYC 7543), Julia 1.11.9, LinearSolve
+3.87.0, with one BLAS thread.
+
+| stage | job | what |
+|---|---|---|
+| precompile | 21785042 | both environments |
+| reference | 21785043 | SpeedyCell's own values at x₀ (`reference_speedycell.jl`, in KIM-183's environment) |
+| check | 21785044 | the correctness checks below: **PASS** |
+| time | 21785045 | serial: the primal, and every placement × B |
+| library | 21785046 | LinearSolve 3.87's own dual path against DualSparseKLU, over the whole window |
+| threaded | 21785047 | 4 threads, B = 20 and 40 |
+
+### 2.1 The system
+
+The system is the whole syn3A CME and ODE, as one deterministic ODE on all 2,661 CME
+counts (`model.jl`'s header has the detail). It has:
+- 2,002 first-order reactions, and 363 second-order reactions taken as the product of
+  means (k·x_a·x_b; this is not exact);
+- the 175 ODE fluxes, generated from `data/model/params/ode_reactions.csv` with the named
+  constants as runtime values, and turned into counts per second at the cell volume;
+- the hook's 26 cost counters, kept as states and paid into their pools at
+  κ·c·p/(c + p + 1), with κ = 1 s⁻¹. This is a smooth min(counter, pool), and the NMP
+  counters are paid at κ·c;
+- at each minute boundary, the 2,365 CME rate constants, the 79 enzyme concentrations,
+  the volume and the surface areas are rebuilt from the mean state through the
+  `nodes.csv` DAG. In a run, `round` is the identity (CellV only).
+
+The Jacobian is analytic for the CME and payment terms. For the fluxes it is a
+ForwardDiff Jacobian, nested under the outer duals. It has 28,930 stored non-zeros,
+against KIM-184's 21,095.
+
+**Declared simplifications.** These are cost choices, not fidelity claims.
+- **The 1 s cadence.** SpeedyCell rebuilds the enzyme levels, the volume and the ODE
+  state every 1 s, at the hook. This model rebuilds them every 60 s, with the CME rates.
+- **The counter payment.** It is smooth here, not the hook's per-second min.
+- **The second-order closure.** The product of means is not exact. M13 measures that
+  error.
+
+**Two changes from the plan, both Tom's calls on 2026-11-27.**
+1. **The counters are paid through a smooth clamp.** In the plan they were paid at once
+   with no clamp. That drove dATP to −2,887 over the window even at θ = 0, and broke the
+   MET B = 20 solve in smoke 3 (job 21770016).
+2. **The finite-difference gradient check is judged against the block's scale**, as
+   |dual − FD| ≤ 1e-6 · max|g|. The rule was set after smoke 2's check (job 21724627)
+   failed on one small component, so it is **post-hoc**. That component's central
+   differences scatter as h shrinks: they are −1.32450, −1.32458, −1.32457, −1.32412 and
+   −1.32503 for h = 1e-3 to 1e-5 (login node), against a dual of −1.32450.
+
+**Why it is not KIM-184's 1.3 s.** The primal takes 6,415 steps over the window, against
+KIM-184's 174 (job 21785045).
+- A dual pass takes 5,155–6,460 steps. KIM-184's took 144.
+- The cost per step is about 13 ms for a dual pass, against KIM-184's 4.4 ms. The
+  Jacobian is now state-dependent, and the fluxes' part is computed by AD.
+- The steps are spent on two things (smoke and login-node diagnosis, not runs of record):
+  - **the transient after each minute's rebuild.** In the first minute, 365 of 843
+    steps fall in its first second;
+  - **the pinned absolute tolerance of 1e-10 on counts.** The states that bind it
+    include fractional mean-field states of the DnaA cascade (`ssDNABoundSite_*`, about
+    0.01 counts) and metabolite pools that move by about 10% a second.
+- **At looser tolerances** (1e-6 absolute and 1e-6 relative), a GE B = 20 gradient takes
+  49.2 s against 139.9 s, about 2.8× less (job 21785045, one repeat). That is a lever for
+  KIM-194, not a result: what the inference needs is not measured here.
+
+### 2.2 Correctness checks (job 21785044, PASS)
+
+| check | tolerance | observed |
+|---|---|---|
+| The rate rules, p and y₀ at x₀ against SpeedyCell's own `evaluate_rates!` and `hook_inputs` | 1e-12 relative | rates 2.2e-16 (2,358 of 2,365 bitwise); p 3.5e-16; y₀ 2.2e-16; CellV 335 = 335 |
+| The ODE fluxes at (y₀, p) against SpeedyCell's `flux!` | 1e-12 relative | exact (0.0) |
+| **The RHS at x₀ against an independent BigFloat sum of the table's propensities** (SpeedyCell's rates, both reaction types), plus the ODE part from SpeedyCell's fluxes | **1e-10 relative** | **4.05e-15** over 856 non-zero states; all 1,805 zero states are 0 |
+| J·v against central differences of the RHS, at x₀ + 1 | 1e-6 | 4.3e-10 |
+| Dual gradient against central differences, B = 20, tight tolerances, over the first 300 s (5 rebuilds), 3 parameters per placement | 1e-6 · max\|g\| | ≤ 9.7e-8. Per component at h = 1e-4: ≤ 2.9e-7, except BOTH θ₁ (6.9e-4, |g| = 0.11 beside max\|g\| 2.2×10⁶) and BOTH θ₁₀ (1.3e-5) |
+| DualSparseKLU against LinearSolve 3.87's own dual path, one pass, first minute | 1e-8 | partials 2.3e-14 (GE) and 4.4e-14 (MET); the same steps |
+
+**Not a check, an observation.** The rate rules at x₀ differ from `reactions.csv`'s
+`rate` column in 1,435 of 2,365 reactions, by up to 9×. That column is the first minute's
+rates from `MinCell_CMEODE.py`. SpeedyCell does not use it, and neither does this model:
+both rebuild from the rules at every minute, the first included. KIM-184's surrogate used
+the column.
+
+### 2.3 The blocks
+
+These are ranked by integrated flux at θ = 0 over the window. `results/check.md` lists
+all 40 in each block.
+- **GE.** The top 40 are all tRNA charging: the charging cascades of 8 amino acids,
+  4 steps each, and their 8 cost payments. That is KIM-177's row 3, not promoters or
+  translation. Of the 40, 32 are second-order.
+- **MET.** These are kcatF constants, led by glycolysis: GAPD, PGM, ENO, LDH_L, PGK, PGI,
+  TPI, FBA, PFK, PYK, and so on.
+- **BOTH.** The top 10 or 20 of each.
+
+The cost does not care which: 65–80 s a pass in every placement. KIM-180's block,
+picked on doubling time, will differ from these.
+
+### 2.4 Seconds per gradient (job 21785045, serial; median of 3 after a 60 s warm-up)
+
+| placement | B | passes | gradient (s) | per pass (s) | steps, pass 1 |
+|---|---|---|---|---|---|
+| GE | 10 | 1 | 69.3 | 69.3 | 5,327 |
+| GE | **20** | 2 | **139.9** | 69.7 | 5,325 |
+| GE | 40 | 4 | 274.6 | 68.4 | 5,326 |
+| MET | 10 | 1 | 79.4 | 79.4 | 6,159 |
+| MET | **20** | 2 | **158.9** | 79.1 | 6,348 |
+| MET | 40 | 4 | 297.7 | 74.8 | 6,460 |
+| BOTH | 10 | 1 | 72.9 | 72.9 | 6,084 |
+| BOTH | **20** | 2 | **131.0** | 65.4 | 5,155 |
+| BOTH | 40 | 4 | 264.5 | 64.8 | 5,228 |
+
+The primal solve (θ = 0) takes a median 10.5 s over 6,415 steps.
+
+### 2.5 DualSparseKLU against LinearSolve 3.87's own dual path (job 21785046)
+
+One pass of 10 partials over the whole window, at B = 20:
+
+| placement | LinearSolve 3.87 (`KLUFactorization`, its ForwardDiff extension) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
+|---|---|---|---|---|---|
+| GE | 83.3 s | 69.1 s | 1.20× | 5,325 | 1.4e-8 |
+| MET | 103.6 s | 83.4 s | 1.24× | 6,348 | 1.2e-12 |
+
+**On 3.87, the stock dual path is within 25% of DualSparseKLU.** KIM-184 measured 860× on
+LinearSolve 3.73.0. So a version bump would retire DualSparseKLU and the three
+LinearSolve internals it reaches into, at about 20% in cost. **But 3.87.0 does not load
+on Julia 1.10.5,** which InferCell runs on. Its extensions are triggered by SparseArrays,
+which it also lists as a hard dependency, and 1.10's loader fails with KeyError
+"SparseArrays". This item therefore ran on Julia 1.11.9, which is also the version
+SpeedyCell needs. Moving InferCell to Julia 1.11 is then the price of the stock path. It
+is a decision for KIM-187 or KIM-194, not taken here.
+
+### 2.6 Threaded (job 21785047)
+
+4 threads (`--threads=4 --gcthreads=4,1`), one pass per thread, median of 2 after a 60 s
+warm-up. B = 10 has one pass, so threading cannot help it, and it is not rerun.
+
+| placement | B | passes | gradient (s), 4 threads | serial (s), job 21785045 | speed-up, across jobs | slowest pass (s) |
+|---|---|---|---|---|---|---|
+| GE | 20 | 2 | **77.0** | 139.9 | 1.82× | 76.6 |
+| GE | 40 | 4 | **92.4** | 274.6 | 2.97× | 90.5 |
+| MET | 20 | 2 | **89.6** | 158.9 | 1.77× | 87.9 |
+| MET | 40 | 4 | **108.5** | 297.7 | 2.74× | 99.2 |
+| BOTH | 20 | 2 | **85.9** | 131.0 | 1.53× | 79.7 |
+| BOTH | 40 | 4 | **104.1** | 264.5 | 2.54× | 94.1 |
+
+**Threads contend, as in KIM-184.** A pass on a shared node takes 77–99 s, against 65–79 s
+alone. The serial and threaded jobs ran on different nodes, so the speed-ups mix the node
+with the threading.
+
 ## 3. The emulator and neural SBI: cost, argued
 
 Every row here is **argued**, from the sources named in it. Nothing in this section was
@@ -108,7 +266,7 @@ the budget divided by the cores used.
 | R5, its M0 check | SBC against the exact sampler (M0's 50 datasets) | — | M0-sized, small | — | it would be the new pilot (§1.2) |
 | **R4, an emulator of δ(θ) and S(θ), B = 20** | 200–1,000 design points × 100–800 cells | 2×10⁴–8×10⁵ | **≈ 130–5,300** | hours to a day, in parallel | argued: 10–50 design points per parameter is the usual Gaussian-process rule; 800 cells is the reduced model's reference ensemble (KIM-92), and 100 is M12's per-draw count |
 | R4, with M12's draws reused | M12's 10³ draws × 100 cells (KIM-58) | 10⁵, already simulated | **≈ 0 extra**, if M12 saves the bulk panel at the 52 fit-window saves | — | applies to **θ_H drawn** only: M12 draws every parameter, so its draws are an emulator design over θ_H as well as the block. For θ_H fixed, M12's draws are off the design and do not help. |
-| R4, then the posterior | R1's chains, with the emulated δ(θ) and S(θ) in the bulk factor | — | R1's cost (§4) | R1's | the emulator's own gradient is cheap beside the mean-field solve |
+| R4, then the posterior | R1's chains, with the emulated δ(θ) and S(θ) in the bulk factor | — | R1's cost (§5) | R1's | the emulator's own gradient is cheap beside the mean-field solve |
 
 What the table shows:
 - **R5 is affordable in CPU-h but costs a different kind of thing.** Its budget is
