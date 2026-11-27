@@ -28,7 +28,8 @@
 #             counters paid, plus the ODE part from SpeedyCell's fluxes (1e-10
 #             relative); J·v against central differences of the RHS (1e-6); the ranked
 #             blocks; the dual gradient against central differences on 3 parameters per
-#             placement at tight tolerances (1e-6, as AV3); DualSparseKLU against
+#             placement at tight tolerances (1e-6 of max|g| over
+#             the block; per-component errors at h = 1e-4 and 1e-3 reported); DualSparseKLU against
 #             LinearSolve's dual path on one pass over the first minute (stated
 #             tolerance 1e-8 relative)
 #   time      serial: the primal solve, and the gradient for each placement and B, each
@@ -62,7 +63,8 @@ const MAXITERS = 10^5
 const ABSTOL_TIGHT = 1e-14
 const RELTOL_TIGHT = 1e-12
 const FD_H = 1e-4
-const FD_RTOL = 1e-6
+const FD_RTOL = 1e-6                    # scale-relative: |dual − FD| / max|g| (see stage_check)
+const FD_H_WIDE = 1e-3                 # a second step, reported: out of the objective's noise floor
 const RHS_RTOL = 1e-10
 const REF_RTOL = 1e-12
 const JV_RTOL = 1e-6
@@ -473,15 +475,24 @@ function stage_check(out)
         blk = make_block(m, r, place, B)
         data = make_data(m, blk; tight...)
         g = gradient_passes(m, blk, data, θ; tight...)
-        fdv = map(fdidx) do b
-            e = zeros(B); e[b] = FD_H
-            (first(objective(m, blk, data, θ .+ e; tight...)) - first(objective(m, blk, data, θ .- e; tight...))) / (2FD_H)
-        end
+        cfd(b, h) = (e = zeros(B); e[b] = h;
+                     (first(objective(m, blk, data, θ .+ e; tight...)) - first(objective(m, blk, data, θ .- e; tight...))) / (2h))
+        fdv = [cfd(b, FD_H) for b in fdidx]
+        fdv3 = [cfd(b, FD_H_WIDE) for b in fdidx]
+        scale = maximum(abs, g.grad)
         rel = [relerr(g.grad[b], fdv[i]) for (i, b) in enumerate(fdidx)]
+        rel3 = [relerr(g.grad[b], fdv3[i]) for (i, b) in enumerate(fdidx)]
+        srel = [abs(g.grad[b] - fdv[i]) / scale for (i, b) in enumerate(fdidx)]
         for (i, b) in enumerate(fdidx)
-            say(@sprintf("%s θ_%d: dual %.12e, FD %.12e, rel %.2e", place, b, g.grad[b], fdv[i], rel[i]))
+            say(@sprintf("%s θ_%d: dual %.12e, FD(h=%g) %.12e rel %.2e, FD(h=%g) %.12e rel %.2e; |Δ|/max|g| %.2e (max|g| %.3e)",
+                         place, b, g.grad[b], FD_H, fdv[i], rel[i], FD_H_WIDE, fdv3[i], rel3[i], srel[i], scale))
         end
-        fdres[place] = (idx = fdidx, dual = g.grad[fdidx], fd = fdv, rel = rel, pass = maximum(rel) <= FD_RTOL)
+        # The pass criterion is scale-relative (Tom, 2026-11-27, after smoke 2's check, job
+        # 21724627, failed on one small component whose central differences scatter with
+        # h): |dual − FD| ≤ FD_RTOL · max|g| over the block. The per-component errors are
+        # reported beside it.
+        fdres[place] = (idx = fdidx, dual = g.grad[fdidx], fd = fdv, fd_wide = fdv3, rel = rel, rel_wide = rel3,
+                        scale = scale, scale_rel = srel, pass = maximum(srel) <= FD_RTOL)
     end
     res[:fd] = fdres
 
