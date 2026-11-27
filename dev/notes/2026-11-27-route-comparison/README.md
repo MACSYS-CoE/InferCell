@@ -68,7 +68,7 @@ What the routes approximate beyond the inventory:
 | R1 | yes. Done: passes SBC, about 80× cheaper. | yes. Done: it is the joint (KIM-92). | **yes, its main test**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
 | R2 | yes, but M0 has no pool feedback to cut | **yes. Done: fails "close" (+0.65 SD, KIM-116)** | row 5 untested: it holds copy number fixed by construction |
 | R3 | no: nothing on M0 needs a surrogate | partly: the surrogate's error on the reduced model's means | yes. The surrogate is trained where M13 is exact and is scored there. M17 is its own check. |
-| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm already tests δ's θ-dependence on M0. | yes: against the joint | yes |
+| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed about 0.17 SD of the 0.42–0.56 SD M0 gap. KIM-90 names no cause, and its open lead (the transcripts counted twice) is outside what R4 changes. | yes: against the joint | yes |
 | R5 | **yes, and needed**: SBC and the exact sampler on M0. This would be a new pilot, proposed in item 6 if R5 stays in. | yes: against the joint | yes |
 
 ### 1.3 What each route changes in the Claim, the non-goals and the positioning
@@ -443,7 +443,7 @@ This is a reading of the tables above. The choice is KIM-187's, and Tom's.
 | **R1, mean field + NUTS** | **yes** | Its CPU-h is affordable: about 5,300 at B = 20. Its wall-clock binds at about 14–15 days a chain threaded, and the levers in §5.1 are what KIM-194 would work on. Its error is measured at every tier, with M13 testing what the full cell adds (§1.2). It is the only route that keeps the Claim as written with no learned component. |
 | R2, data plug-in | as a fallback only | It is the cheapest (539–2,977 CPU-h), but it changes the Claim and the contribution sentence. Its known bias (+0.65 SD on the reduced model) and its untested gene copy number count against it. |
 | **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. |
-| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design that M12's draws may supply. It targets the bulk factor's δ at θ_ref, the approximation behind the M0 gap (KIM-90). Its error is checkable on M0. |
+| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design that M12's draws may supply. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, and recomputing δ and S at the posterior mean closed about 0.17 of 0.42–0.56 SD. Its error is checkable on M0. |
 | R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
 
 **The M0 pilot (proposed, not filed).** R4 stays in contention, so the item calls for its M0
@@ -453,7 +453,7 @@ pilot against the exact sampler as a separate issue. The proposal:
 - compare the result with the exact sampler's posterior on M0's datasets, by the same
   shift and SBC tests M0 used.
 
-KIM-90's postmean arm already tests δ's θ-dependence there. The cost is M0-sized:
+KIM-90's postmean arm is a one-point precursor there (about 0.17 SD of the gap closed). The cost is M0-sized:
 simulations at about M0's cost per cell, plus M0's 6.6 CPU-h per mixed-route posterior.
 **This is offered for Tom's approval before it is created** (`Future:` or M11/M13, his call).
 An SBI pilot is not proposed unless the non-goal is reopened.
