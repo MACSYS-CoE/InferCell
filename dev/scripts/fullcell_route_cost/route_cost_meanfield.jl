@@ -24,8 +24,8 @@
 #   check     sizes; the rate rules, p, y0 and fluxes at x0 against SpeedyCell's own
 #             values (<out>/reference/, from reference_speedycell.jl; 1e-12 relative);
 #             the rules at x0 against reactions.csv's `rate` column (reported); the RHS
-#             at x0 against an independent BigFloat sum of the table's propensities, the
-#             counters paid, plus the ODE part from SpeedyCell's fluxes (1e-10
+#             at x0 against an independent BigFloat sum of the table's propensities
+#             (the counters are 0 there, so no payment), plus the ODE part from SpeedyCell's fluxes (1e-10
 #             relative); J·v against central differences of the RHS (1e-6); the ranked
 #             blocks; the dual gradient against central differences on 3 parameters per
 #             placement at tight tolerances (1e-6 of max|g| over
@@ -387,7 +387,7 @@ function stage_check(out)
                          differ_types = isempty(differ) ? Int[] : unique(m.lm_type[differ]))
 
     # 2. The RHS at x0 against an independent BigFloat sum: the table's propensities with
-    #    SpeedyCell's rates, by species name; then the counters paid (writeback's lists);
+    #    SpeedyCell's rates, by species name (the counters are 0 at x0, so no payment);
     #    then the ODE part from SpeedyCell's own fluxes.
     setprecision(BigFloat, 256)
     rows = csvrows(joinpath(MODEL, "cme", "reactions.csv"))
@@ -404,18 +404,11 @@ function stage_check(out)
             addt!(nm[parse(Int, s)], parse(BigFloat, dd) * a)
         end
     end
-    pays = vcat([(c, occursin("translat", c) ? ["M_gtp_c" => -1, "M_gdp_c" => 1, "M_pi_c" => 1] :
-                                               ["M_atp_c" => -1, "M_adp_c" => 1, "M_pi_c" => 1]) for c in ATP_HYDRO_COUNTERS],
-                [(c, [mm => -1, "M_ppi_c" => 1]) for (c, mm) in vcat(NTP_COUNTERS, DNTP_COUNTERS)],
-                [(c, [mm => 1]) for (c, mm) in NMP_COUNTERS],
-                [(c, [ch => -1, un => 1]) for (c, ch, un) in AATRNA_COUNTERS])
-    for (c, lst) in pays
-        dc = get(ref, c, big(0))
-        for (t, f) in lst
-            addt!(t, f * dc)
-        end
-        ref[c] = big(0)
-    end
+    # The hook's payments are κ·c·p/(c + p + 1) and κ·c: zero at x0, where every counter
+    # is 0 (asserted). J·v below exercises them away from x0.
+    counters = vcat(ATP_HYDRO_COUNTERS, first.(NTP_COUNTERS), first.(DNTP_COUNTERS), first.(NMP_COUNTERS),
+                    first.(AATRNA_COUNTERS))
+    all(xb[c] == 0 for c in counters) || error("a hook counter is not 0 at x0")
     cb = BigFloat(mn.c)
     st = csvrows(joinpath(MODEL, "ode", "stoichiometry.csv"))
     for r in st

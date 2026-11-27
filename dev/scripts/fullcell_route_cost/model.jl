@@ -8,8 +8,11 @@
 #   - second-order reactions (type 2, 363): k·x_a·x_b, the product of means (not exact);
 #   - the 175 ODE fluxes (mM/s, from data/model/params/ode_reactions.csv, whose named
 #     kinetic constants are tokens K__i), turned into counts/s at the cell volume V;
-#   - the hook's cost counters, paid at once: each reaction that would add d to a
-#     counter takes d from its pool instead (no min(counter, pool) clamp);
+#   - the hook's cost counters, kept as states and paid into their pools at rate
+#     κ·c·p/(c + p + 1), κ = 1 s⁻¹ (the hook's cadence): a smooth min(counter, pool),
+#     which stops as the pool empties and carries the unpaid rest, as the hook does
+#     (Tom, 2026-11-27: instant payment with no clamp drove dATP to −2,887 at θ = 0);
+#     the NMP counters, which the hook pays without a clamp, at κ·c;
 #   - at every minute boundary the CME rate constants (rate_rules.csv through
 #     nodes.csv), the enzyme concentrations p, the volume V and the surface areas are
 #     rebuilt from the current mean state, then held for the minute. SpeedyCell
@@ -250,7 +253,8 @@ struct Model
     ra::Vector{Int}; rb::Vector{Int}    # reactants (rb = 0 for type 1)
     ptr::Vector{Int}                # reaction j's net change is entries ptr[j]:ptr[j+1]-1
     row::Vector{Int}; coef::Vector{Float64}     # after the counters are paid
-    row_raw::Vector{Int}; coef_raw::Vector{Float64}   # as in the table (the check)
+    pay::Vector{Tuple{Int, Int, Vector{Tuple{Int, Float64}}}}   # the hook's payments
+    pay_pos::Vector{Vector{Tuple{Int, Int}}}   # payment q, change e → (slot of (row, counter), slot of (row, pool) or 0)
     rule_nodes::Vector{Int}         # reaction j's rate from minute 2 on is node rule_nodes[j]
     dag::DAG
     ode::ODEPart
@@ -265,43 +269,33 @@ struct Model
     ode_pos::Vector{Tuple{Int, Int, Int, Float64}}   # (slot, flux j, ODE species read r, S coef)
 end
 
-"""Each reaction's net changes with every hook counter replaced by its payment."""
-function pay_counters(names, rows)
+const KAPPA = 1.0                      # s⁻¹: the hook pays every 1 s
+
+"""The hook's payments: (counter, pool or 0 for no clamp, the changes per unit paid)."""
+function payments(names)
     idx = Dict(s => i for (i, s) in enumerate(names))
-    pay = Dict{Int, Vector{Tuple{Int, Float64}}}()
+    out = Tuple{Int, Int, Vector{Tuple{Int, Float64}}}[]
     for c in ATP_HYDRO_COUNTERS
         pool, made = occursin("translat", c) ? ("M_gtp_c", "M_gdp_c") : ("M_atp_c", "M_adp_c")
-        pay[idx[c]] = [(idx[pool], -1.0), (idx[made], 1.0), (idx["M_pi_c"], 1.0)]
+        push!(out, (idx[c], idx[pool], [(idx[c], -1.0), (idx[pool], -1.0), (idx[made], 1.0), (idx["M_pi_c"], 1.0)]))
     end
     for (c, m) in vcat(NTP_COUNTERS, DNTP_COUNTERS)
-        pay[idx[c]] = [(idx[m], -1.0), (idx["M_ppi_c"], 1.0)]
+        push!(out, (idx[c], idx[m], [(idx[c], -1.0), (idx[m], -1.0), (idx["M_ppi_c"], 1.0)]))
     end
     for (c, m) in NMP_COUNTERS
-        pay[idx[c]] = [(idx[m], 1.0)]
+        push!(out, (idx[c], 0, [(idx[c], -1.0), (idx[m], 1.0)]))
     end
     for (c, ch, un) in AATRNA_COUNTERS
-        pay[idx[c]] = [(idx[ch], -1.0), (idx[un], 1.0)]
+        push!(out, (idx[c], idx[ch], [(idx[c], -1.0), (idx[ch], -1.0), (idx[un], 1.0)]))
     end
-    out = Vector{Vector{Tuple{Int, Float64}}}()
-    raw = Vector{Vector{Tuple{Int, Float64}}}()
-    for r in rows
-        net = Dict{Int, Float64}()
-        rr = Tuple{Int, Float64}[]
-        for pr in split(r[5], ';')
-            s, d = split(pr, ':'); si = parse(Int, s); dv = parse(Float64, d)
-            push!(rr, (si, dv))
-            if haskey(pay, si)
-                for (t, f) in pay[si]
-                    net[t] = get(net, t, 0.0) + f * dv
-                end
-            else
-                net[si] = get(net, si, 0.0) + dv
-            end
-        end
-        push!(raw, rr)
-        push!(out, sort([(s, d) for (s, d) in net if d != 0]))
-    end
-    return out, raw
+    return out
+end
+
+"""The payment rate and its derivatives in the counter c and the pool p."""
+@inline function pay_rate(c, p, clamp::Bool)
+    clamp || return KAPPA * c, KAPPA * one(c), zero(c)
+    d = c + p + 1
+    return KAPPA * c * p / d, KAPPA * p * (p + 1) / (d * d), KAPPA * c * (c + 1) / (d * d)
 end
 
 function load_model()
@@ -323,18 +317,15 @@ function load_model()
         length(re) == lm_type[j] || error("reaction $j: $(length(re)) reactants for type $(lm_type[j])")
         ra[j] = re[1]; lm_type[j] == 2 && (rb[j] = re[2])
     end
-    paid, raw = pay_counters(names, rows)
     ptr = [1]; row = Int[]; coef = Float64[]
-    for j in 1:nr
-        for (s, d) in paid[j]
-            push!(row, s); push!(coef, d)
+    for r in rows
+        for pr in split(r[5], ';')
+            sp_, d = split(pr, ':')
+            push!(row, parse(Int, sp_)); push!(coef, parse(Float64, d))
         end
         push!(ptr, length(row) + 1)
     end
-    row_raw = Int[]; coef_raw = Float64[]
-    for j in 1:nr, (s, d) in raw[j]
-        push!(row_raw, s); push!(coef_raw, d)
-    end
+    pay = payments(names)
     rr = csvrows(joinpath(MODEL, "cme", "rate_rules.csv"))
     @assert all(parse(Int, r[1]) == j for (j, r) in enumerate(rr)) && length(rr) == nr
     rule_nodes = [parse(Int, r[2]) for r in rr]
@@ -353,6 +344,10 @@ function load_model()
     for j in 1:size(S, 2), q in nzrange(S, j), r in ode.reads[j]
         push!(I, ode.cme[rowvals(S)[q]]); push!(Jc, ode.cme[r])
     end
+    for (c, p, ch) in pay, (r, _) in ch
+        push!(I, r); push!(Jc, c)
+        p > 0 && (push!(I, r); push!(Jc, p))
+    end
     append!(I, 1:n); append!(Jc, 1:n)
     proto = sparse(I, Jc, zeros(length(I)), n, n)
     slotof(i, c) = (rg = nzrange(proto, c); rg[findfirst(==(i), view(rowvals(proto), rg))])
@@ -365,7 +360,8 @@ function load_model()
     for j in 1:size(S, 2), q in nzrange(S, j), r in ode.reads[j]
         push!(ode_pos, (slotof(ode.cme[rowvals(S)[q]], ode.cme[r]), j, r, nonzeros(S)[q]))
     end
-    return Model(n, names, x0, nr, lm_type, k_rate_col, ra, rb, ptr, row, coef, row_raw, coef_raw,
+    pay_pos = [[(slotof(r, c), p > 0 ? slotof(r, p) : 0) for (r, _) in ch] for (c, p, ch) in pay]
+    return Model(n, names, x0, nr, lm_type, k_rate_col, ra, rb, ptr, row, coef, pay, pay_pos,
                  rule_nodes, dag, ode, idx["CellSA"], idx["CellSA_Lip"], idx["CellSA_Prot"], idx["CellV"],
                  lipids, memprot, proto, pos_a, pos_b, ode_pos)
 end
@@ -462,6 +458,12 @@ function (f::SegRHS)(du, x, _, t)
             du[m.row[e]] += m.coef[e] * a
         end
     end
+    @inbounds for (c, p, ch) in m.pay
+        P, _, _ = pay_rate(x[c], p > 0 ? x[p] : zero(eltype(x)), p > 0)
+        for (r, d) in ch
+            du[r] += d * P
+        end
+    end
     o = m.ode
     y = [x[i] / mn.c for i in o.cme]
     Vf = similar(y, promote_type(eltype(y), eltype(mn.p), eltype(mn.kode)), size(o.S, 2))
@@ -491,6 +493,14 @@ function (jf::SegJac)(J, x, _, t)
             else
                 nz[m.pos_a[e]] += c
             end
+        end
+    end
+    @inbounds for (q, (c, p, ch)) in enumerate(m.pay)
+        _, dc, dp = pay_rate(x[c], p > 0 ? x[p] : zero(eltype(x)), p > 0)
+        for (e, (r, d)) in enumerate(ch)
+            sc, sp_ = m.pay_pos[q][e]
+            nz[sc] += d * dc
+            sp_ > 0 && (nz[sp_] += d * dp)
         end
     end
     # The ODE part: d(count_i)/dt = c·Σ_j S_ij V_j(x/c), so ∂/∂x_r = Σ_j S_ij ∂V_j/∂y_r.
