@@ -4,8 +4,9 @@
 #   dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir> [what]
 # what = all (default): precompile both environments; the SpeedyCell reference; then
 #        check (after the reference), time and library (after check, which writes the
-#        ranking), and threaded (after time).
-# what = reference | check | time | threaded | library: that stage alone, after its own
+#        ranking), threaded (after time), and clamp (SpeedyCell's dNTPs, then the mean
+#        field's under both payment forms, in one job).
+# what = reference | check | time | threaded | library | clamp: that stage alone, after its own
 #        precompile (check needs <outdir>/reference; the others reuse ranking.jls).
 # SMOKE=1 in the environment: a plumbing pass (300 s window, 2 repeats).
 # Julia 1.11.9 (LinearSolve 3.87.0 does not load on 1.10.5). The reference runs in
@@ -14,7 +15,7 @@
 set -euo pipefail
 outdir=$(realpath -m "$1")
 what=${2:-all}
-case $what in all|reference|check|time|threaded|library) ;; *) echo "unknown: $what" >&2; exit 1 ;; esac
+case $what in all|reference|check|time|threaded|library|clamp) ;; *) echo "unknown: $what" >&2; exit 1 ;; esac
 cd "$(dirname "$(realpath "$0")")/../../.."
 source dev/scripts/launcher_guard.sh
 smoke=${SMOKE:-0}
@@ -33,6 +34,8 @@ job() {   # $1 stage, $2 dependency list (afterok), $3 cpus
     local id cpus=${3:-1} wrap
     if [ "$1" = reference ]; then
         wrap="$jlref $env/reference_speedycell.jl $outdir"
+    elif [ "$1" = clamp ]; then
+        wrap="( $jlref $env/clamp_speedycell.jl $outdir ) && $jl $script clamp $outdir"
     elif [ "$cpus" -gt 1 ]; then
         wrap="$jl --threads=$cpus --gcthreads=$cpus,1 $script $1 $outdir"
     else
@@ -49,7 +52,8 @@ all)
     cid=$(job check "$rid")
     tid=$(job time "$cid")
     job library "$cid" >/dev/null
-    job threaded "$cid:$tid" $nthr >/dev/null ;;
+    job threaded "$cid:$tid" $nthr >/dev/null
+    job clamp >/dev/null ;;
 threaded) job threaded "" $nthr >/dev/null ;;
 *) job "$what" >/dev/null ;;
 esac

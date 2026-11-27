@@ -45,6 +45,9 @@
 #   threaded  the same, the passes on threads (needs ≥ 4 threads)
 #   library   B = 20, one dual pass of CHUNK partials over the whole window through
 #             LinearSolve 3.87's own dual path, against DualSparseKLU's, for GE and MET
+#   clamp     the dNTP pools and replication counters per minute at θ = 0, under
+#             κ·c·p/(p + 1) and κ·c·p/(c + p + 1), beside SpeedyCell's own
+#             (<out>/clamp/speedycell.csv, from clamp_speedycell.jl)
 # SMOKE=1: the window cut to 300 s and 2 repeats; a plumbing pass, never a result.
 
 using OrdinaryDiffEq
@@ -753,11 +756,75 @@ end
 # The model's flux function is made by @eval in load_model, so a function compiled
 # before it was made cannot call it directly (world age). main loads the model, then
 # runs the stage through invokelatest.
+# The `clamp` stage: the mean field's dNTP pools and replication counters per minute,
+# under this model's payment κ·c·p/(p + 1) and under the form it replaced,
+# κ·c·p/(c + p + 1), beside SpeedyCell's own (clamp_speedycell.jl, run first in the
+# same job). It decides which form the mean field uses (Decision log 2026-11-28).
+const CLAMP_DNTP = [("M_datp_c", "dATP_DNArep"), ("M_dttp_c", "dTTP_DNArep"), ("M_dctp_c", "dCTP_DNArep"),
+                    ("M_dgtp_c", "dGTP_DNArep")]
+
+function clamp_trajectory(m)
+    ids = [findfirst(==(s), m.names) for s in vcat(first.(CLAMP_DNTP), last.(CLAMP_DNTP))]
+    rows = Vector{Vector{Float64}}(); steps = Int[]
+    t = @elapsed simulate(m, Block(m), Float64[];
+                          onsegment = (sol, mn) -> (push!(rows, sol.u[end][ids]);
+                                                    push!(steps, sol.stats.naccept + sol.stats.nreject)))
+    return (rows = rows, steps = steps, seconds = t)
+end
+
+function stage_clamp(out)
+    env = environment()
+    say("clamp on $(env.host), job $(env.job)")
+    m = get_model()
+    new = clamp_trajectory(m)
+    say("κ·c·p/(p + 1): $(sum(new.steps)) steps in $(round(new.seconds; digits = 1)) s")
+    # The replaced form, for this comparison only: pay_rate is redefined in this process,
+    # which runs nothing else.
+    @eval pay_rate(c, p, clamp::Bool) = (clamp || return (KAPPA * c, KAPPA * one(c), zero(c));
+                                         d = c + p + 1;
+                                         (KAPPA * c * p / d, KAPPA * p * (p + 1) / (d * d), KAPPA * c * (c + 1) / (d * d)))
+    old = Base.invokelatest(clamp_trajectory, m)
+    say("κ·c·p/(c + p + 1): $(sum(old.steps)) steps in $(round(old.seconds; digits = 1)) s")
+    dir = joinpath(out, "clamp")
+    lines = readlines(joinpath(dir, "speedycell.csv"))
+    hdr = split(lines[1], ','); tab = [parse.(Float64, split(l, ',')) for l in lines[2:end]]
+    col(nm) = something(findfirst(==(nm), hdr))
+    nseed = length(unique(r[1] for r in tab))
+    sc_mean(k, nm) = sum(r[col(nm)] for r in tab if r[2] == k) / nseed
+    sc_minhook(k, nm) = minimum(r[col("min_hook_" * nm)] for r in tab if r[2] == k)
+    labels = vcat(first.(CLAMP_DNTP), last.(CLAMP_DNTP))
+    open(joinpath(dir, "meanfield.csv"), "w") do io
+        println(io, "form,minute,steps,", join(labels, ','))
+        for (lab, tr) in (("p/(p+1)", new), ("p/(c+p+1)", old)), k in eachindex(tr.rows)
+            println(io, lab, ',', k, ',', tr.steps[k], ',', join(tr.rows[k], ','))
+        end
+    end
+    kmax = min(length(new.rows), maximum(r[2] for r in tab))
+    show_k = unique(filter(k -> k <= kmax, [1, 5, 10, 20, 30, 40, 52]))
+    open(joinpath(dir, "..", "clamp.md"), "w") do io
+        header(io, "clamp", env)
+        println(io, "SpeedyCell: procid 1, $nseed seeds, the mean at each minute's end (clamp/speedycell.csv; ",
+                strip(read(joinpath(dir, "speedycell_meta.txt"), String)), ").")
+        println(io, "Mean field at θ = 0: steps over the window, κ·c·p/(p + 1) $(sum(new.steps)), ",
+                "κ·c·p/(c + p + 1) $(sum(old.steps)).
+")
+        println(io, "| minute | quantity | SpeedyCell mean | SpeedyCell min at a hook | κ·c·p/(p + 1) | κ·c·p/(c + p + 1) |")
+        println(io, "|---|---|---|---|---|---|")
+        for k in show_k, (q, nm) in enumerate(labels)
+            mh = q <= length(CLAMP_DNTP) ? string(Int(sc_minhook(k, nm))) : ""
+            println(io, @sprintf("| %d | %s | %.4g | %s | %.4g | %.4g |", k, nm, sc_mean(k, nm), mh,
+                                 new.rows[k][q], old.rows[k][q]))
+        end
+    end
+    serialize(joinpath(out, "clamp.jls"), (env = env, new = new, old = old))
+    say("wrote clamp.md")
+end
+
 const MODEL_REF = Ref{Any}(nothing)
 get_model() = (MODEL_REF[] === nothing && (MODEL_REF[] = load_model()); MODEL_REF[]::Model)
 
 function main()
-    length(ARGS) == 2 || error("usage: route_cost_meanfield.jl <check|time|threaded|library> <out>")
+    length(ARGS) == 2 || error("usage: route_cost_meanfield.jl <check|time|threaded|library|clamp> <out>")
     stage, out = ARGS[1], abspath(ARGS[2])
     mkpath(out)
     MODEL_REF[] = load_model()
@@ -768,7 +835,8 @@ function run_stage(stage, out)
     stage == "check" ? stage_check(out) :
     stage == "time" ? stage_time(out) :
     stage == "threaded" ? stage_time(out; threaded = true) :
-    stage == "library" ? stage_library(out) : error("unknown stage $stage")
+    stage == "library" ? stage_library(out) :
+    stage == "clamp" ? stage_clamp(out) : error("unknown stage $stage")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
