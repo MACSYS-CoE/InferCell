@@ -9,9 +9,12 @@
 #   - the 175 ODE fluxes (mM/s, from data/model/params/ode_reactions.csv, whose named
 #     kinetic constants are tokens K__i), turned into counts/s at the cell volume V;
 #   - the hook's cost counters, kept as states and paid into their pools at rate
-#     κ·c·p/(c + p + 1), κ = 1 s⁻¹ (the hook's cadence): a smooth min(counter, pool),
-#     which stops as the pool empties and carries the unpaid rest, as the hook does
-#     (Tom, 2026-11-27: instant payment with no clamp drove dATP to −2,887 at θ = 0);
+#     κ·c·p/(p + 1), κ = 1 s⁻¹ (the hook's cadence). The hook pays min(counter, pool)
+#     each second (writeback.jl): the whole counter while the pool lasts. This pays
+#     the full κ·c while p ≫ 1 count and stops as the pool empties, leaving the unpaid
+#     rest on the counter (Tom, 2026-11-27: instant payment with no clamp drove dATP
+#     to −2,887 at θ = 0; 2026-11-28: this form, not κ·c·p/(c + p + 1), which pays
+#     only about min/2 when counter and pool are comparable);
 #     the NMP counters, which the hook pays without a clamp, at κ·c;
 #   - at every minute boundary the CME rate constants (rate_rules.csv through
 #     nodes.csv), the enzyme concentrations p, the volume V and the surface areas are
@@ -294,8 +297,8 @@ end
 """The payment rate and its derivatives in the counter c and the pool p."""
 @inline function pay_rate(c, p, clamp::Bool)
     clamp || return KAPPA * c, KAPPA * one(c), zero(c)
-    d = c + p + 1
-    return KAPPA * c * p / d, KAPPA * p * (p + 1) / (d * d), KAPPA * c * (c + 1) / (d * d)
+    d = p + 1
+    return KAPPA * c * p / d, KAPPA * p / d, KAPPA * c / (d * d)
 end
 
 function load_model()

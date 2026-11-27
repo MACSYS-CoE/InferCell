@@ -404,7 +404,7 @@ function stage_check(out)
             addt!(nm[parse(Int, s)], parse(BigFloat, dd) * a)
         end
     end
-    # The hook's payments are κ·c·p/(c + p + 1) and κ·c: zero at x0, where every counter
+    # The hook's payments are κ·c·p/(p + 1) and κ·c: zero at x0, where every counter
     # is 0 (asserted). J·v below exercises them away from x0.
     counters = vcat(ATP_HYDRO_COUNTERS, first.(NTP_COUNTERS), first.(DNTP_COUNTERS), first.(NMP_COUNTERS),
                     first.(AATRNA_COUNTERS))
