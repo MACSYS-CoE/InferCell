@@ -330,3 +330,93 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
 - **R3 and R4.** Their per-gradient cost is R1's. The learned parts are cheap to evaluate
   beside the mean-field solve and the transcript factor. That is argued.
 - **R5.** It has no gradient: its cost is simulation and training (§3).
+
+## 5. The projection: CPU-h and wall-clock per posterior, and what stays in contention (item 6)
+
+**Gradients per posterior.** 36,194 gradients over 4 chains, or 9,048 a chain. That is
+KIM-185's figure, from KIM-92's measured chains, and it equals the frame's 4 × 9,000
+(frame §2.1). It is **argued**, since the full cell's conditioning is unknown.
+- CPU-h is gradients × seconds per gradient.
+- Wall-clock is one chain's 9,048 gradients in series. The 4 chains run in parallel.
+- The threaded R1 rows reserve 16 cores per chain, which the transcript factor's term
+  needs. So CPU-h there is 16 × the wall-clock.
+- One-off costs are not in the table. They are small beside the chains: the dataset is
+  200 cells × about 24 s, the reference ensemble 800 × 24 s (about 6 CPU-h with the
+  dataset), plus a MAP (§3's cell cost; KIM-92's prep).
+
+### 5.1 R1, the mean-field route (θ_H fixed)
+
+| placement | B | CPU-h, serial | wall per chain, serial (days) | CPU-h, threaded (16 cores a chain) | wall per chain, threaded (days) | source |
+|---|---|---|---|---|---|---|
+| GE | 10 | 2,648 | 27.6 | 15,728 | 10.2 | §4 × 36,194 |
+| GE | **20** | **5,310** | **55.3** | **21,544** | **14.0** | §4 |
+| GE | 40 | 10,567 | 110.1 | 33,179 | 21.6 | §4 |
+| MET | 10 | 2,750 | 28.6 | 17,346 | 11.3 | §4 |
+| MET | **20** | **5,501** | **57.3** | **23,565** | **15.3** | §4 |
+| MET | 40 | 10,800 | 112.5 | 35,763 | 23.3 | §4 |
+| BOTH | 10 | 2,684 | 28.0 | 16,300 | 10.6 | §4 |
+| BOTH | **20** | **5,220** | **54.4** | **22,976** | **15.0** | §4 |
+| BOTH | 40 | 10,466 | 109.0 | 35,060 | 22.8 | §4 |
+
+Every row multiplies a per-gradient total from §4 by the argued gradient count. The
+mean-field term in each total is measured (jobs 21785045 and 21785047). The transcript
+factor's term is measured at a neighbouring width (job 21665221) and threaded by argument.
+
+What this says:
+- **CPU-h is about 5,200–5,500 at B = 20, serial.** That is about half the 11,000 CPU-h
+  that the project description scaled from the reduced model.
+- **Wall-clock binds.**
+  - A serial chain takes about 55 days, and a threaded one about 14–15 days. Both are
+    over Milan's 7-day job limit, so the chains must checkpoint, as KIM-92's did.
+  - The threading buys about 4× in wall-clock at about 4× in CPU-h. The transcript
+    factor's 16 workers are idle while the mean field runs.
+- **The levers measured or argued here would bring it down:**
+  - looser tolerances: 2.8× on the mean-field term (job 21785045, one repeat);
+  - the transcript factor through its pool inputs (§4, argued);
+  - fewer serial gradients (KIM-194 item 3).
+
+  None of them has been combined or measured on a chain.
+
+### 5.2 R2, the data plug-in (θ_H fixed)
+
+| placement | B | CPU-h | wall per chain | source |
+|---|---|---|---|---|
+| GE | any | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
+| MET | 10 / 20 / 40 | 798 / 1,598 / 2,993 | 8.3 / 16.6 / 31.2 days serial | stage 2 alone: 36,194 × R1's MET mean-field gradient (job 21785045). An upper bound, argued. |
+| BOTH | 10 / 20 / 40 | 1,337 / 1,337 / 2,137 | stage 1, then stage 2 | KIM-185's 539, plus stage 2 at B/2 MET parameters (one pass up to 10) |
+
+Every case is under the plug-in's feasibility line of 5,000 CPU-h (gate 1). But R2 does not
+cross the boundary, it holds gene copy number fixed (row 5), and on the reduced model it
+failed KIM-116's "close" test (§1.2).
+
+### 5.3 R3, R4 and R5
+
+| route | CPU-h per posterior | wall-clock | θ_H | source |
+|---|---|---|---|---|
+| R3 (R1 + a surrogate for the non-closing part) | R1's (§5.1) + the surrogate's training (M17; not costed) | R1's | fixed | argued |
+| R4 (R1 + an emulated δ(θ), S(θ)) | R1's + 130–5,300 for the design; **≈ 0 extra** with M12's draws | R1's; the design runs in parallel beforehand | fixed: R1 + fresh design. Drawn: R1 + M12's draws, but then R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
+| R5 (neural SBI) | about 10,700 (PreCell's design on our window), or 530–2,700 (sequential), + 80–150 A100-h | hours to days: simulation parallelises | fixed or drawn, at the same cost | §3, argued |
+
+### 5.4 Which routes stay in contention for KIM-187
+
+This is a reading of the tables above. The choice is KIM-187's, and Tom's.
+
+| route | in contention? | why |
+|---|---|---|
+| **R1, mean field + NUTS** | **yes** | Its CPU-h is affordable: about 5,300 at B = 20. Its wall-clock binds at about 14–15 days a chain threaded, and the levers in §5.1 are what KIM-194 would work on. Its error is measured at every tier, with M13 testing what the full cell adds (§1.2). It is the only route that keeps the Claim as written with no learned component. |
+| R2, data plug-in | as a fallback only | It is the cheapest (539–2,993 CPU-h), but it changes the Claim and the contribution sentence. Its known bias (+0.65 SD on the reduced model) and its untested gene copy number count against it. |
+| **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. |
+| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design that M12's draws may supply. It targets the bulk factor's δ at θ_ref, the approximation behind the M0 gap (KIM-90). Its error is checkable on M0. |
+| R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
+
+**The M0 pilot (proposed, not filed).** R4 stays in contention, so the item calls for its M0
+pilot against the exact sampler as a separate issue. The proposal:
+- learn δ(θ) and S(θ) on M0 from a design of simulations;
+- rerun the mixed route with them;
+- compare the result with the exact sampler's posterior on M0's datasets, by the same
+  shift and SBC tests M0 used.
+
+KIM-90's postmean arm already tests δ's θ-dependence there. The cost is M0-sized:
+simulations at about M0's cost per cell, plus M0's 6.6 CPU-h per mixed-route posterior.
+**This is offered for Tom's approval before it is created** (`Future:` or M11/M13, his call).
+An SBI pilot is not proposed unless the non-goal is reopened.
