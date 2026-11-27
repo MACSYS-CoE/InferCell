@@ -279,3 +279,54 @@ What the table shows:
 - **None of these rows is a measurement.** The cost of 24 s per cell is the only measured
   input, and it is a published-path figure. KIM-183 notes that the `params=` path, which
   every θ draw uses, was not timed.
+
+## 4. The per-gradient total, case by case (item 4)
+
+The per-gradient total is the mean-field gradient of §2 plus the transcript factor's
+gradient. Which transcript figure applies depends on the route (frame §2.2). All rows use
+the pinned tolerances.
+
+**R1, the mean-field route.** The transcript factor reads its rates from the mean-field
+pools (spec D7), so every gene carries all B partials, wherever the block sits. Each
+factor pass carries 10 partials, so B partials take ⌈B/10⌉ passes.
+- **Serial.** The factor's term is KIM-185's full-width pass: 194.11 s at Dual width 12,
+  measured over all 455 genes (job 21665221). It is applied here to width 10, which is
+  **argued** and conservative.
+- **Threaded.** That pass on 16 workers is taken as 194.11 / 6.82 = 28.5 s, using the 6.82×
+  speed-up that KIM-185 measured for its per-gene pass at 16 workers (job 21665222). This
+  is **argued**: the full-width pass was never threaded.
+- The mean-field term is measured: job 21785045 serial and job 21785047 on 4 threads.
+
+| placement | B | mean field, serial (s) | transcript factor, serial (s) | **total, serial (s)** | mean field, 4 threads (s) | factor, 16 workers (s) | **total, threaded (s)** |
+|---|---|---|---|---|---|---|---|
+| GE | 10 | 69.3 | 1 × 194.1 = 194.1 | **263.4** | 69.3 (1 pass: serial) | 1 × 28.5 = 28.5 | **97.8** |
+| GE | 20 | 139.9 | 2 × 194.1 = 388.2 | **528.2** | 77.0 | 2 × 28.5 = 56.9 | **133.9** |
+| GE | 40 | 274.6 | 4 × 194.1 = 776.4 | **1,051.0** | 92.4 | 4 × 28.5 = 113.8 | **206.3** |
+| MET | 10 | 79.4 | 1 × 194.1 = 194.1 | **273.5** | 79.4 (1 pass: serial) | 1 × 28.5 = 28.5 | **107.8** |
+| MET | 20 | 158.9 | 2 × 194.1 = 388.2 | **547.1** | 89.6 | 2 × 28.5 = 56.9 | **146.5** |
+| MET | 40 | 297.7 | 4 × 194.1 = 776.4 | **1,074.2** | 108.5 | 4 × 28.5 = 113.8 | **222.3** |
+| BOTH | 10 | 72.9 | 1 × 194.1 = 194.1 | **267.0** | 72.9 (1 pass: serial) | 1 × 28.5 = 28.5 | **101.3** |
+| BOTH | 20 | 131.0 | 2 × 194.1 = 388.2 | **519.2** | 85.9 | 2 × 28.5 = 56.9 | **142.8** |
+| BOTH | 40 | 264.5 | 4 × 194.1 = 776.4 | **1,040.9** | 104.1 | 4 × 28.5 = 113.8 | **217.9** |
+
+**The transcript factor, not the ODE, dominates R1's gradient:** 388 of 528 s at GE B = 20,
+serial. That gives a lever, **argued and not measured**. The factor depends on θ only
+through a few pool trajectories: 4 NTPs at 52 windows, plus 29 own-protein counts. So its
+gradient could be taken with respect to those inputs once, and contracted with the mean
+field's partials. That would replace carrying B partials through all 455 genes. It
+belongs to KIM-194's levers if KIM-187 chooses R1.
+
+**R2, the data plug-in.**
+- **Stage 1.** The rates come from the observed pools, so each gene carries only its own 2
+  partials. That is KIM-185's per-gene pass: 53.61 s serial (job 21665221) and 7.28 s on
+  16 workers (job 21665222). It covers all 455 genes, so it does not depend on B. A GE
+  block is entirely stage 1.
+- **Stage 2.** This is the block-local bulk factor for metabolism. Its per-gradient term
+  is taken as R1's MET mean-field gradient, for example 158.9 s at B = 20 (job 21785045),
+  with **no** transcript factor. That is an upper bound: a solve with gene expression
+  frozen at stage-1 draws, or ODE-only, would be cheaper. It is not measured.
+
+**R3, R4 and R5.**
+- **R3 and R4.** Their per-gradient cost is R1's. The learned parts are cheap to evaluate
+  beside the mean-field solve and the transcript factor. That is argued.
+- **R5.** It has no gradient: its cost is simulation and training (§3).
