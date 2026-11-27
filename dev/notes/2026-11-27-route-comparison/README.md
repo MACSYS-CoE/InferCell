@@ -295,7 +295,7 @@ the budget divided by the cores used.
 | R5, a sequential (non-amortised) estimator for one dataset | 10⁴–5×10⁴ θ × 8 cells | 8×10⁴–4×10⁵ | ≈ 530–2,700 | hours on a few nodes | argued: sequential NPE/NLE on a 20-dimensional block typically needs 10⁴–10⁵ simulations, and whether 8 cells per θ suffice is untested |
 | R5, its M0 check | SBC against the exact sampler (M0's 50 datasets) | — | M0-sized, small | — | it would be the new pilot (§1.2) |
 | **R4, an emulator of δ(θ) and S(θ), B = 20** | 200–1,000 design points × 100–800 cells | 2×10⁴–8×10⁵ | **≈ 130–5,300** | hours to a day, in parallel | argued: 10–50 design points per parameter is the usual Gaussian-process rule; 800 cells is the reduced model's reference ensemble (KIM-92), and 100 is M12's per-draw count |
-| R4, with M12's draws reused | M12's 10³ draws × 100 cells (KIM-58) | 10⁵, already simulated | **≈ 0 extra**, if M12 saves the bulk panel at the 52 fit-window saves | — | applies to **θ_H drawn** only: M12 draws every parameter, so its draws are an emulator design over θ_H as well as the block. For θ_H fixed, M12's draws are off the design and do not help. |
+| R4, with M12's draws reused | M12's 10³ draws × 100 cells (KIM-58) | 10⁵, to be simulated by M12, **which has not run** | **≈ 0 beyond M12's own cost**, if M12 saves the bulk panel at the 52 fit-window saves | — | applies to **θ_H drawn** only: M12 draws every parameter, so its draws are an emulator design over θ_H as well as the block. For θ_H fixed, M12's draws are off the design and do not help. |
 | R4, then the posterior | R1's chains, with the emulated δ(θ) and S(θ) in the bulk factor | — | R1's cost (§5) | R1's | the emulator's own gradient is cheap beside the mean-field solve |
 
 What the table shows:
@@ -304,8 +304,9 @@ What the table shows:
   binding. It needs an M0 pilot before its error is known (§1.2), and it puts the paper
   on PreCell's ground (§1.3).
 - **R4 adds simulation to R1, and does not replace it.** It keeps R1's per-gradient cost
-  and adds the emulator's training. Reusing M12's draws makes that training nearly free
-  for θ_H drawn. For θ_H fixed, it is a fresh design of about 130–5,300 CPU-h.
+  and adds the emulator's training. Once M12 has run, reusing its draws would make that
+  training nearly free, but only for θ_H drawn. For θ_H fixed, the case R1's chains are
+  costed on, it is a fresh design of about 130–5,300 CPU-h.
 - **None of these rows is a measurement.** The cost of 24 s per cell is the only measured
   input, and it is a published-path figure. KIM-183 notes that the `params=` path, which
   every θ draw uses, was not timed.
@@ -431,7 +432,7 @@ failed KIM-116's "close" test (§1.2).
 | route | CPU-h per posterior | wall-clock | θ_H | source |
 |---|---|---|---|---|
 | R3 (R1 + a surrogate for the non-closing part) | R1's (§5.1) + the surrogate's training (M17; not costed) | R1's | fixed | argued |
-| R4 (R1 + an emulated δ(θ), S(θ)) | R1's + 130–5,300 for the design; **≈ 0 extra** with M12's draws | R1's; the design runs in parallel beforehand | fixed: R1 + fresh design. Drawn: R1 + M12's draws, but then R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
+| R4 (R1 + an emulated δ(θ), S(θ)) | θ_H fixed: R1's + 130–5,300 for a fresh design. θ_H drawn: R1's + M12's draws as the design, ≈ 0 beyond M12, once M12 has run (it has not) | R1's; the design runs in parallel beforehand | fixed, or drawn. Drawn, R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
 | R5 (neural SBI) | about 10,700 (PreCell's design on our window), or 530–2,700 (sequential), + 80–150 A100-h | hours to days: simulation parallelises | fixed or drawn, at the same cost | §3, argued |
 
 ### 5.4 Which routes stay in contention for KIM-187
@@ -443,7 +444,7 @@ This is a reading of the tables above. The choice is KIM-187's, and Tom's.
 | **R1, mean field + NUTS** | **yes** | Its CPU-h is affordable: about 5,300 at B = 20. Its wall-clock binds at about 14–15 days a chain threaded, and the levers in §5.1 are what KIM-194 would work on. Its error is measured at every tier, with M13 testing what the full cell adds (§1.2). It is the only route that keeps the Claim as written with no learned component. |
 | R2, data plug-in | as a fallback only | It is the cheapest (539–2,977 CPU-h), but it changes the Claim and the contribution sentence. Its known bias (+0.65 SD on the reduced model) and its untested gene copy number count against it. |
 | **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. |
-| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design that M12's draws may supply. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, and recomputing δ and S at the posterior mean closed about 0.17 of 0.42–0.56 SD. Its error is checkable on M0. |
+| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design: 130–5,300 CPU-h for θ_H fixed, or M12's draws for θ_H drawn once M12 has run. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, and recomputing δ and S at the posterior mean closed about 0.17 of 0.42–0.56 SD. Its error is checkable on M0. |
 | R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
 
 **The M0 pilot (proposed, not filed).** R4 stays in contention, so the item calls for its M0
