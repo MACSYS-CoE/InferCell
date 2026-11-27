@@ -1,13 +1,14 @@
-# KIM-178: what the truths with a large promoter offset share. Exploratory, not gated
-# (prereg §6 and Tom's call of 2026-11-28, after gate 2 was read). Reads the run directory
-# or its archive and changes nothing.
+# KIM-178: what the truths with a large promoter offset share. Post hoc and exploratory:
+# not in the prereg, written on Tom's call of 2026-11-28 after gate 2 was read. Reads the
+# run directory or its archive and changes nothing.
 #
 # Usage: julia --project dev/scripts/corea_replicates/corea_replicates_diagnose.jl <out>
 #
 # Per replicate: where the truth sits in the prior (in prior SDs), the errors of the
 # non-promoter coordinates, the size of δ and S, and from (−H)⁻¹ the correlation between
 # the promoters' mean and each other coordinate. Then the correlation across the ten of
-# each of these with the promoters' mean z. Ten points: a pointer for a hypothesis only.
+# each of these with the promoters' mean z, with a Fisher 95% interval, the rank correlation
+# and the correlation without the two worst replicates. Ten points: a pointer only.
 
 include(joinpath(@__DIR__, "..", "pilot_common.jl"))
 using Printf
@@ -33,7 +34,8 @@ function row(out, seed)
     vbar = w' * C * w                            # the promoters' mean, its posterior variance
     corr_with(k) = (w' * C[:, k]) / sqrt(vbar * C[k, k])
     others = ["log_krnadeg", "log_kcatF_R_ENO", "log_kcatF_R_FBA", "log_sigma_b"]
-    return (; seed, m = j.m, m_ref = j.m_ref, nneg = j.nneg,
+    j.ok || error("seed $seed's fit failed: the ten read here are not the gate's (prereg §3)")
+    return (; seed, m = j.m, m_ref = j.m_ref, nneg = j.nneg, zsd = std(j.z[pr]),
             tz_prom = mean(tz[pr]), tz_prom_sd = std(tz[pr]),
             tz = Dict(n => tz[idx(n)] for n in others),
             z = Dict(n => j.z[idx(n)] for n in others),
@@ -53,14 +55,14 @@ function main(out)
     println("## The truth in prior SDs, and the MAP's errors\n")
     println("| seed | mean z | promoters' truth (mean, SD) | ", join(["truth " * short[n] for n in others], " | "),
             " | ", join(["z " * short[n] for n in others], " | "),
-            " | promoter error (log) | krnadeg error (log) | mean Laplace SD | max abs δ | tr S | Δ log p̃ |")
-    println("|", repeat("---|", 5 + 2length(others) + 5))
+            " | promoter error (log) | SD of promoters' z | krnadeg error (log) | mean Laplace SD | max abs δ | tr S | Δ log p̃ |")
+    println("|", repeat("---|", 3 + 2length(others) + 7))
     for r in rows
-        @printf("| %d | %+.3f | %+.2f, %.2f | %s | %s | %+.4f | %+.4f | %.4f | %.3g | %.3g | %.2f |\n",
+        @printf("| %d | %+.3f | %+.2f, %.2f | %s | %s | %+.4f | %.2f | %+.4f | %.4f | %.3g | %.3g | %.2f |\n",
                 r.seed, r.m, r.tz_prom, r.tz_prom_sd,
                 join([@sprintf("%+.2f", r.tz[n]) for n in others], " | "),
                 join([@sprintf("%+.2f", r.z[n]) for n in others], " | "),
-                r.err_prom, r.err_krnadeg, r.sd_prom, r.maxdelta, r.trS, r.lp_gain)
+                r.err_prom, r.zsd, r.err_krnadeg, r.sd_prom, r.maxdelta, r.trS, r.lp_gain)
     end
     println("\n## Posterior correlation of the promoters' mean with each coordinate, from (−H)⁻¹\n")
     println("| seed | ", join([short[n] for n in others], " | "), " |")
@@ -77,9 +79,20 @@ function main(out)
                   ("Δ log p̃ (MAP − θ_ref)", [r.lp_gain for r in rows]),
                   ("mean z at θ_ref", [r.m_ref for r in rows])])
     println("\n## Correlation across the ten with the promoters' mean z (exploratory, n = 10)\n")
-    println("| feature | r |\n|---|---|")
+    worst = sortperm(m)[1:2]                     # the two most negative replicates
+    keep = setdiff(eachindex(m), worst)
+    rank(v) = invperm(sortperm(v))
+    function fisher(r, n)                        # 95% interval, by Fisher's z
+        z, h = atanh(r), 1.96 / sqrt(n - 3)
+        return tanh(z - h), tanh(z + h)
+    end
+    println("| feature | r | 95% interval | rank r | r without ", join(SEEDS[worst], " and "), " |")
+    println("|---|---|---|---|---|")
     for (name, v) in feats
-        @printf("| %s | %+.2f |\n", name, cor(v, m))
+        r = cor(v, m)
+        lo, hi = fisher(r, length(m))
+        @printf("| %s | %+.2f | %+.2f to %+.2f | %+.2f | %+.2f |\n", name, r, lo, hi,
+                cor(rank(v), rank(m)), cor(v[keep], m[keep]))
     end
 end
 
