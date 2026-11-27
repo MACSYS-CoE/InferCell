@@ -23,6 +23,7 @@ function row(out, seed)
     dir = joinpath(out, "seed_$seed")
     ds = load(dir, "dataset"); p = load(dir, "prep"); l = load(dir, "laplace")
     j = deserialize(joinpath(dir, "fit.jls")).result
+    j.ok || error("seed $seed's fit failed: the ten read here are not the gate's (prereg §3)")
     s = pilot_setup(ds)
     med, sd = mixed_prior_median(s), mixed_prior_sd(s)
     names = string.(j.names)
@@ -34,7 +35,6 @@ function row(out, seed)
     vbar = w' * C * w                            # the promoters' mean, its posterior variance
     corr_with(k) = (w' * C[:, k]) / sqrt(vbar * C[k, k])
     others = ["log_krnadeg", "log_kcatF_R_ENO", "log_kcatF_R_FBA", "log_sigma_b"]
-    j.ok || error("seed $seed's fit failed: the ten read here are not the gate's (prereg §3)")
     return (; seed, m = j.m, m_ref = j.m_ref, nneg = j.nneg, zsd = std(j.z[pr]),
             tz_prom = mean(tz[pr]), tz_prom_sd = std(tz[pr]),
             tz = Dict(n => tz[idx(n)] for n in others),

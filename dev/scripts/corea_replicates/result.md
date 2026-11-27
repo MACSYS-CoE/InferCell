@@ -12,7 +12,8 @@ To regenerate the numbers from the archive:
     julia --project dev/scripts/corea_replicates/corea_replicates_diagnose.jl <archive>  # §4
 
 The per-coordinate z for all 21 coordinates of each replicate is in the archive's
-`seed_<seed>/fit.md`, and KIM-92's is in `kim92/kim92.md` (prereg §6). The times below are
+`seed_<seed>/fit.md`, and KIM-92's is in `kim92/kim92.md` (prereg §6). That file's "at θ_ref by its Laplace SD"
+(−0.856) divides by the fitted MAP's SD. On θ_ref's own SD the figure is −0.855 (§1). The times below are
 Slurm's (`sacct`), and the per-stage seconds are printed by the reads script.
 
 | job | what | time |
@@ -97,7 +98,9 @@ script prints a Fisher 95% interval, the rank correlation and r without those tw
 - **The offset is mostly a shift shared by the promoters.** On the four bad replicates it is
   −0.046 to −0.086 in log units, so the promoters are 4.5 to 8.2% low. Their Laplace SD is
   about 0.03, so a small absolute bias is many SDs. Within a replicate, the promoters' z
-  have an SD of 0.78 to 1.84, against a mean of −1.5 to −2.9.
+  have an SD of 0.78 to 1.84, against a mean of −1.5 to −2.9. On 002, 005 and 011 that SD
+  (1.50 to 1.84) is also above the 0.95 to 1.44 of the near-zero replicates, so the scatter
+  grows as well as the shift.
 - **It is associated with the size of δ.** δ is the reference offset of the stochastic
   ensemble from the mean field at θ_ref. For max |δ|, r = −0.84 (95% interval −0.96 to
   −0.46; rank r −0.68). It stays at −0.78 without 005 and 011. The two worst replicates have
@@ -111,8 +114,9 @@ script prints a Fisher 95% interval, the rank correlation and r without those tw
   to −0.16). It is +4.45 on 002 and +2.85 on 011. z for σ_b has r = +0.53, with an interval
   that crosses zero. So the miscalibration is not confined to the promoters.
 - **Weak or absent associations.**
-  - The promoters' own truth: r = −0.61, with an interval that crosses zero, and all ten
-    means lie within ±0.41 prior SD of the median.
+  - The promoters' own truth: r = −0.61 (−0.73 without 005 and 011), with an interval
+    that crosses zero. All ten means lie within ±0.41 prior SD of the median, so any
+    effect is over a narrow range.
   - The MAP's gain in log density: r = +0.05.
   - σ_b's truth: r = −0.22.
 - **The promoters–krnadeg trade-off is modest.** The posterior correlation of the promoters'
@@ -137,7 +141,8 @@ script prints a Fisher 95% interval, the rank correlation and r without those tw
   (`bulk_loglik`, `src/mixed_likelihood.jl`). The transcript factor builds its rates from
   route (ii)'s mean-field states and never reads them.
 - **Where the offset lives.** The offset is already present at θ_ref, where δ = S = 0, and
-  KIM-116 placed it in the transcript factor. So δ and S do not cause it.
+  KIM-116 placed it in the transcript factor, on KIM-92's dataset only; the ten have not
+  had that cut. So δ and S do not cause it.
 - **What a large δ likely signals.** It marks a truth where the mean field sits far from the
   stochastic mean, as it does with slow mRNA turnover. The transcript factor's mean-field
   rates are uncorrected there, and the error would surface as a shared shift in the promoter
