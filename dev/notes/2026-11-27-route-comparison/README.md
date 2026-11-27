@@ -119,7 +119,7 @@ The smokes, which are plumbing and not results:
 | 3 | 21770013–18 | c454ad9 | dATP negative: no clamp on the counters |
 | 4 | 21780916–21 | 70326e7 | clean |
 
-Jobs 21718943–45 and 21724628–30 waited on failed dependencies and never ran.
+Jobs 21718943–45, 21724628–30 and 21770018 waited on failed dependencies and never ran.
 
 ### 2.1 The system
 
@@ -147,27 +147,36 @@ against KIM-184's 21,095.
 - **The second-order closure.** The product of means is not exact. M13 measures that
   error.
 
-**Two changes from the plan, both Tom's calls on 2026-11-27.**
+**Two changes from the plan, both Tom's calls on 2026-11-27, Decision log 2026-11-27.**
 1. **The counters are paid through a smooth clamp.** In the plan they were paid at once
    with no clamp. That drove dATP to −2,887 over the window even at θ = 0, and broke the
    MET B = 20 solve in smoke 3 (job 21770016).
 2. **The finite-difference gradient check is judged against the block's scale**, as
    |dual − FD| ≤ 1e-6 · max|g|. The rule was set after smoke 2's check (job 21724627)
-   failed on one small component, so it is **post-hoc**. That component's central
-   differences scatter as h shrinks: they are −1.32450, −1.32458, −1.32457, −1.32412 and
-   −1.32503 for h = 1e-3 to 1e-5 (login node), against a dual of −1.32450.
+   failed on one small component, so it is **post-hoc** (Decision log 2026-11-27). That
+   component's central differences scatter as h shrinks: they are −1.32450, −1.32458,
+   −1.32457, −1.32412 and −1.32503 for h = 1e-3 to 1e-5 (login node), against a dual of
+   −1.32450. The run of record shows the same thing (job 21785044). For BOTH θ₁ (dual
+   0.1107), 2h·|dual − FD| is 1.53e-8 at h = 1e-4 and 1.25e-8 at h = 1e-3: about equal,
+   which is the mark of a constant noise of about 1.4e-8 in the objective, not of a wrong
+   derivative.
 
 **Why it is not KIM-184's 1.3 s.** The primal takes 6,415 steps over the window, against
 KIM-184's 174 (job 21785045).
 - A dual pass takes 5,155–6,460 steps. KIM-184's took 144.
 - The cost per step is about 13 ms for a dual pass, against KIM-184's 4.4 ms. The
   Jacobian is now state-dependent, and the fluxes' part is computed by AD.
-- The steps are spent on two things (smoke and login-node diagnosis, not runs of record):
-  - **the transient after each minute's rebuild.** In the first minute, 365 of 843
-    steps fall in its first second;
-  - **the pinned absolute tolerance of 1e-10 on counts.** The states that bind it
-    include fractional mean-field states of the DnaA cascade (`ssDNABoundSite_*`, about
-    0.01 counts) and metabolite pools that move by about 10% a second.
+- **Where the steps go is not measured on the runs of record.** A login-node diagnosis,
+  on the model before the counter clamp and in minute 1 only (which starts from x₀, not
+  after a rebuild), suggests two causes:
+  - **a start-up transient.** 365 of minute 1's 843 steps fell in its first second;
+  - **the pinned absolute tolerance of 1e-10 on counts.** The binding states included
+    fractional mean-field states of the DnaA cascade (`ssDNABoundSite_*`, about 0.01
+    counts) and metabolite pools moving by about 10% a second.
+
+  The runs of record give about 100 steps for each later minute, on average (6,415 over
+  53 segments, less minute 1's). Whether those later minutes carry a rebuild transient
+  too is unmeasured.
 - **At looser tolerances** (1e-6 absolute and 1e-6 relative), a GE B = 20 gradient takes
   49.2 s against 139.9 s, about 2.8× less (job 21785045, one repeat). That is a lever for
   KIM-194, not a result: what the inference needs is not measured here.
@@ -223,7 +232,7 @@ The primal solve (θ = 0) takes a median 10.5 s over 6,415 steps.
 
 One pass of 10 partials over the whole window, at B = 20:
 
-| placement | LinearSolve 3.87 (`KLUFactorization`, its ForwardDiff extension) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
+| placement | LinearSolve 3.87 (`Rodas5P(linsolve = KLUFactorization())`, LinearSolve's own dual handling; its cache type was not logged) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
 |---|---|---|---|---|---|
 | GE | 83.3 s | 69.1 s | 1.20× | 5,325 | 1.4e-8 |
 | MET | 103.6 s | 83.4 s | 1.24× | 6,348 | 1.2e-12 |
@@ -236,6 +245,11 @@ which it also lists as a hard dependency, and 1.10's loader fails with KeyError
 "SparseArrays". This item therefore ran on Julia 1.11.9, which is also the version
 SpeedyCell needs. Moving InferCell to Julia 1.11 is then the price of the stock path. It
 is a decision for KIM-187 or KIM-194, not taken here.
+
+**The stack.** Every number in §2 is on Julia 1.11.9 with LinearSolve 3.87.0, not on
+InferCell's Julia 1.10.5 with LinearSolve 3.73.0. DualSparseKLU's figures there are not
+measured. KIM-184's suggest they would be close, since its algebra does not depend on the
+version, but that is argued.
 
 ### 2.6 Threaded (job 21785047)
 
@@ -303,7 +317,12 @@ gradient. Which transcript figure applies depends on the route (frame §2.2). Al
 the pinned tolerances.
 
 **R1, the mean-field route.** The transcript factor reads its rates from the mean-field
-pools (spec D7), so every gene carries all B partials, wherever the block sits. Each
+pools (spec D7). In the code, `route_transcription_rates` (`src/mixed_likelihood.jl`)
+rebuilds every gene's rates from the route solution's states at the 53 switches. Under
+θ-duals, every gene therefore carries all B partials, wherever the block sits. KIM-185's
+naive pass puts width-12 duals through the whole factor, so it has the same cost
+structure. This departs from the issue's wording, "the transcript factor's per-gene
+gradient": per gene applies to R2, not to R1. Each
 factor pass carries 10 partials, so B partials take ⌈B/10⌉ passes.
 - **Serial.** The factor's term is KIM-185's full-width pass: 194.11 s at Dual width 12,
   measured over all 455 genes (job 21665221). It is applied here to width 10, which is
@@ -349,13 +368,15 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
 
 ## 5. The projection: CPU-h and wall-clock per posterior, and what stays in contention (item 6)
 
-**Gradients per posterior.** 36,194 gradients over 4 chains, or 9,048 a chain. That is
-KIM-185's figure, from KIM-92's measured chains, and it equals the frame's 4 × 9,000
-(frame §2.1). It is **argued**, since the full cell's conditioning is unknown.
+**Gradients per posterior.** 36,000 over 4 chains, or 9,000 a chain: the frame's figure
+(frame §2.1), scaled from KIM-92's measured chains and fixed before any timing. KIM-185's
+36,194 (35,282 leapfrog steps of KIM-116's stage-1 chains, plus 912 metric gradients at
+456 coordinates) agrees to 0.5%. R2's stage 1 keeps KIM-185's own count. The figure is
+**argued**: the full cell's conditioning is unknown.
 - CPU-h is gradients × seconds per gradient.
 - Wall-clock is one chain's 9,048 gradients in series. The 4 chains run in parallel.
 - The threaded R1 rows reserve 16 cores per chain, which the transcript factor's term
-  needs. So CPU-h there is 16 × the wall-clock.
+  needs. So CPU-h there is 16 × the wall-clock, summed over the 4 chains.
 - One-off costs are not in the table. They are small beside the chains: the dataset is
   200 cells × about 24 s, the reference ensemble 800 × 24 s (about 6 CPU-h with the
   dataset), plus a MAP (§3's cell cost; KIM-92's prep).
@@ -364,15 +385,15 @@ KIM-185's figure, from KIM-92's measured chains, and it equals the frame's 4 × 
 
 | placement | B | CPU-h, serial | wall per chain, serial (days) | CPU-h, threaded (16 cores a chain) | wall per chain, threaded (days) | source |
 |---|---|---|---|---|---|---|
-| GE | 10 | 2,648 | 27.6 | 15,728 | 10.2 | §4 × 36,194 |
-| GE | **20** | **5,310** | **55.3** | **21,544** | **14.0** | §4 |
-| GE | 40 | 10,567 | 110.1 | 33,179 | 21.6 | §4 |
-| MET | 10 | 2,750 | 28.6 | 17,346 | 11.3 | §4 |
-| MET | **20** | **5,501** | **57.3** | **23,565** | **15.3** | §4 |
-| MET | 40 | 10,800 | 112.5 | 35,763 | 23.3 | §4 |
-| BOTH | 10 | 2,684 | 28.0 | 16,300 | 10.6 | §4 |
-| BOTH | **20** | **5,220** | **54.4** | **22,976** | **15.0** | §4 |
-| BOTH | 40 | 10,466 | 109.0 | 35,060 | 22.8 | §4 |
+| GE | 10 | 2,634 | 27.4 | 15,644 | 10.2 | §4 × 36,000 |
+| GE | **20** | **5,282** | **55.0** | **21,428** | **14.0** | §4 × 36,000 |
+| GE | 40 | 10,510 | 109.5 | 33,002 | 21.5 | §4 × 36,000 |
+| MET | 10 | 2,735 | 28.5 | 17,253 | 11.2 | §4 × 36,000 |
+| MET | **20** | **5,471** | **57.0** | **23,439** | **15.3** | §4 × 36,000 |
+| MET | 40 | 10,742 | 111.9 | 35,571 | 23.2 | §4 × 36,000 |
+| BOTH | 10 | 2,670 | 27.8 | 16,213 | 10.6 | §4 × 36,000 |
+| BOTH | **20** | **5,192** | **54.1** | **22,852** | **14.9** | §4 × 36,000 |
+| BOTH | 40 | 10,409 | 108.4 | 34,872 | 22.7 | §4 × 36,000 |
 
 Every row multiplies a per-gradient total from §4 by the argued gradient count. The
 mean-field term in each total is measured (jobs 21785045 and 21785047). The transcript
@@ -398,8 +419,8 @@ What this says:
 | placement | B | CPU-h | wall per chain | source |
 |---|---|---|---|---|
 | GE | any | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
-| MET | 10 / 20 / 40 | 798 / 1,598 / 2,993 | 8.3 / 16.6 / 31.2 days serial | stage 2 alone: 36,194 × R1's MET mean-field gradient (job 21785045). An upper bound, argued. |
-| BOTH | 10 / 20 / 40 | 1,337 / 1,337 / 2,137 | stage 1, then stage 2 | KIM-185's 539, plus stage 2 at B/2 MET parameters (one pass up to 10) |
+| MET | 10 / 20 / 40 | 794 / 1,589 / 2,977 | 8.3 / 16.6 / 31.0 days serial | stage 2 alone: 36,000 × R1's MET mean-field gradient (job 21785045). An upper bound, argued. |
+| BOTH | 10 / 20 / 40 | 1,333 / 1,333 / 2,128 | stage 1, then stage 2 | KIM-185's 539, plus stage 2 at B/2 MET parameters (one pass up to 10) |
 
 Every case is under the plug-in's feasibility line of 5,000 CPU-h (gate 1). But R2 does not
 cross the boundary, it holds gene copy number fixed (row 5), and on the reduced model it
@@ -420,7 +441,7 @@ This is a reading of the tables above. The choice is KIM-187's, and Tom's.
 | route | in contention? | why |
 |---|---|---|
 | **R1, mean field + NUTS** | **yes** | Its CPU-h is affordable: about 5,300 at B = 20. Its wall-clock binds at about 14–15 days a chain threaded, and the levers in §5.1 are what KIM-194 would work on. Its error is measured at every tier, with M13 testing what the full cell adds (§1.2). It is the only route that keeps the Claim as written with no learned component. |
-| R2, data plug-in | as a fallback only | It is the cheapest (539–2,993 CPU-h), but it changes the Claim and the contribution sentence. Its known bias (+0.65 SD on the reduced model) and its untested gene copy number count against it. |
+| R2, data plug-in | as a fallback only | It is the cheapest (539–2,977 CPU-h), but it changes the Claim and the contribution sentence. Its known bias (+0.65 SD on the reduced model) and its untested gene copy number count against it. |
 | **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. |
 | **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design that M12's draws may supply. It targets the bulk factor's δ at θ_ref, the approximation behind the M0 gap (KIM-90). Its error is checkable on M0. |
 | R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
@@ -436,3 +457,16 @@ KIM-90's postmean arm already tests δ's θ-dependence there. The cost is M0-siz
 simulations at about M0's cost per cell, plus M0's 6.6 CPU-h per mixed-route posterior.
 **This is offered for Tom's approval before it is created** (`Future:` or M11/M13, his call).
 An SBI pilot is not proposed unless the non-goal is reopened.
+
+## Reproduce
+
+```bash
+# from a detached worktree at a pushed commit (the launcher refuses a dirty tree)
+dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir>          # precompile, reference, check, time, library, threaded
+SMOKE=1 dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir>  # plumbing pass: a 300 s window, 2 repeats
+dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir> time     # one stage (check writes ranking.jls first)
+```
+
+Julia 1.11.9 is at `/fred/oz022/tkimpson/julia-1.11.9`. The reference stage runs in
+KIM-183's environment and depot, where SpeedyCell is developed by path. Its inputs are the
+syn3a-ensemble repo at 2075809cbb825140cb31a7bec8bc3529770c8e13, read only.
