@@ -355,8 +355,12 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
 **R2, the data plug-in.**
 - **Stage 1.** The rates come from the observed pools, so each gene carries only its own 2
   partials. That is KIM-185's per-gene pass: 53.61 s serial (job 21665221) and 7.28 s on
-  16 workers (job 21665222). It covers all 455 genes, so it does not depend on B. A GE
-  block is entirely stage 1.
+  16 workers (job 21665222). It covers all 455 genes, so it does not depend on B. **It
+  prices KIM-185's block, the promoters and mRNA decay (456 coordinates), not the frame's
+  GE block.** The frame's GE block is tRNA charging and its cost payments (§2.3), which
+  are not stage-1 parameters of the plug-in: row 3 of §1.1 reads charging from the panel
+  or fixes it at θ_ref. Inferring them would need a block-local factor for charging, as
+  stage 2 is for metabolism. That is not costed here.
 - **Stage 2.** This is the block-local bulk factor for metabolism. Its per-gradient term
   is taken as R1's MET mean-field gradient, for example 158.9 s at B = 20 (job 21785045),
   with **no** transcript factor. That is an upper bound: a solve with gene expression
@@ -419,11 +423,13 @@ What this says:
 
 | placement | B | CPU-h | wall per chain | source |
 |---|---|---|---|---|
-| GE | any | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
+| GE (the frame's: tRNA charging) | 10 / 20 / 40 | not costed | — | not a stage-1 parameter (§4) |
+| promoters and mRNA decay (KIM-185's block, not the frame's) | 456 | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
 | MET | 10 / 20 / 40 | 794 / 1,589 / 2,977 | 8.3 / 16.6 / 31.0 days serial | stage 2 alone: 36,000 × R1's MET mean-field gradient (job 21785045). An upper bound, argued. |
-| BOTH | 10 / 20 / 40 | 1,333 / 1,333 / 2,128 | stage 1, then stage 2 | KIM-185's 539, plus stage 2 at B/2 MET parameters (one pass up to 10) |
+| BOTH | 10 / 20 / 40 | 1,333 / 1,333 / 2,128 | stage 1, then stage 2 | KIM-185's 539 for the promoters in place of the frame's GE half, plus stage 2 at B/2 MET parameters (one pass up to 10) |
 
-Every case is under the plug-in's feasibility line of 5,000 CPU-h (gate 1). But R2 does not
+Every costed case is under the plug-in's feasibility line of 5,000 CPU-h (gate 1). The
+frame's own GE case is not costed. But R2 does not
 cross the boundary, it holds gene copy number fixed (row 5), and on the reduced model it
 failed KIM-116's "close" test (§1.2).
 
