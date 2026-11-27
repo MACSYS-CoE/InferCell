@@ -53,8 +53,12 @@ What the routes approximate beyond the inventory:
 - **R1 and R3.** The bulk factor's δ and S are fixed at θ_ref (spec, "Assumptions").
   One draw of paths per θ.
 - **R2.** It ignores that metabolism feeds back on the pools between saves. The stage-1
-  rates use only the observed pools. On the reduced model this shifted promoter 0607 by
-  +0.65 joint SD and failed KIM-116's "close" test.
+  rates use only the observed pools, with the panel's noise treated as the true state.
+  On the reduced model (KIM-116) this shifted the promoters up from the joint: by +0.20
+  joint SD on average (16 of 17 up), and by +0.65 on promoter 0607, which failed the
+  "close" test. Against the truth the plug-in's promoters sit at −0.61 SD (14 of 17
+  negative), the joint's offset with that upward shift laid over it, not a correction of
+  it. Its D3 predictions of Q have about twice the joint's CRPS (median about 1% high).
 - **R4.** The emulator's error in δ(θ) and S(θ). That error grows with distance from
   the training design.
 - **R5.** The amortisation error of the network, and the summary statistics it is given.
@@ -65,8 +69,8 @@ What the routes approximate beyond the inventory:
 
 | route | M0 (exact sampler, SBC) | reduced model (joint posterior) | M13 (exact check with copy number and second-order reactions) |
 |---|---|---|---|
-| R1 | yes. Done: passes SBC, about 80× cheaper. | yes. Done: it is the joint (KIM-92). | **yes, its main test**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
-| R2 | yes, but M0 has no pool feedback to cut | **yes. Done: fails "close" (+0.65 SD, KIM-116)** | row 5 untested: it holds copy number fixed by construction |
+| R1 | yes. Done: passes SBC, about 80× cheaper; but on m0_v6 it sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). | yes, against the truth (there is no exact posterior): the joint's promoters sit −0.81 SD below the truth on KIM-92's dataset (14 of 17), an offset KIM-116 locates in the transcript factor. Over ten replicate truths the mean is −0.985 SD, with four replicates 6–11 SE below zero: gate 2 passes as frozen, but the route is not calibrated across truths (KIM-178, PR #210 open; Decision log 2026-11-28). | **yes, its main test, not yet run**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
+| R2 | yes, but M0 has no pool feedback to cut | **yes. Done (KIM-116):** fails "close" against the joint (+0.65 SD on one promoter, +0.20 on average); against the truth −0.61 SD, beside the joint's −0.81 (KIM-92); Q's CRPS about 2× the joint's | row 5 untested: it holds copy number fixed by construction |
 | R3 | no: nothing on M0 needs a surrogate | partly: the surrogate's error on the reduced model's means | yes. The surrogate is trained where M13 is exact and is scored there. M17 is its own check. |
 | R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed about 0.17 SD of the 0.42–0.56 SD M0 gap. KIM-90 names no cause, and its open lead (the transcripts counted twice) is outside what R4 changes. | yes: against the joint | yes |
 | R5 | **yes, and needed**: SBC and the exact sampler on M0. This would be a new pilot, proposed in item 6 if R5 stays in. | yes: against the joint | yes |
