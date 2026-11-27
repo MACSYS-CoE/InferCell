@@ -141,8 +141,8 @@ counts (`model.jl`'s header has the detail). It has:
   `nodes.csv` DAG. In a run, `round` is the identity (CellV only).
 
 The Jacobian is analytic for the CME and payment terms. For the fluxes it is a
-ForwardDiff Jacobian, nested under the outer duals. It has 28,930 stored non-zeros,
-against KIM-184's 21,095.
+ForwardDiff Jacobian, nested under the outer duals. It has 24,549 stored non-zeros
+(check stage), against KIM-184's 21,095.
 
 **Declared simplifications.** These are cost choices, not fidelity claims.
 - **The 1 s cadence.** SpeedyCell rebuilds the enzyme levels, the volume and the ODE
