@@ -105,6 +105,22 @@ into `results/`. All jobs ran on Milan nodes (AMD EPYC 7543), Julia 1.11.9, Line
 | library | 21785046 | LinearSolve 3.87's own dual path against DualSparseKLU, over the whole window |
 | threaded | 21785047 | 4 threads, B = 20 and 40 |
 
+**Compute used:** 5.6 CPU-h for the runs of record, and 11.5 CPU-h over every job,
+smokes 1–4 included (sacct CPUTimeRAW). The outdir holds:
+- `sacct.tsv`: every job;
+- `SHA256SUMS`: 83 files. The sum file's own sha256 begins `3a3f3313336e4b9a`.
+
+The smokes, which are plumbing and not results:
+
+| smoke | jobs | commit | what it found |
+|---|---|---|---|
+| 1 | 21718940–45 | 272a6f7 | world age at the first flux call |
+| 2 | 21724625–30 | c60e6be | the finite-difference check on one small component |
+| 3 | 21770013–18 | c454ad9 | dATP negative: no clamp on the counters |
+| 4 | 21780916–21 | 70326e7 | clean |
+
+Jobs 21718943–45 and 21724628–30 waited on failed dependencies and never ran.
+
 ### 2.1 The system
 
 The system is the whole syn3A CME and ODE, as one deterministic ODE on all 2,661 CME
