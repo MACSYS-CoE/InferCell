@@ -57,10 +57,11 @@ As a control, a run with `PGI.kcatF` × 2 must give a different digest. That sho
 - Procid 1's published run was repeated for the control and gave the same digest.
 - The full record is in `results/check.csv` and `results/meta.txt`.
 
-**What this adds to lane 10a's checks.** syn3a-ensemble's C-D1 found the parameterised path byte-identical over 20 minutes on 100 cells, at 688b470. This run checks three further things:
-- the current commit, which includes the early stop (562396e);
-- KIM-180's 181-minute window, on cells that complete and cells that collapse;
-- the vector entry point.
+**What this adds to lane 10a's checks.** syn3a-ensemble's C-D1 found the parameterised path byte-identical over 20 minutes on 100 cells, at 688b470. That commit already has the early stop (562396e). This run checks four further things:
+- KIM-180's 181-minute window with `ode_failure=:record`;
+- cells that collapse as well as cells that complete;
+- the vector entry point;
+- the current src, 72fedc8, whose only code change since 688b470 is dd2a595 (the healthy-hooks threshold is no longer exported).
 
 This run does not cover multipliers other than 1. Lane 10a's C-D2 and C-D3 check those: every one of the 838 constants acts, at 0.5 and 2, to 1.8e-14 against the reference's own builders.
 
