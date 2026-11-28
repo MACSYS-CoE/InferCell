@@ -244,7 +244,7 @@ each component against the largest |g| of its own kind (not part of the pass rul
   1.4e-6 of the component, just over 1e-6.
 
 **Not a check, an observation.** The rate rules at x₀ differ from `reactions.csv`'s
-`rate` column in 1,435 of 2,365 reactions, by up to 9×. That column is the first minute's
+`rate` column in 1,435 of 2,365 reactions, by up to 10×. That column is the first minute's
 rates from `MinCell_CMEODE.py`. SpeedyCell does not use it, and neither does this model:
 both rebuild from the rules at every minute, the first included. KIM-184's surrogate used
 the column.
@@ -254,8 +254,8 @@ the column.
 These are ranked by integrated flux at θ = 0 over the window. `results/check.md` lists
 all 40 in each block.
 - **GE.** The top 40 are all tRNA charging: the charging cascades of 8 amino acids,
-  4 steps each, and their 8 cost payments. That is KIM-177's row 3, not promoters or
-  translation. Of the 40, 32 are second-order.
+  4 steps each, and their 8 cost payments. That is KIM-177's rows 3 and 4 (the payments
+  are row 4), not promoters or translation. Of the 40, 32 are second-order.
 - **MET.** These are kcatF constants, led by glycolysis: GAPD, PGM, ENO, LDH_L, PGK, PGI,
   TPI, FBA, PFK, PYK, and so on.
 - **BOTH.** The top 10 or 20 of each.
@@ -332,8 +332,9 @@ from KIM-183 (job 21664418, `dev/scripts/fullcell_timing_cycle/fullcell_timing_c
 1–10), rising to 0.58 s by minute 62. So 52.5 minutes come to about 0.45 s × 53 ≈ 24 s.
 That is consistent with 49.5 s to minute 105, since the cost per minute rises as the
 cell grows. Throughput follows the same source:
-- 64 cells on one node in one threaded process run 1.6–1.7× slower per cell (1,912
-  cells per node-hour for full cycles, measured);
+- 100 cells on the 64 threads of one node, in one process, run a median 1.60× slower
+  per cell than on one core (1.71× while all 64 threads were busy), at 1,912 cells per
+  node-hour for full cycles (measured);
 - one worker per core would run at about one-core speed (argued there).
 
 So the simulation budgets below are CPU-h at one-core speed, and their wall-clock is
@@ -430,11 +431,11 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
 456 coordinates) agrees to 0.5%. R2's stage 1 keeps KIM-185's own count. The figure is
 **argued**: the full cell's conditioning is unknown.
 - CPU-h is gradients × seconds per gradient.
-- Wall-clock is one chain's 9,048 gradients in series. The 4 chains run in parallel.
+- Wall-clock is one chain's 9,000 gradients in series. The 4 chains run in parallel.
 - The threaded R1 rows reserve 16 cores per chain, which the transcript factor's term
   needs. So CPU-h there is 16 × the wall-clock, summed over the 4 chains.
 - One-off costs are not in the table. They are small beside the chains: the dataset is
-  200 cells × about 24 s, the reference ensemble 800 × 24 s (about 6 CPU-h with the
+  200 cells × about 24 s, the reference ensemble 800 × 24 s (about 7 CPU-h with the
   dataset), plus a MAP (§3's cell cost; KIM-92's prep).
 
 ### 5.1 R1, the mean-field route (θ_H fixed)
