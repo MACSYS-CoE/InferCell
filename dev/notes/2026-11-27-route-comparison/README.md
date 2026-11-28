@@ -406,26 +406,33 @@ factor pass carries 10 partials, so B partials take ⌈B/10⌉ passes.
 - **Threaded.** That pass on 16 workers is taken as 194.11 / 6.82 = 28.5 s, using the 6.82×
   speed-up that KIM-185 measured for its per-gene pass at 16 workers (job 21665222). This
   is **argued**: the full-width pass was never threaded.
-- The mean-field term is measured: job 21785045 serial and job 21785047 on 4 threads.
+- The mean-field term is measured: job 21842557 serial and job 21842559 on 4 threads.
 
 | placement | B | mean field, serial (s) | transcript factor, serial (s) | **total, serial (s)** | mean field, 4 threads (s) | factor, 16 workers (s) | **total, threaded (s)** |
 |---|---|---|---|---|---|---|---|
-| GE | 10 | 69.3 | 1 × 194.1 = 194.1 | **263.4** | 69.3 (1 pass: serial) | 1 × 28.5 = 28.5 | **97.8** |
-| GE | 20 | 139.9 | 2 × 194.1 = 388.2 | **528.2** | 77.0 | 2 × 28.5 = 56.9 | **133.9** |
-| GE | 40 | 274.6 | 4 × 194.1 = 776.4 | **1,051.0** | 92.4 | 4 × 28.5 = 113.8 | **206.3** |
-| MET | 10 | 79.4 | 1 × 194.1 = 194.1 | **273.5** | 79.4 (1 pass: serial) | 1 × 28.5 = 28.5 | **107.8** |
-| MET | 20 | 158.9 | 2 × 194.1 = 388.2 | **547.1** | 89.6 | 2 × 28.5 = 56.9 | **146.5** |
-| MET | 40 | 297.7 | 4 × 194.1 = 776.4 | **1,074.2** | 108.5 | 4 × 28.5 = 113.8 | **222.3** |
-| BOTH | 10 | 72.9 | 1 × 194.1 = 194.1 | **267.0** | 72.9 (1 pass: serial) | 1 × 28.5 = 28.5 | **101.3** |
-| BOTH | 20 | 131.0 | 2 × 194.1 = 388.2 | **519.2** | 85.9 | 2 × 28.5 = 56.9 | **142.8** |
-| BOTH | 40 | 264.5 | 4 × 194.1 = 776.4 | **1,040.9** | 104.1 | 4 × 28.5 = 113.8 | **217.9** |
+| GE | 10 | 180.8 | 1 × 194.1 = 194.1 | **374.9** | 180.8 (1 pass: serial) | 1 × 28.5 = 28.5 | **209.3** |
+| GE | 20 | 358.8 | 2 × 194.1 = 388.2 | **747.0** | 202.8 | 2 × 28.5 = 56.9 | **259.7** |
+| GE | 40 | 703.6 | 4 × 194.1 = 776.4 | **1,480.0** | 246.2 | 4 × 28.5 = 113.8 | **360.0** |
+| MET | 10 | 212.3 | 1 × 194.1 = 194.1 | **406.5** | 212.3 (1 pass: serial) | 1 × 28.5 = 28.5 | **240.8** |
+| MET | 20 | 426.2 | 2 × 194.1 = 388.2 | **814.4** | 242.8 | 2 × 28.5 = 56.9 | **299.7** |
+| MET | 40 | 811.1 | 4 × 194.1 = 776.4 | **1,587.5** | 275.0 | 4 × 28.5 = 113.8 | **388.9** |
+| BOTH | 10 | 229.8 | 1 × 194.1 = 194.1 | **423.9** | 229.8 (1 pass: serial) | 1 × 28.5 = 28.5 | **258.3** |
+| BOTH | 20 | 397.3 | 2 × 194.1 = 388.2 | **785.5** | 242.4 | 2 × 28.5 = 56.9 | **299.4** |
+| BOTH | 40 | 755.6 | 4 × 194.1 = 776.4 | **1,532.0** | 267.8 | 4 × 28.5 = 113.8 | **381.7** |
 
-**The transcript factor, not the ODE, dominates R1's gradient:** 388 of 528 s at GE B = 20,
-serial. That gives a lever, **argued and not measured**. The factor depends on θ only
-through a few pool trajectories: 4 NTPs at 52 windows, plus 29 own-protein counts. So its
-gradient could be taken with respect to those inputs once, and contracted with the mean
-field's partials. That would replace carrying B partials through all 455 genes. It
-belongs to KIM-194's levers if KIM-187 chooses R1.
+**Serial, the two terms are about equal:** the mean field is 48–54% of R1's gradient
+(359 of 747 s at GE B = 20). Threaded, the mean field is about 80% of it, since its 4
+threads gain less than the factor's argued 16 workers. The factor's share rests on
+KIM-185's naive width-12 pass on a stand-in factor, applied here by argument, so the
+split is itself argued. Either term is a lever:
+- **the transcript factor, argued and not measured.** The factor depends on θ only
+  through a few pool trajectories: 4 NTPs at 52 windows, plus 29 own-protein counts. So
+  its gradient could be taken with respect to those inputs once, and contracted with the
+  mean field's partials. That would replace carrying B partials through all 455 genes;
+- **the mean field:** looser tolerances (3.0×, §2.1) and a coloured flux Jacobian (up to
+  about 2×, inferred, §2.5).
+
+Both belong to KIM-194's levers if KIM-187 chooses R1.
 
 **R2, the data plug-in.**
 - **Stage 1.** The rates come from the observed pools, so each gene carries only its own 2
@@ -437,7 +444,7 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
   or fixes it at θ_ref. Inferring them would need a block-local factor for charging, as
   stage 2 is for metabolism. That is not costed here.
 - **Stage 2.** This is the block-local bulk factor for metabolism. Its per-gradient term
-  is taken as R1's MET mean-field gradient, for example 158.9 s at B = 20 (job 21785045),
+  is taken as R1's MET mean-field gradient, for example 426.2 s at B = 20 (job 21842557),
   with **no** transcript factor. That is an upper bound: a solve with gene expression
   frozen at stage-1 draws, or ODE-only, would be cheaper. It is not measured.
 
@@ -465,34 +472,37 @@ belongs to KIM-194's levers if KIM-187 chooses R1.
 
 | placement | B | CPU-h, serial | wall per chain, serial (days) | CPU-h, threaded (16 cores a chain) | wall per chain, threaded (days) | source |
 |---|---|---|---|---|---|---|
-| GE | 10 | 2,634 | 27.4 | 15,644 | 10.2 | §4 × 36,000 |
-| GE | **20** | **5,282** | **55.0** | **21,428** | **14.0** | §4 × 36,000 |
-| GE | 40 | 10,510 | 109.5 | 33,002 | 21.5 | §4 × 36,000 |
-| MET | 10 | 2,735 | 28.5 | 17,253 | 11.2 | §4 × 36,000 |
-| MET | **20** | **5,471** | **57.0** | **23,439** | **15.3** | §4 × 36,000 |
-| MET | 40 | 10,742 | 111.9 | 35,571 | 23.2 | §4 × 36,000 |
-| BOTH | 10 | 2,670 | 27.8 | 16,213 | 10.6 | §4 × 36,000 |
-| BOTH | **20** | **5,192** | **54.1** | **22,852** | **14.9** | §4 × 36,000 |
-| BOTH | 40 | 10,409 | 108.4 | 34,872 | 22.7 | §4 × 36,000 |
+| GE | 10 | 3,749 | 39.1 | 33,487 | 21.8 | §4 × 36,000 |
+| GE | **20** | **7,470** | **77.8** | **41,551** | **27.1** | §4 × 36,000 |
+| GE | 40 | 14,800 | 154.2 | 57,605 | 37.5 | §4 × 36,000 |
+| MET | 10 | 4,065 | 42.3 | 38,530 | 25.1 | §4 × 36,000 |
+| MET | **20** | **8,144** | **84.8** | **47,957** | **31.2** | §4 × 36,000 |
+| MET | 40 | 15,875 | 165.4 | 62,222 | 40.5 | §4 × 36,000 |
+| BOTH | 10 | 4,239 | 44.2 | 41,321 | 26.9 | §4 × 36,000 |
+| BOTH | **20** | **7,855** | **81.8** | **47,898** | **31.2** | §4 × 36,000 |
+| BOTH | 40 | 15,320 | 159.6 | 61,068 | 39.8 | §4 × 36,000 |
 
 Every row multiplies a per-gradient total from §4 by the argued gradient count. The
-mean-field term in each total is measured (jobs 21785045 and 21785047). The transcript
+mean-field term in each total is measured (jobs 21842557 and 21842559). The transcript
 factor's term is measured at a neighbouring width (job 21665221) and threaded by argument.
 
 What this says:
-- **CPU-h is about 5,200–5,500 at B = 20, serial.** That is about half the 11,000 CPU-h
-  that the project description scaled from the reduced model.
+- **CPU-h is about 7,500–8,100 at B = 20, serial.** That is over the 5,000 CPU-h line
+  that §5.2 applies to the plug-in, and about 70% of the 11,000 CPU-h that the project
+  description scaled from the reduced model.
 - **Wall-clock binds.**
-  - A serial chain takes about 55 days, and a threaded one about 14–15 days. Both are
-    over Milan's 7-day job limit, so the chains must checkpoint, as KIM-92's did.
-  - The threading buys about 4× in wall-clock at about 4× in CPU-h. The transcript
+  - A serial chain takes about 78–85 days, and a threaded one about 27–31 days. Both are
+    well over Milan's 7-day job limit, so the chains must checkpoint, as KIM-92's did.
+  - The threading buys about 2.9× in wall-clock at about 5.6× in CPU-h. The transcript
     factor's 16 workers are idle while the mean field runs.
 - **The levers measured or argued here would bring it down:**
-  - looser tolerances: 2.8× on the mean-field term (job 21785045, one repeat);
+  - looser tolerances: 3.0× on the mean-field term (job 21842557, one repeat);
+  - a coloured flux Jacobian: up to about 2× on the mean-field term (inferred, §2.5);
   - the transcript factor through its pool inputs (§4, argued);
   - fewer serial gradients (KIM-194 item 3).
 
-  None of them has been combined or measured on a chain.
+  None of them has been combined or measured on a chain. Taken together, the first two
+  would bring the mean-field term back to around run 1's size or below (argued).
 
 ### 5.2 R2, the data plug-in (θ_H fixed)
 
@@ -500,13 +510,13 @@ What this says:
 |---|---|---|---|---|
 | GE (the frame's: tRNA charging) | 10 / 20 / 40 | not costed | — | not a stage-1 parameter (§4) |
 | promoters and mRNA decay (KIM-185's block, not the frame's) | 456 | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
-| MET | 10 / 20 / 40 | 794 / 1,589 / 2,977 | 8.3 / 16.6 / 31.0 days serial | stage 2 alone: 36,000 × R1's MET mean-field gradient (job 21785045). An upper bound, argued. |
-| BOTH | 10 / 20 / 40 | 1,333 / 1,333 / 2,128 | stage 1, then stage 2 | KIM-185's 539 for the promoters in place of the frame's GE half, plus stage 2 at B/2 MET parameters (one pass up to 10) |
+| MET | 10 / 20 / 40 | 2,123 / 4,262 / 8,111 | 22.1 / 44.4 / 84.5 days serial | stage 2 alone: 36,000 × R1's MET mean-field gradient (job 21842557). An upper bound, argued. |
+| BOTH | 10 / 20 / 40 | 2,662 / 2,662 / 4,801 | stage 1, then stage 2 | KIM-185's 539 for the promoters in place of the frame's GE half, plus stage 2 at B/2 MET parameters (one pass up to 10) |
 
-Every costed case is under the plug-in's feasibility line of 5,000 CPU-h (gate 1). The
-frame's own GE case is not costed. But R2 does not
-cross the boundary, it holds gene copy number fixed (row 5), and on the reduced model it
-failed KIM-116's "close" test (§1.2).
+The plug-in's feasibility line is 5,000 CPU-h (gate 1). The promoter case and BOTH up to
+B = 40 are under it; MET at B = 40 is over it, at 8,111. The frame's own GE case is not
+costed. R2 does not cross the boundary, it holds gene copy number fixed (row 5), and on
+the reduced model it failed KIM-116's "close" test (§1.2).
 
 ### 5.3 R3, R4 and R5
 
