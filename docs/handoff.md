@@ -19,17 +19,17 @@ KIM-187 is decided.
 **M11, the feasibility gate.**
 - Done: KIM-176 (thresholds, Decision log only), KIM-177 (non-closure inventory, #204), KIM-183
   (one cycle 49.5 s, #205), KIM-185 (transcript factor, #206), KIM-184 (first-order mean field
-  1.277 s a gradient, #207), KIM-178 (gate 2 passes as frozen, 7 of 10 negative, t = −2.50, with
-  overdispersion stated beside it, #210), KIM-180 (block rule frozen at `prereg/kim-180` plus
-  Amendment 1, #211) and KIM-181 (eigen-spectrum, #212). The two sections below have KIM-180 and
-  KIM-181 in detail.
+  1.277 s a 20-parameter gradient, serial, on the first-order surrogate: a lower bound, #207),
+  KIM-178 (gate 2 passes as frozen, 7 of 10 negative, t = −2.50, with overdispersion stated beside
+  it, #210), KIM-180 (block rule frozen at `prereg/kim-180` plus Amendment 1, #211) and KIM-181
+  (eigen-spectrum, #212). The two sections below have KIM-180 and KIM-181 in detail.
 - The overnight results (KIM-177, 183, 184 and 185, from PR #208, which this section replaces):
   - KIM-183: about 15% of cells at the published defaults do not reach t_SA2 by minute 120.
   - KIM-185: the plug-in's 539 CPU-h holds only with a per-gene gradient. It is stage 1 alone, on
     KIM-185's promoter block rather than the frame's (sensitivity 787–1,800). The metabolism stage
     adds 2,100–8,100 CPU-h serial (KIM-195's note).
   - KIM-177: 363 second-order reactions, of which M13's model covers the 99 DnaA bindings to a 0/1
-    site and one charging reaction.
+    site. One charging reaction was added to M13's model afterwards (Decision log 2026-11-27).
   - The manager's log is `/fred/oz022/tkimpson/infercell-overnight-2026-11-26/REPORT.md`.
   - F2B, F3(c) and T1 were amended from these results (Decision log 2026-11-27).
 - Done: **KIM-195** (PR #209, merged 6af2291), the route comparison. Its note is
@@ -53,7 +53,7 @@ KIM-187 is decided.
   - KIM-58 (prior draws) by KIM-56 and KIM-57.
   - KIM-186 by KIM-58. KIM-59 by KIM-58 and KIM-55 (the M12 parent, in Backlog).
   - KIM-53 by KIM-51 and KIM-52. KIM-54 by KIM-53.
-  - The `Plan Mn` placeholders, and KIM-194, by KIM-187.
+  - The `Plan Mn` placeholders, and KIM-194, by KIM-187, directly or transitively.
 - Not counted: KIM-55, M12's parent issue (Backlog). It has no blockers, but its Touches line
   reads "see the sub-issues", so it overlaps everything. It closes with KIM-56 to KIM-59 and is
   not separate work.
