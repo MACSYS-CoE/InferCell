@@ -493,6 +493,20 @@ failed KIM-116's "close" test (§1.2).
 | R4 (R1 + an emulated δ(θ), S(θ)) | θ_H fixed: R1's + 130–5,300 for a fresh design. θ_H drawn: R1's + M12's draws as the design, ≈ 0 beyond M12, once M12 has run (it has not) | R1's; the design runs in parallel beforehand | fixed, or drawn. Drawn, R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
 | R5 (neural SBI) | about 10,700 (PreCell's design on our window), or 530–2,700 (sequential), + 80–150 A100-h | hours to days: simulation parallelises | fixed or drawn, at the same cost | §3, argued |
 
+**What is not costed.** The Done when asks for every route × case. These cells are left
+open, each for the reason given:
+- **R3's training.** The surrogate's design and training belong to M17 and are not
+  costed. R3's row is a lower bound.
+- **R4 and R5 at other B and placements.** Their costs are simulation, which does not
+  depend on where the block sits. R4's design grows with B (10–50 points per parameter),
+  so B = 10 and 40 would roughly halve and double it; that is argued. R5's PreCell-scale
+  design is not sized by B.
+- **R2's MET and BOTH, threaded.** Stage 2 was not timed on threads. R1's MET mean-field
+  term on 4 threads (§2.6) is the nearest guide.
+- **R1 and R2 with θ_H drawn.** Each evaluation needs one θ_H, so "drawn" means a
+  pseudo-marginal or a joint over thousands of parameters. Frame §1.3 gives them a
+  sentence, not a number, and so does this note.
+
 ### 5.4 Which routes stay in contention for KIM-187
 
 This is a reading of the tables above. The choice is KIM-187's, and Tom's.
