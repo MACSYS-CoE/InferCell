@@ -1,8 +1,10 @@
 # KIM-56: the parameter-override hook in the syn3a-ensemble port
 
-**Verdict.** With every multiplier at 1, an override run reproduces the default run bit for bit. The check covered 6 cells over 181 simulated minutes, each run three ways, and found 0 mismatches (Slurm 21853120). The hook exposes 838 named kinetic constants (Slurm 21853119).
+**Verdict.** With every multiplier at 1, an override run reproduces the default run bit for bit. The check covered 6 cells over 181 simulated minutes, each run three ways, and found 0 mismatches (Slurm 21873324). The hook exposes 838 named kinetic constants (Slurm 21873323).
 
-All runs were at InferCell c4f62ee, from the detached worktree `.worktrees/kim56-run-c4f62ee`. syn3a-ensemble was at 2075809, with `code/SpeedyCell` and `data/model` clean. The node was dave2 (AMD EPYC 7543). The archive is `/fred/oz022/tkimpson/infercell-kim56-2026-11-28/`, with `SHA256SUMS`, `JOBS` and `COMMIT`.
+The runs of record were at InferCell 4d3e0ce, from the detached worktree `.worktrees/kim56-run-4d3e0ce`, through `params_check.sh` (jobs 21873322 precompile, 21873323 table, 21873324 check). syn3a-ensemble was at 2075809, with `code/SpeedyCell` and `data/model` clean. The check ran on dave50 (AMD EPYC 7543). The archive is `/fred/oz022/tkimpson/infercell-kim56-fix-2026-11-28/`, with `SHA256SUMS`, `jobs.tsv` and `COMMIT`. The commit after it, 925d333, changes only the launcher's and the job's guards.
+
+They repeat a first run at c4f62ee (jobs 21853118–21853120, archive `/fred/oz022/tkimpson/infercell-kim56-2026-11-28/`), made before PR #213's review. The review added the second control, the adapter's load-time guard and the launcher. The two runs' `check.csv` and `param_names.csv` are byte-identical.
 
 ## 1. The copy, and how it runs
 
@@ -18,14 +20,14 @@ The standalone `SpeedyCell.jl` (0823b53) has none of these. KIM-183 timed this s
 - SpeedyCell developed by path;
 - KIM-183's depot, stacked on the shared one that holds LowPrecSSA.
 
-`params_check.slurm` refuses to run unless syn3a-ensemble is at the pin and clean.
+The pin is in `SYN3A_PIN`. `params_check.slurm` refuses to run unless syn3a-ensemble is at the pin and clean, and unless this directory has no uncommitted changes. `adapter.jl` makes the same pin check when it loads, and also checks that `param_names()` is `results/param_names.csv`, name for name and in order.
 
-From precompile job 21853118:
+From precompile job 21873322 (the first run's 21853118 printed the same):
 
 ```
 Julia Version 1.11.9
 Commit 53a02c0720c (2026-02-06 00:27 UTC)
-syn3a_ensemble_git 2075809cbb825140cb31a7bec8bc3529770c8e13 (pin 2075809, code/SpeedyCell and data/model clean)
+syn3a_ensemble_git 2075809cbb825140cb31a7bec8bc3529770c8e13 (pin 2075809cbb825140cb31a7bec8bc3529770c8e13, code/SpeedyCell and data/model clean)
 ```
 
 InferCell's own suite runs on julia/1.10.5, and SpeedyCell needs 1.11. So the Spec's check is this Slurm script, not part of `Pkg.test`.
@@ -41,7 +43,9 @@ InferCell's own suite runs on julia/1.10.5, and SpeedyCell needs 1.11. So the Sp
 
 Each pair must agree under `same_output`, which compares the procid, seed, minutes, jitter, event count, minimum count, stop, failure, the per-minute record, the spans and the hooks per minute. Each pair must also agree under `output_digest`.
 
-As a control, a run with `PGI.kcatF` × 2 must give a different digest. That shows the check can fail.
+Two controls on procid 1 must each give a different digest, which shows the check can fail. They run before the cells:
+- an ODE constant, `PGI.kcatF` × 2, over 181 minutes;
+- a CME constant, `translation_rate_restart.py:riboKcat` × 2, over 3 minutes.
 
 | procid | events | collapsed (hooks < 59) | digest, all three paths |
 |---|---|---|---|
@@ -52,9 +56,9 @@ As a control, a run with `PGI.kcatF` × 2 must give a different digest. That sho
 | 5 | 311,918,951 | no | b166c83febb06dc2 |
 | 6 | 352,929,209 | no | 9adc39134a320405 |
 
-- "6 cells x 3 paths, 0 mismatches; control differs", then `CHECK PASS` (job 21853120, 31 min).
-- The control gave 9efe6c681eb8b8ed for procid 1, against c79dce983bab4e3a.
-- Procid 1's published run was repeated for the control and gave the same digest.
+- "6 cells x 3 paths, 0 mismatches; controls differ", then `CHECK PASS` (job 21873324, 32 min).
+- The ODE control gave 9efe6c681eb8b8ed, against c79dce983bab4e3a. The CME control gave 0d2eb73587dd93ae, against c1d6c9f128f70b98 for the 3-minute published run.
+- Procid 1's published run, run again for the ODE control, gave the same digest as in the table.
 - The full record is in `results/check.csv` and `results/meta.txt`.
 
 **What this adds to lane 10a's checks.** syn3a-ensemble's C-D1 found the parameterised path byte-identical over 20 minutes on 100 cells, at 688b470. That commit already has the early stop (562396e). This run checks four further things:
@@ -84,7 +88,7 @@ run_cell(m, procid; seed, minutes=181, params=P, ode_failure=:record)
 
 ## 4. The parameter count and names
 
-`results/param_names.csv` (job 21853119) has the columns `index,name,module,reaction,key,default`, in the adapter's order: 805 ODE constants, then 33 CME constants.
+`results/param_names.csv` (job 21873323, byte-identical to the first run's 21853119) has the columns `index,name,module,reaction,key,default`, in the adapter's order: 805 ODE constants, then 33 CME constants.
 
 | | count |
 |---|---|
