@@ -72,7 +72,7 @@ What the routes approximate beyond the inventory:
 | R1 | yes. Done: passes SBC, about 80× cheaper; but on m0_v6 it sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). | yes, against the truth (there is no exact posterior): the joint's promoters sit −0.81 SD below the truth on KIM-92's dataset (14 of 17), an offset KIM-116 locates in the transcript factor. Over ten replicate truths the mean is −0.985 SD, with four replicates 6–11 SE below zero: gate 2 passes as frozen, but the route is not calibrated across truths (KIM-178, PR #210, merged as 50123cc; Decision log 2026-11-28). | **yes, its main test, not yet run**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
 | R2 | yes, but M0 has no pool feedback to cut | **yes. Done (KIM-116):** fails "close" against the joint (+0.65 SD on one promoter, +0.20 on average); against the truth −0.61 SD, beside the joint's −0.81 (KIM-92); Q's CRPS about 2× the joint's | row 5 untested: it holds copy number fixed by construction |
 | R3 | no: nothing on M0 needs a surrogate | partly: the surrogate's error on the reduced model's means | yes. The surrogate is trained where M13 is exact and is scored there. M17 is its own check. |
-| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed 0.18 SD on S_0779, 0.16 on krnadeg and about 0.02 on ENO, of gaps of 0.42–0.56 SD. KIM-90 names no cause. It leaves two leads for krnadeg: the transcripts counted twice, which R4 does not change, and the bulk factor itself (about 0.4 SD with no transcripts), which is what a learned δ(θ) acts on. Against that, KIM-178 finds the reduced model's offset already present at δ = S = 0, and its untested hypothesis puts it in the transcript factor, which R4 keeps. | yes: against the joint | yes |
+| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed 0.18 SD on S_0779, 0.16 on krnadeg and about 0.02 on ENO, of gaps of 0.42–0.56 SD. KIM-90 names no cause. Its one lead, the transcripts counted twice, is outside what R4 changes. Against that lead for krnadeg, the mixed fit already sits about 0.4 SD high with no transcripts (one fit, ESS 39; whether it is the same gap was not tested). This note reads that as pointing at the bulk factor, which a learned δ(θ) acts on (argued). On the reduced model, KIM-178 finds the offset already present at δ = S = 0, though δ and S at θ_ref shrink it on the worst replicate (−3.84 to −2.95 on 011) and the offset tracks max \|δ\| (r = −0.84). Its hypothesis, untested, puts the rest in the transcript factor, which R4 keeps. | yes: against the joint | yes |
 | R5 | **yes, and needed**: SBC and the exact sampler on M0. This would be a new pilot, proposed in item 6 if R5 stays in. | yes: against the joint | yes |
 
 ### 1.3 What each route changes in the Claim, the non-goals and the positioning
@@ -216,8 +216,8 @@ against KIM-184's 174 (job 21842557).
   - Minute 1 takes 866 steps under either clamp. Before the clamp, 365 of its 843 fell
     in its first second: a start-up transient from x₀ (login node, before the clamp).
   - Minutes 2–4 take about the same under both forms (225, 183 and 116 new; 225, 182 and
-    127 old). From minute 5 the new form takes 91–557 a minute, against 91–296
-    under the old, mostly about 93 (16,487 against 6,415 in all).
+    127 old). Over minutes 5–52 the new form takes 101–557 a minute, against
+    91–296 under the old, mostly about 93 (16,487 against 6,415 in all).
   - Only the dATP pool sits below 10 counts with its counter above it, at 20 minute-ends
     with a minimum of 0.027 counts. A pool held at a fraction of a count, under the
     absolute tolerance of 1e-10, is the likely cause. Since the cells also run
@@ -523,8 +523,11 @@ What this says:
   mean-field solve, so R2's stage 2 (§5.2) inherits them too.
 - **The figure is not settled.** Changing only the payment form, to the more faithful
   one, moved the mean-field term up by 2.6–3.2× (run 1 against run 2). Most of the extra
-  steps come from the dATP pool held near zero, which the cells show too (§2.1), so it is
-  the model's cost rather than an artefact to be removed. What tolerance the inference
+  steps come from the dATP pool held near zero, which the cells show too (§2.1), so most of
+  it is most likely the model's cost (argued). But 3,659 of the 10,072 extra steps (36%)
+  fall in minutes 5–20, the onset window read as closure, when 0–5 of the 8 cells have
+  dATP below 10 (`results/clamp/`). A better closure might remove up to about a third of
+  the extra cost. What tolerance the inference
   needs is not measured, and it could move the figure either way.
 
 ### 5.2 R2, the data plug-in (θ_H fixed)
@@ -569,17 +572,17 @@ This is a reading of the tables above. The choice is KIM-187's, and Tom's.
 
 **The 5,000 CPU-h line is a yardstick here, not a gate.** It is gate 1's line for the
 plug-in's gene-expression block (KIM-185); frame.md sets no pass line for KIM-195. At
-B = 20, serial, only R2 meets it: its promoter case (539, or 1,171 on 16 workers), its
-metabolism stage (4,262) and its BOTH case (2,662). R1 is over it (7,500–8,100), and so are R3 and R4, which
-cost R1's chains and more. R5 is under it with a sequential estimator (530–2,700) and
-over it at PreCell's design (about 10,700).
+B = 20 it is met by R2 (serially: its promoter case at 539, or 1,171 on 16 workers; its
+metabolism stage at 4,262; its BOTH case at 2,662) and by R5 with a sequential estimator
+(530–2,700). It is not met by R1 (7,500–8,100 serial), by R3 and R4, which cost R1's
+chains and more, or by R5 at PreCell's design (about 10,700).
 
 | route | in contention? | why |
 |---|---|---|
 | **R1, mean field + NUTS** | **yes**, over the line at B = 20 | **Cost.** Serial, 3,700–4,200 CPU-h at B = 10, under the 5,000 CPU-h line, and 7,500–8,100 at B = 20, over it. Threaded at B = 20 it is 42,000–48,000 CPU-h, for 27–31 days a chain. The figure moved up 2.6–3.2× with the payment form alone and is not settled (§5.1); the levers in §5.1 are KIM-194's. **Error.** It can be measured at every tier. On M0 it passes SBC but sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). On the reduced model its promoters sit −0.81 SD from the truth (KIM-92), and across ten truths it is not calibrated (KIM-178). M13, its main test, has not run. **Claim.** It is the only route that keeps the Claim as written with no learned component. |
 | R2, data plug-in | as a fallback only | **Cost.** It is the cheapest: 539 CPU-h serial for KIM-185's promoter block (135 h a chain), or 1,171 CPU-h at 18 h a chain on 16 workers. That block is not the frame's. Its metabolism stage costs 2,100–8,100 CPU-h serial (22–85 days a chain), over the line at B = 40. The frame's own GE case is not costed. **Error.** On the reduced model it is shifted from the joint by +0.20 joint SD on average and +0.65 on one promoter, so it fails "close" (KIM-116). Against the truth it sits at −0.61 SD, beside the joint's −0.81: the same offset with an upward shift, so neither route is accurate there. On dQ, the knockdown's effect, it scores the same as the joint (CRPS 1.848e4 against 1.857e4). It is untested across truths, and its gene copy number is untested. **Claim.** It changes the Claim and the contribution sentence. |
 | **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. It keeps R1's transcript factor, so it inherits whatever of KIM-178's offset lies there. |
-| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design: 130–5,300 CPU-h for θ_H fixed, or M12's draws for θ_H drawn once M12 has run. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, recomputing δ and S at the posterior mean closed at most 0.18 SD of gaps of 0.42–0.56, and one of KIM-90's two leads for krnadeg is the bulk factor itself. On the reduced model KIM-178 finds the offset already present at δ = S = 0, which a learned δ(θ) does not reach at θ_ref. The chains for θ_H drawn are not costed. Its error is checkable on M0. |
+| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design: 130–5,300 CPU-h for θ_H fixed, or M12's draws for θ_H drawn once M12 has run. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, recomputing δ and S at the posterior mean closed at most 0.18 SD of gaps of 0.42–0.56, and KIM-90's metabolites-only fit, on this note's reading, points at the bulk factor for krnadeg (argued; one fit, ESS 39). On the reduced model KIM-178 finds the offset already present at δ = S = 0, though δ and S shrink it on the worst replicate and it tracks max \|δ\| (r = −0.84). Whether a learned δ(θ) would remove it is untested: KIM-178's hypothesis, also untested, puts it in the transcript factor, which R4 keeps. The chains for θ_H drawn are not costed. Its error is checkable on M0. |
 | R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
 
 **The M0 pilot (proposed, not filed).** R4 stays in contention, so the item calls for its M0
