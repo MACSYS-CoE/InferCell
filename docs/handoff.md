@@ -1,5 +1,22 @@
 # Handoff
 
+## Latest: KIM-180's block rule is frozen (2026-11-28)
+
+- `spec/prereg/kim-180.md` is frozen at tag `prereg/kim-180`. It fixes doubling time as the median t_SA2
+  over healthy cells in a 180-min window, and the rule that picks the inferred block from first-order
+  indices: a permutation-max-null eligibility threshold, the smallest top k reaching 0.80, and a cap of 25.
+  Tom approved the six drafting choices in PR #211 on 2026-11-28.
+- **Amendment 1** (same day, after the tag, before any prior draw) closes the gaps PR #211's review found:
+  v_d near censoring and on the rank scale, the tie rule's SE and what a swap changes, and §5's sparse
+  check. Tom chose the v_d and tie rules. The Decision log has the entry.
+- The default-run check holds: 99 min on syn3a-ensemble's 10,000 cells, and on job 21839731's 100 cells to
+  minute 180, against 88–112. Those 100 cells repeat syn3a-ensemble's and KIM-183's procids 1–100 exactly
+  to minute 120, so the second check tests determinism and minutes 120–180. The per-cell table is tracked
+  in `dev/scripts/fullcell_doubling_kim180/results/`.
+- **Next:** KIM-186 implements §4. Its first item is §5's synthetic sparse and diffuse checks. KIM-57 may
+  narrow the eligible set, but only by a Decision log amendment before KIM-58 runs.
+- KIM-181 is running in parallel on its own branch (jobs 21842932/21842933).
+
 ## Latest: paper 1's framing is DECIDED (2026-11-25, uncommitted)
 
 **Do not reopen this.** Decision log entry 2026-11-25 (Linear) is the record, and
