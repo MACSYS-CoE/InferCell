@@ -1,10 +1,12 @@
 # KIM-180: a synthetic check of prereg §4 at KIM-58's size (N = 10^3 draws, 838 constants, 20 bins).
 # It shows why §4.3 needs a family-wise threshold: under a pure null the top 25 binned S_i
-# sum to about 0.4. Run: python3 -I null_sobol.py (about 10 min on the login node).
+# sum to about 0.4. Run from the repo root, with numpy (e.g. /fred/oz022/tkimpson/miniconda3,
+# numpy 2.2.6): python3 -I dev/scripts/fullcell_doubling_kim180/null_sobol.py (under 1 min).
 # Output of 2026-11-28 (seed 20261128): pure null, top-25 sum 0.41, permutation threshold
 # 0.0326, 0 eligible; diffuse (5 at 0.1, 50 at 0.004), threshold 0.0327, the 5 strong eligible
 # and no truly zero one, eligible sum 0.501. The bootstrap SE (0.011) overstates the noise
-# SD of a null S_i (0.006), so a rule on k SE is not calibrated; the permutation threshold is.
+# SD of a null S_i (0.006), so a rule on k SE is conservative and its error rate unknown
+# (2 SE admits 1 false constant here); the permutation threshold is calibrated.
 import numpy as np
 rng = np.random.default_rng(20261128)
 N, P, B = 1000, 838, 20
