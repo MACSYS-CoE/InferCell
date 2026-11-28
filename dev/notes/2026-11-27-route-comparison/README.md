@@ -134,8 +134,10 @@ counts (`model.jl`'s header has the detail). It has:
 - the 175 ODE fluxes, generated from `data/model/params/ode_reactions.csv` with the named
   constants as runtime values, and turned into counts per second at the cell volume;
 - the hook's 26 cost counters, kept as states and paid into their pools at
-  κ·c·p/(c + p + 1), with κ = 1 s⁻¹. This is a smooth min(counter, pool), and the NMP
-  counters are paid at κ·c;
+  κ·c·p/(p + 1), with κ = 1 s⁻¹; the NMP counters are paid at κ·c. Where the pool holds
+  many counts this pays the whole counter at rate κ, as the hook pays all of it each
+  second. As the pool empties the payment falls to zero, so no pool goes negative: a pool
+  smaller than its counter is held at a fraction of a count, where the hook pays it to 0;
 - at each minute boundary, the 2,365 CME rate constants, the 79 enzyme concentrations,
   the volume and the surface areas are rebuilt from the mean state through the
   `nodes.csv` DAG. In a run, `round` is the identity (CellV only).
@@ -147,23 +149,46 @@ ForwardDiff Jacobian, nested under the outer duals. It has 24,549 stored non-zer
 **Declared simplifications.** These are cost choices, not fidelity claims.
 - **The 1 s cadence.** SpeedyCell rebuilds the enzyme levels, the volume and the ODE
   state every 1 s, at the hook. This model rebuilds them every 60 s, with the CME rates.
-- **The counter payment.** It is smooth here, not the hook's per-second min.
+- **The counter payment.** It is continuous here, not the hook's per-second
+  min(counter, pool).
+- **The hook's rounding.** The hook rounds the ODE state to counts each second, rounds
+  `CellSA_Lip` and truncates `CellSA_Prot`, and rounds `CellV`. This model keeps all four
+  continuous (row 11).
 - **The second-order closure.** The product of means is not exact. M13 measures that
   error.
 
-**Two changes from the plan, both Tom's calls on 2026-11-27, Decision log 2026-11-27.**
-1. **The counters are paid through a smooth clamp.** In the plan they were paid at once
-   with no clamp. That drove dATP to −2,887 over the window even at θ = 0, and broke the
-   MET B = 20 solve in smoke 3 (job 21770016).
+**Two changes from the plan, both Tom's calls (Decision log 2026-11-27 and 2026-11-28).**
+1. **The counters are paid through a clamp.** In the plan they were paid at once with no
+   clamp. That drove dATP to −2,887 over the window even at θ = 0, and broke the MET
+   B = 20 solve in smoke 3 (job 21770016). The first clamp, κ·c·p/(c + p + 1), was
+   described as a smooth min. It is not one: where counter and pool are comparable it pays
+   about half of min(c, p). The review found this, and Tom chose κ·c·p/(p + 1) on
+   2026-11-28. The `clamp` stage (job 21842560) runs both forms at θ = 0 against 8
+   SpeedyCell cells (procid 1, seeds 1–8; `results/clamp.md`):
+   - **The new form is much closer to SpeedyCell in the replication counters.** The dATP
+     counter is 676, 877 and 12 at minutes 10, 20 and 40, against SpeedyCell's mean of
+     1,364, 1,593 and 1,340. The old form's grows to 13,220, 37,520 and 87,450.
+   - **The pools agree after minute 20 under the new form, not the old.** At minute 40 the
+     dGTP pool is 29,420 and dTTP 92,640, against SpeedyCell's 21,170 and 81,080. The old
+     form holds dGTP at 42.
+   - **Neither form tracks dATP over minutes 5–20.** The mean field's dATP pool is 0.03–0.17
+     counts under the new form and 80–94 under the old, against SpeedyCell's 4,165–25,090.
+     The mean field's replication counters are non-zero from minute 1 (29 counts of dATP),
+     while all 8 cells' are 0 at minutes 1 and 5. So the mean field begins replication
+     earlier than any of the cells and drains dATP. That is most likely the closure of
+     rows 1a and 2, which turns a 0/1 initiation event into a fraction from the start. It
+     is argued, not measured here; M13 measures it.
+   - **The cost.** The new form takes 16,487 steps over the window at θ = 0, against 6,415
+     for the old, which accounts for the rise in §2.4's times over run 1's.
 2. **The finite-difference gradient check is judged against the block's scale**, as
    |dual − FD| ≤ 1e-6 · max|g|. The rule was set after smoke 2's check (job 21724627)
    failed on one small component, so it is **post-hoc** (Decision log 2026-11-27). That
    component's central differences scatter as h shrinks: they are −1.32450, −1.32458,
    −1.32457, −1.32412 and −1.32503 for h = 1e-3 to 1e-5 (login node), against a dual of
-   −1.32450. The run of record shows the same thing (job 21785044). For BOTH θ₁ (dual
-   0.1107), 2h·|dual − FD| is 1.53e-8 at h = 1e-4 and 1.25e-8 at h = 1e-3: about equal,
-   which is the mark of a constant noise of about 1.4e-8 in the objective, not of a wrong
-   derivative.
+   −1.32450. The run of record shows the same thing (job 21842556). For BOTH θ₁ (dual
+   0.2471), the central difference is off by 2.4e-4 at h = 1e-4 and by 4.8e-6 at
+   h = 1e-3. An error that shrinks as h grows is the mark of noise in the objective (here
+   about 1e-8 to 5e-8, as 2h·|dual − FD|), not of a wrong derivative.
 
 **Why it is not KIM-184's 1.3 s.** The primal takes 6,415 steps over the window, against
 KIM-184's 174 (job 21785045).
@@ -185,16 +210,38 @@ KIM-184's 174 (job 21785045).
   49.2 s against 139.9 s, about 2.8× less (job 21785045, one repeat). That is a lever for
   KIM-194, not a result: what the inference needs is not measured here.
 
-### 2.2 Correctness checks (job 21785044, PASS)
+### 2.2 Correctness checks (job 21842556, PASS)
 
 | check | tolerance | observed |
 |---|---|---|
 | The rate rules, p and y₀ at x₀ against SpeedyCell's own `evaluate_rates!` and `hook_inputs` | 1e-12 relative | rates 2.2e-16 (2,358 of 2,365 bitwise); p 3.5e-16; y₀ 2.2e-16; CellV 335 = 335 |
 | The ODE fluxes at (y₀, p) against SpeedyCell's `flux!` | 1e-12 relative | exact (0.0) |
 | **The RHS at x₀ against an independent BigFloat sum of the table's propensities** (SpeedyCell's rates, both reaction types), plus the ODE part from SpeedyCell's fluxes | **1e-10 relative** | **4.05e-15** over 856 non-zero states; all 1,805 zero states are 0 |
-| J·v against central differences of the RHS, at x₀ + 1 | 1e-6 | 4.3e-10 |
-| Dual gradient against central differences, B = 20, tight tolerances, over the first 300 s (5 rebuilds), 3 parameters per placement | 1e-6 · max\|g\| | ≤ 9.7e-8. Per component at h = 1e-4: ≤ 2.9e-7, except BOTH θ₁ (6.9e-4, |g| = 0.11 beside max\|g\| 2.2×10⁶) and BOTH θ₁₀ (1.3e-5) |
-| DualSparseKLU against LinearSolve 3.87's own dual path, one pass, first minute | 1e-8 | partials 2.3e-14 (GE) and 4.4e-14 (MET); the same steps |
+| The surface areas at x₁ = x₀ + 1 against SpeedyCell's `lipid_sa!` | 1 (absolute) | 0.43: the hook rounds `CellSA_Lip`, this model does not; `CellSA_Prot` exact |
+| The rate rules, p, y, the ODE fluxes and the volume at x₁, rebuilt from x₁, against SpeedyCell's at x₁ | 1e-12 relative | rates, p, fluxes and V exact; y 1.9e-16; CellV equal |
+| **The RHS at x₁ against an independent BigFloat sum**, with the 26 payments built from SpeedyCell's own list of them | **1e-10 relative** | **1.1e-14** over 2,578 live states; no other state non-zero; all 26 payments present |
+| The Jacobian at x₁ against ForwardDiff of the RHS, row by row, relative to each row's largest entry | 1e-8 | 4.0e-15; the 44 payment rows 2.4e-16; no entry off the sparsity pattern |
+| J·v against central differences of the RHS, at x₀ + 1 | 1e-6 | 3.0e-10 |
+| Dual gradient against central differences, B = 20, tight tolerances (1e-14 absolute, 1e-12 relative), over the first 300 s (5 rebuilds), 3 parameters per placement | 1e-6 · max\|g\| | ≤ 1.1e-7 |
+| DualSparseKLU against LinearSolve 3.87's own dual path, one pass, first minute | 1e-8 | partials 6.0e-15 (GE) and 3.3e-15 (MET); the same steps |
+
+**What the checks cover.** At x₀, 1,591 of the 2,365 reactions have a reactant at zero
+count (299 of the 363 second-order ones), and every counter is 0. So the RHS check at x₀
+exercises about a third of the network and none of the payments. The checks at x₁ cover
+the rest: every reaction is live there, every counter is 1, and the surface, volume and
+rebuild are compared with SpeedyCell's own code. J·v alone has little power on the
+payment rows, since its tolerance is set by metabolic rows of about 3×10³; the row-by-row
+Jacobian check covers them.
+
+**The finite-difference check, per kind.** In BOTH, max|g| comes from the MET
+parameters, so the scale rule alone barely tests BOTH's GE ones. The check also reports
+each component against the largest |g| of its own kind (not part of the pass rule):
+- GE: ≤ 1.0e-7 at h = 1e-4. MET: ≤ 8.7e-10.
+- BOTH, the MET component: 6.2e-10.
+- BOTH, the two GE components: θ₁ 5.5e-6 at h = 1e-4 and 1.1e-7 at h = 1e-3, the mark of
+  noise in the objective at the smaller step; θ₁₀ 1.6e-6 and 1.4e-6. θ₁₀'s gap is the same
+  at both steps, so it is neither noise nor truncation. Its cause is not found. It is
+  1.4e-6 of the component, just over 1e-6.
 
 **Not a check, an observation.** The rate rules at x₀ differ from `reactions.csv`'s
 `rate` column in 1,435 of 2,365 reactions, by up to 9×. That column is the first minute's
