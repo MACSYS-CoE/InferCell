@@ -1,5 +1,31 @@
 # Handoff
 
+## Latest: KIM-56, the parameter-override hook (2026-11-28)
+
+- The hook already existed in syn3a-ensemble (lane 10a, c141e78). Nothing in syn3a-ensemble was edited.
+  KIM-56's Touches moved into InferCell (Decision log 2026-11-28, with a correction entry the same day),
+  and syn3a-ensemble is pinned at 2075809 (`SYN3A_PIN`).
+- `dev/scripts/fullcell_params_kim56/` holds:
+  - `adapter.jl`, with `params_from_vector(m, v)`: one multiplier per constant, in `param_names()` order.
+    Loading it checks the pin and that `param_names()` equals `results/param_names.csv`.
+  - `check.jl`, the Spec's bitwise check, with an ODE and a CME control;
+  - `table.jl`, the name table;
+  - `params_check.sh`, the launcher (per-run depot, launcher_guard), and `params_check.slurm`.
+- **Results** (run of record at 4d3e0ce, jobs 21873322–21873324, archive `infercell-kim56-fix-2026-11-28`).
+  - The bitwise check passes (job 21873324). Over 181 min, 6 cells were each run three ways (published,
+    `Params(m)`, `ones(838)`) with 0 mismatches, and both controls (PGI.kcatF and riboKcat × 2) differ.
+  - There are 838 named constants, 805 ODE and 33 CME, with no zero defaults (job 21873323).
+  - Both outputs are byte-identical to the first run at c4f62ee (jobs 21853118–21853120).
+  - The first run wrote one file into KIM-183's archive depot (`logs/manifest_usage.toml`; its
+    `SHA256SUMS` does not cover the depot). The launcher now puts that file in a depot per run. Loading
+    KIM-183's 254 compile caches updated their mtimes, as Julia does whenever it loads a cache. No
+    cache was created there: their birth times are 2026-11-26/27.
+- **Next:**
+  - KIM-57's inventory must match 838.
+  - The classes that are not named (geometry, copy numbers, media and others, listed in the note's §4) have
+    no multiplier. Giving any of them a prior needs a new named constant in syn3a-ensemble's export.
+  - KIM-58 includes `adapter.jl` and copies `params_check.sh`'s pattern.
+
 ## Latest: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
 
 - At KIM-92's dataset, the reduced model was refitted with all ten glycolytic forward constants free (29
