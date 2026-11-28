@@ -16,8 +16,10 @@
     `Params(m)`, `ones(838)`) with 0 mismatches, and both controls (PGI.kcatF and riboKcat × 2) differ.
   - There are 838 named constants, 805 ODE and 33 CME, with no zero defaults (job 21873323).
   - Both outputs are byte-identical to the first run at c4f62ee (jobs 21853118–21853120).
-  - The first run's precompile wrote 255 compile-cache files into KIM-183's archive depot, which its
-    `SHA256SUMS` does not cover. They were left in place; the launcher now uses a depot per run.
+  - The first run wrote one file into KIM-183's archive depot (`logs/manifest_usage.toml`; its
+    `SHA256SUMS` does not cover the depot). The launcher now puts that file in a depot per run. Loading
+    KIM-183's 254 compile caches updated their mtimes, as Julia does whenever it loads a cache. No
+    cache was created there: their birth times are 2026-11-26/27.
 - **Next:**
   - KIM-57's inventory must match 838.
   - The classes that are not named (geometry, copy numbers, media and others, listed in the note's §4) have

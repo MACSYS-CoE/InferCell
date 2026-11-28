@@ -18,11 +18,11 @@ The standalone `SpeedyCell.jl` (0823b53) has none of these. KIM-183 timed this s
 **How it runs.** The environment in this directory is a copy of KIM-183's (`dev/scripts/fullcell_timing_cycle/`):
 - Julia 1.11.9 at `/fred/oz022/tkimpson/julia-1.11.9`;
 - SpeedyCell developed by path;
-- KIM-183's depot, stacked on the shared one that holds LowPrecSSA.
+- a depot of the run's own (`<outdir>/depot`), stacked on KIM-183's and on the shared one that holds LowPrecSSA. Every compile cache the runs needed was already in KIM-183's depot, so the run's own depot received only `logs/manifest_usage.toml`.
 
 The pin is in `SYN3A_PIN`. `params_check.slurm` refuses to run unless syn3a-ensemble is at the pin and clean, and unless this directory has no uncommitted changes. `adapter.jl` makes the same pin check when it loads, and also checks that `param_names()` is `results/param_names.csv`, name for name and in order.
 
-From precompile job 21873322 (the first run's 21853118 printed the same):
+From precompile job 21873322 (the first run's 21853118 printed the same Julia lines, and the pin in its short form):
 
 ```
 Julia Version 1.11.9
