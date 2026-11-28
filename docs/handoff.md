@@ -25,7 +25,9 @@ KIM-187 is decided.
   KIM-181 in detail.
 - The overnight results (KIM-177, 183, 184 and 185, from PR #208, which this section replaces):
   - KIM-183: about 15% of cells at the published defaults do not reach t_SA2 by minute 120.
-  - KIM-185: the 539 CPU-h for the plug-in holds only with a per-gene gradient.
+  - KIM-185: the plug-in's 539 CPU-h holds only with a per-gene gradient. It is stage 1 alone, on
+    KIM-185's promoter block rather than the frame's (sensitivity 787–1,800). The metabolism stage
+    adds 2,100–8,100 CPU-h serial (KIM-195's note).
   - KIM-177: 363 second-order reactions, of which M13's model covers the 99 DnaA bindings to a 0/1
     site and one charging reaction.
   - The manager's log is `/fred/oz022/tkimpson/infercell-overnight-2026-11-26/REPORT.md`.
