@@ -14,7 +14,7 @@ not only ENO and FBA. At the new MAP the data reach:
 Widening the block adds three directions above the prior: PFK plus PYK (twice) and GAPD. It
 adds five that are not: PGI, TPI, LDH_L, PGM and PGK. Nothing else moves. ENO and FBA's
 eigenvalues barely change, from 11.8 and 39.9 to 12.1 and 40.2, and ranks 1 to 19 of the whitened
-spectrum match KIM-178's to about 0.1%. The 21 coordinates shared with
+spectrum match KIM-178's to within 0.2%. The 21 coordinates shared with
 KIM-178 shift by at most 0.18 Laplace SD.
 
 **The count depends on the prior table.** Five of the new constants have a prior SD of 0.05
@@ -25,8 +25,10 @@ would. That count is **28 of 29**, and **9 of 10** for the metabolic block.
 
 So the data constrain almost every glycolytic constant on an absolute scale, PGI, TPI, PGM and
 PGK among them. They do not constrain them beyond the tight priors the reduced model already
-gives them. Each reaction's own marginal precision under the likelihood alone, 1/(L⁻¹)_ii
-with L = −H − P and no prior on any coordinate, × (ln 2)², ranks them:
+gives them. Each reaction's own curvature under the likelihood alone ranks them. That is
+1/(L⁻¹)_ii with L = −H − P and no prior on any coordinate, × (ln 2)². L is indefinite in one
+direction (LDH_L), so this is a profile curvature rather than a Gaussian marginal. Removing
+that direction changes no value by more than 0.4%.
 
 | PYK | GAPD | PFK | ENO | PGK | FBA | PGM | TPI | PGI | LDH_L |
 |---|---|---|---|---|---|---|---|---|---|
@@ -105,10 +107,11 @@ squared loadings shown are those ≥ 0.10.
 - **The full spectrum's bottom 10 equal the block's marginal spectrum** to 4e-4 relative. The
   metabolic block is where the data run out.
 - **The likelihood column is the block's marginal posterior precision less its prior's.** That
-  is not in general the likelihood's own Schur complement on the block: the script's comment
-  at line 236 overstates it. Here the two agree to 1.6e-4 relative, and both count 9 of 10,
-  because the block barely couples to the other 19 coordinates. The likelihood's smallest
-  eigenvalue on those 19 is 339. `_reads.jl` prints both.
+  is not in general the likelihood's own Schur complement on the block, though the script's
+  labels (lines 230 and 285, and `spectrum.md`'s column heading) present it as one. Here the
+  two agree to 1.6e-4 relative, and both count 9 of 10. The reason is that the other 19
+  coordinates are dominated by the data: their prior precision, at most 2.1, is small against
+  the likelihood's curvature on them, at least 339. `_reads.jl` prints both.
 
 The full −H spectra, whitened and likelihood-only, are in the archive's `spectrum.md`, beside
 KIM-178's narrow block, along with each coordinate's MAP, prior SD and Laplace SD.
