@@ -31,14 +31,16 @@ echo "host $(hostname)"; lscpu | grep 'Model name'
 head=$(git -C "$SYN3A" rev-parse HEAD)
 [ "$head" = "$(git -C "$SYN3A" rev-parse "$SYN3A_PIN^{commit}")" ] ||
     { echo "syn3a-ensemble is at $head, not $SYN3A_PIN" >&2; exit 1; }
-[ -z "$(git -C "$SYN3A" status --porcelain -- code/SpeedyCell data/model)" ] ||
+st=$(git -C "$SYN3A" status --porcelain -- code/SpeedyCell data/model)   # a git error stops the job (set -e)
+[ -z "$st" ] ||
     { echo "syn3a-ensemble code/SpeedyCell or data/model is not clean" >&2; exit 1; }
 echo "syn3a_ensemble_git $head (pin $SYN3A_PIN, code/SpeedyCell and data/model clean)"
 export PATH=/fred/oz022/tkimpson/julia-1.11.9/bin:$PATH
 export JULIA_DEPOT_PATH=${DEPOT:?set DEPOT}:/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
 export JULIA_PKG_OFFLINE=true
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-[ -z "$(git -C "$ENV_DIR" status --porcelain -- .)" ] ||
+st=$(git -C "$ENV_DIR" status --porcelain -- .)
+[ -z "$st" ] ||
     { echo "$ENV_DIR has uncommitted changes; run from a clean worktree" >&2; exit 1; }
 echo "infercell_git $(git -C "$ENV_DIR" rev-parse HEAD) ($ENV_DIR clean)"
 case "${MODE:-}" in

@@ -5,15 +5,16 @@
 #
 #   dev/scripts/fullcell_params_kim56/params_check.sh <outdir>
 #
-# <outdir> must be new or empty of results. dev/scripts/launcher_guard.sh refuses an
+# <outdir> must not hold another run's jobs.tsv, COMMIT or results. dev/scripts/launcher_guard.sh refuses an
 # outdir inside a worktree, a dirty tree and an unpushed HEAD, and makes <outdir>/logs.
 # Job ids go to <outdir>/jobs.tsv, the commit to <outdir>/COMMIT, the name table to
 # <outdir>/table, the check to <outdir>/check, and the run's compile cache to
 # <outdir>/depot.
 set -euo pipefail
 outdir=$(realpath -m "$1")
-[ ! -e "$outdir/check" ] && [ ! -e "$outdir/table" ] ||
-    { echo "$outdir already holds results; use a new outdir" >&2; exit 1; }
+for f in check table jobs.tsv COMMIT; do
+    [ ! -e "$outdir/$f" ] || { echo "$outdir already holds $f from another run; use a new outdir" >&2; exit 1; }
+done
 source "$(dirname "$0")/../launcher_guard.sh"
 # KIM-183's node set: the EPYC 7543 nodes, so the gina nodes are excluded as well.
 X="gina[1-18,301-305],$excluded"
