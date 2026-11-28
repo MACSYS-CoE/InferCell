@@ -40,8 +40,8 @@ under a note saying it was reopened.
 4. Tom decided to tag v0.3.0 now as software only (M7: KIM-51 to KIM-54, not yet done). It does
    not wait for a paper, and a Zenodo deposit is not required.
 5. Real data is optional, and the venue is open.
-6. Still open inside the decision: the contribution sentence, and whether this manuscript is kept
-   ready to post if a gate fails.
+6. Still open inside the decision: the contribution sentence. No fallback paper is agreed in
+   advance: a failed gate is a stop and a discussion with Tom.
 
 ## Framing decided (2026-11-25), reopened 2026-11-26
 
