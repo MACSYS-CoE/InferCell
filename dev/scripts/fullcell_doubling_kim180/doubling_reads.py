@@ -2,6 +2,9 @@
 
     python3 -I dev/scripts/fullcell_doubling_kim180/doubling_reads.py <outdir>
 
+<outdir> is the run's outdir, or dev/scripts/fullcell_doubling_kim180/results, which holds a
+copy of job 21839731's ensemble_cells.csv and ensemble_meta.txt.
+
 Reads two default ensembles and prints, for each, the per-draw doubling time and the
 check against Thornburg et al. 2022 (Cell 185:345, Fig. 3F: surface area doubles at
 88-112 min, mean 97):
@@ -20,11 +23,15 @@ The definition (prereg §1):
 - The draw's doubling time is the ceil(n/2)-th smallest t_SA2 over its n healthy cells.
 """
 import csv
+import hashlib
 import math
 import sys
 
 LO, HI, PAPER_MEAN = 88, 112, 97
 SYN3A_CELLS = "/fred/oz022/tkimpson/syn3a-ensemble/results/cycle/cells.csv"
+# The file as of syn3a-ensemble 2075809 (it last changed at 0174610). A regenerated file
+# would change the first row silently, so it is refused.
+SYN3A_SHA256 = "4f1eac7903eeb5b1526e51fd7ed88fbe01a78cabefd70cb0d77c454eb5e053c1"
 
 
 def num(x, missing=math.inf):
@@ -35,7 +42,8 @@ def num(x, missing=math.inf):
     return missing if v < 0 else v
 
 
-def median_upper(v):
+def median_lower(v):
+    """The ceil(n/2)-th smallest (the lower median; type-1 quantile at 0.5)."""
     v = sorted(v)
     return v[math.ceil(len(v) / 2) - 1] if v else math.nan
 
@@ -44,10 +52,13 @@ def doubling(cells):
     """cells: (t_SA2, t_end) per cell, t_end the minute it collapsed or failed (inf if
     neither). Returns the draw's doubling time and the counts."""
     healthy = [t for t, end in cells if not (math.isfinite(end) and end <= t)]
-    return median_upper(healthy), len(healthy), sum(math.isfinite(t) for t in healthy)
+    return median_lower(healthy), len(healthy), sum(math.isfinite(t) for t in healthy)
 
 
 def syn3a_cells():
+    with open(SYN3A_CELLS, "rb") as f:
+        if hashlib.sha256(f.read()).hexdigest() != SYN3A_SHA256:
+            sys.exit(f"{SYN3A_CELLS} is not the file of syn3a-ensemble 2075809")
     out = []
     for r in csv.DictReader(open(SYN3A_CELLS)):
         t = num(r["t_SA2"])
