@@ -24,7 +24,11 @@
 
 set -euo pipefail
 SYN3A=/fred/oz022/tkimpson/syn3a-ensemble
-SYN3A_PIN=${SYN3A_PIN:-2075809}
+# sbatch copies the script, so $0 is not in the repo; use the submit directory.
+ENV_DIR=$SLURM_SUBMIT_DIR/dev/scripts/fullcell_params_kim56
+[ -f "$ENV_DIR/params_check.slurm" ] || { echo "submit from the worktree root" >&2; exit 1; }
+# The pin's one copy, also read by adapter.jl.
+SYN3A_PIN=$(cat "$ENV_DIR/SYN3A_PIN")
 lscpu | grep -q "AMD EPYC 7543" || { echo "not an EPYC 7543 node: $(hostname)" >&2; exit 1; }
 echo "host $(hostname)"; lscpu | grep 'Model name'
 head=$(git -C "$SYN3A" rev-parse HEAD)
@@ -37,9 +41,6 @@ export PATH=/fred/oz022/tkimpson/julia-1.11.9/bin:$PATH
 export JULIA_DEPOT_PATH=/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
 export JULIA_PKG_OFFLINE=true
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-# sbatch copies the script, so $0 is not in the repo; use the submit directory.
-ENV_DIR=$SLURM_SUBMIT_DIR/dev/scripts/fullcell_params_kim56
-[ -f "$ENV_DIR/params_check.slurm" ] || { echo "submit from the worktree root" >&2; exit 1; }
 echo "infercell_git $(git -C "$ENV_DIR" rev-parse HEAD)"
 case "${MODE:-}" in
   precompile)

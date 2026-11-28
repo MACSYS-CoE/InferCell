@@ -20,7 +20,6 @@ using SpeedyCell.Cell
 using InteractiveUtils, Printf, Dates, SHA
 include(joinpath(@__DIR__, "adapter.jl"))
 
-const SYN3A = "/fred/oz022/tkimpson/syn3a-ensemble"
 
 function int_range(name, default)
     f = parse.(Int, split(get(ENV, name, default), '-'))
