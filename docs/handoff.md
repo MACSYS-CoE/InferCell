@@ -1,5 +1,18 @@
 # Handoff
 
+## Latest: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
+
+- At KIM-92's dataset, the reduced model was refitted with all ten glycolytic forward constants free (29
+  coordinates). At the MAP (job 21842933, 49f345c) the data reach 24 of 29 directions beyond the prior,
+  and 5 of 10 in the metabolic block (KIM-178's narrow block: 2 of 2). The note is
+  `dev/scripts/corea_eigenspectrum/corea_eigenspectrum_result.md`; the archive is
+  `infercell-kim181-archive-2026-11-28`.
+- The likelihood alone, at a common geometric SD of 2, reaches 28 of 29 and 9 of 10. The gap is the tight
+  glycolytic prior table (SD 0.05 on five constants). Only LDH_L is flat in both.
+- **Open for Tom:** which count Fig. 3b shows. The new constants' truth equals their prior median, so the
+  run measures curvature at the prior's centre, not recovery.
+- Follow-up (not filed): `hessian_fd` now exists in three scripts; hoist it into `pilot_common.jl`.
+
 ## Latest: KIM-180's block rule is frozen (2026-11-28)
 
 - `spec/prereg/kim-180.md` is frozen at tag `prereg/kim-180`. It fixes doubling time as the median t_SA2
