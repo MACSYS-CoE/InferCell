@@ -67,7 +67,7 @@ KIM-187 is decided.
 **Below this section**, the section dated 2026-11-25 and every section older than it predate the
 decision of 2026-11-26. Where they speak of paper 1, the preprint or paper 2, read them as history.
 
-## Latest: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
+## Earlier: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
 
 - At KIM-92's dataset, the reduced model was refitted with all ten glycolytic forward constants free (29
   coordinates). At the MAP (job 21842933, 49f345c) the data reach 24 of 29 directions beyond the prior,
@@ -80,7 +80,7 @@ decision of 2026-11-26. Where they speak of paper 1, the preprint or paper 2, re
   run measures curvature at the prior's centre, not recovery.
 - Follow-up (not filed): `hessian_fd` now exists in three scripts; hoist it into `pilot_common.jl`.
 
-## Latest: KIM-180's block rule is frozen (2026-11-28)
+## Earlier: KIM-180's block rule is frozen (2026-11-28)
 
 - `spec/prereg/kim-180.md` is frozen at tag `prereg/kim-180`. It fixes doubling time as the median t_SA2
   over healthy cells in a 180-min window, and the rule that picks the inferred block from first-order
@@ -93,9 +93,10 @@ decision of 2026-11-26. Where they speak of paper 1, the preprint or paper 2, re
   minute 180, against 88–112. Those 100 cells repeat syn3a-ensemble's and KIM-183's procids 1–100 exactly
   to minute 120, so the second check tests determinism and minutes 120–180. The per-cell table is tracked
   in `dev/scripts/fullcell_doubling_kim180/results/`.
-- **Next:** KIM-186 implements §4. Its first item is §5's synthetic sparse and diffuse checks. KIM-57 may
-  narrow the eligible set, but only by a Decision log amendment before KIM-58 runs.
-- KIM-181 is running in parallel on its own branch (jobs 21842932/21842933).
+- **Next (as of KIM-180's merge; KIM-186 now waits on KIM-58, see the top section):** KIM-186
+  implements §4. Its first item is §5's synthetic sparse and diffuse checks. KIM-57 may narrow the
+  eligible set, but only by a Decision log amendment before KIM-58 runs.
+- KIM-181 was running in parallel then (jobs 21842932/21842933). It has since merged as #212.
 
 ## Earlier: paper 1's framing was decided (2026-11-25), superseded 2026-11-26
 
