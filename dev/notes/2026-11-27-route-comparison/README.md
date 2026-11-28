@@ -69,10 +69,10 @@ What the routes approximate beyond the inventory:
 
 | route | M0 (exact sampler, SBC) | reduced model (joint posterior) | M13 (exact check with copy number and second-order reactions) |
 |---|---|---|---|
-| R1 | yes. Done: passes SBC, about 80× cheaper; but on m0_v6 it sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). | yes, against the truth (there is no exact posterior): the joint's promoters sit −0.81 SD below the truth on KIM-92's dataset (14 of 17), an offset KIM-116 locates in the transcript factor. Over ten replicate truths the mean is −0.985 SD, with four replicates 6–11 SE below zero: gate 2 passes as frozen, but the route is not calibrated across truths (KIM-178, PR #210 open; Decision log 2026-11-28). | **yes, its main test, not yet run**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
+| R1 | yes. Done: passes SBC, about 80× cheaper; but on m0_v6 it sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). | yes, against the truth (there is no exact posterior): the joint's promoters sit −0.81 SD below the truth on KIM-92's dataset (14 of 17), an offset KIM-116 locates in the transcript factor. Over ten replicate truths the mean is −0.985 SD, with four replicates 6–11 SE below zero: gate 2 passes as frozen, but the route is not calibrated across truths (KIM-178, PR #210, merged as 50123cc; Decision log 2026-11-28). | **yes, its main test, not yet run**. Row 1a under CA and PM, row 3 PM, row 5 the mean dosage (D14). |
 | R2 | yes, but M0 has no pool feedback to cut | **yes. Done (KIM-116):** fails "close" against the joint (+0.65 SD on one promoter, +0.20 on average); against the truth −0.61 SD, beside the joint's −0.81 (KIM-92); Q's CRPS about 2× the joint's | row 5 untested: it holds copy number fixed by construction |
 | R3 | no: nothing on M0 needs a surrogate | partly: the surrogate's error on the reduced model's means | yes. The surrogate is trained where M13 is exact and is scored there. M17 is its own check. |
-| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed about 0.17 SD of the 0.42–0.56 SD M0 gap. KIM-90 names no cause, and its open lead (the transcripts counted twice) is outside what R4 changes. | yes: against the joint | yes |
+| R4 | **yes**: δ(θ) against the exact sampler. KIM-90's postmean arm is a one-point precursor: δ and S recomputed at the posterior mean closed 0.18 SD on S_0779, 0.16 on krnadeg and about 0.02 on ENO, of gaps of 0.42–0.56 SD. KIM-90 names no cause. It leaves two leads for krnadeg: the transcripts counted twice, which R4 does not change, and the bulk factor itself (about 0.4 SD with no transcripts), which is what a learned δ(θ) acts on. Against that, KIM-178 finds the reduced model's offset already present at δ = S = 0, and its untested hypothesis puts it in the transcript factor, which R4 keeps. | yes: against the joint | yes |
 | R5 | **yes, and needed**: SBC and the exact sampler on M0. This would be a new pilot, proposed in item 6 if R5 stays in. | yes: against the joint | yes |
 
 ### 1.3 What each route changes in the Claim, the non-goals and the positioning
@@ -172,16 +172,23 @@ ForwardDiff Jacobian, nested under the outer duals. It has 24,549 stored non-zer
    - **The new form is much closer to SpeedyCell in the replication counters.** The dATP
      counter is 676, 877 and 12 at minutes 10, 20 and 40, against SpeedyCell's mean of
      1,364, 1,593 and 1,340. The old form's grows to 13,220, 37,520 and 87,450.
-   - **The pools agree after minute 20 under the new form, not the old.** At minute 40 the
-     dGTP pool is 29,420 and dTTP 92,640, against SpeedyCell's 21,170 and 81,080. The old
-     form holds dGTP at 42.
-   - **Neither form tracks dATP over minutes 5–20.** The mean field's dATP pool is 0.03–0.17
-     counts under the new form and 80–94 under the old, against SpeedyCell's 4,165–25,090.
-     The mean field's replication counters are non-zero from minute 1 (29 counts of dATP),
-     while all 8 cells' are 0 at minutes 1 and 5. So the mean field begins replication
-     earlier than any of the cells and drains dATP. That is most likely the closure of
-     rows 1a and 2, which turns a 0/1 initiation event into a fraction from the start. It
-     is argued, not measured here; M13 measures it.
+     These are snapshots of a quantity that oscillates. Averaged over minutes 21–52 (from
+     `results/clamp/`), the dATP counter is 615 under the new form, 78,640 under the old,
+     and 1,623 in SpeedyCell: the new form is about 2.6× low, the old about 48× high.
+   - **The pools are close under the new form, not the old.** At minute 40 the dGTP pool is
+     29,420 and dTTP 92,640, against SpeedyCell's 21,170 and 81,080; the old form holds
+     dGTP at 42. Averaged over minutes 21–52 the dATP pool is 1,660 under the new form, 84
+     under the old, and 1,322 in SpeedyCell.
+   - **Replication is dATP-limited in the cells too.** Each of the 8 cells has dATP below
+     10 counts at 16–23 of its minute-ends, and a hook pays its dATP pool to 0 in 28–38
+     of its minutes. The mean field's pool is below 10 at 20 minute-ends, spread over
+     minutes 5–51. So a pool near zero is the model's own behaviour, not an artefact.
+   - **What differs is the onset.** The mean field's replication counters are non-zero
+     from minute 1 (29 counts of dATP), while all 8 cells' are 0 at minutes 1 and 5 and
+     first go non-zero at minutes 8–21. At minute 5 the mean field's dATP pool is 0.03
+     counts, against SpeedyCell's mean of 25,090. That early start is most likely the
+     closure of rows 1a and 2, which turns a 0/1 initiation event into a fraction from the
+     start. It is argued, not measured here; M13 measures it.
    - **The cost.** The new form takes 16,487 steps over the window at θ = 0, against 6,415
      for the old, which accounts for the rise in §2.4's times over run 1's.
 2. **The finite-difference gradient check is judged against the block's scale**, as
@@ -197,20 +204,25 @@ ForwardDiff Jacobian, nested under the outer duals. It has 24,549 stored non-zer
 **Why it is not KIM-184's 1.3 s.** The primal takes 16,487 steps over the window,
 against KIM-184's 174 (job 21842557).
 - A dual pass takes 13,118–18,141 steps. KIM-184's took 144.
-- The cost per step is about 12.5–14.3 ms for a dual pass, against KIM-184's 4.4 ms. The
+- The cost per step is about 12.2–14.4 ms for a dual pass, against KIM-184's 4.4 ms. The
   Jacobian is now state-dependent, and the fluxes' part is computed by AD.
 - **The steps are not comparable one for one.** DiffEqBase's error norm for a dual state
   averages over the value and its N partials, n(1 + N) terms, so a dual pass does not
   take the primal's steps. The figure per step, and the comparison with KIM-184, carry
   that caveat.
-- **Where the steps go is diagnosed on the login node, not on the runs of record.**
+- **Where the steps go.** The steps per minute at θ = 0 are in the clamp stage's
+  `results/clamp/meanfield.csv` (job 21842560); the pools below are from a login-node
+  diagnosis.
   - Minute 1 takes 866 steps under either clamp. Before the clamp, 365 of its 843 fell
-    in its first second: a start-up transient from x₀.
-  - Under the new clamp, the later minutes take 100–420 steps each, against about 93
-    under the old (16,487 against 6,415 in all). Only the dATP pool sits below 10 counts
-    with its counter above it, for 20 minutes, at a minimum of 0.027 counts. A pool held
-    at a fraction of a count, under the absolute tolerance of 1e-10, is the likely cause.
-    It ties the cost to the early-replication closure effect above.
+    in its first second: a start-up transient from x₀ (login node, before the clamp).
+  - Minutes 2–4 take about the same under both forms (225, 183 and 116 new; 225, 182 and
+    127 old). From minute 5 the new form takes 91–557 a minute, against 91–296
+    under the old, mostly about 93 (16,487 against 6,415 in all).
+  - Only the dATP pool sits below 10 counts with its counter above it, at 20 minute-ends
+    with a minimum of 0.027 counts. A pool held at a fraction of a count, under the
+    absolute tolerance of 1e-10, is the likely cause. Since the cells also run
+    dATP-limited (above), most of this cost is most likely the model's, not the
+    closure's (argued).
 - **At looser tolerances** (1e-6 absolute and 1e-6 relative), a GE B = 20 gradient takes
   118.4 s against 358.8 s, about 3.0× less, with 4,557 steps in its first pass (job
   21842557, one repeat). That is a lever for KIM-194, not a result: what the inference
@@ -247,7 +259,7 @@ each component against the largest |g| of its own kind (not part of the pass rul
 - BOTH, the two GE components: θ₁ 5.5e-6 at h = 1e-4 and 1.1e-7 at h = 1e-3, the mark of
   noise in the objective at the smaller step; θ₁₀ 1.6e-6 and 1.4e-6, just over 1e-6.
   θ₁₀'s two differences fall on either side of the dual (43.24608): 43.24601 at
-  h = 1e-4 and 43.24615 at h = 1e-3. At the smaller step, 2h·|dual − FD| is 1.4e-8, the
+  h = 1e-4 and 43.24614 at h = 1e-3. At the smaller step, 2h·|dual − FD| is 1.4e-8, the
   same noise as θ₁'s. At the larger step the gap is about 9× what that noise would give,
   so it is most likely truncation, of order h². No step between the two was run.
 
@@ -288,7 +300,7 @@ picked on doubling time, will differ from these.
 The primal solve (θ = 0) takes a median 25.3 s over 16,487 steps. The run 1 column is the
 first clamp (job 21785045), for comparison only.
 
-### 2.5 DualSparseKLU against LinearSolve 3.87's own dual path (job 21785046)
+### 2.5 DualSparseKLU against LinearSolve 3.87's own dual path (job 21842558)
 
 One pass of 10 partials over the whole window, at B = 20:
 
@@ -317,7 +329,8 @@ InferCell's Julia 1.10.5 with LinearSolve 3.73.0. DualSparseKLU's figures there 
 measured. KIM-184's suggest they would be close, since its algebra does not depend on the
 version, but that is argued.
 
-**These are upper bounds on what the mean field costs.** The fluxes' Jacobian is a dense
+**These are upper bounds on what this implementation costs**, at this model's fidelity
+and the pinned tolerances. The fluxes' Jacobian is a dense
 ForwardDiff Jacobian, nested under the outer duals: 146 inputs in 13 sweeps, about 2.2 MB
 allocated a call, where its pattern has 493 non-zeros and 8 colours. The review's
 micro-benchmarks put it at about 50–60% of a dual step (login node). So a coloured sparse
@@ -376,7 +389,7 @@ the budget divided by the cores used.
 | R4, then the posterior | R1's chains, with the emulated δ(θ) and S(θ) in the bulk factor | — | R1's cost (§5) | R1's | the emulator's own gradient is cheap beside the mean-field solve |
 
 What the table shows:
-- **R5 is affordable in CPU-h but costs a different kind of thing.** Its budget is
+- **R5's CPU-h is of R1's order, and it costs a different kind of thing.** Its budget is
   simulation, which parallelises without limit, plus GPU training. Its wall-clock is not
   binding. It needs an M0 pilot before its error is known (§1.2), and it puts the paper
   on PreCell's ground (§1.3).
@@ -426,8 +439,8 @@ factor pass carries 10 partials, so B partials take ⌈B/10⌉ passes.
 | BOTH | 40 | 755.6 | 4 × 194.1 = 776.4 | **1,532.0** | 267.8 | 4 × 28.5 = 113.8 | **381.7** |
 
 **Serial, the two terms are about equal:** the mean field is 48–54% of R1's gradient
-(359 of 747 s at GE B = 20). Threaded, the mean field is about 80% of it, since its 4
-threads gain less than the factor's argued 16 workers. The factor's share rests on
+(359 of 747 s at GE B = 20). Threaded, the mean field is 68–89% of it (about 80% at
+B = 20), since its 4 threads gain less than the factor's argued 16 workers. The factor's share rests on
 KIM-185's naive width-12 pass on a stand-in factor, applied here by argument, so the
 split is itself argued. Either term is a lever:
 - **the transcript factor, argued and not measured.** The factor depends on θ only
@@ -508,18 +521,18 @@ What this says:
 
   None of them has been combined or measured on a chain. The first two act on the
   mean-field solve, so R2's stage 2 (§5.2) inherits them too.
-- **The figure is soft in both directions.** Changing only the payment form moved the
-  mean-field term by 2.6–3.2× (run 1 against run 2). Most of the extra steps come from
-  one pool, dATP, held at a fraction of a count by the early start of replication, which
-  is a closure effect (§2.1). A better closure could lower the cost; the inference's own
-  tolerance needs could raise or lower it.
+- **The figure is not settled.** Changing only the payment form, to the more faithful
+  one, moved the mean-field term up by 2.6–3.2× (run 1 against run 2). Most of the extra
+  steps come from the dATP pool held near zero, which the cells show too (§2.1), so it is
+  the model's cost rather than an artefact to be removed. What tolerance the inference
+  needs is not measured, and it could move the figure either way.
 
 ### 5.2 R2, the data plug-in (θ_H fixed)
 
 | placement | B | CPU-h | wall per chain | source |
 |---|---|---|---|---|
 | GE (the frame's: tRNA charging) | 10 / 20 / 40 | not costed | — | not a stage-1 parameter (§4) |
-| promoters and mRNA decay (KIM-185's block, not the frame's) | 456 | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
+| promoters and mRNA decay (KIM-185's block, not the frame's) | 456 | **539** (sensitivity 787–1,800) | 135 h serial; 18 h on 16 workers (1,171 CPU-h) | KIM-185 (jobs 21665221, 21665222, 21666966): stage 1 alone |
 | MET | 10 / 20 / 40 | 2,123 / 4,262 / 8,111 | 22.1 / 44.4 / 84.5 days serial | stage 2 alone: 36,000 × R1's MET mean-field gradient (job 21842557). An upper bound, argued. |
 | BOTH | 10 / 20 / 40 | 2,662 / 2,662 / 4,801 | stage 1, then stage 2 | KIM-185's 539 for the promoters in place of the frame's GE half, plus stage 2 at B/2 MET parameters (one pass up to 10) |
 
@@ -533,7 +546,7 @@ the reduced model it failed KIM-116's "close" test (§1.2).
 | route | CPU-h per posterior | wall-clock | θ_H | source |
 |---|---|---|---|---|
 | R3 (R1 + a surrogate for the non-closing part) | R1's (§5.1) + the surrogate's training (M17; not costed) | R1's | fixed | argued |
-| R4 (R1 + an emulated δ(θ), S(θ)) | θ_H fixed: R1's + 130–5,300 for a fresh design. θ_H drawn: R1's + M12's draws as the design, ≈ 0 beyond M12, once M12 has run (it has not) | R1's; the design runs in parallel beforehand | fixed, or drawn. Drawn, R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
+| R4 (R1 + an emulated δ(θ), S(θ)) | θ_H fixed: R1's + 130–5,300 for a fresh design. θ_H drawn: the design is M12's draws, ≈ 0 beyond M12 once M12 has run (it has not), but the chains for θ_H drawn are not costed (R1's likelihood needs a pseudo-marginal or a joint, frame §1.3) | R1's; the design runs in parallel beforehand | fixed, or drawn. Drawn, R1's likelihood must still take one θ_H a solve (frame §1.3). | §3, argued |
 | R5 (neural SBI) | about 10,700 (PreCell's design on our window), or 530–2,700 (sequential), + 80–150 A100-h | hours to days: simulation parallelises | fixed or drawn, at the same cost | §3, argued |
 
 **What is not costed.** The Done when asks for every route × case. These cells are left
@@ -554,12 +567,19 @@ open, each for the reason given:
 
 This is a reading of the tables above. The choice is KIM-187's, and Tom's.
 
+**The 5,000 CPU-h line is a yardstick here, not a gate.** It is gate 1's line for the
+plug-in's gene-expression block (KIM-185); frame.md sets no pass line for KIM-195. At
+B = 20, serial, only R2 meets it: its promoter case (539, or 1,171 on 16 workers), its
+metabolism stage (4,262) and its BOTH case (2,662). R1 is over it (7,500–8,100), and so are R3 and R4, which
+cost R1's chains and more. R5 is under it with a sequential estimator (530–2,700) and
+over it at PreCell's design (about 10,700).
+
 | route | in contention? | why |
 |---|---|---|
-| **R1, mean field + NUTS** | **yes**, over the line at B = 20 | **Cost.** Serial, 3,700–4,200 CPU-h at B = 10, under the 5,000 CPU-h line, and 7,500–8,100 at B = 20, over it. Threaded at B = 20 it is 42,000–48,000 CPU-h, for 27–31 days a chain. The figure moved 2.6–3.2× with the payment form alone, so it is soft in both directions, and the levers in §5.1 are KIM-194's. **Error.** It can be measured at every tier. On M0 it passes SBC but sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). On the reduced model its promoters sit −0.81 SD from the truth (KIM-92), and across ten truths it is not calibrated (KIM-178). M13, its main test, has not run. **Claim.** It is the only route that keeps the Claim as written with no learned component. |
-| R2, data plug-in | as a fallback only | **Cost.** It is the cheapest: 539 CPU-h for KIM-185's promoter block, at 18 h a chain on 16 workers, against R1's 27–31 days. Its metabolism stage costs 2,100–8,100 CPU-h, over the line at B = 40. The frame's own GE case is not costed. **Error.** On the reduced model it is shifted from the joint by +0.20 joint SD on average and +0.65 on one promoter, so it fails "close" (KIM-116). Against the truth it sits at −0.61 SD, beside the joint's −0.81: the same offset with an upward shift, so neither route is accurate there. Its gene copy number is untested. **Claim.** It changes the Claim and the contribution sentence. |
-| **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. |
-| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design: 130–5,300 CPU-h for θ_H fixed, or M12's draws for θ_H drawn once M12 has run. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, and recomputing δ and S at the posterior mean closed about 0.17 of 0.42–0.56 SD. Its error is checkable on M0. |
+| **R1, mean field + NUTS** | **yes**, over the line at B = 20 | **Cost.** Serial, 3,700–4,200 CPU-h at B = 10, under the 5,000 CPU-h line, and 7,500–8,100 at B = 20, over it. Threaded at B = 20 it is 42,000–48,000 CPU-h, for 27–31 days a chain. The figure moved up 2.6–3.2× with the payment form alone and is not settled (§5.1); the levers in §5.1 are KIM-194's. **Error.** It can be measured at every tier. On M0 it passes SBC but sits 0.42–0.56 SD from the long exact reference, with no cause named (KIM-90). On the reduced model its promoters sit −0.81 SD from the truth (KIM-92), and across ten truths it is not calibrated (KIM-178). M13, its main test, has not run. **Claim.** It is the only route that keeps the Claim as written with no learned component. |
+| R2, data plug-in | as a fallback only | **Cost.** It is the cheapest: 539 CPU-h serial for KIM-185's promoter block (135 h a chain), or 1,171 CPU-h at 18 h a chain on 16 workers. That block is not the frame's. Its metabolism stage costs 2,100–8,100 CPU-h serial (22–85 days a chain), over the line at B = 40. The frame's own GE case is not costed. **Error.** On the reduced model it is shifted from the joint by +0.20 joint SD on average and +0.65 on one promoter, so it fails "close" (KIM-116). Against the truth it sits at −0.61 SD, beside the joint's −0.81: the same offset with an upward shift, so neither route is accurate there. On dQ, the knockdown's effect, it scores the same as the joint (CRPS 1.848e4 against 1.857e4). It is untested across truths, and its gene copy number is untested. **Claim.** It changes the Claim and the contribution sentence. |
+| **R3, mean field + surrogate** | **yes**, conditional on M17 | It costs R1's chains plus training. It does not make R1 cheaper. Its case is accuracy where the closure fails, measured on M13. It keeps R1's transcript factor, so it inherits whatever of KIM-178's offset lies there. |
+| **R4, emulated synthetic likelihood** | **yes** | It costs R1's chains plus a design: 130–5,300 CPU-h for θ_H fixed, or M12's draws for θ_H drawn once M12 has run. It targets the bulk factor's δ and S fixed at θ_ref. On M0 that is not shown to be the gap's cause: KIM-90 names none, recomputing δ and S at the posterior mean closed at most 0.18 SD of gaps of 0.42–0.56, and one of KIM-90's two leads for krnadeg is the bulk factor itself. On the reduced model KIM-178 finds the offset already present at δ = S = 0, which a learned δ(θ) does not reach at θ_ref. The chains for θ_H drawn are not costed. Its error is checkable on M0. |
 | R5, neural SBI | **only if Tom reopens the non-goal** | Its CPU-h is comparable or lower, and it has no closure error. But it breaks the non-goal "no neural SBI comparison beyond the one surrogate swap", puts the paper on PreCell's ground, and has no M0 check yet. |
 
 **The M0 pilot (proposed, not filed).** R4 stays in contention, so the item calls for its M0
@@ -569,7 +589,7 @@ pilot against the exact sampler as a separate issue. The proposal:
 - compare the result with the exact sampler's posterior on M0's datasets, by the same
   shift and SBC tests M0 used.
 
-KIM-90's postmean arm is a one-point precursor there (about 0.17 SD of the gap closed). The cost is M0-sized:
+KIM-90's postmean arm is a one-point precursor there (0.16–0.18 SD closed on krnadeg and S_0779, about 0.02 on ENO). The cost is M0-sized:
 simulations at about M0's cost per cell, plus M0's 6.6 CPU-h per mixed-route posterior.
 **This is offered for Tom's approval before it is created** (`Future:` or M11/M13, his call).
 An SBI pilot is not proposed unless the non-goal is reopened.
@@ -590,14 +610,19 @@ only.
 
 What a stranger needs, and what they will get:
 - **syn3a-ensemble is private**, and its path is fixed in `model.jl`. Without access the
-  model cannot be built. Every stage asserts that the repo is at the commit above with
-  `data/model` unmodified, and records it beside the InferCell commit in its header.
+  model cannot be built. The mean-field stages (check, time, library, threaded and the
+  mean-field half of clamp) assert that the repo is at the commit above with
+  `data/model` unmodified, and record it beside the InferCell commit in their headers.
+  The two SpeedyCell-side scripts record its commit but assert nothing, and nothing
+  checks `code/SpeedyCell` for local edits.
 - **The environments are not instantiated by the launcher.** Both depots were built on a
   login node, since the compute nodes have no network. On a new machine, run
-  `Pkg.instantiate()` in `dev/scripts/fullcell_route_cost` and in
-  `dev/scripts/fullcell_timing_cycle` first, with Julia 1.11.9.
+  `Pkg.instantiate()` in `dev/scripts/fullcell_route_cost` (default depot) and in
+  `dev/scripts/fullcell_timing_cycle` (the depot the launcher's `jlref` sets) first,
+  with Julia 1.11.9, or edit `jl` and `jlref` in the launcher. The SpeedyCell
+  environment's Manifest pins SpeedyCell by absolute path.
 - **The timings reproduce only to run-to-run variation.** They depend on the node and on
-  what else shares it (§2.6). The step counts did repeat: 16,487 at θ = 0 on the login
-  node and in job 21842560. Residuals at round-off level may differ by machine.
+  what else shares it (§2.6). The step counts did repeat: 16,487 at θ = 0 in jobs
+  21842557, 21842559 and 21842560, on three nodes. Residuals at round-off level may differ by machine.
 - The outdir's `dev/`, `dev-loginnode*/` and `review/` hold login-node diagnoses and the
   review's scratch. They are not runs of record, and they are outside `SHA256SUMS`.
