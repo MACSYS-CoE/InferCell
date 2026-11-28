@@ -1,8 +1,18 @@
 # Paper 1 framing: the decision
 
+> **Reopened on 2026-11-26. This file is now the record of the old decision, not the current plan.**
+> Tom's Decision log entry of 2026-11-26, "One paper, on the full syn3A model; the reduced-model
+> preprint is held. Reopens the entry of 2026-11-25", names this decision and reopens it. That is
+> condition 3 of [What would reopen this](#what-would-reopen-this). There is now one paper, on the
+> full syn3A model. M0 and the reduced model are its verification tier. The manuscript in `paper/`
+> is not posted as a preprint. It is the source for the new paper's framework and verification
+> sections. v0.3.0 is tagged as software only. The technical risks in §3 below still hold, and they
+> became the new plan's first gates (milestone M11). The plan is the Linear project InferCell. The
+> text below is unchanged from 2026-11-25.
+
 **Date:** 2026-11-25
 **Decided by:** Tom
-**Status:** DECIDED. Recorded in the Linear Decision log, entry of 2026-11-25
+**Status:** REOPENED 2026-11-26 (see the note above). Was: DECIDED. Recorded in the Linear Decision log, entry of 2026-11-25
 ("Paper 1 claims the space on the reduced model; the full cell and the upgrades go to a later
 flagship paper"). That entry is the record. This file is the reasoning behind it.
 
