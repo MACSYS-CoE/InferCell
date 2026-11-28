@@ -5,8 +5,9 @@
 # Output of 2026-11-28 (seed 20261128): pure null, top-25 sum 0.41, permutation threshold
 # 0.0326, 0 eligible; diffuse (5 at 0.1, 50 at 0.004), threshold 0.0327, the 5 strong eligible
 # and no truly zero one, eligible sum 0.501. The bootstrap SE (0.011) overstates the noise
-# SD of a null S_i (0.006), so a rule on k SE is conservative and its error rate unknown
-# (2 SE admits 1 false constant here); the permutation threshold is calibrated.
+# SD of a null S_i (0.006), so a rule on k SE is conservative per constant but not
+# family-wise (over 838 constants 2 SE still admits 1 false one here); the permutation
+# threshold controls the family-wise rate.
 import numpy as np
 rng = np.random.default_rng(20261128)
 N, P, B = 1000, 838, 20
