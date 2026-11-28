@@ -30,24 +30,23 @@ KIM-187 is decided.
     site and one charging reaction.
   - The manager's log is `/fred/oz022/tkimpson/infercell-overnight-2026-11-26/REPORT.md`.
   - F2B, F3(c) and T1 were amended from these results (Decision log 2026-11-27).
-- In review: **KIM-195** (PR #209), the route comparison. On 2026-11-28 the counter clamp changed
-  to κ·c·p/(p + 1) and every timing was rerun.
-  - In the note at the PR's head, the mean field with NUTS (R1) projects to 3,700–4,200 CPU-h a
-    posterior serial at B = 10, and 7,500–8,100 at B = 20.
+- Done: **KIM-195** (PR #209, merged 6af2291), the route comparison. Its note is
+  `dev/notes/2026-11-27-route-comparison/README.md`. On 2026-11-28 the counter clamp changed to
+  κ·c·p/(p + 1) and every timing was rerun.
+  - The mean field with NUTS (R1) projects to 3,700–4,200 CPU-h a posterior serial at B = 10, and
+    7,500–8,100 at B = 20.
   - R1, R3 (the surrogate, conditional on M17) and R4 (the emulator) stay in contention. R2 (the
     plug-in) is a fallback only.
-  - The figures are not settled until #209 merges.
-- Next: **KIM-187**, Tom's call on the inference route and the forward engine. It is blocked
-  only by KIM-195. KIM-194 (wall-clock) waits behind KIM-187.
+- Next: **KIM-187**, Tom's call on the inference route and the forward engine. Every blocker is
+  Done. KIM-194 (wall-clock) waits behind KIM-187.
 
 **Ready set (Linear, 2026-11-28, after KIM-179).**
-- Strictly ready: none. KIM-179 was the last.
+- Strictly ready: **KIM-187** (Touches: none, a decision with no repo writes).
 - Held back only by a missing Touches line: KIM-51 (release prep) and KIM-52 (release gate), both
   in M7. They have no blockers. Add their Touches lines to make them ready.
-- In flight: KIM-56 (In Progress, the parameter-override hook, `dev/scripts/fullcell_params_kim56/`)
-  and KIM-195 (In Review, PR #209).
+- In flight: KIM-56 (In Review, PR #213, the parameter-override hook,
+  `dev/scripts/fullcell_params_kim56/`).
 - Blocked:
-  - KIM-187 by KIM-195.
   - KIM-57 (prior table) by KIM-56.
   - KIM-58 (prior draws) by KIM-56 and KIM-57.
   - KIM-186 by KIM-58. KIM-59 by KIM-58 and KIM-55 (the M12 parent, in Backlog).
