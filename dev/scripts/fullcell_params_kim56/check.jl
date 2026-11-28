@@ -7,9 +7,11 @@
 #   vector      run_cell(m, p; ..., params=params_from_vector(m, ones(838)))
 # and every pair must agree under `same_output` (procid, seed, minutes, events, min
 # count, stop, failure, the per-minute record, spans, hooks per minute) and
-# `output_digest`. A control run with PGI.kcatF × 2 (vector index of PGI.kcatF set to 2)
-# on the first procid must give a different digest from its published run, so the check
-# can fail. Options are KIM-180's run of record (dev/scripts/fullcell_doubling_kim180):
+# `output_digest`. Two controls on the first procid must each give a different digest
+# from its published run, so the check can fail: an ODE constant, PGI.kcatF × 2, over
+# the full window, and a CME constant, translation_rate_restart.py:riboKcat × 2, over 3
+# minutes. They run before the cells, so a dead control fails in minutes. Options are
+# KIM-180's run of record (dev/scripts/fullcell_doubling_kim180):
 # seed 1, minutes=181, ode_failure=:record, no stop. Exits non-zero on any mismatch.
 #
 # Environment: PROCIDS ("a-b", default 1-6), SEED (default 1), MINUTES (default 181),
@@ -51,13 +53,24 @@ function main()
     names = param_names()
     n = length(names)
     paths = (published=nothing, params=Params(m), vector=params_from_vector(m, ones(n); names=names))
-    i = findfirst(==("PGI.kcatF"), names)
-    v = ones(n); v[i] = 2.0
-    control = params_from_vector(m, v; names=names)
     sim(p, P; minutes=minutes) = run_cell(m, p; seed=seed, minutes=minutes, params=P, ode_failure=:record)
 
     sim(first(procids), nothing; minutes=3)   # warm-up: compiles the published path
     sim(first(procids), paths.params; minutes=3)   # and the parameterised one
+    p = first(procids)
+    control_differs = true
+    for (name, mins) in (("PGI.kcatF", minutes), ("translation_rate_restart.py:riboKcat", 3))
+        i = findfirst(==(name), names)
+        i === nothing && error("no named constant $name")
+        v = ones(n); v[i] = 2.0
+        dc = output_digest(sim(p, params_from_vector(m, v; names=names); minutes=mins))
+        dp = output_digest(sim(p, nothing; minutes=mins))
+        control_differs &= dc != dp
+        @printf("control: procid %d with %s x 2 over %d min, digest %016x against %016x: %s\n", p, name, mins,
+                dc, dp, dc != dp ? "differs" : "SAME (the check cannot fail)")
+        flush(stdout)
+    end
+    control_differs || (println("CHECK FAIL"); exit(1))
     mismatches = 0
     rows = String[]
     for p in procids
@@ -76,18 +89,12 @@ function main()
                              r.published.failure === nothing ? "" : string(r.published.failure[1]), collapsed))
         flush(stdout)
     end
-    p = first(procids)
-    dc = output_digest(sim(p, control))
-    dp = output_digest(sim(p, nothing))
-    control_differs = dc != dp
-    @printf("control: procid %d with PGI.kcatF x 2, digest %016x against %016x: %s\n", p, dc, dp,
-            control_differs ? "differs" : "SAME (the check cannot fail)")
     open(joinpath(out, "check.csv"), "w") do io
         println(io, "procid,seed,minutes,digest_published,digest_params,digest_vector,same_params,same_vector,nevents,failure_minute,collapsed")
         foreach(l -> println(io, l), rows)
     end
-    println("$(length(procids)) cells x 3 paths, $mismatches mismatches; control ",
-            control_differs ? "differs" : "does not differ")
+    println("$(length(procids)) cells x 3 paths, $mismatches mismatches; controls ",
+            control_differs ? "differ" : "do not differ")
     ok = mismatches == 0 && control_differs
     println(ok ? "CHECK PASS" : "CHECK FAIL")
     ok || exit(1)
