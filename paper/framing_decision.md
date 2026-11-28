@@ -6,9 +6,9 @@
 > condition 3 of [What would reopen this](#what-would-reopen-this). There is now one paper, on the
 > full syn3A model. M0 and the reduced model are its verification tier. The manuscript in `paper/`
 > is not posted as a preprint. It is the source for the new paper's framework and verification
-> sections. v0.3.0 is tagged as software only. The technical risks in §3 below still hold, and they
-> became the new plan's first gates (milestone M11). The plan is the Linear project InferCell. The
-> text below is unchanged from 2026-11-25.
+> sections. v0.3.0 is to be tagged as software only (M7, not yet done). The technical risks in §3
+> below still hold, and they became the new plan's first gates (milestone M11). The plan is the
+> Linear project InferCell. The text below is unchanged from 2026-11-25.
 
 **Date:** 2026-11-25
 **Decided by:** Tom

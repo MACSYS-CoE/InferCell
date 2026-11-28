@@ -6,8 +6,8 @@
 reopens the decision of 2026-11-25 (Decision log, "One paper, on the full syn3A model; the
 reduced-model preprint is held"). M0 and the reduced model are its verification tier. The
 reduced-model manuscript in `paper/` is complete (KIM-50) and is not posted. It is the source for
-the new paper's §2 and §3.3. v0.3.0 is tagged as software only (M7), with no Zenodo deposit. Real
-data is optional. A failed gate stops the work and opens a discussion with Tom. The old decision's
+the new paper's §2 and §3.3. Tom decided to tag v0.3.0 now as software only, with no Zenodo
+deposit (M7, KIM-51 to KIM-54, not yet done). Real data is optional. A failed gate stops the work and opens a discussion with Tom. The old decision's
 reasoning is kept in `paper/framing_decision.md`, under a note saying it was reopened.
 
 **Where the plan lives.** Linear, project InferCell. The project description holds the claim,
