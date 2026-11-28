@@ -1,5 +1,5 @@
 # KIM-181: the numbers in corea_eigenspectrum_result.md that spectrum.md does not print,
-# read from the run's saved steps. Login node, a few seconds:
+# read from the run's saved steps. Login node, under a minute:
 #
 #   julia --project=. dev/scripts/corea_eigenspectrum/corea_eigenspectrum_reads.jl <run dir>
 #
@@ -19,7 +19,6 @@ function main(dir)
     println("run: commit ", sf.commit, ", job ", sf.job, ", ", sf.ran_on.host)
     names, sd, post = r.names, r.prior_sd, r.post_sd
     A = Symmetric(-h.H)
-    W = Symmetric(Diagonal(sd) * A * Diagonal(sd))
 
     # The counts, and how far the nearest eigenvalues sit from the threshold.
     near(v, t) = sort(v; by = e -> abs(e - t))[1:2]
@@ -55,11 +54,21 @@ function main(dir)
     println("\nthe $(length(weak)) directions at or below $ABOVE, weight per reaction (sums to $(length(weak))):")
     println("  ", join((@sprintf("%s %.2f", a, b) for (a, b) in sort(collect(zip(rx, w)); by = last, rev = true)), ", "))
 
-    # Each reaction's own marginal likelihood precision, 1/posterior SD² − 1/prior SD², at the
-    # common width: above 1, the data alone pin it tighter than a geometric SD of 2.
-    lik = (1 ./ post[met] .^ 2 .- 1 ./ sd[met] .^ 2) .* log(2)^2
-    println("\nper reaction, marginal likelihood precision × (ln 2)²:")
+    # The likelihood alone, L = −H − P, with no prior on any coordinate. Each reaction's own
+    # marginal precision is 1/(L⁻¹)_ii, and the block's is L's Schur complement on it. At the
+    # common width, above 1 means the data alone pin it tighter than a geometric SD of 2.
+    L = Symmetric(Matrix(A) - Diagonal(1 ./ sd .^ 2))
+    Li = inv(L)
+    lik = (1 ./ diag(Li)[met]) .* log(2)^2
+    println("\nper reaction, the likelihood's own marginal precision × (ln 2)²:")
     println("  ", join((@sprintf("%s %.3g", a, b) for (a, b) in sort(collect(zip(rx, lik)); by = last, rev = true)), ", "))
+    ev_schur = sort(eigvals(inv(Symmetric(Li[met, met]))) .* log(2)^2; rev = true)
+    @printf("the block's likelihood-only Schur complement × (ln 2)²: %s (%d above 1); spectrum.md's: max rel diff %.2g\n",
+            join((@sprintf("%.4g", e) for e in ev_schur), ", "), count(>(1), ev_schur),
+            maximum(abs.(ev_schur .- sort(r.ev_lik_met; rev = true)) ./ abs.(ev_schur)))
+    c = setdiff(eachindex(names), met)
+    @printf("smallest eigenvalue of the likelihood on the other %d coordinates: %.3g\n", length(c),
+            eigmin(Symmetric(Matrix(L)[c, c])))
 
     # How close the MAP is: the Newton decrement, ½ gᵀ(−H)⁻¹g, in log-density units.
     g = m.grad

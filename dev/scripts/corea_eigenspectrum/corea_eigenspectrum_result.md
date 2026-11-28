@@ -13,7 +13,8 @@ not only ENO and FBA. At the new MAP the data reach:
 
 Widening the block adds three directions above the prior: PFK plus PYK (twice) and GAPD. It
 adds five that are not: PGI, TPI, LDH_L, PGM and PGK. Nothing else moves. ENO and FBA's
-values barely change, from 11.8 and 39.9 to 12.1 and 40.2. The 21 coordinates shared with
+eigenvalues barely change, from 11.8 and 39.9 to 12.1 and 40.2, and ranks 1 to 19 of the whitened
+spectrum match KIM-178's to about 0.1%. The 21 coordinates shared with
 KIM-178 shift by at most 0.18 Laplace SD.
 
 **The count depends on the prior table.** Five of the new constants have a prior SD of 0.05
@@ -24,13 +25,15 @@ would. That count is **28 of 29**, and **9 of 10** for the metabolic block.
 
 So the data constrain almost every glycolytic constant on an absolute scale, PGI, TPI, PGM and
 PGK among them. They do not constrain them beyond the tight priors the reduced model already
-gives them. Each reaction's own marginal likelihood precision, × (ln 2)², ranks them:
+gives them. Each reaction's own marginal precision under the likelihood alone, 1/(L⁻¹)_ii
+with L = −H − P and no prior on any coordinate, × (ln 2)², ranks them:
 
-| PYK | PFK | GAPD | ENO | PGK | FBA | PGM | TPI | PGI | LDH_L |
+| PYK | GAPD | PFK | ENO | PGK | FBA | PGM | TPI | PGI | LDH_L |
 |---|---|---|---|---|---|---|---|---|---|
-| 607 | 214 | 200 | 180 | 139 | 60.4 | 50.9 | 20.5 | 3.21 | −0.013 |
+| 550 | 200 | 175 | 153 | 133 | 60.3 | 49.4 | 20.5 | 3.10 | −0.013 |
 
-Only LDH_L is flat in both readings. PGI is barely above 1. The issue's "done when" count is the first,
+Only LDH_L is flat in both readings. PGI's value of 3.10 means the data alone give it about a
+geometric SD of 1.5; its whitened eigenvalue, 1.016, means that is no tighter than its prior. The issue's "done when" count is the first,
 24 and 5. Which count Fig. 3b shows is Tom's call. The second is local curvature at this MAP,
 under these priors, not a refit at geometric SD 2. Both counts were in the script at `49f345c`
 before the run.
@@ -45,7 +48,12 @@ before the run.
   - The model is KIM-92's, with all 20 glycolytic constants free: 10 forward and 10 reverse.
     The reverses are derived through the Haldane relation, so the 8 newly freed forward
     constants add 8 coordinates, for 29 in all.
-  - Each new constant's truth is its nominal value. Its prior is the model's own.
+  - Each new constant's truth is its nominal value, which is also its prior median and its
+    warm start. So the run measures curvature where the truth sits at the prior's centre. It
+    does not test recovery of a truth away from it.
+  - The inputs are KIM-92's archive (`infercell-kim92-archive-2026-11-17`, `dataset.jls` and
+    `prep.jls`) and KIM-178's MAP (`infercell-kim178-2026-11-27/kim92`). That directory is
+    identical to `infercell-kim178-archive-2026-11-28/kim92`, which is checksummed.
 - The MAP is warm-started from KIM-178's MAP on the same dataset, with the 8 new constants at
   their prior medians.
 - The outputs are archived in `/fred/oz022/tkimpson/infercell-kim181-archive-2026-11-28/`, with
@@ -96,6 +104,11 @@ squared loadings shown are those ≥ 0.10.
   absolute. The 3.08 above it is signal.
 - **The full spectrum's bottom 10 equal the block's marginal spectrum** to 4e-4 relative. The
   metabolic block is where the data run out.
+- **The likelihood column is the block's marginal posterior precision less its prior's.** That
+  is not in general the likelihood's own Schur complement on the block: the script's comment
+  at line 236 overstates it. Here the two agree to 1.6e-4 relative, and both count 9 of 10,
+  because the block barely couples to the other 19 coordinates. The likelihood's smallest
+  eigenvalue on those 19 is 339. `_reads.jl` prints both.
 
 The full −H spectra, whitened and likelihood-only, are in the archive's `spectrum.md`, beside
 KIM-178's narrow block, along with each coordinate's MAP, prior SD and Laplace SD.
