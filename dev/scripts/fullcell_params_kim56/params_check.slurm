@@ -16,8 +16,10 @@
 #   check:      ... --time=03:00:00 --export=ALL,MODE=check,PROCIDS=1-6,SEED=1,MINUTES=181,OUT=$L/check ...
 #
 # Julia 1.11.9 (SpeedyCell needs 1.11; InferCell's suite is on julia/1.10.5, so this
-# check is a Slurm script, not part of Pkg.test). Depot: KIM-183's, stacked on the
-# shared one that holds LowPrecSSA (unregistered, SSH-pinned at cb0abb6).
+# check is a Slurm script, not part of Pkg.test). Depot: the run's own (DEPOT), stacked
+# on KIM-183's and the shared one that holds LowPrecSSA (unregistered, SSH-pinned at
+# cb0abb6), as in KIM-180's doubling.slurm, so no compile cache lands in another
+# issue's archive.
 #SBATCH --job-name=kim56-params
 #SBATCH --ntasks=1
 #SBATCH --time=03:00:00
@@ -38,7 +40,7 @@ head=$(git -C "$SYN3A" rev-parse HEAD)
     { echo "syn3a-ensemble code/SpeedyCell or data/model is not clean" >&2; exit 1; }
 echo "syn3a_ensemble_git $head (pin $SYN3A_PIN, code/SpeedyCell and data/model clean)"
 export PATH=/fred/oz022/tkimpson/julia-1.11.9/bin:$PATH
-export JULIA_DEPOT_PATH=/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
+export JULIA_DEPOT_PATH=${DEPOT:?set DEPOT}:/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
 export JULIA_PKG_OFFLINE=true
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 echo "infercell_git $(git -C "$ENV_DIR" rev-parse HEAD)"
