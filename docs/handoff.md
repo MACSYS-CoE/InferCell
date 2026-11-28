@@ -1,6 +1,81 @@
 # Handoff
 
-## Latest: KIM-56, the parameter-override hook (2026-11-28)
+## Latest: the single paper on the full syn3A model, and where M11 stands (2026-11-28)
+
+**Scope.** Tom decided on 2026-11-26 that there is one paper, on the full syn3A model. This
+reopens the decision of 2026-11-25 (Decision log, "One paper, on the full syn3A model; the
+reduced-model preprint is held"). M0 and the reduced model are its verification tier. The
+reduced-model manuscript in `paper/` is complete (KIM-50) and is not posted. It is the source for
+the new paper's §2 and §3.3. Tom decided to tag v0.3.0 now as software only, with no Zenodo
+deposit (M7, KIM-51 to KIM-54, not yet done). Real data is optional. A failed gate stops the
+work and opens a discussion with Tom. The old decision's reasoning is kept in
+`paper/framing_decision.md`, under a note saying it was reopened.
+
+**Where the plan lives.** Linear, project InferCell. The project description holds the claim,
+the figure table and gates 1–5, and the Decision log holds every change since. The outline is the
+document "Flagship paper: proposed structure (2026-11-26)". Milestones M11 to M18 and M10 are
+the paper. M7 is the release. M13 to M18 and M10 each hold a single `Plan Mn` placeholder until
+KIM-187 is decided.
+
+**M11, the feasibility gate.**
+- Done: KIM-176 (thresholds, Decision log only), KIM-177 (non-closure inventory, #204), KIM-183
+  (one cycle 49.5 s, #205), KIM-185 (transcript factor, #206), KIM-184 (first-order mean field
+  1.277 s a 20-parameter gradient, serial, on the first-order surrogate: a lower bound, #207),
+  KIM-178 (gate 2 passes as frozen, 7 of 10 negative, t = −2.50, with overdispersion stated beside
+  it, #210), KIM-180 (block rule frozen at `prereg/kim-180` plus Amendment 1, #211) and KIM-181
+  (eigen-spectrum, #212). The sections below have KIM-180 and KIM-181 in detail.
+- The overnight results (KIM-177, 183, 184 and 185, from PR #208, which this section replaces):
+  - KIM-183: about 15% of cells at the published defaults do not reach t_SA2 by minute 120.
+  - KIM-185: the plug-in's 539 CPU-h (sensitivity 787–1,800) holds only with a per-gene gradient.
+    It is stage 1 alone, on KIM-185's promoter block rather than the frame's. With stage 2 for
+    metabolism added, the plug-in totals 2,662–4,801 CPU-h serial; stage 2 is an argued upper
+    bound (KIM-195's note, §5.2).
+  - KIM-177: 363 second-order reactions, of which M13's model covers the 99 DnaA bindings to a 0/1
+    site. One charging reaction was added to M13's model afterwards (Decision log 2026-11-27).
+  - The manager's log is `/fred/oz022/tkimpson/infercell-overnight-2026-11-26/REPORT.md`.
+  - F2B, F3(c) and T1 were amended from these results (Decision log 2026-11-27).
+- Done: **KIM-195** (PR #209, merged 6af2291), the route comparison. Its note is
+  `dev/notes/2026-11-27-route-comparison/README.md`. On 2026-11-28 the counter clamp changed to
+  κ·c·p/(p + 1) and every timing was rerun.
+  - The mean field with NUTS (R1) projects to 3,700–4,200 CPU-h a posterior serial at B = 10, and
+    7,500–8,100 at B = 20.
+  - R1, R3 (the surrogate, conditional on M17) and R4 (the emulator) stay in contention. R2 (the
+    plug-in) is a fallback only.
+- Next: **KIM-187**, Tom's call on the inference route and the forward engine. Every blocker is
+  Done. KIM-194 (wall-clock) waits behind KIM-187.
+
+**M12.** KIM-56, the parameter-override hook, is done (#213, 09a8906): 838 named constants, and the
+bitwise check passes. The section below has it in detail. KIM-57, the prior table, is next.
+
+**Ready set (Linear, 2026-11-28, after KIM-179).**
+- Strictly ready, with disjoint Touches, so they can run in parallel:
+  - **KIM-187** (Touches: none, a decision with no repo writes).
+  - **KIM-57**, the prior table (Touches: `src/organisms/`, `data/`). KIM-56 merged as #213, and
+    the inventory must match its 838 named constants.
+- Held back only by a missing Touches line: KIM-51 (release prep) and KIM-52 (release gate), both
+  in M7. They have no blockers. Add their Touches lines to make them ready.
+- In flight: none.
+- Blocked:
+  - KIM-58 (prior draws) by KIM-57.
+  - KIM-186 by KIM-58. KIM-59 by KIM-58 and KIM-55 (the M12 parent, in Backlog).
+  - KIM-53 by KIM-51 and KIM-52. KIM-54 by KIM-53.
+  - The `Plan Mn` placeholders, and KIM-194, by KIM-187, directly or transitively.
+- Not counted: KIM-55, M12's parent issue (Backlog). It has no blockers, but its Touches line
+  reads "see the sub-issues", so it overlaps everything. It closes with KIM-56 to KIM-59 and is
+  not separate work.
+
+**Open for Tom.**
+- The contribution sentence (⚠️ DRAFT in the description).
+- Which count Fig. 3b shows (KIM-181).
+- Whether to file an M0 pilot of the emulated likelihood (KIM-195).
+- What to do with KIM-178's overdispersion (four replicates 5.9 to 10.9 SE below zero; a
+  transcript-only fit on 005 and 011 would test it).
+- The per-gene gradient that KIM-185's plug-in cost depends on has no owner.
+
+**Below this section**, the section dated 2026-11-25 and every section older than it predate the
+decision of 2026-11-26. Where they speak of paper 1, the preprint or paper 2, read them as history.
+
+## Earlier: KIM-56, the parameter-override hook (2026-11-28)
 
 - The hook already existed in syn3a-ensemble (lane 10a, c141e78). Nothing in syn3a-ensemble was edited.
   KIM-56's Touches moved into InferCell (Decision log 2026-11-28, with a correction entry the same day),
@@ -26,7 +101,7 @@
     no multiplier. Giving any of them a prior needs a new named constant in syn3a-ensemble's export.
   - KIM-58 includes `adapter.jl` and copies `params_check.sh`'s pattern.
 
-## Latest: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
+## Earlier: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
 
 - At KIM-92's dataset, the reduced model was refitted with all ten glycolytic forward constants free (29
   coordinates). At the MAP (job 21842933, 49f345c) the data reach 24 of 29 directions beyond the prior,
@@ -39,7 +114,7 @@
   run measures curvature at the prior's centre, not recovery.
 - Follow-up (not filed): `hessian_fd` now exists in three scripts; hoist it into `pilot_common.jl`.
 
-## Latest: KIM-180's block rule is frozen (2026-11-28)
+## Earlier: KIM-180's block rule is frozen (2026-11-28)
 
 - `spec/prereg/kim-180.md` is frozen at tag `prereg/kim-180`. It fixes doubling time as the median t_SA2
   over healthy cells in a 180-min window, and the rule that picks the inferred block from first-order
@@ -52,11 +127,16 @@
   minute 180, against 88–112. Those 100 cells repeat syn3a-ensemble's and KIM-183's procids 1–100 exactly
   to minute 120, so the second check tests determinism and minutes 120–180. The per-cell table is tracked
   in `dev/scripts/fullcell_doubling_kim180/results/`.
-- **Next:** KIM-186 implements §4. Its first item is §5's synthetic sparse and diffuse checks. KIM-57 may
-  narrow the eligible set, but only by a Decision log amendment before KIM-58 runs.
-- KIM-181 is running in parallel on its own branch (jobs 21842932/21842933).
+- **Next (as of KIM-180's merge; KIM-186 now waits on KIM-58, see the top section):** KIM-186
+  implements §4. Its first item is §5's synthetic sparse and diffuse checks. KIM-57 may narrow the
+  eligible set, but only by a Decision log amendment before KIM-58 runs.
+- KIM-181 was running in parallel then (jobs 21842932/21842933). It has since merged as #212.
 
-## Latest: paper 1's framing is DECIDED (2026-11-25, uncommitted)
+## Earlier: paper 1's framing was decided (2026-11-25), superseded 2026-11-26
+
+> **Reopened on 2026-11-26.** The Decision log entry of 2026-11-26 ("One paper, on the full syn3A
+> model; the reduced-model preprint is held") reopens this decision. The current plan is in the
+> top section. The text below is unchanged from 2026-11-25.
 
 **Do not reopen this.** Decision log entry 2026-11-25 (Linear) is the record, and
 `paper/framing_decision.md` holds the reasoning, the links and what would reopen it.
@@ -86,7 +166,7 @@ its items to the issues. The local `CLAUDE.md` carries the scope too.
 
 `paper/reply_to_response.md` is the reviewer's reply to the response below; the decision answers it.
 
-## Latest: review checklist for paper 1 (2026-11-25, uncommitted)
+## Earlier: review checklist for paper 1 (2026-11-25, uncommitted)
 
 `paper/checklist.md` turns `paper/manuscript_review.md` into 35 items, each with what the
 repository shows, a verdict and a tier (A fix regardless, B compute, C direction). Nothing in it is
@@ -102,7 +182,7 @@ on the full syn3A model (not decided), with a line-by-line compute scope scaled 
 model, a recommendation to keep the reduced model as a middle tier, and three measurements to take
 before committing (not started).
 
-## Latest: KIM-98, paper 1 drafted around the reduced model (branch `tomkimpson/kim-98-plan-the-paper-1-rewrite-m6-around-reduced`, 2026-11-23)
+## Earlier: KIM-98, paper 1 drafted around the reduced model (branch `tomkimpson/kim-98-plan-the-paper-1-rewrite-m6-around-reduced`, 2026-11-23)
 
 **State: Stages 0–6 of `/write-paper` are done, committed locally and NOT pushed.** The
 worktree is `.worktrees/kim-98-paper`, branched from origin/main at 24273c7. The paper builds
@@ -127,7 +207,7 @@ of M10.
    `/check-refs`, `[CITE NEEDED: CRPS]`, arXiv compliance, cold read, `--final` checks). Pangram deferred.
 3. Open questions for Tom are in `paper/STATUS.md` ("Open from the KIM-98 draft").
 
-## Latest: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
+## Earlier: KIM-92, the reduced-model pilot (branch `tomkimpson/kim-92-pilot-cost-and-one-posterior-on-the`, 2026-11-17)
 
 **State: the kill check passes. PR #185 is reviewed, its fixes are applied, and it merges
 with a merge commit so the cited commits stay reachable.** The record is
@@ -981,7 +1061,7 @@ at quantile 0.099, and the shift ratio is 0.951 ± 0.021. 16b.1 is ticked.
    `.worktrees/16b-suite-1ca9b85` and `/fred/oz022/tkimpson/infercell-16b-runs-2026-10-23/`
    (archived).
 
-## Latest: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
+## Earlier: B7, AV6 on M0 (branch `issue-89-b7-av6`, PR #104, 2026-10-27)
 
 **Verdicts** (`dev/scripts/av6_89_b7_result.md`, merge job 19292232 at `8da6045`):
 - **SBC passes:** 6 of 6 parameters within the bands at 1 − 0.05/6, over V7's
@@ -1049,7 +1129,7 @@ at `d23c746` (job 19344907).
    holds their logs, B7.2's profile snapshots and logs, the test and suite logs,
    and the smokes.
 
-## Latest: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
+## Earlier: B6, the dispatcher (branch `issue-89-b6-dispatcher`, PR #102, 2026-10-24)
 
 **Built** (`src/inference.jl`, at `8a93475`):
 - **`inference_route(models, data; route = nothing)`** names the route.
@@ -1572,7 +1652,7 @@ All are applied at `2b039a0`. The checks after them:
    submitting. Remove them once #92 merges, along with
    `/fred/oz022/tkimpson/infercell-88-smoke-2026-10-19/`.
 
-## Latest: V7 passes, 16a.9b is met (2026-10-17)
+## Earlier: V7 passes, 16a.9b is met (2026-10-17)
 
 **V7 passes** (`dev/scripts/v7_16a9b_result.md`; merge 18689602 at `0ff6cff`).
 - **The rule was applied as fixed in advance** (§12 2026-10-12), on a complete
@@ -2338,7 +2418,7 @@ Merged as #78 (/check-PR: MERGE AFTER FIXES, then fixed and re-reviewed; suite 2
 `.worktrees/{agree14c5,suite14c5,sens15,ds15}` hold runs of record, and all
 their results are committed.
 
-## Latest: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
+## Earlier: phase 14c, the smoothed drain and a Haldane-consistent prior (2026-09-28)
 
 Six tasks are met. 14c.5 is met for its coupled half and 20 of 50 observables,
 and open for the other 30 (below). Spec §11's 14c block has the numbers.
@@ -2802,7 +2882,7 @@ can be removed once these branches land.
 reviewed 2026-09-17)
 **Branch:** `phase-10-transcription`
 
-## Latest: phase 10, transcription (2026-09-10)
+## Earlier: phase 10, transcription (2026-09-10)
 
 **What it is.** The first Core A′ module in the stochastic block: seventeen
 genes, one constitutive transcription reaction each, 22 states (17 transcripts,
