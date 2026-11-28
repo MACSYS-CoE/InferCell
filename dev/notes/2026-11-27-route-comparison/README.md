@@ -125,7 +125,7 @@ The smokes, which are plumbing and not results:
 | 2 | 21724625–30 | c60e6be | the finite-difference check on one small component |
 | 3 | 21770013–18 | c454ad9 | dATP negative: no clamp on the counters |
 | 4 | 21780916–21 | 70326e7 | clean |
-| 5 | 21841153–60 | 491cb90 | clean, on the new clamp and the new checks |
+| 5 | 21841153–54, 21841156–60 | 491cb90 | clean, on the new clamp and the new checks |
 
 Jobs 21718943–45, 21724628–30 and 21770018 waited on failed dependencies and never ran.
 
@@ -245,9 +245,11 @@ each component against the largest |g| of its own kind (not part of the pass rul
 - GE: ≤ 1.0e-7 at h = 1e-4. MET: ≤ 8.7e-10.
 - BOTH, the MET component: 6.2e-10.
 - BOTH, the two GE components: θ₁ 5.5e-6 at h = 1e-4 and 1.1e-7 at h = 1e-3, the mark of
-  noise in the objective at the smaller step; θ₁₀ 1.6e-6 and 1.4e-6. θ₁₀'s gap is the same
-  at both steps, so it is neither noise nor truncation. Its cause is not found. It is
-  1.4e-6 of the component, just over 1e-6.
+  noise in the objective at the smaller step; θ₁₀ 1.6e-6 and 1.4e-6, just over 1e-6.
+  θ₁₀'s two differences fall on either side of the dual (43.24608): 43.24601 at
+  h = 1e-4 and 43.24615 at h = 1e-3. At the smaller step, 2h·|dual − FD| is 1.4e-8, the
+  same noise as θ₁'s. At the larger step the gap is about 9× what that noise would give,
+  so it is most likely truncation, of order h². No step between the two was run.
 
 **Not a check, an observation.** The rate rules at x₀ differ from `reactions.csv`'s
 `rate` column in 1,435 of 2,365 reactions, by up to 10×. That column is the first minute's
@@ -290,7 +292,7 @@ first clamp (job 21785045), for comparison only.
 
 One pass of 10 partials over the whole window, at B = 20:
 
-| placement | LinearSolve 3.87 (`Rodas5P(linsolve = KLUFactorization())`, LinearSolve's own dual handling; its cache type was not logged) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
+| placement | LinearSolve 3.87 (`Rodas5P(linsolve = KLUFactorization())`, LinearSolve's own dual handling; this arm's cache type was not logged) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
 |---|---|---|---|---|---|
 | GE | 246.4 s | 199.6 s | 1.23× | 14,296 | 7.9e-9 |
 | MET | 304.0 s | 257.2 s | 1.18× | 17,129 | 5.1e-11 |
@@ -407,6 +409,9 @@ factor pass carries 10 partials, so B partials take ⌈B/10⌉ passes.
   speed-up that KIM-185 measured for its per-gene pass at 16 workers (job 21665222). This
   is **argued**: the full-width pass was never threaded.
 - The mean-field term is measured: job 21842557 serial and job 21842559 on 4 threads.
+- **The totals mix two stacks.** The factor's terms (KIM-185) ran on Julia 1.10.5 with
+  ForwardDiff 0.10.39; the mean-field terms on Julia 1.11.9 with LinearSolve 3.87.0
+  (§2.5).
 
 | placement | B | mean field, serial (s) | transcript factor, serial (s) | **total, serial (s)** | mean field, 4 threads (s) | factor, 16 workers (s) | **total, threaded (s)** |
 |---|---|---|---|---|---|---|---|
@@ -493,16 +498,21 @@ What this says:
 - **Wall-clock binds.**
   - A serial chain takes about 78–85 days, and a threaded one about 27–31 days. Both are
     well over Milan's 7-day job limit, so the chains must checkpoint, as KIM-92's did.
-  - The threading buys about 2.9× in wall-clock at about 5.6× in CPU-h. The transcript
-    factor's 16 workers are idle while the mean field runs.
+  - At B = 20 the threading buys about 2.6–2.9× in wall-clock at about 5.6–6.1× in
+    CPU-h. The transcript factor's 16 workers are idle while the mean field runs.
 - **The levers measured or argued here would bring it down:**
   - looser tolerances: 3.0× on the mean-field term (job 21842557, one repeat);
   - a coloured flux Jacobian: up to about 2× on the mean-field term (inferred, §2.5);
   - the transcript factor through its pool inputs (§4, argued);
   - fewer serial gradients (KIM-194 item 3).
 
-  None of them has been combined or measured on a chain. Taken together, the first two
-  would bring the mean-field term back to around run 1's size or below (argued).
+  None of them has been combined or measured on a chain. The first two act on the
+  mean-field solve, so R2's stage 2 (§5.2) inherits them too.
+- **The figure is soft in both directions.** Changing only the payment form moved the
+  mean-field term by 2.6–3.2× (run 1 against run 2). Most of the extra steps come from
+  one pool, dATP, held at a fraction of a count by the early start of replication, which
+  is a closure effect (§2.1). A better closure could lower the cost; the inference's own
+  tolerance needs could raise or lower it.
 
 ### 5.2 R2, the data plug-in (θ_H fixed)
 
