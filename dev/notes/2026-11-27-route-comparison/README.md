@@ -521,11 +521,26 @@ An SBI pilot is not proposed unless the non-goal is reopened.
 
 ```bash
 # from a detached worktree at a pushed commit (the launcher refuses a dirty tree)
-dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir>          # precompile, reference, check, time, library, threaded
+dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir>          # precompile, reference, check, time, library, threaded, clamp
 SMOKE=1 dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir>  # plumbing pass: a 300 s window, 2 repeats
 dev/scripts/fullcell_route_cost/route_cost_meanfield.sh <outdir> time     # one stage (check writes ranking.jls first)
 ```
 
-Julia 1.11.9 is at `/fred/oz022/tkimpson/julia-1.11.9`. The reference stage runs in
-KIM-183's environment and depot, where SpeedyCell is developed by path. Its inputs are the
-syn3a-ensemble repo at 2075809cbb825140cb31a7bec8bc3529770c8e13, read only.
+Julia 1.11.9 is at `/fred/oz022/tkimpson/julia-1.11.9`. The reference and clamp stages
+run SpeedyCell in KIM-183's environment and depot, where it is developed by path. Their
+inputs are the syn3a-ensemble repo at 2075809cbb825140cb31a7bec8bc3529770c8e13, read
+only.
+
+What a stranger needs, and what they will get:
+- **syn3a-ensemble is private**, and its path is fixed in `model.jl`. Without access the
+  model cannot be built. Every stage asserts that the repo is at the commit above with
+  `data/model` unmodified, and records it beside the InferCell commit in its header.
+- **The environments are not instantiated by the launcher.** Both depots were built on a
+  login node, since the compute nodes have no network. On a new machine, run
+  `Pkg.instantiate()` in `dev/scripts/fullcell_route_cost` and in
+  `dev/scripts/fullcell_timing_cycle` first, with Julia 1.11.9.
+- **The timings reproduce only to run-to-run variation.** They depend on the node and on
+  what else shares it (§2.6). The step counts did repeat: 16,487 at θ = 0 on the login
+  node and in job 21842560. Residuals at round-off level may differ by machine.
+- The outdir's `dev/`, `dev-loginnode*/` and `review/` hold login-node diagnoses and the
+  review's scratch. They are not runs of record, and they are outside `SHA256SUMS`.
