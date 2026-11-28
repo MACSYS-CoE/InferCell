@@ -1,0 +1,7 @@
+procid,seed,minutes,digest_published,digest_params,digest_vector,same_params,same_vector,nevents,failure_minute,collapsed
+1,1,181,c79dce983bab4e3a,c79dce983bab4e3a,c79dce983bab4e3a,true,true,408009519,,false
+2,1,181,ce2e7f91d15a1939,ce2e7f91d15a1939,ce2e7f91d15a1939,true,true,68855337,,true
+3,1,181,f2f09c597e3bf64b,f2f09c597e3bf64b,f2f09c597e3bf64b,true,true,341724320,,false
+4,1,181,ed6aaff8779dc954,ed6aaff8779dc954,ed6aaff8779dc954,true,true,86496110,,true
+5,1,181,b166c83febb06dc2,b166c83febb06dc2,b166c83febb06dc2,true,true,311918951,,false
+6,1,181,9adc39134a320405,9adc39134a320405,9adc39134a320405,true,true,352929209,,false

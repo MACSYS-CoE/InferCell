@@ -1,0 +1,2 @@
+host gina8 job 21842560 seeds 1:8 minutes 54 wall 199.2 s
+syn3a-ensemble 2075809cbb825140cb31a7bec8bc3529770c8e13

@@ -23,7 +23,7 @@ KIM-187 is decided.
   1.277 s a 20-parameter gradient, serial, on the first-order surrogate: a lower bound, #207),
   KIM-178 (gate 2 passes as frozen, 7 of 10 negative, t = −2.50, with overdispersion stated beside
   it, #210), KIM-180 (block rule frozen at `prereg/kim-180` plus Amendment 1, #211) and KIM-181
-  (eigen-spectrum, #212). The two sections below have KIM-180 and KIM-181 in detail.
+  (eigen-spectrum, #212). The sections below have KIM-180 and KIM-181 in detail.
 - The overnight results (KIM-177, 183, 184 and 185, from PR #208, which this section replaces):
   - KIM-183: about 15% of cells at the published defaults do not reach t_SA2 by minute 120.
   - KIM-185: the plug-in's 539 CPU-h (sensitivity 787–1,800) holds only with a per-gene gradient.
@@ -44,15 +44,19 @@ KIM-187 is decided.
 - Next: **KIM-187**, Tom's call on the inference route and the forward engine. Every blocker is
   Done. KIM-194 (wall-clock) waits behind KIM-187.
 
+**M12.** KIM-56, the parameter-override hook, is done (#213, 09a8906): 838 named constants, and the
+bitwise check passes. The section below has it in detail. KIM-57, the prior table, is next.
+
 **Ready set (Linear, 2026-11-28, after KIM-179).**
-- Strictly ready: **KIM-187** (Touches: none, a decision with no repo writes).
+- Strictly ready, with disjoint Touches, so they can run in parallel:
+  - **KIM-187** (Touches: none, a decision with no repo writes).
+  - **KIM-57**, the prior table (Touches: `src/organisms/`, `data/`). KIM-56 merged as #213, and
+    the inventory must match its 838 named constants.
 - Held back only by a missing Touches line: KIM-51 (release prep) and KIM-52 (release gate), both
   in M7. They have no blockers. Add their Touches lines to make them ready.
-- In flight: KIM-56 (In Review, PR #213, the parameter-override hook,
-  `dev/scripts/fullcell_params_kim56/`).
+- In flight: none.
 - Blocked:
-  - KIM-57 (prior table) by KIM-56.
-  - KIM-58 (prior draws) by KIM-56 and KIM-57.
+  - KIM-58 (prior draws) by KIM-57.
   - KIM-186 by KIM-58. KIM-59 by KIM-58 and KIM-55 (the M12 parent, in Backlog).
   - KIM-53 by KIM-51 and KIM-52. KIM-54 by KIM-53.
   - The `Plan Mn` placeholders, and KIM-194, by KIM-187, directly or transitively.
@@ -70,6 +74,32 @@ KIM-187 is decided.
 
 **Below this section**, the section dated 2026-11-25 and every section older than it predate the
 decision of 2026-11-26. Where they speak of paper 1, the preprint or paper 2, read them as history.
+
+## Earlier: KIM-56, the parameter-override hook (2026-11-28)
+
+- The hook already existed in syn3a-ensemble (lane 10a, c141e78). Nothing in syn3a-ensemble was edited.
+  KIM-56's Touches moved into InferCell (Decision log 2026-11-28, with a correction entry the same day),
+  and syn3a-ensemble is pinned at 2075809 (`SYN3A_PIN`).
+- `dev/scripts/fullcell_params_kim56/` holds:
+  - `adapter.jl`, with `params_from_vector(m, v)`: one multiplier per constant, in `param_names()` order.
+    Loading it checks the pin and that `param_names()` equals `results/param_names.csv`.
+  - `check.jl`, the Spec's bitwise check, with an ODE and a CME control;
+  - `table.jl`, the name table;
+  - `params_check.sh`, the launcher (per-run depot, launcher_guard), and `params_check.slurm`.
+- **Results** (run of record at 4d3e0ce, jobs 21873322–21873324, archive `infercell-kim56-fix-2026-11-28`).
+  - The bitwise check passes (job 21873324). Over 181 min, 6 cells were each run three ways (published,
+    `Params(m)`, `ones(838)`) with 0 mismatches, and both controls (PGI.kcatF and riboKcat × 2) differ.
+  - There are 838 named constants, 805 ODE and 33 CME, with no zero defaults (job 21873323).
+  - Both outputs are byte-identical to the first run at c4f62ee (jobs 21853118–21853120).
+  - The first run wrote one file into KIM-183's archive depot (`logs/manifest_usage.toml`; its
+    `SHA256SUMS` does not cover the depot). The launcher now puts that file in a depot per run. Loading
+    KIM-183's 254 compile caches updated their mtimes, as Julia does whenever it loads a cache. No
+    cache was created there: their birth times are 2026-11-26/27.
+- **Next:**
+  - KIM-57's inventory must match 838.
+  - The classes that are not named (geometry, copy numbers, media and others, listed in the note's §4) have
+    no multiplier. Giving any of them a prior needs a new named constant in syn3a-ensemble's export.
+  - KIM-58 includes `adapter.jl` and copies `params_check.sh`'s pattern.
 
 ## Earlier: KIM-181, the Hessian spectrum with a wider metabolic block (2026-11-28)
 

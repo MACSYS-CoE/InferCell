@@ -1,0 +1,19 @@
+date 2026-11-28T22:19:34.207  host dave50  slurm_job 21873324
+infercell_git 4d3e0ce3f953f9e9c68c5bc8ac6f6103fda0a1c8
+syn3a_ensemble_git 2075809cbb825140cb31a7bec8bc3529770c8e13
+syn3a_ensemble_code_data_clean true
+speedycell_path /fred/oz022/tkimpson/syn3a-ensemble/code/SpeedyCell/src/SpeedyCell.jl
+Julia Version 1.11.9
+Commit 53a02c0720c (2026-02-06 00:27 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 64 × AMD EPYC 7543 32-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-16.0.6 (ORCJIT, znver3)
+Threads: 1 default, 0 interactive, 1 GC (on 64 virtual cores)
+Environment:
+  JULIA_DEPOT_PATH = /fred/oz022/tkimpson/infercell-kim56-fix-2026-11-28/depot:/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
+  JULIA_PKG_OFFLINE = true
+  LD_LIBRARY_PATH = /apps/slurm/latest/lib:/apps/slurm/latest/lib/slurm:/opt/nvidia/latest/usr/lib64
