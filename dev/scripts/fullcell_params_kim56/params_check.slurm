@@ -5,15 +5,10 @@
 # environment (copied from dev/scripts/fullcell_timing_cycle/, KIM-183) develops
 # /fred/oz022/tkimpson/syn3a-ensemble/code/SpeedyCell by path.
 #
-# Submit from the worktree root at a pushed commit, on an EPYC 7543 node (byte identity
-# is only claimed there), with the node flags of dev/scripts/launcher_guard.sh:
+# Submit with params_check.sh, from the worktree root at a pushed commit, on an EPYC
+# 7543 node (byte identity is only claimed there; the job refuses any other CPU):
 #
-#   L=/fred/oz022/tkimpson/infercell-kim56-2026-11-28
-#   X="gina[1-18,301-305],$excluded"     # $excluded as dev/scripts/launcher_guard.sh builds it
-#   precompile: sbatch --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=01:00:00 \
-#       --output=$L/logs/%x_%j.log --export=ALL,MODE=precompile dev/scripts/fullcell_params_kim56/params_check.slurm
-#   table:      ... --export=ALL,MODE=table,OUT=$L/table ...
-#   check:      ... --time=03:00:00 --export=ALL,MODE=check,PROCIDS=1-6,SEED=1,MINUTES=181,OUT=$L/check ...
+#   dev/scripts/fullcell_params_kim56/params_check.sh <outdir>
 #
 # Julia 1.11.9 (SpeedyCell needs 1.11; InferCell's suite is on julia/1.10.5, so this
 # check is a Slurm script, not part of Pkg.test). Depot: the run's own (DEPOT), stacked

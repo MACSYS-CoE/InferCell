@@ -108,15 +108,10 @@ A key is also left unnamed in a reaction where its value is 0, which is why no d
 
 ## Reproduce
 
-From a detached worktree at this commit, at the repo root:
+From a detached worktree at this commit, at the repo root, with a new output directory:
 
 ```bash
-L=/fred/oz022/tkimpson/infercell-kim56-<date>; X="gina[1-18,301-305],dave148,dave149,gina18"
-S=dev/scripts/fullcell_params_kim56/params_check.slurm
-j=$(sbatch --parsable --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=01:00:00 \
-      --output=$L/logs/%x_%j.log --export=ALL,MODE=precompile $S)
-sbatch --dependency=afterok:$j --partition=milan --exclude="$X" --cpus-per-task=1 --mem=8G --time=00:30:00 \
-      --output=$L/logs/%x_%j.log --export=ALL,MODE=table,OUT=$L/table $S
-sbatch --dependency=afterok:$j --partition=milan --exclude="$X" --cpus-per-task=1 --mem=2G --time=01:00:00 \
-      --output=$L/logs/%x_%j.log --export=ALL,MODE=check,PROCIDS=1-6,SEED=1,MINUTES=181,OUT=$L/check $S
+dev/scripts/fullcell_params_kim56/params_check.sh /fred/oz022/tkimpson/infercell-kim56-rerun-$(date +%F)
 ```
+
+`params_check.sh` refuses a dirty tree, an unpushed HEAD and an output directory that already holds results. It makes `logs/`, submits the precompile, table and check jobs on EPYC 7543 nodes, and records their ids in `jobs.tsv`. A rerun should give `table/param_names.csv` and `check/check.csv` byte-identical to `results/`. `meta.txt` differs by design: it records the date, host and job.
