@@ -43,7 +43,9 @@ export PATH=/fred/oz022/tkimpson/julia-1.11.9/bin:$PATH
 export JULIA_DEPOT_PATH=${DEPOT:?set DEPOT}:/fred/oz022/tkimpson/infercell-kim183-2026-11-26/depot:/fred/oz022/tkimpson/julia_depot
 export JULIA_PKG_OFFLINE=true
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-echo "infercell_git $(git -C "$ENV_DIR" rev-parse HEAD)"
+[ -z "$(git -C "$ENV_DIR" status --porcelain -- .)" ] ||
+    { echo "$ENV_DIR has uncommitted changes; run from a clean worktree" >&2; exit 1; }
+echo "infercell_git $(git -C "$ENV_DIR" rev-parse HEAD) ($ENV_DIR clean)"
 case "${MODE:-}" in
   precompile)
     julia --project="$ENV_DIR" -e 'using Pkg; Pkg.precompile(); using SpeedyCell.Cell, InteractiveUtils; versioninfo()' ;;
