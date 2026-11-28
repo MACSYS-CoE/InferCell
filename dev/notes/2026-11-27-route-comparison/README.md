@@ -302,6 +302,16 @@ InferCell's Julia 1.10.5 with LinearSolve 3.73.0. DualSparseKLU's figures there 
 measured. KIM-184's suggest they would be close, since its algebra does not depend on the
 version, but that is argued.
 
+**These are upper bounds on what the mean field costs.** The fluxes' Jacobian is a dense
+ForwardDiff Jacobian, nested under the outer duals: 146 inputs in 13 sweeps, about 2.2 MB
+allocated a call, where its pattern has 493 non-zeros and 8 colours. The review's
+micro-benchmarks put it at about 50–60% of a dual step (login node). So a coloured sparse
+Jacobian could cut the cost per step by up to about 2×. That is inferred, not measured,
+and it would leave the step counts as they are. SpeedyCell's `ODE.jl` already builds
+such a Jacobian (`AD_BACKEND`, `FLUX_JAC_PREP`), which makes it a lever for KIM-194.
+Every mean-field figure in §2, §4 and §5 (R1, R2's stage 2, R3 and R4) is an upper bound
+on this account.
+
 ### 2.6 Threaded (job 21785047)
 
 4 threads (`--threads=4 --gcthreads=4,1`), one pass per thread, median of 2 after a 60 s
