@@ -87,32 +87,35 @@ What the routes approximate beyond the inventory:
 
 ## 2. The mean field on a realistic system: what a gradient costs (item 3)
 
-**A 20-parameter gradient of the full cell's realistic mean field takes 131–159 s
-serial** (job 21785045), depending on where the block sits. That is **about 100–125×
+**A 20-parameter gradient of the full cell's realistic mean field takes 359–426 s
+serial** (job 21842557), depending on where the block sits. That is **about 280–335×
 KIM-184's floor** of 1.277 s, measured on the first-order surrogate. It is also well
 under the roughly 20 minutes that KIM-184 superseded. The cost is linear in the number
-of passes: 65–80 s per pass of 10 partials, whatever B and wherever the block sits.
+of passes: 177–230 s per pass of 10 partials, whatever B and wherever the block sits.
 
 The code is `dev/scripts/fullcell_route_cost/` (`model.jl`, `route_cost_meanfield.jl`).
-The runs of record are at 70326e7, from the detached worktree
-`.worktrees/kim195-run-70326e7`, with outdir
-`/fred/oz022/tkimpson/infercell-kim195-2026-11-27/run1/`. The stage outputs are copied
+The runs of record (run 2) are at 491cb90, from the detached worktree
+`.worktrees/kim195-run-491cb90`, with outdir
+`/fred/oz022/tkimpson/infercell-kim195-2026-11-27/run2/`. The stage outputs are copied
 into `results/`. All jobs ran on Milan nodes (AMD EPYC 7543), Julia 1.11.9, LinearSolve
-3.87.0, with one BLAS thread.
+3.87.0, with one BLAS thread. Run 1 (jobs 21785042–47, 70326e7, `run1/`) was the same
+pipeline on the first clamp (§2.1); its gradients were 2.6–3.2× cheaper, and it is
+superseded.
 
 | stage | job | what |
 |---|---|---|
-| precompile | 21785042 | both environments |
-| reference | 21785043 | SpeedyCell's own values at x₀ (`reference_speedycell.jl`, in KIM-183's environment) |
-| check | 21785044 | the correctness checks below: **PASS** |
-| time | 21785045 | serial: the primal, and every placement × B |
-| library | 21785046 | LinearSolve 3.87's own dual path against DualSparseKLU, over the whole window |
-| threaded | 21785047 | 4 threads, B = 20 and 40 |
+| precompile | 21842554 | both environments |
+| reference | 21842555 | SpeedyCell's own values at x₀ and at x₀ + 1, and its payments (`reference_speedycell.jl`, in KIM-183's environment) |
+| check | 21842556 | the correctness checks below: **PASS** |
+| time | 21842557 | serial: the primal, and every placement × B |
+| library | 21842558 | LinearSolve 3.87's own dual path against DualSparseKLU, over the whole window |
+| threaded | 21842559 | 4 threads, B = 20 and 40 |
+| clamp | 21842560 | both payment forms at θ = 0 against 8 SpeedyCell cells (`clamp_speedycell.jl`) |
 
-**Compute used:** 5.6 CPU-h for the runs of record, and 11.5 CPU-h over every job,
-smokes 1–4 included (sacct CPUTimeRAW). The outdir holds:
+**Compute used:** 11.5 CPU-h for the runs of record, and 26.7 CPU-h over every job, run 1
+and smokes 1–5 included (sacct CPUTimeRAW). The outdir holds:
 - `sacct.tsv`: every job;
-- `SHA256SUMS`: 83 files. The sum file's own sha256 begins `3a3f3313336e4b9a`.
+- `SHA256SUMS`: 153 files. The sum file's own sha256 begins `5459dced8c340314`.
 
 The smokes, which are plumbing and not results:
 
@@ -122,6 +125,7 @@ The smokes, which are plumbing and not results:
 | 2 | 21724625–30 | c60e6be | the finite-difference check on one small component |
 | 3 | 21770013–18 | c454ad9 | dATP negative: no clamp on the counters |
 | 4 | 21780916–21 | 70326e7 | clean |
+| 5 | 21841153–60 | 491cb90 | clean, on the new clamp and the new checks |
 
 Jobs 21718943–45, 21724628–30 and 21770018 waited on failed dependencies and never ran.
 
@@ -190,25 +194,27 @@ ForwardDiff Jacobian, nested under the outer duals. It has 24,549 stored non-zer
    h = 1e-3. An error that shrinks as h grows is the mark of noise in the objective (here
    about 1e-8 to 5e-8, as 2h·|dual − FD|), not of a wrong derivative.
 
-**Why it is not KIM-184's 1.3 s.** The primal takes 6,415 steps over the window, against
-KIM-184's 174 (job 21785045).
-- A dual pass takes 5,155–6,460 steps. KIM-184's took 144.
-- The cost per step is about 13 ms for a dual pass, against KIM-184's 4.4 ms. The
+**Why it is not KIM-184's 1.3 s.** The primal takes 16,487 steps over the window,
+against KIM-184's 174 (job 21842557).
+- A dual pass takes 13,118–18,141 steps. KIM-184's took 144.
+- The cost per step is about 12.5–14.3 ms for a dual pass, against KIM-184's 4.4 ms. The
   Jacobian is now state-dependent, and the fluxes' part is computed by AD.
-- **Where the steps go is not measured on the runs of record.** A login-node diagnosis,
-  on the model before the counter clamp and in minute 1 only (which starts from x₀, not
-  after a rebuild), suggests two causes:
-  - **a start-up transient.** 365 of minute 1's 843 steps fell in its first second;
-  - **the pinned absolute tolerance of 1e-10 on counts.** The binding states included
-    fractional mean-field states of the DnaA cascade (`ssDNABoundSite_*`, about 0.01
-    counts) and metabolite pools moving by about 10% a second.
-
-  The runs of record give about 100 steps for each later minute, on average (6,415 over
-  53 segments, less minute 1's). Whether those later minutes carry a rebuild transient
-  too is unmeasured.
+- **The steps are not comparable one for one.** DiffEqBase's error norm for a dual state
+  averages over the value and its N partials, n(1 + N) terms, so a dual pass does not
+  take the primal's steps. The figure per step, and the comparison with KIM-184, carry
+  that caveat.
+- **Where the steps go is diagnosed on the login node, not on the runs of record.**
+  - Minute 1 takes 866 steps under either clamp. Before the clamp, 365 of its 843 fell
+    in its first second: a start-up transient from x₀.
+  - Under the new clamp, the later minutes take 100–420 steps each, against about 93
+    under the old (16,487 against 6,415 in all). Only the dATP pool sits below 10 counts
+    with its counter above it, for 20 minutes, at a minimum of 0.027 counts. A pool held
+    at a fraction of a count, under the absolute tolerance of 1e-10, is the likely cause.
+    It ties the cost to the early-replication closure effect above.
 - **At looser tolerances** (1e-6 absolute and 1e-6 relative), a GE B = 20 gradient takes
-  49.2 s against 139.9 s, about 2.8× less (job 21785045, one repeat). That is a lever for
-  KIM-194, not a result: what the inference needs is not measured here.
+  118.4 s against 358.8 s, about 3.0× less, with 4,557 steps in its first pass (job
+  21842557, one repeat). That is a lever for KIM-194, not a result: what the inference
+  needs is not measured here.
 
 ### 2.2 Correctness checks (job 21842556, PASS)
 
@@ -260,24 +266,25 @@ all 40 in each block.
   TPI, FBA, PFK, PYK, and so on.
 - **BOTH.** The top 10 or 20 of each.
 
-The cost does not care which: 65–80 s a pass in every placement. KIM-180's block,
+The cost does not care much which: 177–230 s a pass in every placement. KIM-180's block,
 picked on doubling time, will differ from these.
 
-### 2.4 Seconds per gradient (job 21785045, serial; median of 3 after a 60 s warm-up)
+### 2.4 Seconds per gradient (job 21842557, serial; median of 3 after a 60 s warm-up)
 
-| placement | B | passes | gradient (s) | per pass (s) | steps, pass 1 |
-|---|---|---|---|---|---|
-| GE | 10 | 1 | 69.3 | 69.3 | 5,327 |
-| GE | **20** | 2 | **139.9** | 69.7 | 5,325 |
-| GE | 40 | 4 | 274.6 | 68.4 | 5,326 |
-| MET | 10 | 1 | 79.4 | 79.4 | 6,159 |
-| MET | **20** | 2 | **158.9** | 79.1 | 6,348 |
-| MET | 40 | 4 | 297.7 | 74.8 | 6,460 |
-| BOTH | 10 | 1 | 72.9 | 72.9 | 6,084 |
-| BOTH | **20** | 2 | **131.0** | 65.4 | 5,155 |
-| BOTH | 40 | 4 | 264.5 | 64.8 | 5,228 |
+| placement | B | passes | gradient (s) | per pass (s) | steps, pass 1 | run 1 (s) |
+|---|---|---|---|---|---|---|
+| GE | 10 | 1 | 180.8 | 180.8 | 14,316 | 69.3 |
+| GE | **20** | 2 | **358.8** | 179.3 | 14,296 | 139.9 |
+| GE | 40 | 4 | 703.6 | 177.4 | 14,288 | 274.6 |
+| MET | 10 | 1 | 212.3 | 212.3 | 16,729 | 79.4 |
+| MET | **20** | 2 | **426.2** | 214.3 | 17,129 | 158.9 |
+| MET | 40 | 4 | 811.1 | 204.4 | 16,824 | 297.7 |
+| BOTH | 10 | 1 | 229.8 | 229.8 | 18,141 | 72.9 |
+| BOTH | **20** | 2 | **397.3** | 198.9 | 13,939 | 131.0 |
+| BOTH | 40 | 4 | 755.6 | 189.5 | 13,118 | 264.5 |
 
-The primal solve (θ = 0) takes a median 10.5 s over 6,415 steps.
+The primal solve (θ = 0) takes a median 25.3 s over 16,487 steps. The run 1 column is the
+first clamp (job 21785045), for comparison only.
 
 ### 2.5 DualSparseKLU against LinearSolve 3.87's own dual path (job 21785046)
 
@@ -285,8 +292,14 @@ One pass of 10 partials over the whole window, at B = 20:
 
 | placement | LinearSolve 3.87 (`Rodas5P(linsolve = KLUFactorization())`, LinearSolve's own dual handling; its cache type was not logged) | DualSparseKLU (median of 2) | ratio | steps (both) | partials, relative difference |
 |---|---|---|---|---|---|
-| GE | 83.3 s | 69.1 s | 1.20× | 5,325 | 1.4e-8 |
-| MET | 103.6 s | 83.4 s | 1.24× | 6,348 | 1.2e-12 |
+| GE | 246.4 s | 199.6 s | 1.23× | 14,296 | 7.9e-9 |
+| MET | 304.0 s | 257.2 s | 1.18× | 17,129 | 5.1e-11 |
+
+The partials differ by up to 7.9e-9 over the whole window, against 6.0e-15 over the first
+minute (§2.2): the two paths' round-off grows over 14,000 steps. This comparison has no
+tolerance of its own. The DualSparseKLU arm's cache type is logged (`check.md`:
+`LinearCache` / `LinearSolveFunction`). The per-pass times here are on another node from
+§2.4's (dave11 against dave7).
 
 **On 3.87, the stock dual path is within 25% of DualSparseKLU.** KIM-184 measured 860× on
 LinearSolve 3.73.0. So a version bump would retire DualSparseKLU and the three
@@ -312,23 +325,23 @@ such a Jacobian (`AD_BACKEND`, `FLUX_JAC_PREP`), which makes it a lever for KIM-
 Every mean-field figure in §2, §4 and §5 (R1, R2's stage 2, R3 and R4) is an upper bound
 on this account.
 
-### 2.6 Threaded (job 21785047)
+### 2.6 Threaded (job 21842559)
 
 4 threads (`--threads=4 --gcthreads=4,1`), one pass per thread, median of 2 after a 60 s
 warm-up. B = 10 has one pass, so threading cannot help it, and it is not rerun.
 
-| placement | B | passes | gradient (s), 4 threads | serial (s), job 21785045 | speed-up, across jobs | median pass (s) |
+| placement | B | passes | gradient (s), 4 threads | serial (s), job 21842557 | speed-up, across jobs | median pass (s) |
 |---|---|---|---|---|---|---|
-| GE | 20 | 2 | **77.0** | 139.9 | 1.82× | 76.6 |
-| GE | 40 | 4 | **92.4** | 274.6 | 2.97× | 90.5 |
-| MET | 20 | 2 | **89.6** | 158.9 | 1.77× | 87.9 |
-| MET | 40 | 4 | **108.5** | 297.7 | 2.74× | 99.2 |
-| BOTH | 20 | 2 | **85.9** | 131.0 | 1.53× | 79.7 |
-| BOTH | 40 | 4 | **104.1** | 264.5 | 2.54× | 94.1 |
+| GE | 20 | 2 | **202.8** | 358.8 | 1.77× | 200.1 |
+| GE | 40 | 4 | **246.2** | 703.6 | 2.86× | 240.6 |
+| MET | 20 | 2 | **242.8** | 426.2 | 1.76× | 242.5 |
+| MET | 40 | 4 | **275.0** | 811.1 | 2.95× | 263.6 |
+| BOTH | 20 | 2 | **242.4** | 397.3 | 1.64× | 218.9 |
+| BOTH | 40 | 4 | **267.8** | 755.6 | 2.82× | 235.5 |
 
-**Threads contend, as in KIM-184.** The median pass on a shared node takes 77–99 s, against 65–79 s
-alone. The serial and threaded jobs ran on different nodes, so the speed-ups mix the node
-with the threading.
+**Threads contend, as in KIM-184.** The median pass on a shared node takes 200–264 s,
+against 177–214 s alone. The serial and threaded jobs ran on different nodes (dave7 and
+dave5), so the speed-ups mix the node with the threading.
 
 ## 3. The emulator and neural SBI: cost, argued
 
