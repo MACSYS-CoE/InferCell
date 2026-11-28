@@ -5,8 +5,8 @@
 #   published   run_cell(m, p; ..., params=nothing)            the published path
 #   params      run_cell(m, p; ..., params=Params(m))          lane 10a's parameterised path
 #   vector      run_cell(m, p; ..., params=params_from_vector(m, ones(838)))
-# and every pair must agree under `same_output` (procid, seed, minutes, events, min
-# count, stop, failure, the per-minute record, spans, hooks per minute) and
+# and every pair must agree under `same_output` (procid, seed, minutes, jitter, events,
+# min count, stop, failure, the per-minute record, spans, hooks per minute) and
 # `output_digest`. Two controls on the first procid must each give a different digest
 # from its published run, so the check can fail: an ODE constant, PGI.kcatF × 2, over
 # the full window, and a CME constant, translation_rate_restart.py:riboKcat × 2, over 3

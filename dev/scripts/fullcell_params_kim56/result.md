@@ -39,7 +39,7 @@ InferCell's own suite runs on julia/1.10.5, and SpeedyCell needs 1.11. So the Sp
 - lane 10a's parameterised path, `Params(m)`;
 - the vector adapter, `params_from_vector(m, ones(838))`.
 
-Each pair must agree under `same_output`, which compares the procid, seed, minutes, event count, minimum count, stop, failure, the per-minute record, the spans and the hooks per minute. Each pair must also agree under `output_digest`.
+Each pair must agree under `same_output`, which compares the procid, seed, minutes, jitter, event count, minimum count, stop, failure, the per-minute record, the spans and the hooks per minute. Each pair must also agree under `output_digest`.
 
 As a control, a run with `PGI.kcatF` × 2 must give a different digest. That shows the check can fail.
 
@@ -63,7 +63,9 @@ As a control, a run with `PGI.kcatF` × 2 must give a different digest. That sho
 - the vector entry point;
 - the current src, 72fedc8, whose only code change since 688b470 is dd2a595 (the healthy-hooks threshold is no longer exported).
 
-This run does not cover multipliers other than 1. Lane 10a's C-D2 and C-D3 check those: every one of the 838 constants acts, at 0.5 and 2, to 1.8e-14 against the reference's own builders.
+This run does not cover multipliers other than 1. Lane 10a's C-D2 and C-D3 check those:
+- **C-D2**, at c0b2e84, compares the export at multipliers 0.5 and 2 against the reference's own builders, one constant patched at a time. It made 4,920 comparisons over 838 constants, with a maximum relative error of 1.8e-14. Every constant acts, though 45 units needed a retest to show it: CME at 0.01 and 100, and ODE with every species at 1 mM.
+- **C-D3** compares Julia's fluxes and CME rates against the Python export at multipliers other than 1, with a maximum relative error of 0.0.
 
 ## 3. A parameter vector per run
 
